@@ -29,6 +29,10 @@ pub mod qobject {
         #[qproperty(QString, data_encryption, cxx_name = "dataEncryption", READ, NOTIFY = state_changed)]
         /// "unavailable", "off" or "on".
         #[qproperty(QString, remote_connection, cxx_name = "remoteConnection", READ, NOTIFY = state_changed)]
+        #[qproperty(bool, has_trackpad_combo, cxx_name = "hasTrackpadCombo", READ, NOTIFY = state_changed)]
+        /// While recording, the strokes so far, one of U D L R each.
+        #[qproperty(bool, recording_combo, cxx_name = "recordingCombo", READ, NOTIFY = state_changed)]
+        #[qproperty(QString, recorded_combo, cxx_name = "recordedCombo", READ, NOTIFY = state_changed)]
         type Security = super::SecurityRust;
 
         #[qsignal]
@@ -44,6 +48,9 @@ pub mod qobject {
         #[cxx_name = "quickPINChanged"]
         fn quick_pin_changed(self: Pin<&mut Self>);
         #[qsignal]
+        #[cxx_name = "trackpadComboSaved"]
+        fn trackpad_combo_saved(self: Pin<&mut Self>);
+        #[qsignal]
         #[cxx_name = "eraseFailed"]
         fn erase_failed(self: Pin<&mut Self>, reason: &QString);
         #[qsignal]
@@ -56,6 +63,13 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setQuickPIN"]
         fn set_quick_pin(self: &Security, pin: &QString, system_password: &QString);
+        /// After the PIN; an empty combination removes it.
+        #[qinvokable]
+        #[cxx_name = "setTrackpadCombo"]
+        fn set_trackpad_combo(self: &Security, combo: &QString, pin: &QString);
+        #[qinvokable]
+        #[cxx_name = "recordTrackpadCombo"]
+        fn record_trackpad_combo(self: &Security, on: bool);
         #[qinvokable]
         #[cxx_name = "removeQuickPIN"]
         fn remove_quick_pin(self: &Security, system_password: &QString);
@@ -111,6 +125,9 @@ pub struct SecurityRust {
     can_erase_all_content: bool,
     data_encryption: QString,
     remote_connection: QString,
+    has_trackpad_combo: bool,
+    recording_combo: bool,
+    recorded_combo: QString,
 }
 
 impl cxx_qt::Initialize for Security {
@@ -131,6 +148,9 @@ impl cxx_qt::Initialize for Security {
         });
         relay(qt.clone(), SECURITY, "QuickPINChanged", |obj, ()| {
             obj.quick_pin_changed();
+        });
+        relay(qt.clone(), SECURITY, "TrackpadComboSaved", |obj, ()| {
+            obj.trackpad_combo_saved();
         });
         relay(
             qt.clone(),
@@ -157,6 +177,9 @@ impl cxx_qt::Initialize for Security {
             let mut x = obj.as_mut().rust_mut();
             x.auth_mode = get(&s, "authMode");
             x.has_quick_pin = get(&s, "hasQuickPIN");
+            x.has_trackpad_combo = get(&s, "hasTrackpadCombo");
+            x.recording_combo = get(&s, "recordingCombo");
+            x.recorded_combo = get(&s, "recordedCombo");
             x.fingerprint_available = get(&s, "fingerprintAvailable");
             x.is_locked_out = get(&s, "isLockedOut");
             x.lockout_seconds_remaining = get(&s, "lockoutSecondsRemaining");
@@ -177,6 +200,8 @@ impl cxx_qt::Initialize for Security {
 impl Security {
     crate::shell::calls! { SECURITY;
         set_quick_pin(pin: &QString, system_password: &QString) => "SetQuickPIN";
+        set_trackpad_combo(combo: &QString, pin: &QString) => "SetTrackpadCombo";
+        record_trackpad_combo(on: bool) => "RecordTrackpadCombo";
         remove_quick_pin(system_password: &QString) => "RemoveQuickPIN";
         authenticate_password(password: &QString) => "AuthenticatePassword";
         authenticate_quick_pin(pin: &QString) => "AuthenticateQuickPIN";

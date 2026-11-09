@@ -24,6 +24,9 @@ class TrackpadInput : public QObject {
     // In use now or within the last moment: the touchscreen's bottom edge
     // sits just above it, where a thumb on the trackpad grazes the glass.
     Q_PROPERTY(bool active READ active NOTIFY activeChanged)
+    // Swipes become strokes ("U", "D", "L", "R") and the press a submit, for
+    // the lock screen's combination: nothing reaches a window meanwhile.
+    Q_PROPERTY(bool strokes READ strokes WRITE setStrokes NOTIFY strokesChanged)
     // The shell's compositor: whether the focused app takes text.
     Q_PROPERTY(QObject *compositor READ compositor WRITE setCompositor NOTIFY compositorChanged)
 
@@ -41,6 +44,10 @@ class TrackpadInput : public QObject {
     bool active() const {
         return m_active;
     }
+    bool strokes() const {
+        return m_strokes;
+    }
+    void     setStrokes(bool on);
     QObject *compositor() const {
         return m_compositor;
     }
@@ -50,6 +57,9 @@ class TrackpadInput : public QObject {
     void modeChanged();
     void availableChanged();
     void activeChanged();
+    void strokesChanged();
+    void stroke(const QString &direction);
+    void strokeSubmit();
     void compositorChanged();
 
   private:
@@ -59,6 +69,7 @@ class TrackpadInput : public QObject {
     void              button(bool pressed);
     void              moveMouse(int dx, int dy, qint64 dtMs);
     void              gesture(int dx, int dy);
+    void              strokeMotion(int dx, int dy, qint64 dtMs);
     bool              typing() const;
     void              key(int qtKey, int evdevCode);
     QWindow          *window() const;
@@ -67,6 +78,9 @@ class TrackpadInput : public QObject {
     QSocketNotifier  *m_notifier = nullptr;
     QTimer           *m_idle     = nullptr;
     bool              m_active   = false;
+    bool              m_strokes  = false;
+    QPointF           m_strokeTravel;
+    QChar             m_lastStroke;
     QPointingDevice  *m_device = nullptr;
     QPointer<QObject> m_compositor;
     QString           m_mode = QStringLiteral("gesture");

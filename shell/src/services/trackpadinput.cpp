@@ -26,6 +26,10 @@ namespace {
     constexpr qreal kCaretStep  = 10.0;
     // How long after its last report the trackpad still counts as in use.
     constexpr int kActiveMs = 500;
+    // Counts along one axis that make a stroke, and the pause that ends one:
+    // a long swipe is one stroke; the same direction again needs a pause.
+    constexpr qreal  kStrokeCounts  = 40.0;
+    constexpr qint64 kStrokePauseMs = 200;
 
     bool             isTrackpad(int fd) {
         char name[128] = {};
@@ -141,8 +145,37 @@ void TrackpadInput::readEvents() {
     }
 }
 
+void TrackpadInput::setStrokes(bool on) {
+    if (m_strokes == on)
+        return;
+    m_strokes      = on;
+    m_strokeTravel = QPointF();
+    m_lastStroke   = QChar();
+    emit strokesChanged();
+}
+
+void TrackpadInput::strokeMotion(int dx, int dy, qint64 dtMs) {
+    if (dtMs > kStrokePauseMs) {
+        m_strokeTravel = QPointF();
+        m_lastStroke   = QChar();
+    }
+    m_strokeTravel += QPointF(dx, dy);
+    const qreal x = m_strokeTravel.x(), y = m_strokeTravel.y();
+    if (qMax(std::abs(x), std::abs(y)) < kStrokeCounts)
+        return;
+    const QChar direction =
+        std::abs(x) >= std::abs(y) ? QChar(x > 0 ? 'R' : 'L') : QChar(y > 0 ? 'D' : 'U');
+    m_strokeTravel = QPointF();
+    if (direction == m_lastStroke)
+        return;
+    m_lastStroke = direction;
+    emit stroke(QString(direction));
+}
+
 void TrackpadInput::motion(int dx, int dy, qint64 dtMs) {
-    if (m_mode == QLatin1String("mouse"))
+    if (m_strokes)
+        strokeMotion(dx, dy, dtMs);
+    else if (m_mode == QLatin1String("mouse"))
         moveMouse(dx, dy, dtMs);
     else
         gesture(dx, dy);
@@ -220,6 +253,11 @@ void TrackpadInput::gesture(int dx, int dy) {
 }
 
 void TrackpadInput::button(bool pressed) {
+    if (m_strokes) {
+        if (pressed)
+            emit strokeSubmit();
+        return;
+    }
     QWindow *w = window();
     if (!w)
         return;

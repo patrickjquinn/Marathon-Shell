@@ -35,6 +35,9 @@ Item {
         }
     }
 
+    // Strokes of a trackpad combination entered so far.
+    property int comboLength: 0
+
     // The running app surface to blur behind the lock chrome, if any.
     // Set by MarathonShell.qml to appWindowContainer when an app is
     // open; null otherwise (the wallpaper renders through normally).
@@ -769,6 +772,27 @@ Item {
             }
         }
 
+        // A dot for each stroke of a trackpad combination, where the hint was.
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Silica.Theme.paddingLarge * 2
+            spacing: Silica.Theme.paddingMedium
+            visible: lockScreen.comboLength > 0
+            z: 11
+
+            Repeater {
+                model: lockScreen.comboLength
+
+                Rectangle {
+                    width: Silica.Theme.paddingMedium
+                    height: width
+                    radius: width / 2
+                    color: Silica.Theme.primaryColor
+                }
+            }
+        }
+
         // Phone and camera shortcuts in the bottom corners, with the
         // unlock hint between them.
         Item {
@@ -830,7 +854,7 @@ Item {
         Column {
             id: unlockHint
 
-            visible: UIStore.quickSettingsHeight === 0
+            visible: UIStore.quickSettingsHeight === 0 && lockScreen.comboLength === 0
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom

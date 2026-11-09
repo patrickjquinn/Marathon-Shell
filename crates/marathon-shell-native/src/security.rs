@@ -52,6 +52,12 @@ pub mod qobject {
         /// The PIN was typed at startup to unlock the data; the lock screen
         /// needn't ask again this boot.
         #[qproperty(bool, boot_unlocked, cxx_name = "bootUnlocked", READ, NOTIFY = boot_unlocked_changed)]
+        /// A trackpad combination unlocks the lock screen as the PIN does.
+        #[qproperty(bool, has_trackpad_combo, cxx_name = "hasTrackpadCombo", READ, NOTIFY = trackpad_combo_changed)]
+        /// Settings is recording a new combination: strokes go to
+        /// `recorded_combo`, not to the lock screen.
+        #[qproperty(bool, recording_combo, cxx_name = "recordingCombo", READ, NOTIFY = trackpad_combo_changed)]
+        #[qproperty(QString, recorded_combo, cxx_name = "recordedCombo", READ, NOTIFY = trackpad_combo_changed)]
         type Security = super::SecurityRust;
 
         #[cxx_name = "authMode"]
@@ -91,6 +97,9 @@ pub mod qobject {
         #[cxx_name = "bootUnlockedChanged"]
         fn boot_unlocked_changed(self: Pin<&mut Self>);
         #[qsignal]
+        #[cxx_name = "trackpadComboChanged"]
+        fn trackpad_combo_changed(self: Pin<&mut Self>);
+        #[qsignal]
         #[cxx_name = "biometricPrompt"]
         fn biometric_prompt(self: Pin<&mut Self>, message: &QString);
 
@@ -100,6 +109,14 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "authenticateQuickPIN"]
         fn authenticate_quick_pin(self: Pin<&mut Security>, pin: &QString);
+        /// `combo`: the strokes, one of U D L R each.
+        #[qinvokable]
+        #[cxx_name = "authenticateTrackpadCombo"]
+        fn authenticate_trackpad_combo(self: Pin<&mut Security>, combo: &QString);
+        /// A stroke on the trackpad while strokes are on (TrackpadInput).
+        #[qinvokable]
+        #[cxx_name = "recordStroke"]
+        fn record_stroke(self: Pin<&mut Security>, stroke: &QString);
         /// `kind` 0 is the fingerprint, the only one there is.
         #[qinvokable]
         #[cxx_name = "authenticateBiometric"]
@@ -160,6 +177,9 @@ pub struct SecurityRust {
     user: String,
     /// "unavailable", "off" or "on": see `remote_connection_state`.
     remote_connection: &'static str,
+    has_trackpad_combo: bool,
+    recording_combo: bool,
+    recorded_combo: QString,
 }
 
 /// What an attempt checked, for the messages and the audit log.
@@ -168,6 +188,7 @@ enum Secret {
     Pin,
     Password,
     Fingerprint,
+    Combo,
 }
 
 impl cxx_qt::Initialize for Security {
@@ -181,6 +202,7 @@ impl cxx_qt::Initialize for Security {
         {
             let mut rust = self.as_mut().rust_mut();
             rust.has_quick_pin = !stored_pin().is_empty();
+            rust.has_trackpad_combo = !stored(&combo_path()).is_empty();
             rust.data_encryption = QString::from(encryption);
             rust.user.clone_from(&user);
             rust.remote_connection = "unavailable";
@@ -193,6 +215,7 @@ impl cxx_qt::Initialize for Security {
         self.as_mut().on_lockout_state_changed(push).release();
         self.as_mut().on_failed_attempts_changed(push).release();
         self.as_mut().on_data_encryption_changed(push).release();
+        self.as_mut().on_trackpad_combo_changed(push).release();
         self.as_mut()
             .on_quick_pin_changed(move |obj| {
                 ipc::signal("Security", "QuickPINChanged", ());
@@ -292,6 +315,57 @@ impl Security {
         });
     }
 
+    fn authenticate_trackpad_combo(mut self: Pin<&mut Self>, combo: &QString) {
+        let combo = combo.to_string();
+        if let Some(refusal) = self.refuse(&combo) {
+            return self.fail(&refusal);
+        }
+        self.as_mut().rust_mut().checking = true;
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            let ok = check_combo(combo).await;
+            qt.queue(move |obj| obj.finish(ok, Secret::Combo)).ok();
+        });
+    }
+
+    fn record_stroke(mut self: Pin<&mut Self>, stroke: &QString) {
+        if !self.recording_combo || self.recorded_combo.to_string().len() >= COMBO_MAX {
+            return;
+        }
+        let combo = format!("{}{stroke}", self.recorded_combo);
+        self.as_mut().rust_mut().recorded_combo = QString::from(&combo);
+        self.trackpad_combo_changed();
+    }
+
+    /// Settings records a combination: strokes stop going to the lock screen.
+    fn set_recording_combo(mut self: Pin<&mut Self>, on: bool) {
+        let mut rust = self.as_mut().rust_mut();
+        rust.recording_combo = on;
+        rust.recorded_combo = QString::default();
+        self.trackpad_combo_changed();
+    }
+
+    /// The combination after the PIN; an empty one removes it.
+    fn set_trackpad_combo(&self, combo: String, pin: String) {
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            if !check_pin(pin).await {
+                qt.queue(|obj| obj.fail(&fl!("security-combo-pin"))).ok();
+                return;
+            }
+            let ok = store_combo(combo.clone()).await;
+            qt.queue(move |mut obj| {
+                if !ok {
+                    return obj.fail(&fl!("security-combo-store-failed"));
+                }
+                obj.as_mut().rust_mut().has_trackpad_combo = !combo.is_empty();
+                obj.as_mut().set_recording_combo(false);
+                ipc::signal("Security", "TrackpadComboSaved", ());
+            })
+            .ok();
+        });
+    }
+
     fn authenticate_password(mut self: Pin<&mut Self>, password: &QString) {
         let password = password.to_string();
         if password.is_empty() {
@@ -323,6 +397,7 @@ impl Security {
             Secret::Pin => ("quick_pin", "PIN", "QuickPIN"),
             Secret::Password => ("password", "password", "PAM"),
             Secret::Fingerprint => ("fingerprint", "fingerprint", "fprintd"),
+            Secret::Combo => ("trackpad_combo", "trackpad combination", "QuickPIN"),
         };
         if ok {
             self.as_mut().reset_lockout();
@@ -496,7 +571,11 @@ impl Security {
             if let Err(e) = fs::remove_file(pin_path()) {
                 log::warn("security", format_args!("removing the PIN: {e}"));
             }
+            // A combination stands in for the PIN: it goes with it.
+            fs::remove_file(combo_path()).ok();
             qt.queue(|mut obj| {
+                obj.as_mut().rust_mut().has_trackpad_combo = false;
+                obj.as_mut().trackpad_combo_changed();
                 obj.as_mut().rust_mut().has_quick_pin = false;
                 obj.as_mut().quick_pin_changed();
                 obj.auth_mode_changed();
@@ -596,6 +675,15 @@ fn state(security: &Security) -> State {
         ("authMode".to_owned(), value(security.auth_mode())),
         ("hasQuickPIN".to_owned(), value(security.has_quick_pin)),
         (
+            "hasTrackpadCombo".to_owned(),
+            value(security.has_trackpad_combo),
+        ),
+        ("recordingCombo".to_owned(), value(security.recording_combo)),
+        (
+            "recordedCombo".to_owned(),
+            value(security.recorded_combo.to_string()),
+        ),
+        (
             "fingerprintAvailable".to_owned(),
             value(security.fingerprint_available()),
         ),
@@ -685,6 +773,29 @@ impl Security1 {
             obj.set_quick_pin(&QString::from(&pin), &QString::from(&system_password));
         })
         .await
+    }
+
+    /// Sets the trackpad combination after the PIN; an empty one removes it.
+    #[zbus(name = "SetTrackpadCombo")]
+    async fn set_trackpad_combo(
+        &self,
+        combo: String,
+        pin: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_trackpad_combo(combo, pin)).await
+    }
+
+    /// While on, trackpad strokes build `recordedCombo` for Settings.
+    #[zbus(name = "RecordTrackpadCombo")]
+    async fn record_trackpad_combo(
+        &self,
+        on: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_recording_combo(on)).await
     }
 
     #[zbus(name = "RemoveQuickPIN")]
@@ -941,8 +1052,56 @@ fn pin_path() -> PathBuf {
     marathon_rt::dirs::config().join("marathon/quickpin.conf")
 }
 
+fn combo_path() -> PathBuf {
+    marathon_rt::dirs::config().join("marathon/trackpadcombo.conf")
+}
+
+/// The longest trackpad combination, and the shortest one Settings keeps.
+const COMBO_MAX: usize = 16;
+pub const COMBO_MIN: usize = 4;
+
+fn stored(path: &Path) -> String {
+    io::read(path).unwrap_or_default()
+}
+
 fn stored_pin() -> String {
-    io::read(pin_path()).unwrap_or_default()
+    stored(&pin_path())
+}
+
+async fn check_combo(combo: String) -> bool {
+    let _guard = PIN_FILE.lock().await;
+    blocking::unblock(move || {
+        let stored = stored(&combo_path());
+        stored.starts_with("argon2id:") && verify_pin(&combo, &stored)
+    })
+    .await
+}
+
+/// Stores `combo` as the PIN is stored; empty removes it.
+async fn store_combo(combo: String) -> bool {
+    let _guard = PIN_FILE.lock().await;
+    blocking::unblock(move || {
+        let result = if combo.is_empty() {
+            fs::remove_file(combo_path()).or_else(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Ok(())
+                } else {
+                    Err(e)
+                }
+            })
+        } else if combo.len() < COMBO_MIN
+            || combo.len() > COMBO_MAX
+            || !combo.chars().all(|c| "UDLR".contains(c))
+        {
+            Err(std::io::Error::other("not a combination"))
+        } else {
+            write_secret(&combo_path(), &combo)
+        };
+        result
+            .inspect_err(|e| log::warn("security", format_args!("storing the combination: {e}")))
+            .is_ok()
+    })
+    .await
 }
 
 // Argon2id at 8 MiB and two passes: tens of milliseconds on a phone's core,
@@ -964,12 +1123,16 @@ fn argon2_hash(pin: &str, salt: &[u8]) -> Option<[u8; 32]> {
     Some(out)
 }
 
-/// "argon2id:<salt>:<hash>", written owner-only and renamed into place.
 fn write_pin(pin: &str) -> std::io::Result<()> {
+    write_secret(&pin_path(), pin)
+}
+
+/// "argon2id:<salt>:<hash>", written owner-only and renamed into place.
+fn write_secret(path: &Path, pin: &str) -> std::io::Result<()> {
     let mut salt = [0u8; 16];
     fs::File::open("/dev/urandom")?.read_exact(&mut salt)?;
     let hash = argon2_hash(pin, &salt).ok_or_else(|| std::io::Error::other("argon2"))?;
-    let path = pin_path();
+    let path = path.to_path_buf();
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }

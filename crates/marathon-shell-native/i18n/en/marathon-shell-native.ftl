@@ -127,3 +127,5 @@ update-progress = Marathon OS { $version } · { $percent }%
 ## Weather
 
 weather-timed-out = Timed out
+security-combo-pin = Incorrect PIN. The trackpad combination was not changed.
+security-combo-store-failed = The trackpad combination could not be saved.

@@ -2,6 +2,15 @@ pragma Singleton
 import QtQml
 
 QtObject {
+    property bool hasTrackpadCombo: false
+    property bool recordingCombo: false
+    property string recordedCombo: ""
+    signal trackpadComboSaved
+    function setTrackpadCombo(combo, pin) {
+    }
+    function recordTrackpadCombo(on) {
+    }
+
     property int authMode: 0
     property bool hasQuickPIN: false
     property bool fingerprintAvailable: false

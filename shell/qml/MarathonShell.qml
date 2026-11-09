@@ -2223,6 +2223,7 @@ Item {
         z: Constants.zIndexLockScreen
         compositor: shell.compositor
         appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
+        comboLength: comboEntry.combo.length
         onUnlockRequested: {
             if (SessionStore.checkSession()) {
                 Logger.state("Shell", "locked", "unlocked");
@@ -3401,6 +3402,49 @@ Item {
         target: typeof TrackpadInput !== "undefined" ? TrackpadInput : null
         property: "mode"
         value: SettingsManagerCpp.trackpadMode
+    }
+
+    // The trackpad combination: strokes while locked unlock as the PIN does,
+    // and Settings records a new one through the same recogniser.
+    Binding {
+        target: typeof TrackpadInput !== "undefined" ? TrackpadInput : null
+        property: "strokes"
+        value: Security.recordingCombo || (SessionStore.isLocked && Security.hasTrackpadCombo && Display.screenOn)
+    }
+
+    Connections {
+        function onStroke(direction) {
+            if (Security.recordingCombo) {
+                Security.recordStroke(direction);
+            } else {
+                comboEntry.combo += direction;
+                comboEntry.restart();
+            }
+            HapticManager.tick();
+        }
+        function onStrokeSubmit() {
+            if (comboEntry.combo !== "")
+                comboEntry.submit();
+        }
+
+        target: typeof TrackpadInput !== "undefined" ? TrackpadInput : null
+    }
+
+    // A pause ends the combination.
+    Timer {
+        id: comboEntry
+
+        property string combo: ""
+
+        function submit() {
+            stop();
+            if (combo.length >= 4)
+                Security.authenticateTrackpadCombo(combo);
+            combo = "";
+        }
+
+        interval: 900
+        onTriggered: submit()
     }
 
     // The mouse or trackpad pointer, drawn by the shell over everything (Qt's
