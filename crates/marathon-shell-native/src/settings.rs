@@ -513,6 +513,7 @@ fn tiles() -> Vec<String> {
         "rotation",
         "autobrightness",
         "lowpower",
+        "trackpad",
         "vibration",
         "power",
     ]
@@ -1145,6 +1146,23 @@ fn migrate(ini: &mut Ini) -> bool {
         }
         ini.0
             .insert("system/deviceNameModelDefault".into(), Value::Bool(true));
+        changed = true;
+    }
+    // Once only: a tile added after the list was saved starts shown.
+    if !flag(ini, "quicksettings/trackpadTileAdded") {
+        if let Some(mut tiles) = ini.0.get("quicksettings/tiles").map(Value::as_list) {
+            if !tiles.iter().any(|t| t == "trackpad") {
+                let at = tiles
+                    .iter()
+                    .position(|t| t == "vibration")
+                    .unwrap_or(tiles.len());
+                tiles.insert(at, "trackpad".to_owned());
+                ini.0
+                    .insert("quicksettings/tiles".into(), Value::List(tiles));
+            }
+        }
+        ini.0
+            .insert("quicksettings/trackpadTileAdded".into(), Value::Bool(true));
         changed = true;
     }
     // Once only, so a developer who unhides the Test Suite keeps it.

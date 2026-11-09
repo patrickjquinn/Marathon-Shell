@@ -235,6 +235,13 @@ Item {
             label: qsTr("Saver"),
             on: SystemControlStore.isLowPowerMode
         });
+        if (typeof TrackpadInput !== "undefined" && TrackpadInput.available)
+            t.push({
+                id: "trackpad",
+                icon: "cursor",
+                label: qsTr("Pointer"),
+                on: SettingsManagerCpp.trackpadMode === "mouse"
+            });
         if (HapticManager.available)
             t.push({
                 id: "vibration",
@@ -603,6 +610,9 @@ Item {
             break;
         case "vibration":
             SystemControlStore.toggleVibration();
+            break;
+        case "trackpad":
+            SettingsManagerCpp.trackpadMode = SettingsManagerCpp.trackpadMode === "mouse" ? "gesture" : "mouse";
             break;
         case "settings":
             quickSettings.closed();

@@ -235,6 +235,7 @@ const tiles = [
     { id: "rotation", label: qsTr("Auto-rotate"), desc: qsTr("Turn the screen with the phone"), needs: "rotation" },
     { id: "autobrightness", label: qsTr("Auto-brightness"), desc: qsTr("Automatic brightness adjustment"), needs: "lightSensor" },
     { id: "lowpower", label: qsTr("Battery saver"), desc: qsTr("Low power mode") },
+    { id: "trackpad", label: qsTr("Trackpad pointer"), desc: qsTr("Switch the trackpad between scrolling and a pointer"), needs: "trackpad" },
     { id: "vibration", label: qsTr("Vibration"), desc: qsTr("Haptic feedback"), needs: "vibrator" },
     { id: "power", label: qsTr("Power menu"), desc: qsTr("Show power options") }
 ];

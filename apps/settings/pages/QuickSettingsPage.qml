@@ -26,7 +26,8 @@ Page {
             torch: Display.torchAvailable,
             rotation: Display.rotationAvailable,
             lightSensor: Display.lightSensorAvailable,
-            vibrator: Haptics.available
+            vibrator: Haptics.available,
+            trackpad: Power.hasTrackpad
         })
         header: PageHeader {
             title: qsTr("Quick settings")
