@@ -75,7 +75,20 @@ pub mod qobject {
         #[qproperty(QString, active_number, cxx_name = "activeNumber", READ, NOTIFY = active_number_changed)]
         /// The modem can make calls.
         #[qproperty(bool, has_modem, cxx_name = "hasModem", READ, NOTIFY = modem_changed)]
+        /// The call's audio: on the loudspeaker; the microphone muted.
+        #[qproperty(bool, speakerphone, READ, NOTIFY = call_audio_changed)]
+        #[qproperty(bool, call_muted, cxx_name = "callMuted", READ, NOTIFY = call_audio_changed)]
         type Modem = super::ModemRust;
+
+        #[qsignal]
+        #[cxx_name = "callAudioChanged"]
+        fn call_audio_changed(self: Pin<&mut Self>);
+        #[qinvokable]
+        #[cxx_name = "setSpeakerphone"]
+        fn set_speakerphone(self: Pin<&mut Modem>, on: bool);
+        #[qinvokable]
+        #[cxx_name = "setCallMuted"]
+        fn set_call_muted(self: Pin<&mut Modem>, muted: bool);
 
         #[qsignal]
         #[cxx_name = "callStateChanged"]
@@ -370,6 +383,7 @@ impl Modem {
     fn set_speakerphone(mut self: Pin<&mut Self>, on: bool) {
         if self.speakerphone != on {
             self.as_mut().rust_mut().speakerphone = on;
+            self.as_mut().call_audio_changed();
             route_audio("SetSpeakerphone", on);
         }
     }
@@ -377,6 +391,7 @@ impl Modem {
     fn set_call_muted(mut self: Pin<&mut Self>, muted: bool) {
         if self.call_muted != muted {
             self.as_mut().rust_mut().call_muted = muted;
+            self.as_mut().call_audio_changed();
             route_audio("SetInputMuted", muted);
         }
     }
