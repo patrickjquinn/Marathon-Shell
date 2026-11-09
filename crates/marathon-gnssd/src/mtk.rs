@@ -199,7 +199,7 @@ mod tests {
         let mut bytes = encode(0xfe62, &[1, 2, 3]);
         let n = bytes.len();
         bytes[n - 4] ^= 1;
-        assert!(feed(&mut Deframer::default(), &bytes).is_empty());
+        assert_eq!(feed(&mut Deframer::default(), &bytes), []);
     }
 
     #[test]

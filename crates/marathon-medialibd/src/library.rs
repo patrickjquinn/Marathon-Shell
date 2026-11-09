@@ -213,13 +213,13 @@ impl Library {
 
     /// Adds or completes a file's row; whether it is new.
     pub fn add(&self, f: &Found) -> rusqlite::Result<bool> {
-        let (mut width, mut height, mut thumb) = (0, 0, String::new());
-        if f.kind == "photo" {
+        let (mut width, mut height) = (0, 0);
+        let thumb = if f.kind == "photo" {
             (width, height) = image::image_dimensions(&f.path).unwrap_or_default();
-            thumb = thumbnail(&f.path, &self.thumbnails, self.size).unwrap_or_default();
+            thumbnail(&f.path, &self.thumbnails, self.size).unwrap_or_default()
         } else {
-            thumb = video_thumbnail(&f.path, &self.thumbnails, self.size).unwrap_or_default();
-        }
+            video_thumbnail(&f.path, &self.thumbnails, self.size).unwrap_or_default()
+        };
         let added = self.db.execute(
             "INSERT OR IGNORE INTO media (path, type, album, timestamp, width, height, thumbnail_path) VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![f.path, f.kind, album(Path::new(&f.path)), f.timestamp, width, height, thumb],

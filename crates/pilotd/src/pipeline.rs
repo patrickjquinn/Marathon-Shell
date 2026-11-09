@@ -3566,6 +3566,7 @@ fn domain_question(registry: &Registry, domains: &[String]) -> Question {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod answer_tests {
     use super::*;
 

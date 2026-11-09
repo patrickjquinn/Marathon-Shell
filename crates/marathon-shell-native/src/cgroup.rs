@@ -15,8 +15,8 @@ use crate::systemd::SystemdManagerProxy;
 use crate::{app_ids, io, log};
 use zbus::Variant;
 
-/// The foreground boost, in percent. On a big.LITTLE SoC it must exceed the
-/// little cores' capacity, or EAS keeps the app on them (the Q25's A55s:
+/// The foreground boost, in percent. With big and little cores it must exceed
+/// the little cores' capacity, or EAS keeps the app on them (the Q25's A55s:
 /// 525 of 1024, so 30 changed nothing there and 60 matched the Pi).
 fn front_uclamp_min() -> u8 {
     static BOOST: OnceLock<u8> = OnceLock::new();

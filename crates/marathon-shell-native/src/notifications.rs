@@ -1451,6 +1451,7 @@ fn edits(old: &[Row], new: &[Row]) -> Option<Vec<Edit>> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::{
         app_from_cgroup, edits, retain_source_name, source_summaries, Edit, Row, SOURCE_NAME,

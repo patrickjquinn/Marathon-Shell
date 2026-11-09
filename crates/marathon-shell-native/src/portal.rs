@@ -140,6 +140,7 @@ fn kde_font(family: &str, points: u32) -> V {
 /// Every namespace served for an ambience. GTK 3 stays on upstream Adwaita;
 /// GTK 4 and KDE consume the generated semantic colours unless switched off,
 /// when they keep only the scheme.
+#[allow(clippy::too_many_lines, reason = "one table of every namespace")]
 fn settings(seed: Seed) -> Namespaces {
     let Seed { scheme, .. } = seed;
     let s = |x: &str| V::S(x.to_owned());
