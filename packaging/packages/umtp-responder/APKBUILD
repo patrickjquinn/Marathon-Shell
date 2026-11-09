@@ -1,0 +1,29 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# uMTP-Responder: the MTP server for USB file transfer over FunctionFS.
+# marathon-usb-mode writes its configuration and starts it per connection.
+pkgname=umtp-responder
+pkgver=1.8.1
+pkgrel=0
+pkgdesc="Lightweight USB Media Transfer Protocol (MTP) responder"
+url="https://github.com/viveris/uMTP-Responder"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="linux-headers"
+options="!check"
+source="$pkgname-$pkgver.tar.gz::https://github.com/viveris/uMTP-Responder/archive/refs/tags/umtprd-$pkgver.tar.gz
+	0001-opensession-already-open-parameter-size.patch
+	"
+builddir="$srcdir/uMTP-Responder-umtprd-$pkgver"
+
+build() {
+	make USE_SYSLOG=1
+}
+
+package() {
+	install -Dm755 umtprd "$pkgdir"/usr/bin/umtprd
+}
+
+sha512sums="
+4641f6c3a3693c089ea9689883d9d5639bb1da1e6ed6eb066ba598110418fdab06ffdc9c26dc1294506be7b91bc40be4b455758518ea693643b9e1c9814682ad  umtp-responder-1.8.1.tar.gz
+8761a4557982b4a5a99209709e1a83cf4e00348ca3b512d173adcffcd87cf421b04acadf1a72aebd9651b8ddb65090a906c05b5e76d3022cb7d172cc80eca26e  0001-opensession-already-open-parameter-size.patch
+"

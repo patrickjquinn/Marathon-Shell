@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 9 Nov 2026 16:10:00 +0000
+Subject: [PATCH] OpenSession: send the open session id whole
+
+Response parameter sizes are in bytes; SESSION_ALREADY_OPEN gave 1, so
+the response carried one byte of the session id (13 bytes, not 16), and
+libmtp then failed to open a device whose earlier client left without
+CloseSession.
+---
+diff --git a/src/mtp_operations/mtp_op_opensession.c b/src/mtp_operations/mtp_op_opensession.c
+--- a/src/mtp_operations/mtp_op_opensession.c
++++ b/src/mtp_operations/mtp_op_opensession.c
+@@ -50,7 +50,7 @@ uint32_t mtp_op_OpenSession(mtp_ctx * ctx,MTP_PACKET_HEADER * mtp_packet_hdr, i
+ 	if(ctx->fs_db)
+ 	{
+ 		ret_params[0] = ctx->session_id;
+-		*ret_params_size = 1;
++		*ret_params_size = sizeof(uint32_t);
+ 		return MTP_RESPONSE_SESSION_ALREADY_OPEN;
+ 	}
+ 

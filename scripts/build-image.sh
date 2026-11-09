@@ -245,6 +245,8 @@ if [ "$DEVICE" = zinwa-q25 ]; then
     APORT=mesa build_if_missing "mesa" 'mesa-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/mesa/APKBUILD"
 fi
+APORT=umtp-responder \
+build_if_missing "umtp-responder"            'umtp-responder-*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/umtp-responder/APKBUILD"
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
 
