@@ -168,7 +168,8 @@ use qobject::Power;
 #[path = "battery_measurement.rs"]
 mod measurement;
 
-/// Saver at low battery, performance while full on a charger.
+/// Saver at low battery, performance while full on a charger with the
+/// screen on.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Auto {
     Saver,
@@ -196,6 +197,8 @@ pub struct PowerRust {
     auto: Option<Auto>,
     /// Saver came on at low battery this discharge (or was turned off since).
     saver_spent: bool,
+    /// Full on the charger: performance's reason, with the screen on.
+    charged: bool,
     has_active_calls: bool,
     /// The level last warned at, 100 for none since charging.
     warned_at: i32,
@@ -221,6 +224,7 @@ impl Default for PowerRust {
             profile_before_saver: None,
             auto: None,
             saver_spent: false,
+            charged: false,
             has_active_calls: false,
             warned_at: 100,
             shutdown_armed: false,
@@ -487,12 +491,15 @@ impl Power {
             state_changed();
         }
         self.as_mut().warn_battery();
-        self.auto_profile(battery.state == 4 || (plugged_in && level >= 100));
+        let charged = plugged_in && (battery.state == 4 || level >= 100);
+        self.as_mut().rust_mut().charged = charged;
+        self.auto_profile();
     }
 
-    /// Saver at low battery off the charger, performance while full on it;
-    /// each is undone when its reason ends, unless a choice by hand came between.
-    fn auto_profile(mut self: Pin<&mut Self>, full: bool) {
+    /// Saver at low battery off the charger, performance while full on it
+    /// with the screen on (performance pins the clocks at their top); each is
+    /// undone when its reason ends, unless a choice by hand came between.
+    fn auto_profile(mut self: Pin<&mut Self>) {
         if !self.power_profiles_supported || !measurement::known(self.battery_level) {
             return;
         }
@@ -503,7 +510,7 @@ impl Power {
                 self.as_mut().rust_mut().auto = None;
                 self.as_mut().save_mode(false);
             }
-            Some(Auto::Performance) if !plugged => {
+            Some(Auto::Performance) if !self.charged || !display::screen_on() => {
                 self.as_mut().rust_mut().auto = None;
                 self.request_profile("balanced");
             }
@@ -517,7 +524,10 @@ impl Power {
                     1,
                 );
             }
-            None if plugged && full && self.power_profile.to_string() == "balanced" => {
+            None if self.charged
+                && display::screen_on()
+                && self.power_profile.to_string() == "balanced" =>
+            {
                 self.as_mut().rust_mut().auto = Some(Auto::Performance);
                 self.request_profile("performance");
             }
@@ -1503,8 +1513,11 @@ pub(crate) fn hold_wakelock(name: &'static str, time: std::time::Duration) {
 /// Power1's state moved: the battery, the profile or the screen.
 pub(crate) fn state_changed() {
     if let Some(qt) = POWER.get() {
-        qt.queue(|obj| ipc::signal("Power", "StateChanged", (state(&obj),)))
-            .ok();
+        qt.queue(|obj| {
+            ipc::signal("Power", "StateChanged", (state(&obj),));
+            obj.auto_profile();
+        })
+        .ok();
     }
 }
 
