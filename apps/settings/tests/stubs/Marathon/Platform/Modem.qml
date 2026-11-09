@@ -5,7 +5,6 @@ QtObject {
     property string apn: ""
     property string customApn: ""
     property var carrierApns: []
-    signal apnChanged
     function loadApn() {
     }
     function setApn(apn, user, password) {
