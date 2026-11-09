@@ -4,9 +4,36 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import "../core/Clock.js" as Clock
+import "../core/Weather.js" as Weather
 
 Item {
     id: lockScreen
+
+    component LockWeather: Row {
+        id: badge
+
+        readonly property var current: WeatherClient.forecast.current || null
+        required property color glyph
+        required property color halo
+        property real pixelSize: Silica.Theme.fontSizeMedium
+
+        spacing: Silica.Theme.paddingSmall
+
+        GlyphIcon {
+            anchors.verticalCenter: parent.verticalCenter
+            name: badge.current ? Weather.glyph(badge.current.symbol, ((WeatherClient.forecast.hourly || [])[0] || {}).is_day) : ""
+            size: Silica.Theme.iconSizeSmall
+            color: badge.glyph
+        }
+        Silica.Label {
+            anchors.verticalCenter: parent.verticalCenter
+            text: badge.current ? Weather.temperature(badge.current.temperature, WeatherClient.fahrenheit) : ""
+            font.pixelSize: badge.pixelSize
+            color: badge.glyph
+            style: Text.Outline
+            styleColor: badge.halo
+        }
+    }
 
     // The running app surface to blur behind the lock chrome, if any.
     // Set by MarathonShell.qml to appWindowContainer when an app is
@@ -517,20 +544,39 @@ Item {
                 styleColor: clockTone.halo
             }
 
-            Silica.Label {
-                objectName: "lockDay"
-                text: Qt.formatDate(clockColumn.today, "dddd")
+            // The weekday shares its row with the weather; with media below,
+            // the date joins them, so the clock never takes more than two lines.
+            Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
-                color: dateTone.glyph
-                style: Text.Outline
-                styleColor: dateTone.halo
+                spacing: Silica.Theme.paddingLarge
+
+                Silica.Label {
+                    objectName: "lockDay"
+                    //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the lock screen date, e.g. 26 October
+                    readonly property string date: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
+                    //: Weekday and date on one line on the lock screen, e.g. Monday, 26 October
+                    text: clockColumn.mediaActive ? qsTr("%1, %2").arg(Qt.formatDate(clockColumn.today, "dddd")).arg(date) : Qt.formatDate(clockColumn.today, "dddd")
+                    anchors.verticalCenter: parent.verticalCenter
+                    font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                    color: dateTone.glyph
+                    style: Text.Outline
+                    styleColor: dateTone.halo
+                }
+                LockWeather {
+                    objectName: "lockWeather"
+                    glyph: dateTone.glyph
+                    halo: dateTone.halo
+                    pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                    visible: current !== null
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
             Silica.Label {
-                //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the lock screen date, e.g. 26 October
+                objectName: "lockDate"
+                visible: !clockColumn.mediaActive
                 text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
                 anchors.horizontalCenter: parent.horizontalCenter
-                font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                font.pixelSize: Silica.Theme.fontSizeLarge
                 color: dateTone.glyph
                 style: Text.Outline
                 styleColor: dateTone.halo
@@ -549,8 +595,8 @@ Item {
             anchors.right: parent.right
             anchors.leftMargin: Math.round(18 * Constants.scaleFactor)
             anchors.rightMargin: Math.round(18 * Constants.scaleFactor)
-            anchors.top: parent.top
-            anchors.topMargin: lockScreen.compactLayout ? Math.round(lockScreen.height * 0.44) : Math.round(360 * Constants.scaleFactor)
+            anchors.top: clockColumn.bottom
+            anchors.topMargin: Silica.Theme.paddingLarge * 2
             visible: hasMedia
             z: 8
         }
