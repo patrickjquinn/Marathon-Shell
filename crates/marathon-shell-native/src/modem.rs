@@ -1100,7 +1100,7 @@ enum Event {
     Command(Command),
     Closed,
     Objects,
-    /// ModemManager started again: the same modem path, new signals to follow.
+    /// `ModemManager` started again: the same modem path, new signals to follow.
     Restarted,
     Changed(HashMap<String, OwnedValue>),
     BroadcastAdded(OwnedObjectPath),
@@ -1111,6 +1111,10 @@ enum Event {
     NmState(OwnedObjectPath, u32),
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the modem actor keeps its connection and event-loop state in one task"
+)]
 async fn run(qt: Qt, commands: Receiver<Command>) {
     let Ok(bus) = io::system_bus().await else {
         return;
@@ -1437,8 +1441,8 @@ async fn signals(
         .ok()
 }
 
-/// A `ModemManager` enum: int32 on the bus for calls (MMCallState,
-/// MMCallDirection), uint32 elsewhere.
+/// A `ModemManager` enum: int32 on the bus for calls (`MMCallState`,
+/// `MMCallDirection`), uint32 elsewhere.
 fn mm_enum(value: &OwnedValue) -> Option<u32> {
     u32::try_from(value).ok().or_else(|| {
         i32::try_from(value)
@@ -1762,9 +1766,9 @@ mod tests {
     #[test]
     fn call_enums_read_as_either_width() {
         // ModemManager sends a call's Direction and State as int32.
-        assert_eq!(mm_enum(&zbus::zvariant::OwnedValue::from(3_i32)), Some(3));
-        assert_eq!(mm_enum(&zbus::zvariant::OwnedValue::from(4_u32)), Some(4));
-        assert_eq!(mm_enum(&zbus::zvariant::OwnedValue::from(-1_i32)), None);
+        assert_eq!(mm_enum(&zbus::OwnedVariant::from(3_i32)), Some(3));
+        assert_eq!(mm_enum(&zbus::OwnedVariant::from(4_u32)), Some(4));
+        assert_eq!(mm_enum(&zbus::OwnedVariant::from(-1_i32)), None);
     }
     use zbus::Variant as Value;
 

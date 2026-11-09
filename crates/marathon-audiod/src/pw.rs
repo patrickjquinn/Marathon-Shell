@@ -579,8 +579,9 @@ mod tests {
         };
         let value = route_value(route, props_value(Some(&vec![0.25, 0.25]), Some(true)));
         let bytes = serialize(&value).unwrap();
-        let (parsed, mix) = route_of(Pod::from_bytes(&bytes).unwrap()).unwrap();
+        let (parsed, mix, wired) = route_of(Pod::from_bytes(&bytes).unwrap()).unwrap();
         assert_eq!(parsed, route);
+        assert!(!wired);
         assert_eq!(
             mix,
             Mix {

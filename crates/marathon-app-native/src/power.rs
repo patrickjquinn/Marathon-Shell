@@ -181,7 +181,7 @@ impl Power {
     }
 }
 
-/// The battery's charge and rate history as UPower keeps it (it samples on
+/// The battery's charge and rate history as `UPower` keeps it (it samples on
 /// its own; nothing here runs between reads), as flat time, value pairs.
 async fn upower_history(span: u32) -> zbus::Result<(Vec<f64>, Vec<f64>)> {
     const UPOWER: &str = "org.freedesktop.UPower";
@@ -201,8 +201,8 @@ async fn upower_history(span: u32) -> zbus::Result<(Vec<f64>, Vec<f64>)> {
     ))
 }
 
-/// `draining`: only what was read while the battery discharged (UPower state
-/// 2). Samples in the unknown state (0) are dropped: UPower logs a 0 % one at boot.
+/// `draining`: only what was read while the battery discharged (`UPower` state
+/// 2). Samples in the unknown state (0) are dropped: `UPower` logs a 0 % one at boot.
 async fn history(
     device: &zbus::Proxy<'_>,
     kind: &str,

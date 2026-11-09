@@ -315,6 +315,13 @@ impl Panel {
 }
 
 impl Display {
+    fn set_dim(mut self: Pin<&mut Self>, dim: f64) {
+        if (self.dim - dim).abs() > f64::EPSILON {
+            self.as_mut().rust_mut().dim = dim;
+            self.dim_changed();
+        }
+    }
+
     fn start(
         mut self: Pin<&mut Self>,
         backlight_dir: &QString,
@@ -399,7 +406,7 @@ impl Display {
         rust.manual_at = Some(Instant::now());
         rust.brightness = shown;
         self.as_mut().brightness_changed();
-        set!(self, dim, dim_changed, dim);
+        self.as_mut().set_dim(dim);
     }
 
     fn set_brightness_from_user(mut self: Pin<&mut Self>, brightness: f64) {
@@ -544,7 +551,7 @@ impl Display {
         let dim = panel.dim(target);
         self.as_mut().rust_mut().brightness = target;
         self.as_mut().brightness_changed();
-        set!(self, dim, dim_changed, dim);
+        self.as_mut().set_dim(dim);
     }
 
     pub(crate) fn turn_screen_on(self: Pin<&mut Self>) {

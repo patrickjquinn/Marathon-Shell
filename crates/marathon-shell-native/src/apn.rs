@@ -214,7 +214,9 @@ async fn bearer_apn(
 fn network_name(apn: &str) -> &str {
     let lower = apn.to_ascii_lowercase();
     match lower.find(".mnc") {
-        Some(at) if lower.ends_with(".gprs") && lower[at..].contains(".mcc") => &apn[..at],
+        Some(at) if lower.strip_suffix(".gprs").is_some() && lower[at..].contains(".mcc") => {
+            &apn[..at]
+        }
         _ => apn,
     }
 }

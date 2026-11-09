@@ -133,7 +133,7 @@ fn see(nodes: &[(Kind, PathBuf)], open: &HashMap<PathBuf, u32>) -> Seen {
     let paths: Vec<&Path> = nodes.iter().map(|(_, p)| p.as_path()).collect();
     let held = holders(&paths);
     let kind_of = |path: &Path| nodes.iter().find(|(_, p)| p == path).map(|(k, _)| *k);
-    let mut users = |kind: Kind| {
+    let users = |kind: Kind| {
         let mut names: Vec<String> = held
             .iter()
             .filter(|(_, p)| kind_of(p) == Some(kind))
@@ -167,7 +167,7 @@ fn list(names: &[String]) -> QStringList {
     list
 }
 
-fn watch(qt: cxx_qt::CxxQtThread<Privacy>) -> std::io::Result<()> {
+fn watch(qt: &cxx_qt::CxxQtThread<Privacy>) -> std::io::Result<()> {
     let nodes = nodes();
     let mut inotify = Inotify::init()?;
     let mut by_watch: HashMap<WatchDescriptor, PathBuf> = HashMap::new();
@@ -245,7 +245,7 @@ impl cxx_qt::Initialize for Privacy {
         std::thread::Builder::new()
             .name("privacy".into())
             .spawn(move || {
-                if let Err(e) = watch(qt) {
+                if let Err(e) = watch(&qt) {
                     log::warn("privacy", format_args!("not watching: {e}"));
                 }
             })

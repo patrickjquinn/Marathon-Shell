@@ -162,6 +162,10 @@ const REMOTE_PASSWORD_MIN: usize = 8;
 const FACTORY_RESET: &str = "/run/marathon/factory-reset.sock";
 
 #[derive(Default)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent lock states, each a Qt property"
+)]
 pub struct SecurityRust {
     has_quick_pin: bool,
     fingerprint: Option<OwnedObjectPath>,
