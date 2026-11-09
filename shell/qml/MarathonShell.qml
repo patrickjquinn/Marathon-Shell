@@ -2466,6 +2466,30 @@ Item {
         id: screenshotPreview
     }
 
+    Comp.ChargingOverlay {
+        id: chargingOverlay
+
+        // The first report after start is the state, not a charger arriving.
+        property bool armed: false
+
+        anchors.fill: parent
+        z: Constants.zIndexModalOverlay - 1
+
+        Timer {
+            interval: 5000
+            running: true
+            onTriggered: chargingOverlay.armed = true
+        }
+        Connections {
+            function onIsPluggedInChanged() {
+                if (chargingOverlay.armed && Display.screenOn && Power.batteryLevel >= 0)
+                    chargingOverlay.show(Power.isPluggedIn, Power.batteryLevel);
+            }
+
+            target: Power
+        }
+    }
+
     Connections {
         function onScreenshotCaptured(filePath, thumbnailPath) {
             Logger.info("Shell", "Screenshot captured: " + filePath);
