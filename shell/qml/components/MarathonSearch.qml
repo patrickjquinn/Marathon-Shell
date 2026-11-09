@@ -18,6 +18,8 @@ Item {
 
     signal closed
     signal resultSelected(var result)
+    // A tap on a part-pulled overlay: whoever drives pullProgress puts it back.
+    signal pullDismissed
 
     function open() {
         searchInput.forceActiveFocus();
@@ -131,9 +133,7 @@ Item {
         anchors.fill: parent
         anchors.bottomMargin: Constants.bottomBarHeight
         enabled: searchOverlay.opacity > 0.01 && !searchOverlay.active
-        onClicked: {
-            searchOverlay.pullProgress = 0;
-        }
+        onClicked: searchOverlay.pullDismissed()
     }
 
     KeelAmbienceBackground {

@@ -368,6 +368,11 @@ Item {
                 }
                 isSearchGesture = false;
             }
+            // The pager took the touch: a part-pulled search goes back.
+            onCanceled: {
+                appGrid.searchGestureActive = false;
+                isSearchGesture = false;
+            }
             onPressAndHold: {
                 if (moved)
                     return;
@@ -792,6 +797,10 @@ Item {
                 }
                 mouse.accepted = true;
             }
+            isDownwardSwipe = false;
+        }
+        onCanceled: {
+            appGrid.searchGestureActive = false;
             isDownwardSwipe = false;
         }
     }

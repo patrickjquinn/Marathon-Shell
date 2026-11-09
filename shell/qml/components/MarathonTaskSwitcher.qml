@@ -103,9 +103,9 @@ Item {
                 if (taskSwitcher.searchPullProgress > commitThreshold || velocity > 0.25) {
                     Logger.info("TaskSwitcher", "Pull down threshold met - opening search (" + deltaY + "px)");
                     UIStore.openSearch();
-                    taskSwitcher.searchPullProgress = 0;
                 }
             }
+            taskSwitcher.searchPullProgress = 0;
             isDragging = false;
             isVertical = false;
             taskSwitcher.searchGestureActive = false;
@@ -114,6 +114,7 @@ Item {
             isDragging = false;
             isVertical = false;
             taskSwitcher.searchGestureActive = false;
+            taskSwitcher.searchPullProgress = 0;
         }
     }
 

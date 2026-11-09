@@ -122,6 +122,7 @@ Item {
 
     function handleHomeKey() {
         dismissPermissionPrompt();
+        pageView.resetSearchPull();
         if (pageView.appEditing) {
             pageView.appEditing = false;
             return;
@@ -2432,6 +2433,7 @@ Item {
         z: Constants.zIndexSearch
         active: UIStore.searchOpen
         pullProgress: pageView.searchPullProgress
+        onPullDismissed: pageView.resetSearchPull()
         onClosed: {
             UIStore.closeSearch();
             if (UIStore.appWindowOpen)
