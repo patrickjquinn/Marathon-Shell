@@ -219,6 +219,8 @@ fn now_ms() -> i64 {
 enum Command {
     Enable(bool),
     Data(bool, bool),
+    /// Data roaming allowed: written to the profile at once.
+    Roaming(bool),
     Modes(u32),
     Dial(String),
     Call(String, CallAction),
@@ -541,6 +543,7 @@ impl Modem {
             data_roaming_allowed_changed,
             allowed
         );
+        self.send(Command::Roaming(allowed));
         if !allowed && self.roaming && self.data_enabled {
             self.disable_data();
         }
@@ -1281,6 +1284,18 @@ async fn discover(
     if let Err(e) = default_data_on(bus).await {
         log::warn("modem", e);
     }
+    if let Some((_, settings)) = gsm_profile(bus).await {
+        let allowed = roaming_allowed(&settings);
+        qt.queue(move |mut obj| {
+            set!(
+                obj,
+                data_roaming_allowed,
+                data_roaming_allowed_changed,
+                allowed
+            );
+        })
+        .ok();
+    }
     let broadcasts = interfaces
         .iter()
         .find(|(i, _)| i.as_str() == CELL_BROADCAST)
@@ -1572,6 +1587,7 @@ async fn act(
                 CallAction::Dtmf(digit) => call.send_dtmf(&digit).await,
             }
         }
+        Command::Roaming(allowed) => data_roaming(bus, allowed).await,
         Command::Data(..) | Command::Inhibit(_) => Ok(()),
     }
 }
@@ -1594,22 +1610,7 @@ async fn mobile_data(
     let none = zbus::ObjectPath::from_static_str_unchecked("/");
     if let Some((path, mut settings)) = gsm_profile(bus).await {
         set_data(&mut settings, on, roaming);
-        let settings: Settings<'_> = settings
-            .iter()
-            .map(|(group, props)| {
-                let props = props
-                    .iter()
-                    .filter_map(|(k, v)| Some((k.as_str(), Value::try_from(v).ok()?)))
-                    .collect();
-                (group.as_str(), props)
-            })
-            .collect();
-        SavedConnectionProxy::builder(bus)
-            .path(path.clone())
-            .build()
-            .await?
-            .update(settings)
-            .await?;
+        save_profile(bus, &path, &settings).await?;
         if on {
             return nm
                 .activate_connection(&path, &device, &none)
@@ -1637,6 +1638,52 @@ async fn mobile_data(
 }
 
 type SavedSettings = HashMap<String, HashMap<String, OwnedValue>>;
+
+async fn save_profile(
+    bus: &zbus::Connection,
+    path: &OwnedObjectPath,
+    settings: &SavedSettings,
+) -> zbus::Result<()> {
+    let settings: Settings<'_> = settings
+        .iter()
+        .map(|(group, props)| {
+            let props = props
+                .iter()
+                .filter_map(|(k, v)| Some((k.as_str(), Value::try_from(v).ok()?)))
+                .collect();
+            (group.as_str(), props)
+        })
+        .collect();
+    SavedConnectionProxy::builder(bus)
+        .path(path.clone())
+        .build()
+        .await?
+        .update(settings)
+        .await
+}
+
+/// The profile's `home-only` is the data roaming switch, kept where
+/// `NetworkManager` reads it, so it holds across restarts and needs no
+/// switching data off and on.
+async fn data_roaming(bus: &zbus::Connection, allowed: bool) -> zbus::Result<()> {
+    let Some((path, mut settings)) = gsm_profile(bus).await else {
+        return Ok(());
+    };
+    settings
+        .entry("gsm".to_owned())
+        .or_default()
+        .insert("home-only".to_owned(), OwnedValue::from(!allowed));
+    save_profile(bus, &path, &settings).await
+}
+
+/// `home-only` defaults to false, and `NetworkManager` leaves defaults out.
+fn roaming_allowed(settings: &SavedSettings) -> bool {
+    settings
+        .get("gsm")
+        .and_then(|g| g.get("home-only"))
+        .and_then(|v| bool::try_from(v).ok())
+        != Some(true)
+}
 
 // The first saved gsm profile: Marathon's, or one the person made.
 pub(crate) async fn gsm_profile(
