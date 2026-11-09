@@ -1198,6 +1198,8 @@ Item {
             if (key === "volumeUp") {
                 volumeUpPressed = true;
                 if (powerButtonPressed) {
+                    // The power key's release is the combo's, not a lock.
+                    powerButtonTimer.stop();
                     Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
                     screenshotFlash.trigger();
                     ScreenshotService.captureScreen(shell);
