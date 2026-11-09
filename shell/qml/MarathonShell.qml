@@ -3272,6 +3272,7 @@ Item {
             const offered = ["charging", "files", "developer"].filter(m => m !== Usb.mode && (m !== "files" || Usb.filesAvailable) && (m !== "developer" || Usb.developerAvailable));
             NotificationService.sendNotification("usb", qsTr("Connected to a computer"), labels[Usb.mode] || labels.charging, {
                 "icon": "usb",
+                "x-marathon-app-name": qsTr("USB"),
                 "category": "device",
                 "urgency": 0,
                 "resident": true,
