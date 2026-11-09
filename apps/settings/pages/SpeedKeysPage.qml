@@ -11,6 +11,13 @@ Page {
 
     readonly property var apps: (Apps.getAllAppIds() || []).map(id => Apps.getApp(id)).filter(a => a && a.name).sort((a, b) => a.name.localeCompare(b.name))
 
+    // An app this list doesn't have (a Shipwright or desktop app): its id's
+    // last part, "shipwright-pacific" as "Pacific".
+    function nameOf(appId) {
+        const last = appId.split(/[-.]/).pop();
+        return last.charAt(0).toUpperCase() + last.slice(1);
+    }
+
     function assign(letter, appId) {
         const keys = Object.assign({}, Settings.speedKeys);
         if (appId === "")
@@ -47,14 +54,16 @@ Page {
                     id: combo
 
                     required property string modelData
+                    readonly property string appId: Settings.speedKeys[modelData] || ""
 
                     objectName: "speedKey-" + modelData
                     width: column.width
                     label: modelData.toUpperCase()
                     currentIndex: {
-                        const id = Settings.speedKeys[modelData] || "";
-                        return id === "" ? 0 : page.apps.findIndex(a => a.id === id) + 1;
+                        const at = page.apps.findIndex(a => a.id === combo.appId);
+                        return combo.appId === "" ? 0 : at < 0 ? -1 : at + 1;
                     }
+                    value: currentItem ? currentItem.text : page.nameOf(combo.appId)
                     menu: ContextMenu {
                         MenuItem {
                             text: qsTr("None")
