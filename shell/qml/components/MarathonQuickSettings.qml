@@ -62,6 +62,12 @@ Item {
     // The drawn height: follows UIStore while a finger drags the shade and
     // springs to each new height from the release velocity.
     readonly property alias drawnHeight: shadeDrag.value
+    property bool captureWhenClosed: false
+
+    onDrawnHeightChanged: if (captureWhenClosed && drawnHeight <= 0) {
+        captureWhenClosed = false;
+        Qt.callLater(SystemControlStore.captureScreenshot);
+    }
     readonly property alias tracker: shadeDrag
 
     // A drag always comes to rest shut or fully open.
@@ -643,9 +649,9 @@ Item {
         }
         switch (id) {
         case "screenshot":
-            // Dismiss first so the shade isn't in the capture.
+            // Captured once the shade has closed, so it isn't in the picture.
+            quickSettings.captureWhenClosed = true;
             quickSettings.closed();
-            SystemControlStore.captureScreenshot();
             break;
         case "power":
             quickSettings.closed();
