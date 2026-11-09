@@ -120,32 +120,27 @@ async fn modem_apn(bus: &zbus::Connection) -> zbus::Result<(String, String)> {
             .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
             .filter(|a| !a.is_empty())
     };
+    // The connected bearer's APN; with none (data on the attach PDN), the
+    // attach bearer's as the network granted it, then as it was asked for.
     let mut live = None;
     let bearers = get("org.freedesktop.ModemManager1.Modem", "Bearers")
         .and_then(|v| Vec::<OwnedObjectPath>::try_from(v).ok())
         .unwrap_or_default();
     for bearer in bearers {
-        let props = PropertiesProxy::builder(bus)
-            .destination(MM)
-            .path(bearer)
-            .build()
-            .await?;
-        let interface =
-            InterfaceName::from_static_str_unchecked("org.freedesktop.ModemManager1.Bearer");
-        let connected = props
-            .get(interface.clone(), "Connected")
-            .await
-            .ok()
-            .and_then(|v| bool::try_from(v).ok())
-            .unwrap_or(false);
-        if connected {
-            live = props
-                .get(interface, "Properties")
-                .await
-                .ok()
-                .and_then(|v| HashMap::<String, OwnedValue>::try_from(v).ok())
-                .and_then(apn_of);
+        if let Some((true, apn)) = bearer_apn(bus, bearer).await {
+            live = apn;
             break;
+        }
+    }
+    if live.is_none() {
+        if let Some(initial) = get(
+            "org.freedesktop.ModemManager1.Modem.Modem3gpp",
+            "InitialEpsBearer",
+        )
+        .and_then(|v| OwnedObjectPath::try_from(v).ok())
+        .filter(|p| p.as_str() != "/")
+        {
+            live = bearer_apn(bus, initial).await.and_then(|(_, apn)| apn);
         }
     }
     let live = live
@@ -157,6 +152,7 @@ async fn modem_apn(bus: &zbus::Connection) -> zbus::Result<(String, String)> {
             .and_then(|v| HashMap::<String, OwnedValue>::try_from(v).ok())
             .and_then(apn_of)
         })
+        .map(|apn| network_name(&apn).to_owned())
         .unwrap_or_default();
     let mut operator = String::new();
     if let Some(sim) = get("org.freedesktop.ModemManager1.Modem", "Sim")
@@ -178,6 +174,49 @@ async fn modem_apn(bus: &zbus::Connection) -> zbus::Result<(String, String)> {
             .unwrap_or_default();
     }
     Ok((live, operator))
+}
+
+/// A bearer's connected state and APN.
+async fn bearer_apn(
+    bus: &zbus::Connection,
+    path: OwnedObjectPath,
+) -> Option<(bool, Option<String>)> {
+    let props = PropertiesProxy::builder(bus)
+        .destination(MM)
+        .path(path)
+        .build()
+        .await
+        .ok()?;
+    let interface =
+        InterfaceName::from_static_str_unchecked("org.freedesktop.ModemManager1.Bearer");
+    let connected = props
+        .get(interface.clone(), "Connected")
+        .await
+        .ok()
+        .and_then(|v| bool::try_from(v).ok())
+        .unwrap_or(false);
+    let apn = props
+        .get(interface, "Properties")
+        .await
+        .ok()
+        .and_then(|v| HashMap::<String, OwnedValue>::try_from(v).ok())
+        .and_then(|settings| {
+            settings
+                .get("apn")
+                .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
+        })
+        .filter(|a| !a.is_empty());
+    Some((connected, apn))
+}
+
+/// An APN without the operator part the network appends (TS 23.003:
+/// "<apn>.mnc<MNC>.mcc<MCC>.gprs").
+fn network_name(apn: &str) -> &str {
+    let lower = apn.to_ascii_lowercase();
+    match lower.find(".mnc") {
+        Some(at) if lower.ends_with(".gprs") && lower[at..].contains(".mcc") => &apn[..at],
+        _ => apn,
+    }
 }
 
 /// The internet ("default") APNs of `operator` (MCC+MNC) in an AOSP
@@ -222,7 +261,16 @@ fn carrier_apns(xml: &str, operator: &str) -> Vec<Suggestion> {
 
 #[cfg(test)]
 mod tests {
-    use super::carrier_apns;
+    use super::{carrier_apns, network_name};
+
+    #[test]
+    fn drops_the_operator_part() {
+        assert_eq!(
+            network_name("wap.mymeteor.ie.mnc003.mcc272.gprs"),
+            "wap.mymeteor.ie"
+        );
+        assert_eq!(network_name("internet"), "internet");
+    }
 
     #[test]
     fn picks_the_carriers_internet_apns() {

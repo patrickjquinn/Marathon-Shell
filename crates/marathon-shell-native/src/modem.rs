@@ -1742,7 +1742,15 @@ trait Call {
 
 #[cfg(test)]
 mod tests {
-    use super::{gsm_settings, network_type, set_data, SavedSettings, Snapshot};
+    use super::{gsm_settings, mm_enum, network_type, set_data, SavedSettings, Snapshot};
+
+    #[test]
+    fn call_enums_read_as_either_width() {
+        // ModemManager sends a call's Direction and State as int32.
+        assert_eq!(mm_enum(&zbus::zvariant::OwnedValue::from(3_i32)), Some(3));
+        assert_eq!(mm_enum(&zbus::zvariant::OwnedValue::from(4_u32)), Some(4));
+        assert_eq!(mm_enum(&zbus::zvariant::OwnedValue::from(-1_i32)), None);
+    }
     use zbus::Variant as Value;
 
     #[test]
