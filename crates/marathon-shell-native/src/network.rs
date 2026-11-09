@@ -1070,7 +1070,9 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     actor.qt.queue(move |obj| obj.apply_strength(strength)).ok();
                 }
             }
-            Event::Rescan => actor.scan().await,
+            // Nobody sees the list with the screen off.
+            Event::Rescan if crate::display::screen_on() => actor.scan().await,
+            Event::Rescan => {}
         }
     }
 }

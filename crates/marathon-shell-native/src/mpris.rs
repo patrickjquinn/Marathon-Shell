@@ -442,11 +442,28 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     let events = commands
         .map(Event::Command)
         .chain(stream::once(Event::Closed))
-        .or(actor.signals().await)
-        .or(Timer::interval(Duration::from_secs(1)).map(|_| Event::Tick));
+        .or(actor.signals().await);
     let mut events = std::pin::pin!(events);
     actor.scan().await;
-    while let Some(event) = events.next().await {
+    // The position is read each second only while something plays; idle, the
+    // timer is never armed and wakes nothing.
+    let mut ticker = Timer::never();
+    loop {
+        let playing = actor.player.active && actor.player.status == "Playing";
+        if playing != ticker.will_fire() {
+            ticker = if playing {
+                Timer::interval(Duration::from_secs(1))
+            } else {
+                Timer::never()
+            };
+        }
+        let tick = async {
+            ticker.next().await;
+            Some(Event::Tick)
+        };
+        let Some(event) = futures_lite::future::or(events.next(), tick).await else {
+            break;
+        };
         match event {
             Event::Command(command) => actor.handle(command).await,
             Event::Closed => break,
@@ -477,11 +494,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     }
                 }
             }
-            Event::Tick => {
-                if actor.player.active && actor.player.status == "Playing" {
-                    actor.read_position().await;
-                }
-            }
+            Event::Tick => actor.read_position().await,
         }
     }
 }
