@@ -3254,6 +3254,60 @@ Item {
         enabled: shell.incomingCallOverlay !== null
     }
 
+    // A computer on the USB port: what the port offers it, picked from a
+    // silent notification. File transfer hides the files while locked.
+    Connections {
+        id: usbChoice
+
+        function post() {
+            if (!Usb.host) {
+                NotificationService.dismissTagged("usb", "usb");
+                return;
+            }
+            const labels = {
+                "charging": qsTr("Charging only"),
+                "files": qsTr("File transfer"),
+                "developer": qsTr("Developer network")
+            };
+            const offered = ["charging", "files", "developer"].filter(m => m !== Usb.mode && (m !== "files" || Usb.filesAvailable) && (m !== "developer" || Usb.developerAvailable));
+            NotificationService.sendNotification("usb", qsTr("Connected to a computer"), labels[Usb.mode] || labels.charging, {
+                "icon": "usb",
+                "category": "device",
+                "urgency": 0,
+                "resident": true,
+                "tag": "usb",
+                "actions": offered.map(m => ({
+                            "key": m,
+                            "label": labels[m]
+                        }))
+            });
+        }
+
+        function onHostChanged() {
+            post();
+        }
+
+        function onModeChanged() {
+            post();
+        }
+
+        target: Usb
+    }
+    Connections {
+        function onIsPluggedInChanged() {
+            Usb.refresh();
+        }
+
+        target: Power
+    }
+    Connections {
+        function onIsLockedChanged() {
+            Usb.setLocked(SessionStore.isLocked);
+        }
+
+        target: SessionStore
+    }
+
     // Calls and texts: ring, the call overlay, missed-call and message
     // notifications, and the proximity blank while a call is up.
     Connections {

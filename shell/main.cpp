@@ -60,6 +60,7 @@
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
 #include "marathon-shell-native/src/privacy.cxxqt.h"
+#include "marathon-shell-native/src/usb.cxxqt.h"
 #include "marathon-shell-native/src/device.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/services/wakeonkeyfilter.h"
@@ -955,6 +956,9 @@ int main(int argc, char *argv[]) {
     auto *privacy = new Privacy();
     privacy->setParent(&app);
     qmlRegisterSingletonInstance<Privacy>("MarathonOS.Shell", 1, 0, "Privacy", privacy);
+    auto *usb = new Usb();
+    usb->setParent(&app);
+    qmlRegisterSingletonInstance<Usb>("MarathonOS.Shell", 1, 0, "Usb", usb);
     auto *display = new marathon::Display();
     display->setParent(&app);
     display->start(QStringLiteral("/sys/class/backlight"), QStringLiteral("/sys/bus/iio/devices"),

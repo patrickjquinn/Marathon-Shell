@@ -959,7 +959,7 @@ async fn set_remote_connection(
 
 /// "on" while sshd starts at boot, "off" while it doesn't, "unavailable"
 /// on an image without sshd or the helper.
-async fn remote_connection_state() -> &'static str {
+pub(crate) async fn remote_connection_state() -> &'static str {
     if !Path::new(REMOTE_HELPER).exists() {
         return "unavailable";
     }
@@ -1239,7 +1239,7 @@ async fn run_data_key(command: &str, secret: &str) -> Option<i32> {
 
 /// Runs `helper command` as root through pkexec with `secret` on stdin; its
 /// exit code, or `None` when it could not run.
-async fn run_helper(helper: &str, command: &str, secret: &str) -> Option<i32> {
+pub(crate) async fn run_helper(helper: &str, command: &str, secret: &str) -> Option<i32> {
     let args = vec![helper.to_owned(), command.to_owned()];
     run("pkexec".to_owned(), args, secret).await
 }

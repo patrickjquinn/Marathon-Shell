@@ -24,7 +24,7 @@ use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::{
     apps, audio, clock, gate, haptics, io, ipc, log, modem, power, settings, tasks, telephonyd,
-    variant,
+    usb, variant,
 };
 
 pub use proxy::NotificationsProxy;
@@ -1060,6 +1060,7 @@ impl Notifications {
                 modem::dial(number);
                 deep_link("phone", "", &json!({}));
             }
+            ("usb", mode) => usb::choose(mode),
             ("phone", "message") => {
                 deep_link("messages", "conversation", &json!({"number": number}));
             }

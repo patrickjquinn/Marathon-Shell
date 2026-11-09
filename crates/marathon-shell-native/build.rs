@@ -35,6 +35,7 @@ fn main() {
         .file("src/portal.rs")
         .file("src/power.rs")
         .file("src/privacy.rs")
+        .file("src/usb.rs")
         .file("src/pressure.rs")
         .file("src/push.rs")
         .file("src/sandbox.rs")

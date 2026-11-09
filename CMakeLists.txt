@@ -248,6 +248,9 @@ install(PROGRAMS tools/marathon-data-key/marathon-data-key
 install(PROGRAMS tools/marathon-remote-connection/marathon-remote-connection
     DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
 )
+install(PROGRAMS tools/marathon-usb-mode/marathon-usb-mode
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
 
 # Install polkit policy
 install(FILES polkit/org.marathonos.shell.policy

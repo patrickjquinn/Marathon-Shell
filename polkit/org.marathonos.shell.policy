@@ -67,6 +67,19 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-remote-connection</annotate>
   </action>
 
+  <!-- What the USB port offers a computer: charging only, file transfer or
+       the developer network. -->
+  <action id="org.marathonos.shell.usb-mode">
+    <description>Choose what the USB port offers a computer</description>
+    <message>Authentication is required to change the USB connection</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-usb-mode</annotate>
+  </action>
+
   <!-- Allow bluetooth management -->
   <action id="org.marathonos.shell.bluetooth-control">
     <description>Control Bluetooth</description>

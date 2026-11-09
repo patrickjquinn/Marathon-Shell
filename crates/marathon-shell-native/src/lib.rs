@@ -71,6 +71,7 @@ mod theme;
 mod timezone;
 pub mod ui;
 pub mod updates;
+pub mod usb;
 mod variant;
 mod wake_timer;
 pub mod weather;
