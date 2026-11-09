@@ -922,10 +922,11 @@ impl Notifications {
         let mut rows = self.rows.clone();
         rows.insert(0, row);
         self.as_mut().set_rows(rows);
-        // Progress is for the Hub; it doesn't call for attention.
+        // Progress is for the Hub; it doesn't call for attention. Nor, beyond
+        // its banner, does a low-urgency one.
         if !ongoing {
             self.as_mut().notification_received(&shown);
-            if !self.is_dnd_enabled {
+            if !self.is_dnd_enabled && priority > 0 {
                 if !quiet {
                     audio::notification_sound();
                 }
