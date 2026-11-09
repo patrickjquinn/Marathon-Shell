@@ -69,6 +69,8 @@ static const uint16_t auto_ack[] = { 0xAFA0 /* MD alive */, 0xAF78 /* EPOF */,
 				     0xAF75 /* network status */, 0xAF90 /* NW codec */,
 				     0xAF70 /* EM data request */ };
 
+#define EM_ACK_EVERY_MS 10000L
+
 static int fd = -1;
 static volatile sig_atomic_t stop;
 
@@ -137,10 +139,20 @@ static int recv_msg(int timeout_ms)
 		       id, ph[0], ph[1], ph[2], n);
 	}
 	for (i = 0; i < sizeof(auto_ack) / sizeof(auto_ack[0]); i++) {
-		if (id == auto_ack[i]) {
-			send_mailbox(id & 0x7fff, 0, 0);
-			printf("tx ack 0x%04x\n", id & 0x7fff);
+		if (id != auto_ack[i])
+			continue;
+		/* The EM data request comes back the moment it is acked, as we
+		 * send no EM data: a fresh modem then asks a thousand times a
+		 * second until it faults. Ack it at most every 10 s. */
+		if (id == 0xAF70) {
+			static long em_acked = -EM_ACK_EVERY_MS;
+
+			if (now_ms() - em_acked < EM_ACK_EVERY_MS)
+				break;
+			em_acked = now_ms();
 		}
+		send_mailbox(id & 0x7fff, 0, 0);
+		printf("tx ack 0x%04x\n", id & 0x7fff);
 	}
 	return id;
 }
