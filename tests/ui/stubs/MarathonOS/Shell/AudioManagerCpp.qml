@@ -3,6 +3,7 @@ import QtQml
 
 QtObject {
     property bool ringing: false
+    property string output: ""
     function playRingtone() {
         ringing = true;
     }

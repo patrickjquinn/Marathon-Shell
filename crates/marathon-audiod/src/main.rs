@@ -123,6 +123,12 @@ impl Audio {
         lock(&self.snapshot).speakerphone
     }
 
+    /// "wired" or "bluetooth" while the default sink is headphones, else "".
+    #[zbus(property)]
+    fn output(&self) -> String {
+        lock(&self.snapshot).output.to_owned()
+    }
+
     async fn set_volume(&self, volume: f64) -> fdo::Result<()> {
         self.request(Op::Volume(Direction::Output, level(volume)?))
             .await
@@ -196,6 +202,9 @@ fn emit(conn: &zbus::Connection, old: &Snapshot, new: &Snapshot) -> zbus::Result
     }
     if old.speakerphone != new.speakerphone {
         zbus::block_on(audio.speakerphone_changed(e))?;
+    }
+    if old.output != new.output {
+        zbus::block_on(audio.output_changed(e))?;
     }
     Ok(())
 }

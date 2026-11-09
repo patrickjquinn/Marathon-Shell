@@ -200,6 +200,15 @@ Item {
         z: 1
 
         GlyphIcon {
+            name: "headphones"
+            color: rightTone.glyph
+            size: Silica.Theme.iconSizeExtraSmall
+            anchors.verticalCenter: parent.verticalCenter
+            visible: AudioManagerCpp.output !== ""
+            Accessible.name: AudioManagerCpp.output === "bluetooth" ? qsTr("Bluetooth headphones connected") : qsTr("Headphones connected")
+        }
+
+        GlyphIcon {
             name: "plane"
             color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall

@@ -6,7 +6,7 @@
 //! controlled through its own `Props`. Levels are cubic, as `wpctl` and
 //! pavucontrol show them.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const SPEAKERPHONE_SETTING: &str = "marathon.call.speakerphone";
 const JSON: &str = "Spa:String:JSON";
@@ -52,6 +52,8 @@ pub struct RouteId {
 #[derive(Debug, Clone, Default)]
 pub struct Device {
     pub routes: BTreeMap<i32, (RouteId, Mix)>,
+    /// The route devices whose active route is headphones or a headset.
+    pub wired: BTreeSet<i32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,6 +150,8 @@ pub struct Snapshot {
     pub sources: Vec<Port>,
     pub streams: Vec<Stream>,
     pub speakerphone: bool,
+    /// What the default sink is when it isn't the phone's own: "wired" or "bluetooth".
+    pub output: &'static str,
 }
 
 #[derive(Debug, Default)]
@@ -335,6 +339,28 @@ impl Graph {
             .collect()
     }
 
+    fn output(&self) -> &'static str {
+        let Some((_, node)) = self.default_node(Direction::Output) else {
+            return "";
+        };
+        if node.name.starts_with("bluez_output.") {
+            return "bluetooth";
+        }
+        let wired = node
+            .device
+            .zip(node.profile_device)
+            .is_some_and(|(device, route)| {
+                self.devices
+                    .get(&device)
+                    .is_some_and(|d| d.wired.contains(&route))
+            });
+        if wired {
+            "wired"
+        } else {
+            ""
+        }
+    }
+
     fn level_of(&self, direction: Direction) -> (f64, bool, String) {
         let (volume, muted) = self
             .level_node(direction)
@@ -432,6 +458,7 @@ impl Graph {
             sources: self.ports(Direction::Input),
             streams,
             speakerphone: self.speakerphone,
+            output: self.output(),
         }
     }
 }
@@ -483,6 +510,7 @@ mod tests {
             87,
             Device {
                 routes: BTreeMap::from([(1, (route, mix(0.125, false)))]),
+                ..Device::default()
             },
         );
 
@@ -647,6 +675,7 @@ mod tests {
             87,
             Device {
                 routes: BTreeMap::from([(1, (route, mix(0.125, false)))]),
+                ..Device::default()
             },
         );
         (g, route)
@@ -657,6 +686,7 @@ mod tests {
             87,
             Device {
                 routes: BTreeMap::from([(1, (route, mix))]),
+                ..Device::default()
             },
         );
     }

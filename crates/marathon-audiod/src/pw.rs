@@ -3,7 +3,7 @@
 //! and carries out the writes the graph plans.
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::Cursor;
 use std::rc::{Rc, Weak};
 
@@ -43,6 +43,7 @@ fn wanted(media_class: &str) -> bool {
 struct RouteEnum {
     sync: AsyncSeq,
     routes: BTreeMap<i32, (RouteId, Mix)>,
+    wired: BTreeSet<i32>,
     again: bool,
 }
 
@@ -91,14 +92,20 @@ fn object_of(pod: &Pod) -> Option<Object> {
     }
 }
 
-fn route_of(pod: &Pod) -> Option<(RouteId, Mix)> {
+/// A route, its level, and whether it is headphones or a headset (by its
+/// UCM or ACP port name, e.g. "[Out] Headphones", "analog-output-headphones").
+fn route_of(pod: &Pod) -> Option<(RouteId, Mix, bool)> {
     let route = object_of(pod)?;
-    let (mut index, mut device, mut mix) = (None, None, None);
+    let (mut index, mut device, mut mix, mut wired) = (None, None, None, false);
     for p in route.properties {
         match (p.key, p.value) {
             (spa_sys::SPA_PARAM_ROUTE_index, Value::Int(i)) => index = Some(i),
             (spa_sys::SPA_PARAM_ROUTE_device, Value::Int(d)) => device = Some(d),
             (spa_sys::SPA_PARAM_ROUTE_props, Value::Object(o)) => mix = mix_of(&o),
+            (spa_sys::SPA_PARAM_ROUTE_name, Value::String(n)) => {
+                let n = n.to_ascii_lowercase();
+                wired = n.contains("headphone") || n.contains("headset");
+            }
             _ => {}
         }
     }
@@ -108,6 +115,7 @@ fn route_of(pod: &Pod) -> Option<(RouteId, Mix)> {
             device: device?,
         },
         mix?,
+        wired,
     ))
 }
 
@@ -418,7 +426,9 @@ impl State {
             .collect();
         for device in complete {
             if let Some(e) = self.route_enums.remove(&device) {
-                self.graph.devices.entry(device).or_default().routes = e.routes;
+                let d = self.graph.devices.entry(device).or_default();
+                d.routes = e.routes;
+                d.wired = e.wired;
                 if e.again {
                     self.enumerate_routes(device);
                 }
@@ -462,6 +472,7 @@ impl State {
                 RouteEnum {
                     sync,
                     routes: BTreeMap::new(),
+                    wired: BTreeSet::new(),
                     again: false,
                 },
             );
@@ -469,7 +480,12 @@ impl State {
     }
 
     fn route(&mut self, device: u32, pod: &Pod) {
-        if let (Some(e), Some((route, mix))) = (self.route_enums.get_mut(&device), route_of(pod)) {
+        if let (Some(e), Some((route, mix, wired))) =
+            (self.route_enums.get_mut(&device), route_of(pod))
+        {
+            if wired {
+                e.wired.insert(route.device);
+            }
             e.routes.insert(route.device, (route, mix));
         }
     }
