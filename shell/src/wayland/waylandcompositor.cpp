@@ -2013,7 +2013,11 @@ void WaylandCompositor::setCompositorActive(bool active) {
             ++m_activeSeq;
             suspendCompositor();
         };
-        connect(m_window, &QQuickWindow::frameSwapped, this, suspend, Qt::SingleShotConnection);
+        // frameSwapped is the flip queued, not shown: the doze keeps whatever
+        // is scanned out, so wait two vblanks for the new frame to land.
+        connect(
+            m_window, &QQuickWindow::frameSwapped, this,
+            [this, suspend] { QTimer::singleShot(30, this, suspend); }, Qt::SingleShotConnection);
         QTimer::singleShot(150, this, suspend);
         m_window->update();
         return;
