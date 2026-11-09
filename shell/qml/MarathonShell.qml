@@ -2279,6 +2279,8 @@ Item {
                     UIStore.closeQuickSettings();
             } else if (statusBar.privacyDotContains(statusBarDragArea, mouse.x, mouse.y)) {
                 privacyPanel.shown = !privacyPanel.shown;
+            } else if (UIStore.appWindowOpen && !SessionStore.isOnLockScreen) {
+                Tasks.handleSystemScrollToTop();
             }
             startY = 0;
             isDraggingDown = false;

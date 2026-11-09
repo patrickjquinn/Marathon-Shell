@@ -161,6 +161,25 @@ static bool invokeRoot(QObject *root, const char *method, const char *fallback) 
     return true;
 }
 
+// A status-bar tap: the current page's outermost visible view that can
+// scroll to its top (Silica's flickables), breadth first, does.
+static void scrollToTop(QObject *root, QQuickWindow *window) {
+    QQuickItem *start = nullptr;
+    if (QObject *stack = root ? root->property("pageStack").value<QObject *>() : nullptr)
+        start = stack->property("currentPage").value<QQuickItem *>();
+    QList<QQuickItem *> queue{start ? start : window->contentItem()};
+    while (!queue.isEmpty()) {
+        QQuickItem *item = queue.takeFirst();
+        if (!item->isVisible())
+            continue;
+        if (item->metaObject()->indexOfMethod("scrollToTop()") >= 0) {
+            QMetaObject::invokeMethod(item, "scrollToTop", Qt::DirectConnection);
+            return;
+        }
+        queue.append(item->childItems());
+    }
+}
+
 // A Keel app's window close (xdg_toplevel.close from the task switcher)
 // becomes CloseRequested: a close before the app is closing is held back and
 // reported, so the app gets its grace period before the runner quits. Quit
@@ -973,6 +992,8 @@ int main(int argc, char *argv[]) {
     QObject::connect(
         &lifecycle, &marathon::runner::RunnerLifecycle::forwardRequested, &lifecycle,
         [&]() { lifecycle.answer(invokeRoot(appRoot, "handleForward", "forwardPressed")); });
+    QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::scrollToTopRequested,
+                     &lifecycle, [&]() { scrollToTop(appRoot, &view); });
     // Keel.Actions owns its name on Qt's session-bus connection.
     auto actionsReleased = std::make_shared<bool>(false);
     QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::prepareFreezeRequested,

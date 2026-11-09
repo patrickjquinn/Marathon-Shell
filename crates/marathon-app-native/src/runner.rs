@@ -78,6 +78,9 @@ pub mod ffi {
         #[qsignal]
         #[cxx_name = "forwardRequested"]
         fn forward_requested(self: Pin<&mut Self>);
+        #[qsignal]
+        #[cxx_name = "scrollToTopRequested"]
+        fn scroll_to_top_requested(self: Pin<&mut Self>);
         /// Frozen, the app holds no bus name: a call for it then
         /// bus-activates and the shell thaws it.
         #[qsignal]
@@ -466,6 +469,12 @@ impl Lifecycle1 {
             obj.handled
         })
         .await
+    }
+
+    /// The status bar was tapped: the current page scrolls to its top.
+    async fn scroll_to_top(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        caller_is_shell(&h).await?;
+        self.gui(RunnerLifecycle::scroll_to_top_requested).await
     }
 
     /// 1 while the app's cover is on screen in the task switcher.

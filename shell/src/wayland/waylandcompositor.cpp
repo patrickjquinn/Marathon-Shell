@@ -2590,6 +2590,14 @@ void WaylandCompositor::sendNativeForward(int surfaceId, bool keelHosted) {
         sendKeyTo(surface, Qt::Key_Forward, Qt::NoModifier);
 }
 
+// Ctrl+Home: the top in GTK's scrolled windows and web pages; Android's
+// ScrollView takes it as MOVE_HOME.
+void WaylandCompositor::sendNativeScrollToTop(int surfaceId) {
+    QWaylandSurface *surface = m_surfaceMap.value(surfaceId);
+    if (surface && surface->client())
+        sendKeyTo(surface, Qt::Key_Home, Qt::ControlModifier);
+}
+
 // Wayland has no reply to a key: back counts as handled once the app shows a
 // change, and as unhandled if the watch window passes without one.
 void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId,

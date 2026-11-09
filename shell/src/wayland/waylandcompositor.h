@@ -132,6 +132,7 @@ class WaylandCompositor : public QWaylandCompositor {
     // if the app showed no change (docs/NATIVE_APP_LIFECYCLE.md).
     Q_INVOKABLE void sendNativeBack(int surfaceId, bool keelHosted);
     Q_INVOKABLE void sendNativeForward(int surfaceId, bool keelHosted);
+    Q_INVOKABLE void sendNativeScrollToTop(int surfaceId);
     // The pill's back drag over a marathon_surface_v1 window, at a point in
     // scene coordinates; endBackGesture cancels it unless back went out.
     Q_INVOKABLE void sendBackProgress(int surfaceId, qreal progress, const QPointF &scenePosition);

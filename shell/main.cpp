@@ -172,6 +172,8 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
     QObject::connect(tasks, &Tasks::nativeBackRequested, wc, &WaylandCompositor::sendNativeBack);
     QObject::connect(tasks, &Tasks::nativeForwardRequested, wc,
                      &WaylandCompositor::sendNativeForward);
+    QObject::connect(tasks, &Tasks::nativeScrollToTopRequested, wc,
+                     &WaylandCompositor::sendNativeScrollToTop);
 
     QObject::connect(wc, &WaylandCompositor::appLaunched, tasks,
                      [=](const QString &command, int pid) { tasks->appLaunched(command, pid); });

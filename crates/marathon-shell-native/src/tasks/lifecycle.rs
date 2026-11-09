@@ -357,6 +357,22 @@ impl Tasks {
         true
     }
 
+    pub(super) fn handle_system_scroll_to_top(mut self: Pin<&mut Self>) -> bool {
+        let front = self.lifecycle.foreground.clone();
+        if front.is_empty() {
+            return false;
+        }
+        if Self::is_marathon_app(&front) {
+            dbus::runner(&front, "ScrollToTop", ());
+            return true;
+        }
+        let Some(surface) = self.native_surface(&front) else {
+            return false;
+        };
+        self.as_mut().native_scroll_to_top_requested(surface);
+        true
+    }
+
     pub(super) fn native_back_unhandled(mut self: Pin<&mut Self>, surface_id: i32) {
         let front = self.lifecycle.foreground.clone();
         if self.native_surface(&front) == Some(surface_id) {

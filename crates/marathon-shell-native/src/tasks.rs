@@ -244,6 +244,9 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "nativeForwardRequested"]
         fn native_forward_requested(self: Pin<&mut Tasks>, surface_id: i32, keel_hosted: bool);
+        #[qsignal]
+        #[cxx_name = "nativeScrollToTopRequested"]
+        fn native_scroll_to_top_requested(self: Pin<&mut Tasks>, surface_id: i32);
 
         // The compositor's events.
         #[cxx_name = "appLaunched"]
@@ -327,6 +330,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "handleSystemForward"]
         fn handle_system_forward(self: Pin<&mut Tasks>) -> bool;
+        /// A tap on the status bar: the app in front scrolls to its top.
+        #[qinvokable]
+        #[cxx_name = "handleSystemScrollToTop"]
+        fn handle_system_scroll_to_top(self: Pin<&mut Tasks>) -> bool;
         #[qinvokable]
         #[cxx_name = "minimizeForegroundApp"]
         fn minimize_foreground_app(self: Pin<&mut Tasks>) -> bool;
