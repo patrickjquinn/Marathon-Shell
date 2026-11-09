@@ -84,6 +84,7 @@ pub mod qobject {
         #[qproperty(bool, search_native_apps, cxx_name = "searchNativeApps", READ, WRITE = set_search_native_apps, NOTIFY)]
         #[qproperty(bool, show_notification_badges, cxx_name = "showNotificationBadges", READ, WRITE = set_show_notification_badges, NOTIFY)]
         #[qproperty(QMap_QString_QVariant, app_notification_settings, cxx_name = "appNotificationSettings", READ, WRITE = set_app_notification_settings, NOTIFY)]
+        #[qproperty(QMap_QString_QVariant, speed_keys, cxx_name = "speedKeys", READ, WRITE = set_speed_keys, NOTIFY)]
         #[qproperty(bool, show_frequent_apps, cxx_name = "showFrequentApps", READ, WRITE = set_show_frequent_apps, NOTIFY)]
         #[qproperty(QMap_QString_QVariant, default_apps, cxx_name = "defaultApps", READ, WRITE = set_default_apps, NOTIFY)]
         #[qproperty(bool, first_run_complete, cxx_name = "firstRunComplete", READ, WRITE = set_first_run_complete, NOTIFY)]
@@ -184,6 +185,8 @@ pub mod qobject {
         fn set_show_notification_badges(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setAppNotificationSettings"]
         fn set_app_notification_settings(self: Pin<&mut Settings>, value: &QMap_QString_QVariant);
+        #[cxx_name = "setSpeedKeys"]
+        fn set_speed_keys(self: Pin<&mut Settings>, value: &QMap_QString_QVariant);
         #[cxx_name = "setShowFrequentApps"]
         fn set_show_frequent_apps(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setDefaultApps"]
@@ -294,6 +297,25 @@ impl Field for QString {
     fn arg(&self) -> &QString {
         self
     }
+}
+
+fn speed_key_defaults() -> Map {
+    let mut keys = Map::default();
+    for (letter, app) in [
+        ("b", "shipwright-pacific"),
+        ("c", "camera"),
+        ("e", "email"),
+        ("g", "gallery"),
+        ("k", "clock"),
+        ("l", "calendar"),
+        ("m", "messages"),
+        ("n", "notes"),
+        ("p", "phone"),
+        ("s", "settings"),
+    ] {
+        keys.insert(QString::from(letter), QVariant::from(&QString::from(app)));
+    }
+    keys
 }
 
 fn string_list(items: &[String]) -> QStringList {
@@ -472,6 +494,8 @@ properties! {
     search_native_apps: bool = true, "apps/searchNativeApps", "searchNativeApps", search_native_apps_changed, on_search_native_apps_changed, set_search_native_apps(bool);
     show_notification_badges: bool = true, "apps/showBadges", "showNotificationBadges", show_notification_badges_changed, on_show_notification_badges_changed, set_show_notification_badges(bool);
     app_notification_settings: Map = Map::default(), "notifications/appSettings", "appNotificationSettings", app_notification_settings_changed, on_app_notification_settings_changed, set_app_notification_settings(&Map);
+    // Hold a letter on the home screen to open its app: letter to app id.
+    speed_keys: Map = speed_key_defaults(), "keys/speed", "speedKeys", speed_keys_changed, on_speed_keys_changed, set_speed_keys(&Map);
     show_frequent_apps: bool = false, "apps/showFrequentApps", "showFrequentApps", show_frequent_apps_changed, on_show_frequent_apps_changed, set_show_frequent_apps(bool);
     default_apps: Map = Map::default(), "", "defaultApps", default_apps_changed, on_default_apps_changed, set_default_apps(&Map);
     first_run_complete: bool = false, "system/firstRunComplete", "firstRunComplete", first_run_complete_changed, on_first_run_complete_changed, set_first_run_complete(bool);

@@ -78,6 +78,33 @@ Page {
                 checked: KeyboardSettingsStore.hapticFeedbackEnabled
                 onClicked: KeyboardSettingsStore.hapticFeedbackEnabled = !checked
             }
+
+            SectionHeader {
+                text: qsTr("Hardware keyboard")
+            }
+            BackgroundItem {
+                objectName: "speedKeysEntry"
+                contentHeight: Theme.itemSizeMedium
+                Accessible.name: qsTr("Speed keys")
+                onClicked: pageStack.push(Qt.resolvedUrl("SpeedKeysPage.qml"))
+
+                Column {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Label {
+                        text: qsTr("Speed keys")
+                    }
+                    Label {
+                        width: parent.width
+                        truncationMode: TruncationMode.Fade
+                        font.pixelSize: Theme.fontSizeExtraSmall
+                        color: Theme.secondaryColor
+                        text: qsTr("Hold a letter on the home screen to open an app")
+                    }
+                }
+            }
         }
 
         VerticalScrollDecorator {}

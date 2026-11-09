@@ -649,19 +649,7 @@ Item {
         property string letter: ""
 
         function app(key) {
-            const fallback = {
-                "b": "browser",
-                "c": "camera",
-                "e": "email",
-                "g": "gallery",
-                "k": "clock",
-                "l": "calendar",
-                "m": "messages",
-                "n": "notes",
-                "p": "phone",
-                "s": "settings"
-            }[key.toLowerCase()] || "";
-            const id = String(SettingsManagerCpp.get("keys/speed/" + key.toLowerCase(), fallback));
+            const id = String((SettingsManagerCpp.speedKeys || {})[key.toLowerCase()] || "");
             return id !== "" && AppModel.findById && AppModel.findById(id) ? id : "";
         }
 

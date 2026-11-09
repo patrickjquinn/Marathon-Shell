@@ -6,6 +6,10 @@ QtObject {
     property string wallpaperPath: "file:///wallpapers/slate-aurora.svg"
     property string timeFormat: "24h"
     property string assistKeyPress: "camera"
+    property var speedKeys: ({
+            "c": "camera",
+            "s": "settings"
+        })
     property string assistKeyHold: "pilot-voice"
     property string trackpadMode: "gesture"
     property var hiddenApps: []
