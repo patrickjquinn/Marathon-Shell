@@ -1,0 +1,171 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 9 Nov 2026 15:30:00 +0000
+Subject: [PATCH] mtk-ccci: follow the PDN from +EIF ifdown, not a 5 s poll
+
+The bearer's connection monitor asked +CGACT? every 5 s while connected,
+waking the modem and the host twelve times a minute, screen off too. The
+modem already reports every PDN interface going down (+EIF: <id>, ifdown,
+whoever brought it down), which the modem object confirms; it now also
+tells the bearer on that ccmni, which reports itself disconnected, and
+the bearer reports monitoring as unsupported so the base bearer's poll
+stops. +CGACT? stays for the one check on resume.
+---
+diff --git a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+index 0185d38..e25fe77 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+@@ -55,6 +55,8 @@ G_DEFINE_TYPE (MMBroadbandBearerMtkCcci, mm_broadband_bearer_mtk_ccci, MM_TYPE_B
+ 
+ struct _MMBroadbandBearerMtkCcciPrivate {
+     guint aid;
++    /* The ccmni the PDN is on, -1 while disconnected */
++    gint  ifid;
+ };
+ 
+ /*****************************************************************************/
+@@ -642,6 +644,7 @@ connect_step (GTask *task)
+             return;
+         }
+         self->priv->aid = ctx->aid;
++        self->priv->ifid = ctx->ifid;
+         mm_obj_msg (self, "PDN aid %u connected on %s", ctx->aid, mm_port_get_device (ctx->data));
+         g_task_return_pointer (task,
+                                mm_bearer_connect_result_new (ctx->data, ctx->ipv4_config, ctx->ipv6_config),
+@@ -758,7 +761,24 @@ disconnect_3gpp (MMBroadbandBearer   *_self,
+ }
+ 
+ /*****************************************************************************/
+-/* Connection status monitoring */
++/* Connection status
++ *
++ * The modem reports every PDN interface going down (+EIF: <id>, ifdown),
++ * which the modem object passes on here, so nothing polls +CGACT? while
++ * connected: that poll woke the modem and the host every 5 s. +CGACT? is
++ * still asked once on resume. */
++
++void
++mm_broadband_bearer_mtk_ccci_report_ifdown (MMBroadbandBearerMtkCcci *self,
++                                            gint                      ifid)
++{
++    if (self->priv->ifid != ifid ||
++        mm_base_bearer_get_status (MM_BASE_BEARER (self)) != MM_BEARER_STATUS_CONNECTED)
++        return;
++    mm_obj_msg (self, "PDN interface ccmni%d went down", ifid);
++    mm_base_bearer_report_connection_status (MM_BASE_BEARER (self),
++                                             MM_BEARER_CONNECTION_STATUS_DISCONNECTED);
++}
+ 
+ static MMBearerConnectionStatus
+ load_connection_status_finish (MMBaseBearer  *self,
+@@ -861,6 +881,17 @@ load_connection_status (MMBaseBearer        *_self,
+                                    task);
+ }
+ 
++/* Unsupported, so the base bearer's 5 s monitor stops at its first check */
++static void
++load_connection_status_unsupported (MMBaseBearer        *self,
++                                    GAsyncReadyCallback  callback,
++                                    gpointer             user_data)
++{
++    g_task_report_new_error (self, callback, user_data, load_connection_status_unsupported,
++                             MM_CORE_ERROR, MM_CORE_ERROR_UNSUPPORTED,
++                             "the PDN is followed from +EIF events");
++}
++
+ /*****************************************************************************/
+ 
+ static void
+@@ -868,8 +899,10 @@ report_connection_status (MMBaseBearer             *self,
+                           MMBearerConnectionStatus  status,
+                           const GError             *connection_error)
+ {
+-    if (status == MM_BEARER_CONNECTION_STATUS_DISCONNECTED)
++    if (status == MM_BEARER_CONNECTION_STATUS_DISCONNECTED) {
+         MM_BROADBAND_BEARER_MTK_CCCI (self)->priv->aid = UNKNOWN_AID;
++        MM_BROADBAND_BEARER_MTK_CCCI (self)->priv->ifid = -1;
++    }
+ 
+     MM_BASE_BEARER_CLASS (mm_broadband_bearer_mtk_ccci_parent_class)->report_connection_status (
+         self, status, connection_error);
+@@ -923,6 +956,7 @@ mm_broadband_bearer_mtk_ccci_init (MMBroadbandBearerMtkCcci *self)
+                                               MM_TYPE_BROADBAND_BEARER_MTK_CCCI,
+                                               MMBroadbandBearerMtkCcciPrivate);
+     self->priv->aid = UNKNOWN_AID;
++    self->priv->ifid = -1;
+ }
+ 
+ static void
+@@ -934,7 +968,7 @@ mm_broadband_bearer_mtk_ccci_class_init (MMBroadbandBearerMtkCcciClass *klass)
+ 
+     g_type_class_add_private (object_class, sizeof (MMBroadbandBearerMtkCcciPrivate));
+ 
+-    base_bearer_class->load_connection_status = load_connection_status;
++    base_bearer_class->load_connection_status = load_connection_status_unsupported;
+     base_bearer_class->load_connection_status_finish = load_connection_status_finish;
+     base_bearer_class->report_connection_status = report_connection_status;
+ #if defined WITH_SUSPEND_RESUME
+diff --git a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.h b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.h
+index 6fee534..b1c13d5 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.h
++++ b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.h
+@@ -53,6 +53,9 @@ void          mm_broadband_bearer_mtk_ccci_new        (MMBroadbandModemMtkCcci *
+                                                        GCancellable            *cancellable,
+                                                        GAsyncReadyCallback      callback,
+                                                        gpointer                 user_data);
++void mm_broadband_bearer_mtk_ccci_report_ifdown (MMBroadbandBearerMtkCcci *self,
++                                                 gint                      ifid);
++
+ MMBaseBearer *mm_broadband_bearer_mtk_ccci_new_finish (GAsyncResult            *res,
+                                                        GError                 **error);
+ 
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index f8a3a8d..efb9a7d 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -20,6 +20,7 @@
+ #include <libmm-glib.h>
+ 
+ #include "mm-base-modem-at.h"
++#include "mm-bearer-list.h"
+ #include "mm-iface-modem.h"
+ #include "mm-log.h"
+ #include "mm-broadband-modem-mtk-ccci.h"
+@@ -45,13 +46,23 @@ struct _MMBroadbandModemMtkCcciPrivate {
+  * confirmation every activation takes a new ccmni, and after ccmni19 they
+  * fail with +CME ERROR: 3843 until the radio is power cycled. */
+ 
++static void
++bearer_report_ifdown (MMBaseBearer *bearer,
++                      gpointer      ifid)
++{
++    if (MM_IS_BROADBAND_BEARER_MTK_CCCI (bearer))
++        mm_broadband_bearer_mtk_ccci_report_ifdown (MM_BROADBAND_BEARER_MTK_CCCI (bearer),
++                                                    GPOINTER_TO_INT (ifid));
++}
++
+ static void
+ eif_ifdown_received (MMPortSerialAt          *port,
+                      GMatchInfo              *match_info,
+                      MMBroadbandModemMtkCcci *self)
+ {
+-    g_autofree gchar *command = NULL;
+-    guint             id;
++    g_autofree gchar        *command = NULL;
++    g_autoptr(MMBearerList)  list = NULL;
++    guint                    id;
+ 
+     if (!mm_get_uint_from_match_info (match_info, 1, &id))
+         return;
+@@ -59,6 +70,11 @@ eif_ifdown_received (MMPortSerialAt          *port,
+     mm_obj_dbg (self, "PDN interface %u (ccmni%u) down, confirming", id, id % 100);
+     command = g_strdup_printf ("+EIF=%u, \"ifst\", \"down\", 0", id);
+     mm_base_modem_at_command (MM_BASE_MODEM (self), command, 10, FALSE, NULL, NULL);
++
++    g_object_get (self, MM_IFACE_MODEM_BEARER_LIST, &list, NULL);
++    if (list)
++        mm_bearer_list_foreach (list, (MMBearerListForeachFunc) bearer_report_ifdown,
++                                GINT_TO_POINTER ((gint) (id % 100)));
+ }
+ 
+ /*****************************************************************************/
