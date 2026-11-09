@@ -3,7 +3,8 @@
 use std::pin::Pin;
 
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::{QDateTime, QString};
+use cxx_qt_lib::{QDateTime, QList, QString};
+use marathon_rt::io;
 
 use crate::shell::{get, mirror, Field, Service, Update};
 
@@ -15,6 +16,8 @@ pub mod qobject {
         type QString = cxx_qt_lib::QString;
         include!("cxx-qt-lib/qdatetime.h");
         type QDateTime = cxx_qt_lib::QDateTime;
+        include!("cxx-qt-lib/qlist.h");
+        type QList_f64 = cxx_qt_lib::QList<f64>;
     }
 
     extern "RustQt" {
@@ -32,7 +35,19 @@ pub mod qobject {
         #[qproperty(bool, has_trackpad, cxx_name = "hasTrackpad", READ, NOTIFY = state_changed)]
         /// False once the shell refuses the system permission.
         #[qproperty(bool, permitted, READ, NOTIFY = state_changed)]
+        /// UPower's battery history, oldest first: time (s since the epoch),
+        /// charge (%) pairs; and time, power draw (W) pairs while discharging.
+        #[qproperty(QList_f64, charge_history, cxx_name = "chargeHistory", READ, NOTIFY = history_changed)]
+        #[qproperty(QList_f64, rate_history, cxx_name = "rateHistory", READ, NOTIFY = history_changed)]
         type Power = super::PowerRust;
+
+        #[qsignal]
+        #[cxx_name = "historyChanged"]
+        fn history_changed(self: Pin<&mut Self>);
+        /// Reads the last `hours` of history; historyChanged follows.
+        #[qinvokable]
+        #[cxx_name = "loadHistory"]
+        fn load_history(self: &Power, hours: i32);
 
         #[qsignal]
         #[cxx_name = "stateChanged"]
@@ -80,6 +95,8 @@ pub struct PowerRust {
     has_assist_key: bool,
     has_trackpad: bool,
     permitted: bool,
+    charge_history: QList<f64>,
+    rate_history: QList<f64>,
 }
 
 impl Default for PowerRust {
@@ -95,6 +112,8 @@ impl Default for PowerRust {
             has_assist_key: false,
             has_trackpad: false,
             permitted: false,
+            charge_history: QList::default(),
+            rate_history: QList::default(),
         }
     }
 }
@@ -139,10 +158,71 @@ impl Power {
         wake(reason: &QString) -> bool => "Wake";
     }
 
+    fn load_history(&self, hours: i32) {
+        let qt = self.qt_thread();
+        let span = u32::try_from(hours.clamp(1, 24 * 7)).unwrap_or(24) * 3600;
+        io::spawn(async move {
+            let (charge, rate) = upower_history(span).await.unwrap_or_default();
+            qt.queue(move |mut obj| {
+                let mut p = obj.as_mut().rust_mut();
+                p.charge_history = qlist(&charge);
+                p.rate_history = qlist(&rate);
+                obj.history_changed();
+            })
+            .ok();
+        });
+    }
+
     fn schedule_wake(&self, when: &QDateTime, reason: &QString) -> bool {
         let at = when.to_msecs_since_epoch() / 1000;
         POWER
             .ask_now("ScheduleWake", &(at, reason.to_string()))
             .unwrap_or(false)
     }
+}
+
+/// The battery's charge and rate history as UPower keeps it (it samples on
+/// its own; nothing here runs between reads), as flat time, value pairs.
+async fn upower_history(span: u32) -> zbus::Result<(Vec<f64>, Vec<f64>)> {
+    const UPOWER: &str = "org.freedesktop.UPower";
+    let bus = io::system_bus().await?;
+    let upower = zbus::Proxy::new(&bus, UPOWER, "/org/freedesktop/UPower", UPOWER).await?;
+    let devices: Vec<zbus::zvariant::OwnedObjectPath> =
+        upower.call("EnumerateDevices", &()).await?;
+    let Some(battery) = devices
+        .into_iter()
+        .find(|p| p.as_str().contains("/battery_"))
+    else {
+        return Ok(Default::default());
+    };
+    let device = zbus::Proxy::new(&bus, UPOWER, battery, "org.freedesktop.UPower.Device").await?;
+    Ok((
+        history(&device, "charge", span, false).await?,
+        history(&device, "rate", span, true).await?,
+    ))
+}
+
+/// `draining`: only what was read while the battery discharged (UPower state
+/// 2). Samples in the unknown state (0) are dropped: UPower logs a 0 % one at boot.
+async fn history(
+    device: &zbus::Proxy<'_>,
+    kind: &str,
+    span: u32,
+    draining: bool,
+) -> zbus::Result<Vec<f64>> {
+    let rows: Vec<(u32, f64, u32)> = device.call("GetHistory", &(kind, span, 240u32)).await?;
+    Ok(rows
+        .into_iter()
+        .rev()
+        .filter(|(_, _, state)| *state != 0 && (!draining || *state == 2))
+        .flat_map(|(time, value, _)| [f64::from(time), value])
+        .collect())
+}
+
+fn qlist(values: &[f64]) -> QList<f64> {
+    let mut list = QList::default();
+    for v in values {
+        list.append(*v);
+    }
+    list
 }
