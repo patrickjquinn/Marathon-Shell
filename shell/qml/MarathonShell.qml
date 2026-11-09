@@ -1591,7 +1591,7 @@ Item {
                         "on": typeof LocationManager !== "undefined" && LocationManager && LocationManager.active,
                         "color": "#0a84ff",
                         "label": qsTr("Location"),
-                        "who": qsTr("Location services")
+                        "who": privacyPanel.names(typeof LocationManager !== "undefined" && LocationManager ? LocationManager.users : [], "location")
                     }
                 ]
 

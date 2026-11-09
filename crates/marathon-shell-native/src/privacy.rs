@@ -142,7 +142,7 @@ fn holders(paths: &[&Path]) -> Vec<(u32, PathBuf)> {
 }
 
 /// An app id, else the process's name.
-fn name(pid: u32) -> String {
+pub fn name(pid: u32) -> String {
     gate::resolve(pid).unwrap_or_else(|| {
         fs::read_to_string(format!("/proc/{pid}/comm"))
             .map(|c| c.trim().to_owned())
