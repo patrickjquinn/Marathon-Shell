@@ -191,6 +191,38 @@ Item {
             handleSwitcherKey();
     }
 
+    // Super shortcuts from an external keyboard.
+    function handleShortcut(name) {
+        if (SessionStore.isLocked)
+            return;
+        switch (name) {
+        case "search":
+            UIStore.toggleSearch();
+            break;
+        case "switcher":
+            handleSwitcherKey();
+            break;
+        case "lock":
+            SessionStore.lock();
+            Display.turnScreenOff("keyboard shortcut");
+            break;
+        case "quicksettings":
+            if (UIStore.quickSettingsOpen)
+                UIStore.closeQuickSettings();
+            else
+                UIStore.openQuickSettings();
+            break;
+        case "close":
+            if (UIStore.appWindowOpen)
+                appWindow.closeApp(false);
+            break;
+        case "keyboard":
+            virtualKeyboard.active = !virtualKeyboard.active;
+            break;
+        }
+        HapticManager.light();
+    }
+
     // Active Frames from an app, and between them and the grid.
     function handleSwitcherKey() {
         if (SessionStore.isLocked)
@@ -316,6 +348,7 @@ Item {
             compositor.systemEndTriggered.connect(handleEndKey);
             compositor.systemSwitcherTriggered.connect(handleSwitcherKey);
             compositor.systemHangupTriggered.connect(handleHangupKey);
+            compositor.systemShortcut.connect(handleShortcut);
             // Also reset the idle-screen-off timer when the compositor
             // sees ANY input — without this the timer only resets on
             // events that bubble up to the shell's own cursorTracker
@@ -564,7 +597,16 @@ Item {
             HapticManager.light();
             event.accepted = true;
         } else if (shell.state === "home" && !UIStore.searchOpen && !UIStore.appWindowOpen) {
-            if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
+            if (speedKey.letter !== "") {
+                // Another key while one is held: that was typing, not a hold.
+                if (!event.isAutoRepeat)
+                    speedKey.search(event.text);
+                event.accepted = true;
+            } else if (event.text.length === 1 && /[a-z]/i.test(event.text) && !(event.modifiers & Qt.AltModifier) && speedKey.app(event.text) !== "") {
+                speedKey.letter = event.text;
+                speedKey.restart();
+                event.accepted = true;
+            } else if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
                 Logger.info("Shell", "Global search triggered with: '" + event.text + "'");
                 UIStore.openSearch();
                 Qt.callLater(function () {
@@ -572,6 +614,54 @@ Item {
                 });
                 event.accepted = true;
             }
+        }
+    }
+    Keys.onReleased: event => {
+        if (speedKey.letter !== "" && !event.isAutoRepeat && event.text.toLowerCase() === speedKey.letter.toLowerCase()) {
+            speedKey.search("");
+            event.accepted = true;
+        }
+    }
+
+    // Holding a letter on the home screen opens its app, as BlackBerry's
+    // speed keys did; a tap still starts a search with it.
+    Timer {
+        id: speedKey
+
+        property string letter: ""
+
+        function app(key) {
+            const fallback = {
+                "b": "browser",
+                "c": "camera",
+                "e": "email",
+                "g": "gallery",
+                "k": "clock",
+                "l": "calendar",
+                "m": "messages",
+                "n": "notes",
+                "p": "phone",
+                "s": "settings"
+            }[key.toLowerCase()] || "";
+            const id = String(SettingsManagerCpp.get("keys/speed/" + key.toLowerCase(), fallback));
+            return id !== "" && AppModel.findById && AppModel.findById(id) ? id : "";
+        }
+
+        function search(more) {
+            const text = letter + more;
+            stop();
+            letter = "";
+            UIStore.openSearch();
+            Qt.callLater(() => universalSearch.appendToSearch(text));
+        }
+
+        interval: 450
+        onTriggered: {
+            const id = app(letter);
+            letter = "";
+            const entry = AppModel.findById(id);
+            HapticManager.medium();
+            UIStore.openApp(id, entry && entry.name ? entry.name : id, entry && entry.icon ? entry.icon : "");
         }
     }
     states: [

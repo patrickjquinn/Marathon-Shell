@@ -183,6 +183,8 @@ class WaylandCompositor : public QWaylandCompositor {
     void systemCallTriggered();
     void systemEndTriggered();
     void systemSwitcherTriggered();
+    // A Super shortcut: search, switcher, lock, quicksettings, close, keyboard.
+    void systemShortcut(const QString &name);
     void systemHangupTriggered();
     void userActivity();
     void keyPressed();
@@ -331,6 +333,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QElapsedTimer           m_frameClock;
     QElapsedTimer           m_lastUserInput;
     QElapsedTimer           m_activityEmitted;
+    bool                    m_superShortcut = false;
     QElapsedTimer           m_keyboardFocusSince;
     QStringList             m_secureApps;
     QTimer                  m_hiddenFrameTimer;

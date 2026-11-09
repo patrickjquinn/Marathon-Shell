@@ -2897,6 +2897,26 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
             return true;
         }
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
+            const auto *keyEvent = static_cast<QKeyEvent *>(event);
+            const int   key      = keyEvent->key();
+            const bool  super =
+                key == Qt::Key_Super_L || key == Qt::Key_Super_R || key == Qt::Key_Meta;
+            if (!super && (keyEvent->modifiers() & Qt::MetaModifier)) {
+                const QString shortcut = KeyRouting::superShortcut(key);
+                if (!shortcut.isEmpty()) {
+                    m_superShortcut = true;
+                    if (type == QEvent::KeyPress && !keyEvent->isAutoRepeat())
+                        emit systemShortcut(shortcut);
+                    return true;
+                }
+            }
+            // Super alone is home; Super that held a shortcut is not.
+            if (super && type == QEvent::KeyPress && !keyEvent->isAutoRepeat())
+                m_superShortcut = false;
+            if (super && type == QEvent::KeyRelease && m_superShortcut)
+                return true;
+        }
+        if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             const auto              *keyEvent = static_cast<QKeyEvent *>(event);
             const KeyRouting::Action action   = KeyRouting::systemAction(
                 keyEvent->key(), focusedToolkit(), keyEvent->nativeScanCode());
