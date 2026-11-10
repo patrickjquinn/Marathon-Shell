@@ -297,11 +297,18 @@ impl Tasks {
     }
 
     pub(super) fn cover_action_strip(&self, app_id: &QString) -> i32 {
-        self.cover_strips.get(&app_id.to_string()).copied().unwrap_or(0)
+        self.cover_strips
+            .get(&app_id.to_string())
+            .copied()
+            .unwrap_or(0)
     }
 
     pub(super) fn set_cover_action_strip(mut self: Pin<&mut Self>, app_id: &str, height: i32) {
-        let old = self.as_mut().rust_mut().cover_strips.insert(app_id.to_owned(), height);
+        let old = self
+            .as_mut()
+            .rust_mut()
+            .cover_strips
+            .insert(app_id.to_owned(), height);
         if old != Some(height) {
             self.cover_action_strip_changed(&q(app_id));
         }

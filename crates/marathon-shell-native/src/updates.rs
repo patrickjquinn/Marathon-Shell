@@ -235,7 +235,10 @@ impl Saved {
 }
 
 #[derive(Default)]
-#[allow(clippy::struct_excessive_bools, reason = "the switches Settings shows and the work in flight")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "the switches Settings shows and the work in flight"
+)]
 struct Machine {
     os_version: String,
     boot_id: String,
@@ -1391,7 +1394,11 @@ impl Updates1 {
         ipc::on_gui(&self.qt, move |obj| obj.set_auto_update(on)).await
     }
 
-    async fn set_developer_updates(&self, on: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_developer_updates(
+        &self,
+        on: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Updates", &["system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_developer_updates(on)).await
     }
