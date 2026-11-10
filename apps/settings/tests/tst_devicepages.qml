@@ -260,6 +260,11 @@ TestCase {
         verify(clock.checked);
         clock.clicked(null);
         compare(Settings.timeFormat, "12h");
+        const units = child(s.page, "unitsCombo");
+        compare(units.currentIndex, 0);
+        pick(units, 1);
+        compare(Settings.units, "metric");
+        compare(units.description, "°C, km/h and mm");
         compare(child(s.page, "zoneButton").value, "London (UTC+00:00)");
         child(s.page, "zoneButton").clicked(null);
         const zones = pushed(s.app, s.page);

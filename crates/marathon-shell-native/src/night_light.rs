@@ -127,7 +127,7 @@ pub async fn run(qt: cxx_qt::CxxQtThread<Display>, plans: Receiver<Plan>) {
         let (zone, place) = blocking::unblock(|| {
             (
                 TimeZone::local().ok(),
-                crate::timezone::place(&crate::settings::local_zone()),
+                crate::timezone::place(&marathon_rt::units::local_zone()),
             )
         })
         .await;

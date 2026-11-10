@@ -39,6 +39,7 @@ pub mod qobject {
         #[qproperty(bool, show_notification_previews, cxx_name = "showNotificationPreviews", READ, WRITE = set_show_notification_previews, NOTIFY)]
         #[qproperty(QString, time_format, cxx_name = "timeFormat", READ, WRITE = set_time_format, NOTIFY)]
         #[qproperty(QString, date_format, cxx_name = "dateFormat", READ, WRITE = set_date_format, NOTIFY)]
+        #[qproperty(QString, units, READ, WRITE = set_units, NOTIFY)]
         #[qproperty(QString, ringtone, cxx_name = "ringtone", READ, WRITE = set_ringtone, NOTIFY)]
         #[qproperty(QString, notification_sound, cxx_name = "notificationSound", READ, WRITE = set_notification_sound, NOTIFY)]
         #[qproperty(QString, alarm_sound, cxx_name = "alarmSound", READ, WRITE = set_alarm_sound, NOTIFY)]
@@ -107,6 +108,8 @@ pub mod qobject {
         fn set_time_format(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setDateFormat"]
         fn set_date_format(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setUnits"]
+        fn set_units(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setRingtone"]
         fn set_ringtone(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setNotificationSound"]
@@ -287,6 +290,7 @@ properties! {
     show_notification_previews: bool = true, "showNotificationPreviews", show_notification_previews_changed, set_show_notification_previews(bool);
     time_format: QString = QString::from(""), "timeFormat", time_format_changed, set_time_format(&QString);
     date_format: QString = QString::from("US"), "dateFormat", date_format_changed, set_date_format(&QString);
+    units: QString = QString::from("auto"), "units", units_changed, set_units(&QString);
     ringtone: QString, "ringtone", ringtone_changed, set_ringtone(&QString);
     notification_sound: QString, "notificationSound", notification_sound_changed, set_notification_sound(&QString);
     alarm_sound: QString, "alarmSound", alarm_sound_changed, set_alarm_sound(&QString);

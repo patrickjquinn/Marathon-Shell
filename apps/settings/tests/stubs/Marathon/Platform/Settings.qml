@@ -5,6 +5,7 @@ QtObject {
     property string timeZone: "Europe/London"
     property string wallpaperPath: "file:///wallpapers/slate-aurora.svg"
     property string timeFormat: "24h"
+    property string units: "auto"
     property string assistKeyPress: "camera"
     property var speedKeys: ({
             "c": "camera",
@@ -50,6 +51,7 @@ QtObject {
         timeZone = "Europe/London";
         wallpaperPath = "file:///wallpapers/slate-aurora.svg";
         timeFormat = "24h";
+        units = "auto";
         hiddenApps = [];
         appGridColumns = 0;
         dndEnabled = false;

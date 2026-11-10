@@ -23,7 +23,7 @@ Item {
     readonly property var location: forecast.location || ({})
     readonly property var daily: forecast.daily || []
     readonly property int offset: forecast.timezone_offset || 0
-    readonly property bool fahrenheit: WeatherClient.fahrenheit
+    readonly property bool fahrenheit: SettingsManagerCpp.fahrenheit
     readonly property bool twelveHour: Clock.twelveHour(SettingsManagerCpp.timeFormat)
     readonly property var weekdays: [0, 1, 2, 3, 4, 5, 6].map(d => Qt.locale().dayName(d, Locale.ShortFormat))
 
@@ -354,8 +354,8 @@ Item {
                     width: tiles.tileWidth
                     glyph: "wind"
                     title: qsTr("Wind")
-                    value: sheet.current ? Weather.speed(sheet.current.wind_speed, WeatherClient.milesPerHour) : ""
-                    detail: sheet.current ? (sheet.current.wind_gust !== null && sheet.current.wind_gust !== undefined ? qsTr("From the %1, gusts %2").arg(Weather.compass(sheet.current.wind_direction)).arg(Weather.speed(sheet.current.wind_gust, WeatherClient.milesPerHour)) : qsTr("From the %1").arg(Weather.compass(sheet.current.wind_direction))) : ""
+                    value: sheet.current ? Weather.speed(sheet.current.wind_speed, SettingsManagerCpp.milesPerHour) : ""
+                    detail: sheet.current ? (sheet.current.wind_gust !== null && sheet.current.wind_gust !== undefined ? qsTr("From the %1, gusts %2").arg(Weather.compass(sheet.current.wind_direction)).arg(Weather.speed(sheet.current.wind_gust, SettingsManagerCpp.milesPerHour)) : qsTr("From the %1").arg(Weather.compass(sheet.current.wind_direction))) : ""
 
                     // The arrow points where the wind blows to.
                     Item {

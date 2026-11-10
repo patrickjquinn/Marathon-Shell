@@ -4,8 +4,6 @@ import QtQml
 QtObject {
     property var forecast: ({})
     property string state: ""
-    property bool fahrenheit: false
-    property bool milesPerHour: false
     property var calls: []
 
     signal searchFinished(var places, string error)

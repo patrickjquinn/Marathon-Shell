@@ -19,6 +19,7 @@ use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, Q
 use futures_lite::StreamExt;
 use marathon_qt as qvariant;
 use marathon_rt::dirs;
+use marathon_rt::units::{local_zone, Units};
 use zbus::fdo;
 use zbus::message::Header;
 use zbus::OwnedVariant as OwnedValue;
@@ -53,6 +54,11 @@ pub mod qobject {
         #[qproperty(bool, show_notification_previews, cxx_name = "showNotificationPreviews", READ, WRITE = set_show_notification_previews, NOTIFY)]
         #[qproperty(QString, time_format, cxx_name = "timeFormat", READ, WRITE = set_time_format, NOTIFY)]
         #[qproperty(QString, date_format, cxx_name = "dateFormat", READ, WRITE = set_date_format, NOTIFY)]
+        /// Weather units: "auto" (the time zone's country), "metric" or "imperial".
+        #[qproperty(QString, units, READ, WRITE = set_units, NOTIFY)]
+        /// Weather in °F (and inches of rain), and wind in mph, as units resolves.
+        #[qproperty(bool, fahrenheit, READ, NOTIFY)]
+        #[qproperty(bool, miles_per_hour, cxx_name = "milesPerHour", READ, NOTIFY)]
         #[qproperty(QString, ringtone, READ, WRITE = set_ringtone, NOTIFY)]
         #[qproperty(QString, notification_sound, cxx_name = "notificationSound", READ, WRITE = set_notification_sound, NOTIFY)]
         #[qproperty(QString, alarm_sound, cxx_name = "alarmSound", READ, WRITE = set_alarm_sound, NOTIFY)]
@@ -125,6 +131,8 @@ pub mod qobject {
         fn set_time_format(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setDateFormat"]
         fn set_date_format(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setUnits"]
+        fn set_units(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setRingtone"]
         fn set_ringtone(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setNotificationSound"]
@@ -396,6 +404,8 @@ macro_rules! properties {
     ($($field:ident: $ty:ty = $default:expr, $key:literal, $name:literal, $changed:ident, $hook:ident, $setter:ident($arg:ty) $($custom:ident)?;)*) => {
         pub struct SettingsRust {
             $($field: $ty,)*
+            fahrenheit: bool,
+            miles_per_hour: bool,
             ini: Ini,
             saves: u64,
             dirty: bool,
@@ -403,7 +413,7 @@ macro_rules! properties {
 
         impl Default for SettingsRust {
             fn default() -> Self {
-                Self { $($field: $default,)* ini: Ini::default(), saves: 0, dirty: false }
+                Self { $($field: $default,)* fahrenheit: false, miles_per_hour: false, ini: Ini::default(), saves: 0, dirty: false }
             }
         }
 
@@ -462,6 +472,7 @@ properties! {
     show_notification_previews: bool = true, "system/showNotificationPreviews", "showNotificationPreviews", show_notification_previews_changed, on_show_notification_previews_changed, set_show_notification_previews(bool);
     time_format: QString = QString::from(""), "system/timeFormat", "timeFormat", time_format_changed, on_time_format_changed, set_time_format(&QString);
     date_format: QString = QString::from("US"), "system/dateFormat", "dateFormat", date_format_changed, on_date_format_changed, set_date_format(&QString);
+    units: QString = QString::from("auto"), "system/units", "units", units_changed, on_units_changed, set_units(&QString);
     ringtone: QString = QString::from(&asset_url("sounds/phone/bbpro1.wav")), "audio/ringtone", "ringtone", ringtone_changed, on_ringtone_changed, set_ringtone(&QString);
     notification_sound: QString = QString::from(&asset_url("sounds/text/chime.wav")), "audio/notificationSound", "notificationSound", notification_sound_changed, on_notification_sound_changed, set_notification_sound(&QString);
     alarm_sound: QString = QString::from(&asset_url("sounds/alarms/alarm_sunrise.wav")), "audio/alarmSound", "alarmSound", alarm_sound_changed, on_alarm_sound_changed, set_alarm_sound(&QString);
@@ -659,21 +670,6 @@ fn sound_name(path: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-/// The zone `/etc/localtime` names.
-pub(crate) fn local_zone() -> String {
-    let target = fs::read_link("/etc/localtime").unwrap_or_default();
-    let target = target.to_string_lossy();
-    target.split_once("zoneinfo/").map_or_else(
-        || {
-            std::env::var("TZ")
-                .unwrap_or_default()
-                .trim_start_matches(':')
-                .to_owned()
-        },
-        |(_, z)| z.to_owned(),
-    )
 }
 
 extern "C" {
@@ -980,6 +976,7 @@ impl Settings {
         rust.screen_timeout = screen_timeout;
         rust.dirty = migrated;
         self.as_mut().read_properties();
+        self.as_mut().resolve_units();
         crate::portal::set_theming(self.gtk_theming, self.kde_theming);
         set_unthemed(&self.unthemed_apps);
         // Every "open in default..." resolves to one of Marathon's own apps
@@ -1032,6 +1029,9 @@ impl Settings {
         if matches!(name, "dndEnabled" | "audioProfile") {
             crate::audio::push_state();
         }
+        if matches!(name, "units" | "timeZone") {
+            self.as_mut().resolve_units();
+        }
         if name == "language" {
             crate::i18n::select(&self.language().to_string());
         }
@@ -1042,6 +1042,17 @@ impl Settings {
             set_unthemed(&self.unthemed_apps);
         }
         self.save_soon();
+    }
+
+    fn resolve_units(mut self: Pin<&mut Self>) {
+        let units = Units::resolve(&self.units.to_string(), &self.time_zone.to_string());
+        set!(self, fahrenheit, fahrenheit_changed, units.fahrenheit);
+        set!(
+            self,
+            miles_per_hour,
+            miles_per_hour_changed,
+            units.miles_per_hour
+        );
     }
 
     /// The file is rewritten once a burst of changes (a volume drag) settles.
