@@ -1,0 +1,116 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] usb: musb: gadget: Don't drop an OUT packet that arrives before
+ its request
+
+Commit 3fc137386c46 ("usb: musb: Fix hardware lockup on first Rx
+endpoint request") made musb_ep_restart() flush the Rx FIFO instead of
+calling rxstate(), so that ->complete() never runs from usb_ep_queue().
+Its message accepts that "one or two packets" may be dropped.
+
+They are not spare packets. The controller ACKs a bulk OUT packet into
+the FIFO whether or not a request is queued, so the host has seen it
+delivered and will not resend it. A function that queues one request at
+a time, such as FunctionFS with a blocking read(), meets this on every
+packet the host sends between two reads. MTP over FunctionFS (umtprd)
+loses a command whenever the host sends it before umtprd is back in
+read(), and the host then waits out its timeout for a response that
+cannot come.
+
+Keep the packet instead. When the first request is queued and RxPktRdy
+is set, schedule a work item that runs musb_g_rx() for it under the
+controller lock, as the interrupt would have done had the request been
+there. ->complete() still never runs from usb_ep_queue(), and the
+endpoint is not left with RxPktRdy set and no interrupt to come, which
+was the lockup the earlier commit fixed.
+
+MediaTek's own musb driver for MT6789 never flushes here: with QMU it
+adds the request to the queue and the controller drains the FIFO into
+it, and its non-QMU path keeps an rx_pending flag for a packet that
+came with no request.
+
+Fixes: 3fc137386c46 ("usb: musb: Fix hardware lockup on first Rx endpoint request")
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+--- a/drivers/usb/musb/musb_core.h
++++ b/drivers/usb/musb/musb_core.h
+@@ -288,6 +288,7 @@
+ 	struct delayed_work	deassert_reset_work;
+ 	struct delayed_work	finish_resume_work;
+ 	struct delayed_work	gadget_work;
++	struct work_struct	rx_restart_work;
+ 	u16			hwvers;
+ 
+ 	u16			intrrxe;
+--- a/drivers/usb/musb/musb_gadget.c
++++ b/drivers/usb/musb/musb_gadget.c
+@@ -1158,23 +1158,46 @@
+ }
+ 
+ /*
++ * Hand packets that arrived while their endpoint had no request to the
++ * request queued since, outside usb_ep_queue().
++ */
++static void musb_g_rx_restart_work(struct work_struct *work)
++{
++	struct musb *musb = container_of(work, struct musb, rx_restart_work);
++	unsigned long flags;
++	u8 epnum;
++
++	pm_runtime_get_sync(musb->controller);
++	spin_lock_irqsave(&musb->lock, flags);
++	for (epnum = 1; epnum < musb->nr_endpoints; epnum++) {
++		struct musb_hw_ep *hw_ep = &musb->endpoints[epnum];
++		struct musb_ep *musb_ep = hw_ep->is_shared_fifo ?
++					  &hw_ep->ep_in : &hw_ep->ep_out;
++
++		if (!musb_ep->desc || musb_ep->is_in || !next_request(musb_ep))
++			continue;
++
++		musb_ep_select(musb->mregs, epnum);
++		if (musb_readw(hw_ep->regs, MUSB_RXCSR) & MUSB_RXCSR_RXPKTRDY)
++			musb_g_rx(musb, epnum);
++	}
++	spin_unlock_irqrestore(&musb->lock, flags);
++	pm_runtime_put_autosuspend(musb->controller);
++}
++
++/*
+  * Context: controller locked, IRQs blocked.
+  */
+ void musb_ep_restart(struct musb *musb, struct musb_request *req)
+ {
+-	u16 csr;
+ 	void __iomem *epio = req->ep->hw_ep->regs;
+ 
+ 	trace_musb_req_start(req);
+ 	musb_ep_select(musb->mregs, req->epnum);
+-	if (req->tx) {
++	if (req->tx)
+ 		txstate(musb, req);
+-	} else {
+-		csr = musb_readw(epio, MUSB_RXCSR);
+-		csr |= MUSB_RXCSR_FLUSHFIFO | MUSB_RXCSR_P_WZC_BITS;
+-		musb_writew(epio, MUSB_RXCSR, csr);
+-		musb_writew(epio, MUSB_RXCSR, csr);
+-	}
++	else if (musb_readw(epio, MUSB_RXCSR) & MUSB_RXCSR_RXPKTRDY)
++		schedule_work(&musb->rx_restart_work);
+ }
+ 
+ static int musb_ep_restart_resume_work(struct musb *musb, void *data)
+@@ -1787,6 +1810,7 @@
+ 	/* don't support otg protocols */
+ 	musb->g.is_otg = 0;
+ 	INIT_DELAYED_WORK(&musb->gadget_work, musb_gadget_work);
++	INIT_WORK(&musb->rx_restart_work, musb_g_rx_restart_work);
+ 	musb_g_init_endpoints(musb);
+ 
+ 	musb->is_active = 0;
+@@ -1810,6 +1834,7 @@
+ 
+ 	cancel_delayed_work_sync(&musb->gadget_work);
+ 	usb_del_gadget_udc(&musb->g);
++	cancel_work_sync(&musb->rx_restart_work);
+ }
+ 
+ /*
