@@ -156,6 +156,7 @@ const MAX_ATTEMPTS: i32 = 5;
 const LOCKOUT: Duration = Duration::from_secs(300);
 const DATA_KEY_HELPER: &str = "/usr/libexec/marathon-data-key";
 const REMOTE_HELPER: &str = "/usr/libexec/marathon-remote-connection";
+const BUG_REPORT_HELPER: &str = "/usr/libexec/marathon-bug-report";
 /// The shortest remote connection password, here and in the helper.
 const REMOTE_PASSWORD_MIN: usize = 8;
 /// The root service that erases the device at the next boot, on images that can.
@@ -927,6 +928,26 @@ impl Security1 {
         });
         Ok(())
     }
+
+    /// Gathers the system's logs into a file in Documents. Answers with
+    /// `BugReportCreated` and its path, or `BugReportFailed` saying why not.
+    async fn create_bug_report(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        io::spawn(async move {
+            let args = vec![BUG_REPORT_HELPER.to_owned(), "create".to_owned()];
+            match run_output("pkexec".to_owned(), args, "", true).await {
+                Some((Some(0), path)) if !path.trim().is_empty() => {
+                    ipc::signal("Security", "BugReportCreated", (path.trim().to_owned(),));
+                }
+                _ => ipc::signal(
+                    "Security",
+                    "BugReportFailed",
+                    (fl!("security-bug-report-failed"),),
+                ),
+            }
+        });
+        Ok(())
+    }
 }
 
 async fn set_remote_connection(
@@ -1245,11 +1266,26 @@ pub(crate) async fn run_helper(helper: &str, command: &str, secret: &str) -> Opt
 }
 
 async fn run(program: String, args: Vec<String>, secret: &str) -> Option<i32> {
+    run_output(program, args, secret, false).await?.0
+}
+
+/// `run`, with what the program printed when `capture`.
+async fn run_output(
+    program: String,
+    args: Vec<String>,
+    secret: &str,
+    capture: bool,
+) -> Option<(Option<i32>, String)> {
     let secret = secret.to_owned();
     blocking::unblock(move || {
         let mut child = Command::new(&program)
             .args(&args)
             .stdin(Stdio::piped())
+            .stdout(if capture {
+                Stdio::piped()
+            } else {
+                Stdio::inherit()
+            })
             .stderr(Stdio::piped())
             .spawn()
             .ok()?;
@@ -1268,7 +1304,10 @@ async fn run(program: String, args: Vec<String>, secret: &str) -> Option<i32> {
                 ),
             );
         }
-        out.status.code()
+        Some((
+            out.status.code(),
+            String::from_utf8_lossy(&out.stdout).into_owned(),
+        ))
     })
     .await
 }

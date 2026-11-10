@@ -254,6 +254,9 @@ install(PROGRAMS tools/marathon-usb-mode/marathon-usb-mode
 install(PROGRAMS tools/marathon-update-channel/marathon-update-channel
     DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
 )
+install(PROGRAMS tools/marathon-bug-report/marathon-bug-report
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
 install(FILES tools/marathon-update-channel/marathon-update-channel.service
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system
 )
