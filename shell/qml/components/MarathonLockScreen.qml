@@ -27,7 +27,7 @@ Item {
         }
         Silica.Label {
             anchors.verticalCenter: parent.verticalCenter
-            text: badge.current ? Weather.temperature(badge.current.temperature, WeatherClient.fahrenheit) : ""
+            text: badge.current ? Weather.temperature(badge.current.temperature, SettingsManagerCpp.fahrenheit) : ""
             font.pixelSize: badge.pixelSize
             color: badge.glyph
             style: Text.Outline

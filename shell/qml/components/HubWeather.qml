@@ -117,7 +117,7 @@ Column {
                 anchors.leftMargin: Silica.Theme.paddingMedium
                 anchors.verticalCenter: parent.verticalCenter
                 visible: card.current !== null
-                text: card.current ? Weather.temperature(card.current.temperature, WeatherClient.fahrenheit) : ""
+                text: card.current ? Weather.temperature(card.current.temperature, SettingsManagerCpp.fahrenheit) : ""
                 font.pixelSize: Silica.Theme.fontSizeExtraLarge
                 font.family: Silica.Theme.fontFamilyHeading
                 font.weight: Font.Light
@@ -144,7 +144,7 @@ Column {
                             return WeatherClient.state === "no-location" ? qsTr("Choose a place to see its weather") : "";
                         const parts = [Weather.condition(card.current.symbol)];
                         if (card.today)
-                            parts.push(qsTr("H %1 L %2").arg(Weather.temperature(card.today.high, WeatherClient.fahrenheit)).arg(Weather.temperature(card.today.low, WeatherClient.fahrenheit)));
+                            parts.push(qsTr("H %1 L %2").arg(Weather.temperature(card.today.high, SettingsManagerCpp.fahrenheit)).arg(Weather.temperature(card.today.low, SettingsManagerCpp.fahrenheit)));
                         return parts.filter(p => p).join(" · ");
                     }
                 }
@@ -242,7 +242,7 @@ Column {
                 height: implicitHeight
                 hours: Weather.upcoming(card.forecast.hourly, Date.now() / 1000, 6, 3)
                 offset: card.forecast.timezone_offset || 0
-                fahrenheit: WeatherClient.fahrenheit
+                fahrenheit: SettingsManagerCpp.fahrenheit
                 twelveHour: card.twelveHour
             }
         }

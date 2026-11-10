@@ -22,6 +22,7 @@ async-trait = "0.1"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 libc = "0.2"
 log = { version = "0.4", features = ["std"] }
+marathon-rt = { path = "../marathon-rt" }
 regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-case", "unicode-gencat", "unicode-perl"] }
 # HTTP/1.1, no system proxy, ring as the provider
 # (cross-compiles for aarch64 without cmake or clang).

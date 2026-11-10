@@ -4,8 +4,8 @@
 //! The person's language and region: what the Pilot app tells pilotd
 //! (`SetLocale`, from the app's own locale, which follows Settings >
 //! Language), else pilotd's environment (`LC_ALL`, `LC_MESSAGES`, `LANG`),
-//! else English. It decides the language Pilot is asked to answer in, the
-//! weather's units and the language of place names and dates.
+//! else English. It decides the language Pilot is asked to answer in and
+//! the language of place names and dates.
 
 use std::sync::RwLock;
 
@@ -98,11 +98,6 @@ impl Locale {
         })
     }
 
-    /// Fahrenheit, mph and inches: the United States, Liberia and Myanmar.
-    pub fn imperial(&self) -> bool {
-        matches!(self.region.as_str(), "US" | "LR" | "MM")
-    }
-
     /// The language for a web service's `language=` parameter ("de"; the
     /// Norwegian variants as "nb").
     pub fn service_language(&self) -> &str {
@@ -175,12 +170,7 @@ mod tests {
     }
 
     #[test]
-    fn units_and_prompt() {
-        assert!(Locale::parse("en_US").unwrap().imperial());
-        assert!(Locale::parse("en_LR").unwrap().imperial());
-        assert!(Locale::parse("my_MM").unwrap().imperial());
-        assert!(!Locale::parse("en_GB").unwrap().imperial());
-        assert!(!Locale::parse("en_CA").unwrap().imperial());
+    fn prompt() {
         assert_eq!(prompt_line(&Locale::parse("en_IE").unwrap()), "");
         let de = prompt_line(&Locale::parse("de_AT").unwrap());
         assert!(de.contains("answer in German"), "{de}");

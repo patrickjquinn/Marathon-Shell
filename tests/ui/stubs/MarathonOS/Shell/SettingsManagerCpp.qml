@@ -9,6 +9,9 @@ QtObject {
     property bool firstRunComplete: false
     property string language: ""
     property string timeFormat: "12h"
+    property string units: "auto"
+    property bool fahrenheit: false
+    property bool milesPerHour: false
     readonly property var availableLanguages: [
         {
             code: "en",
