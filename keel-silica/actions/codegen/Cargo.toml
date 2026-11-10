@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "keel-actions-codegen"
+description = "Keel Actions build step (ADR-0018): QML and Rust declarations to actions.json, D-Bus introspection, activation and Sailjail files, adaptor and test stubs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+publish.workspace = true
+
+[dependencies]
+keel-actions-schema = { path = "../schema" }
+proc-macro2 = { version = "1", features = ["span-locations"] }
+serde_json = "1"
+syn = { version = "2", features = ["full", "visit"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,125 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types Nemo.DBus 2.0 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "DeclarativeDBus"
+        prototype: "QObject"
+        exports: ["Nemo.DBus/DBus 2.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [512]
+        Enum {
+            name: "BusType"
+            values: {
+                "SystemBus": 0,
+                "SessionBus": 1
+            }
+        }
+    }
+    Component {
+        name: "DeclarativeDBusAdaptor"
+        prototype: "QDBusVirtualObject"
+        exports: ["Nemo.DBus/DBusAdaptor 2.0"]
+        exportMetaObjectRevisions: [512]
+        Property { name: "service"; type: "QString" }
+        Property { name: "path"; type: "QString" }
+        Property { name: "iface"; type: "QString" }
+        Property { name: "xml"; type: "QString" }
+        Property { name: "bus"; type: "DeclarativeDBus::BusType" }
+        Signal { name: "interfaceChanged" }
+        Method {
+            name: "emitSignal"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "arguments"; type: "QJSValue" }
+        }
+        Method {
+            name: "emitSignal"
+            Parameter { name: "name"; type: "QString" }
+        }
+    }
+    Component {
+        name: "DeclarativeDBusInterface"
+        prototype: "QObject"
+        exports: ["Nemo.DBus/DBusInterface 2.0"]
+        exportMetaObjectRevisions: [512]
+        Enum {
+            name: "Status"
+            values: {
+                "Unknown": 0,
+                "Unavailable": 1,
+                "Available": 2
+            }
+        }
+        Property { name: "watchServiceStatus"; type: "bool" }
+        Property { name: "status"; type: "DeclarativeDBusInterface::Status"; isReadonly: true }
+        Property { name: "service"; type: "QString" }
+        Property { name: "path"; type: "QString" }
+        Property { name: "iface"; type: "QString" }
+        Property { name: "bus"; type: "DeclarativeDBus::BusType" }
+        Property { name: "signalsEnabled"; type: "bool" }
+        Property { name: "propertiesEnabled"; type: "bool" }
+        Signal { name: "interfaceChanged" }
+        Signal { name: "propertiesChanged" }
+        Method {
+            name: "call"
+            Parameter { name: "method"; type: "QString" }
+            Parameter { name: "arguments"; type: "QJSValue" }
+            Parameter { name: "callback"; type: "QJSValue" }
+            Parameter { name: "errorCallback"; type: "QJSValue" }
+        }
+        Method {
+            name: "call"
+            Parameter { name: "method"; type: "QString" }
+            Parameter { name: "arguments"; type: "QJSValue" }
+            Parameter { name: "callback"; type: "QJSValue" }
+        }
+        Method {
+            name: "call"
+            Parameter { name: "method"; type: "QString" }
+            Parameter { name: "arguments"; type: "QJSValue" }
+        }
+        Method {
+            name: "call"
+            Parameter { name: "method"; type: "QString" }
+        }
+        Method {
+            name: "typedCall"
+            type: "bool"
+            Parameter { name: "method"; type: "QString" }
+            Parameter { name: "arguments"; type: "QJSValue" }
+            Parameter { name: "callback"; type: "QJSValue" }
+            Parameter { name: "errorCallback"; type: "QJSValue" }
+        }
+        Method {
+            name: "typedCall"
+            type: "bool"
+            Parameter { name: "method"; type: "QString" }
+            Parameter { name: "arguments"; type: "QJSValue" }
+            Parameter { name: "callback"; type: "QJSValue" }
+        }
+        Method {
+            name: "typedCall"
+            type: "bool"
+            Parameter { name: "method"; type: "QString" }
+            Parameter { name: "arguments"; type: "QJSValue" }
+        }
+        Method {
+            name: "getProperty"
+            type: "QVariant"
+            Parameter { name: "name"; type: "QString" }
+        }
+        Method {
+            name: "setProperty"
+            Parameter { name: "name"; type: "QString" }
+            Parameter { name: "newValue"; type: "QVariant" }
+        }
+    }
+    Component { name: "QDBusVirtualObject"; prototype: "QObject" }
+}

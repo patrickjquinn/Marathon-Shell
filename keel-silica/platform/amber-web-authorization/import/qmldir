@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2021 Open Mobile Platform LLC.
+# SPDX-License-Identifier: BSD-3-Clause
+module Amber.Web.Authorization
+plugin amberwebauthorizationplugin
+typeinfo plugins.qmltypes
+OAuth2Ac 1.0 OAuth2Ac.qml
+OAuth2AcPkce 1.0 OAuth2AcPkce.qml
+OAuth2Implicit 1.0 OAuth2Implicit.qml
+OAuth10a 1.0 OAuth10a.qml

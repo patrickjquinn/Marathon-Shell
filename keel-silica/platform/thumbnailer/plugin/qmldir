@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+module Nemo.Thumbnailer
+plugin nemothumbnailer
+typeinfo plugins.qmltypes
+# For qmllint: the types derive from QtQuick's Item.
+depends QtQuick

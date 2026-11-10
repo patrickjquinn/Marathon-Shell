@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE node PUBLIC
+  "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+  "http://standards.freedesktop.org/dbus/1.0/introspect.dtd">
+<node name="/com/nokia/mce/signal">
+  <interface name="com.nokia.mce.signal">
+    <signal name="charging_state_ind">
+      <arg name="charging_state" type="s"/>
+    </signal>
+    <signal name="sig_button_backlight_ind">
+      <arg name="enabled" type="b"/>
+    </signal>
+    <signal name="sig_memory_level_ind">
+      <arg name="memory_level" type="s"/>
+    </signal>
+    <signal name="psm_state_ind">
+      <arg name="psm_active" type="b"/>
+    </signal>
+    <signal name="sig_call_state_ind">
+      <arg name="call_state" type="s"/>
+      <arg name="call_type" type="s"/>
+    </signal>
+    <signal name="system_inactivity_ind">
+      <arg name="device_inactive" type="b"/>
+    </signal>
+    <signal name="led_pattern_deactivated_ind">
+      <arg name="pattern_name" type="s"/>
+    </signal>
+    <signal name="led_pattern_activated_ind">
+      <arg name="pattern_name" type="s"/>
+    </signal>
+    <signal name="fader_opacity_ind">
+      <arg name="fader_opacity_percent" type="i"/>
+      <arg name="transition_length" type="i"/>
+    </signal>
+    <signal name="display_status_ind">
+      <arg name="display_state_curr" type="s"/>
+    </signal>
+    <signal name="display_blanking_inhibit_ind">
+      <arg name="blanking_inhibit" type="s"/>
+    </signal>
+    <signal name="display_blanking_pause_allowed_ind">
+      <arg name="allowed" type="b"/>
+    </signal>
+    <signal name="display_blanking_pause_ind">
+      <arg name="blanking_pause" type="s"/>
+    </signal>
+    <signal name="color_profile_ind">
+      <arg name="active_color_profile" type="s"/>
+    </signal>
+    <signal name="radio_states_ind">
+      <arg name="radio_states" type="u"/>
+    </signal>
+    <signal name="battery_level_ind">
+      <arg name="battery_level" type="i"/>
+    </signal>
+    <signal name="battery_state_ind">
+      <arg name="battery_state" type="s"/>
+    </signal>
+    <signal name="battery_status_ind">
+      <arg name="battery_status" type="s"/>
+    </signal>
+    <signal name="charger_state_ind">
+      <arg name="charger_state" type="s"/>
+    </signal>
+    <signal name="charger_type_ind">
+      <arg name="charger_type" type="s"/>
+    </signal>
+    <signal name="usb_cable_state_ind">
+      <arg name="usb_cable_state" type="s"/>
+    </signal>
+    <signal name="display_blanking_policy_ind">
+      <arg name="blanking_policy" type="s"/>
+    </signal>
+    <signal name="keyboard_available_state_ind">
+      <arg name="keyboard_state" type="s"/>
+    </signal>
+    <signal name="keyboard_slide_state_ind">
+      <arg name="slide_state" type="s"/>
+    </signal>
+    <signal name="lpm_ui_mode_ind">
+      <arg name="lpm_mode" type="s"/>
+    </signal>
+    <signal name="tklock_mode_ind">
+      <arg name="tklock_mode" type="s"/>
+    </signal>
+    <signal name="touch_input_policy_ind">
+      <arg name="input_policy" type="s"/>
+    </signal>
+    <signal name="keypad_input_policy_ind">
+      <arg name="input_policy" type="s"/>
+    </signal>
+    <signal name="power_button_trigger">
+      <arg name="event" type="s"/>
+    </signal>
+    <signal name="call_ui_feedback_ind">
+      <arg name="event" type="s"/>
+    </signal>
+    <signal name="alarm_ui_feedback_ind">
+      <arg name="event" type="s"/>
+    </signal>
+    <signal name="config_change_ind">
+      <arg name="key_name" type="s"/>
+      <arg name="key_value" type="v"/>
+    </signal>
+  </interface>
+</node>

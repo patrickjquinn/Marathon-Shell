@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# The Keel Actions test app (keel/actions/tests/app).
+[Desktop Entry]
+Type=Application
+Name=Notes (Keel Actions test)
+Exec=/usr/bin/keel-actions-test-notes
+X-Nemo-Application-Type=keel
+
+[X-Sailjail]
+OrganizationName=org.example
+ApplicationName=notes
+Permissions=
+ExecDBus=/usr/bin/keel-actions-test-notes --keel-actions

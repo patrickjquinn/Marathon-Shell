@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@/keel/sailfishapp
+
+Name: @KEEL_PC_NAME@
+Description: SailfishApp API for Qt6 apps on Keel (Shipwright)
+Version: @PROJECT_VERSION@
+Requires: Qt6Core Qt6Gui Qt6Qml Qt6Quick
+Libs: -L${libdir} -lkeel-sailfishapp
+Cflags: -I${includedir}

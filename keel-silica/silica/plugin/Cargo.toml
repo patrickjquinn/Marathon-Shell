@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+
+# Native part of Keel's Silica module: ambience and palette logic exposed to
+# QML through CXX-Qt. Built by keel/silica/CMakeLists.txt as a static library
+# and linked into the `Keel` QML plugin; it is its own Cargo workspace because
+# the root workspace excludes keel/.
+[package]
+name = "keel_silica_native"
+version = "0.1.0"
+edition = "2021"
+# CXX-Qt 0.10 needs 1.85; the repository toolchain (rust-toolchain.toml) is newer.
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[workspace]
+
+# The repository's proposed lint set (docs/quality/review-checklist.md,
+# "Rust"); this crate is its own workspace, so it repeats them here.
+[lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
+[lints.clippy]
+# Pedantic everywhere; CI runs clippy with -D warnings. Three pedantic lints
+# are off, as in keel/silica/plugin: a #[must_use] on every getter and an
+# "# Errors" section on every fallible function add boilerplate, not safety,
+# and module_name_repetitions fights ordinary Rust naming.
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"
+# Restriction lints this crate adds on top of the repository policy.
+unwrap_used = "warn"
+expect_used = "warn"
+unwrap_in_result = "warn"
+get_unwrap = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+map_err_ignore = "warn"
+clone_on_ref_ptr = "warn"
+mutex_atomic = "warn"
+rc_mutex = "warn"
+let_underscore_must_use = "warn"
+undocumented_unsafe_blocks = "warn"
+allow_attributes_without_reason = "warn"
+redundant_clone = "warn"
+needless_collect = "warn"
+or_fun_call = "warn"
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+# Pinned exactly: CXX-Qt's API changes between minor versions (docs/plan.md).
+cxx = "=1.0.202"
+cxx-qt = "=0.10.0"
+cxx-qt-lib = { version = "=0.10.0", default-features = false }
+
+[build-dependencies]
+cxx-qt-build = "=0.10.0"
+
+[profile.release]
+# Keep the static library small; the C++ plugin links it with --exclude-libs.
+lto = false
+codegen-units = 16
+debug = false

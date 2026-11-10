@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+module org.nemomobile.dbus
+plugin nemodbus ../../../Nemo/DBus
+typeinfo plugins.qmltypes

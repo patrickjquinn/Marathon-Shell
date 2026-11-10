@@ -1,0 +1,67 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types org.nemomobile.configuration 1.0 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "ConfigurationGroup"
+        defaultProperty: "data"
+        prototype: "MDConfGroup"
+        exports: ["org.nemomobile.configuration/ConfigurationGroup 1.0"]
+        exportMetaObjectRevisions: [256]
+        Property { name: "data"; type: "QObject"; isList: true; isReadonly: true }
+    }
+    Component {
+        name: "ConfigurationValue"
+        prototype: "QObject"
+        exports: ["org.nemomobile.configuration/ConfigurationValue 1.0"]
+        exportMetaObjectRevisions: [256]
+        Property { name: "key"; type: "QString" }
+        Property { name: "value"; type: "QVariant" }
+        Property { name: "defaultValue"; type: "QVariant" }
+        Method { name: "sync" }
+    }
+    Component {
+        name: "MDConfGroup"
+        prototype: "QObject"
+        Property { name: "synchronous"; type: "bool" }
+        Property { name: "path"; type: "QString" }
+        Property { name: "scope"; type: "MDConfGroup"; isPointer: true }
+        Signal {
+            name: "valueChanged"
+            Parameter { name: "key"; type: "QString" }
+        }
+        Signal { name: "valuesChanged" }
+        Method { name: "sync" }
+        Method { name: "clear" }
+        Method {
+            name: "value"
+            type: "QVariant"
+            Parameter { name: "key"; type: "QString" }
+            Parameter { name: "defaultValue"; type: "QVariant" }
+            Parameter { name: "typeHint"; type: "int" }
+        }
+        Method {
+            name: "value"
+            type: "QVariant"
+            Parameter { name: "key"; type: "QString" }
+            Parameter { name: "defaultValue"; type: "QVariant" }
+        }
+        Method {
+            name: "value"
+            type: "QVariant"
+            Parameter { name: "key"; type: "QString" }
+        }
+        Method {
+            name: "setValue"
+            Parameter { name: "key"; type: "QString" }
+            Parameter { name: "value"; type: "QVariant" }
+        }
+    }
+}

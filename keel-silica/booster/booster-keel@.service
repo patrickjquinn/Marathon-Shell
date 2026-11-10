@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Per-application Keel booster inside the app's Sailjail sandbox, as
+# booster-silica-qt5@.service does for sandboxed Qt 5 Silica apps.
+[Unit]
+Description=Application launch booster for Keel (Qt 6 Silica) apps (sandboxed)
+Requires=dbus.socket booster-silica-session.path lipstick.service
+After=dbus.service booster-silica-session.path lipstick.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/invoker --type=silica-session -- /usr/bin/sailjail --profile=%i -- /usr/libexec/mapplauncherd/booster-keel --application=%i
+Restart=always
+RestartSec=1
+OOMScoreAdjust=-250

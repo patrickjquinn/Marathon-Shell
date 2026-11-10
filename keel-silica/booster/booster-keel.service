@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Application launch booster for Keel (Qt 6) apps: `invoker --type=keel`.
+# Same shape as booster-silica-qt5.service (mapplauncherd-booster-silica):
+# started through the silica-session booster so that it runs with the
+# session's environment (WAYLAND_DISPLAY and the rest).
+[Unit]
+Description=Application launch booster for Keel (Qt 6 Silica) apps
+After=lipstick.service booster-silica-session.path
+Requires=dbus.socket lipstick.service
+
+[Service]
+Type=forking
+PIDFile=%t/mapplauncherd/keel.pid
+ExecStart=/usr/bin/invoker --type=silica-session -o /usr/libexec/mapplauncherd/booster-keel --daemon
+Restart=always
+RestartSec=1
+OOMScoreAdjust=-250
+
+[Install]
+WantedBy=user-session.target

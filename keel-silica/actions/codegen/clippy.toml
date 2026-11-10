@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+
+# Product names, not code, in the doc comments (clippy::doc_markdown).
+doc-valid-idents = ["CMake", "QtQuick", ".."]
