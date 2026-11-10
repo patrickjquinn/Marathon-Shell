@@ -153,6 +153,7 @@ Object path `/org/shipwright/keel/Shell`, interface
 | signal `DpiChanged(i)` | | |
 | signal `CloseRequested()` | | Lipstick closed the app (window close or SIGTERM to keel-shell). Save state and quit. keel-shell sends SIGTERM to the app after the grace period (`--close-grace`, default 3000 ms; 1000 ms when the close came as SIGTERM), then SIGKILL 5 s later. |
 | signal `ScrollToTopRequested()` | | The phone's status bar was tapped. ApplicationWindow scrolls the current page's first visible view (breadth first) to the top. Marathon addition. |
+| method `SetCoverActionStrip(ii)` | count, height | The cover's action strip at its bottom edge: how many actions and its height in cover pixels (0 0 for none). A host whose cover tap opens the app passes taps inside the strip to the cover instead. Marathon addition. |
 
 ### 4.1 Activation
 

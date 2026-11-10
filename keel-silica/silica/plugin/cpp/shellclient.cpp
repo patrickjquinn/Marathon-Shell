@@ -184,6 +184,16 @@ void ShellClient::activate()
                                                    QLatin1String(kIface), QStringLiteral("Activate")));
 }
 
+void ShellClient::setCoverActionStrip(int count, int height)
+{
+    if (!m_connected)
+        return;
+    QDBusMessage call = QDBusMessage::createMethodCall(QString(), QLatin1String(kPath), QLatin1String(kIface),
+                                                       QStringLiteral("SetCoverActionStrip"));
+    call << count << height;
+    m_bus.asyncCall(call);
+}
+
 void ShellClient::setContentOrientation(int degrees)
 {
     if (m_direct) {

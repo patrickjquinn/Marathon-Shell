@@ -108,6 +108,10 @@ public:
     Q_INVOKABLE void activate();
     // Tells the shell the orientation the UI is laid out in, in degrees.
     Q_INVOKABLE void setContentOrientation(int degrees);
+    // keel-shell: the cover's action strip (its count of actions and its
+    // height in cover pixels, 0 0 for none), so the host passes taps there to
+    // the cover and opens the app on a tap anywhere else.
+    Q_INVOKABLE void setCoverActionStrip(int count, int height);
     // Direct mode: makes `window` (a QWindow, not yet shown) the Lipstick
     // cover: creates its platform window and sets CATEGORY=cover, which Qt's
     // wl-shell integration sends before the first buffer. No-op otherwise.

@@ -69,6 +69,16 @@ Item {
             Shell.setCoverActions(_coverWindow, _actionIcons, _actionBackground)
     }
     on_ActionIconsChanged: _publishActions()
+    // Under keel-shell the host passes taps in the strip to the cover.
+    function _publishStrip(): void {
+        if (!_lipstickDraws && Shell.connected)
+            Shell.setCoverActionStrip(_actions.length, _actions.length > 0 ? actionArea.height : 0)
+    }
+    on_ActionsChanged: _publishStrip()
+    Connections {
+        target: Shell
+        function onConnectedChanged() { cover._publishStrip() }
+    }
     on_ActionBackgroundChanged: _publishActions()
     on_CoverWindowChanged: _publishActions()
     Connections {
@@ -92,6 +102,7 @@ Item {
         _status = _shown ? Cover.Active : Cover.Inactive
         _collectActionLists()
         _publishActions()
+        _publishStrip()
     }
 
     implicitWidth: Theme.coverSizeLarge.width
@@ -111,6 +122,7 @@ Item {
         anchors.bottom: parent.bottom
         width: parent.width
         height: Math.round(Theme.itemSizeSmall * 1.2)
+        onHeightChanged: cover._publishStrip()
         Rectangle {
             anchors.fill: parent
             visible: !cover._lipstickDraws && cover._actionList !== null && cover._actionList.iconBackground
