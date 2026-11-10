@@ -921,6 +921,14 @@ int main(int argc, char *argv[]) {
             return {};
 #endif
         },
+        [compositorManager](const QString &appId) {
+#ifdef HAVE_WAYLAND
+            return RemoteTextInputTarget::hasWindow(appId, compositorManager->compositor());
+#else
+            Q_UNUSED(appId);
+            return false;
+#endif
+        },
         &app);
     QObject::connect(remoteTextInput, &RemoteTextInput::panelWanted, remoteTextInputFilter,
                      [=](bool show) {

@@ -18,11 +18,14 @@ class RemoteTextInputFilter : public QObject {
   public:
     // The app id of the window a focus object shows, or empty.
     using AppIdOf = std::function<QString(QObject *)>;
+    // Whether an app has a window of its own.
+    using HasWindow = std::function<bool(const QString &)>;
     // Keys sent from a QInputDevice of this name come from the on-screen keyboard.
     // NOLINTNEXTLINE(bugprone-throwing-static-initialization) QStringLiteral never allocates
     static inline const QString kKeyboardDevice = QStringLiteral("marathon-osk");
 
-    RemoteTextInputFilter(RemoteTextInput *input, AppIdOf appIdOf, QObject *parent = nullptr);
+    RemoteTextInputFilter(RemoteTextInput *input, AppIdOf appIdOf, HasWindow hasWindow,
+                          QObject *parent = nullptr);
     ~RemoteTextInputFilter() override;
 
     // Qt's focus is on the editor's window.
@@ -41,4 +44,5 @@ class RemoteTextInputFilter : public QObject {
 
     RemoteTextInput *m_input;
     AppIdOf          m_appIdOf;
+    HasWindow        m_hasWindow;
 };

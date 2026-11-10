@@ -11,4 +11,6 @@ namespace RemoteTextInputTarget {
     // the shell's, the window with the seat's keyboard focus (a Waydroid
     // window can hold the keyboard without Qt focus).
     QString appIdOf(QObject *object, QWaylandCompositor *compositor);
+    // Whether any surface item shows a window of appId.
+    bool hasWindow(const QString &appId, QWaylandCompositor *compositor);
 } // namespace RemoteTextInputTarget

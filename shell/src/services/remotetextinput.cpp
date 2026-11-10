@@ -56,10 +56,11 @@ namespace {
 } // namespace
 
 RemoteTextInputFilter::RemoteTextInputFilter(RemoteTextInput *input, AppIdOf appIdOf,
-                                             QObject *parent)
+                                             HasWindow hasWindow, QObject *parent)
     : QObject(parent)
     , m_input(input)
-    , m_appIdOf(std::move(appIdOf)) {
+    , m_appIdOf(std::move(appIdOf))
+    , m_hasWindow(std::move(hasWindow)) {
     QCoreApplication::instance()->installEventFilter(this);
 }
 
@@ -115,8 +116,10 @@ bool RemoteTextInputFilter::targets(QObject *object) const {
     auto         *item  = qobject_cast<QQuickItem *>(object);
     const bool    acceptsInputMethod =
         item && item->flags().testFlag(QQuickItem::ItemAcceptsInputMethod);
+    const bool editorHasWindow = m_hasWindow && m_hasWindow(editor);
     return marathon::text_input::should_target_editor(editor, appId, acceptsInputMethod,
-                                                      m_input->getFrontAppId());
+                                                      m_input->getFrontAppId(),
+                                                      m_input->getAppIdPrefix(), editorHasWindow);
 }
 
 bool RemoteTextInputFilter::targetsFocus() const {
