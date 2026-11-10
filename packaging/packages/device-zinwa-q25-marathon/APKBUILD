@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=58
+pkgrel=59
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -24,7 +24,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-carrier-root
  q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-power.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service q25-lk-update q25-lk-update.service
- q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
+ q25.xkb-symbols q25-keyboard-layout.env q25-deckard-keyboard.conf q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-splash-handover q25-splash-handover.service q25-splash-greetd.conf q25-splash-plymouth-quit.conf q25-splash-plymouth-quit-wait.conf q25-splash-plymouth-start.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules q25-geoclue.conf"
@@ -53,6 +53,7 @@ package() {
     # The same layout for Plymouth's PIN prompt.
     install -Dm644 "$srcdir/q25-vconsole.conf" "$pkgdir/etc/vconsole.conf"
     install -Dm644 "$srcdir/q25-plymouth-keyboard.conf" "$pkgdir/usr/lib/systemd/system/plymouth-start.service.d/50-q25-keyboard.conf"
+    install -Dm644 "$srcdir/q25-deckard-keyboard.conf" "$pkgdir/usr/lib/systemd/system/deckard-container.service.d/50-q25-keyboard.conf"
     # And for the initramfs's Plymouth, which stays up to ask for the PIN.
     install -Dm644 "$srcdir/q25-plymouth.files" "$pkgdir/usr/share/mkinitfs/files/50-q25-plymouth.files"
     install -Dm755 "$srcdir/q25-plymouth-newroot.hook" "$pkgdir/usr/share/mkinitfs/hooks-cleanup/90-q25-plymouth-newroot.sh"
@@ -250,6 +251,7 @@ f675b891d9ff7dfe2597d7021350a6c1c31ff919d40f73647ed4504de3e927a559e51c23c15f9898
 6878a13341d51a0c797327f438b473d367ac415381f04345b58937a4c73697571475c94c70a6a95c1495a12e610e065e3dede2b61696d9548839d6b1ac1ddbec  q25-lk-update.service
 ddd69eb57bef58a76f3b0bd965cadbef340efa6cbc4a7b11a0f1d7d700704a27f80f06d7f50e314c31e93a0bd62d92d2c070013b2015528cb624b9c5d5e25288  q25.xkb-symbols
 c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3ccbe57e24776e11ad02ab5d7457f0bc444a4b2b891f442605  q25-keyboard-layout.env
+2ad5a3def415d0a43715ba812e0d3d004fe2951e598f1ebe3b9eb6508fdd0e495e60897d7652310a07e11f48393a7ff7f5cbbfd7192cd6e702d8a6be60e63296  q25-deckard-keyboard.conf
 24c65349f8bdc55656ccc0b8a1c24b77895544a2bdafc1405fcd07666fc6c5925e14fd59038679d0003ab67d1dc098d358a6549005767587c12531b5f921de98  q25-vconsole.conf
 1ec697f5a2afc5268d9230637ddc296d252db2b611f18820846472f65a813532d2cc6e3e56285ee18f712d2a92d5c5a7e6566bb4b5ea563b8c4ae1fe2b440ae0  q25-plymouth-keyboard.conf
 9a49c02d4fd17978a2366e24a10bbc0e75bc7024b8d2322ff46d75db91b08c59d34dcb61627a53f9cfa4196f19b75282331b515261e7729eb444d5c0ce62b867  q25-plymouth.files
