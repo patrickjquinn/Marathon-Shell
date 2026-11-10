@@ -59,6 +59,13 @@ impl Lifecycle1 {
         self.0.set_cover_status(status);
         Ok(())
     }
+
+    /// The status bar was tapped: the app scrolls its page to the top.
+    async fn scroll_to_top(&self, #[zbus(header)] h: Header<'_>) -> zbus::fdo::Result<()> {
+        caller_is_shell(&h).await?;
+        self.0.request_scroll_to_top();
+        Ok(())
+    }
 }
 
 /// The shell freezes a backgrounded app's cgroup (marathon-app-<id>); a

@@ -169,6 +169,10 @@ impl Host {
         self.emit("CloseRequested", ());
     }
 
+    pub fn request_scroll_to_top(&self) {
+        self.emit("ScrollToTopRequested", ());
+    }
+
     fn change<T: Body + zbus::Type>(
         &self,
         apply: impl FnOnce(&mut State) -> bool,

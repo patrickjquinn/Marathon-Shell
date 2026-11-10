@@ -362,7 +362,7 @@ impl Tasks {
         if front.is_empty() {
             return false;
         }
-        if Self::is_marathon_app(&front) {
+        if Self::is_marathon_app(&front) || self.is_keel_host(&front) {
             dbus::runner(&front, "ScrollToTop", ());
             return true;
         }
