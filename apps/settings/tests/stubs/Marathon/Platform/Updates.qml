@@ -15,6 +15,7 @@ QtObject {
     property string lastError: ""
     property real lastCheckedMs: 1760000000000
     property bool autoUpdate: true
+    property bool developerUpdates: false
     property bool restartScheduled: false
     property string currentReleaseNotes: ""
     property var calls: []
@@ -30,6 +31,7 @@ QtObject {
         lastError = "";
         lastCheckedMs = 1760000000000;
         autoUpdate = true;
+        developerUpdates = false;
         restartScheduled = false;
         currentReleaseNotes = "";
         calls = [];

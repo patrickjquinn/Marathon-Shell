@@ -201,6 +201,7 @@ etc/adjtime
 etc/ssh/ssh_host_*
 etc/NetworkManager/system-connections
 etc/q25-modem/modem.conf
+etc/marathon/update-channel
 var/lib/bluetooth
 var/lib/NetworkManager
 var/lib/q25-modem

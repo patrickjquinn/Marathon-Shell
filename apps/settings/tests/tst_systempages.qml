@@ -395,6 +395,18 @@ TestCase {
         verify(!toggle.visible);
     }
 
+    function test_updateDeveloper() {
+        const s = open("updates");
+        const toggle = child(s.page, "developerUpdatesSwitch");
+        verify(toggle.visible);
+        verify(!toggle.checked);
+        toggle.clicked(null);
+        verify(Updates.developerUpdates);
+        verify(toggle.checked);
+        Updates.state = "unsupported";
+        verify(!toggle.visible);
+    }
+
     function test_updateTonight() {
         Updates.state = "readyToReboot";
         Updates.autoUpdate = false;

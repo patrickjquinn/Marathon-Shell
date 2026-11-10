@@ -173,6 +173,15 @@ Page {
                 checked: Updates.autoUpdate
                 onClicked: Updates.autoUpdate = !checked
             }
+            TextSwitch {
+                objectName: "developerUpdatesSwitch"
+                visible: page.updateState !== "unsupported"
+                text: qsTr("Developer updates")
+                description: qsTr("Gets test builds before everyone else. They are less tested and may have bugs.")
+                automaticCheck: false
+                checked: Updates.developerUpdates
+                onClicked: Updates.developerUpdates = !checked
+            }
             DetailItem {
                 objectName: "osVersion"
                 label: qsTr("Marathon OS")

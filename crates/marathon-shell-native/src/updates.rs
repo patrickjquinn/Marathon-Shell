@@ -65,6 +65,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setAutoUpdate"]
         fn set_auto_update(self: &Updates, on: bool);
+        /// Follow the test feed (developer builds) or the stable one.
+        #[qinvokable]
+        #[cxx_name = "setDeveloperUpdates"]
+        fn set_developer_updates(self: &Updates, on: bool);
         /// The phone asks for a PIN at startup: a restart nobody watches
         /// would wait at the prompt, alarms and calls with it.
         #[qinvokable]
@@ -231,6 +235,7 @@ impl Saved {
 }
 
 #[derive(Default)]
+#[allow(clippy::struct_excessive_bools, reason = "the switches Settings shows and the work in flight")]
 struct Machine {
     os_version: String,
     boot_id: String,
@@ -249,6 +254,8 @@ struct Machine {
     rolled_back: String,
     error: String,
     startup_pin: bool,
+    /// Updates come from the test feed (marathon-update-channel).
+    developer: bool,
     cancelled: String,
     effects: Vec<Effect>,
 }
@@ -259,6 +266,7 @@ impl Machine {
             os_version,
             boot_id,
             saved,
+            developer: developer_channel(),
             download_size: -1,
             ..Self::default()
         }
@@ -279,6 +287,7 @@ impl Machine {
             "lastError": self.error,
             "lastCheckedMs": self.saved.last_checked,
             "autoUpdate": !self.saved.manual,
+            "developerUpdates": self.developer,
             "restartScheduled": self.restart_scheduled(),
         })
     }
@@ -514,6 +523,8 @@ enum Msg {
     Reboot,
     ScheduleRestart,
     AutoUpdate(bool),
+    Developer(bool),
+    DeveloperSet(Option<bool>),
     StartupPin(bool),
     Reconsider(bool),
     Probed(Option<OwnedObjectPath>, String),
@@ -535,6 +546,14 @@ impl Msg {
             Msg::Progress(_) | Msg::Job(_) | Msg::Info(..) | Msg::Probed(..)
         )
     }
+}
+
+/// The root helper behind Settings' "Developer updates".
+const CHANNEL_HELPER: &str = "/usr/libexec/marathon-update-channel";
+
+/// Whether this phone follows the test feed.
+fn developer_channel() -> bool {
+    std::fs::read_to_string("/etc/marathon/update-channel").is_ok_and(|c| c.trim() == "test")
 }
 
 impl cxx_qt::Initialize for Updates {
@@ -587,6 +606,10 @@ impl Updates {
 
     fn set_auto_update(&self, on: bool) {
         self.send(Msg::AutoUpdate(on));
+    }
+
+    fn set_developer_updates(&self, on: bool) {
+        self.send(Msg::Developer(on));
     }
 
     fn set_startup_pin(&self, on: bool) {
@@ -660,6 +683,16 @@ impl Actor {
             Msg::Reboot => m.reboot(),
             Msg::ScheduleRestart => m.schedule_restart(),
             Msg::AutoUpdate(on) => m.set_auto_update(on),
+            Msg::Developer(on) => spawn(&self.tx, async move {
+                let channel = if on { "test" } else { "stable" };
+                let set = crate::security::run_helper(CHANNEL_HELPER, channel, "").await == Some(0);
+                Ok(Msg::DeveloperSet(set.then_some(on)))
+            }),
+            Msg::DeveloperSet(Some(on)) => {
+                m.developer = on;
+                m.check_now();
+            }
+            Msg::DeveloperSet(None) => log::warn("updates", "the update channel was not changed"),
             Msg::StartupPin(on) => m.startup_pin = on,
             Msg::Reconsider(idle) => {
                 m.conditions.idle = idle;
@@ -1356,6 +1389,11 @@ impl Updates1 {
     async fn set_auto_update(&self, on: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
         ipc::admit(&h, "Updates", &["system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_auto_update(on)).await
+    }
+
+    async fn set_developer_updates(&self, on: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Updates", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_developer_updates(on)).await
     }
 }
 
