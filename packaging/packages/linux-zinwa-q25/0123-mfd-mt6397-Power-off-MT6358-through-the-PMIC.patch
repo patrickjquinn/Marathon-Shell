@@ -1,0 +1,125 @@
+From 2015979a0b3a598d466cb255ba0c73f901c9e2b1 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 9 Nov 2026 22:06:12 +0000
+Subject: [PATCH 123/124] mfd: mt6397: Power off MT6358 through the PMIC
+
+Linux powers MT6358-family boards off through PSCI SYSTEM_OFF, which
+mainline TF-A implements by dropping the PMIC's power hold. Vendor BL31
+builds may not: on the Zinwa Q25 (MT6789 + MT6366) SYSTEM_OFF calls a
+PMIC hook nothing registered, waits a second and panics, so every power
+off ends in a reset.
+
+When the PMIC node is the system power controller, register a power-off
+handler ahead of PSCI that does what TF-A does: enable the shutdown
+delay, then clear PWRHOLD.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/mfd/mt6397-core.c            | 39 +++++++++++++++++++++++++++-
+ include/linux/mfd/mt6358/registers.h |  4 +++
+ 2 files changed, 42 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/mt6397-core.c b/drivers/mfd/mt6397-core.c
+index 4d0ef61..e91ce81 100644
+--- a/drivers/mfd/mt6397-core.c
++++ b/drivers/mfd/mt6397-core.c
+@@ -4,12 +4,14 @@
+  * Author: Flora Fu, MediaTek
+  */
+ 
++#include <linux/delay.h>
+ #include <linux/interrupt.h>
+ #include <linux/ioport.h>
+ #include <linux/irqdomain.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/reboot.h>
+ #include <linux/regmap.h>
+ #include <linux/mfd/core.h>
+ #include <linux/mfd/mt6323/core.h>
+@@ -291,8 +293,29 @@ struct chip_data {
+ 	const struct mfd_cell *cells;
+ 	int cell_size;
+ 	int (*irq_init)(struct mt6397_chip *chip);
++	int (*power_off)(struct sys_off_data *data);
+ };
+ 
++#define MT6358_TMA_UNLOCK_KEY	0x9ca7
++#define MT6358_PWRHOLD		BIT(0)
++#define MT6358_RG_SDN_DLY_ENB	BIT(10)
++
++/* What the TF-A SYSTEM_OFF of MT6358 boards does, for firmware that doesn't */
++static int mt6358_power_off(struct sys_off_data *data)
++{
++	struct mt6397_chip *pmic = data->cb_data;
++
++	regmap_write(pmic->regmap, MT6358_TOP_TMA_KEY, MT6358_TMA_UNLOCK_KEY);
++	regmap_clear_bits(pmic->regmap, MT6358_PSEQ_ELR11, MT6358_RG_SDN_DLY_ENB);
++	regmap_write(pmic->regmap, MT6358_TOP_TMA_KEY, 0);
++	regmap_clear_bits(pmic->regmap, MT6358_PPCCTL0, MT6358_PWRHOLD);
++
++	mdelay(1000);
++	WARN_ONCE(1, "Unable to power off system\n");
++
++	return NOTIFY_DONE;
++}
++
+ static const struct chip_data mt6323_core = {
+ 	.cid_addr = MT6323_CID,
+ 	.cid_shift = 0,
+@@ -331,6 +354,7 @@ static const struct chip_data mt6358_core = {
+ 	.cells = mt6358_devs,
+ 	.cell_size = ARRAY_SIZE(mt6358_devs),
+ 	.irq_init = mt6358_irq_init,
++	.power_off = mt6358_power_off,
+ };
+ 
+ static const struct chip_data mt6359_core = {
+@@ -398,9 +422,22 @@ static int mt6397_probe(struct platform_device *pdev)
+ 	if (ret) {
+ 		irq_domain_remove(pmic->irq_domain);
+ 		dev_err(&pdev->dev, "failed to add child devices: %d\n", ret);
++		return ret;
++	}
++
++	/* Ahead of PSCI, whose SYSTEM_OFF may not reach the PMIC */
++	if (pmic_core->power_off &&
++	    of_device_is_system_power_controller(pdev->dev.of_node)) {
++		ret = devm_register_sys_off_handler(&pdev->dev,
++						    SYS_OFF_MODE_POWER_OFF,
++						    SYS_OFF_PRIO_FIRMWARE + 1,
++						    pmic_core->power_off, pmic);
++		if (ret)
++			return dev_err_probe(&pdev->dev, ret,
++					     "failed to register power-off handler\n");
+ 	}
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static const struct of_device_id mt6397_of_match[] = {
+diff --git a/include/linux/mfd/mt6358/registers.h b/include/linux/mfd/mt6358/registers.h
+index f478eb7..c2f4540 100644
+--- a/include/linux/mfd/mt6358/registers.h
++++ b/include/linux/mfd/mt6358/registers.h
+@@ -13,6 +13,7 @@
+ #define MT6358_MISC_TOP_INT_CON0              0x188
+ #define MT6358_MISC_TOP_INT_STATUS0           0x194
+ #define MT6358_TOP_INT_STATUS0                0x19e
++#define MT6358_TOP_TMA_KEY                    0x3a8
+ #define MT6358_SCK_TOP_INT_CON0               0x52e
+ #define MT6358_SCK_TOP_INT_STATUS0            0x53a
+ #define MT6358_EOSC_CALI_CON0                 0x540
+@@ -317,4 +318,7 @@
+ #define MT6358_VM18_ANA_CON0                  MT6358_VCAMA1_ANA_CON0
+ #define MT6358_VMDDR_ANA_CON0                 MT6358_VCAMD_ANA_CON0
+ 
++#define MT6358_PPCCTL0                        0xa08
++#define MT6358_PSEQ_ELR11                     0xa62
++
+ #endif /* __MFD_MT6358_REGISTERS_H__ */
+-- 
+2.55.0
+
