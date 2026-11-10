@@ -3434,6 +3434,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-navigator"
+version = "0.1.0"
+dependencies = [
+ "polyline",
+ "serde_json",
+]
+
+[[package]]
 name = "marathon-permissions"
 version = "0.1.0"
 dependencies = [
