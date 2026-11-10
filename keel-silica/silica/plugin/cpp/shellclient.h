@@ -143,6 +143,8 @@ signals:
     void ambienceAboutToChange();
     void deferAmbienceChanged();
     void closeRequested();
+    // The status bar was tapped: scroll the current page to the top.
+    void scrollToTopRequested();
     void coverActionTriggered(int index);
 
 private slots:
@@ -152,6 +154,7 @@ private slots:
     void onAmbienceChanged(const QVariantMap &ambience);
     void onDpiChanged(int dpi);
     void onCloseRequested();
+    void onScrollToTopRequested();
     void onWindowVisibleChanged(bool visible);
 
 private:

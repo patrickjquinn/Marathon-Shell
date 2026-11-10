@@ -152,6 +152,7 @@ Object path `/org/shipwright/keel/Shell`, interface
 | signal `AmbienceChanged(a{sv})` | | Whole new map, debounced (250 ms). |
 | signal `DpiChanged(i)` | | |
 | signal `CloseRequested()` | | Lipstick closed the app (window close or SIGTERM to keel-shell). Save state and quit. keel-shell sends SIGTERM to the app after the grace period (`--close-grace`, default 3000 ms; 1000 ms when the close came as SIGTERM), then SIGKILL 5 s later. |
+| signal `ScrollToTopRequested()` | | The phone's status bar was tapped. ApplicationWindow scrolls the current page's first visible view (breadth first) to the top. Marathon addition. |
 
 ### 4.1 Activation
 

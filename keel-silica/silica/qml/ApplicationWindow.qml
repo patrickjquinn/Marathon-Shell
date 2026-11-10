@@ -463,8 +463,26 @@ Item {
         stack.animatorPush(page)
     }
 
+    // The first visible view with scrollToTop() on the current page,
+    // breadth first: the page's own flickable before any nested one.
+    function _scrollToTop() {
+        var queue = [stack.currentPage || window]
+        while (queue.length > 0) {
+            var item = queue.shift()
+            if (!item || !item.visible)
+                continue
+            if (typeof item.scrollToTop === "function") {
+                item.scrollToTop()
+                return
+            }
+            for (var i = 0; i < item.children.length; i++)
+                queue.push(item.children[i])
+        }
+    }
+
     Connections {
         target: Shell
         function onCloseRequested() { Qt.quit() }
+        function onScrollToTopRequested() { window._scrollToTop() }
     }
 }

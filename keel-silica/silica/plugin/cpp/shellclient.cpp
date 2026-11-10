@@ -98,6 +98,8 @@ bool ShellClient::connectTo(const QString &address)
     m_bus.connect(QString(), path, iface, QStringLiteral("AmbienceChanged"), this, SLOT(onAmbienceChanged(QVariantMap)));
     m_bus.connect(QString(), path, iface, QStringLiteral("DpiChanged"), this, SLOT(onDpiChanged(int)));
     m_bus.connect(QString(), path, iface, QStringLiteral("CloseRequested"), this, SLOT(onCloseRequested()));
+    m_bus.connect(QString(), path, iface, QStringLiteral("ScrollToTopRequested"), this,
+                  SLOT(onScrollToTopRequested()));
     m_connected = true;
     fetchProperties();
     emit connectedChanged();
@@ -309,6 +311,11 @@ void ShellClient::onDpiChanged(int dpi)
 void ShellClient::onCloseRequested()
 {
     emit closeRequested();
+}
+
+void ShellClient::onScrollToTopRequested()
+{
+    emit scrollToTopRequested();
 }
 
 // --- Direct mode ---------------------------------------------------------------
