@@ -1,0 +1,132 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] arm: mediatek: mt6789: tell the OS why the phone powered on
+
+LK read the preloader's boot reason and boot mode and started the
+charging screen when a charger had turned the phone on. U-Boot boots the
+OS whatever the reason, so plugging in a switched-off phone started the
+whole system. Read BOOT_TAG_BOOT_REASON and BOOT_TAG_BOOT_MODE (value at
+offset 8, as bl2_ext's own hooks read them) next to the DRAM layout and
+pass them on as /chosen/marathon,boot-reason and marathon,boot-mode.
+The OS decides what to do with them.
+---
+diff --git a/arch/arm/mach-mediatek/mt6789/init.c b/arch/arm/mach-mediatek/mt6789/init.c
+index b979093..9b67e9b 100644
+--- a/arch/arm/mach-mediatek/mt6789/init.c
++++ b/arch/arm/mach-mediatek/mt6789/init.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+ 
+ #include <fdtdec.h>
++#include <fdt_support.h>
+ #include <init.h>
+ #include <asm/armv8/mmu.h>
+ #include <asm/system.h>
+@@ -112,6 +113,8 @@ struct mm_region *mem_map = vicky_mem_map;
+ /* Preloader boot tags, refreshed by bl2_ext before it starts BL33 */
+ #define BOOT_TAG_BASE		0x48600000UL
+ #define BOOT_TAG_AREA		SZ_1M
++#define BOOT_TAG_BOOT_REASON	0x88610001
++#define BOOT_TAG_BOOT_MODE	0x88610002
+ #define BOOT_TAG_MEM		0x88610005
+ #define BOOT_TAG_MEM_SIZE	0x58b0
+ #define BOOT_TAG_MBLOCK_MAGIC	0x99999999
+@@ -128,27 +131,49 @@ static struct {
+ 	u64 size;
+ } dram_ranks[MAX_DRAM_RANKS] __section(".data");
+ static u32 dram_rank_num __section(".data");
++static struct {
++	bool valid;
++	u32 value;
++} boot_reason __section(".data"), boot_mode __section(".data");
+ 
+ static u64 boot_tag_read64(ulong addr)
+ {
+ 	return readl(addr) | (u64)readl(addr + 4) << 32;
+ }
+ 
+-static u32 boot_tag_dram_ranks(void)
++/* The tag's address and size, or 0 if it isn't there */
++static ulong boot_tag_find(u32 id, u32 *size)
+ {
+ 	ulong tag = BOOT_TAG_BASE;
+ 	ulong end = BOOT_TAG_BASE + BOOT_TAG_AREA;
+-	u64 next = gd->ram_base;
+-	u32 i, num, size = 0;
+ 
+-	for (; tag + 8 <= end; tag += size) {
+-		size = readl(tag);
+-		if (size < 8 || size % 4 || size > end - tag)
++	for (; tag + 8 <= end; tag += *size) {
++		*size = readl(tag);
++		if (*size < 8 || *size % 4 || *size > end - tag)
+ 			return 0;
+-		if (readl(tag + 4) == BOOT_TAG_MEM)
+-			break;
++		if (readl(tag + 4) == id)
++			return tag;
+ 	}
+-	if (tag + 8 > end || size != BOOT_TAG_MEM_SIZE ||
++	return 0;
++}
++
++static void boot_tag_u32(u32 id, bool *valid, u32 *value)
++{
++	u32 size;
++	ulong tag = boot_tag_find(id, &size);
++
++	*valid = tag && size >= 12;
++	if (*valid)
++		*value = readl(tag + 8);
++}
++
++static u32 boot_tag_dram_ranks(void)
++{
++	u64 next = gd->ram_base;
++	u32 i, num, size;
++	ulong tag = boot_tag_find(BOOT_TAG_MEM, &size);
++
++	if (!tag || size != BOOT_TAG_MEM_SIZE ||
+ 	    readl(tag + MEM_MAGIC_OFF) != BOOT_TAG_MBLOCK_MAGIC ||
+ 	    readl(tag + MEM_VERSION_OFF) > BOOT_TAG_MBLOCK_VERSION)
+ 		return 0;
+@@ -184,6 +209,8 @@ int dram_init(void)
+ 	if (ret)
+ 		return ret;
+ 
++	boot_tag_u32(BOOT_TAG_BOOT_REASON, &boot_reason.valid, &boot_reason.value);
++	boot_tag_u32(BOOT_TAG_BOOT_MODE, &boot_mode.valid, &boot_mode.value);
+ 	dram_rank_num = boot_tag_dram_ranks();
+ 	if (!dram_rank_num) {
+ 		/* Fall back to the known-good 2 GiB */
+@@ -225,3 +252,22 @@ phys_addr_t board_get_usable_ram_top(phys_size_t __maybe_unused total_size)
+ {
+ 	return min_t(phys_addr_t, gd->ram_top, gd->ram_base + SZ_2G);
+ }
++
++/*
++ * Why the preloader powered on, for the OS, as LK passed
++ * androidboot.bootreason and androidboot.mode: /chosen/marathon,boot-reason
++ * (MediaTek's numbers: 0 power key, 1 charger, 2 RTC alarm, 3+ reset) and
++ * marathon,boot-mode.
++ */
++int ft_system_setup(void *blob, struct bd_info *bd)
++{
++	int chosen = fdt_find_or_add_subnode(blob, 0, "chosen");
++
++	if (chosen < 0)
++		return chosen;
++	if (boot_reason.valid)
++		fdt_setprop_u32(blob, chosen, "marathon,boot-reason", boot_reason.value);
++	if (boot_mode.valid)
++		fdt_setprop_u32(blob, chosen, "marathon,boot-mode", boot_mode.value);
++	return 0;
++}
+diff --git a/configs/mt6789_q25_defconfig b/configs/mt6789_q25_defconfig
+index 4c22781..13749ed 100644
+--- a/configs/mt6789_q25_defconfig
++++ b/configs/mt6789_q25_defconfig
+@@ -122,3 +122,4 @@ CONFIG_WDT_MTK=y
+ CONFIG_BLKMAP=y
+ CONFIG_CMD_NVEDIT_EFI=y
+ CONFIG_OF_BOARD_SETUP=y
++CONFIG_OF_SYSTEM_SETUP=y
