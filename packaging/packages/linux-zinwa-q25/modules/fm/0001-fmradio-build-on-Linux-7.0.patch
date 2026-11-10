@@ -1,0 +1,64 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] fmradio: build on Linux 7.0
+
+The driver was written for 5.10: class_create() lost its owner, a
+platform driver's remove() returns void, and del_timer() is now
+timer_delete().
+---
+diff -ru a/core/fm_module.c b/core/fm_module.c
+--- a/core/fm_module.c	2026-11-10 09:13:57.970721907 +0000
++++ b/core/fm_module.c	2026-11-10 09:13:57.988314256 +0000
+@@ -1402,7 +1402,7 @@
+ 		return ret;
+ 	}
+ #ifndef FM_DEV_STATIC_ALLOC
+-	plat->cls = class_create(THIS_MODULE, FM_NAME);
++	plat->cls = class_create(FM_NAME);
+ 
+ 	if (IS_ERR(plat->cls)) {
+ 		ret = PTR_ERR(plat->cls);
+@@ -1603,13 +1603,12 @@
+ 	return ret;
+ }
+ 
+-static signed int mt_fm_remove(struct platform_device *pdev)
++static void mt_fm_remove(struct platform_device *pdev)
+ {
+ 	WCN_DBG(FM_NTC | MAIN, "%s\n", __func__);
+ 
+ 	fm_mod_destroy(g_fm);
+ 	g_fm = NULL;
+-	return 0;
+ }
+ 
+ static struct platform_device *pr_fm_device;
+diff -ru a/core/fm_utils.c b/core/fm_utils.c
+--- a/core/fm_utils.c	2026-11-10 09:13:57.970721907 +0000
++++ b/core/fm_utils.c	2026-11-10 09:13:57.988886409 +0000
+@@ -407,7 +407,7 @@
+ 
+ 	if (thiz->flag & FM_TIMER_FLAG_ACTIVATED) {
+ 		thiz->flag &= ~FM_TIMER_FLAG_ACTIVATED;
+-		del_timer(timerlist);
++		timer_delete(timerlist);
+ 	}
+ 
+ 	thiz->flag = flag;
+@@ -470,7 +470,7 @@
+ 		return -FM_ELOCK;
+ 	if (thiz->flag & FM_TIMER_FLAG_ACTIVATED) {
+ 		thiz->flag &= ~FM_TIMER_FLAG_ACTIVATED;
+-		del_timer(timerlist);
++		timer_delete(timerlist);
+ 	}
+ 
+ 	FM_UNLOCK(thiz->lock);
+@@ -542,7 +542,7 @@
+ 		return -FM_EPARA;
+ 	}
+ 
+-	del_timer(thiz->priv);
++	timer_delete(thiz->priv);
+ 	thiz->ref--;
+ 	if (thiz->ref == 0) {
+ 		fm_spin_lock_put(thiz->lock);

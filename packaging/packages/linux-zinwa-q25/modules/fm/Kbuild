@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0
+# MediaTek's FM radio driver for the MT6631/MT6635 receiver on WMT
+# (Gigaset-dev/android_kernel_gigaset_mt6789-extras, connectivity/fmradio,
+# with CFG_FM_CHIP unset), built against our WMT tree.
+obj-m += fmradio_drv_mt6631_6635.o
+ccflags-y += -I$(src)/inc -I$(src)/plat/inc \
+	-I$(src)/chips/mt6631/inc -I$(src)/chips/mt6635/inc \
+	-I$(WMTSRC)/include \
+	-I$(WMTSRC)/include/drivers/misc/mediatek/connectivity/common/common_main/include \
+	-I$(WMTSRC)/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include \
+	-I$(WMTSRC)/include/drivers/misc/mediatek/include/mt-plat \
+	-DCONFIG_MTK_WCN_ARM64 -DWMT_IDC_SUPPORT=0 -DMTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT \
+	-DCFG_FM_CONNAC2=0
+fmradio_drv_mt6631_6635-objs := \
+	chips/mt6631/pub/mt6631_fm_rds.o chips/mt6635/pub/mt6635_fm_rds.o \
+	chips/mt6631/pub/mt6631_fm_lib.o chips/mt6635/pub/mt6635_fm_lib.o \
+	core/fm_module.o core/fm_main.o core/fm_config.o core/fm_rds_parser.o \
+	core/fm_patch.o core/fm_utils.o core/fm_link.o core/fm_eint.o \
+	core/fm_cmd.o core/fm_reg_utils.o \
+	plat/legacy_wmt.o
