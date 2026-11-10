@@ -240,7 +240,8 @@ impl SmsService {
         sender: String,
         message: String,
     ) -> fdo::Result<()> {
-        admit(&self.0.bus, &h, "Sms", SMS).await?;
+        // A test hook: an app with only `sms` could forge a text from anyone.
+        admit(&self.0.bus, &h, "Sms", &["system"]).await?;
         self.0
             .receive(sender, message, now_ms(), String::new(), Vec::new())
             .await;

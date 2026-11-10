@@ -775,6 +775,11 @@ async fn phone(h: &Header<'_>) -> fdo::Result<()> {
         .map(drop)
 }
 
+/// The simulated calls: an app with only `telephony` could fake a caller.
+async fn test_hook(h: &Header<'_>) -> fdo::Result<()> {
+    ipc::admit(h, "Telephony", &["system"]).await.map(drop)
+}
+
 #[zbus::interface(name = "org.marathonos.Shell.Telephony1")]
 impl Telephony1 {
     async fn call_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<String> {
@@ -838,7 +843,7 @@ impl Telephony1 {
         number: String,
         #[zbus(header)] h: Header<'_>,
     ) -> fdo::Result<()> {
-        phone(&h).await?;
+        test_hook(&h).await?;
         ipc::on_gui(&self.qt, move |obj| {
             obj.simulate_incoming_call(&QString::from(&number));
         })
@@ -850,7 +855,7 @@ impl Telephony1 {
         state: String,
         #[zbus(header)] h: Header<'_>,
     ) -> fdo::Result<()> {
-        phone(&h).await?;
+        test_hook(&h).await?;
         ipc::on_gui(&self.qt, move |obj| {
             obj.simulate_call_state_change(&QString::from(&state));
         })
