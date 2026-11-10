@@ -428,10 +428,29 @@ impl TextInput1 {
 mod tests {
     use super::{should_target_editor, QString};
 
+    /// (editor, object, accepts input method, front, editor has a window, expected)
+    type Fixture = (&'static str, &'static str, bool, &'static str, bool, bool);
+
+    fn check(fixtures: &[Fixture]) {
+        for &(editor, object, accepts, front, has_window, expected) in fixtures {
+            assert_eq!(
+                should_target_editor(
+                    &QString::from(editor),
+                    &QString::from(object),
+                    accepts,
+                    &QString::from(front),
+                    &QString::from("deckard."),
+                    has_window,
+                ),
+                expected,
+                "editor={editor:?} object={object:?} accepts={accepts} front={front:?} window={has_window}"
+            );
+        }
+    }
+
     #[test]
     fn editor_target_fixtures() {
-        // (editor, object, accepts input method, front, editor has a window, expected)
-        let fixtures = [
+        check(&[
             (
                 "",
                 "deckard.messages",
@@ -498,7 +517,13 @@ mod tests {
                 true,
                 false,
             ),
-            // microG's sign-in sheet in the asking app's task.
+        ]);
+    }
+
+    #[test]
+    fn an_editor_without_a_window_types_into_another_android_app() {
+        // microG's sign-in sheet in the asking app's task.
+        check(&[
             (
                 "deckard.com.google.android.gms",
                 "deckard.org.fdroid.fdroid",
@@ -515,22 +540,7 @@ mod tests {
                 false,
                 false,
             ),
-        ];
-
-        for (editor, object, accepts, front, has_window, expected) in fixtures {
-            assert_eq!(
-                should_target_editor(
-                    &QString::from(editor),
-                    &QString::from(object),
-                    accepts,
-                    &QString::from(front),
-                    &QString::from("deckard."),
-                    has_window,
-                ),
-                expected,
-                "editor={editor:?} object={object:?} accepts={accepts} front={front:?} window={has_window}"
-            );
-        }
+        ]);
         assert!(!should_target_editor(
             &QString::from("deckard.a"),
             &QString::from("deckard.b"),
