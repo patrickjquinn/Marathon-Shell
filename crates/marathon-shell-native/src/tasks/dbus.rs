@@ -417,6 +417,20 @@ pub(super) fn runner_back(qt: Qt, app_id: String) {
     });
 }
 
+/// A Keel host's cover action strip: its height when the cover has actions.
+pub(super) fn cover_action_strip(qt: Qt, app_id: String) {
+    io::spawn(async move {
+        let Ok(reply) = call_runner(&app_id, "CoverActionStrip", &()).await else {
+            return;
+        };
+        let height = match reply.body().deserialize::<(i32, i32)>() {
+            Ok((count, height)) if count > 0 => height,
+            _ => 0,
+        };
+        qt.queue(move |obj| obj.set_cover_action_strip(&app_id, height)).ok();
+    });
+}
+
 /// `then` runs once the runner has let go of its name, or after a second.
 pub(super) fn prepare_freeze(
     qt: Qt,

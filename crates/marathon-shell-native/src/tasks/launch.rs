@@ -286,8 +286,24 @@ impl Tasks {
 
     #[allow(clippy::unused_self, reason = "a QML invokable")]
     pub(super) fn set_cover_visible(&self, app_id: &QString, visible: bool) {
-        if !app_id.is_empty() {
-            dbus::runner(&app_id.to_string(), "SetCoverStatus", (i32::from(visible),));
+        if app_id.is_empty() {
+            return;
+        }
+        let id = app_id.to_string();
+        dbus::runner(&id, "SetCoverStatus", (i32::from(visible),));
+        if visible && self.is_keel_host(&id) {
+            dbus::cover_action_strip(self.qt_thread(), id);
+        }
+    }
+
+    pub(super) fn cover_action_strip(&self, app_id: &QString) -> i32 {
+        self.cover_strips.get(&app_id.to_string()).copied().unwrap_or(0)
+    }
+
+    pub(super) fn set_cover_action_strip(mut self: Pin<&mut Self>, app_id: &str, height: i32) {
+        let old = self.as_mut().rust_mut().cover_strips.insert(app_id.to_owned(), height);
+        if old != Some(height) {
+            self.cover_action_strip_changed(&q(app_id));
         }
     }
 

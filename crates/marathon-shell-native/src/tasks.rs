@@ -149,6 +149,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setCoverVisible"]
         fn set_cover_visible(self: &Tasks, app_id: &QString, visible: bool);
+        /// The height, in cover pixels, of the strip at the bottom of a Keel
+        /// app's cover that holds its cover actions; 0 when it has none.
+        #[qinvokable]
+        #[cxx_name = "coverActionStrip"]
+        fn cover_action_strip(self: &Tasks, app_id: &QString) -> i32;
         /// The app's window in front now, or the next one it maps within a
         /// few seconds; true when it had one to bring forward.
         #[cxx_name = "expectWindow"]
@@ -156,6 +161,9 @@ pub mod qobject {
         #[cxx_name = "setAppSecure"]
         fn set_app_secure(self: Pin<&mut Tasks>, app_id: &QString, secure: bool);
 
+        #[qsignal]
+        #[cxx_name = "coverActionStripChanged"]
+        fn cover_action_strip_changed(self: Pin<&mut Tasks>, app_id: &QString);
         #[qsignal]
         #[cxx_name = "appLaunchStarted"]
         fn app_launch_started(self: Pin<&mut Tasks>, app_id: &QString, name: &QString);
@@ -510,6 +518,8 @@ pub struct TasksRust {
     expected_windows: HashMap<String, Instant>,
     android_handoffs: HashMap<String, launch::AndroidHandoff>,
     secure: HashMap<String, bool>,
+    // A Keel app → its cover's action strip height.
+    cover_strips: HashMap<String, i32>,
     pool: pool::Pool,
     // The lifecycle.
     lifecycle: lifecycle::Lifecycle,
