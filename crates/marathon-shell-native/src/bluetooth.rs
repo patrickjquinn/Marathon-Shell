@@ -745,8 +745,14 @@ async fn run(
                     interface.as_str(),
                     actor.devices.iter_mut().find(|d| d.path == path.as_str()),
                 ) {
+                    // While scanning, every advertisement brings RSSI and
+                    // advertising data; nothing shows them, so they publish nothing.
+                    let mut was = device.clone();
                     values.for_each(|(k, v)| device.set(k, v));
-                    actor.publish_devices();
+                    was.rssi = device.rssi;
+                    if *device != was {
+                        actor.publish_devices();
+                    }
                 }
             }
             Event::Added { path, interfaces } => {
