@@ -392,7 +392,7 @@ generated duranium tree under `~/.cache/marathon-build/`.
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE). Some apps carry their own: Maps is GPL-3.0-or-later ([apps/maps/LICENSE.GPL-3.0-or-later](apps/maps/LICENSE.GPL-3.0-or-later)), and the Camera's capture, settings and gallery QML is BSD-3-Clause ([apps/camera/LICENSE.BSD-3-Clause](apps/camera/LICENSE.BSD-3-Clause)).
 
 ## Acknowledgments
 
