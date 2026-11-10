@@ -27,6 +27,11 @@ owner)
 		if [ -n "$M" ]; then insmod $M/q25-md1-owner.ko; else modprobe q25_md1_owner; fi
 	fi
 	[ -e "$OWNER" ] || { log "owner device missing (DT node?)"; exit 1; }
+	# The hand-off is one-shot: a second load returns EBUSY.
+	if [ $(($(cat ${OWNER%/command}/state) & 0x100)) -ne 0 ]; then
+		log "MD1 already handed off"
+		exit 0
+	fi
 	echo report > $OWNER
 	echo load > $OWNER
 	echo handoff > $OWNER
