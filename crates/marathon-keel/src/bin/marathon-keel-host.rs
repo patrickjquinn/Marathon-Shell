@@ -62,7 +62,10 @@ impl Lifecycle1 {
 
     /// The cover's action strip (count, height in cover pixels), for the
     /// switcher card to pass taps there to the cover.
-    async fn cover_action_strip(&self, #[zbus(header)] h: Header<'_>) -> zbus::fdo::Result<(i32, i32)> {
+    async fn cover_action_strip(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+    ) -> zbus::fdo::Result<(i32, i32)> {
         caller_is_shell(&h).await?;
         Ok(self.0.cover_action_strip())
     }

@@ -122,7 +122,8 @@ fn only_system_apps_may_fake_a_text_or_read_mms_settings() {
         let app = bus.connect().await.unwrap();
         let forged = call::<()>(&app, "Sms", "SimulateIncomingSMS", &("+14155550142", "hi")).await;
         assert!(denied(&forged));
-        let settings = call::<HashMap<String, OwnedValue>>(&app, "Sms", "GetMmsSettings", &()).await;
+        let settings =
+            call::<HashMap<String, OwnedValue>>(&app, "Sms", "GetMmsSettings", &()).await;
         assert!(denied(&settings));
         assert!(rows(call(&app, "Sms", "GetConversations", &()).await.unwrap()).is_empty());
     });

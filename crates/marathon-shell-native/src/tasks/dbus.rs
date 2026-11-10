@@ -427,7 +427,8 @@ pub(super) fn cover_action_strip(qt: Qt, app_id: String) {
             Ok((count, height)) if count > 0 => height,
             _ => 0,
         };
-        qt.queue(move |obj| obj.set_cover_action_strip(&app_id, height)).ok();
+        qt.queue(move |obj| obj.set_cover_action_strip(&app_id, height))
+            .ok();
     });
 }
 

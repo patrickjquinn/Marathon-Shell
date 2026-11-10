@@ -61,15 +61,25 @@ struct Charge {
 
 /// The first battery that reports a capacity, and whether any supply is online.
 fn charge() -> Charge {
-    let mut charge = Charge { percent: 0, full: false, plugged: false };
+    let mut charge = Charge {
+        percent: 0,
+        full: false,
+        plugged: false,
+    };
     let mut battery = false;
-    for dir in fs::read_dir(SUPPLIES).into_iter().flatten().flatten().map(|e| e.path()) {
+    for dir in fs::read_dir(SUPPLIES)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+    {
         if read(&dir.join("type")).as_deref() == Some("Battery") {
             let capacity = read(&dir.join("capacity")).and_then(|c| c.parse::<u8>().ok());
             if let (false, Some(percent)) = (battery, capacity) {
                 battery = true;
                 charge.percent = percent.min(100);
-                charge.full = percent >= 100 || read(&dir.join("status")).as_deref() == Some("Full");
+                charge.full =
+                    percent >= 100 || read(&dir.join("status")).as_deref() == Some("Full");
             }
         } else if read(&dir.join("online")).as_deref() == Some("1") {
             charge.plugged = true;
@@ -88,8 +98,15 @@ impl Backlight {
         let dir = fs::read_dir(BACKLIGHTS).ok()?.flatten().next()?.path();
         let current = read(&dir.join("brightness"))?;
         let max: u32 = read(&dir.join("max_brightness"))?.parse().ok()?;
-        let on = if current == "0" { (max / 2).max(1).to_string() } else { current };
-        Some(Self { brightness: dir.join("brightness"), on })
+        let on = if current == "0" {
+            (max / 2).max(1).to_string()
+        } else {
+            current
+        };
+        Some(Self {
+            brightness: dir.join("brightness"),
+            on,
+        })
     }
 
     fn set(&self, on: bool) {
@@ -110,7 +127,13 @@ fn run(program: &str, args: &[&str]) {
 /// The splash draws the battery (marathon.script).
 fn show(charge: Charge) {
     let state = if charge.full { "full" } else { "charging" };
-    run("plymouth", &["update", &format!("--status=marathon-charge-{}-{state}", charge.percent)]);
+    run(
+        "plymouth",
+        &[
+            "update",
+            &format!("--status=marathon-charge-{}-{state}", charge.percent),
+        ],
+    );
 }
 
 fn uevents() -> nix::Result<OwnedFd> {
@@ -129,7 +152,9 @@ fn power_supply_changed(uevents: &OwnedFd) -> bool {
     let mut buf = [0_u8; 4096];
     let mut changed = false;
     while let Ok(n) = recv(uevents.as_raw_fd(), &mut buf, MsgFlags::empty()) {
-        changed |= buf[..n].split(|&b| b == 0).any(|field| field == b"SUBSYSTEM=power_supply");
+        changed |= buf[..n]
+            .split(|&b| b == 0)
+            .any(|field| field == b"SUBSYSTEM=power_supply");
     }
     changed
 }
@@ -138,7 +163,10 @@ fn power_supply_changed(uevents: &OwnedFd) -> bool {
 fn charging_screen() -> ExitCode {
     let mut keys: Vec<Device> = evdev::enumerate()
         .map(|(_, device)| device)
-        .filter(|d| d.supported_keys().is_some_and(|k| k.contains(KeyCode::KEY_POWER)))
+        .filter(|d| {
+            d.supported_keys()
+                .is_some_and(|k| k.contains(KeyCode::KEY_POWER))
+        })
         .collect();
     if keys.is_empty() {
         log("no power key: the phone stays on the charging screen until it is unplugged");
@@ -184,7 +212,10 @@ fn charging_screen() -> ExitCode {
         });
 
         let ready: Vec<bool> = {
-            let mut fds: Vec<PollFd> = keys.iter().map(|d| PollFd::new(d.as_fd(), PollFlags::POLLIN)).collect();
+            let mut fds: Vec<PollFd> = keys
+                .iter()
+                .map(|d| PollFd::new(d.as_fd(), PollFlags::POLLIN))
+                .collect();
             fds.push(PollFd::new(uevents.as_fd(), PollFlags::POLLIN));
             match poll(&mut fds, timeout) {
                 Ok(_) | Err(Errno::EINTR) => {}
@@ -237,7 +268,12 @@ fn charging_screen() -> ExitCode {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+    match args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
         [] => charging_screen(),
         ["boot-mode"] => {
             #[allow(clippy::print_stdout, reason = "the command's answer")]
