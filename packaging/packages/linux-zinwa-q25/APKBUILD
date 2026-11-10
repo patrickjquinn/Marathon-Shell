@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=44
+pkgrel=45
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -182,6 +182,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0122-drm-mediatek-Keep-the-system-idle-states-off-while-a.patch
 	0123-mfd-mt6397-Power-off-MT6358-through-the-PMIC.patch
 	0124-arm64-dts-mediatek-mt8781-zinwa-q25-Power-off-throug.patch
+	0125-mfd-mt6397-Clear-the-MT6358-start-latches-the-bootlo.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -389,6 +390,7 @@ d3d5031ccfe4f06d5d809195edf1fbe53fc4ab73d04b305bc9332556778d1d7b7674a2f56e47cf87
 96714b388754bde02c492f3a3a6ab0b981ed9f278717f8b4b7daf62fd44bd6b919cd9528dbd7dc072c1490bd8d9753342eaddca2899aab0b212ce02673ff29a4  0122-drm-mediatek-Keep-the-system-idle-states-off-while-a.patch
 1179f35dda0efda0bbc37a532d634414711484028c3713f64740c9fa0a7908ac8d872c5fae733195237edc4f6366d001b6b1b9a6facdae86ba303cd3ba282b86  0123-mfd-mt6397-Power-off-MT6358-through-the-PMIC.patch
 45dbc769d095c4be65e3436e4a4e56471feb52b6860901795b4a6ad4e5b1b0414ea1c59474112dd930d7372441b68daee3a81d2d9c94c310c8e01a25d8214793  0124-arm64-dts-mediatek-mt8781-zinwa-q25-Power-off-throug.patch
+2c5cc00d7614c803ad21767b0795e89365d529e513a2073c0f300f393a873880aa64983f816bd8aeab8fef1fa3d9497ac4a42c439ab4dd67fca88633e26f3df2  0125-mfd-mt6397-Clear-the-MT6358-start-latches-the-bootlo.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

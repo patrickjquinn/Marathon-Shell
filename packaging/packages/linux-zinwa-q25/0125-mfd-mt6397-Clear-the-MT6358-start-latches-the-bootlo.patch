@@ -1,0 +1,94 @@
+From 8134be0105465cc819ee4658e072c664e1210aab Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 10 Nov 2026 05:02:45 +0000
+Subject: [PATCH] mfd: mt6397: Clear the MT6358 start latches the bootloader
+ read
+
+A long press of power (or a smart reset) stays latched in STRUP_CON4
+until cleared, and the MediaTek preloader checks that latch before the
+charger. LK cleared it after the preloader had read it; with another
+bootloader nothing does, so every later start - a charger's too -
+reads as BR_LONG_POWKEY.
+
+When the PMIC is the system power controller, pulse CLR_JUST_RST and
+CLR_JUST_SMART_RST once at probe, as LK did.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/mfd/mt6397-core.c            | 21 +++++++++++++++++++++
+ include/linux/mfd/mt6358/registers.h |  1 +
+ 2 files changed, 22 insertions(+)
+
+diff --git a/drivers/mfd/mt6397-core.c b/drivers/mfd/mt6397-core.c
+index e91ce81..081ffa4 100644
+--- a/drivers/mfd/mt6397-core.c
++++ b/drivers/mfd/mt6397-core.c
+@@ -294,11 +294,14 @@ struct chip_data {
+ 	int cell_size;
+ 	int (*irq_init)(struct mt6397_chip *chip);
+ 	int (*power_off)(struct sys_off_data *data);
++	void (*clear_start_latches)(struct mt6397_chip *pmic);
+ };
+ 
+ #define MT6358_TMA_UNLOCK_KEY	0x9ca7
+ #define MT6358_PWRHOLD		BIT(0)
+ #define MT6358_RG_SDN_DLY_ENB	BIT(10)
++#define MT6358_CLR_JUST_SMART_RST	BIT(3)
++#define MT6358_CLR_JUST_RST	BIT(4)
+ 
+ /* What the TF-A SYSTEM_OFF of MT6358 boards does, for firmware that doesn't */
+ static int mt6358_power_off(struct sys_off_data *data)
+@@ -316,6 +319,21 @@ static int mt6358_power_off(struct sys_off_data *data)
+ 	return NOTIFY_DONE;
+ }
+ 
++/*
++ * A long press of power, or a smart reset, stays latched until cleared, and
++ * the preloader reads the latch before the charger: every later start, a
++ * charger's too, then reads as that long press. LK cleared it after the
++ * preloader; do the same once the OS runs.
++ */
++static void mt6358_clear_start_latches(struct mt6397_chip *pmic)
++{
++	u32 clear = MT6358_CLR_JUST_RST | MT6358_CLR_JUST_SMART_RST;
++
++	regmap_set_bits(pmic->regmap, MT6358_STRUP_CON4, clear);
++	fsleep(100);
++	regmap_clear_bits(pmic->regmap, MT6358_STRUP_CON4, clear);
++}
++
+ static const struct chip_data mt6323_core = {
+ 	.cid_addr = MT6323_CID,
+ 	.cid_shift = 0,
+@@ -355,6 +373,7 @@ static const struct chip_data mt6358_core = {
+ 	.cell_size = ARRAY_SIZE(mt6358_devs),
+ 	.irq_init = mt6358_irq_init,
+ 	.power_off = mt6358_power_off,
++	.clear_start_latches = mt6358_clear_start_latches,
+ };
+ 
+ static const struct chip_data mt6359_core = {
+@@ -428,6 +447,8 @@ static int mt6397_probe(struct platform_device *pdev)
+ 	/* Ahead of PSCI, whose SYSTEM_OFF may not reach the PMIC */
+ 	if (pmic_core->power_off &&
+ 	    of_device_is_system_power_controller(pdev->dev.of_node)) {
++		if (pmic_core->clear_start_latches)
++			pmic_core->clear_start_latches(pmic);
+ 		ret = devm_register_sys_off_handler(&pdev->dev,
+ 						    SYS_OFF_MODE_POWER_OFF,
+ 						    SYS_OFF_PRIO_FIRMWARE + 1,
+diff --git a/include/linux/mfd/mt6358/registers.h b/include/linux/mfd/mt6358/registers.h
+index c2f4540..73fc9f1 100644
+--- a/include/linux/mfd/mt6358/registers.h
++++ b/include/linux/mfd/mt6358/registers.h
+@@ -319,6 +319,7 @@
+ #define MT6358_VMDDR_ANA_CON0                 MT6358_VCAMD_ANA_CON0
+ 
+ #define MT6358_PPCCTL0                        0xa08
++#define MT6358_STRUP_CON4                     0xa1c
+ #define MT6358_PSEQ_ELR11                     0xa62
+ 
+ #endif /* __MFD_MT6358_REGISTERS_H__ */
+-- 
+2.55.0
+
