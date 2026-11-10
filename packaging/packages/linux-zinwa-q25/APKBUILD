@@ -6,14 +6,12 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=47
+pkgrel=46
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
 _mindone=9cd73c15f312cfd1e40a22d871de65a2fb2c5791
 _sound=996ec48145f6746ecc664e92c6e5892b6978e3ae
-# MediaTek's FM radio driver (connectivity/fmradio), for modules/fm.
-_gigaset=6a574a88769691ee4d1da23c80226cf5e237f607
 _afe="
 	mt6789-afe-clk.c
 	mt6789-afe-clk.h
@@ -59,7 +57,6 @@ subpackages="q25-kernel-modules:_modules"
 install="q25-kernel-modules.post-install q25-kernel-modules.post-upgrade"
 source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-mainline/-/archive/$_commit/mtk_g99-mainline-$_commit.tar.gz
 	android_kernel_ikko_mindone-$_mindone.tar.gz::https://github.com/iasnezhkov/android_kernel_ikko_mindone/archive/$_mindone.tar.gz
-	android_kernel_gigaset_mt6789-extras-$_gigaset.tar.gz::https://github.com/Gigaset-dev/android_kernel_gigaset_mt6789-extras/archive/$_gigaset.tar.gz
 	config-zinwa-q25.aarch64
 	0001-drm-mediatek-Add-MT6789-display-support.patch
 	0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
@@ -197,8 +194,6 @@ unpack() {
 	tar -C "$srcdir" -xzf "$SRCDEST/mtk_g99-mainline-$_commit.tar.gz"
 	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_ikko_mindone-$_mindone.tar.gz" \
 		"android_kernel_ikko_mindone-$_mindone/mindone/modules"
-	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_gigaset_mt6789-extras-$_gigaset.tar.gz" \
-		"android_kernel_gigaset_mt6789-extras-$_gigaset/connectivity/fmradio"
 }
 
 prepare() {
@@ -221,7 +216,6 @@ build() {
 	scripts/dtc/dtc -q -I dtb -O dts arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dtb |
 		grep -q "__symbols__ {"
 	MT6789_SOUND="$srcdir/mt6789-sound" JOBS="${JOBS:-2}" \
-		FMRADIO="$srcdir/android_kernel_gigaset_mt6789-extras-$_gigaset/connectivity/fmradio" \
 		sh "$startdir/modules/build.sh" "$builddir" "$builddir" \
 		"$srcdir/android_kernel_ikko_mindone-$_mindone" "$srcdir/q25-modules"
 }
@@ -243,7 +237,7 @@ package() {
 _extra="q25-md1-owner
 	q25-haptic"
 _connsys="connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
-	q25-btmtk-stp mtk-connsys-gnss fmradio_drv_mt6631_6635"
+	q25-btmtk-stp mtk-connsys-gnss"
 _audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe
 	q25-mt6366-card q25-mt6358-accdet"
 _camera="q25-cam-dt wl2868c-regulator videobuf2-common videobuf2-memops
@@ -272,7 +266,6 @@ _modules() {
 sha512sums="
 9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
 36633b752a148bf5c6b4b7f255f6d0ef134d2a17029e1e74827a3387c3ce0ae58b363cf00e275ffad4506e43caf4ee6978b536659bdbb9ebab1728c65cd274f8  android_kernel_ikko_mindone-9cd73c15f312cfd1e40a22d871de65a2fb2c5791.tar.gz
-9b17c10f1183073a818d5bb211751c2535f582865f4d9150ed0c417e84b9494c7a944c57dc67bf77da176898c653bc36d709f138cdd5ae36c64a1867f16f17d3  android_kernel_gigaset_mt6789-extras-6a574a88769691ee4d1da23c80226cf5e237f607.tar.gz
 16dc98b3b5a2c1d71d66a7d4809d5fd5f82c6de721184dcad09efb71e6e0af74c3316ea530168c6e5b8b8a3ec31deb0247256f375f1e54467ce49b6c039b3188  config-zinwa-q25.aarch64
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 fae7d50d65607e43f9dbafa5613f134ce4bb9b3954ac34b82f25a4d6c868578de9a5582eaccd7885284c50df644fd1f9d57cd5221dd210e9fe36976a351afb34  0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch

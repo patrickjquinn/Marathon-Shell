@@ -7,7 +7,6 @@ tree (`build.sh`, run from its APKBUILD) and ships as `q25-kernel-modules`.
 | `bt` | `q25-btmtk-stp` | Marathon |
 | `audio` | `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-mt6366-card`, `q25-mt6358-accdet` | the kernel's `sound/soc/codecs/mt6358.c` plus patches `0002`–`0006` and `sound/soc/mediatek/common`, linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, Marathon's `q25/` drivers, and `q25accdet/`, a port of `sound/soc/codecs/mt6358-accdet.c` from LineageOS/android_kernel_xelex_mt6789 `2a873a35` |
 | `gnss` | `mtk-connsys-gnss` | Marathon: boots the CONNSYS GNSS DSP, `/dev/gnssN` (feat/q25-gnss-open `bd570bc8`) |
-| `fm` | `fmradio_drv_mt6631_6635` | Gigaset-dev/android_kernel_gigaset_mt6789-extras `6a574a88` `connectivity/fmradio` (MediaTek's FM driver, MT6631/MT6635 build), with Marathon's `Kbuild` against the WMT tree and `0001` for Linux 7.0; firmware in `q25-connsys-firmware` |
 | `haptic` | `q25-haptic` | Marathon's glue for the kernel's `regulator-haptic` |
 | `cam-dt` | `q25-cam-dt` | Marathon: applies `camera/q25-camera.dtbo` at runtime |
 | `cam-pmic` | `wl2868c-regulator` | Qianhui Xu's "[PATCH v4 2/4] regulator: willsemi,wl2868c" (LKML, 2026-10-31), unmodified |

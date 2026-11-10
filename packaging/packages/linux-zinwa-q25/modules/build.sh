@@ -7,9 +7,6 @@
 # KSRC/KOBJ: the kernel source and object trees (make -C KSRC O=KOBJ).
 # DONOR: github.com/iasnezhkov/android_kernel_ikko_mindone at
 # 9cd73c15f312cfd1e40a22d871de65a2fb2c5791 (only mindone/modules is read).
-# FMRADIO: connectivity/fmradio of
-# github.com/Gigaset-dev/android_kernel_gigaset_mt6789-extras at
-# 6a574a88769691ee4d1da23c80226cf5e237f607.
 # MT6789_SOUND: a tree holding sound/soc/mediatek/mt6789 of
 # github.com/linux-mediatek/linux 996ec48145f6746ecc664e92c6e5892b6978e3ae
 # (branch adomerle/mt6789-sound).
@@ -19,7 +16,6 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 ksrc=$1 kobj=$2 donor=$3/mindone/modules out=$4
 mt6789=${MT6789_SOUND:?set MT6789_SOUND to the linux-mediatek checkout}/sound/soc/mediatek/mt6789
-fmradio=${FMRADIO:?set FMRADIO to the fmradio driver tree}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 
@@ -68,14 +64,6 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0005-wlan-gen4m-proc-owner.patch")
 
-rm -rf "$out/src/fm"
-cp -r "$fmradio" "$out/src/fm"
-rm -f "$out/src/fm/Makefile"
-cp "$here/fm/Kbuild" "$out/src/fm/"
-for p in "$here"/fm/*.patch; do
-	(cd "$out/src/fm" && patch -p1 -s < "$p")
-done
-
 m=$out/src/media
 rm -rf "$m"
 mkdir -p "$m"
@@ -103,8 +91,6 @@ kmake "$out/src/wlan" "$out/obj/wlan" JOINT="$out/src/wmt" \
 kmake "$out/src/bt" "$out/obj/bt" WMTSRC="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers"
 kmake "$out/src/gnss" "$out/obj/gnss" WMTSRC="$out/src/wmt" \
-	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers"
-kmake "$out/src/fm" "$out/obj/fm" WMTSRC="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers"
 # videobuf2, which no in-tree driver selects, and the camera receive
 # drivers that use it, as one set (media/Kbuild).
