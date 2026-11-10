@@ -27,6 +27,8 @@ QtObject {
     signal eraseFailed(string reason)
     signal remoteConnectionApplied
     signal remoteConnectionFailed(string reason)
+    signal bugReportCreated(string path)
+    signal bugReportFailed(string reason)
 
     function reset() {
         authMode = 0;
@@ -50,6 +52,9 @@ QtObject {
     }
     function setRemoteConnection(on, password, pin) {
         calls = calls.concat([["remote", on, password, pin]]);
+    }
+    function createBugReport() {
+        calls = calls.concat([["bugReport"]]);
     }
     function currentUsername() {
         return "user";

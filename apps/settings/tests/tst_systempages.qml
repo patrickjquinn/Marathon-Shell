@@ -577,6 +577,28 @@ TestCase {
         verify(!child(s.page, "remoteSwitch").checked);
     }
 
+    function test_bugReportIsSavedForSharing() {
+        Security.remoteConnection = "off";
+        const s = open("developer");
+        verify(!child(s.page, "shareReportButton").visible);
+        child(s.page, "reportButton").clicked(null);
+        compare(Security.calls, [["bugReport"]]);
+        verify(!child(s.page, "reportButton").enabled);
+        Security.bugReportCreated("/home/user/Documents/marathon-bug-report-20261110-172829.txt");
+        verify(child(s.page, "reportButton").enabled);
+        verify(child(s.page, "shareReportButton").visible);
+        compare(child(s.page, "reportHint").text, "Saved in Documents as marathon-bug-report-20261110-172829.txt");
+    }
+
+    function test_bugReportFailureLetsYouTryAgain() {
+        Security.remoteConnection = "off";
+        const s = open("developer");
+        child(s.page, "reportButton").clicked(null);
+        Security.bugReportFailed("Couldn't create the bug report");
+        verify(child(s.page, "reportButton").enabled);
+        verify(!child(s.page, "shareReportButton").visible);
+    }
+
     function test_remoteConnectionShowsAddresses() {
         Security.remoteConnection = "on";
         SettingsController.remoteAddressList = [

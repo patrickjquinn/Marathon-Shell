@@ -55,6 +55,7 @@ share-not-taken = The app did not take the share
 security-pin-empty = PIN cannot be empty
 security-password-empty = Password cannot be empty
 security-busy = Authentication already in progress
+security-bug-report-failed = Couldn't create the bug report
 security-account-locked = Account locked. Try again in { $seconds ->
     [one] { $seconds } second
    *[other] { $seconds } seconds

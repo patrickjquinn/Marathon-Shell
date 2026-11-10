@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import MarathonOS.Settings 1.0
+import Sailfish.Share 1.0
 import "../SettingsLogic.js" as Logic
 
 Page {
@@ -17,6 +18,8 @@ Page {
     // Waiting for the shell to turn remote connection "on" or "off".
     property string pending: ""
     property var addresses: []
+    property bool reporting: false
+    property string reportPath: ""
     readonly property string user: Security.currentUsername()
 
     function refreshAddresses() {
@@ -56,6 +59,14 @@ Page {
         }
         function onRemoteConnectionFailed(reason) {
             page.pending = "";
+            Notices.show(reason);
+        }
+        function onBugReportCreated(path) {
+            page.reporting = false;
+            page.reportPath = path;
+        }
+        function onBugReportFailed(reason) {
+            page.reporting = false;
             Notices.show(reason);
         }
     }
@@ -155,8 +166,48 @@ Page {
                 color: Theme.secondaryHighlightColor
                 text: page.addresses.length > 0 ? qsTr("On the computer, run ssh %1@%2").arg(page.user).arg(page.addresses[0].address) : qsTr("Connect a USB cable or join a Wi-Fi network to get an address.")
             }
+
+            SectionHeader {
+                text: qsTr("Bug report")
+            }
+            Label {
+                objectName: "reportHint"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingMedium
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: page.reportPath !== "" ? qsTr("Saved in Documents as %1").arg(page.reportPath.split("/").pop()) : qsTr("Puts the system, kernel and Android logs in one file in Documents for you to share. Logs can include network and app names, and phone numbers.")
+            }
+            Button {
+                objectName: "reportButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                enabled: !page.reporting
+                text: page.reporting ? qsTr("Creating bug report…") : qsTr("Create bug report")
+                onClicked: {
+                    page.reporting = true;
+                    page.reportPath = "";
+                    Security.createBugReport();
+                }
+            }
+            Button {
+                objectName: "shareReportButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: page.reportPath !== ""
+                text: qsTr("Share")
+                onClicked: reportShare.trigger()
+            }
         }
 
         VerticalScrollDecorator {}
+    }
+
+    ShareAction {
+        id: reportShare
+
+        mimeType: "text/plain"
+        title: qsTr("Share bug report")
+        resources: page.reportPath !== "" ? [page.reportPath] : []
     }
 }

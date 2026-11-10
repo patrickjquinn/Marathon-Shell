@@ -59,6 +59,12 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "remoteConnectionFailed"]
         fn remote_connection_failed(self: Pin<&mut Self>, reason: &QString);
+        #[qsignal]
+        #[cxx_name = "bugReportCreated"]
+        fn bug_report_created(self: Pin<&mut Self>, path: &QString);
+        #[qsignal]
+        #[cxx_name = "bugReportFailed"]
+        fn bug_report_failed(self: Pin<&mut Self>, reason: &QString);
 
         #[qinvokable]
         #[cxx_name = "setQuickPIN"]
@@ -103,6 +109,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setRemoteConnection"]
         fn set_remote_connection(self: &Security, on: bool, password: &QString, pin: &QString);
+        /// The system's logs in a file in Documents. Answers with
+        /// `bugReportCreated` and its path, or `bugReportFailed`.
+        #[qinvokable]
+        #[cxx_name = "createBugReport"]
+        fn create_bug_report(self: &Security);
     }
 
     impl cxx_qt::Threading for Security {}
@@ -172,6 +183,18 @@ impl cxx_qt::Initialize for Security {
             "RemoteConnectionFailed",
             |obj, (r,): (String,)| obj.remote_connection_failed(&QString::from(&r)),
         );
+        relay(
+            qt.clone(),
+            SECURITY,
+            "BugReportCreated",
+            |obj, (p,): (String,)| obj.bug_report_created(&QString::from(&p)),
+        );
+        relay(
+            qt.clone(),
+            SECURITY,
+            "BugReportFailed",
+            |obj, (r,): (String,)| obj.bug_report_failed(&QString::from(&r)),
+        );
         mirror(qt, SECURITY, "system", |mut obj, update| {
             let Update::State(s) = update else { return };
             let mut x = obj.as_mut().rust_mut();
@@ -234,6 +257,16 @@ impl Security {
                 let reason = QString::from(&crate::shell::message(&e));
                 qt.queue(move |obj| obj.remote_connection_failed(&reason))
                     .ok();
+            }
+        });
+    }
+
+    fn create_bug_report(&self) {
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            if let Err(e) = SECURITY.reply("CreateBugReport", &()).await {
+                let reason = QString::from(&crate::shell::message(&e));
+                qt.queue(move |obj| obj.bug_report_failed(&reason)).ok();
             }
         });
     }
