@@ -500,9 +500,8 @@ int main(int argc, char *argv[]) {
         // pump normally while the spare idles.
         QByteArray line;
         {
-            ::fcntl(0, F_SETFL,
-                    ::fcntl(0, F_GETFL) |
-                        O_NONBLOCK); // NOLINT(bugprone-signed-bitwise) fcntl flags are int
+            const int flags = ::fcntl(0, F_GETFL);
+            ::fcntl(0, F_SETFL, flags | O_NONBLOCK); // NOLINT(bugprone-signed-bitwise)
             QEventLoop      wait;
             QSocketNotifier notifier(0, QSocketNotifier::Read);
             QObject::connect(&notifier, &QSocketNotifier::activated, &wait, [&line, &wait]() {
