@@ -25,6 +25,9 @@ commit_preprocessors = [
 ]
 commit_parsers = [
     { message = "^Merge ", skip = true },
+    # keel-silica's history, merged from Shipwright's exports as a subtree
+    # (keel-silica/MARATHON-FORK.md).
+    { message = "^Export of [0-9a-f]{12}", skip = true },
     { message = '^[a-z]+(\([^)]*\))?!:', group = "<!-- 0 -->Breaking changes" },
     { footer = "^BREAKING[ -]CHANGE", group = "<!-- 0 -->Breaking changes" },
     { message = "^feat[(:]", group = "<!-- 1 -->Features" },
