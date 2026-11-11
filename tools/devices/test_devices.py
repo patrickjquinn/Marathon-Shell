@@ -15,7 +15,8 @@ except ImportError:
     jsonschema = None
 
 ROOT = devices.ROOT
-COPIED = ["devices", "socs", "packaging/packages", "scripts/flash", devices.SHELL_KEYS_SRC.as_posix()]
+COPIED = ["devices", "socs", "packaging/packages", "scripts/flash", devices.SHELL_KEYS_SRC.as_posix(),
+          devices.POWER_SRC.as_posix()]
 
 
 @unittest.skipIf(jsonschema is None, "needs the jsonschema module")
