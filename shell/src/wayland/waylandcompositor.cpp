@@ -2206,7 +2206,7 @@ bool WaylandCompositor::initAtomicDisplay() {
 // before ACTIVE=0, and restored to ACTIVE=1 before render resumes —
 // callers in setCompositorActive guarantee that ordering.
 
-void WaylandCompositor::releaseSimpleDozeState(SimpleDozeState &state) {
+void WaylandCompositor::releaseSimpleDozeState(SimpleDozeState &state) const {
     for (uint32_t fb : std::as_const(state.framebuffers))
         drmModeRmFB(m_driFd, fb);
     if (state.modeBlob)

@@ -366,7 +366,7 @@ class WaylandCompositor : public QWaylandCompositor {
     bool            m_simpleDozeDetached = false;
     bool            m_simpleDrmQualified = false;
     bool            setSimpleDrmPowerState(bool on);
-    void            releaseSimpleDozeState(SimpleDozeState &state);
+    void            releaseSimpleDozeState(SimpleDozeState &state) const;
 };
 
 #endif
