@@ -650,8 +650,10 @@ mod tests {
         assert_eq!(at(t0 + 3.0).1, State::Following);
         assert_eq!(at(t0 + 4.0).1, State::OffRoute);
         let reroutes: Vec<_> = log.iter().filter(|l| l.3).collect();
-        assert!(!reroutes.is_empty());
-        assert!(reroutes[0].2 > 110.0);
+        assert!(
+            reroutes.first().is_some_and(|r| r.2 > 110.0),
+            "{reroutes:?}"
+        );
         assert!(log
             .iter()
             .filter(|l| l.0 < reroutes[0].0)

@@ -288,6 +288,6 @@ mod tests {
             ["broadband.eircommbb.ie", "data.mymeteor.ie"]
         );
         assert_eq!(found[1].2, "my");
-        assert!(carrier_apns(xml, "").is_empty());
+        assert_eq!(carrier_apns(xml, ""), Vec::new());
     }
 }
