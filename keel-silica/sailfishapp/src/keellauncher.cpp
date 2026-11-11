@@ -144,9 +144,11 @@ WindowMode prepareEnvironment()
     // small limits hand it back (with trimMemory() after start-up): about
     // 1.5 MB less per app on an Xperia 10 II, as GLIBC_TUNABLES would,
     // which is read before any code of ours runs.
+#ifdef __GLIBC__
     mallopt(M_ARENA_MAX, 2);
     mallopt(M_TRIM_THRESHOLD, 128 * 1024);
     mallopt(M_MMAP_THRESHOLD, 128 * 1024);
+#endif
 
     // The Sailfish session sets QT_QPA_PLATFORM=wayland for its Qt 5 apps;
     // Keel wants Qt 6's EGL client explicitly. A value set on purpose for

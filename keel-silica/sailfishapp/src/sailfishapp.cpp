@@ -221,7 +221,11 @@ void warmUpAppQml(QQuickView *view)
     // Start-up's temporary allocations (QML compilation, image decoding)
     // are freed by now; give the pages back (keellauncher.cpp sets the
     // allocator's limits).
-    const auto trimMemory = []() { malloc_trim(0); };
+    const auto trimMemory = []() {
+#ifdef __GLIBC__
+        malloc_trim(0);
+#endif
+    };
     if (qEnvironmentVariableIsSet("KEEL_QML_WARMUP") && qEnvironmentVariableIntValue("KEEL_QML_WARMUP") == 0) {
         QTimer::singleShot(1500, view, trimMemory);
         return;
