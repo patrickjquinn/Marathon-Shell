@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-: "${KEEL_QML:?set KEEL_QML to a Keel build's qml dir}"
+: "${KEEL_QML:?set KEEL_QML to the qml dir of a Keel build}"
 runner=${QMLTESTRUNNER:-$(qtpaths6 --query QT_INSTALL_BINS)/qmltestrunner}
 
 # MarathonApp.Camera as the app installs it, with stand-ins for its C++ types.
