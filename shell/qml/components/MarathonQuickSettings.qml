@@ -172,7 +172,7 @@ Item {
                 id: "wifi",
                 icon: "wifi-high",
                 label: qsTr("Wi-Fi"),
-                on: SystemControlStore.isWifiOn
+                on: SystemControlStore.shown("wifi", SystemControlStore.isWifiOn)
             }
         ];
         if (Modem.modemAvailable)
@@ -180,18 +180,18 @@ Item {
                 id: "cellular",
                 icon: "cell-signal-high",
                 label: qsTr("Mobile"),
-                on: SystemControlStore.isCellularDataOn
+                on: SystemControlStore.shown("cellular", SystemControlStore.isCellularDataOn)
             });
         t.push({
             id: "bluetooth",
             icon: "bluetooth",
             label: qsTr("Bluetooth"),
-            on: SystemControlStore.isBluetoothOn
+            on: SystemControlStore.shown("bluetooth", SystemControlStore.isBluetoothOn)
         }, {
             id: "airplane",
             icon: "airplane-tilt",
             label: qsTr("Flight"),
-            on: SystemControlStore.isAirplaneModeOn
+            on: SystemControlStore.shown("airplane", SystemControlStore.isAirplaneModeOn)
         }, {
             id: "dnd",
             icon: "bell-slash",
@@ -214,7 +214,7 @@ Item {
             id: "hotspot",
             icon: "broadcast",
             label: qsTr("Hotspot"),
-            on: SystemControlStore.isHotspotOn
+            on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
         }, {
             id: "nightlight",
             icon: "moon",
