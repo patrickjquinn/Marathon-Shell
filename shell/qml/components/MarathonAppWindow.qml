@@ -292,7 +292,11 @@ Rectangle {
     function startZoom() {
         var origin = WindowOrigins.takeLaunch();
         var r = origin && parent && width > 0 ? parent.mapFromItem(null, origin.rect.x, origin.rect.y, origin.rect.width, origin.rect.height) : null;
-        if (r && r.width > 0) {
+        if (MMotion.reduceMotion) {
+            zoomScaleFrom = 1;
+            zoomXFrom = 0;
+            zoomYFrom = 0;
+        } else if (r && r.width > 0) {
             zoomScaleFrom = r.width / width;
             zoomXFrom = r.x - x;
             // A card shows the app's top; an icon is the middle of the window it becomes.
@@ -562,7 +566,7 @@ Rectangle {
             property: "opacity"
             from: 0
             to: 1
-            duration: MMotion.dur(MMotion.slow) / 2
+            duration: MMotion.reduceMotion ? MMotion.reducedFade : MMotion.dur(MMotion.slow) / 2
             easing.type: Easing.OutQuad
         }
     }
@@ -582,7 +586,7 @@ Rectangle {
             target: appWindow
             property: "scale"
             from: 1.0
-            to: 0.96
+            to: MMotion.startScale(0.96)
             duration: MMotion.durationFor("nav")
             easing.type: Easing.OutCubic
         }
