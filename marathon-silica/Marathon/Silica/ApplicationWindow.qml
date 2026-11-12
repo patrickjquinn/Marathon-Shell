@@ -1,10 +1,21 @@
 import QtQuick
 import Sailfish.Silica as S
+import Sailfish.Silica.private as Private
 
 S.ApplicationWindow {
     id: root
 
     property string appId: ""
+    // Settings > Accessibility > Reduce motion: pages swap without sliding.
+    readonly property bool _reduceMotion: typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings !== null && MarathonA11ySettings.reduceMotion === true
+
+    Binding {
+        target: Private.Config
+        property: "_keelImmediatePageTransitions"
+        value: true
+        when: root._reduceMotion
+        restoreMode: Binding.RestoreBindingOrValue
+    }
 
     signal minimizeRequested
 
