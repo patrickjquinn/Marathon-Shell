@@ -17,6 +17,13 @@ QtObject {
     function durationFor(role) {
         return 0;
     }
+    readonly property int reducedFade: 0
+    function travel(px) {
+        return reduceMotion ? 0 : px;
+    }
+    function startScale(s) {
+        return reduceMotion ? 1 : s;
+    }
     function gate(running) {
         return running;
     }

@@ -415,7 +415,7 @@ Item {
             }
 
             SequentialAnimation on x {
-                running: pinScreen.error !== ""
+                running: pinScreen.error !== "" && !MMotion.reduceMotion
 
                 NumberAnimation {
                     to: 8

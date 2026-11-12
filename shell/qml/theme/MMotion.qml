@@ -152,6 +152,14 @@ QtObject {
     function dur(token) {
         return reduceMotion ? micro : token;
     }
+    // Reduce motion removes travel and scale and keeps short fades.
+    readonly property int reducedFade: 150
+    function travel(px) {
+        return reduceMotion ? 0 : px;
+    }
+    function startScale(s) {
+        return reduceMotion ? 1 : s;
+    }
 
     // ── Role-based motion API ─────────────────────────────────
     // Every microinteraction in Marathon picks one of these roles. The
