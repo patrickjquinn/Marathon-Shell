@@ -244,7 +244,8 @@ Item {
         flickableDirection: Flickable.VerticalFlick
         pressDelay: 0
         interactive: pages > 1
-        boundsBehavior: Flickable.StopAtBounds
+        // Past the first or last page the cards give, then spring back.
+        boundsBehavior: Flickable.DragAndOvershootBounds
         model: Tasks
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true

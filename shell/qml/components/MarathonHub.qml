@@ -310,7 +310,7 @@ Rectangle {
                 height: Silica.Theme.itemSizeExtraSmall
                 contentWidth: chips.width
                 flickableDirection: Flickable.HorizontalFlick
-                boundsBehavior: Flickable.StopAtBounds
+                boundsBehavior: Flickable.DragAndOvershootBounds
                 clip: true
                 visible: hub.sources.length > 1
 
