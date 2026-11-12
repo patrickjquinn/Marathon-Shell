@@ -228,6 +228,8 @@ Item {
                 width: parent.width - 2 * x
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
+                // About 1.45 em with the face's own leading: the spec's 1.5.
+                lineHeight: 1.1
                 text: permissionDialog.descriptionText()
                 color: Silica.Theme.secondaryHighlightColor
                 font.pixelSize: Silica.Theme.fontSizeSmall

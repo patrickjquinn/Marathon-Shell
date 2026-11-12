@@ -37,8 +37,10 @@ Page {
                     }
                     Label {
                         x: Theme.horizontalPageMargin
-                        width: parent.width - 2 * Theme.horizontalPageMargin
+                        // About 70 characters a line at most, with room between them.
+                        width: Math.min(parent.width - 2 * Theme.horizontalPageMargin, font.pixelSize * 34)
                         wrapMode: Text.Wrap
+                        lineHeight: 1.1
                         font.pixelSize: Theme.fontSizeSmall
                         color: Theme.highlightColor
                         text: section.modelData.text

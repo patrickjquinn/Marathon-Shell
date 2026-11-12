@@ -118,8 +118,10 @@ disabled controls only (exempt from contrast minimums).
 
 ### 2.2 Typography
 
-- **Slate** — UI sans (variable weight, geometric, condensed for status
-  chrome). Aliased as `MTypography.fontFamily`.
+- **Source Sans 3** — UI sans, as Silica's theme names it ("Sail Sans
+  Pro Light", aliased by `marathon-fonts`): Light for text, ExtraLight
+  for display. `MTypography.fontFamily` is `Theme.fontFamily`. Sora ships
+  only for the boot hand-over text.
 - **JetBrains Mono** — monospace, code/timestamps/PIN/secret reveal.
   `fontFamilyMono` / `fontMonospace`.
 
