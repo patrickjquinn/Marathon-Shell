@@ -25,6 +25,19 @@ Rectangle {
 
     signal clicked
     signal pressAndHold
+
+    // Function keys carry an identifier as their text; screen readers get a word.
+    readonly property var _spokenNames: ({
+            "shift": qsTr("Shift"),
+            "backspace": qsTr("Backspace"),
+            "dismiss": qsTr("Hide keyboard"),
+            "emoji": qsTr("Emoji"),
+            "enter": qsTr("Return"),
+            " ": qsTr("Space")
+        })
+    Accessible.role: Accessible.Button
+    Accessible.name: _spokenNames[key.text] || key.displayText || key.text
+    Accessible.onPressAction: key.clicked()
     signal released
     signal alternateSelected(string character)
 

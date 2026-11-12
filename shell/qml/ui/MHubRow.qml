@@ -53,6 +53,16 @@ FocusScope {
     signal replied(string text)
     signal dismissed
 
+    // Screen readers and keyboards: Return opens it, Delete dismisses it as a swipe would.
+    activeFocusOnTab: true
+    Accessible.role: Accessible.ListItem
+    Accessible.name: [name, snippet, time].filter(t => t !== "").join(", ")
+    Accessible.onPressAction: activated()
+    Keys.onReturnPressed: activated()
+    Keys.onEnterPressed: activated()
+    Keys.onDeletePressed: if (!ongoing && !dismissAnimation.running)
+        dismissAnimation.start()
+
     function reset() {
         dismissAnimation.stop();
         snapBack.stop();
