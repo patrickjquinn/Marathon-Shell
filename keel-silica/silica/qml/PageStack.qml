@@ -711,7 +711,7 @@ PageStackBase {
 
             property: "opacity"
             to: 0.0
-            easing.type: Easing.InQuad
+            easing.type: Easing.OutQuad // Marathon: no ease-in on user-triggered motion
             duration: root._transitionDuration / 2 // Modified by Shipwright for Qt 6: qualified
         }
 
