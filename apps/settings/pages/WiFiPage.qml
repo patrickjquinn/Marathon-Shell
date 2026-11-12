@@ -13,6 +13,15 @@ Page {
     // The controller keeps the password dialog's state; it is shown again after a failed attempt.
     readonly property bool dialogWanted: SettingsController.wifiDialogVisible && !SettingsController.wifiDialogConnecting
     readonly property var others: Network.availableNetworks.filter(n => !(Network.wifiConnected && n.ssid === Network.wifiSsid))
+    // Rows keep their places while the page is open (Logic.syncKeys); each
+    // shows its network's latest scan.
+    readonly property var networkBySsid: Logic.byKey(others, "ssid")
+
+    function syncNetworks() {
+        Logic.syncKeys(networkOrder, Network.wifiEnabled ? others : [], "ssid");
+    }
+
+    onOthersChanged: syncNetworks()
 
     function scan() {
         scanning = true;
@@ -36,8 +45,13 @@ Page {
     onDialogWantedChanged: Qt.callLater(showDialog)
     onStatusChanged: Qt.callLater(showDialog)
     Component.onCompleted: {
+        syncNetworks();
         if (Network.wifiAvailable && Network.wifiEnabled)
             scan();
+    }
+
+    ListModel {
+        id: networkOrder
     }
 
     Timer {
@@ -54,6 +68,7 @@ Page {
             page.scanning = false;
         }
         function onWifiEnabledChanged() {
+            page.syncNetworks();
             if (Network.wifiEnabled)
                 page.scan();
         }
@@ -217,12 +232,15 @@ Page {
             }
             Repeater {
                 objectName: "networks"
-                model: Network.wifiEnabled ? page.others : []
+                model: networkOrder
 
                 ListItem {
                     id: item
 
-                    required property var modelData
+                    required property string ssid
+                    readonly property var modelData: page.networkBySsid[ssid] || ({
+                            ssid: ssid
+                        })
 
                     objectName: "network-" + modelData.ssid
                     contentHeight: Theme.itemSizeMedium

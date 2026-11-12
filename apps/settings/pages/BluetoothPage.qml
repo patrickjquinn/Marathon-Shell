@@ -12,6 +12,27 @@ Page {
     // The controller keeps the pairing dialog's state, including PIN requests from the device.
     readonly property bool dialogWanted: SettingsController.bluetoothDialogVisible && !SettingsController.bluetoothDialogPairing
     readonly property var available: Bluetooth.devices.filter(d => !d.paired)
+    // Rows keep their places as signal strengths update (Logic.syncKeys).
+    readonly property var availableByAddress: Logic.byKey(available, "address")
+
+    function syncAvailable() {
+        Logic.syncKeys(availableOrder, Bluetooth.enabled ? available : [], "address");
+    }
+
+    onAvailableChanged: syncAvailable()
+    Component.onCompleted: syncAvailable()
+
+    ListModel {
+        id: availableOrder
+    }
+
+    Connections {
+        target: Bluetooth
+
+        function onEnabledChanged() {
+            page.syncAvailable();
+        }
+    }
     // The paired device being connected or disconnected, until BlueZ reports the new state.
     property string pendingAddress: ""
     property bool pendingConnect: false
@@ -234,9 +255,14 @@ Page {
             }
             Repeater {
                 objectName: "availableDevices"
-                model: Bluetooth.enabled ? page.available : []
+                model: availableOrder
 
                 DeviceItem {
+                    required property string address
+
+                    modelData: page.availableByAddress[address] || ({
+                            address: address
+                        })
                     objectName: "device-" + modelData.address
                     subtitle: qsTr("Tap to pair")
                     onClicked: SettingsController.showBluetoothDialog(modelData.name || Logic.deviceName(modelData), modelData.address, modelData.type || "device", "justworks")
