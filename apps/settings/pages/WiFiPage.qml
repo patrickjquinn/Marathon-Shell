@@ -89,13 +89,46 @@ Page {
                 title: qsTr("Wi-Fi")
             }
             TextSwitch {
+                id: wifiSwitch
+
+                // The state asked for, shown until Wi-Fi reaches it (10 s at most).
+                property var pending: undefined
+
                 objectName: "wifiSwitch"
                 text: qsTr("Wi-Fi")
                 description: Network.wifiEnabled ? qsTr("Connect to wireless networks") : qsTr("Turn on to see networks")
                 automaticCheck: false
                 enabled: Network.wifiAvailable
-                checked: Network.wifiAvailable && Network.wifiEnabled
-                onClicked: Network.toggleWifi()
+                checked: pending !== undefined ? pending : Network.wifiAvailable && Network.wifiEnabled
+                busy: pending !== undefined
+                onClicked: {
+                    if (pending !== undefined)
+                        return;
+                    pending = !Network.wifiEnabled;
+                    wifiTimeout.restart();
+                    Network.toggleWifi();
+                }
+
+                Connections {
+                    target: Network
+
+                    function onWifiEnabledChanged() {
+                        if (wifiSwitch.pending === Network.wifiEnabled) {
+                            wifiSwitch.pending = undefined;
+                            wifiTimeout.stop();
+                        }
+                    }
+                }
+                Timer {
+                    id: wifiTimeout
+
+                    interval: 10000
+                    onTriggered: {
+                        const on = wifiSwitch.pending;
+                        wifiSwitch.pending = undefined;
+                        Notices.show(on ? qsTr("Wi-Fi didn't turn on") : qsTr("Wi-Fi didn't turn off"));
+                    }
+                }
             }
 
             Row {
