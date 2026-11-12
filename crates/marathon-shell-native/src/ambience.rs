@@ -14,7 +14,7 @@ use cxx_qt_lib::{
     QVariant, TransformationMode,
 };
 use palette::color_difference::Wcag21RelativeContrast as _;
-use palette::Srgb;
+use palette::{Clamp as _, FromColor as _, Oklch, Srgb};
 use zbus::OwnedVariant as OwnedValue;
 
 use crate::io;
@@ -273,7 +273,26 @@ fn highlight(seed: &Seed) -> QColor {
         (true, greyed) => (if greyed { 0.1 } else { 0.65 }, 0.5),
         (false, greyed) => (if greyed { 0.06 } else { 0.32 }, 1.0),
     };
-    QColor::from_hsv_f(seed.hue as f32, s, v)
+    let c = QColor::from_hsv_f(seed.hue as f32, s, v);
+    if !seed.light {
+        return c;
+    }
+    let c = legible_on_light(Srgb::new(c.red_f(), c.green_f(), c.blue_f()));
+    QColor::from_rgb_f(c.red, c.green, c.blue)
+}
+
+/// Darkened in Oklch, keeping hue and chroma, until it reads at 4.5:1 on a
+/// light ambience's backgrounds (#f0f0f0, a shade under them). HSV's fixed
+/// value left teal, green and yellow at 3.8-4.4:1.
+fn legible_on_light(c: Srgb<f32>) -> Srgb<f32> {
+    let background = Srgb::new(0xf0_u8, 0xf0_u8, 0xf0_u8).into_format::<f32>();
+    let mut lch = Oklch::from_color(c);
+    let mut out = c;
+    while out.relative_contrast(background) < 4.5 && lch.l > 0.0 {
+        lch.l = (lch.l - 0.01).max(0.0);
+        out = Srgb::from_color(lch).clamp();
+    }
+    out
 }
 
 impl cxx_qt::Initialize for Ambience {
@@ -447,7 +466,9 @@ impl Wallpaper1 {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
-    use super::{built_in, pixels, seed, BUILT_IN};
+    use super::{built_in, highlight, pixels, seed, Seed, BUILT_IN};
+    use palette::color_difference::Wcag21RelativeContrast as _;
+    use palette::Srgb;
     use std::path::Path;
 
     fn solid(rgb: [u8; 3]) -> Vec<[u8; 3]> {
@@ -491,6 +512,25 @@ mod tests {
 
     fn installed(file: &str) -> Option<&'static super::BuiltIn> {
         built_in(&format!("/usr/share/marathon-shell/wallpapers/{file}"))
+    }
+
+    #[test]
+    fn a_light_ambience_highlight_reads_at_every_hue() {
+        let background = Srgb::new(0xf0_u8, 0xf0_u8, 0xf0_u8).into_format::<f32>();
+        for degrees in (0..360).step_by(5) {
+            for greyed in [false, true] {
+                let seed = Seed {
+                    hue: f64::from(degrees) / 360.0,
+                    greyed,
+                    light: true,
+                    brightest: 1.0,
+                    darkest: 0.8,
+                };
+                let h = highlight(&seed);
+                let c = Srgb::new(h.red_f(), h.green_f(), h.blue_f());
+                assert!(c.relative_contrast(background) >= 4.5, "{degrees} {greyed}");
+            }
+        }
     }
 
     #[test]
