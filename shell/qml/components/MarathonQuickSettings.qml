@@ -128,7 +128,8 @@ Item {
         onActiveChanged: {
             if (active) {
                 startY = centroid.position.y;
-                startHeight = UIStore.quickSettingsHeight;
+                // From where the shade is drawn: a settle in flight is caught, not skipped.
+                startHeight = quickSettings.drawnHeight;
                 UIStore.quickSettingsDragging = true;
             } else {
                 UIStore.quickSettingsDragging = false;
