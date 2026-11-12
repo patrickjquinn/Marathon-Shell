@@ -543,7 +543,7 @@ Item {
                 font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
                 font.weight: Font.ExtraLight
                 // Display sizes set tighter; figures of one width, so the clock never shifts.
-                font.letterSpacing: -0.02 * font.pixelSize
+                font.letterSpacing: -0.02 * lockClock.font.pixelSize
                 font.features: ({
                         "tnum": 1
                     })

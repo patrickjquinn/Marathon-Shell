@@ -7,7 +7,9 @@ S.ApplicationWindow {
 
     property string appId: ""
     // Settings > Accessibility > Reduce motion: pages swap without sliding.
+    // qmllint disable unqualified
     readonly property bool _reduceMotion: typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings !== null && MarathonA11ySettings.reduceMotion === true
+    // qmllint enable unqualified
 
     Binding {
         target: Private.Config

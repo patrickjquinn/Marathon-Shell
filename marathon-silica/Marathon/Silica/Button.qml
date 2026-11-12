@@ -9,11 +9,16 @@ S.Button {
     activeFocusOnTab: true
 
     // The hit area reaches the 7 mm minimum without the control growing.
+    // qmllint disable unqualified
     readonly property real _panelDpi: typeof DeviceProfile !== "undefined" && DeviceProfile.panelDpi ? DeviceProfile.panelDpi : 0
-    readonly property real _hitPadX: TouchTarget.pad(width, _panelDpi, Screen.pixelDensity)
-    readonly property real _hitPadY: TouchTarget.pad(height, _panelDpi, Screen.pixelDensity)
-    containmentMask: Item {
-        parent: root
+    // qmllint enable unqualified
+    readonly property real _hitPadX: TouchTarget.pad(root.width, root._panelDpi, Screen.pixelDensity)
+    readonly property real _hitPadY: TouchTarget.pad(root.height, root._panelDpi, Screen.pixelDensity)
+    containmentMask: hitArea
+
+    Item {
+        id: hitArea
+
         x: -root._hitPadX
         y: -root._hitPadY
         width: root.width + 2 * root._hitPadX
