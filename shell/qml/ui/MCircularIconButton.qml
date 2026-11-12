@@ -20,6 +20,8 @@ Item {
     property bool down: mouseArea.pressed
     readonly property real scaleFactor: Constants.scaleFactor || 1
     readonly property real diameter: Math.round(buttonSize * scaleFactor)
+    // How far the touch area reaches past the circle; at least to the 7 mm minimum.
+    property real hitMargin: Math.max(0, (Constants.touchTargetMinimum - diameter) / 2)
     readonly property bool hasText: text !== ""
     readonly property bool lit: variant === "primary" || down
 
@@ -75,6 +77,7 @@ Item {
         id: mouseArea
 
         anchors.fill: parent
+        anchors.margins: -root.hitMargin
         enabled: !root.disabled
         onPressed: MHaptics.lightImpact()
         onClicked: root.clicked()

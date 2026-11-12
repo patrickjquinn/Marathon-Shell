@@ -112,7 +112,11 @@ QtObject {
     readonly property real touchTargetMedium: Math.round(70 * scaleFactor)
     readonly property real touchTargetSmall: Math.round(60 * scaleFactor)
     readonly property real touchTargetIndicator: Math.round(50 * scaleFactor)
-    readonly property real touchTargetMinimum: Math.max(44, Math.round(45 * scaleFactor))
+    // Physical px per mm: the panel's true pitch where the profile knows it
+    // (the shell), else the screen's (apps get it from wl_output), else dpi.
+    readonly property real pixelsPerMm: typeof DeviceProfile !== "undefined" && DeviceProfile.panelDpi > 0 ? DeviceProfile.panelDpi / 25.4 : (Qt.application.screens.length > 0 && Qt.application.screens[0].pixelDensity > 0 ? Qt.application.screens[0].pixelDensity : dpi / 25.4)
+    // 7 mm: Apple's 44 pt, Material's 48 dp. Hit areas reach it, visuals needn't.
+    readonly property real touchTargetMinimum: Math.round(7 * pixelsPerMm)
     readonly property real inputHeight: Math.round(48 * scaleFactor)
     readonly property real hubHeaderHeight: Math.round(80 * scaleFactor)
     readonly property real appIconSize: Math.round(64 * scaleFactor)
