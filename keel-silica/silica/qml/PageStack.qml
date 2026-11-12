@@ -128,7 +128,7 @@ PageStackBase {
     property Component pageBackground
 
     // Duration of transition animations (in ms)
-    property int _transitionDuration: 400
+    property int _transitionDuration: 300 // Marathon: UI motion stays under 300 ms
 
     property Item _pageStackIndicator
     property Item _pendingContainer

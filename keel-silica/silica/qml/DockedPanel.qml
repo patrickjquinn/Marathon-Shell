@@ -51,7 +51,7 @@ SilicaFlickable {
     readonly property bool moving: horizontalAnimation.running || verticalAnimation.running || mouseArea.drag.active
     property int dock: Dock.Bottom
     property bool modal
-    property int animationDuration: 500
+    property int animationDuration: 300 // Marathon: UI motion stays under 300 ms
     property bool _immediate
 
     function _visibleSize(): var { // Modified by Shipwright for Qt 6: typed
