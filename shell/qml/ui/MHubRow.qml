@@ -344,9 +344,13 @@ FocusScope {
         anchors.fill: parent
         enabled: !dismissAnimation.running
         onPressed: mouse => {
-            pressX = mouse.x;
+            // A row springing back is caught where it is, with the grab offset kept.
+            const moving = snapBack.running || content.x > 0;
+            snapBack.stop();
+            pressX = mouse.x - content.x;
             pressY = mouse.y;
-            swiping = false;
+            swiping = moving;
+            preventStealing = moving;
             swiped = false;
         }
         onPositionChanged: mouse => {

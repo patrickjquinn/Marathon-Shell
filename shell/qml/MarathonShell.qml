@@ -2226,6 +2226,7 @@ Item {
         id: statusBarDragArea
 
         property real startY: 0
+        property real startHeight: 0
         property bool isDraggingDown: false
 
         anchors.top: parent.top
@@ -2242,6 +2243,8 @@ Item {
                 return;
             }
             startY = mouse.y;
+            // A shade still closing is caught where it is drawn.
+            startHeight = quickSettings.drawnHeight;
             isDraggingDown = false;
         }
         onPositionChanged: mouse => {
@@ -2254,7 +2257,7 @@ Item {
                 });
             }
             if (isDraggingDown)
-                UIStore.quickSettingsHeight = Math.min(shell.maxQuickSettingsHeight, dragDistance);
+                UIStore.quickSettingsHeight = Math.min(shell.maxQuickSettingsHeight, startHeight + dragDistance);
         }
         onReleased: mouse => {
             if (isDraggingDown) {
