@@ -24,8 +24,17 @@ QtObject {
     function startScale(s) {
         return reduceMotion ? 1 : s;
     }
+    function stagger(index, step) {
+        return reduceMotion ? 0 : Math.min(index * step, 200);
+    }
     function gate(running) {
         return running;
+    }
+    function exitDurationFor(role) {
+        return 0;
+    }
+    function easingCurveFor(role) {
+        return [0.2, 0, 0, 1, 1, 1];
     }
     function easingFor(role) {
         return 0;

@@ -97,7 +97,7 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: MMotion.durationFor("modal")
+                duration: root._showing ? MMotion.durationFor("modal") : MMotion.exitDurationFor("modal")
                 easing.type: MMotion.easingFor("hover")
             }
         }

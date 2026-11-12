@@ -73,7 +73,7 @@ Item {
         id: animator
 
         PauseAnimation {
-            duration: ent.index * ent.stagger
+            duration: MMotion.stagger(ent.index, ent.stagger)
         }
 
         ParallelAnimation {

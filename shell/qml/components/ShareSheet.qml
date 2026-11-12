@@ -61,7 +61,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: MMotion.durationFor("sheet")
+                duration: shareSheet.shown ? MMotion.durationFor("sheet") : MMotion.exitDurationFor("sheet")
+                easing.type: Easing.OutCubic
             }
         }
 
@@ -110,8 +111,9 @@ Item {
             enabled: !dragArea.pressed
 
             NumberAnimation {
-                duration: MMotion.durationFor("sheet")
+                duration: shareSheet.shown ? MMotion.durationFor("sheet") : MMotion.exitDurationFor("sheet")
                 easing.type: MMotion.easingFor("sheet")
+                easing.bezierCurve: MMotion.easingCurveFor("sheet")
             }
         }
 
