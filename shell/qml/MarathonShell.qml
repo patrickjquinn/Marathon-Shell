@@ -1429,6 +1429,7 @@ Item {
                     Behavior on opacity {
                         NumberAnimation {
                             duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                            easing.type: Easing.OutCubic
                         }
                     }
                     currentPage: shell.currentPage
@@ -1458,6 +1459,7 @@ Item {
                     Behavior on opacity {
                         NumberAnimation {
                             duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                            easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on scale {

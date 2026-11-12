@@ -869,12 +869,11 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 SequentialAnimation on y {
-                    // A few bobs each time the lock screen appears, then
-                    // rest: any running animation makes the scene graph
-                    // redraw the whole screen every frame, which cost a
-                    // quarter of a core on the PinePhone's lock screen.
+                    // One bob each time the lock screen appears, then rest: it
+                    // is seen on every wake, and any running animation makes
+                    // the scene graph redraw the whole screen every frame.
                     running: MMotion.gate(lockScreen.visible)
-                    loops: 3
+                    loops: 1
 
                     NumberAnimation {
                         to: -Silica.Theme.paddingSmall

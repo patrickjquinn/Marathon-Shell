@@ -324,23 +324,11 @@ Item {
                     model: pinScreen.pin.length
 
                     Rectangle {
-                        id: pinDot
-
-                        required property int index
-
                         width: Math.round(14 * Constants.scaleFactor)
                         height: Math.round(14 * Constants.scaleFactor)
                         radius: Math.round(7 * Constants.scaleFactor)
                         color: Silica.Theme.highlightColor
                         antialiasing: true
-                        scale: pinDot.index === pinScreen.pin.length - 1 ? 1.3 : 1
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 150
-                                easing.type: Easing.OutQuad
-                            }
-                        }
                     }
                 }
             }
@@ -356,6 +344,7 @@ Item {
                 Behavior on opacity {
                     NumberAnimation {
                         duration: 150
+                        easing.type: Easing.OutCubic
                     }
                 }
             }
@@ -411,6 +400,7 @@ Item {
             Behavior on opacity {
                 NumberAnimation {
                     duration: 150
+                    easing.type: Easing.OutCubic
                 }
             }
 
@@ -639,6 +629,7 @@ Item {
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 150
+                            easing.type: Easing.OutCubic
                         }
                     }
                 }

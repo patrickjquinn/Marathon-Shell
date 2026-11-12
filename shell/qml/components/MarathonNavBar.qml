@@ -43,6 +43,7 @@ Rectangle {
         NumberAnimation {
             duration: MMotion.durationFor("hero")
             easing.type: MMotion.easingFor("hero")
+            easing.bezierCurve: MMotion.easingCurveFor("hero")
         }
     }
 

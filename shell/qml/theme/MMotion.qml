@@ -120,6 +120,11 @@ QtObject {
     readonly property int staggerShort: 50
     // The home screen building in as setup hands over.
     readonly property int staggerHome: 30
+    // A cascade's last item starts within this, however long the list.
+    readonly property int staggerCap: 200
+    function stagger(index, step) {
+        return reduceMotion ? 0 : Math.min(index * step, staggerCap);
+    }
 
     readonly property int rippleDuration: slow
     readonly property real rippleMaxRadius: 2.5
@@ -409,6 +414,11 @@ QtObject {
     }
     function easingFor(role) {
         return reduceMotion ? Easing.OutQuad : _role(role).easing;
+    }
+    // Leaving needs less attention than arriving: exits run 20% shorter.
+    readonly property real exitFactor: 0.8
+    function exitDurationFor(role) {
+        return Math.round(durationFor(role) * exitFactor);
     }
     function easingCurveFor(role) {
         return _role(role).curve;

@@ -57,6 +57,7 @@ Item {
     Behavior on opacity {
         NumberAnimation {
             duration: MMotion.reduceMotion ? 0 : 200
+            easing.type: Easing.OutCubic
         }
     }
 

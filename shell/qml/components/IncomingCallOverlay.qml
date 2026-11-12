@@ -111,6 +111,7 @@ Item {
             Behavior on scale {
                 NumberAnimation {
                     duration: MMotion.micro
+                    easing.type: Easing.OutCubic
                 }
             }
 
@@ -408,6 +409,7 @@ Item {
     Behavior on opacity {
         NumberAnimation {
             duration: MMotion.fast
+            easing.type: Easing.OutCubic
         }
     }
 }
