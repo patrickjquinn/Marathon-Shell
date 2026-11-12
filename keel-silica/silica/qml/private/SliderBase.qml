@@ -103,7 +103,7 @@ SilicaMouseArea {
                                     * (_grooveWidth - 2 * _highlightPadding)
                                   : 0)
     Behavior on _highlightX {
-        enabled: !slider._widthChanged && slider.animateValue // Modified by Shipwright for Qt 6: qualified
+        enabled: !slider._widthChanged && slider.animateValue && !slider.drag.active // Modified by Shipwright for Qt 6: qualified; Marathon: 1:1 while dragged
         SmoothedAnimation {
             duration: 300
             velocity: Theme.dp(1500)
@@ -114,7 +114,7 @@ SilicaMouseArea {
                                      / (maximumValue - minimumValue)
                                      * (_backgroundItem.width - _progressBarItem.height) + _progressBarItem.height
     Behavior on _progressBarWidth {
-        enabled: !slider._widthChanged && slider.animateValue // Modified by Shipwright for Qt 6: qualified
+        enabled: !slider._widthChanged && slider.animateValue && !slider.drag.active // Modified by Shipwright for Qt 6: qualified; Marathon: 1:1 while dragged
         SmoothedAnimation {
             duration: 300
             velocity: Theme.dp(1500)
