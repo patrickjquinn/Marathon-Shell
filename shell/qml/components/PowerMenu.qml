@@ -243,7 +243,7 @@ Item {
                 property: "opacity"
                 to: 0
                 duration: MMotion.fast
-                easing.type: Easing.InCubic
+                easing.type: Easing.OutCubic
             }
 
             NumberAnimation {
@@ -251,7 +251,7 @@ Item {
                 property: "opacity"
                 to: 0
                 duration: MMotion.fast
-                easing.type: Easing.InCubic
+                easing.type: Easing.OutCubic
             }
 
             NumberAnimation {
@@ -259,7 +259,7 @@ Item {
                 property: "scale"
                 to: 0.9
                 duration: MMotion.reduceMotion ? 0 : MMotion.fast
-                easing.type: Easing.InCubic
+                easing.type: Easing.OutCubic
             }
         }
 

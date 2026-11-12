@@ -219,10 +219,13 @@ editing the table, not 200 call sites.
 | `breathe` | Ambient status loops (charging): calm, never asks for attention | 4000 ms | Low | Critical |
 
 **Two-family damping.** Each role splits its physics across spatial
-(position, size, rotation) and effects (color, opacity). Spatial
-damping is underdamped (springy "alive" feel). Effects damping is
-always `dampingCritical` — a button background that overshoots to a
-darker shade looks broken.
+(position, size, rotation) and effects (color, opacity). Everyday UI
+settles without overshoot: overshoot is kept for gestures that carry
+momentum (a fling, a thrown card) and the odd celebration (charging).
+Qt's `damping` is not a damping ratio, and higher only means slower:
+the role values were measured to settle without overshoot (see the
+note in `MMotion.qml`); stiffness 1.0 at damping 1.0 takes over 2 s, so
+fade opacity on a duration rather than a low-stiffness spring.
 
 ```qml
 SpringAnimation {

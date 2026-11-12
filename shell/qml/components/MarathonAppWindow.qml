@@ -576,7 +576,7 @@ Rectangle {
             from: 1
             to: 0
             duration: MMotion.durationFor("nav")
-            easing.type: Easing.InQuad
+            easing.type: Easing.OutQuad
         }
         NumberAnimation {
             target: appWindow
@@ -584,7 +584,7 @@ Rectangle {
             from: 1.0
             to: 0.96
             duration: MMotion.durationFor("nav")
-            easing.type: Easing.InCubic
+            easing.type: Easing.OutCubic
         }
         onFinished: {
             appWindow.visible = false;

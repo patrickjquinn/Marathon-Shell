@@ -127,7 +127,7 @@ Item {
                 property: "edit"
                 to: appGrid.editing ? 1 : 0
                 duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
-                easing.type: appGrid.editing ? Easing.OutBack : Easing.OutCubic
+                easing.type: Easing.OutCubic
             }
         }
 
@@ -220,7 +220,7 @@ Item {
 
                 NumberAnimation {
                     duration: MMotion.durationFor("nav")
-                    easing.type: Easing.InCubic
+                    easing.type: Easing.OutCubic
                 }
             }
 
@@ -615,7 +615,7 @@ Item {
             Behavior on scale {
                 NumberAnimation {
                     duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
-                    easing.type: Easing.OutBack
+                    easing.type: Easing.OutCubic
                 }
             }
 
