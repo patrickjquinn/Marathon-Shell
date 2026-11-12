@@ -253,7 +253,7 @@ Item {
             interactive: true
             flickDeceleration: MMotion.flickDeceleration
             maximumFlickVelocity: MMotion.flickVelocity
-            boundsBehavior: Flickable.StopAtBounds
+            boundsBehavior: Flickable.DragAndOvershootBounds
             Keys.onUpPressed: {
                 if (currentIndex === 0)
                     searchInput.forceActiveFocus();
