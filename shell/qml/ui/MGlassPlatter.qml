@@ -1,6 +1,9 @@
 import QtQuick
 import QtQuick.Window
+// AmbienceService is registered at run time; the tests load this file outside its module.
+// qmllint disable unused-imports
 import MarathonOS.Shell
+// qmllint enable unused-imports
 import Sailfish.Silica 1.0 as Silica
 
 // Marathon glass: the ambience, frosted and tinted, behind a surface with

@@ -6,6 +6,9 @@ import Marathon.Platform 1.0
 import MarathonOS.Settings 1.0
 import "../SettingsLogic.js" as Logic
 
+// qmllint disable required
+// (qmllint cannot see a ListModel filled at run time give its delegates their index.)
+
 Page {
     id: page
 
@@ -15,13 +18,13 @@ Page {
     readonly property var others: Network.availableNetworks.filter(n => !(Network.wifiConnected && n.ssid === Network.wifiSsid))
     // Rows keep their places while the page is open (Logic.syncKeys); each
     // shows its network's latest scan.
-    readonly property var networkBySsid: Logic.byKey(others, "ssid")
+    readonly property var networkBySsid: Logic.byKey(page.others, "ssid")
 
     function syncNetworks() {
-        Logic.syncKeys(networkOrder, Network.wifiEnabled ? others : [], "ssid");
+        Logic.syncKeys(networkOrder, Network.wifiEnabled ? page.others : [], "ssid");
     }
 
-    onOthersChanged: syncNetworks()
+    onOthersChanged: page.syncNetworks()
 
     function scan() {
         scanning = true;
@@ -45,7 +48,7 @@ Page {
     onDialogWantedChanged: Qt.callLater(showDialog)
     onStatusChanged: Qt.callLater(showDialog)
     Component.onCompleted: {
-        syncNetworks();
+        page.syncNetworks();
         if (Network.wifiAvailable && Network.wifiEnabled)
             scan();
     }
@@ -237,9 +240,11 @@ Page {
                 ListItem {
                     id: item
 
-                    required property string ssid
-                    readonly property var modelData: page.networkBySsid[ssid] || ({
-                            ssid: ssid
+                    required property int index
+                    // A row's network never changes; only its index does.
+                    readonly property string ssid: (networkOrder.get(index) || {}).ssid || ""
+                    readonly property var modelData: page.networkBySsid[item.ssid] || ({
+                            ssid: item.ssid
                         })
 
                     objectName: "network-" + modelData.ssid

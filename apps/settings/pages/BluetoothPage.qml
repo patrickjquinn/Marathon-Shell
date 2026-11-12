@@ -6,6 +6,9 @@ import Marathon.Platform 1.0
 import MarathonOS.Settings 1.0
 import "../SettingsLogic.js" as Logic
 
+// qmllint disable required
+// (qmllint cannot see a ListModel filled at run time give its delegates their index.)
+
 Page {
     id: page
 
@@ -13,14 +16,14 @@ Page {
     readonly property bool dialogWanted: SettingsController.bluetoothDialogVisible && !SettingsController.bluetoothDialogPairing
     readonly property var available: Bluetooth.devices.filter(d => !d.paired)
     // Rows keep their places as signal strengths update (Logic.syncKeys).
-    readonly property var availableByAddress: Logic.byKey(available, "address")
+    readonly property var availableByAddress: Logic.byKey(page.available, "address")
 
     function syncAvailable() {
-        Logic.syncKeys(availableOrder, Bluetooth.enabled ? available : [], "address");
+        Logic.syncKeys(availableOrder, Bluetooth.enabled ? page.available : [], "address");
     }
 
-    onAvailableChanged: syncAvailable()
-    Component.onCompleted: syncAvailable()
+    onAvailableChanged: page.syncAvailable()
+    Component.onCompleted: page.syncAvailable()
 
     ListModel {
         id: availableOrder
@@ -258,10 +261,14 @@ Page {
                 model: availableOrder
 
                 DeviceItem {
-                    required property string address
+                    id: availableItem
 
-                    modelData: page.availableByAddress[address] || ({
-                            address: address
+                    required property int index
+                    // A row's device never changes; only its index does.
+                    readonly property string address: (availableOrder.get(index) || {}).address || ""
+
+                    modelData: page.availableByAddress[availableItem.address] || ({
+                            address: availableItem.address
                         })
                     objectName: "device-" + modelData.address
                     subtitle: qsTr("Tap to pair")
