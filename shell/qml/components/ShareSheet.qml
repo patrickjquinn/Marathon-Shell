@@ -107,7 +107,7 @@ Item {
         }
 
         Behavior on y {
-            enabled: !dragArea.drag.active
+            enabled: !dragArea.pressed
 
             NumberAnimation {
                 duration: MMotion.durationFor("sheet")
