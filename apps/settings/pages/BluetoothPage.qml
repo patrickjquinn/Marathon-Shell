@@ -134,12 +134,45 @@ Page {
                 title: qsTr("Bluetooth")
             }
             TextSwitch {
+                id: bluetoothSwitch
+
+                // The state asked for, shown until Bluetooth reaches it (10 s at most).
+                property var pending: undefined
+
                 objectName: "bluetoothSwitch"
                 text: qsTr("Bluetooth")
                 description: !Bluetooth.enabled ? qsTr("Turn on to pair and connect devices") : Bluetooth.scanning ? qsTr("Scanning…") : qsTr("Visible to paired devices")
                 automaticCheck: false
-                checked: Bluetooth.enabled
-                onClicked: Bluetooth.enabled = !Bluetooth.enabled
+                checked: pending !== undefined ? pending : Bluetooth.enabled
+                busy: pending !== undefined
+                onClicked: {
+                    if (pending !== undefined)
+                        return;
+                    pending = !Bluetooth.enabled;
+                    bluetoothTimeout.restart();
+                    Bluetooth.enabled = pending;
+                }
+
+                Connections {
+                    target: Bluetooth
+
+                    function onEnabledChanged() {
+                        if (bluetoothSwitch.pending === Bluetooth.enabled) {
+                            bluetoothSwitch.pending = undefined;
+                            bluetoothTimeout.stop();
+                        }
+                    }
+                }
+                Timer {
+                    id: bluetoothTimeout
+
+                    interval: 10000
+                    onTriggered: {
+                        const on = bluetoothSwitch.pending;
+                        bluetoothSwitch.pending = undefined;
+                        Notices.show(on ? qsTr("Bluetooth didn't turn on") : qsTr("Bluetooth didn't turn off"));
+                    }
+                }
             }
 
             Row {
