@@ -2742,6 +2742,25 @@ Item {
             errorToast.show(qsTr("Hotspot didn't start"), message, "broadcast");
         }
 
+        function onSwitchFailed(id, target) {
+            const names = {
+                wifi: qsTr("Wi-Fi"),
+                bluetooth: qsTr("Bluetooth"),
+                cellular: qsTr("Mobile data"),
+                airplane: qsTr("Flight mode"),
+                hotspot: qsTr("Hotspot")
+            };
+            const icons = {
+                wifi: "wifi-high",
+                bluetooth: "bluetooth",
+                cellular: "cell-signal-high",
+                airplane: "airplane-tilt",
+                hotspot: "broadcast"
+            };
+            //: %1 is a switch such as Wi-Fi or Bluetooth
+            errorToast.show(target ? qsTr("%1 didn't turn on").arg(names[id] || id) : qsTr("%1 didn't turn off").arg(names[id] || id), "", icons[id] || "warning");
+        }
+
         target: SystemControlStore
     }
 

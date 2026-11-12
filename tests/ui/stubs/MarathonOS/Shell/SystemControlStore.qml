@@ -20,6 +20,9 @@ QtObject {
     property real volume: 50
     property string hotspotSsid: ""
     property string hotspotPassword: ""
+    function shown(id, actual) {
+        return actual;
+    }
     function setBrightnessFromUser(v) {
         brightness = v;
     }
