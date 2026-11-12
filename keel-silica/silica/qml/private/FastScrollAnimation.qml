@@ -150,7 +150,7 @@ Item {
                 property: "opacity"
                 duration: fastScrollAnimation._duration // Modified by Shipwright for Qt 6: qualified
                 to: 0.0
-                easing.type: Easing.InQuad
+                easing.type: Easing.OutQuad // Marathon: no ease-in on user-triggered motion
             }
             NumberAnimation {
                 id: fadeOut
