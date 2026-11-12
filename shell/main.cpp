@@ -771,7 +771,8 @@ int main(int argc, char *argv[]) {
     const marathon::device::Profile device = marathon::device::profile();
     ctx->setContextProperty(QStringLiteral("DeviceProfile"),
                             QVariantMap{{QStringLiteral("panelDither"), device.panel_dither},
-                                        {QStringLiteral("panelDepth"), device.panel_depth}});
+                                        {QStringLiteral("panelDepth"), device.panel_depth},
+                                        {QStringLiteral("panelDpi"), device.panel_dpi}});
     ctx->setContextProperty(QStringLiteral("Platform"),
                             QVariantMap{{QStringLiteral("hasHardwareKeyboard"),
                                          marathon::device::has_hardware_keyboard()}});

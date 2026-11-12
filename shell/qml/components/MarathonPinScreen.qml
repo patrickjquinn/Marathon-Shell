@@ -483,6 +483,8 @@ Item {
                             anchors.centerIn: parent
                             disabled: Security.isLockedOut
                             text: pinKey.digit
+                            // The whole cell and half the gap, so a near miss still lands.
+                            hitMargin: (pinKey.width - diameter + Math.min(keypad.columnSpacing, keypad.rowSpacing)) / 2
                             iconSize: pinScreen.compactLayout ? Math.round(28 * pinScreen.compactUnit) : 28
                             buttonSize: pinScreen.keyButtonSize
                             variant: "secondary"
