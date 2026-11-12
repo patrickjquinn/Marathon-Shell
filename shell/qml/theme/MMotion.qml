@@ -67,9 +67,11 @@ QtObject {
     //             and opacity must never ring (a button bg that
     //             overshoots to a darker shade looks broken).
     //
-    // Qt's `damping` units don't strictly map to the dimensionless
-    // ratio (it's also acceleration-flavoured), so these are
-    // calibrated for Qt SpringAnimation by feel.
+    // Qt's `damping` is not that ratio: higher only means slower.
+    // Measured 0→1 (Qt 6.11): stiffness 2.0 with damping 0.35 settles
+    // with no overshoot, 4.0 needs 0.5; damping 1.0 at stiffness 1.0
+    // is only 78% of the way after 1.5 s. Everyday UI must not
+    // overshoot; check a new pairing before using it.
     readonly property real dampingCritical: 1.0
     readonly property real dampingUnderdamped: 0.5
     readonly property real dampingOverdamped: 1.4

@@ -298,7 +298,7 @@ Item {
             property: "opacity"
             to: 0
             duration: MMotion.fast
-            easing.type: Easing.InCubic
+            easing.type: Easing.OutCubic
         }
 
         ScriptAction {

@@ -1463,7 +1463,7 @@ Item {
                     Behavior on scale {
                         NumberAnimation {
                             duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
-                            easing.type: Easing.OutBack
+                            easing.type: Easing.OutCubic
                         }
                     }
 
@@ -3204,7 +3204,7 @@ Item {
                 from: 0.9
                 to: 0
                 duration: 200
-                easing.type: Easing.InQuad
+                easing.type: Easing.OutQuad
             }
         }
     }

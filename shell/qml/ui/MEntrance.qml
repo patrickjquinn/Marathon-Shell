@@ -77,14 +77,13 @@ Item {
         }
 
         ParallelAnimation {
-            SpringAnimation {
+            NumberAnimation {
                 target: ent.target
                 property: "opacity"
                 from: 0
                 to: 1
-                spring: MMotion.stiffnessEffectsFor("entrance")
-                damping: MMotion.dampingEffectsFor("entrance")
-                epsilon: MMotion.epsilon
+                duration: MMotion.durationFor("entrance")
+                easing.type: Easing.OutCubic
             }
 
             SpringAnimation {

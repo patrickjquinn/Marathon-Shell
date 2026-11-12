@@ -139,7 +139,7 @@ Item {
             property: "opacity"
             to: 0
             duration: MMotion.reduceMotion ? 0 : 300
-            easing.type: Easing.InCubic
+            easing.type: Easing.OutCubic
         }
     }
 }
