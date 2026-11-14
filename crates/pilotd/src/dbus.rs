@@ -481,8 +481,7 @@ impl PilotService {
         lock(&self.launch_request)
             .take()
             .filter(|(_, at)| at.elapsed() < std::time::Duration::from_secs(10))
-            .map(|(what, _)| what)
-            .unwrap_or_default()
+            .map_or_default(|(what, _)| what)
     }
 
     /// Stops using the app Pilot was opened over as context.
@@ -714,10 +713,7 @@ impl PilotService {
 
     #[zbus(property)]
     fn last_response(&self) -> String {
-        self.pipeline
-            .last()
-            .map(|r| r.headline())
-            .unwrap_or_default()
+        self.pipeline.last().map_or_default(|r| r.headline())
     }
 
     #[zbus(signal)]

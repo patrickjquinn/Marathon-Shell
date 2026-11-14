@@ -834,8 +834,7 @@ mod tests {
         for c in all["cases"].as_array().unwrap() {
             let names: Vec<String> = c["contacts"]
                 .as_array()
-                .map(|a| a.iter().map(|n| n.as_str().unwrap().to_owned()).collect())
-                .unwrap_or_default();
+                .map_or_default(|a| a.iter().map(|n| n.as_str().unwrap().to_owned()).collect());
             let input = c["input"].as_str().unwrap();
             let r = Redactor::new(Box::new(names)).redact(input);
             assert_eq!(r.text, c["output"].as_str().unwrap(), "{input}");

@@ -271,8 +271,7 @@ impl KeelMcp {
         self.inner
             .catalogue
             .read()
-            .map(|c| Arc::clone(&c))
-            .unwrap_or_default()
+            .map_or_default(|c| Arc::clone(&c))
     }
 
     /// `tools/list`.

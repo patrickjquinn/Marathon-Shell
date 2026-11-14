@@ -303,7 +303,7 @@ impl cxx_qt::Initialize for Notifications {
         let store = open_store()
             .map_err(|e| log::warn("notifications", format_args!("no history: {e}")))
             .ok();
-        let rows = store.as_ref().map(load).unwrap_or_default();
+        let rows = store.as_ref().map_or_default(load);
         let mut rust = self.as_mut().rust_mut();
         rust.store = store;
         rust.next_transient = TRANSIENT;
@@ -610,18 +610,14 @@ impl Notifications {
             8 => QVariant::from(&row.hint("action-icons").as_bool().unwrap_or(false)),
             9 => QVariant::from(&row.ongoing()),
             10 => QVariant::from(&row.progress()),
-            11 => text(
-                &clock::local(row.timestamp_ms / 1000)
-                    .map(|t| {
-                        format!(
-                            "{:04}-{:02}-{:02}",
-                            t.tm_year + 1900,
-                            t.tm_mon + 1,
-                            t.tm_mday
-                        )
-                    })
-                    .unwrap_or_default(),
-            ),
+            11 => text(&clock::local(row.timestamp_ms / 1000).map_or_default(|t| {
+                format!(
+                    "{:04}-{:02}-{:02}",
+                    t.tm_year + 1900,
+                    t.tm_mon + 1,
+                    t.tm_mday
+                )
+            })),
             _ => QVariant::default(),
         }
     }
@@ -699,9 +695,7 @@ impl Notifications {
     }
 
     fn get_notification(&self, id: i32) -> Map {
-        self.row(id)
-            .map(|r| variant::map(&r.to_json()))
-            .unwrap_or_default()
+        self.row(id).map_or_default(|r| variant::map(&r.to_json()))
     }
 
     fn get_notification_count_for_app(&self, app_id: &QString) -> i32 {
@@ -1267,7 +1261,7 @@ impl Server {
         expire_timeout: i32,
         #[zbus(header)] h: Header<'_>,
     ) -> fdo::Result<u32> {
-        let sender = h.sender().map(ToString::to_string).unwrap_or_default();
+        let sender = h.sender().map_or_default(ToString::to_string);
         let pid = match h.sender() {
             Some(s) => fdo::DBusProxy::new(&io::session_bus().await?)
                 .await?

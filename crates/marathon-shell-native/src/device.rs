@@ -135,9 +135,7 @@ impl Values {
 pub static VALUES: LazyLock<Values> = LazyLock::new(|| {
     let path = std::env::var("MARATHON_DEVICE_PROFILE")
         .unwrap_or_else(|_| "/etc/marathon/device-profile.conf".into());
-    let raw = dotenvy::from_path_iter(path)
-        .map(|i| i.flatten().collect())
-        .unwrap_or_default();
+    let raw = dotenvy::from_path_iter(path).map_or_default(|i| i.flatten().collect());
     Values { raw }
 });
 

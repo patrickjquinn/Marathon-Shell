@@ -181,14 +181,10 @@ pub fn install(state: &StateDir, app_id: &str, verb: &str, mut notice: Notice) -
                 notice.progress(p);
             })
         });
-    let error = result
-        .as_ref()
-        .err()
-        .map(ToString::to_string)
-        .unwrap_or_default();
+    let error = result.as_ref().err().map_or_default(ToString::to_string);
     if result.is_ok() {
         let id = app_of(app_id).unwrap_or_default();
-        let icon = apps::find(id).map(|a| a.icon).unwrap_or_default();
+        let icon = apps::find(id).map_or_default(|a| a.icon);
         notice.finish(id, &icon);
     } else {
         notice.close();

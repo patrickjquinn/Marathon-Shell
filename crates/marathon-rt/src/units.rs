@@ -79,8 +79,7 @@ fn saved_choice(conf: &Path) -> String {
         .skip(1)
         .take_while(|l| !l.starts_with('['))
         .find_map(|l| l.strip_prefix("units="))
-        .map(|v| v.trim().trim_matches('"').to_owned())
-        .unwrap_or_default()
+        .map_or_default(|v| v.trim().trim_matches('"').to_owned())
 }
 
 #[cfg(test)]

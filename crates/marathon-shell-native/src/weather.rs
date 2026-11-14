@@ -202,10 +202,7 @@ impl WeatherClient {
                 Err(e) => (serde_json::Value::Null, e),
             };
             qt.queue(move |obj| {
-                let places = json
-                    .as_array()
-                    .map(|items| variant::list(items))
-                    .unwrap_or_default();
+                let places = json.as_array().map_or_default(|items| variant::list(items));
                 obj.search_finished(&places, &QString::from(&error));
             })
             .ok();
@@ -218,8 +215,7 @@ impl WeatherClient {
             place
                 .get(&QString::from(key))
                 .and_then(|v| v.value::<QString>())
-                .map(|s| s.to_string())
-                .unwrap_or_default()
+                .map_or_default(|s| s.to_string())
         };
         let number = |key| {
             place

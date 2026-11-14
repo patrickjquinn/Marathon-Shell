@@ -269,13 +269,12 @@ pub fn clock_items<S: std::hash::BuildHasher>(
                 let days: Vec<u32> = a
                     .get("repeat")
                     .and_then(Json::as_array)
-                    .map(|r| {
+                    .map_or_default(|r| {
                         r.iter()
                             .filter_map(Json::as_u64)
                             .filter_map(|d| u32::try_from(d).ok())
                             .collect()
-                    })
-                    .unwrap_or_default();
+                    });
                 (0..8)
                     .map(|d| (d, now.local_time(d, h, m)))
                     .find(|(d, t)| {

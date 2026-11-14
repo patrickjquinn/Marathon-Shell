@@ -287,8 +287,7 @@ impl Player {
         let mut chars = short.chars();
         let name = chars
             .next()
-            .map(|c| c.to_uppercase().chain(chars).collect())
-            .unwrap_or_default();
+            .map_or_default(|c| c.to_uppercase().chain(chars).collect());
         Self {
             bus_name: bus_name.to_owned(),
             name,
@@ -299,12 +298,7 @@ impl Player {
     }
 
     fn set(&mut self, key: &str, value: &Value<'_>) {
-        let text = || {
-            value
-                .downcast_ref::<&str>()
-                .map(str::to_owned)
-                .unwrap_or_default()
-        };
+        let text = || value.downcast_ref::<&str>().map_or_default(str::to_owned);
         let flag = || value.downcast_ref::<bool>().unwrap_or(false);
         match key {
             "Identity" | "DesktopEntry" => {

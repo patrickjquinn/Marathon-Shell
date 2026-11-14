@@ -54,8 +54,7 @@ fn ensure_remote(flatpak: &str) -> Vec<u8> {
     Command::new(flatpak)
         .args(["--user", "remote-add", "--if-not-exists", REMOTE, repo])
         .output()
-        .map(|out| [out.stdout, out.stderr].concat())
-        .unwrap_or_default()
+        .map_or_default(|out| [out.stdout, out.stderr].concat())
 }
 
 /// Runs flatpak on a pty, since it only draws progress ("Installing 2/3…
@@ -283,8 +282,7 @@ fn icon_for(icons: &Path, app_id: &str) -> String {
     .iter()
     .map(|candidate| icons.join(candidate))
     .find(|path| path.is_file())
-    .map(|path| format!("file://{}", path.display()))
-    .unwrap_or_default()
+    .map_or_default(|path| format!("file://{}", path.display()))
 }
 
 /// `flatpak list --columns=application,version,name` rows.

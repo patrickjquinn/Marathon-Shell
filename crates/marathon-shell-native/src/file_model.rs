@@ -192,8 +192,7 @@ fn entry(path: PathBuf, meta: &std::fs::Metadata) -> Entry {
     Entry {
         name: path
             .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default(),
+            .map_or_default(|n| n.to_string_lossy().into_owned()),
         dir: meta.is_dir(),
         size: meta.len(),
         modified: meta.modified().unwrap_or(SystemTime::UNIX_EPOCH),
@@ -329,11 +328,7 @@ impl FileChooserModel {
             2 => QVariant::from(&e.dir),
             3 => QVariant::from(&i64::try_from(e.size).unwrap_or(i64::MAX)),
             4 => QVariant::from(&e.image),
-            5 => text(
-                &url::Url::from_file_path(&e.path)
-                    .map(String::from)
-                    .unwrap_or_default(),
-            ),
+            5 => text(&url::Url::from_file_path(&e.path).map_or_default(String::from)),
             _ => QVariant::default(),
         }
     }

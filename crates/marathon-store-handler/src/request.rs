@@ -101,8 +101,7 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
     let name = query
         .split('&')
         .find_map(|pair| pair.strip_prefix("name="))
-        .map(|name| crate::progress::sanitize(&decode(name)))
-        .unwrap_or_default();
+        .map_or_default(|name| crate::progress::sanitize(&decode(name)));
     let verb = match verb {
         "install" => Verb::Install,
         "update" => Verb::Update,

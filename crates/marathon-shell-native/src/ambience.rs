@@ -318,8 +318,7 @@ impl cxx_qt::Initialize for Ambience {
                 });
                 let scheme = get("/desktop/jolla/theme/color_scheme")
                     .and_then(|v| v.value::<QString>())
-                    .map(|s| s.to_string())
-                    .unwrap_or_default();
+                    .map_or_default(|s| s.to_string());
                 crate::portal::set_ambience(highlight, &scheme);
             })
             .release();

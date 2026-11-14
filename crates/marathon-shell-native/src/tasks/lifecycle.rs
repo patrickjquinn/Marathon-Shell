@@ -173,8 +173,7 @@ impl Tasks {
         let text = |k: &str| {
             info.get(&q(k))
                 .and_then(|v| v.value::<QString>())
-                .map(|s| s.to_string())
-                .unwrap_or_default()
+                .map_or_default(|s| s.to_string())
         };
         let instance = Instance {
             name: text("appName"),
@@ -453,8 +452,7 @@ impl Tasks {
             .lifecycle
             .apps
             .get(app_id)
-            .map(|a| a.capabilities.iter().cloned().collect())
-            .unwrap_or_default();
+            .map_or_default(|a| a.capabilities.iter().cloned().collect());
         caps.sort();
         caps
     }

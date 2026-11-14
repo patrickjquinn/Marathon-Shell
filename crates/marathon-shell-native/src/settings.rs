@@ -967,9 +967,7 @@ impl Settings {
     }
 
     fn load(mut self: Pin<&mut Self>, screen_timeout: i32) {
-        let mut ini = fs::read_to_string(file())
-            .map(|t| Ini::parse(&t))
-            .unwrap_or_default();
+        let mut ini = fs::read_to_string(file()).map_or_default(|t| Ini::parse(&t));
         let migrated = migrate(&mut ini);
         let mut rust = self.as_mut().rust_mut();
         rust.ini = ini;
@@ -1318,7 +1316,7 @@ fn owned(value: &zbus::Variant<'_>) -> fdo::Result<OwnedValue> {
 impl Settings1 {
     /// Every app reads it to size its UI, so it needs no permission.
     async fn get_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
-        let sender = h.sender().map(ToString::to_string).unwrap_or_default();
+        let sender = h.sender().map_or_default(ToString::to_string);
         if !gate::in_window(&sender, "Settings.GetState") {
             return Err(fdo::Error::LimitsExceeded("Rate limit exceeded".into()));
         }
@@ -1429,7 +1427,7 @@ impl Settings1 {
         } else if key.starts_with("calendar/")
             && (gate::service_or_test(&caller, "calendar") || permissions::has(&caller, "calendar"))
         {
-            let sender = h.sender().map(ToString::to_string).unwrap_or_default();
+            let sender = h.sender().map_or_default(ToString::to_string);
             if !gate::in_window(&sender, "Settings.Calendar") {
                 return Err(fdo::Error::LimitsExceeded("Rate limit exceeded".into()));
             }

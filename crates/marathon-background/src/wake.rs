@@ -37,27 +37,24 @@ pub struct Elapse {
 /// `loginctl --json=short list-users`.
 pub fn parse_users(json: &str) -> Vec<String> {
     serde_json::from_str::<Vec<User>>(json)
-        .map(|users| users.into_iter().map(|u| u.user).collect())
-        .unwrap_or_default()
+        .map_or_default(|users| users.into_iter().map(|u| u.user).collect())
 }
 
 /// `systemctl list-timers -o json`: the next elapse of each. An inactive
 /// timer has no next elapse (null or 0).
 pub fn parse_next_elapses(json: &str) -> Vec<Elapse> {
-    serde_json::from_str::<Vec<Timer>>(json)
-        .map(|timers| {
-            timers
-                .into_iter()
-                .filter_map(|t| {
-                    let usec = t.next.filter(|usec| *usec > 0)?;
-                    Some(Elapse {
-                        unit: t.unit,
-                        at: usec / 1_000_000,
-                    })
+    serde_json::from_str::<Vec<Timer>>(json).map_or_default(|timers| {
+        timers
+            .into_iter()
+            .filter_map(|t| {
+                let usec = t.next.filter(|usec| *usec > 0)?;
+                Some(Elapse {
+                    unit: t.unit,
+                    at: usec / 1_000_000,
                 })
-                .collect()
-        })
-        .unwrap_or_default()
+            })
+            .collect()
+    })
 }
 
 /// When to resume, in seconds since the epoch, or `None` to sleep through.

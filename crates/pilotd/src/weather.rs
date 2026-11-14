@@ -203,28 +203,24 @@ pub fn summarise(place: &str, f: &Value, units: Units, days: usize) -> (Value, S
     now[k("temp")] = json!(num(cur, "temperature").map(|t| round1(units.temp(t))));
     now[k("feels_like")] = json!(num(cur, "apparent").map(|t| round1(units.temp(t))));
     now[k("wind")] = json!(num(cur, "wind_speed").map(|w| round1(units.wind(w))));
-    let hours: Vec<Value> = f["hourly"]
-        .as_array()
-        .map(|h| {
-            h.iter()
-                .step_by(3)
-                .take(8)
-                .map(|h| {
-                    let mut out = json!({
-                        "time": h["time"].as_i64().map(|t| clock(t, offset)),
-                        "sky": h["symbol"].as_str().map(sky),
-                        "rain_chance_pct": h.get("precipitation_probability"),
-                    });
-                    out[k("temp")] = json!(num(h, "temperature").map(|t| round1(units.temp(t))));
-                    out
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let hours: Vec<Value> = f["hourly"].as_array().map_or_default(|h| {
+        h.iter()
+            .step_by(3)
+            .take(8)
+            .map(|h| {
+                let mut out = json!({
+                    "time": h["time"].as_i64().map(|t| clock(t, offset)),
+                    "sky": h["symbol"].as_str().map(sky),
+                    "rain_chance_pct": h.get("precipitation_probability"),
+                });
+                out[k("temp")] = json!(num(h, "temperature").map(|t| round1(units.temp(t))));
+                out
+            })
+            .collect()
+    });
     let daily: Vec<&Value> = f["daily"]
         .as_array()
-        .map(|d| d.iter().take(days.max(WEEK)).collect())
-        .unwrap_or_default();
+        .map_or_default(|d| d.iter().take(days.max(WEEK)).collect());
     let day_rows: Vec<Value> = daily
         .iter()
         .map(|d| {

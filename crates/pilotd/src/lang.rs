@@ -43,8 +43,7 @@ impl Locale {
         let region = parts
             .next()
             .filter(|r| r.len() == 2 && r.chars().all(|c| c.is_ascii_alphabetic()))
-            .map(str::to_ascii_uppercase)
-            .unwrap_or_default();
+            .map_or_default(str::to_ascii_uppercase);
         Some(Locale { language, region })
     }
 

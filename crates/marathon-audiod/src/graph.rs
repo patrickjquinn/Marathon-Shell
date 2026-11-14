@@ -390,8 +390,7 @@ impl Graph {
             .map_or((0.0, false), |(_, mix)| (level(&mix), mix.mute));
         let name = self
             .default_node(direction)
-            .map(|(_, node)| node.name.clone())
-            .unwrap_or_default();
+            .map_or_default(|(_, node)| node.name.clone());
         (volume, muted, name)
     }
 

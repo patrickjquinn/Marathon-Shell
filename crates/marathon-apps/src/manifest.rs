@@ -112,8 +112,7 @@ impl Lint {
         let requested: Vec<&str> = manifest
             .get("permissions")
             .and_then(Value::as_array)
-            .map(|list| list.iter().filter_map(Value::as_str).collect())
-            .unwrap_or_default();
+            .map_or_default(|list| list.iter().filter_map(Value::as_str).collect());
         let reasons = manifest.get("permissionReasons").and_then(Value::as_object);
         for (i, name) in requested.iter().enumerate() {
             let Some(permission) = permissions().get(*name) else {
@@ -357,8 +356,7 @@ pub fn lint_package(archive: &Path, class: AppClass) -> Vec<Finding> {
     if let Some(id) = lint_tree(extracted.path(), class.is_system(), &mut lint) {
         let stem = archive
             .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_default();
+            .map_or_default(|s| s.to_string_lossy().into_owned());
         if stem != id && !stem.starts_with(&format!("{id}-")) {
             lint.add(
                 false,

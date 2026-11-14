@@ -276,7 +276,7 @@ struct TextInput1 {
 }
 
 fn sender(h: &Header<'_>) -> String {
-    h.sender().map(ToString::to_string).unwrap_or_default()
+    h.sender().map_or_default(ToString::to_string)
 }
 
 /// The owner's name gone from the bus: the keyboard is no one's.

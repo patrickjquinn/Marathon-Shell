@@ -147,7 +147,7 @@ fn fetch(url: &str) -> Option<String> {
 /// The page's main text, as Pacific's reader view would show it.
 fn readable(html: &str, url: &str) -> String {
     let article = dom_smoothie::Readability::new(html, Some(url), None).and_then(|mut r| r.parse());
-    article.map(|a| tidy(&a.text_content)).unwrap_or_default()
+    article.map_or_default(|a| tidy(&a.text_content))
 }
 
 /// The page rendered by WPE in a process of its own (`render`), which a

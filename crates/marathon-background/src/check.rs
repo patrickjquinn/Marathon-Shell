@@ -37,9 +37,7 @@ pub fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Constraints
 }
 
 fn read(path: &Path) -> String {
-    fs::read_to_string(path)
-        .map(|s| s.trim().to_owned())
-        .unwrap_or_default()
+    fs::read_to_string(path).map_or_default(|s| s.trim().to_owned())
 }
 
 /// On battery and below `LOW_BATTERY_PERCENT`, from the kernel's power

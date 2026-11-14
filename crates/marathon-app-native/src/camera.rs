@@ -99,8 +99,7 @@ fn local(capture: &QString) -> PathBuf {
         PathBuf::from(
             QUrl::from(capture)
                 .to_local_file()
-                .map(|p| p.to_string())
-                .unwrap_or_default(),
+                .map_or_default(|p| p.to_string()),
         )
     } else {
         PathBuf::from(text)
@@ -142,12 +141,8 @@ impl cxx_qt::Initialize for Captures {
 impl Captures {
     fn show(mut self: Pin<&mut Self>, file: Option<&Path>) {
         let mut rust = self.as_mut().rust_mut();
-        rust.latest = file.map(url).unwrap_or_default();
-        rust.preview = file
-            .and_then(preview_of)
-            .as_deref()
-            .map(url)
-            .unwrap_or_default();
+        rust.latest = file.map_or_default(url);
+        rust.preview = file.and_then(preview_of).as_deref().map_or_default(url);
         self.changed();
     }
 

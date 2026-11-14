@@ -435,7 +435,7 @@ async fn run(qt: Qt, asks: Receiver<Ask>) {
                     }
                     _ => None,
                 };
-                let app = pid.map(privacy::name).unwrap_or_default();
+                let app = pid.map_or_default(privacy::name);
                 if holders.insert(name, app).is_none() {
                     users(&qt, &holders);
                 }

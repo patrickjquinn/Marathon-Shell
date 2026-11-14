@@ -67,8 +67,7 @@ fn check(args: impl Iterator<Item = String>) -> ExitCode {
 fn arm_wake() -> ExitCode {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or_default();
+        .map_or_default(|d| d.as_secs());
     if wake::arm(now, Path::new(POWER_SUPPLY), Path::new(WAKE_MARKER)) {
         ExitCode::SUCCESS
     } else {

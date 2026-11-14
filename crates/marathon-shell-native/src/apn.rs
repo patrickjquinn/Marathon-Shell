@@ -30,9 +30,8 @@ pub async fn read(bus: &zbus::Connection) -> (String, String, Vec<Suggestion>) {
                 .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
         })
         .unwrap_or_default();
-    let suggestions = std::fs::read_to_string(APNS)
-        .map(|xml| carrier_apns(&xml, &operator))
-        .unwrap_or_default();
+    let suggestions =
+        std::fs::read_to_string(APNS).map_or_default(|xml| carrier_apns(&xml, &operator));
     (live, custom, suggestions)
 }
 
@@ -152,8 +151,7 @@ async fn modem_apn(bus: &zbus::Connection) -> zbus::Result<(String, String)> {
             .and_then(|v| HashMap::<String, OwnedValue>::try_from(v).ok())
             .and_then(apn_of)
         })
-        .map(|apn| network_name(&apn).to_owned())
-        .unwrap_or_default();
+        .map_or_default(|apn| network_name(&apn).to_owned());
     let mut operator = String::new();
     if let Some(sim) = get("org.freedesktop.ModemManager1.Modem", "Sim")
         .and_then(|v| OwnedObjectPath::try_from(v).ok())

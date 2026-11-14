@@ -967,8 +967,7 @@ impl Led {
         let name = self
             .dir
             .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
+            .map_or_default(|n| n.to_string_lossy().into_owned());
         let session = SessionProxy::new(&io::system_bus().await?).await?;
         session
             .set_brightness("backlight", &name, u32::try_from(level).unwrap_or(0))

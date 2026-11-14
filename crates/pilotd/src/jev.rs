@@ -309,13 +309,12 @@ impl LocalJev {
             let v: Vec<f32> = d
                 .get("embedding")
                 .and_then(Value::as_array)
-                .map(|a| {
+                .map_or_default(|a| {
                     a.iter()
                         .filter_map(Value::as_f64)
                         .map(|x| x as f32)
                         .collect()
-                })
-                .unwrap_or_default();
+                });
             if let Some(slot) = out.get_mut(at) {
                 *slot = v;
             }

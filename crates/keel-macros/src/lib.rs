@@ -102,11 +102,7 @@ fn parse_action_args(attr: TokenStream2) -> syn::Result<ActionArgs> {
         description: None,
     };
     let parser = syn::meta::parser(|meta| {
-        let key = meta
-            .path
-            .get_ident()
-            .map(ToString::to_string)
-            .unwrap_or_default();
+        let key = meta.path.get_ident().map_or_default(ToString::to_string);
         if ACTION_FLAGS.contains(&key.as_str()) {
             if meta.input.peek(syn::Token![=]) {
                 let _: syn::LitBool = meta.value()?.parse()?;
@@ -161,11 +157,7 @@ fn is_keel_attr(attr: &Attribute) -> bool {
 
 fn check_keel_attr(attr: &Attribute) -> syn::Result<()> {
     attr.parse_nested_meta(|meta| {
-        let key = meta
-            .path
-            .get_ident()
-            .map(ToString::to_string)
-            .unwrap_or_default();
+        let key = meta.path.get_ident().map_or_default(ToString::to_string);
         if !PARAM_KEYS.contains(&key.as_str()) {
             return Err(meta.error(format!(
                 "unknown key `{key}`; expected one of: {}",
@@ -329,11 +321,7 @@ fn string_arg(value: &Expr) -> Option<String> {
 fn expand_entity(attr: TokenStream2, item: &mut ItemStruct) -> syn::Result<TokenStream2> {
     let mut type_name: Option<LitStr> = None;
     let parser = syn::meta::parser(|meta| {
-        let key = meta
-            .path
-            .get_ident()
-            .map(ToString::to_string)
-            .unwrap_or_default();
+        let key = meta.path.get_ident().map_or_default(ToString::to_string);
         match key.as_str() {
             "type" => {
                 type_name = Some(meta.value()?.parse()?);

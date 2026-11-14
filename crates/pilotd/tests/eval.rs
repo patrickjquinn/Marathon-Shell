@@ -594,8 +594,7 @@ async fn eval() {
     let keys = keys().expect("Jev and Groq keys (pilot-keys.env)");
     let tasks: Vec<Task> = serde_json::from_str(include_str!("eval/tasks.json")).unwrap();
     let only: Vec<String> = std::env::var("PILOT_EVAL_ONLY")
-        .map(|s| s.split(',').map(str::to_owned).collect())
-        .unwrap_or_default();
+        .map_or_default(|s| s.split(',').map(str::to_owned).collect());
     let id: Option<String> = std::env::var("PILOT_EVAL_ID").ok();
     let tasks: Vec<&Task> = tasks
         .iter()
@@ -670,15 +669,14 @@ async fn eval() {
     // Kept, and compared with the last run.
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/pilot-eval");
     let _ = std::fs::create_dir_all(&dir);
-    let mut runs: Vec<_> = std::fs::read_dir(&dir)
-        .map(|d| d.flatten().map(|e| e.path()).collect())
-        .unwrap_or_default();
+    let mut runs: Vec<_> =
+        std::fs::read_dir(&dir).map_or_default(|d| d.flatten().map(|e| e.path()).collect());
     runs.sort();
     let previous: BTreeMap<String, bool> = runs
         .last()
         .and_then(|p| std::fs::read_to_string(p).ok())
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-        .map(|v| {
+        .map_or_default(|v| {
             v["tasks"]
                 .as_array()
                 .into_iter()
@@ -690,8 +688,7 @@ async fn eval() {
                     )
                 })
                 .collect()
-        })
-        .unwrap_or_default();
+        });
     for o in &outcomes {
         match previous.get(&o.id) {
             Some(true) if !o.pass => println!("REGRESSED {}", o.id),

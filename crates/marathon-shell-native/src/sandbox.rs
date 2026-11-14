@@ -109,13 +109,11 @@ pub(crate) fn bwrap() -> Option<String> {
     if env::var_os("MARATHON_DISABLE_SANDBOX").is_some() {
         return None;
     }
-    let found = env::var_os("PATH")
-        .map(|p| {
-            env::split_paths(&p)
-                .map(|d| d.join("bwrap"))
-                .find(|p| p.is_file())
-        })
-        .unwrap_or_default();
+    let found = env::var_os("PATH").map_or_default(|p| {
+        env::split_paths(&p)
+            .map(|d| d.join("bwrap"))
+            .find(|p| p.is_file())
+    });
     found.map(|p| p.to_string_lossy().into_owned())
 }
 
@@ -138,14 +136,11 @@ fn manifest(app_id: &str) -> Manifest {
                     .and_then(|b| serde_json::from_slice(&b).ok())
                     .unwrap_or_default();
             Manifest {
-                requires_qt: json["requiresQtModules"]
-                    .as_array()
-                    .map(|a| {
-                        a.iter()
-                            .filter_map(|v| v.as_str().map(str::to_owned))
-                            .collect()
-                    })
-                    .unwrap_or_default(),
+                requires_qt: json["requiresQtModules"].as_array().map_or_default(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(str::to_owned))
+                        .collect()
+                }),
                 chromium_flags: json["chromiumFlags"]
                     .as_str()
                     .unwrap_or_default()

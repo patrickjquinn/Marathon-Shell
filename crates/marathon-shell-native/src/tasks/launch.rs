@@ -145,8 +145,7 @@ fn desktop_entry(app_id: &str) -> Option<App> {
     let text = |k: &str| {
         map.get(&q(k))
             .and_then(|v| v.value::<QString>())
-            .map(|s| s.to_string())
-            .unwrap_or_default()
+            .map_or_default(|s| s.to_string())
     };
     Some(App {
         id: text("id"),
@@ -1215,8 +1214,7 @@ impl Tasks {
         let left: Vec<i32> = self
             .windows
             .get(&app_id)
-            .map(|w| w.iter().copied().filter(|s| *s != surface_id).collect())
-            .unwrap_or_default();
+            .map_or_default(|w| w.iter().copied().filter(|s| *s != surface_id).collect());
         let task_surface = self.task(&app_id).map(|t| t.surface_id);
         if let Some(&newest) = left.last() {
             self.as_mut()
@@ -1308,8 +1306,7 @@ impl Tasks {
                 .pid_to_app
                 .iter()
                 .find(|(p, _)| descends_from(pid, **p))
-                .map(|(_, a)| a.clone())
-                .unwrap_or_default();
+                .map_or_default(|(_, a)| a.clone());
         }
         if app_id.is_empty() {
             log::warn(

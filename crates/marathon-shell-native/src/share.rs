@@ -298,8 +298,7 @@ impl ShareIface {
                 items.push(Item {
                     name: host_path
                         .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_default(),
+                        .map_or_default(|n| n.to_string_lossy().into_owned()),
                     mime: mime_of(&host_path),
                     text: String::new(),
                     host_path: host,
@@ -332,8 +331,7 @@ impl ShareIface {
                 let name = capped(
                     Path::new(&text_of(field("name")))
                         .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_default()
+                        .map_or_default(|n| n.to_string_lossy().into_owned())
                         .as_str(),
                     256,
                 );
@@ -381,8 +379,7 @@ impl ShareIface {
             items
                 .iter()
                 .find(|i| i.file.is_some())
-                .map(|i| i.mime.clone())
-                .unwrap_or_default()
+                .map_or_default(|i| i.mime.clone())
         };
         let mut targets = Vec::new();
         let mut shown: Vec<Value<'_>> = Vec::new();

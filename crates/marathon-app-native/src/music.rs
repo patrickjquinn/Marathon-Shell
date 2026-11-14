@@ -101,8 +101,7 @@ fn scan(root: &Path) -> Vec<Track> {
                 title: e
                     .path()
                     .file_stem()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .unwrap_or_default(),
+                    .map_or_default(|s| s.to_string_lossy().into_owned()),
                 album: name(album).unwrap_or_else(|| "Unknown Album".into()),
                 artist: name(album.and_then(Path::parent))
                     .unwrap_or_else(|| "Unknown Artist".into()),

@@ -67,7 +67,7 @@ pub fn compose(account: &Account, d: Draft<'_>) -> Result<(Vec<u8>, String), Str
 
 /// Why a send failed: offline, login, certificate, address or server.
 fn reason(e: &lettre::transport::smtp::Error) -> &'static str {
-    let code = e.status().map(|c| c.to_string()).unwrap_or_default();
+    let code = e.status().map_or_default(|c| c.to_string());
     if e.is_tls() {
         "certificate"
     } else if code.starts_with("535") || code.starts_with("534") {

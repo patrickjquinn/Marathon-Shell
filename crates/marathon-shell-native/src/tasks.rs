@@ -685,8 +685,7 @@ impl Tasks {
         let caller = self.as_mut().rust_mut().callers.remove(&app_id.to_string());
         caller
             .filter(|c| self.task(c).is_some())
-            .map(|c| QString::from(&c))
-            .unwrap_or_default()
+            .map_or_default(|c| QString::from(&c))
     }
 
     fn move_to_front(mut self: Pin<&mut Self>, app_id: &str) {
@@ -756,8 +755,7 @@ impl Tasks {
             device
                 .get(&QString::from(k))
                 .and_then(|v| v.value::<QString>())
-                .map(|s| s.to_string())
-                .unwrap_or_default()
+                .map_or_default(|s| s.to_string())
         };
         let int = |k: &str| {
             device

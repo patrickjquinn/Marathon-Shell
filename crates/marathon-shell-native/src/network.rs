@@ -1420,18 +1420,13 @@ impl Actor {
                 .await
                 .map_err(zbus::Error::from)
         };
-        objects
-            .await
-            .map(|objects| {
-                objects
-                    .into_iter()
-                    .filter(|(_, interfaces)| {
-                        interfaces.keys().any(|i| i.as_str() == BLUEZ_ADAPTER)
-                    })
-                    .map(|(path, _)| path)
-                    .collect()
-            })
-            .unwrap_or_default()
+        objects.await.map_or_default(|objects| {
+            objects
+                .into_iter()
+                .filter(|(_, interfaces)| interfaces.keys().any(|i| i.as_str() == BLUEZ_ADAPTER))
+                .map(|(path, _)| path)
+                .collect()
+        })
     }
 
     async fn bluetooth_props(
@@ -1524,8 +1519,7 @@ impl Actor {
             let ssid = props
                 .get("Ssid")
                 .and_then(|v| Vec::<u8>::try_from(v.try_clone().ok()?).ok())
-                .map(|b| String::from_utf8_lossy(&b).into_owned())
-                .unwrap_or_default();
+                .map_or_default(|b| String::from_utf8_lossy(&b).into_owned());
             if ssid.is_empty() {
                 continue;
             }
@@ -1651,8 +1645,7 @@ impl Actor {
             let ssid = wireless
                 .get("ssid")
                 .and_then(|v| Vec::<u8>::try_from(v.try_clone().ok()?).ok())
-                .map(|b| String::from_utf8_lossy(&b).into_owned())
-                .unwrap_or_default();
+                .map_or_default(|b| String::from_utf8_lossy(&b).into_owned());
             if !ssid.is_empty() {
                 saved.entry(ssid).or_default().push(path);
             }

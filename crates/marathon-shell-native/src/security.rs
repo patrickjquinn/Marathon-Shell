@@ -200,9 +200,7 @@ impl cxx_qt::Initialize for Security {
     fn initialize(mut self: Pin<&mut Self>) {
         // Read once at startup: the lock screen decides from these at once.
         let user = current_user();
-        let home = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_default();
+        let home = std::env::var_os("HOME").map_or_default(PathBuf::from);
         let encryption = data_encryption_state(&home, &Probe::default());
         {
             let mut rust = self.as_mut().rust_mut();
@@ -836,9 +834,7 @@ impl Security1 {
         #[zbus(header)] h: Header<'_>,
     ) -> fdo::Result<()> {
         if !gate::in_window(
-            h.sender()
-                .map(zbus::names::UniqueName::as_str)
-                .unwrap_or_default(),
+            h.sender().map_or_default(zbus::names::UniqueName::as_str),
             "Security",
         ) {
             return Err(fdo::Error::LimitsExceeded("Rate limit exceeded".into()));
@@ -1028,9 +1024,7 @@ fn helper_ok(code: Option<i32>) -> bool {
 }
 
 fn queue_encryption(qt: &cxx_qt::CxxQtThread<Security>) {
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_default();
+    let home = std::env::var_os("HOME").map_or_default(PathBuf::from);
     let state = data_encryption_state(&home, &Probe::default());
     qt.queue(move |mut obj| {
         if obj.data_encryption.to_string() != state {

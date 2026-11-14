@@ -732,7 +732,7 @@ pub fn split_followups(text: &str) -> (String, Vec<String>) {
 fn sources_of(data: &Value) -> Vec<Source> {
     data.get("results")
         .and_then(Value::as_array)
-        .map(|r| {
+        .map_or_default(|r| {
             r.iter()
                 .filter_map(|i| {
                     let url = i.get("url")?.as_str()?.to_owned();
@@ -748,7 +748,6 @@ fn sources_of(data: &Value) -> Vec<Source> {
                 })
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// "irishexaminer.com, rte.ie": the sites being read, for the stage line.
@@ -2602,8 +2601,7 @@ impl Pipeline {
                     intents::trip_query(&crate::web::clean_query(redacted))
                 } else {
                     let place = crate::localtime::zone_name()
-                        .map(|z| format!(", {}", crate::localtime::zone_city(&z)))
-                        .unwrap_or_default();
+                        .map_or_default(|z| format!(", {}", crate::localtime::zone_city(&z)));
                     format!(
                         "{} (as of {}{place})",
                         crate::web::clean_query(redacted),
