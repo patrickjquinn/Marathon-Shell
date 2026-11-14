@@ -56,6 +56,7 @@ security-pin-empty = PIN cannot be empty
 security-password-empty = Password cannot be empty
 security-busy = Authentication already in progress
 security-bug-report-failed = Couldn't create the bug report
+security-bug-report-failed-because = Couldn't create the bug report: { $reason }
 security-account-locked = Account locked. Try again in { $seconds ->
     [one] { $seconds } second
    *[other] { $seconds } seconds

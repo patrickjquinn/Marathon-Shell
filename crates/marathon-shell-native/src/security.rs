@@ -936,14 +936,27 @@ impl Security1 {
         io::spawn(async move {
             let args = vec![BUG_REPORT_HELPER.to_owned(), "create".to_owned()];
             match run_output("pkexec".to_owned(), args, "", true).await {
-                Some((Some(0), path)) if !path.trim().is_empty() => {
+                Some((Some(0), path, _)) if !path.trim().is_empty() => {
                     ipc::signal("Security", "BugReportCreated", (path.trim().to_owned(),));
                 }
-                _ => ipc::signal(
-                    "Security",
-                    "BugReportFailed",
-                    (fl!("security-bug-report-failed"),),
-                ),
+                // The helper's last word, so a screenshot of the notice says why.
+                other => {
+                    let reason = other
+                        .and_then(|(_, _, err)| {
+                            err.lines()
+                                .rev()
+                                .find(|l| !l.trim().is_empty())
+                                .map(str::to_owned)
+                        })
+                        .unwrap_or_default();
+                    let message = if reason.is_empty() {
+                        fl!("security-bug-report-failed")
+                    } else {
+                        let reason: String = reason.trim().chars().take(160).collect();
+                        fl!("security-bug-report-failed-because", reason = reason)
+                    };
+                    ipc::signal("Security", "BugReportFailed", (message,));
+                }
             }
         });
         Ok(())
@@ -1269,13 +1282,13 @@ async fn run(program: String, args: Vec<String>, secret: &str) -> Option<i32> {
     run_output(program, args, secret, false).await?.0
 }
 
-/// `run`, with what the program printed when `capture`.
+/// `run`, with what the program printed (when `capture`) and its errors.
 async fn run_output(
     program: String,
     args: Vec<String>,
     secret: &str,
     capture: bool,
-) -> Option<(Option<i32>, String)> {
+) -> Option<(Option<i32>, String, String)> {
     let secret = secret.to_owned();
     blocking::unblock(move || {
         let mut child = Command::new(&program)
@@ -1307,6 +1320,7 @@ async fn run_output(
         Some((
             out.status.code(),
             String::from_utf8_lossy(&out.stdout).into_owned(),
+            String::from_utf8_lossy(&out.stderr).into_owned(),
         ))
     })
     .await
