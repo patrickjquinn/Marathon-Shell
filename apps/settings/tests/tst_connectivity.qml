@@ -122,6 +122,19 @@ TestCase {
         compare(retry.password, "hunter22x");
     }
 
+    function test_captivePortalOffersSignIn() {
+        Network.wifiConnected = true;
+        Network.wifiSsid = "Cafe";
+        Network.wifiSignalStrength = 80;
+        Network.connectivity = "portal";
+        const s = open("wifi");
+        verify(child(s.page, "currentStatus").text.startsWith("Sign-in required"));
+        child(s.page, "currentNetwork").clicked(null);
+        compare(Network.calls[Network.calls.length - 1], ["openPortal"]);
+        Network.connectivity = "limited";
+        verify(child(s.page, "currentStatus").text.startsWith("Connected · No internet"));
+    }
+
     function test_forgetSavedNetwork() {
         Network.availableNetworks = [
             {

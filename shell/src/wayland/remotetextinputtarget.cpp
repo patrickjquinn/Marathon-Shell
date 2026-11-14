@@ -16,6 +16,20 @@ namespace {
     }
 } // namespace
 
+bool RemoteTextInputTarget::hasWindow(const QString &appId, QWaylandCompositor *compositor) {
+    if (!compositor || appId.isEmpty())
+        return false;
+    const QList<QWaylandSurface *> surfaces = compositor->surfaces();
+    for (QWaylandSurface *surface : surfaces) {
+        const QList<QWaylandView *> views = surface->views();
+        for (QWaylandView *view : views) {
+            if (itemAppId(view->renderObject()) == appId)
+                return true;
+        }
+    }
+    return false;
+}
+
 QString RemoteTextInputTarget::appIdOf(QObject *object, QWaylandCompositor *compositor) {
     if (QString id = itemAppId(object); !id.isEmpty())
         return id;

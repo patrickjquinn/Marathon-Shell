@@ -222,17 +222,14 @@ impl cxx_qt::Initialize for Calendar {
                 .await
                 .ok();
             let list: Vec<Event> = match stored.as_deref().map(variant::to_qt) {
-                Some(v) => v
-                    .value::<QList<QVariant>>()
-                    .map(|l| {
-                        l.iter()
-                            .filter_map(|e| {
-                                e.value::<QMap<QMapPair_QString_QVariant>>()
-                                    .map(|m| variant::map(&m))
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
+                Some(v) => v.value::<QList<QVariant>>().map_or_default(|l| {
+                    l.iter()
+                        .filter_map(|e| {
+                            e.value::<QMap<QMapPair_QString_QVariant>>()
+                                .map(|m| variant::map(&m))
+                        })
+                        .collect()
+                }),
                 None => Vec::new(),
             };
             qt.queue(move |mut obj| {

@@ -181,8 +181,15 @@ differs from the last one whose shell came up, which it records in
 an update and every retry of a trial boot; a rollback or a fresh flash shows
 the plain splash. It never fails a boot.
 
-There is no channel picker on the phone: an image follows the channel it was
-built for (`MARATHON_OTA_CHANNEL`), and images are built for one release
+An image is built for a channel (`MARATHON_OTA_CHANNEL`, its transfers' URL).
+Settings > Software update > "Developer updates" moves a phone built for
+`stable` to the test feed: `marathon-update-channel` (root, polkit action
+`org.marathonos.shell.update-channel`) records the choice in
+`/etc/marathon/update-channel` (a Q25 update carries it into the new root),
+and at every boot writes a copy of each image transfer into
+`/run/sysupdate.d`, which sysupdate reads first, with `/stable/` in its URL
+replaced by `/test/`. The copies come from the running image's own
+transfers, so they never go stale. Images are built for one release
 (`edge`), which sysupdate matches as `%w`. Staged rollout is not implemented.
 Publishing a device-tested build from the test feed to stable is the manual
 equivalent.
@@ -456,6 +463,10 @@ through BL31's `MTK_SIP_KERNEL_BOOT`, the way LK starts Linux. Without it
 CPU0 corrupts memory. The restarted U-Boot adds
 `/chosen/marathon,mtk-kernel-boot` to the DT; `q25-platform-prepare`
 takes CPU0 offline before udev starts unless that property is there.
+It also passes the preloader's boot tags on as `/chosen/marathon,boot-reason`
+and `marathon,boot-mode` (MediaTek's numbers: reason 1 is a charger); a
+charger-started phone boots `marathon-charging.target`, the battery on the
+splash, instead of the session (`marathon-charger`).
 `/loader/q25-no-handoff` on the ESP skips the hand-off (CPU0 then stays
 offline); a failed hand-off step falls back to the same path.
 

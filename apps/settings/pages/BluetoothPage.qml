@@ -6,12 +6,36 @@ import Marathon.Platform 1.0
 import MarathonOS.Settings 1.0
 import "../SettingsLogic.js" as Logic
 
+// qmllint disable required
+// (qmllint cannot see a ListModel filled at run time give its delegates their index.)
+
 Page {
     id: page
 
     // The controller keeps the pairing dialog's state, including PIN requests from the device.
     readonly property bool dialogWanted: SettingsController.bluetoothDialogVisible && !SettingsController.bluetoothDialogPairing
     readonly property var available: Bluetooth.devices.filter(d => !d.paired)
+    // Rows keep their places as signal strengths update (Logic.syncKeys).
+    readonly property var availableByAddress: Logic.byKey(page.available, "address")
+
+    function syncAvailable() {
+        Logic.syncKeys(availableOrder, Bluetooth.enabled ? page.available : [], "address");
+    }
+
+    onAvailableChanged: page.syncAvailable()
+    Component.onCompleted: page.syncAvailable()
+
+    ListModel {
+        id: availableOrder
+    }
+
+    Connections {
+        target: Bluetooth
+
+        function onEnabledChanged() {
+            page.syncAvailable();
+        }
+    }
     // The paired device being connected or disconnected, until BlueZ reports the new state.
     property string pendingAddress: ""
     property bool pendingConnect: false
@@ -134,12 +158,45 @@ Page {
                 title: qsTr("Bluetooth")
             }
             TextSwitch {
+                id: bluetoothSwitch
+
+                // The state asked for, shown until Bluetooth reaches it (10 s at most).
+                property var pending: undefined
+
                 objectName: "bluetoothSwitch"
                 text: qsTr("Bluetooth")
                 description: !Bluetooth.enabled ? qsTr("Turn on to pair and connect devices") : Bluetooth.scanning ? qsTr("Scanning…") : qsTr("Visible to paired devices")
                 automaticCheck: false
-                checked: Bluetooth.enabled
-                onClicked: Bluetooth.enabled = !Bluetooth.enabled
+                checked: pending !== undefined ? pending : Bluetooth.enabled
+                busy: pending !== undefined
+                onClicked: {
+                    if (pending !== undefined)
+                        return;
+                    pending = !Bluetooth.enabled;
+                    bluetoothTimeout.restart();
+                    Bluetooth.enabled = pending;
+                }
+
+                Connections {
+                    target: Bluetooth
+
+                    function onEnabledChanged() {
+                        if (bluetoothSwitch.pending === Bluetooth.enabled) {
+                            bluetoothSwitch.pending = undefined;
+                            bluetoothTimeout.stop();
+                        }
+                    }
+                }
+                Timer {
+                    id: bluetoothTimeout
+
+                    interval: 10000
+                    onTriggered: {
+                        const on = bluetoothSwitch.pending;
+                        bluetoothSwitch.pending = undefined;
+                        Notices.show(on ? qsTr("Bluetooth didn't turn on") : qsTr("Bluetooth didn't turn off"));
+                    }
+                }
             }
 
             Row {
@@ -201,9 +258,18 @@ Page {
             }
             Repeater {
                 objectName: "availableDevices"
-                model: Bluetooth.enabled ? page.available : []
+                model: availableOrder
 
                 DeviceItem {
+                    id: availableItem
+
+                    required property int index
+                    // A row's device never changes; only its index does.
+                    readonly property string address: (availableOrder.get(index) || {}).address || ""
+
+                    modelData: page.availableByAddress[availableItem.address] || ({
+                            address: availableItem.address
+                        })
                     objectName: "device-" + modelData.address
                     subtitle: qsTr("Tap to pair")
                     onClicked: SettingsController.showBluetoothDialog(modelData.name || Logic.deviceName(modelData), modelData.address, modelData.type || "device", "justworks")

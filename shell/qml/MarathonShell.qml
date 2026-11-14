@@ -122,6 +122,7 @@ Item {
 
     function handleHomeKey() {
         dismissPermissionPrompt();
+        pageView.resetSearchPull();
         if (pageView.appEditing) {
             pageView.appEditing = false;
             return;
@@ -152,6 +153,23 @@ Item {
     function handleHomeKeyPress() {
         if (!SessionStore.isLocked)
             handleHomeKey();
+    }
+
+    // Opens an app, through the PIN first while locked.
+    function launchUnlocked(appId, name) {
+        if (!SessionStore.isLocked) {
+            Tasks.launchApp(appId);
+        } else if (SessionStore.checkSession()) {
+            SessionStore.unlock();
+            UIStore.openApp(appId, name || appId, "");
+        } else {
+            shell.pendingLaunch = {
+                "appId": appId,
+                "appName": name || appId
+            };
+            shell.showPinScreen = true;
+            pinScreen.show();
+        }
     }
 
     // A phone keyboard's green key: answers a ringing call, else opens Phone.
@@ -189,6 +207,38 @@ Item {
     function handleHangupKey() {
         if (!endCall())
             handleSwitcherKey();
+    }
+
+    // Super shortcuts from an external keyboard.
+    function handleShortcut(name) {
+        if (SessionStore.isLocked)
+            return;
+        switch (name) {
+        case "search":
+            UIStore.toggleSearch();
+            break;
+        case "switcher":
+            handleSwitcherKey();
+            break;
+        case "lock":
+            SessionStore.lock();
+            Display.turnScreenOff("keyboard shortcut");
+            break;
+        case "quicksettings":
+            if (UIStore.quickSettingsOpen)
+                UIStore.closeQuickSettings();
+            else
+                UIStore.openQuickSettings();
+            break;
+        case "close":
+            if (UIStore.appWindowOpen)
+                appWindow.closeApp(false);
+            break;
+        case "keyboard":
+            virtualKeyboard.active = !virtualKeyboard.active;
+            break;
+        }
+        HapticManager.light();
     }
 
     // Active Frames from an app, and between them and the grid.
@@ -316,6 +366,7 @@ Item {
             compositor.systemEndTriggered.connect(handleEndKey);
             compositor.systemSwitcherTriggered.connect(handleSwitcherKey);
             compositor.systemHangupTriggered.connect(handleHangupKey);
+            compositor.systemShortcut.connect(handleShortcut);
             // Also reset the idle-screen-off timer when the compositor
             // sees ANY input — without this the timer only resets on
             // events that bubble up to the shell's own cursorTracker
@@ -564,7 +615,16 @@ Item {
             HapticManager.light();
             event.accepted = true;
         } else if (shell.state === "home" && !UIStore.searchOpen && !UIStore.appWindowOpen) {
-            if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
+            if (speedKey.letter !== "") {
+                // Another key while one is held: that was typing, not a hold.
+                if (!event.isAutoRepeat)
+                    speedKey.search(event.text);
+                event.accepted = true;
+            } else if (event.text.length === 1 && /[a-z]/i.test(event.text) && !(event.modifiers & Qt.AltModifier) && speedKey.app(event.text) !== "") {
+                speedKey.letter = event.text;
+                speedKey.restart();
+                event.accepted = true;
+            } else if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
                 Logger.info("Shell", "Global search triggered with: '" + event.text + "'");
                 UIStore.openSearch();
                 Qt.callLater(function () {
@@ -572,6 +632,42 @@ Item {
                 });
                 event.accepted = true;
             }
+        }
+    }
+    Keys.onReleased: event => {
+        if (speedKey.letter !== "" && !event.isAutoRepeat && event.text.toLowerCase() === speedKey.letter.toLowerCase()) {
+            speedKey.search("");
+            event.accepted = true;
+        }
+    }
+
+    // Holding a letter on the home screen opens its app, as BlackBerry's
+    // speed keys did; a tap still starts a search with it.
+    Timer {
+        id: speedKey
+
+        property string letter: ""
+
+        function app(key) {
+            const id = String((SettingsManagerCpp.speedKeys || {})[key.toLowerCase()] || "");
+            return id !== "" && AppModel.findById && AppModel.findById(id) ? id : "";
+        }
+
+        function search(more) {
+            const text = letter + more;
+            stop();
+            letter = "";
+            UIStore.openSearch();
+            Qt.callLater(() => universalSearch.appendToSearch(text));
+        }
+
+        interval: 450
+        onTriggered: {
+            const id = app(letter);
+            letter = "";
+            const entry = AppModel.findById(id);
+            HapticManager.medium();
+            UIStore.openApp(id, entry && entry.name ? entry.name : id, entry && entry.icon ? entry.icon : "");
         }
     }
     states: [
@@ -608,8 +704,9 @@ Item {
                 appWindow.visible: false
             }
 
+            // Only Quick Settings over the lock screen: the bar closes it.
             PropertyChanges {
-                navBar.visible: false
+                navBar.visible: UIStore.quickSettingsHeight > 0
             }
         },
         State {
@@ -980,6 +1077,7 @@ Item {
                 // wake would hand the app the keyboard, and with it its
                 // camera, behind the lock screen. Unlocking gives it back.
                 shell.forceActiveFocus();
+                UIStore.closeQuickSettings();
             }
         }
     }
@@ -1089,6 +1187,8 @@ Item {
             if (key === "volumeUp") {
                 volumeUpPressed = true;
                 if (powerButtonPressed) {
+                    // The power key's release is the combo's, not a lock.
+                    powerButtonTimer.stop();
                     Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
                     screenshotFlash.trigger();
                     ScreenshotService.captureScreen(shell);
@@ -1173,12 +1273,9 @@ Item {
         // marathon CLI `qs` verb → NavigationObject (D-Bus) → Tasks.
         // Lets a dev host drive the shade over IPC; top-edge touch injection
         // never reaches statusBarDragArea. mode: 0 hide, 1 show, 2 toggle.
-        // Refuse show/toggle while locked — mirrors the shade's own gate.
         function onQuickSettingsRequested(mode) {
             if (mode === 0)
                 UIStore.closeQuickSettings();
-            else if (SessionStore.isLocked)
-                Logger.info("Shell", "qs request ignored — device is locked");
             else if (mode === 2)
                 UIStore.toggleQuickSettings();
             else
@@ -1332,6 +1429,7 @@ Item {
                     Behavior on opacity {
                         NumberAnimation {
                             duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                            easing.type: Easing.OutCubic
                         }
                     }
                     currentPage: shell.currentPage
@@ -1361,12 +1459,13 @@ Item {
                     Behavior on opacity {
                         NumberAnimation {
                             duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                            easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on scale {
                         NumberAnimation {
                             duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
-                            easing.type: Easing.OutBack
+                            easing.type: Easing.OutCubic
                         }
                     }
 
@@ -1414,6 +1513,108 @@ Item {
         z: Constants.zIndexStatusBarApp
     }
 
+    // Who is using the microphone, camera or location: the privacy dot's tap.
+    Rectangle {
+        id: privacyPanel
+
+        property bool shown: false
+
+        function names(users, kind) {
+            const known = {
+                "deckard-camera": qsTr("Android"),
+                "q25-speech": qsTr("Phone call"),
+                "pipewire": qsTr("An app"),
+                "wireplumber": qsTr("An app")
+            };
+            const out = users.map(u => {
+                const app = AppModel.findById ? AppModel.findById(u) : null;
+                return app && app.name ? app.name : known[u] || u;
+            });
+            if (out.length === 0)
+                out.push(kind === "microphone" && Modem.callState === "active" ? qsTr("Phone call") : qsTr("The system"));
+            return out.filter((n, i) => out.indexOf(n) === i).join(", ");
+        }
+
+        anchors.top: statusBar.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width - 2 * Silica.Theme.horizontalPageMargin, Silica.Theme.itemSizeHuge * 4)
+        height: privacyRows.height + 2 * Silica.Theme.paddingLarge
+        radius: Silica.Theme.paddingLarge
+        color: Silica.Theme.rgba("black", 0.85)
+        border.width: 1
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.15)
+        visible: shown && statusBar.privacyColors.length > 0
+        z: Constants.zIndexStatusBarDrag + 1
+        onVisibleChanged: if (visible)
+            privacyHide.restart()
+
+        Timer {
+            id: privacyHide
+
+            interval: 5000
+            onTriggered: privacyPanel.shown = false
+        }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: privacyPanel.shown = false
+        }
+        Column {
+            id: privacyRows
+
+            x: Silica.Theme.paddingLarge
+            y: Silica.Theme.paddingLarge
+            width: parent.width - 2 * x
+            spacing: Silica.Theme.paddingMedium
+
+            Repeater {
+                model: [
+                    {
+                        "on": Privacy.microphone,
+                        "color": "#ff3b30",
+                        "label": qsTr("Microphone"),
+                        "who": privacyPanel.names(Privacy.microphoneUsers, "microphone")
+                    },
+                    {
+                        "on": Privacy.camera,
+                        "color": "#ff9500",
+                        "label": qsTr("Camera"),
+                        "who": privacyPanel.names(Privacy.cameraUsers, "camera")
+                    },
+                    {
+                        "on": typeof LocationManager !== "undefined" && LocationManager && LocationManager.active,
+                        "color": "#0a84ff",
+                        "label": qsTr("Location"),
+                        "who": privacyPanel.names(typeof LocationManager !== "undefined" && LocationManager ? LocationManager.users : [], "location")
+                    }
+                ]
+
+                Row {
+                    id: privacyRow
+
+                    required property var modelData
+
+                    visible: modelData.on
+                    width: privacyRows.width
+                    spacing: Silica.Theme.paddingMedium
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Silica.Theme.paddingMedium
+                        height: width
+                        radius: width / 2
+                        color: privacyRow.modelData.color
+                    }
+                    Silica.Label {
+                        width: parent.width - Silica.Theme.paddingMedium * 2
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        text: qsTr("%1: %2").arg(privacyRow.modelData.label).arg(privacyRow.modelData.who)
+                    }
+                }
+            }
+        }
+    }
+
     MarathonNavBar {
         id: navBar
 
@@ -1422,6 +1623,7 @@ Item {
         anchors.bottom: parent.bottom
         z: PermissionManager.promptActive ? permissionDialog.z + 1 : Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
+        shadeOnly: SessionStore.isLocked && shell.state !== "pinEntry"
         keyboardVisible: virtualKeyboard.active
         searchActive: UIStore.searchOpen
         pilotEnabled: PilotClient.available && SettingsManagerCpp.firstRunComplete && !SessionStore.isLocked && !navBar.pinScreenMode && !virtualKeyboard.active && !UIStore.quickSettingsOpen && !UIStore.searchOpen
@@ -1998,16 +2200,15 @@ Item {
         y: Constants.statusBarHeight
         height: drawnHeight
         maxHeight: shell.maxQuickSettingsHeight
-        visible: !SessionStore.isLocked && drawnHeight > 0
+        visible: drawnHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
-        backdrops: UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
+        // Over the lock screen it blurs the lock screen, not the home behind it.
+        backdrops: SessionStore.isLocked ? [lockScreen] : UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
         onClosed: {
             UIStore.closeQuickSettings();
         }
-        onLaunchApp: app => {
-            Tasks.launchApp(typeof app === "string" ? app : app.id);
-        }
+        onLaunchApp: app => shell.launchUnlocked(typeof app === "string" ? app : app.id, app.name || "")
         onPowerRequested: shell.showPowerMenu()
         // The screen changed size while open (rotation).
         onMaxHeightChanged: if (UIStore.quickSettingsOpen && !UIStore.quickSettingsDragging)
@@ -2027,6 +2228,7 @@ Item {
         id: statusBarDragArea
 
         property real startY: 0
+        property real startHeight: 0
         property bool isDraggingDown: false
 
         anchors.top: parent.top
@@ -2034,7 +2236,8 @@ Item {
         width: parent.width
         height: Constants.statusBarHeight
         z: UIStore.settingsOpen || UIStore.appWindowOpen ? Constants.zIndexStatusBarApp + 1 : Constants.zIndexStatusBarDrag
-        enabled: !SessionStore.isLocked
+        // Quick settings open over the lock screen too, not over the PIN pad.
+        enabled: !shell.showPinScreen
         preventStealing: false
         onPressed: mouse => {
             if (UIStore.quickSettingsHeight > 0) {
@@ -2042,6 +2245,8 @@ Item {
                 return;
             }
             startY = mouse.y;
+            // A shade still closing is caught where it is drawn.
+            startHeight = quickSettings.drawnHeight;
             isDraggingDown = false;
         }
         onPositionChanged: mouse => {
@@ -2054,7 +2259,7 @@ Item {
                 });
             }
             if (isDraggingDown)
-                UIStore.quickSettingsHeight = Math.min(shell.maxQuickSettingsHeight, dragDistance);
+                UIStore.quickSettingsHeight = Math.min(shell.maxQuickSettingsHeight, startHeight + dragDistance);
         }
         onReleased: mouse => {
             if (isDraggingDown) {
@@ -2069,6 +2274,10 @@ Item {
                     UIStore.openQuickSettings();
                 else
                     UIStore.closeQuickSettings();
+            } else if (statusBar.privacyDotContains(statusBarDragArea, mouse.x, mouse.y)) {
+                privacyPanel.shown = !privacyPanel.shown;
+            } else if (UIStore.appWindowOpen && !SessionStore.isOnLockScreen) {
+                Tasks.handleSystemScrollToTop();
             }
             startY = 0;
             isDraggingDown = false;
@@ -2096,8 +2305,8 @@ Item {
         anchors.fill: parent
         anchors.topMargin: Constants.statusBarHeight + quickSettings.drawnHeight
         z: Constants.zIndexQuickSettingsOverlay
-        enabled: UIStore.quickSettingsHeight > 0 && !SessionStore.isLocked
-        visible: quickSettings.drawnHeight > 0 && !SessionStore.isLocked
+        enabled: UIStore.quickSettingsHeight > 0
+        visible: quickSettings.drawnHeight > 0
         onClicked: {
             Logger.gesture("QuickSettings", "dimAreaTapClose", {});
             UIStore.closeQuickSettings();
@@ -2117,6 +2326,7 @@ Item {
         z: Constants.zIndexLockScreen
         compositor: shell.compositor
         appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
+        comboLength: comboEntry.combo.length
         onUnlockRequested: {
             if (SessionStore.checkSession()) {
                 Logger.state("Shell", "locked", "unlocked");
@@ -2342,6 +2552,7 @@ Item {
         z: Constants.zIndexSearch
         active: UIStore.searchOpen
         pullProgress: pageView.searchPullProgress
+        onPullDismissed: pageView.resetSearchPull()
         onClosed: {
             UIStore.closeSearch();
             if (UIStore.appWindowOpen)
@@ -2357,6 +2568,30 @@ Item {
 
     ScreenshotPreview {
         id: screenshotPreview
+    }
+
+    Comp.ChargingOverlay {
+        id: chargingOverlay
+
+        // The first report after start is the state, not a charger arriving.
+        property bool armed: false
+
+        anchors.fill: parent
+        z: Constants.zIndexModalOverlay - 1
+
+        Timer {
+            interval: 5000
+            running: true
+            onTriggered: chargingOverlay.armed = true
+        }
+        Connections {
+            function onIsPluggedInChanged() {
+                if (chargingOverlay.armed && Display.screenOn && Power.batteryLevel >= 0)
+                    chargingOverlay.show(Power.isPluggedIn, Power.batteryLevel);
+            }
+
+            target: Power
+        }
     }
 
     Connections {
@@ -2510,6 +2745,25 @@ Item {
 
         function onHotspotFailed(message) {
             errorToast.show(qsTr("Hotspot didn't start"), message, "broadcast");
+        }
+
+        function onSwitchFailed(id, target) {
+            const names = {
+                wifi: qsTr("Wi-Fi"),
+                bluetooth: qsTr("Bluetooth"),
+                cellular: qsTr("Mobile data"),
+                airplane: qsTr("Flight mode"),
+                hotspot: qsTr("Hotspot")
+            };
+            const icons = {
+                wifi: "wifi-high",
+                bluetooth: "bluetooth",
+                cellular: "cell-signal-high",
+                airplane: "airplane-tilt",
+                hotspot: "broadcast"
+            };
+            //: %1 is a switch such as Wi-Fi or Bluetooth
+            errorToast.show(target ? qsTr("%1 didn't turn on").arg(names[id] || id) : qsTr("%1 didn't turn off").arg(names[id] || id), "", icons[id] || "warning");
         }
 
         target: SystemControlStore
@@ -2860,6 +3114,13 @@ Item {
         anchors.fill: parent
         z: 900000
         temperature: SystemControlStore.isNightLightOn ? Display.nightLightTemperature : 6500
+        dim: Display.dim
+        Behavior on dim {
+            NumberAnimation {
+                duration: 300
+                easing.type: Easing.OutCubic
+            }
+        }
         Behavior on temperature {
             NumberAnimation {
                 duration: 2000
@@ -2967,7 +3228,7 @@ Item {
                 from: 0.9
                 to: 0
                 duration: 200
-                easing.type: Easing.InQuad
+                easing.type: Easing.OutQuad
             }
         }
     }
@@ -3009,6 +3270,61 @@ Item {
         enabled: shell.incomingCallOverlay !== null
     }
 
+    // A computer on the USB port: what the port offers it, picked from a
+    // silent notification. File transfer hides the files while locked.
+    Connections {
+        id: usbChoice
+
+        function post() {
+            if (!Usb.host) {
+                NotificationService.dismissTagged("usb", "usb");
+                return;
+            }
+            const labels = {
+                "charging": qsTr("Charging only"),
+                "files": qsTr("File transfer"),
+                "developer": qsTr("Developer network")
+            };
+            const offered = ["charging", "files", "developer"].filter(m => m !== Usb.mode && (m !== "files" || Usb.filesAvailable) && (m !== "developer" || Usb.developerAvailable));
+            NotificationService.sendNotification("usb", qsTr("Connected to a computer"), labels[Usb.mode] || labels.charging, {
+                "icon": "usb",
+                "x-marathon-app-name": qsTr("USB"),
+                "category": "device",
+                "urgency": 0,
+                "resident": true,
+                "tag": "usb",
+                "actions": offered.map(m => ({
+                            "key": m,
+                            "label": labels[m]
+                        }))
+            });
+        }
+
+        function onHostChanged() {
+            post();
+        }
+
+        function onModeChanged() {
+            post();
+        }
+
+        target: Usb
+    }
+    Connections {
+        function onIsPluggedInChanged() {
+            Usb.refresh();
+        }
+
+        target: Power
+    }
+    Connections {
+        function onIsLockedChanged() {
+            Usb.setLocked(SessionStore.isLocked);
+        }
+
+        target: SessionStore
+    }
+
     // Calls and texts: ring, the call overlay, missed-call and message
     // notifications, and the proximity blank while a call is up.
     Connections {
@@ -3039,6 +3355,8 @@ Item {
         function onCallStateChanged(state) {
             active = state === "incoming" || state === "ringing" || state === "active";
             Power.hasActiveCalls = active;
+            // The sensor runs only in a call, to blank the screen at the ear.
+            Display.setProximityWanted(state === "active");
             if (!active)
                 Display.setProximityBlank(false);
             if (state !== "active" && state !== "idle" && state !== "terminated")
@@ -3261,6 +3579,49 @@ Item {
         target: typeof TrackpadInput !== "undefined" ? TrackpadInput : null
         property: "mode"
         value: SettingsManagerCpp.trackpadMode
+    }
+
+    // The trackpad combination: strokes while locked unlock as the PIN does,
+    // and Settings records a new one through the same recogniser.
+    Binding {
+        target: typeof TrackpadInput !== "undefined" ? TrackpadInput : null
+        property: "strokes"
+        value: Security.recordingCombo || (SessionStore.isLocked && Security.hasTrackpadCombo && Display.screenOn)
+    }
+
+    Connections {
+        function onStroke(direction) {
+            if (Security.recordingCombo) {
+                Security.recordStroke(direction);
+            } else {
+                comboEntry.combo += direction;
+                comboEntry.restart();
+            }
+            HapticManager.tick();
+        }
+        function onStrokeSubmit() {
+            if (comboEntry.combo !== "")
+                comboEntry.submit();
+        }
+
+        target: typeof TrackpadInput !== "undefined" ? TrackpadInput : null
+    }
+
+    // A pause ends the combination.
+    Timer {
+        id: comboEntry
+
+        property string combo: ""
+
+        function submit() {
+            stop();
+            if (combo.length >= 4)
+                Security.authenticateTrackpadCombo(combo);
+            combo = "";
+        }
+
+        interval: 900
+        onTriggered: submit()
     }
 
     // The mouse or trackpad pointer, drawn by the shell over everything (Qt's

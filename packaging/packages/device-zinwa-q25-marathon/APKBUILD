@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=56
+pkgrel=60
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -24,7 +24,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-carrier-root
  q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-power.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service q25-lk-update q25-lk-update.service
- q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
+ q25.xkb-symbols q25-keyboard-layout.env q25-deckard-keyboard.conf q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-splash-handover q25-splash-handover.service q25-splash-greetd.conf q25-splash-plymouth-quit.conf q25-splash-plymouth-quit-wait.conf q25-splash-plymouth-start.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules q25-geoclue.conf"
@@ -53,6 +53,7 @@ package() {
     # The same layout for Plymouth's PIN prompt.
     install -Dm644 "$srcdir/q25-vconsole.conf" "$pkgdir/etc/vconsole.conf"
     install -Dm644 "$srcdir/q25-plymouth-keyboard.conf" "$pkgdir/usr/lib/systemd/system/plymouth-start.service.d/50-q25-keyboard.conf"
+    install -Dm644 "$srcdir/q25-deckard-keyboard.conf" "$pkgdir/usr/lib/systemd/system/deckard-container.service.d/50-q25-keyboard.conf"
     # And for the initramfs's Plymouth, which stays up to ask for the PIN.
     install -Dm644 "$srcdir/q25-plymouth.files" "$pkgdir/usr/share/mkinitfs/files/50-q25-plymouth.files"
     install -Dm755 "$srcdir/q25-plymouth-newroot.hook" "$pkgdir/usr/share/mkinitfs/hooks-cleanup/90-q25-plymouth-newroot.sh"
@@ -198,11 +199,11 @@ package() {
     done
 }
 sha512sums="
-4b64b4556880094dc26dfb36bb8abc942d35b52734e8aa934df5cd0ef4b89ea7f2ee2eec9dd58450a186e29744bd600295aabef52e6461a055bb77f10c0f1a7c  device-profile.conf
+1320f9f45a09cbb55a7e28dd9f51595cf4328e4d33ae3ca14e3d26a58df0c06ba4f13ac1b1c94324f4edc09c9b76d75fde52fdc2c30a56ca9a06cb848acdd93c  device-profile.conf
 7a460ddc32973d60bab221c3ded8934e67e4a8bed2e86f9ae5512238fc1fc6c498f9b0e732846d299417d44cecf710692532e6fe774479f057bcfbf81baa5bcd  q25-shell-session
 c378432befaf0b54fe3b4d72230634f48f6a344f74f217f1d475da7be6f834bc82ea30ec4dd8ff24bd3808906b8eced5cf3ea0e13eaddcb1d61b936835971e44  q25-shell-session.software
 56babfe06ed3da7ff72569304d9984adba8d77878cacf27435cb0a83d025bacae203e544e366c4d0490880bcdb7425ac67122b40ae3d46534a1104b76ba7157d  greetd-q25.toml
-f5891ae339a24528fd78c2a805d9072f85609aaa7a1f487d01543c20a4325fc429a56a746b86ea739a3119b9ea07f180a9b1c5507ad5446bbb97c66916322999  50-q25-session.conf
+1e1649d20ab9dbb46e7a5fffe3a8f57f62e78a1d1a8e93bf2b7e4c04bb69de2e16781cb2eddd2f65dc51ef05b39161bd737c384498d8657ce5aa05fc581d37f4  50-q25-session.conf
 358ebe8f456cad78ad4d53c3721835cf79026cb233c43f1428f7a4001cf3825e3fbe2db9777d5ca2ced41acc9590ad5508c40307dca9c341859c90aa83f93d6f  q25-session.conf.example
 c863190931afc04d1702917dc5cf6ee4e218151f204a984c8587a9ea311cbf959b5f9025678f1bbfb66a22ff66545d9e7ffa40274c706f8d9538d6cdde640390  q25-md1-off.service
 11d05acf58b9cdf0a6976209939fb268e8e114dac6bb00b66edf95c5f6bfc6c51350ca5e9cdc1c247ba7866939a724d6634d7a3f463dd5dfeafe51ecc0f9e554  q25-wmt.c
@@ -230,7 +231,7 @@ dd74eaa4f25b674fc6ed47c7cd1b4ab0dbde1d9cbfe661a69a2c16a5a49a0ba58f05cba5bd834695
 63df205323a38c534decdc6a030e872f4c5997778aabed08a619151361d7c1531c90275938511c61a6c1bdb1c75d0739b7d00567bde2ea33c6ba11c952352fa0  q25-root-grow
 42a5d63e17226632be80493adca33f25bd5dcd5645d96d8d2819051355f53da6823eb04c57aac5fff774c4b963efd92a10bea623943b268612c417cd3cf09b89  q25-root-grow.service
 e734bd14fb56a335f380009b0841a5fa259a365cea169433dd26fb6cd9739a256dbe7197c1579bc904976325bf3cfe1b7f9b01b226a5b427a70a957141a3454c  q25-home-crypt
-118cffcf87524ed925fb0551df4eada2bcae5a1e56dbb72e70278d494f50fc9e83ab147c3411ac17c53619952f81d7b008817f37d204cfb082437a59ff4dab65  q25-home-crypt.service
+b20fcb2a507c488c782eb341ef489dd5b597e5df503b190e8e72f4ee9a3c310d9ff9e24211401d61217de1b985d4d276952c8fd640256aa33a651757d2df56df  q25-home-crypt.service
 b56de27623880c795d38953f99745947e8e394356f80a78c435726309efff6ff99e54db53eb235fb62cdcc36032a3e105525b69249200af8eab7ad46d6965458  q25-platform-prepare
 a5a216437d1d62c296b584e620373797cf1cbf9c4588f969b3b9456645d79942a5340a69cafb74155d65ec878be2d5ab08a2e94a2631d4aaea6f9466f03af8ed  q25-platform-prepare.service
 c95e3e6281e0a842a1102b617e8cbe9be4a44be91193190bc9565fd2b064c2a52fb494b1d72ae4f2d50af666f6aa83d20be9e3d8c92f36d4caf8b94c015dde5d  q25-carrier-root
@@ -244,12 +245,13 @@ ac6802cd8209d3890212f3402777bf3756decb9a1154f5934917611c36512d9136d2bd3eb6185289
 153ba51e315aba7ebbd5c35ebc60e6717602c156107db702e074df24ee07b32b54138f5fb3f638b1904410bdafa414c0bbd571bf0cc4f61d509e8a80ba8ce7c9  q25-boot-check.service
 48f3e1f77e861aabce440ed4101a4ac05ac1b01d2b7ba4251f61935db6adf2b4d85902614afea662482b83f6ffd3998e4a230789d8112b9ba43d499d2a98c588  q25-boot-bless.service
 33c25690010d2d4812b58e52356f85ccdec29e798446722c5b45e686f3104c8eb9aadbc61e59950994500b21f12d733736f76f423c0a517a9fab8f9c72a7e413  q25-boot-bless
-f675b891d9ff7dfe2597d7021350a6c1c31ff919d40f73647ed4504de3e927a559e51c23c15f98987f002379236de309c1c222c34724abae9cdc36b60d5d0219  q25-root-install
+a2c79eb59e3c820bfa8534cd63b66c325a9f05c0943b177f89d79f795d8c0dc4a3703e6ab8dc4ea7a6f601368b5c2716b162e5bb0ca8d083a7bf9c16e90cf0bd  q25-root-install
 8f336bff95374e472429b0d66b317ec6df0be167465bf5dc1596a4665ff84cda980084857fe6824feb64bdb02c7975d66cbd3c31bd35851e15f6a58623c08923  q25-root-arm.service
 509b7d543fcc458cf710f9b9b5ad4e087d3760997de48c246cdbe8a9b7d2a8173c46a055657ca2966d94a50340802002f9b435c495358e87965bc628c2f3efb7  q25-lk-update
 6878a13341d51a0c797327f438b473d367ac415381f04345b58937a4c73697571475c94c70a6a95c1495a12e610e065e3dede2b61696d9548839d6b1ac1ddbec  q25-lk-update.service
 ddd69eb57bef58a76f3b0bd965cadbef340efa6cbc4a7b11a0f1d7d700704a27f80f06d7f50e314c31e93a0bd62d92d2c070013b2015528cb624b9c5d5e25288  q25.xkb-symbols
 c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3ccbe57e24776e11ad02ab5d7457f0bc444a4b2b891f442605  q25-keyboard-layout.env
+2ad5a3def415d0a43715ba812e0d3d004fe2951e598f1ebe3b9eb6508fdd0e495e60897d7652310a07e11f48393a7ff7f5cbbfd7192cd6e702d8a6be60e63296  q25-deckard-keyboard.conf
 24c65349f8bdc55656ccc0b8a1c24b77895544a2bdafc1405fcd07666fc6c5925e14fd59038679d0003ab67d1dc098d358a6549005767587c12531b5f921de98  q25-vconsole.conf
 1ec697f5a2afc5268d9230637ddc296d252db2b611f18820846472f65a813532d2cc6e3e56285ee18f712d2a92d5c5a7e6566bb4b5ea563b8c4ae1fe2b440ae0  q25-plymouth-keyboard.conf
 9a49c02d4fd17978a2366e24a10bbc0e75bc7024b8d2322ff46d75db91b08c59d34dcb61627a53f9cfa4196f19b75282331b515261e7729eb444d5c0ce62b867  q25-plymouth.files

@@ -6,12 +6,14 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=43
+pkgrel=47
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
 _mindone=9cd73c15f312cfd1e40a22d871de65a2fb2c5791
 _sound=996ec48145f6746ecc664e92c6e5892b6978e3ae
+# MediaTek's FM radio driver (connectivity/fmradio), for modules/fm.
+_gigaset=6a574a88769691ee4d1da23c80226cf5e237f607
 _afe="
 	mt6789-afe-clk.c
 	mt6789-afe-clk.h
@@ -57,6 +59,7 @@ subpackages="q25-kernel-modules:_modules"
 install="q25-kernel-modules.post-install q25-kernel-modules.post-upgrade"
 source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-mainline/-/archive/$_commit/mtk_g99-mainline-$_commit.tar.gz
 	android_kernel_ikko_mindone-$_mindone.tar.gz::https://github.com/iasnezhkov/android_kernel_ikko_mindone/archive/$_mindone.tar.gz
+	android_kernel_gigaset_mt6789-extras-$_gigaset.tar.gz::https://github.com/Gigaset-dev/android_kernel_gigaset_mt6789-extras/archive/$_gigaset.tar.gz
 	config-zinwa-q25.aarch64
 	0001-drm-mediatek-Add-MT6789-display-support.patch
 	0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
@@ -180,6 +183,10 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0120-sched-psi-Do-not-wake-idle-CPUs-to-update-the-averag.patch
 	0121-power-supply-bq256xx-Read-the-charger-state-before-t.patch
 	0122-drm-mediatek-Keep-the-system-idle-states-off-while-a.patch
+	0123-mfd-mt6397-Power-off-MT6358-through-the-PMIC.patch
+	0124-arm64-dts-mediatek-mt8781-zinwa-q25-Power-off-throug.patch
+	0125-mfd-mt6397-Clear-the-MT6358-start-latches-the-bootlo.patch
+	0126-usb-musb-gadget-Don-t-drop-an-OUT-packet-that-arrives.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -190,6 +197,8 @@ unpack() {
 	tar -C "$srcdir" -xzf "$SRCDEST/mtk_g99-mainline-$_commit.tar.gz"
 	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_ikko_mindone-$_mindone.tar.gz" \
 		"android_kernel_ikko_mindone-$_mindone/mindone/modules"
+	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_gigaset_mt6789-extras-$_gigaset.tar.gz" \
+		"android_kernel_gigaset_mt6789-extras-$_gigaset/connectivity/fmradio"
 }
 
 prepare() {
@@ -212,6 +221,7 @@ build() {
 	scripts/dtc/dtc -q -I dtb -O dts arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dtb |
 		grep -q "__symbols__ {"
 	MT6789_SOUND="$srcdir/mt6789-sound" JOBS="${JOBS:-2}" \
+		FMRADIO="$srcdir/android_kernel_gigaset_mt6789-extras-$_gigaset/connectivity/fmradio" \
 		sh "$startdir/modules/build.sh" "$builddir" "$builddir" \
 		"$srcdir/android_kernel_ikko_mindone-$_mindone" "$srcdir/q25-modules"
 }
@@ -233,7 +243,7 @@ package() {
 _extra="q25-md1-owner
 	q25-haptic"
 _connsys="connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
-	q25-btmtk-stp mtk-connsys-gnss"
+	q25-btmtk-stp mtk-connsys-gnss fmradio_drv_mt6631_6635"
 _audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe
 	q25-mt6366-card q25-mt6358-accdet"
 _camera="q25-cam-dt wl2868c-regulator videobuf2-common videobuf2-memops
@@ -262,7 +272,8 @@ _modules() {
 sha512sums="
 9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
 36633b752a148bf5c6b4b7f255f6d0ef134d2a17029e1e74827a3387c3ce0ae58b363cf00e275ffad4506e43caf4ee6978b536659bdbb9ebab1728c65cd274f8  android_kernel_ikko_mindone-9cd73c15f312cfd1e40a22d871de65a2fb2c5791.tar.gz
-2fc14e03cb92a3f23e8f318d8d12d87f43096ad5c2e5afd97ca26f6637fa16412901f3b4361eaab45107a17b7a5247881bd6fb92a7ff09f245003bd6330e29be  config-zinwa-q25.aarch64
+9b17c10f1183073a818d5bb211751c2535f582865f4d9150ed0c417e84b9494c7a944c57dc67bf77da176898c653bc36d709f138cdd5ae36c64a1867f16f17d3  android_kernel_gigaset_mt6789-extras-6a574a88769691ee4d1da23c80226cf5e237f607.tar.gz
+16dc98b3b5a2c1d71d66a7d4809d5fd5f82c6de721184dcad09efb71e6e0af74c3316ea530168c6e5b8b8a3ec31deb0247256f375f1e54467ce49b6c039b3188  config-zinwa-q25.aarch64
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 fae7d50d65607e43f9dbafa5613f134ce4bb9b3954ac34b82f25a4d6c868578de9a5582eaccd7885284c50df644fd1f9d57cd5221dd210e9fe36976a351afb34  0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
 af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
@@ -385,6 +396,10 @@ d736335ca4252f52034e820b818d1c4c89e1f1458f4f01b6936bd9c00788b375d8b63dfb3d87ed5b
 a619e92848a54652eabe741dba2e32fadaa359168bf3688ccfa6c6981bcb6deac3447fe0a8827e75da663f37b4efe6890b284f49716af08837104d59e312ed32  0120-sched-psi-Do-not-wake-idle-CPUs-to-update-the-averag.patch
 d3d5031ccfe4f06d5d809195edf1fbe53fc4ab73d04b305bc9332556778d1d7b7674a2f56e47cf877bdb05de940bc2c96c3a4621290694332e7b696434305107  0121-power-supply-bq256xx-Read-the-charger-state-before-t.patch
 96714b388754bde02c492f3a3a6ab0b981ed9f278717f8b4b7daf62fd44bd6b919cd9528dbd7dc072c1490bd8d9753342eaddca2899aab0b212ce02673ff29a4  0122-drm-mediatek-Keep-the-system-idle-states-off-while-a.patch
+1179f35dda0efda0bbc37a532d634414711484028c3713f64740c9fa0a7908ac8d872c5fae733195237edc4f6366d001b6b1b9a6facdae86ba303cd3ba282b86  0123-mfd-mt6397-Power-off-MT6358-through-the-PMIC.patch
+45dbc769d095c4be65e3436e4a4e56471feb52b6860901795b4a6ad4e5b1b0414ea1c59474112dd930d7372441b68daee3a81d2d9c94c310c8e01a25d8214793  0124-arm64-dts-mediatek-mt8781-zinwa-q25-Power-off-throug.patch
+2c5cc00d7614c803ad21767b0795e89365d529e513a2073c0f300f393a873880aa64983f816bd8aeab8fef1fa3d9497ac4a42c439ab4dd67fca88633e26f3df2  0125-mfd-mt6397-Clear-the-MT6358-start-latches-the-bootlo.patch
+f394ab16e759c83ea4449ea897b88cc1ecf451f0d83347eb37d50e5a92dd5fcf5a11722da1f35ec593bfba7cbbd7bf4f715530cb0617823bb98edd9fd4ab1c5b  0126-usb-musb-gadget-Don-t-drop-an-OUT-packet-that-arrives.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

@@ -1,0 +1,3 @@
+// SPDX-FileCopyrightText: 2010 Nokia Corporation
+// SPDX-License-Identifier: LGPL-2.1-only
+#include <SignOn/signonerror.h>

@@ -1,0 +1,223 @@
+{
+ "trip": {
+  "locations": [
+   {
+    "type": "break",
+    "lat": 53.3382,
+    "lon": -6.2591,
+    "side_of_street": "left",
+    "original_index": 0
+   },
+   {
+    "type": "break",
+    "lat": 53.3434,
+    "lon": -6.271,
+    "side_of_street": "left",
+    "original_index": 1
+   }
+  ],
+  "legs": [
+   {
+    "maneuvers": [
+     {
+      "type": 3,
+      "instruction": "Drive northwest on St. Stephen's Green/R138. Continue on St. Stephen's Green.",
+      "verbal_succinct_transition_instruction": "Drive northwest.",
+      "verbal_pre_transition_instruction": "Drive northwest on St. Stephen's Green, R138.",
+      "verbal_post_transition_instruction": "Continue on St. Stephen's Green for 300 meters.",
+      "street_names": [
+       "St. Stephen's Green"
+      ],
+      "begin_street_names": [
+       "St. Stephen's Green",
+       "R138"
+      ],
+      "bearing_after": 295,
+      "time": 68.045,
+      "length": 0.283,
+      "cost": 94.736,
+      "begin_shape_index": 0,
+      "end_shape_index": 22,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 10,
+      "instruction": "Turn right onto Glovers Alley.",
+      "verbal_transition_alert_instruction": "Turn right onto Glovers Alley.",
+      "verbal_succinct_transition_instruction": "Turn right.",
+      "verbal_pre_transition_instruction": "Turn right onto Glovers Alley.",
+      "verbal_post_transition_instruction": "Continue for 200 meters.",
+      "street_names": [
+       "Glovers Alley"
+      ],
+      "bearing_before": 211,
+      "bearing_after": 277,
+      "time": 48.737,
+      "length": 0.194,
+      "cost": 72.536,
+      "begin_shape_index": 22,
+      "end_shape_index": 38,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 10,
+      "instruction": "Turn right onto Mercer Street.",
+      "verbal_transition_alert_instruction": "Turn right onto Mercer Street.",
+      "verbal_succinct_transition_instruction": "Turn right. Then Turn left onto Noel Purcell Walk.",
+      "verbal_pre_transition_instruction": "Turn right onto Mercer Street. Then Turn left onto Noel Purcell Walk.",
+      "verbal_post_transition_instruction": "Continue for 40 meters.",
+      "street_names": [
+       "Mercer Street"
+      ],
+      "bearing_before": 291,
+      "bearing_after": 20,
+      "time": 14.646,
+      "length": 0.043,
+      "cost": 66.529,
+      "begin_shape_index": 38,
+      "end_shape_index": 39,
+      "verbal_multi_cue": true,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 15,
+      "instruction": "Turn left onto Noel Purcell Walk.",
+      "verbal_transition_alert_instruction": "Turn left onto Noel Purcell Walk.",
+      "verbal_succinct_transition_instruction": "Turn left.",
+      "verbal_pre_transition_instruction": "Turn left onto Noel Purcell Walk.",
+      "verbal_post_transition_instruction": "Continue for 100 meters.",
+      "street_names": [
+       "Noel Purcell Walk"
+      ],
+      "bearing_before": 20,
+      "bearing_after": 331,
+      "time": 25.099,
+      "length": 0.145,
+      "cost": 72.825,
+      "begin_shape_index": 39,
+      "end_shape_index": 47,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 10,
+      "instruction": "Turn right onto Aungier Street/R114. Continue on R114.",
+      "verbal_transition_alert_instruction": "Turn right onto Aungier Street.",
+      "verbal_succinct_transition_instruction": "Turn right.",
+      "verbal_pre_transition_instruction": "Turn right onto Aungier Street, R114.",
+      "verbal_post_transition_instruction": "Continue on R114 for 400 meters.",
+      "street_names": [
+       "R114"
+      ],
+      "begin_street_names": [
+       "Aungier Street",
+       "R114"
+      ],
+      "bearing_before": 279,
+      "bearing_after": 9,
+      "time": 84.332,
+      "length": 0.404,
+      "cost": 181.802,
+      "begin_shape_index": 47,
+      "end_shape_index": 72,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 15,
+      "instruction": "Turn left onto Dame Street/R137. Continue on R137.",
+      "verbal_transition_alert_instruction": "Turn left onto Dame Street.",
+      "verbal_succinct_transition_instruction": "Turn left.",
+      "verbal_pre_transition_instruction": "Turn left onto Dame Street, R137.",
+      "verbal_post_transition_instruction": "Continue on R137 for 500 meters.",
+      "street_names": [
+       "R137"
+      ],
+      "begin_street_names": [
+       "Dame Street",
+       "R137"
+      ],
+      "bearing_before": 0,
+      "bearing_after": 268,
+      "time": 102.751,
+      "length": 0.533,
+      "cost": 155.776,
+      "begin_shape_index": 72,
+      "end_shape_index": 111,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 12,
+      "instruction": "Make a right U-turn at Nicholas Street/R137 onto Christchurch Place/R137.",
+      "verbal_transition_alert_instruction": "Make a right U-turn at Nicholas Street.",
+      "verbal_succinct_transition_instruction": "Make a right U-turn.",
+      "verbal_pre_transition_instruction": "Make a right U-turn at Nicholas Street, R137 onto Christchurch Place, R137.",
+      "verbal_post_transition_instruction": "Continue for 70 meters.",
+      "street_names": [
+       "Christchurch Place",
+       "R137"
+      ],
+      "bearing_before": 260,
+      "bearing_after": 81,
+      "time": 24.064,
+      "length": 0.072,
+      "cost": 68.542,
+      "begin_shape_index": 111,
+      "end_shape_index": 115,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 6,
+      "instruction": "Your destination is on the left.",
+      "verbal_transition_alert_instruction": "Your destination will be on the left.",
+      "verbal_pre_transition_instruction": "Your destination is on the left.",
+      "bearing_before": 79,
+      "time": 0.0,
+      "length": 0.0,
+      "cost": 0.0,
+      "begin_shape_index": 115,
+      "end_shape_index": 115,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     }
+    ],
+    "summary": {
+     "has_time_restrictions": false,
+     "has_toll": false,
+     "has_highway": false,
+     "has_ferry": false,
+     "min_lat": 53.339099,
+     "min_lon": -6.271796,
+     "max_lat": 53.344179,
+     "max_lon": -6.2582,
+     "time": 367.676,
+     "length": 1.675,
+     "cost": 712.748
+    },
+    "shape": "wkqvdBp`~|JeBfJ{BzMYdBmAlHk@nD[rBaBxKaOhaAy@lFc@~CWxCCnAClAJvCd@dDl@rBx@xAlAdAd\\hVhIjGvAfAd@lAMvDg@zG_Kty@_@pCi@d@k@D}@SaABi@`@{@p@kAnC_Fn`@Iv@uD~Uo@bEw@pFsUaMeD~BsC~CqB`EsBfEwCjIyDtNQvBwD|~@mEu@eb@iH_AQQCaD}@c@WcC{Bs@{@oFqH_TmUyE_EiCaB_FmBgFmB{HiBmIy@cMcAs@CYAe@AgABom@fBmIAaCAmE?BrF@tCBjKKz`AAtL@lILdONvFPlGNdCVvFNdDZvHjA|SR~Cn@fKxAdMdFz`@nLjhApAdIJl@Rl@`@hAn@`A|AbAzDxApDrBzCvBpBhEdAbClB|G~@|FJzAfD`NhDfYNbBLtA^lG^vH_EHg@uKgCgc@]aG"
+   }
+  ],
+  "summary": {
+   "has_time_restrictions": false,
+   "has_toll": false,
+   "has_highway": false,
+   "has_ferry": false,
+   "min_lat": 53.339099,
+   "min_lon": -6.271796,
+   "max_lat": 53.344179,
+   "max_lon": -6.2582,
+   "time": 367.676,
+   "length": 1.675,
+   "cost": 712.748
+  },
+  "status_message": "Found route between points",
+  "status": 0,
+  "units": "kilometers",
+  "language": "en-US"
+ }
+}

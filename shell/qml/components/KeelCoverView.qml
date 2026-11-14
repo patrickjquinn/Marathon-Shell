@@ -19,6 +19,13 @@ Item {
         return compositor && appId !== "" ? compositor.coverSurface(appId) : null;
     }
     readonly property bool available: coverSurface !== null
+    // The strip of cover actions at the cover's bottom edge, in cover
+    // pixels: taps there go to the cover, anywhere else to the card.
+    property int _stripRevision: 0
+    readonly property int actionStrip: {
+        _stripRevision;
+        return appId !== "" ? Tasks.coverActionStrip(appId) : 0;
+    }
 
     function _report() {
         if (appId !== "")
@@ -41,14 +48,31 @@ Item {
         }
     }
 
+    Connections {
+        target: Tasks
+        function onCoverActionStripChanged(changedAppId) {
+            if (changedAppId === root.appId)
+                root._stripRevision++;
+        }
+    }
+
     WaylandQuickItem {
         id: coverItem
 
         anchors.centerIn: parent
         surface: root.coverSurface
-        inputEventsEnabled: false
+        inputEventsEnabled: root.actionStrip > 0
+        containmentMask: actionStripArea
         scale: width > 0 && height > 0 ? Math.min(root.width / width, root.height / height) : 1
         opacity: coverTexture.ready ? 0 : 1
+
+        Item {
+            id: actionStripArea
+
+            y: coverItem.height - height
+            width: coverItem.width
+            height: Math.min(root.actionStrip, coverItem.height)
+        }
     }
 
     // Draws the cover rounded; the item above keeps its texture current.

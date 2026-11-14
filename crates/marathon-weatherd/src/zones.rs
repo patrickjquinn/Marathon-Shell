@@ -30,8 +30,7 @@ mod tests {
         zones
             .at(latitude, longitude)
             .find_local_time_type(1_792_152_000)
-            .map(tz::LocalTimeType::ut_offset)
-            .unwrap_or_default()
+            .map_or_default(tz::LocalTimeType::ut_offset)
     }
 
     #[test]

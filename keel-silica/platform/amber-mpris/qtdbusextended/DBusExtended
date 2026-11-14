@@ -1,0 +1,3 @@
+// SPDX-FileCopyrightText: 2020 Matti Lehtimäki
+// SPDX-License-Identifier: LGPL-2.1-only
+#include "dbusextended.h"

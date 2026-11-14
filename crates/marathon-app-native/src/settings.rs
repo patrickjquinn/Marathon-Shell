@@ -39,6 +39,7 @@ pub mod qobject {
         #[qproperty(bool, show_notification_previews, cxx_name = "showNotificationPreviews", READ, WRITE = set_show_notification_previews, NOTIFY)]
         #[qproperty(QString, time_format, cxx_name = "timeFormat", READ, WRITE = set_time_format, NOTIFY)]
         #[qproperty(QString, date_format, cxx_name = "dateFormat", READ, WRITE = set_date_format, NOTIFY)]
+        #[qproperty(QString, units, READ, WRITE = set_units, NOTIFY)]
         #[qproperty(QString, ringtone, cxx_name = "ringtone", READ, WRITE = set_ringtone, NOTIFY)]
         #[qproperty(QString, notification_sound, cxx_name = "notificationSound", READ, WRITE = set_notification_sound, NOTIFY)]
         #[qproperty(QString, alarm_sound, cxx_name = "alarmSound", READ, WRITE = set_alarm_sound, NOTIFY)]
@@ -68,6 +69,7 @@ pub mod qobject {
         #[qproperty(bool, search_native_apps, cxx_name = "searchNativeApps", READ, WRITE = set_search_native_apps, NOTIFY)]
         #[qproperty(bool, show_notification_badges, cxx_name = "showNotificationBadges", READ, WRITE = set_show_notification_badges, NOTIFY)]
         #[qproperty(QMap_QString_QVariant, app_notification_settings, cxx_name = "appNotificationSettings", READ, WRITE = set_app_notification_settings, NOTIFY)]
+        #[qproperty(QMap_QString_QVariant, speed_keys, cxx_name = "speedKeys", READ, WRITE = set_speed_keys, NOTIFY)]
         #[qproperty(bool, show_frequent_apps, cxx_name = "showFrequentApps", READ, WRITE = set_show_frequent_apps, NOTIFY)]
         #[qproperty(QMap_QString_QVariant, default_apps, cxx_name = "defaultApps", READ, WRITE = set_default_apps, NOTIFY)]
         #[qproperty(bool, first_run_complete, cxx_name = "firstRunComplete", READ, WRITE = set_first_run_complete, NOTIFY)]
@@ -106,6 +108,8 @@ pub mod qobject {
         fn set_time_format(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setDateFormat"]
         fn set_date_format(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setUnits"]
+        fn set_units(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setRingtone"]
         fn set_ringtone(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setNotificationSound"]
@@ -164,6 +168,8 @@ pub mod qobject {
         fn set_show_notification_badges(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setAppNotificationSettings"]
         fn set_app_notification_settings(self: Pin<&mut Settings>, value: &QMap_QString_QVariant);
+        #[cxx_name = "setSpeedKeys"]
+        fn set_speed_keys(self: Pin<&mut Settings>, value: &QMap_QString_QVariant);
         #[cxx_name = "setShowFrequentApps"]
         fn set_show_frequent_apps(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setDefaultApps"]
@@ -284,6 +290,7 @@ properties! {
     show_notification_previews: bool = true, "showNotificationPreviews", show_notification_previews_changed, set_show_notification_previews(bool);
     time_format: QString = QString::from(""), "timeFormat", time_format_changed, set_time_format(&QString);
     date_format: QString = QString::from("US"), "dateFormat", date_format_changed, set_date_format(&QString);
+    units: QString = QString::from("auto"), "units", units_changed, set_units(&QString);
     ringtone: QString, "ringtone", ringtone_changed, set_ringtone(&QString);
     notification_sound: QString, "notificationSound", notification_sound_changed, set_notification_sound(&QString);
     alarm_sound: QString, "alarmSound", alarm_sound_changed, set_alarm_sound(&QString);
@@ -313,6 +320,7 @@ properties! {
     search_native_apps: bool = true, "searchNativeApps", search_native_apps_changed, set_search_native_apps(bool);
     show_notification_badges: bool = true, "showNotificationBadges", show_notification_badges_changed, set_show_notification_badges(bool);
     app_notification_settings: QMap<QMapPair_QString_QVariant>, "appNotificationSettings", app_notification_settings_changed, set_app_notification_settings(&QMap<QMapPair_QString_QVariant>);
+    speed_keys: QMap<QMapPair_QString_QVariant>, "speedKeys", speed_keys_changed, set_speed_keys(&QMap<QMapPair_QString_QVariant>);
     show_frequent_apps: bool, "showFrequentApps", show_frequent_apps_changed, set_show_frequent_apps(bool);
     default_apps: QMap<QMapPair_QString_QVariant>, "defaultApps", default_apps_changed, set_default_apps(&QMap<QMapPair_QString_QVariant>);
     first_run_complete: bool, "firstRunComplete", first_run_complete_changed, set_first_run_complete(bool);

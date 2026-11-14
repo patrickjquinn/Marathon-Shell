@@ -20,6 +20,7 @@ use zbus::{fdo, MatchRule, MessageStream};
 use zbus::{ObjectPath, OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::ipc::{self, value, State};
+use crate::notifications::NotificationsProxy;
 use crate::{io, log};
 
 #[cxx_qt::bridge]
@@ -75,6 +76,11 @@ pub mod qobject {
             READ,
             NOTIFY
         )]
+        /// NetworkManager's connectivity check: "" (unknown), "none", "portal",
+        /// "limited" or "full".
+        #[qproperty(QString, connectivity, READ, NOTIFY)]
+        /// The page a captive portal intercepts to show its sign-in.
+        #[qproperty(QString, portal_url, cxx_name = "portalUrl", READ, NOTIFY)]
         #[qproperty(QString, hotspot_ssid, cxx_name = "hotspotSsid", READ, NOTIFY = hotspot_credentials_changed)]
         #[qproperty(QString, hotspot_password, cxx_name = "hotspotPassword", READ, NOTIFY = hotspot_credentials_changed)]
         type Network = super::NetworkRust;
@@ -145,6 +151,14 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "forgetNetwork"]
         fn forget_network(self: &Network, ssid: &QString);
+        /// Asks NetworkManager to check the internet now.
+        #[qinvokable]
+        #[cxx_name = "checkConnectivity"]
+        fn check_connectivity(self: &Network);
+        /// Opens the captive portal's sign-in in the browser.
+        #[qinvokable]
+        #[cxx_name = "openPortal"]
+        fn open_portal(self: &Network);
         #[qinvokable]
         #[cxx_name = "setAirplaneMode"]
         fn set_airplane_mode(self: Pin<&mut Network>, enabled: bool);
@@ -198,6 +212,8 @@ pub struct NetworkRust {
     available_networks: QList<QVariant>,
     hotspot_ssid: QString,
     hotspot_password: QString,
+    connectivity: QString,
+    portal_url: QString,
     networks: Vec<AccessPoint>,
     actor: Option<Sender<Command>>,
 }
@@ -217,6 +233,8 @@ enum Command {
     Disconnect,
     CancelPending,
     Forget(String),
+    CheckConnectivity,
+    OpenPortal,
     Airplane(bool),
     CreateHotspot {
         ssid: String,
@@ -269,6 +287,8 @@ impl cxx_qt::Initialize for Network {
             .on_airplane_mode_enabled_changed(push)
             .release();
         self.as_mut().on_available_networks_changed(push).release();
+        self.as_mut().on_connectivity_changed(push).release();
+        self.as_mut().on_portal_url_changed(push).release();
         self.as_mut()
             .on_network_error(|_, m| ipc::signal("Network", "NetworkError", (m.to_string(),)))
             .release();
@@ -375,6 +395,35 @@ impl Network {
 
     fn cancel_pending_connection(&self) {
         self.send(Command::CancelPending);
+    }
+
+    fn check_connectivity(&self) {
+        self.send(Command::CheckConnectivity);
+    }
+
+    fn open_portal(&self) {
+        self.send(Command::OpenPortal);
+    }
+
+    fn apply_connectivity(mut self: Pin<&mut Self>, state: u32, url: &str) {
+        let name = QString::from(connectivity_name(state));
+        if self.connectivity != name {
+            self.as_mut().rust_mut().connectivity = name;
+            self.as_mut().connectivity_changed();
+        }
+        let url = QString::from(url);
+        if self.portal_url != url {
+            self.as_mut().rust_mut().portal_url = url;
+            self.as_mut().portal_url_changed();
+        }
+    }
+
+    /// Marathon's own browser, where Pacific could not take the page.
+    #[allow(clippy::unused_self, reason = "runs on the GUI thread")]
+    fn open_in_browser(&self, url: &str) {
+        let mut params = QMap::<QMapPair_QString_QVariant>::default();
+        params.insert(QString::from("url"), QVariant::from(&QString::from(url)));
+        crate::links::deep_link("browser".to_owned(), "/".to_owned(), params);
     }
 
     fn forget_network(&self, ssid: &QString) {
@@ -605,6 +654,14 @@ fn state(network: &Network) -> State {
             ),
         ),
         ("hotspotActive".to_owned(), value(network.hotspot_active)),
+        (
+            "connectivity".to_owned(),
+            value(network.connectivity.to_string()),
+        ),
+        (
+            "portalUrl".to_owned(),
+            value(network.portal_url.to_string()),
+        ),
     ])
 }
 
@@ -710,6 +767,16 @@ impl Network1 {
         ipc::on_gui(&self.qt, |obj| obj.stop_hotspot()).await
     }
 
+    async fn check_connectivity(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.check_connectivity()).await
+    }
+
+    async fn open_portal(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.open_portal()).await
+    }
+
     async fn is_hotspot_active(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
         ipc::admit(&h, "Network", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, |obj| obj.is_hotspot_active()).await
@@ -726,6 +793,12 @@ const WLAN_DRIVER_COMMANDS: &str = "/proc/net/wlan/driver";
 // Active connection states.
 const ACTIVATED: u32 = 2;
 const DEACTIVATED: u32 = 4;
+const DEVICE: &str = "org.freedesktop.NetworkManager.Device";
+const DEVICE_NEED_AUTH: u32 = 60;
+const DEVICE_FAILED: u32 = 120;
+const CONNECTIVITY_PORTAL: u32 = 2;
+/// Longer than `NetworkManager`'s own DHCP wait (45 s), so its reason wins.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(60);
 // Device types.
 const WIFI: u32 = 2;
 const BLUETOOTH: u32 = 5;
@@ -750,6 +823,11 @@ pub(crate) trait Nm {
         specific: &ObjectPath<'_>,
     ) -> zbus::Result<(OwnedObjectPath, OwnedObjectPath)>;
     fn deactivate_connection(&self, active: &ObjectPath<'_>) -> zbus::Result<()>;
+    fn check_connectivity(&self) -> zbus::Result<u32>;
+    #[zbus(property)]
+    fn connectivity(&self) -> zbus::Result<u32>;
+    #[zbus(property)]
+    fn connectivity_check_uri(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn wireless_enabled(&self) -> zbus::Result<bool>;
     #[zbus(property)]
@@ -943,6 +1021,52 @@ fn deactivation_error(reason: u32) -> String {
     }
 }
 
+/// Taps on notifications; the actor keeps those on its own.
+async fn notice_actions() -> stream::Boxed<Event> {
+    let actions = async {
+        NotificationsProxy::new(&io::session_bus().await?)
+            .await?
+            .receive_action_invoked()
+            .await
+    };
+    match actions.await {
+        Ok(actions) => actions
+            .filter_map(|signal| Some(Event::NoticeAction(signal.args().ok()?.id)))
+            .boxed(),
+        Err(e) => {
+            log::warn("network", format_args!("no notification actions: {e}"));
+            stream::empty().boxed()
+        }
+    }
+}
+
+/// A Wi-Fi device's reason for failing a connection, for the person.
+fn device_failure(reason: u32) -> String {
+    const IP_CONFIG_UNAVAILABLE: u32 = 5;
+    const NO_SECRETS: u32 = 7;
+    const SUPPLICANT_DISCONNECT: u32 = 8;
+    const SUPPLICANT_TIMEOUT: u32 = 11;
+    const SSID_NOT_FOUND: u32 = 53;
+    match reason {
+        // A disconnect during the handshake is how a wrong WPA key shows.
+        NO_SECRETS | SUPPLICANT_DISCONNECT => fl!("network-wrong-password"),
+        SUPPLICANT_TIMEOUT => fl!("network-timeout"),
+        SSID_NOT_FOUND => fl!("network-not-found"),
+        IP_CONFIG_UNAVAILABLE => fl!("network-no-address"),
+        _ => fl!("network-couldnt-connect"),
+    }
+}
+
+fn connectivity_name(state: u32) -> &'static str {
+    match state {
+        1 => "none",
+        CONNECTIVITY_PORTAL => "portal",
+        3 => "limited",
+        4 => "full",
+        _ => "",
+    }
+}
+
 /// The strongest access point per SSID, connected first, then by strength.
 fn merge(mut aps: Vec<AccessPoint>) -> Vec<AccessPoint> {
     aps.sort_by(|a, b| {
@@ -975,6 +1099,17 @@ enum Event {
         strength: u8,
     },
     Rescan,
+    Connectivity(u32),
+    DeviceState {
+        path: OwnedObjectPath,
+        state: u32,
+        reason: u32,
+    },
+    /// A requested connection still hasn't ended this long after it began.
+    ConnectTimeout(OwnedObjectPath),
+    PortalRecheck,
+    /// A notification was tapped or one of its actions chosen.
+    NoticeAction(u32),
 }
 
 struct Pending {
@@ -993,6 +1128,9 @@ struct Actor {
     links: Links,
     active_ap: Option<OwnedObjectPath>,
     pending: Option<Pending>,
+    connectivity: u32,
+    /// The "Sign in to <network>" notification while a portal stands in the way.
+    portal_notice: u32,
     hotspot: Option<OwnedObjectPath>,
     hotspot_active: bool,
     rescan: Sender<Event>,
@@ -1020,6 +1158,8 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         links: Links::default(),
         active_ap: None,
         pending: None,
+        connectivity: 0,
+        portal_notice: 0,
         hotspot: None,
         hotspot_active: false,
         rescan,
@@ -1035,14 +1175,19 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     actor.refresh_links().await;
     actor.refresh_saved().await;
     actor.scan().await;
+    if let Ok(state) = actor.nm.connectivity().await {
+        actor.publish_connectivity(state).await;
+    }
 
     let events = commands
         .map(Event::Command)
         .chain(stream::once(Event::Closed))
         .or(actor.nm_events().await)
         .or(actor.signal_events().await)
+        .or(notice_actions().await)
         .or(rescans)
-        .or(Timer::interval(Duration::from_secs(30)).map(|_| Event::Rescan));
+        .or(Timer::interval(Duration::from_secs(30)).map(|_| Event::Rescan))
+        .or(Timer::interval(Duration::from_secs(15)).map(|_| Event::PortalRecheck));
     let mut events = std::pin::pin!(events);
     while let Some(event) = events.next().await {
         match event {
@@ -1070,7 +1215,25 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     actor.qt.queue(move |obj| obj.apply_strength(strength)).ok();
                 }
             }
-            Event::Rescan => actor.scan().await,
+            // Nobody sees the list with the screen off.
+            Event::Rescan if crate::display::screen_on() => actor.scan().await,
+            Event::Connectivity(state) => actor.publish_connectivity(state).await,
+            Event::DeviceState {
+                path,
+                state,
+                reason,
+            } => actor.on_device_state(&path, state, reason).await,
+            Event::ConnectTimeout(path) => actor.on_connect_timeout(&path).await,
+            // Behind a portal, so its sign-in is noticed within seconds.
+            Event::PortalRecheck
+                if actor.connectivity == CONNECTIVITY_PORTAL && crate::display::screen_on() =>
+            {
+                actor.check_connectivity().await;
+            }
+            Event::NoticeAction(id) if id != 0 && id == actor.portal_notice => {
+                actor.open_portal().await;
+            }
+            Event::Rescan | Event::PortalRecheck | Event::NoticeAction(_) => {}
         }
     }
 }
@@ -1201,6 +1364,8 @@ impl Actor {
                 }
             }
             Command::Forget(ssid) => self.forget(&ssid).await,
+            Command::CheckConnectivity => self.check_connectivity().await,
+            Command::OpenPortal => self.open_portal().await,
             Command::Airplane(enabled) => self.airplane(enabled).await,
             Command::CreateHotspot { ssid, password } => {
                 self.create_hotspot(&ssid, &password).await;
@@ -1255,18 +1420,13 @@ impl Actor {
                 .await
                 .map_err(zbus::Error::from)
         };
-        objects
-            .await
-            .map(|objects| {
-                objects
-                    .into_iter()
-                    .filter(|(_, interfaces)| {
-                        interfaces.keys().any(|i| i.as_str() == BLUEZ_ADAPTER)
-                    })
-                    .map(|(path, _)| path)
-                    .collect()
-            })
-            .unwrap_or_default()
+        objects.await.map_or_default(|objects| {
+            objects
+                .into_iter()
+                .filter(|(_, interfaces)| interfaces.keys().any(|i| i.as_str() == BLUEZ_ADAPTER))
+                .map(|(path, _)| path)
+                .collect()
+        })
     }
 
     async fn bluetooth_props(
@@ -1359,8 +1519,7 @@ impl Actor {
             let ssid = props
                 .get("Ssid")
                 .and_then(|v| Vec::<u8>::try_from(v.try_clone().ok()?).ok())
-                .map(|b| String::from_utf8_lossy(&b).into_owned())
-                .unwrap_or_default();
+                .map_or_default(|b| String::from_utf8_lossy(&b).into_owned());
             if ssid.is_empty() {
                 continue;
             }
@@ -1486,8 +1645,7 @@ impl Actor {
             let ssid = wireless
                 .get("ssid")
                 .and_then(|v| Vec::<u8>::try_from(v.try_clone().ok()?).ok())
-                .map(|b| String::from_utf8_lossy(&b).into_owned())
-                .unwrap_or_default();
+                .map_or_default(|b| String::from_utf8_lossy(&b).into_owned());
             if !ssid.is_empty() {
                 saved.entry(ssid).or_default().push(path);
             }
@@ -1603,6 +1761,11 @@ impl Actor {
                 self.nm.deactivate_connection(&path).await.ok();
             }
             Ok(path) => {
+                let (timeout, watched) = (self.rescan.clone(), path.clone());
+                io::spawn(async move {
+                    Timer::after(CONNECT_TIMEOUT).await;
+                    timeout.send(Event::ConnectTimeout(watched)).await.ok();
+                });
                 self.pending = Some(Pending {
                     ssid,
                     path: Some(path),
@@ -1618,6 +1781,11 @@ impl Actor {
             self.on_hotspot_state(state);
         }
         let pending_here = self.pending.as_ref().and_then(|p| p.path.as_ref()) == Some(path);
+        // By the active connection itself: its profile may not be named for the SSID.
+        if pending_here && state == ACTIVATED {
+            self.pending = None;
+            self.qt.queue(Network::connection_success).ok();
+        }
         if pending_here && state == DEACTIVATED {
             self.pending = None;
             self.qt
@@ -1625,6 +1793,119 @@ impl Actor {
                 .ok();
         }
         self.refresh_links().await;
+    }
+
+    // The device says why a connection failed (wrong key, no network, no
+    // address), and asks for secrets when a saved key is rejected, where the
+    // active connection would only wait.
+    async fn on_device_state(&mut self, path: &OwnedObjectPath, state: u32, reason: u32) {
+        if self.wifi_device.as_ref() != Some(path) {
+            return;
+        }
+        let message = match state {
+            DEVICE_FAILED => device_failure(reason),
+            DEVICE_NEED_AUTH => fl!("network-wrong-password"),
+            _ => return,
+        };
+        let Some(active) = self.pending.as_mut().and_then(|p| p.path.take()) else {
+            return;
+        };
+        self.pending = None;
+        self.nm.deactivate_connection(&active).await.ok();
+        self.qt
+            .queue(move |obj| obj.connection_failed(&QString::from(message.as_str())))
+            .ok();
+    }
+
+    async fn on_connect_timeout(&mut self, path: &OwnedObjectPath) {
+        if self.pending.as_ref().and_then(|p| p.path.as_ref()) != Some(path) {
+            return;
+        }
+        self.pending = None;
+        self.nm.deactivate_connection(path).await.ok();
+        self.qt
+            .queue(|obj| obj.connection_failed(&QString::from(fl!("network-timeout"))))
+            .ok();
+    }
+
+    async fn publish_connectivity(&mut self, state: u32) {
+        self.connectivity = state;
+        let url = self.nm.connectivity_check_uri().await.unwrap_or_default();
+        self.qt
+            .queue(move |obj| obj.apply_connectivity(state, &url))
+            .ok();
+        self.update_portal_notice().await;
+    }
+
+    // Posted while a portal stands between the connected Wi-Fi and the
+    // internet, withdrawn once it is gone; tapping it opens the sign-in.
+    async fn update_portal_notice(&mut self) {
+        let wanted = (self.connectivity == CONNECTIVITY_PORTAL)
+            .then(|| self.links.wifi.clone())
+            .flatten();
+        let notices = async { NotificationsProxy::new(&io::session_bus().await?).await };
+        let Ok(notices) = notices.await else {
+            return;
+        };
+        match wanted {
+            Some(ssid) if self.portal_notice == 0 => {
+                let sign_in = fl!("network-portal-sign-in");
+                let sent = notices
+                    .notify(
+                        &fl!("network-portal-app"),
+                        0,
+                        "wifi-high",
+                        &fl!("network-portal-title", ssid = ssid),
+                        &fl!("network-portal-body"),
+                        &["default", sign_in.as_str(), "sign-in", sign_in.as_str()],
+                        HashMap::new(),
+                        0,
+                    )
+                    .await;
+                match sent {
+                    Ok(id) => self.portal_notice = id,
+                    Err(e) => log::warn("network", format_args!("portal notice: {e}")),
+                }
+            }
+            None if self.portal_notice != 0 => {
+                notices.close_notification(self.portal_notice).await.ok();
+                self.portal_notice = 0;
+            }
+            _ => {}
+        }
+    }
+
+    async fn check_connectivity(&mut self) {
+        match self.nm.check_connectivity().await {
+            Ok(state) => self.publish_connectivity(state).await,
+            Err(e) => log::warn("network", format_args!("CheckConnectivity: {e}")),
+        }
+    }
+
+    // The check page over plain HTTP, which the portal intercepts with its
+    // sign-in: in Pacific (D-Bus starts it), else Marathon's browser.
+    async fn open_portal(&self) {
+        let url = self.nm.connectivity_check_uri().await.unwrap_or_default();
+        if url.is_empty() {
+            log::warn("network", "no connectivity check URL to open a portal with");
+            return;
+        }
+        let pacific = match io::session_bus().await {
+            Ok(bus) => bus
+                .call_method(
+                    Some("org.shipwright.pacific.ui"),
+                    "/ui",
+                    Some("org.shipwright.pacific.ui"),
+                    "openUrl",
+                    &(vec![url.as_str()],),
+                )
+                .await
+                .is_ok(),
+            Err(_) => false,
+        };
+        if !pacific {
+            self.qt.queue(move |obj| obj.open_in_browser(&url)).ok();
+        }
     }
 
     async fn create_hotspot(&mut self, ssid: &str, password: &str) {
@@ -1723,7 +2004,13 @@ impl Actor {
             .receive_devices_changed()
             .await
             .map(|_| Event::DevicesChanged);
-        enabled.or(active).or(devices).boxed()
+        let connectivity = self
+            .nm
+            .receive_connectivity_changed()
+            .await
+            .then(|change| async move { change.get().await.ok().map(Event::Connectivity) })
+            .filter_map(|event| event);
+        enabled.or(active).or(devices).or(connectivity).boxed()
     }
 
     // Signals from objects that come and go: every active connection's
@@ -1753,6 +2040,28 @@ impl Actor {
                     let path = OwnedObjectPath::from(m.header().path()?.clone());
                     let (state, reason): (u32, u32) = m.body().deserialize().ok()?;
                     Some(Event::ActiveState {
+                        path,
+                        state,
+                        reason,
+                    })
+                });
+                merged = merged.or(states).boxed();
+            }
+        }
+        if let Ok(rule) = rule(
+            DEVICE,
+            "StateChanged",
+            "/org/freedesktop/NetworkManager/Devices",
+        ) {
+            if let Ok(s) =
+                MessageStream::for_match_rule(rule, &self.bus, std::num::NonZeroUsize::new(64))
+                    .await
+            {
+                let states = s.filter_map(|m| {
+                    let m = m.ok()?;
+                    let path = OwnedObjectPath::from(m.header().path()?.clone());
+                    let (state, _, reason): (u32, u32, u32) = m.body().deserialize().ok()?;
+                    Some(Event::DeviceState {
                         path,
                         state,
                         reason,
@@ -1816,7 +2125,25 @@ pub(crate) fn set_rfkill(types: &[&str], block: bool) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{activation_error, deactivation_error, merge, security, AccessPoint};
+    use super::{
+        activation_error, connectivity_name, deactivation_error, device_failure, merge, security,
+        AccessPoint,
+    };
+
+    #[test]
+    fn a_failed_device_says_why() {
+        assert_eq!(device_failure(7), "Incorrect password");
+        assert_eq!(device_failure(8), "Incorrect password");
+        assert_eq!(device_failure(53), "Network not found");
+        assert_eq!(device_failure(5), "The network gave no address");
+        assert_eq!(device_failure(36), "Couldn't connect");
+    }
+
+    #[test]
+    fn connectivity_states_are_named() {
+        let names: Vec<_> = (0..=4).map(connectivity_name).collect();
+        assert_eq!(names, ["", "none", "portal", "limited", "full"]);
+    }
 
     fn ap(ssid: &str, strength: u8, connected: bool) -> AccessPoint {
         AccessPoint {

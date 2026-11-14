@@ -103,9 +103,9 @@ Item {
                 if (taskSwitcher.searchPullProgress > commitThreshold || velocity > 0.25) {
                     Logger.info("TaskSwitcher", "Pull down threshold met - opening search (" + deltaY + "px)");
                     UIStore.openSearch();
-                    taskSwitcher.searchPullProgress = 0;
                 }
             }
+            taskSwitcher.searchPullProgress = 0;
             isDragging = false;
             isVertical = false;
             taskSwitcher.searchGestureActive = false;
@@ -114,6 +114,7 @@ Item {
             isDragging = false;
             isVertical = false;
             taskSwitcher.searchGestureActive = false;
+            taskSwitcher.searchPullProgress = 0;
         }
     }
 
@@ -243,7 +244,8 @@ Item {
         flickableDirection: Flickable.VerticalFlick
         pressDelay: 0
         interactive: pages > 1
-        boundsBehavior: Flickable.StopAtBounds
+        // Past the first or last page the cards give, then spring back.
+        boundsBehavior: Flickable.DragAndOvershootBounds
         model: Tasks
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true

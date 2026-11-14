@@ -1,0 +1,43 @@
+#!/bin/sh
+# Which feed updates come from: the image's own transfers name the stable
+# channel; on the test channel each gets a copy in /run/sysupdate.d (which
+# sysupdate reads before /usr/lib) pointing at the test feed instead. The
+# choice is /etc/marathon/update-channel, kept across updates.
+#
+#   marathon-update-channel stable|test   choose, then apply
+#   marathon-update-channel apply         write the copies for the choice (boot)
+#
+# Exit status: 0 done, 2 usage, 1 any other failure.
+set -eu
+conf=/etc/marathon/update-channel
+image=/usr/lib/sysupdate.d
+run=/run/sysupdate.d
+
+apply() {
+	channel=$(cat "$conf" 2>/dev/null || echo stable)
+	mkdir -p "$run"
+	for t in "$image"/*.transfer; do
+		[ -e "$t" ] || continue
+		copy=$run/${t##*/}
+		if [ "$channel" = test ] && grep -q '/releases/download/stable/' "$t"; then
+			sed 's#/releases/download/stable/#/releases/download/test/#g' "$t" > "$copy.new"
+			mv "$copy.new" "$copy"
+		else
+			rm -f "$copy"
+		fi
+	done
+}
+
+case "${1:-}" in
+stable | test)
+	mkdir -p "${conf%/*}"
+	echo "$1" > "$conf.new"
+	mv "$conf.new" "$conf"
+	apply
+	;;
+apply) apply ;;
+*)
+	echo "usage: marathon-update-channel stable|test|apply" >&2
+	exit 2
+	;;
+esac

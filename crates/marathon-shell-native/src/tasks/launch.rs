@@ -145,8 +145,7 @@ fn desktop_entry(app_id: &str) -> Option<App> {
     let text = |k: &str| {
         map.get(&q(k))
             .and_then(|v| v.value::<QString>())
-            .map(|s| s.to_string())
-            .unwrap_or_default()
+            .map_or_default(|s| s.to_string())
     };
     Some(App {
         id: text("id"),
@@ -286,8 +285,31 @@ impl Tasks {
 
     #[allow(clippy::unused_self, reason = "a QML invokable")]
     pub(super) fn set_cover_visible(&self, app_id: &QString, visible: bool) {
-        if !app_id.is_empty() {
-            dbus::runner(&app_id.to_string(), "SetCoverStatus", (i32::from(visible),));
+        if app_id.is_empty() {
+            return;
+        }
+        let id = app_id.to_string();
+        dbus::runner(&id, "SetCoverStatus", (i32::from(visible),));
+        if visible && self.is_keel_host(&id) {
+            dbus::cover_action_strip(self.qt_thread(), id);
+        }
+    }
+
+    pub(super) fn cover_action_strip(&self, app_id: &QString) -> i32 {
+        self.cover_strips
+            .get(&app_id.to_string())
+            .copied()
+            .unwrap_or(0)
+    }
+
+    pub(super) fn set_cover_action_strip(mut self: Pin<&mut Self>, app_id: &str, height: i32) {
+        let old = self
+            .as_mut()
+            .rust_mut()
+            .cover_strips
+            .insert(app_id.to_owned(), height);
+        if old != Some(height) {
+            self.cover_action_strip_changed(&q(app_id));
         }
     }
 
@@ -1192,8 +1214,7 @@ impl Tasks {
         let left: Vec<i32> = self
             .windows
             .get(&app_id)
-            .map(|w| w.iter().copied().filter(|s| *s != surface_id).collect())
-            .unwrap_or_default();
+            .map_or_default(|w| w.iter().copied().filter(|s| *s != surface_id).collect());
         let task_surface = self.task(&app_id).map(|t| t.surface_id);
         if let Some(&newest) = left.last() {
             self.as_mut()
@@ -1285,8 +1306,7 @@ impl Tasks {
                 .pid_to_app
                 .iter()
                 .find(|(p, _)| descends_from(pid, **p))
-                .map(|(_, a)| a.clone())
-                .unwrap_or_default();
+                .map_or_default(|(_, a)| a.clone());
         }
         if app_id.is_empty() {
             log::warn(

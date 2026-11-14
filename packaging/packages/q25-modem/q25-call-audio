@@ -1,0 +1,24 @@
+#!/bin/sh
+# q25-call-audio: keeps the modem's audio peer up, and its speech path on
+# while a voice call is active, as the stock HAL does. q25-speech answers
+# the modem on ccci_aud throughout (without that the modem turns incoming
+# calls away as busy); WirePlumber picks the UCM Voice Call verb (the
+# routes). Nothing here plays sound.
+/usr/libexec/q25-modem/q25-speech serve 16 &
+speech=$!
+
+# MMCallState: 4 active, 7 terminated.
+busctl --system monitor --json=short \
+	--match "type='signal',sender='org.freedesktop.ModemManager1',interface='org.freedesktop.ModemManager1.Call',member='StateChanged'" |
+	while read -r line; do
+		state=$(printf '%s\n' "$line" |
+			sed -n 's/.*"data":\[ *-\{0,1\}[0-9]* *, *\(-\{0,1\}[0-9]*\).*/\1/p')
+		case "$state" in
+		4) kill -USR1 "$speech" ;;
+		7) kill -USR2 "$speech" ;;
+		esac
+	done &
+
+# Without its audio peer the modem turns calls away: let systemd restart all.
+wait "$speech"
+exit 1

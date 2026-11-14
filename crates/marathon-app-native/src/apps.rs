@@ -198,7 +198,7 @@ impl AppRegistry {
         let name = usize::try_from(role - USER_ROLE - 1)
             .ok()
             .and_then(|i| ROLES.get(i));
-        app.zip(name).map(|(a, n)| field(a, n)).unwrap_or_default()
+        app.zip(name).map_or_default(|(a, n)| field(a, n))
     }
 
     fn role_names(&self) -> QHash<QHashPair_i32_QByteArray> {
@@ -282,13 +282,11 @@ impl AppRegistry {
     }
 
     fn get_background_capabilities(&self, app_id: &QString) -> QStringList {
-        self.find(app_id)
-            .map(|a| {
-                field(a, "backgroundCapabilities")
-                    .value::<QStringList>()
-                    .unwrap_or_default()
-            })
-            .unwrap_or_default()
+        self.find(app_id).map_or_default(|a| {
+            field(a, "backgroundCapabilities")
+                .value::<QStringList>()
+                .unwrap_or_default()
+        })
     }
 
     fn unregister_app(self: Pin<&mut Self>, app_id: &QString) {

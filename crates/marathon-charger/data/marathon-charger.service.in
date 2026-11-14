@@ -1,0 +1,6 @@
+[Unit]
+Description=Charging screen
+After=plymouth-start.service
+
+[Service]
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-charger

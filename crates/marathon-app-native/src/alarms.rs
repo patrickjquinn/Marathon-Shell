@@ -198,7 +198,6 @@ impl Alarms {
         );
         ALARM
             .ask_now::<_, String>("CreateAlarm", &body)
-            .map(|id| QString::from(&id))
-            .unwrap_or_default()
+            .map_or_default(|id| QString::from(&id))
     }
 }

@@ -127,12 +127,29 @@ Page {
         }
     }
 
+    // Page children can't hold focus: the flickable takes it so typing reaches the search.
+    onStatusChanged: if (status === PageStatus.Active && !searchField.activeFocus)
+        flickable.forceActiveFocus()
+
     SilicaFlickable {
         id: flickable
 
         objectName: "mainFlickable"
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
+        focus: true
+        Keys.onPressed: function (event) {
+            if (event.key === Qt.Key_Escape && page.searching) {
+                searchField.text = "";
+                flickable.forceActiveFocus();
+            } else if (!searchField.activeFocus && event.text.trim().length === 1 && !(event.modifiers & (Qt.ControlModifier | Qt.MetaModifier))) {
+                searchField.forceActiveFocus();
+                searchField.text += event.text;
+            } else {
+                return;
+            }
+            event.accepted = true;
+        }
 
         Column {
             id: column

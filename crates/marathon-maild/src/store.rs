@@ -527,7 +527,7 @@ pub fn open(raw: &[u8]) -> Row {
         return Row::new();
     };
     let addresses = |a: Option<mail_parser::AddressList<'_>>| -> Vec<String> {
-        a.map(|a| {
+        a.map_or_default(|a| {
             a.mailboxes()
                 .map(|x| match (x.name(), x.address()) {
                     (Some(n), Some(e)) => format!("{n} <{e}>"),
@@ -535,7 +535,6 @@ pub fn open(raw: &[u8]) -> Row {
                 })
                 .collect()
         })
-        .unwrap_or_default()
     };
     let attachments: Vec<Value<'static>> = m
         .attachments()

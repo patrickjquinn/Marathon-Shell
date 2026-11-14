@@ -70,3 +70,4 @@ MTabBar 1.0 ../../../../../shell/qml/ui/MTabBar.qml
 FileChooserModel 1.0 FileChooserModel.qml
 BackdropProbe 1.0 BackdropProbe.qml
 NativeSurfaceItem 1.0 NativeSurfaceItem.qml
+singleton Privacy 1.0 Privacy.qml

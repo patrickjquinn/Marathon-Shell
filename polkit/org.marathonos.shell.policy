@@ -67,6 +67,43 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-remote-connection</annotate>
   </action>
 
+  <!-- What the USB port offers a computer: charging only, file transfer or
+       the developer network. -->
+  <action id="org.marathonos.shell.usb-mode">
+    <description>Choose what the USB port offers a computer</description>
+    <message>Authentication is required to change the USB connection</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-usb-mode</annotate>
+  </action>
+
+  <!-- Which feed system updates come from: stable or developer builds. -->
+  <action id="org.marathonos.shell.update-channel">
+    <description>Choose the system update channel</description>
+    <message>Authentication is required to change where updates come from</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-update-channel</annotate>
+  </action>
+
+  <!-- Settings > Developer tools: the logs, into the user's Documents. -->
+  <action id="org.marathonos.shell.bug-report">
+    <description>Create a bug report</description>
+    <message>Authentication is required to read the system's logs</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-bug-report</annotate>
+  </action>
+
   <!-- Allow bluetooth management -->
   <action id="org.marathonos.shell.bluetooth-control">
     <description>Control Bluetooth</description>

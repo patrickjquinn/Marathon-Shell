@@ -149,6 +149,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setCoverVisible"]
         fn set_cover_visible(self: &Tasks, app_id: &QString, visible: bool);
+        /// The height, in cover pixels, of the strip at the bottom of a Keel
+        /// app's cover that holds its cover actions; 0 when it has none.
+        #[qinvokable]
+        #[cxx_name = "coverActionStrip"]
+        fn cover_action_strip(self: &Tasks, app_id: &QString) -> i32;
         /// The app's window in front now, or the next one it maps within a
         /// few seconds; true when it had one to bring forward.
         #[cxx_name = "expectWindow"]
@@ -156,6 +161,9 @@ pub mod qobject {
         #[cxx_name = "setAppSecure"]
         fn set_app_secure(self: Pin<&mut Tasks>, app_id: &QString, secure: bool);
 
+        #[qsignal]
+        #[cxx_name = "coverActionStripChanged"]
+        fn cover_action_strip_changed(self: Pin<&mut Tasks>, app_id: &QString);
         #[qsignal]
         #[cxx_name = "appLaunchStarted"]
         fn app_launch_started(self: Pin<&mut Tasks>, app_id: &QString, name: &QString);
@@ -244,6 +252,9 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "nativeForwardRequested"]
         fn native_forward_requested(self: Pin<&mut Tasks>, surface_id: i32, keel_hosted: bool);
+        #[qsignal]
+        #[cxx_name = "nativeScrollToTopRequested"]
+        fn native_scroll_to_top_requested(self: Pin<&mut Tasks>, surface_id: i32);
 
         // The compositor's events.
         #[cxx_name = "appLaunched"]
@@ -327,6 +338,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "handleSystemForward"]
         fn handle_system_forward(self: Pin<&mut Tasks>) -> bool;
+        /// A tap on the status bar: the app in front scrolls to its top.
+        #[qinvokable]
+        #[cxx_name = "handleSystemScrollToTop"]
+        fn handle_system_scroll_to_top(self: Pin<&mut Tasks>) -> bool;
         #[qinvokable]
         #[cxx_name = "minimizeForegroundApp"]
         fn minimize_foreground_app(self: Pin<&mut Tasks>) -> bool;
@@ -503,6 +518,8 @@ pub struct TasksRust {
     expected_windows: HashMap<String, Instant>,
     android_handoffs: HashMap<String, launch::AndroidHandoff>,
     secure: HashMap<String, bool>,
+    // A Keel app → its cover's action strip height.
+    cover_strips: HashMap<String, i32>,
     pool: pool::Pool,
     // The lifecycle.
     lifecycle: lifecycle::Lifecycle,
@@ -668,8 +685,7 @@ impl Tasks {
         let caller = self.as_mut().rust_mut().callers.remove(&app_id.to_string());
         caller
             .filter(|c| self.task(c).is_some())
-            .map(|c| QString::from(&c))
-            .unwrap_or_default()
+            .map_or_default(|c| QString::from(&c))
     }
 
     fn move_to_front(mut self: Pin<&mut Self>, app_id: &str) {
@@ -739,8 +755,7 @@ impl Tasks {
             device
                 .get(&QString::from(k))
                 .and_then(|v| v.value::<QString>())
-                .map(|s| s.to_string())
-                .unwrap_or_default()
+                .map_or_default(|s| s.to_string())
         };
         let int = |k: &str| {
             device

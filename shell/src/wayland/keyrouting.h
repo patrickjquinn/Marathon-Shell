@@ -51,4 +51,17 @@ namespace KeyRouting {
         return None;
     }
 
+    // A shortcut held with Super, from an external keyboard; empty if none.
+    inline QString superShortcut(int key) {
+        switch (key) {
+            case Qt::Key_Space: return QStringLiteral("search");
+            case Qt::Key_Tab: return QStringLiteral("switcher");
+            case Qt::Key_L: return QStringLiteral("lock");
+            case Qt::Key_A: return QStringLiteral("quicksettings");
+            case Qt::Key_Q: return QStringLiteral("close");
+            case Qt::Key_K: return QStringLiteral("keyboard");
+            default: return {};
+        }
+    }
+
 } // namespace KeyRouting

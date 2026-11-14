@@ -337,8 +337,7 @@ fn read_cgroup(proc_file: &Path) -> String {
     fs::read_to_string(proc_file)
         .ok()
         .as_deref()
-        .map(unified)
-        .unwrap_or_default()
+        .map_or_default(unified)
 }
 
 fn unified(contents: &str) -> String {

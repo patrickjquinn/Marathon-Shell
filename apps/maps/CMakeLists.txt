@@ -41,3 +41,7 @@ install(DIRECTORY web
         PATTERN "*.json"
         PATTERN "*.png"
         PATTERN "*.txt")
+
+# The Maps app is GPL-3.0-or-later (the rest of Marathon is Apache-2.0), so
+# it can take Pure Maps' navigation code.
+install(FILES LICENSE.GPL-3.0-or-later DESTINATION "${MARATHON_APPS_DIR}/${APP_NAME}")

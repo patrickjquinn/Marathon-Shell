@@ -1,0 +1,29 @@
+From a25feb9bbd7421b8a8b4e700d472445013b6ba61 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 9 Nov 2026 22:06:12 +0000
+Subject: [PATCH 124/124] arm64: dts: mediatek: mt8781-zinwa-q25: Power off
+ through the PMIC
+
+The firmware's SYSTEM_OFF does not reach the PMIC on this phone, so a
+power off became a reboot. Make the PMIC the system power controller.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 8cdae94..9455e53 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -168,6 +168,7 @@
+ 	pmic: pmic {
+ 		compatible = "mediatek,mt6358";
+ 		interrupt-controller;
++		system-power-controller;
+ 		interrupts-extended = <&pio 137 IRQ_TYPE_LEVEL_HIGH>;
+ 		#interrupt-cells = <2>;
+ 
+-- 
+2.55.0
+

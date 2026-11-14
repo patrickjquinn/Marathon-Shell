@@ -3,9 +3,7 @@
 use std::path::PathBuf;
 
 pub fn home() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_default()
+    std::env::var_os("HOME").map_or_default(PathBuf::from)
 }
 
 fn base(var: &str, fallback: &str) -> PathBuf {

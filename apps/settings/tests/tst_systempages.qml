@@ -395,6 +395,18 @@ TestCase {
         verify(!toggle.visible);
     }
 
+    function test_updateDeveloper() {
+        const s = open("updates");
+        const toggle = child(s.page, "developerUpdatesSwitch");
+        verify(toggle.visible);
+        verify(!toggle.checked);
+        toggle.clicked(null);
+        verify(Updates.developerUpdates);
+        verify(toggle.checked);
+        Updates.state = "unsupported";
+        verify(!toggle.visible);
+    }
+
     function test_updateTonight() {
         Updates.state = "readyToReboot";
         Updates.autoUpdate = false;
@@ -563,6 +575,28 @@ TestCase {
         Security.remoteConnectionFailed("Incorrect PIN");
         verify(!child(s.page, "remoteSwitch").busy);
         verify(!child(s.page, "remoteSwitch").checked);
+    }
+
+    function test_bugReportIsSavedForSharing() {
+        Security.remoteConnection = "off";
+        const s = open("developer");
+        verify(!child(s.page, "shareReportButton").visible);
+        child(s.page, "reportButton").clicked(null);
+        compare(Security.calls, [["bugReport"]]);
+        verify(!child(s.page, "reportButton").enabled);
+        Security.bugReportCreated("/home/user/Documents/marathon-bug-report-20261110-172829.txt");
+        verify(child(s.page, "reportButton").enabled);
+        verify(child(s.page, "shareReportButton").visible);
+        compare(child(s.page, "reportHint").text, "Saved in Documents as marathon-bug-report-20261110-172829.txt");
+    }
+
+    function test_bugReportFailureLetsYouTryAgain() {
+        Security.remoteConnection = "off";
+        const s = open("developer");
+        child(s.page, "reportButton").clicked(null);
+        Security.bugReportFailed("Couldn't create the bug report");
+        verify(child(s.page, "reportButton").enabled);
+        verify(!child(s.page, "shareReportButton").visible);
     }
 
     function test_remoteConnectionShowsAddresses() {

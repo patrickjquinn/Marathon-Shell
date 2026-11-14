@@ -10,6 +10,23 @@ Page {
     property date now: new Date()
     // "" follows the language's clock.
     readonly property bool twentyFour: Settings.timeFormat === "24h" || (Settings.timeFormat !== "12h" && !/ap/i.test(Qt.locale().timeFormat(Locale.ShortFormat)))
+    readonly property var unitChoices: [
+        {
+            value: "auto",
+            title: qsTr("Automatic"),
+            description: qsTr("As usual in your time zone's country")
+        },
+        {
+            value: "metric",
+            title: qsTr("Metric"),
+            description: qsTr("°C, km/h and mm")
+        },
+        {
+            value: "imperial",
+            title: qsTr("Imperial"),
+            description: qsTr("°F, mph and inches")
+        }
+    ]
 
     function setClock(date) {
         Settings.setSystemTime(date.getTime());
@@ -115,6 +132,27 @@ Page {
                 automaticCheck: false
                 checked: page.twentyFour
                 onClicked: Settings.timeFormat = checked ? "12h" : "24h"
+            }
+            ComboBox {
+                objectName: "unitsCombo"
+                width: parent.width
+                label: qsTr("Units")
+                description: currentIndex >= 0 ? page.unitChoices[currentIndex].description : ""
+                Binding on currentIndex {
+                    value: Math.max(0, page.unitChoices.findIndex(c => c.value === Settings.units))
+                }
+                menu: ContextMenu {
+                    Repeater {
+                        model: page.unitChoices
+
+                        MenuItem {
+                            required property var modelData
+
+                            text: modelData.title
+                            onClicked: Settings.units = modelData.value
+                        }
+                    }
+                }
             }
             TextSwitch {
                 objectName: "automaticZoneSwitch"

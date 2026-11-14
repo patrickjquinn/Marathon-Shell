@@ -34,6 +34,8 @@ struct State {
     active: bool,
     cover_status: i32,
     content_orientation: i32,
+    /// The cover's action strip: (count, height in cover pixels).
+    cover_action_strip: (i32, i32),
     peers: Vec<zbus::Connection>,
 }
 
@@ -169,6 +171,15 @@ impl Host {
         self.emit("CloseRequested", ());
     }
 
+    /// What the app last reported of its cover's action strip.
+    pub fn cover_action_strip(&self) -> (i32, i32) {
+        self.lock().cover_action_strip
+    }
+
+    pub fn request_scroll_to_top(&self) {
+        self.emit("ScrollToTopRequested", ());
+    }
+
     fn change<T: Body + zbus::Type>(
         &self,
         apply: impl FnOnce(&mut State) -> bool,
@@ -293,6 +304,10 @@ impl Shell1 {
 
     fn activate(&self) {
         (self.0.on_activate)();
+    }
+
+    fn set_cover_action_strip(&self, count: i32, height: i32) {
+        self.0.lock().cover_action_strip = (count.max(0), height.max(0));
     }
 
     async fn set_content_orientation(

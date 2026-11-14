@@ -1,0 +1,3 @@
+// SPDX-FileCopyrightText: 2012 Jolla Ltd.
+// SPDX-License-Identifier: LGPL-2.1-only
+#include <ngfclient.h>

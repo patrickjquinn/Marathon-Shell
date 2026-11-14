@@ -738,9 +738,7 @@ impl FileChooser {
             .map(|(k, v)| {
                 (
                     k.to_string(),
-                    v.value::<QString>()
-                        .map(|s| s.to_string())
-                        .unwrap_or_default(),
+                    v.value::<QString>().map_or_default(|s| s.to_string()),
                 )
             })
             .collect();

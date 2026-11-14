@@ -6,6 +6,8 @@ battery-lower-title = Low Battery
 battery-lower-body = { $level }% remaining. Connect charger soon.
 battery-very-low-title = Very Low Battery
 battery-very-low-body = { $level }% remaining. Connect charger immediately.
+battery-saver-auto-title = Battery saver on
+battery-saver-auto-body = Battery at { $level }%. Saver turns off when you charge.
 battery-critical-title = Critical Battery
 # $action is what the device does next: PowerOff, Hibernate or HybridSleep.
 battery-critical-body = { $action ->
@@ -32,6 +34,11 @@ network-failed-because = Failed: { $message }
 # $name is NetworkManager's error name.
 network-failed-named = Failed ({ $name })
 network-couldnt-connect = Couldn't connect
+network-no-address = The network gave no address
+network-portal-app = Wi-Fi
+network-portal-title = Sign in to { $ssid }
+network-portal-body = This network asks you to sign in before it lets you on the internet.
+network-portal-sign-in = Sign in
 wifi-enable-failed = Failed to enable WiFi
 wifi-disable-failed = Failed to disable WiFi
 wifi-disconnect-failed = Failed to disconnect Wi-Fi
@@ -53,6 +60,8 @@ share-not-taken = The app did not take the share
 security-pin-empty = PIN cannot be empty
 security-password-empty = Password cannot be empty
 security-busy = Authentication already in progress
+security-bug-report-failed = Couldn't create the bug report
+security-bug-report-failed-because = Couldn't create the bug report: { $reason }
 security-account-locked = Account locked. Try again in { $seconds ->
     [one] { $seconds } second
    *[other] { $seconds } seconds
@@ -125,3 +134,5 @@ update-progress = Marathon OS { $version } · { $percent }%
 ## Weather
 
 weather-timed-out = Timed out
+security-combo-pin = Incorrect PIN. The trackpad combination was not changed.
+security-combo-store-failed = The trackpad combination could not be saved.

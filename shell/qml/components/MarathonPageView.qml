@@ -28,6 +28,13 @@ Item {
     signal framesVisible(bool visible)
     signal appLaunched(var app)
     signal uninstallFailed(string name)
+    // A part-pulled search, its gesture lost, is put back.
+    signal searchPullReset
+
+    function resetSearchPull() {
+        searchPullProgress = 0;
+        searchPullReset();
+    }
 
     function uninstall(app) {
         if (!AppModel.uninstall(app.id)) {
@@ -314,6 +321,8 @@ Item {
             id: framesComponent
 
             MarathonTaskSwitcher {
+                id: frames
+
                 opacity: 1
                 // Index 1 is this page; see the page index map below. A drag
                 // crosses currentIndex only at the snap threshold, so while the
@@ -327,6 +336,14 @@ Item {
                     // Return to home from the task switcher (no app picked).
                     pageView.currentIndex = 2;
                 }
+
+                Connections {
+                    function onSearchPullReset() {
+                        frames.searchPullProgress = 0;
+                    }
+
+                    target: pageViewContainer
+                }
             }
         }
 
@@ -334,6 +351,8 @@ Item {
             id: appGridComponent
 
             MarathonAppGrid {
+                id: grid
+
                 appModel: sharedAppModel
                 // Setup's handover plays the entrance; until then, no icons behind it.
                 entranceHeld: !SettingsManagerCpp.firstRunComplete
@@ -352,6 +371,15 @@ Item {
                 onEditRequested: pageViewContainer.appEditing = true
                 onEditDone: pageViewContainer.appEditing = false
                 onUninstallConfirmed: app => pageViewContainer.uninstall(app)
+
+                Connections {
+                    function onSearchPullReset() {
+                        grid.searchGestureActive = false;
+                        grid.searchPullProgress = 0;
+                    }
+
+                    target: pageViewContainer
+                }
             }
         }
 

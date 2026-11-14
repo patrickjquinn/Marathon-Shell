@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2013 - 2023 Jolla Ltd.
+# SPDX-FileCopyrightText: 2025 Jolla Mobile Ltd
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+module Sailfish.Accounts
+plugin sailfishaccountsplugin
+typeinfo plugins.qmltypes
+internal AccountProviderPickerDelegate AccountProviderPickerDelegate.qml
+AccountProviderPicker 1.0 AccountProviderPicker.qml
+AccountsListView 1.0 AccountsListView.qml
+AccountIcon 1.0 AccountIcon.qml
+AccountsListDelegate 1.0 AccountsListDelegate.qml
+AccountsFlowView 1.0 AccountsFlowView.qml

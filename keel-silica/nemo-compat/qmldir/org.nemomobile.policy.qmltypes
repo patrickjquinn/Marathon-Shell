@@ -1,0 +1,58 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types org.nemomobile.policy 1.0 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "Permissions"
+        defaultProperty: "resources"
+        prototype: "QObject"
+        exports: ["org.nemomobile.policy/Permissions 1.0"]
+        exportMetaObjectRevisions: [256]
+        Property { name: "applicationClass"; type: "QString" }
+        Property { name: "autoRelease"; type: "bool" }
+        Property { name: "resources"; type: "Resource"; isList: true; isReadonly: true }
+        Property { name: "enabled"; type: "bool" }
+        Property { name: "acquired"; type: "bool"; isReadonly: true }
+        Signal { name: "granted" }
+        Signal { name: "denied" }
+        Signal { name: "lost" }
+        Signal { name: "released" }
+        Signal { name: "releasedByManager" }
+        Method { name: "release" }
+    }
+    Component {
+        name: "Resource"
+        prototype: "QObject"
+        exports: ["org.nemomobile.policy/Resource 1.0"]
+        exportMetaObjectRevisions: [256]
+        Enum {
+            name: "Type"
+            values: {
+                "AudioPlayback": 0,
+                "VideoPlayback": 1,
+                "AudioRecorder": 2,
+                "VideoRecorder": 3,
+                "Vibra": 4,
+                "Led": 5,
+                "Backlight": 6,
+                "SystemButton": 7,
+                "LockButton": 8,
+                "ScaleButton": 9,
+                "SnapButton": 10,
+                "LensCover": 11,
+                "HeadsetButtons": 12
+            }
+        }
+        Property { name: "type"; type: "Resource::Type" }
+        Property { name: "optional"; type: "bool" }
+        Property { name: "required"; type: "bool" }
+        Property { name: "acquired"; type: "bool"; isReadonly: true }
+    }
+}

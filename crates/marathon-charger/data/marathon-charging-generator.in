@@ -1,0 +1,5 @@
+#!/bin/sh
+# A charger, not the power key, turned the phone on: boot the charging
+# screen instead of Marathon (marathon-charger).
+@CMAKE_INSTALL_FULL_BINDIR@/marathon-charger boot-mode charger 2>/dev/null || exit 0
+ln -sf @CMAKE_INSTALL_PREFIX@/lib/systemd/system/marathon-charging.target "$2/default.target"

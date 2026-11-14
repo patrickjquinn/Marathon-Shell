@@ -1,0 +1,46 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+SPDX-FileCopyrightText: Jolla Ltd.
+SPDX-License-Identifier: LGPL-2.1-only
+-->
+<node>
+  <interface name="com.nokia.mce.request">
+
+    <!-- display keepalive -->
+    <method name="req_display_blanking_pause">
+    </method>
+    <method name="req_display_cancel_blanking_pause">
+    </method>
+    <method name="get_display_blanking_pause_allowed">
+      <arg direction="out" name="allowed" type="b"/>
+    </method>
+
+    <!-- CPU-keepalive -->
+    <method name="req_cpu_keepalive_period">
+      <arg direction="out" type="i"/>
+    </method>
+    <method name="req_cpu_keepalive_start">
+      <arg name="id" direction="in" type="s"/>
+    </method>
+    <method name="req_cpu_keepalive_stop">
+      <arg name="id" direction="in" type="s"/>
+    </method>
+
+    <!-- misc -->
+    <method name="req_display_state_on">
+    </method>
+    <method name="get_display_status">
+      <arg direction="out" type="s"/>
+    </method>
+  </interface>
+
+  <interface name="com.nokia.mce.signal">
+    <signal name="display_blanking_pause_allowed_ind">
+      <arg name="allowed" direction="out" type="b"/>
+    </signal>
+    <signal name="display_status_ind">
+        <arg name="status" direction="out" type="s"/>
+    </signal>
+  </interface>
+</node>

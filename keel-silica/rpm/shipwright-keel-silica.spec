@@ -1,0 +1,338 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Keel's Sailfish.Silica module for Qt6 (plus the `Keel` extension module).
+#
+# The CXX-Qt native part (keel/silica/plugin) is Rust 1.85+, newer than the
+# SDK's Rust (1.75), so it is cross-compiled first (house rule: no cargo in
+# specs) and passed in:
+#
+#   keel/rpm/build-native.sh /home/mersdk/<you>/native
+#   mb2 -t SailfishOS-5.2.0.15-aarch64 -s keel/rpm/shipwright-keel-silica.spec \
+#       build -- --define "keel_native_dir /home/mersdk/<you>/native"
+#
+# Under mb2 the build runs in the checkout (the repository root).
+
+%{!?keel_native_dir: %global keel_native_dir %{_builddir}/keel-native}
+# The Qt Declarative release the QML is compiled with (see Requires).
+%global qt6_qml_version %(rpm -q --qf '%%{VERSION}' qt6-qtdeclarative-devel 2>/dev/null | grep -E '^[0-9.]+$' || echo 6.8)
+
+Name:       shipwright-keel-silica
+Version:    0.1.0
+Release:    36
+Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
+# Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
+# BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
+# lists every file and its origin.
+License:    MIT AND BSD-3-Clause
+URL:        https://github.com/patrickjquinn/shipwright-open
+Source0:    %{name}-%{version}.tar.bz2
+
+# Chum's Qt6 (6.8.4 in chum:testing for Sailfish OS 5.2).
+BuildRequires:  cmake >= 3.19
+BuildRequires:  ninja
+BuildRequires:  gcc-c++
+BuildRequires:  qt6-qtbase-devel >= 6.8
+BuildRequires:  qt6-qtdeclarative-devel >= 6.8
+BuildRequires:  qt6-qtdeclarative-devel < 6.9
+# Direct mode tags the cover window CATEGORY=cover through Qt's platform
+# native interface (qpa/qplatformnativeinterface.h).
+BuildRequires:  qt6-qtbase-private-devel >= 6.8
+BuildRequires:  qt6-qtbase-private-devel < 6.9
+# dconf through libdconf (keel/silica/plugin/cpp/keeldconf.h): Sailjail's
+# private-bin leaves sandboxed apps no dconf program.
+BuildRequires:  pkgconfig(dconf)
+# Direct mode unmaps a window before Qt takes it down
+# (ShellClient::unmapForLipstick): libwayland-client.
+BuildRequires:  wayland-devel
+# Qt's private API, Qt 6.8 only (< 6.9): keelplugin and silicaprivateplugin
+# link QtGui's and QtQuick's private API, and qt_add_qml_module compiles the
+# QML ahead of time against QQmlPrivate internals, none of which keeps its
+# ABI across Qt minor releases. Qt 6.9 also dropped qt_extended_surface, which
+# direct mode needs (keel-wl-shell, shipwright-keel-sailfishapp). Sailfish OS
+# 5.2.0.15 and 5.2.0.18 build against Chum's 6.8.4
+# (tools/build/reef/chum-qt6.lock); a Chum Qt 6.9 must not be installed
+# under these packages until Keel is ported and rebuilt for it.
+#
+# What the pin does on a phone (checked with libsolv on fake packages,
+# docs/adr/0013-qt6-from-chum-testing.md, "The < 6.9 pin on a phone"): it
+# can only hold Chum's Qt back, never take it away. Where Qt 6.8 is
+# installed, an update to a Chum Qt 6.9 is skipped while Keel is installed
+# (Keel is not removed for it). Where a Chum Qt 6.9 is already installed,
+# installing a Keel app fails with a dependency message: zypp and
+# PackageKit do not downgrade an installed package unless asked to, and
+# Reef never asks (it installs with ONLY_TRUSTED alone, no ALLOW_DOWNGRADE).
+# Only `zypper dup`, which may downgrade, could swap Qt back to Reef's 6.8.4.
+Requires:       qt6-qtbase >= 6.8
+Requires:       qt6-qtbase < 6.9
+Requires:       qt6-qtbase-gui >= 6.8
+Requires:       qt6-qtbase-gui < 6.9
+Requires:       qt6-qtdeclarative >= 6.8
+Requires:       qt6-qtdeclarative < 6.9
+# Silica's QML ships compiled only (KEEL_QML_DISCARD_SOURCES,
+# keel/CMakeLists.txt): the engine takes a compiled file only from the Qt
+# Declarative release that compiled it, down to the patch release.
+Requires:       qt6-qtdeclarative = %{qt6_qml_version}
+# Direct mode (ADR-0016): the app's windows are Lipstick windows through Qt 6's
+# Wayland client with the wl-shell integration; the ambience and the
+# display's cutouts are read through libdconf (in dconf). keel-shell is the
+# opt-in fallback.
+Requires:       qt6-qtwayland
+Requires:       dconf
+# Nemo.Configuration, which Silica's FirstTimeUseCounter.qml imports
+# (RemorsePopup and RemorseItem use it): without it no page with a remorse
+# can be created. Keel's build or Chum's: both are the same upstream plugin at
+# the same path (keel/nemo-compat/PROVENANCE.md). Requiring Keel's alone made
+# the solver offer to remove Chum's (they conflict), and with it every other
+# Qt 6 app that needs Chum's; with either accepted, a phone that has Chum's
+# keeps it.
+Requires:       (shipwright-keel-nemo-compat-configuration or nemo-qml-plugin-configuration-qt6)
+Suggests:       shipwright-keel-shell
+# SilicaWebView shows web content through Sailfish.WebView, made at run time.
+Suggests:       shipwright-keel-platform-webview
+
+%description
+Keel's implementation of the Sailfish.Silica 1.0 QML API for Qt6 apps:
+pages and page stack, dialogs, pulley menus, list items, text fields and
+other controls, Theme (ambience colours from dconf), covers (rendered
+in a second window that Lipstick shows as the app's cover) and the Keel 1.0
+extension module, plus Sailfish.Share 1.0 (ShareAction opens the system
+share dialog, or copies to the clipboard without it; ShareProvider receives
+shares). Installed into Qt6's QML import path; the system Qt5
+Silica is not touched.
+
+%package -n shipwright-keel-actions
+Summary:    Keel Actions: typed app actions for Pilot and MCP clients
+License:    MIT
+Requires:   qt6-qtbase >= 6.8
+Requires:   qt6-qtdeclarative >= 6.8
+# Qt 6.8 only, as the main package (compiled QML); also held by the exact
+# dependency on it below.
+Requires:   qt6-qtdeclarative < 6.9
+# Owns the Keel QML directory this module sits in.
+Requires:   %{name} = %{version}-%{release}
+
+%description -n shipwright-keel-actions
+The Keel.Actions 1.0 QML module (ADR-0018): KeelAction, KeelParam,
+KeelResult, KeelEntity, KeelContext and KeelShortcut, with the runtime
+that validates calls against the app's generated actions.json and serves
+them on D-Bus (org.shipwright.Keel.Actions), so that keel-mcp can offer
+the app's actions, entities, context and shortcuts to MCP clients.
+
+%prep
+%setup -q -n %{name}-%{version}
+
+%build
+%cmake -S keel -B build-keel-silica -G Ninja --no-warn-unused-cli \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DKEEL_BUILD_NEMO_COMPAT=OFF \
+    -DKEEL_BUILD_SAILFISHAPP=OFF \
+    -DKEEL_BUILD_QT5COMPAT=OFF \
+    -DKEEL_BUILD_PLATFORM=OFF \
+    -DBUILD_TESTING=OFF \
+    -DKEEL_REQUIRE_LIBDCONF=ON \
+    -DKEEL_RUST_PREBUILT_DIR=%{keel_native_dir} \
+    -DKEEL_QML_INSTALL_DIR=%{_libdir}/qt6/qml
+# Under sb2 (qemu) the target's qmlcachegen writes its .cpp outputs with mode
+# 000 (QSaveFile cannot read back the permissions: sb2 logs "Path not found
+# for FD" on statx). Make them readable and resume the build.
+for attempt in 1 2 3 4 5 6 7 8; do
+    if cmake --build build-keel-silica %{?_smp_mflags}; then
+        built=1
+        break
+    fi
+    find build-keel-silica -type f -perm 000 -exec chmod 0644 {} +
+done
+test "${built:-0}" = 1
+
+%install
+DESTDIR=%{buildroot} cmake --install build-keel-silica
+install -D -m 0644 keel/silica/PROVENANCE.md %{buildroot}%{_datadir}/doc/%{name}/PROVENANCE.md
+install -D -m 0644 keel/silica/COMPATIBILITY.md %{buildroot}%{_datadir}/doc/%{name}/COMPATIBILITY.md
+
+%post
+# A running booster keeps the old Keel in memory: restart the per-app ones
+# (the shared one hosts Reef, which may be doing this update).
+systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
+
+%files
+%{_libdir}/qt6/qml/Sailfish/Silica
+%{_libdir}/qt6/qml/Sailfish/Share
+%{_libdir}/qt6/qml/Keel
+%exclude %{_libdir}/qt6/qml/Keel/Actions
+%dir %{_libdir}/qt6/qml/Sailfish
+%license LICENSES/BSD-3-Clause.txt LICENSES/MIT.txt
+%{_datadir}/doc/%{name}
+
+%files -n shipwright-keel-actions
+%{_libdir}/qt6/qml/Keel/Actions
+%license LICENSES/MIT.txt
+
+%changelog
+* Tue Oct 20 2026 Shipwright - 0.1.0-36
+- Keel apps start a little faster and Keel takes less room: its Silica components are about half the size, without the names of their internals and without a second, uncompiled copy of their interface.
+* Sun Oct 18 2026 Shipwright - 0.1.0-35
+- Keel apps use a little less memory once they have started.
+- For testing on slower phones: KEEL_FAST_CORES=1 keeps the threads that draw each frame on the phone's fastest cores (off by default).
+* Fri Oct 16 2026 Shipwright - 0.1.0-34
+- Closing an app no longer sometimes restarts the home screen and closes every other app with it. A fault in the home screen (Lipstick) could crash it while a window was going away; Keel apps now take their windows off the screen cleanly before closing them.
+* Fri Oct 16 2026 Shipwright - 0.1.0-33
+- Every Keel app answers app.show, a Keel Action the framework adds to each app: it brings the app to the front, starting it if it is not running, and can open one of the pages the app offers (KeelPage). An app started in the background for an action shows its window and no longer closes itself after 30 seconds.
+* Fri Oct 16 2026 Shipwright - 0.1.0-32
+- Lists flick as fast as in Jolla's apps on every phone: on screens other than the Jolla Phone's (Xperia 10 II-IV, Jolla C2) they flicked a third slower.
+- Switches, sliders, progress bars and the page stack indicator glow on the GPU: their fades and the busy pulse no longer redraw the glow on the CPU and upload it every frame. The glow is the same; where a control sits between screen pixels its dither is now crisp instead of blurred.
+- Changing the ambience fades the app out and back in, as Jolla's apps do, instead of every colour snapping at once. A text size change still applies straight away.
+- "No bookmarks" and other empty-list texts keep clear of a search field at the top of the list, which covered them in landscape and with the keyboard open (Pacific's bookmarks, history and tabs; Mail and Messages search; Keys; Reef's catalogue).
+* Tue Oct 13 2026 Shipwright - 0.1.0-31
+- Text follows Settings > Display > Text size, as in Jolla's apps: Large, Huge and Gigantic make Keel apps' text bigger too, and a change applies straight away.
+- Apps open a little faster: the app's cover (what the app switcher shows) is made just after the app's first frame instead of alongside it.
+- No binding loops in labels: a wrapping label that fades, the remorse timer's label and a slider's label (each logged on every layout).
+- A page title inside a list's header keeps clear of the camera cut-out from the start; it used to start under it and leave the page looking scrolled down a little.
+- An app whose cover buttons are switched off (Keys while locked, Mail without an account) no longer hands the home screen an empty button list, which it logged as a bad cover action.
+- Keel Actions: asking an app that has never been opened (so its permissions were never allowed) answers at once that it has to be opened first, instead of waiting a minute and timing out (Migrate).
+- Keel Actions: a search or lookup that arrives while an app is still starting waits for the app to be ready instead of failing (Pacific's bookmarks, 2 of 3 cold calls).
+- Keel Actions: looking for apps no longer asks every program on the phone every 10 seconds (about 5 failed calls a second, waking them); a program is asked once, and again only when it restarts.
+
+* Tue Oct 13 2026 Shipwright - 0.1.0-30
+- Cover buttons work on the phone. Lipstick draws a cover's buttons itself and tells the app when one is tapped; Keel apps now give it their buttons the way Silica apps do, so tapping one runs it (Reef's refresh, Messages' mark all read, and the rest) instead of only opening the app. Only the home screen can press them.
+
+* Mon Oct 12 2026 Shipwright - 0.1.0-29
+- Nemo.Configuration can come from Chum's nemo-qml-plugin-configuration-qt6 as well as from Keel's own build. Installing a Keel app on a phone with Chum's plugin no longer offers to remove it (and the Chum apps that need it).
+- The spec explains what the Qt 6.8 requirement does on a phone with Chum's Qt: it holds a Chum Qt 6.9 update back; it never downgrades or removes Qt.
+- Weekday names in the date picker are in the phone's language.
+- Times follow the 24-hour clock setting in Settings, and the language's own clock when it is not set.
+
+* Sun Oct 11 2026 Shipwright - 0.1.0-28
+- Keel Actions recognises Pilot by its saved privileged group as well as its effective one.
+
+* Sun Oct 11 2026 Shipwright - 0.1.0-27
+- Keel Actions: an app believes that the person started a request (userInitiated) only from Pilot, keel-mcp or itself, recognised by the calling process (its executable, or Sailfish's privileged group), not by what the call says. From anyone else the request reaches the app as its own.
+- Requires Qt 6.8 (below 6.9): Keel uses Qt's private API and compiled QML internals, which change between Qt minor releases.
+
+* Sat Oct 10 2026 Shipwright - 0.1.0-26
+- PagedView shows a page that was made later than asked for. In a page that loads in the background, its pages were made in the background too, and the view never showed them: Shoal Camera's roll, opened before a photo was taken, stayed black.
+- No more "load glyph failed ... glyph=65535" warnings in every app's log. Sailfish's UI font keeps its ligatures in Apple's format, and Qt warned about a placeholder glyph while laying out text such as "left"; nothing was drawn wrongly.
+
+* Fri Oct 09 2026 Shipwright - 0.1.0-25
+- Requires Keel's Nemo.Configuration. Silica's remorse popups and items need it, and without it a page that has one could not be opened: on a phone that had nothing else of Keel's installed, tapping an app in Reef did nothing.
+- A page that cannot be created says why in the app's log, as Qt's Loader does.
+- An update restarts the running app boosters, so apps start with the new Keel.
+
+* Fri Oct 09 2026 Shipwright - 0.1.0-24
+- SilicaText (the base of Label) is native code: each label is one object instead of a QML component with its own bindings.
+- A palette no longer re-evaluates every colour binding of its item when it completes, and reads the ambience's colours from one shared cache instead of parsing them for each item.
+- A page pushed again reuses its compiled component instead of looking it up through the type loader.
+- SilicaItem, SilicaControl, SilicaMouseArea and SilicaRectangle are native code as well.
+- About 200 more of Silica's QML functions are compiled ahead of time (65%, from 60%): names qualified with their object's id and functions typed, in the page stack, text fields, pulley menus, headers and list items.
+- A typical page is created in 12.8 ms, from 14.7; a button in 0.72 ms, from 0.95. Pushing a typical page through the page stack takes about 10 ms, as with Silica's own (about 9.5 ms).
+
+* Fri Oct 09 2026 Shipwright - 0.1.0-23
+- Theme is native code (module Keel.SilicaCore, which Sailfish.Silica re-exports): its colour helpers no longer run as JavaScript, and about 220 more of Silica's QML functions are compiled ahead of time (60%, from 54%). A typical page is created in 14.7 ms, from 19.9.
+- Pulley menus, text fields, highlight bars and tab bars create their optional parts (haptics, settings) from one compiled component each, instead of compiling a new one per item: a page with a pulley menu is created about 12 ms faster.
+- A list view without a highlight no longer runs a highlight-resize animation on every move.
+
+* Thu Oct 08 2026 Shipwright - 0.1.0-22
+- Deleting the page on show in a PagedView no longer crashes the app (the camera's roll).
+
+* Thu Oct 08 2026 Shipwright - 0.1.0-21
+- A list's quick-scroll handle finishes loading before it is removed, so it no longer crashes.
+
+* Wed Oct 07 2026 Shipwright - 0.1.0-20
+- A page let go of mid-swipe carries on from where the finger left it.
+  Qt 6's Binding puts the old value back when it turns off (Qt 5's did
+  not), so the page jumped back to its start on release and then slid out
+  again from there: a double slide on every back swipe, and no snap-back
+  after a short one. The page stack's drag bindings keep the value.
+
+* Tue Oct 06 2026 Shipwright - 0.1.0-19
+- Theme values for touch handling are read from a Theme object found once
+  per engine. The page stack's gesture area and DragFilter looked Theme up
+  on every touch move, and qmlTypeId() built a temporary QML engine each
+  time: a third of a scrolling app's main thread.
+
+* Mon Oct 05 2026 Shipwright - 0.1.0-16
+- PageStack logs why touch is blocked (keel.silica.touchblocker, off by
+  default).
+
+* Mon Oct 05 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-15
+- Theme: Silica's own sizes at pixelRatio 1.5 (the z1.5 theme), measured
+  on the Jolla Phone: paddings 10/20/40, _lineWidth 4, itemSizeExtraSmall
+  106, itemSizeLarge 166, itemSizeExtraLarge 202, iconSizeLauncher 128,
+  fontSizeExtraLarge 76, the button widths and maximumFlickVelocity, where
+  the scaled 1.0 values drew controls thinner and closer together than
+  Sailfish's own apps; lightSecondaryColor is Silica's opaque #bababa.
+- PagedView: a drag that starts at the end of a NoWrap view moves the
+  enclosing PagedView along the same axis instead (the Jolla Camera's camera
+  roll inside its switcher: swiping back from the newest photo returns to
+  the viewfinder again).
+
+* Mon Oct 05 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-14
+- dconf is read through libdconf, not the dconf program, which Sailjail's
+  private-bin removes from a sandboxed app: sandboxed Keel apps had no
+  ambience, so no theme pixel ratio and no theme icons. The program stays
+  as the fallback on hosts without the library, and a `dconf watch` child
+  now dies with its app instead of being left running.
+- Screen: topCutout, hasCutouts and the four rounded corners from the
+  adaptation's dconf (/desktop/sailfish/silica/cutouts and
+  rounded_corners), so pages and headers clear a notch as on Silica.
+- The theme icon provider starts at the phone's pixel ratio, so the first
+  icons are not looked up in another ratio's directory.
+- RemorsePopup and RemorseItem use MouseArea's canceled() instead of
+  redeclaring it (an invalid override in Qt 6).
+
+* Mon Oct 05 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-13
+- Shaders compiled for GLSL ES 100 only, as Qt's own: the phone's GL
+  driver refused to link Keel's ES 300 fragment shaders with Qt's ES 100
+  vertex shader, so the pulley menu (and every other shader effect) drew
+  nothing.
+- Page stack swipe navigation by touch: the gesture takes the touch point
+  over; before, a finger drag left the stack half moved and stuck.
+
+* Mon Oct 05 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-12
+- Direct mode: app windows carry what Lipstick reads from a Silica window
+  (WINID, BACKGROUND_VISIBLE, SAILFISH_HAVE_COVER, SAILFISH_COVER_WINDOW),
+  so Lipstick draws the ambience behind the app and uses its cover; the
+  cover says whether it is transparent.
+- Theme icons from the theme's z<pixel ratio> directories and from
+  icons-monochrome (icon-m-search, busy indicators).
+
+* Sat Oct 03 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-11
+- Theme.highlightDimmerColor matches Silica: the highlight's hue saturated
+  at a fifth of full value (#80d9ff gives #002333, as measured on a phone).
+
+* Sat Oct 03 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-10
+- Licence: MIT AND BSD-3-Clause (LICENSING.md).
+
+* Fri Oct 02 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-9
+- ApplicationWindow: the app's own children share the page stack's item
+  (a negative z is under the pages, as in Silica).
+- PagedView takes an ObjectModel; attached properties are current when
+  currentItem changes.
+- ContextMenu on the software scene graph shades the window around its
+  item instead of dimming the menu too.
+- Theme icons: colour scheme variants (-dark/-light), substitutes for
+  icons a theme lacks, monochrome icons in the primary colour in a light
+  ambience (HighlightImage, IconTextSwitch).
+* Fri Oct 02 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-8
+- PagedView, the Palette type and SilicaWebView (on Sailfish.WebView).
+* Fri Oct 02 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-7
+- New subpackage shipwright-keel-actions: Keel.Actions 1.0 (ADR-0018).
+* Fri Oct 02 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-6
+- Notice and the Notices singleton (in-app notices with Silica's NoticeItem).
+* Fri Oct 02 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-5
+- Sailfish.Share: ShareAction opens the system share dialog
+  (org.sailfishos.share); ShareProvider and ShareResource for share targets.
+* Thu Oct 01 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-4
+- Direct mode (ADR-0016): covers tagged CATEGORY=cover, orientation,
+  activation, cover status and close from Lipstick itself, ambience from
+  dconf; keel-shell becomes an opt-in fallback.
+* Thu Oct 01 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-3
+- Rebuilt on Silica's own BSD QML from sailfishsilica-qt5 1.2.156 (133
+  ports) with clean-room native types; Qt 6 shaders; licences marked
+  %%license.
+* Thu Oct 01 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-2
+- Corpus gaps: Format/Formatter, InfoLabel, SlideshowView, ProgressCircle,
+  DockedPanel, Drawer, TimePicker, enum holders, ListItem and text field
+  properties, app-relative icon URLs; Sailfish.Share 1.0 ShareAction.
+* Wed Sep 30 2026 Shipwright <noreply@shipwright.invalid> - 0.1.0-1
+- Keel v0.1: Sailfish.Silica 1.0 for Qt6 with keel-shell covers and ambience.

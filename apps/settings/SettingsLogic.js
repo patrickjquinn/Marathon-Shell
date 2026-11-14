@@ -235,6 +235,7 @@ const tiles = [
     { id: "rotation", label: qsTr("Auto-rotate"), desc: qsTr("Turn the screen with the phone"), needs: "rotation" },
     { id: "autobrightness", label: qsTr("Auto-brightness"), desc: qsTr("Automatic brightness adjustment"), needs: "lightSensor" },
     { id: "lowpower", label: qsTr("Battery saver"), desc: qsTr("Low power mode") },
+    { id: "trackpad", label: qsTr("Trackpad pointer"), desc: qsTr("Switch the trackpad between scrolling and a pointer"), needs: "trackpad" },
     { id: "vibration", label: qsTr("Vibration"), desc: qsTr("Haptic feedback"), needs: "vibrator" },
     { id: "power", label: qsTr("Power menu"), desc: qsTr("Show power options") }
 ];
@@ -480,4 +481,37 @@ function apnError(text) {
 function androidRemovable(pkg) {
     const name = String(pkg || "");
     return name !== "" && !["com.android.", "com.google.android.", "org.lineageos.", "org.marathonos."].some(p => name.indexOf(p) === 0);
+}
+
+// Brings a ListModel of { <key> } rows in line with `items` without moving
+// a row: gone ones are removed, new ones appended in the items' order. A
+// list the backend re-sorts or republishes on every scan then stops jumping
+// under the finger, and a row's open menu survives the update.
+function syncKeys(model, items, key) {
+    const present = {};
+    for (const item of items)
+        present[item[key]] = true;
+    for (let i = model.count - 1; i >= 0; --i) {
+        if (!present[model.get(i)[key]])
+            model.remove(i);
+    }
+    const listed = {};
+    for (let i = 0; i < model.count; ++i)
+        listed[model.get(i)[key]] = true;
+    for (const item of items) {
+        if (!listed[item[key]]) {
+            listed[item[key]] = true;
+            const row = {};
+            row[key] = item[key];
+            model.append(row);
+        }
+    }
+}
+
+// The items by their `key`.
+function byKey(items, key) {
+    const map = {};
+    for (const item of items)
+        map[item[key]] = item;
+    return map;
 }

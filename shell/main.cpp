@@ -59,6 +59,8 @@
 #include "marathon-shell-native/src/timezone.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
+#include "marathon-shell-native/src/privacy.cxxqt.h"
+#include "marathon-shell-native/src/usb.cxxqt.h"
 #include "marathon-shell-native/src/device.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/services/wakeonkeyfilter.h"
@@ -171,6 +173,8 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
     QObject::connect(tasks, &Tasks::nativeBackRequested, wc, &WaylandCompositor::sendNativeBack);
     QObject::connect(tasks, &Tasks::nativeForwardRequested, wc,
                      &WaylandCompositor::sendNativeForward);
+    QObject::connect(tasks, &Tasks::nativeScrollToTopRequested, wc,
+                     &WaylandCompositor::sendNativeScrollToTop);
 
     QObject::connect(wc, &WaylandCompositor::appLaunched, tasks,
                      [=](const QString &command, int pid) { tasks->appLaunched(command, pid); });
@@ -767,7 +771,8 @@ int main(int argc, char *argv[]) {
     const marathon::device::Profile device = marathon::device::profile();
     ctx->setContextProperty(QStringLiteral("DeviceProfile"),
                             QVariantMap{{QStringLiteral("panelDither"), device.panel_dither},
-                                        {QStringLiteral("panelDepth"), device.panel_depth}});
+                                        {QStringLiteral("panelDepth"), device.panel_depth},
+                                        {QStringLiteral("panelDpi"), device.panel_dpi}});
     ctx->setContextProperty(QStringLiteral("Platform"),
                             QVariantMap{{QStringLiteral("hasHardwareKeyboard"),
                                          marathon::device::has_hardware_keyboard()}});
@@ -917,6 +922,14 @@ int main(int argc, char *argv[]) {
             return {};
 #endif
         },
+        [compositorManager](const QString &appId) {
+#ifdef HAVE_WAYLAND
+            return RemoteTextInputTarget::hasWindow(appId, compositorManager->compositor());
+#else
+            Q_UNUSED(appId);
+            return false;
+#endif
+        },
         &app);
     QObject::connect(remoteTextInput, &RemoteTextInput::panelWanted, remoteTextInputFilter,
                      [=](bool show) {
@@ -949,10 +962,16 @@ int main(int argc, char *argv[]) {
     auto *power = new Power();
     power->setParent(&app);
     qmlRegisterSingletonInstance<Power>("MarathonOS.Shell", 1, 0, "Power", power);
+    auto *privacy = new Privacy();
+    privacy->setParent(&app);
+    qmlRegisterSingletonInstance<Privacy>("MarathonOS.Shell", 1, 0, "Privacy", privacy);
+    auto *usb = new Usb();
+    usb->setParent(&app);
+    qmlRegisterSingletonInstance<Usb>("MarathonOS.Shell", 1, 0, "Usb", usb);
     auto *display = new marathon::Display();
     display->setParent(&app);
     display->start(QStringLiteral("/sys/class/backlight"), QStringLiteral("/sys/bus/iio/devices"),
-                   device.brightness_floor);
+                   device.brightness_floor, device.brightness_dim);
     qmlRegisterSingletonInstance<marathon::Display>("MarathonOS.Shell", 1, 0, "Display", display);
     const std::pair<const char *, void (marathon::Display::*)()> displaySettings[] = {
         {"rotationLocked", &marathon::Display::rotationLockedChanged},
@@ -998,8 +1017,13 @@ int main(int argc, char *argv[]) {
     });
     auto *wakeTouchFilter = new WakeTouchFilter(&app);
     app.installEventFilter(wakeTouchFilter);
-    QObject::connect(display, &marathon::Display::screenOnChanged, wakeTouchFilter,
-                     [=] { wakeTouchFilter->setScreenOn(display->getScreenOn()); });
+    // Blanked at the ear in a call counts as off: the cheek touches nothing.
+    const auto touchable = [=] {
+        wakeTouchFilter->setScreenOn(display->getScreenOn() && !display->getProximityBlanked());
+    };
+    QObject::connect(display, &marathon::Display::screenOnChanged, wakeTouchFilter, touchable);
+    QObject::connect(display, &marathon::Display::proximityBlankedChanged, wakeTouchFilter,
+                     touchable);
     auto *bluetoothManager = new Bluetooth();
     bluetoothManager->setParent(&app);
     ctx->setContextProperty("BluetoothManagerCpp", bluetoothManager);

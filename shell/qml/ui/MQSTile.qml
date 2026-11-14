@@ -27,6 +27,11 @@ Item {
     Accessible.checkable: checkable
     Accessible.checked: checkable && on
     Accessible.onPressAction: toggled()
+    // Tab reaches each tile on a hardware keyboard; Return or Space toggles it.
+    activeFocusOnTab: true
+    Keys.onReturnPressed: toggled()
+    Keys.onEnterPressed: toggled()
+    Keys.onSpacePressed: toggled()
 
     Rectangle {
         id: circle
@@ -36,11 +41,12 @@ Item {
         width: Silica.Theme.itemSizeSmall
         height: width
         radius: width / 2
-        scale: tileMouse.pressed ? 0.92 : 1.0
+        scale: tileMouse.pressed ? 0.96 : 1.0
         // A glass ring, filled with the highlight when on.
         color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.12 : 0)
-        border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
-        border.color: tile.busy ? Silica.Theme.rgba(Silica.Theme.highlightColor, busyPulse.bright ? 1 : Silica.Theme.opacityLow) : tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+        // A keyboard-focused tile wears a thicker ring.
+        border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4)) * (tile.activeFocus ? 2 : 1)
+        border.color: tile.activeFocus ? Silica.Theme.highlightColor : tile.busy ? Silica.Theme.rgba(Silica.Theme.highlightColor, busyPulse.bright ? 1 : Silica.Theme.opacityLow) : tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
         Behavior on border.color {
             enabled: tile.busy && !MMotion.reduceMotion

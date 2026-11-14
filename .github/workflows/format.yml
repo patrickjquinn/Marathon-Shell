@@ -27,10 +27,11 @@ jobs:
         run: |
           git config --global --add safe.directory $GITHUB_WORKSPACE
           echo "=== Running clang-format ==="
-          clang-format -i $(git ls-files '*.cpp' '*.h')
+          # keel-silica is Keel as Shipwright formats it (keel-silica/MARATHON-FORK.md).
+          clang-format -i $(git ls-files '*.cpp' '*.h' ':!keel-silica')
 
           echo "=== Running qmlformat ==="
-          /usr/lib/qt6/bin/qmlformat -i $(git ls-files '*.qml' ':!crates/keel-actions-codegen/tests/golden')
+          /usr/lib/qt6/bin/qmlformat -i $(git ls-files '*.qml' ':!crates/keel-actions-codegen/tests/golden' ':!keel-silica')
 
           echo "=== Checking Rust formatting ==="
           cargo fmt --manifest-path crates/Cargo.toml --all -- --check

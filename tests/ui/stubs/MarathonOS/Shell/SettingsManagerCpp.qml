@@ -9,6 +9,9 @@ QtObject {
     property bool firstRunComplete: false
     property string language: ""
     property string timeFormat: "12h"
+    property string units: "auto"
+    property bool fahrenheit: false
+    property bool milesPerHour: false
     readonly property var availableLanguages: [
         {
             code: "en",
@@ -48,7 +51,7 @@ QtObject {
     property bool keyboardAutoCapitalize: true
     property bool keyboardAutoCorrection: true
     property bool keyboardPredictiveText: true
-    property var enabledQuickSettingsTiles: ["wifi", "cellular", "bluetooth", "airplane", "dnd", "torch", "location", "hotspot", "nightlight", "rotation", "autobrightness", "lowpower", "vibration", "power"]
+    property var enabledQuickSettingsTiles: ["wifi", "cellular", "bluetooth", "airplane", "dnd", "torch", "location", "hotspot", "nightlight", "rotation", "autobrightness", "lowpower", "trackpad", "vibration", "power"]
     property var store: ({})
     function get(key, fallback) {
         return key in store ? store[key] : fallback;

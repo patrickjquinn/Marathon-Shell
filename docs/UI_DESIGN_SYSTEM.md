@@ -118,8 +118,10 @@ disabled controls only (exempt from contrast minimums).
 
 ### 2.2 Typography
 
-- **Slate** — UI sans (variable weight, geometric, condensed for status
-  chrome). Aliased as `MTypography.fontFamily`.
+- **Source Sans 3** — UI sans, as Silica's theme names it ("Sail Sans
+  Pro Light", aliased by `marathon-fonts`): Light for text, ExtraLight
+  for display. `MTypography.fontFamily` is `Theme.fontFamily`. Sora ships
+  only for the boot hand-over text.
 - **JetBrains Mono** — monospace, code/timestamps/PIN/secret reveal.
   `fontFamilyMono` / `fontMonospace`.
 
@@ -219,10 +221,13 @@ editing the table, not 200 call sites.
 | `breathe` | Ambient status loops (charging): calm, never asks for attention | 4000 ms | Low | Critical |
 
 **Two-family damping.** Each role splits its physics across spatial
-(position, size, rotation) and effects (color, opacity). Spatial
-damping is underdamped (springy "alive" feel). Effects damping is
-always `dampingCritical` — a button background that overshoots to a
-darker shade looks broken.
+(position, size, rotation) and effects (color, opacity). Everyday UI
+settles without overshoot: overshoot is kept for gestures that carry
+momentum (a fling, a thrown card) and the odd celebration (charging).
+Qt's `damping` is not a damping ratio, and higher only means slower:
+the role values were measured to settle without overshoot (see the
+note in `MMotion.qml`); stiffness 1.0 at damping 1.0 takes over 2 s, so
+fade opacity on a duration rather than a low-stiffness spring.
 
 ```qml
 SpringAnimation {

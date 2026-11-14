@@ -28,6 +28,8 @@ pub mod qobject {
             object_app_id: &QString,
             accepts_input_method: bool,
             front_app_id: &QString,
+            prefix: &QString,
+            editor_has_window: bool,
         ) -> bool;
     }
 
@@ -87,12 +89,20 @@ fn should_target_editor(
     object_app_id: &QString,
     accepts_input_method: bool,
     front_app_id: &QString,
+    prefix: &QString,
+    editor_has_window: bool,
 ) -> bool {
     if editor.is_empty() {
         return false;
     }
     if !object_app_id.is_empty() {
-        return object_app_id == editor;
+        // An activity of one package in another's task (microG's sign-in
+        // sheet) edits in a window that isn't its app's. Only while the
+        // editor's app has no window: a stale editor of another app is not.
+        let prefix = prefix.to_string();
+        let remote = |id: &QString| !prefix.is_empty() && id.to_string().starts_with(&prefix);
+        return object_app_id == editor
+            || (!editor_has_window && remote(editor) && remote(object_app_id));
     }
     !accepts_input_method && front_app_id == editor
 }
@@ -266,7 +276,7 @@ struct TextInput1 {
 }
 
 fn sender(h: &Header<'_>) -> String {
-    h.sender().map(ToString::to_string).unwrap_or_default()
+    h.sender().map_or_default(ToString::to_string)
 }
 
 /// The owner's name gone from the bus: the keyboard is no one's.
@@ -418,44 +428,126 @@ impl TextInput1 {
 mod tests {
     use super::{should_target_editor, QString};
 
+    /// (editor, object, accepts input method, front, editor has a window, expected)
+    type Fixture = (&'static str, &'static str, bool, &'static str, bool, bool);
+
+    fn check(fixtures: &[Fixture]) {
+        for &(editor, object, accepts, front, has_window, expected) in fixtures {
+            assert_eq!(
+                should_target_editor(
+                    &QString::from(editor),
+                    &QString::from(object),
+                    accepts,
+                    &QString::from(front),
+                    &QString::from("deckard."),
+                    has_window,
+                ),
+                expected,
+                "editor={editor:?} object={object:?} accepts={accepts} front={front:?} window={has_window}"
+            );
+        }
+    }
+
     #[test]
     fn editor_target_fixtures() {
-        let fixtures = [
-            ("", "deckard.messages", false, "deckard.messages", false),
-            ("deckard.messages", "deckard.messages", false, "", true),
-            ("deckard.messages", "deckard.messages", true, "", true),
+        check(&[
+            (
+                "",
+                "deckard.messages",
+                false,
+                "deckard.messages",
+                true,
+                false,
+            ),
+            (
+                "deckard.messages",
+                "deckard.messages",
+                false,
+                "",
+                true,
+                true,
+            ),
+            ("deckard.messages", "deckard.messages", true, "", true, true),
             (
                 "deckard.messages",
                 "deckard.settings",
                 false,
                 "deckard.messages",
+                true,
                 false,
             ),
-            ("deckard.messages", "", false, "deckard.messages", true),
-            ("deckard.messages", "", true, "deckard.messages", false),
-            ("deckard.messages", "", false, "deckard.settings", false),
-            ("deckard.messages", "", false, "", false),
-            ("deckard.caf\u{e9}", "deckard.caf\u{e9}", false, "", true),
+            (
+                "deckard.messages",
+                "",
+                false,
+                "deckard.messages",
+                true,
+                true,
+            ),
+            (
+                "deckard.messages",
+                "",
+                true,
+                "deckard.messages",
+                true,
+                false,
+            ),
+            (
+                "deckard.messages",
+                "",
+                false,
+                "deckard.settings",
+                true,
+                false,
+            ),
+            ("deckard.messages", "", false, "", true, false),
+            (
+                "deckard.caf\u{e9}",
+                "deckard.caf\u{e9}",
+                false,
+                "",
+                true,
+                true,
+            ),
             (
                 "deckard.caf\u{e9}",
                 "deckard.cafe",
                 false,
                 "deckard.caf\u{e9}",
+                true,
                 false,
             ),
-        ];
+        ]);
+    }
 
-        for (editor, object_app_id, accepts_input_method, front_app_id, expected) in fixtures {
-            assert_eq!(
-                should_target_editor(
-                    &QString::from(editor),
-                    &QString::from(object_app_id),
-                    accepts_input_method,
-                    &QString::from(front_app_id),
-                ),
-                expected,
-                "editor={editor:?} object={object_app_id:?} accepts={accepts_input_method} front={front_app_id:?}"
-            );
-        }
+    #[test]
+    fn an_editor_without_a_window_types_into_another_android_app() {
+        // microG's sign-in sheet in the asking app's task.
+        check(&[
+            (
+                "deckard.com.google.android.gms",
+                "deckard.org.fdroid.fdroid",
+                false,
+                "",
+                false,
+                true,
+            ),
+            (
+                "deckard.com.google.android.gms",
+                "org.marathonos.notes",
+                false,
+                "",
+                false,
+                false,
+            ),
+        ]);
+        assert!(!should_target_editor(
+            &QString::from("deckard.a"),
+            &QString::from("deckard.b"),
+            false,
+            &QString::default(),
+            &QString::default(),
+            false,
+        ));
     }
 }

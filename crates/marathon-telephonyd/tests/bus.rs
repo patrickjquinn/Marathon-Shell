@@ -47,7 +47,8 @@ fn texts_and_calls_are_kept_for_permitted_apps() {
     };
     let home = tempfile::tempdir().unwrap();
     async_io::block_on(async {
-        let _shell = bus.shell(&["system"]).await.unwrap();
+        // SimulateIncomingSMS, the test's way in, takes `system`.
+        let _shell = bus.shell(&[]).await.unwrap();
         bus.run(env!("CARGO_BIN_EXE_marathon-telephonyd"), home.path(), BUS)
             .await
             .unwrap();
@@ -97,13 +98,34 @@ fn texts_and_calls_are_kept_for_permitted_apps() {
             (text(&calls[0], "type"), text(&calls[0], "contactName")),
             ("missed".to_owned(), "Unknown".to_owned())
         );
-
-        let refused = call::<HashMap<String, OwnedValue>>(&app, "Sms", "GetMmsSettings", &()).await;
-        assert!(
-            matches!(refused, Err(zbus::Error::FDO(error)) if matches!(*error, zbus::fdo::Error::AccessDenied(_)))
-        );
         assert!(!call::<bool>(&app, "Sms", "IsMmsAvailable", &())
             .await
             .unwrap());
+    });
+}
+
+fn denied<T>(r: &zbus::Result<T>) -> bool {
+    matches!(r, Err(zbus::Error::FDO(error)) if matches!(**error, zbus::fdo::Error::AccessDenied(_)))
+}
+
+#[test]
+fn only_system_apps_may_fake_a_text_or_read_mms_settings() {
+    let Some(mut bus) = PrivateBus::start() else {
+        return;
+    };
+    let home = tempfile::tempdir().unwrap();
+    async_io::block_on(async {
+        let _shell = bus.shell(&["system"]).await.unwrap();
+        bus.run(env!("CARGO_BIN_EXE_marathon-telephonyd"), home.path(), BUS)
+            .await
+            .unwrap();
+        let app = bus.connect().await.unwrap();
+        let forged = call::<()>(&app, "Sms", "SimulateIncomingSMS", &("+14155550142", "hi")).await;
+        assert!(denied(&forged));
+        let settings =
+            call::<HashMap<String, OwnedValue>>(&app, "Sms", "GetMmsSettings", &()).await;
+        assert!(denied(&settings));
+        let conversations = rows(call(&app, "Sms", "GetConversations", &()).await.unwrap());
+        assert_eq!(conversations, Vec::new());
     });
 }

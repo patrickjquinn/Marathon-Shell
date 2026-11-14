@@ -232,10 +232,7 @@ fn may_replace_os_app(id: &str, version: &str, signer: &str) -> Result<(), Strin
         ));
     }
     let installed = read_json(&paths::receipt(id));
-    let installed = installed
-        .as_ref()
-        .map(|r| text(r, "version"))
-        .unwrap_or_default();
+    let installed = installed.as_ref().map_or_default(|r| text(r, "version"));
     if apps::is_newer(installed, version) {
         return Err(format!(
             "{id} {installed} is installed, newer than {version}"

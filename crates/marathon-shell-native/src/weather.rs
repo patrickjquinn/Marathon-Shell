@@ -32,9 +32,6 @@ pub mod qobject {
         #[qproperty(QMap_QString_QVariant, forecast, READ, NOTIFY)]
         /// "idle", "updating", "offline", "no-location" or "error: …".
         #[qproperty(QString, state, READ, NOTIFY)]
-        /// °F and mph for the US locale, mph for the UK, metric otherwise.
-        #[qproperty(bool, fahrenheit, READ, CONSTANT)]
-        #[qproperty(bool, miles_per_hour, cxx_name = "milesPerHour", READ, CONSTANT)]
         type WeatherClient = super::WeatherClientRust;
 
         /// Reads the current values, then asks for newer ones; starts the service.
@@ -87,44 +84,11 @@ trait Weather {
     fn set_automatic(&self) -> zbus::Result<()>;
 }
 
+#[derive(Default)]
 pub struct WeatherClientRust {
     forecast: QMap<QMapPair_QString_QVariant>,
     forecast_json: String,
     state: QString,
-    fahrenheit: bool,
-    miles_per_hour: bool,
-}
-
-impl Default for WeatherClientRust {
-    fn default() -> Self {
-        let territory = territory();
-        let fahrenheit = matches!(territory.as_str(), "US" | "LR" | "MM");
-        Self {
-            forecast: QMap::default(),
-            forecast_json: String::new(),
-            state: QString::default(),
-            fahrenheit,
-            miles_per_hour: fahrenheit || territory == "GB",
-        }
-    }
-}
-
-/// The locale's territory, as `QLocale` reads it from the environment.
-fn territory() -> String {
-    ["LC_ALL", "LC_MEASUREMENT", "LANG"]
-        .iter()
-        .find_map(|key| std::env::var(key).ok().filter(|v| !v.is_empty()))
-        .and_then(|locale| {
-            Some(
-                locale
-                    .split(['.', '@'])
-                    .next()?
-                    .split_once('_')?
-                    .1
-                    .to_owned(),
-            )
-        })
-        .unwrap_or_default()
 }
 
 impl cxx_qt::Initialize for WeatherClient {
@@ -238,10 +202,7 @@ impl WeatherClient {
                 Err(e) => (serde_json::Value::Null, e),
             };
             qt.queue(move |obj| {
-                let places = json
-                    .as_array()
-                    .map(|items| variant::list(items))
-                    .unwrap_or_default();
+                let places = json.as_array().map_or_default(|items| variant::list(items));
                 obj.search_finished(&places, &QString::from(&error));
             })
             .ok();
@@ -254,8 +215,7 @@ impl WeatherClient {
             place
                 .get(&QString::from(key))
                 .and_then(|v| v.value::<QString>())
-                .map(|s| s.to_string())
-                .unwrap_or_default()
+                .map_or_default(|s| s.to_string())
         };
         let number = |key| {
             place

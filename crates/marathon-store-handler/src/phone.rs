@@ -110,8 +110,7 @@ fn attribute(e: &BytesStart, name: &str) -> String {
     e.try_get_attribute(name)
         .ok()
         .flatten()
-        .map(|a| a.value.into_owned())
-        .unwrap_or_default()
+        .map_or_default(|a| a.value.into_owned())
 }
 
 /// The ids of the apps in an `AppStream` catalogue that fit a phone, sorted.
@@ -198,7 +197,7 @@ pub fn fitting(source: impl BufRead) -> io::Result<Vec<App>> {
             Event::End(_) => {
                 let name = path.pop().unwrap_or_default();
                 let foreign = translated.pop().unwrap_or(false);
-                let parent = path.last().map(String::as_str).unwrap_or_default();
+                let parent = path.last().map_or_default(String::as_str);
                 let in_component = path.len() >= 2 && path[1] == "component";
                 if !in_component && name == "component" && path.len() == 1 {
                     if component.phone_ready() && !component.details.id.is_empty() {

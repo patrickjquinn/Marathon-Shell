@@ -25,6 +25,8 @@ Rectangle {
     // short of it, and search and the keyboard hide, leaving the whole bar
     // to the pill.
     property bool setupMode: false
+    // Over the lock screen: the bar is there only to close Quick Settings.
+    property bool shadeOnly: false
     // What a tap on the pill does, for screen readers; empty hides the pill from them.
     property string pillAction: ""
     // Touch and hold asks Shipwright Pilot (pilotRequested) while true.
@@ -41,6 +43,7 @@ Rectangle {
         NumberAnimation {
             duration: MMotion.durationFor("hero")
             easing.type: MMotion.easingFor("hero")
+            easing.bezierCurve: MMotion.easingCurveFor("hero")
         }
     }
 
@@ -236,7 +239,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(Silica.Theme.itemSizeExtraSmall, Silica.Theme.horizontalPageMargin + Silica.Theme.iconSizeExtraSmall + Silica.Theme.paddingMedium)
         height: parent.height
-        visible: !navBar.pinScreenMode && !navBar.setupMode
+        visible: !navBar.pinScreenMode && !navBar.setupMode && !navBar.shadeOnly
         opacity: navBar.pinScreenMode ? 0 : 1
 
         // On the page margin, in line with the status bar and the dock.
@@ -268,7 +271,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         width: searchButton.width
         height: parent.height
-        visible: !navBar.setupMode
+        visible: !navBar.setupMode && !navBar.shadeOnly
 
         GlyphIcon {
             name: "keyboard"
@@ -303,6 +306,10 @@ Rectangle {
         property real prevDiffY: 0
         // The hold asked Pilot: the rest of this touch does nothing.
         property bool pilotAsked: false
+        // A thumb on the trackpad grazes the bar just above it: while the
+        // trackpad is in use a swipe up does nothing for the rest of the touch.
+        property bool upLocked: false
+        property bool suppressed: false
         // Where an interrupted settle was caught, so the press picks it up.
         property real pillBaseX: 0
         property real pillBaseY: 0
@@ -395,12 +402,14 @@ Rectangle {
             isHorizontalGesture = false;
             pullingQuickSettings = false;
             prevDiffY = 0;
+            upLocked = typeof TrackpadInput !== "undefined" && TrackpadInput.active;
+            suppressed = false;
             stopPilot();
             if (navBar.pilotEnabled && !pressedOn(searchButton) && !pressedOn(keyboardButton))
                 pilotStill.restart();
         }
         onPositionChanged: mouse => {
-            if (pilotAsked)
+            if (pilotAsked || suppressed)
                 return;
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
@@ -414,6 +423,12 @@ Rectangle {
             const pullingDown = -diffY > pullSlop && (Math.abs(diffY) >= Math.abs(diffX) || intoEdge);
             if (!isVerticalGesture && !isHorizontalGesture && (pullingDown || Math.max(Math.abs(diffX), Math.abs(diffY)) > directionLockDistance)) {
                 const axis = pullingDown ? 1 : gestureAxis(diffX, diffY);
+                if (axis === 1 && !pullingDown && upLocked) {
+                    suppressed = true;
+                    stopPilot();
+                    resetGesture(false);
+                    return;
+                }
                 if (axis === 1) {
                     isVerticalGesture = true;
                     pillX.settleTo(0);
@@ -463,7 +478,7 @@ Rectangle {
             }
         }
         onReleased: mouse => {
-            if (pilotAsked) {
+            if (pilotAsked || suppressed) {
                 resetGesture(false);
                 return;
             }
@@ -487,6 +502,10 @@ Rectangle {
                 "isAppOpen": navBar.isAppOpen,
                 "quickSettingsOpen": UIStore.quickSettingsOpen
             });
+            if (navBar.shadeOnly && !isVerticalGesture) {
+                resetGesture(false);
+                return;
+            }
             if (!isVerticalGesture && !isHorizontalGesture) {
                 if (pressedOn(searchButton)) {
                     HapticManager.light();
@@ -529,6 +548,10 @@ Rectangle {
                     "flingUp": isFlingUp,
                     "deliberateUp": isDeliberateSwipeUp
                 });
+                resetGesture(false);
+                return;
+            }
+            if (navBar.shadeOnly) {
                 resetGesture(false);
                 return;
             }

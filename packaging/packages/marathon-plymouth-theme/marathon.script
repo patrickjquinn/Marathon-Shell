@@ -82,10 +82,64 @@ fun progress_callback(duration, progress) {
 }
 Plymouth.SetBootProgressFunction(progress_callback);
 
+// ── Charging screen (marathon-charger: a charger turned the phone on) ──
+// "marathon-charge-<percent>-<charging|full>" swaps the splash for a
+// battery in the progress bar's colours.
+BATTERY_W = 96;
+BATTERY_H = 168;
+CAP_W = 40;
+CAP_H = 10;
+battery_body.sprite = Sprite();
+battery_cap.sprite = Sprite();
+battery_fill.sprite = Sprite();
+battery_text.sprite = Sprite();
+battery_label.sprite = Sprite();
+
+fun show_charge(percent, full) {
+    logo.sprite.SetOpacity(0);
+    set_boot_chrome_opacity(0);
+    message.sprite.SetOpacity(0);
+    left = screen_width / 2 - BATTERY_W / 2;
+    top = screen_height / 2 - BATTERY_H / 2 - 32;
+    battery_body.sprite.SetImage(progress_track.image.Scale(BATTERY_W, BATTERY_H));
+    battery_body.sprite.SetPosition(left, top, 10);
+    battery_cap.sprite.SetImage(progress_track.image.Scale(CAP_W, CAP_H));
+    battery_cap.sprite.SetPosition(screen_width / 2 - CAP_W / 2, top - CAP_H - 4, 10);
+    fill_h = Math.Int(BATTERY_H * percent / 100);
+    if (fill_h > 0) {
+        battery_fill.sprite.SetImage(progress_fill.image.Scale(BATTERY_W, fill_h));
+        battery_fill.sprite.SetPosition(left, top + BATTERY_H - fill_h, 11);
+        battery_fill.sprite.SetOpacity(1);
+    } else {
+        battery_fill.sprite.SetOpacity(0);
+    }
+    battery_text.image = Image.Text(percent + "%", 1.0, 1.0, 1.0, 1.0, "Sans 24");
+    battery_text.sprite.SetImage(battery_text.image);
+    battery_text.sprite.SetPosition(screen_width / 2 - battery_text.image.GetWidth() / 2, top + BATTERY_H + 24, 10);
+    label = "Charging";
+    if (full)
+        label = "Charged";
+    battery_label.image = Image.Text(label, 1.0, 1.0, 1.0, 0.7, "Sans 12");
+    battery_label.sprite.SetImage(battery_label.image);
+    battery_label.sprite.SetPosition(screen_width / 2 - battery_label.image.GetWidth() / 2,
+                                     top + BATTERY_H + 24 + battery_text.image.GetHeight() + 8, 10);
+}
+
 fun update_status_callback(status) {
     if (status == "marathon-handover") {
         handed_over = 1;
         set_fill(HANDOVER);
+    }
+    percent = 0;
+    while (percent <= 100) {
+        if (status == "marathon-charge-" + percent + "-charging") {
+            show_charge(percent, 0);
+            percent = 100;
+        } else if (status == "marathon-charge-" + percent + "-full") {
+            show_charge(percent, 1);
+            percent = 100;
+        }
+        percent = percent + 1;
     }
 }
 Plymouth.SetUpdateStatusFunction(update_status_callback);

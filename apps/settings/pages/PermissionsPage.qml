@@ -49,6 +49,60 @@ Page {
                 color: Theme.secondaryHighlightColor
                 text: qsTr("What your apps may use, Android apps included. Turn a permission off for an app and it asks again the next time it needs it.")
             }
+
+            SectionHeader {
+                text: qsTr("In-use indicator")
+            }
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingMedium
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: qsTr("A dot beside the clock shows what is in use right now, split into a slice for each. The microphone and camera are seen as the system opens them, so no app can use them unseen. Tap the dot to see which apps.")
+            }
+            Repeater {
+                model: [
+                    {
+                        "color": "#ff3b30",
+                        "label": qsTr("Microphone")
+                    },
+                    {
+                        "color": "#ff9500",
+                        "label": qsTr("Camera")
+                    },
+                    {
+                        "color": "#0a84ff",
+                        "label": qsTr("Location")
+                    }
+                ]
+
+                Row {
+                    id: legend
+
+                    required property var modelData
+
+                    x: Theme.horizontalPageMargin
+                    height: Theme.itemSizeExtraSmall
+                    spacing: Theme.paddingLarge
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Theme.paddingLarge
+                        height: width
+                        radius: width / 2
+                        color: legend.modelData.color
+                    }
+                    Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: legend.modelData.label
+                    }
+                }
+            }
+            SectionHeader {
+                text: qsTr("Permissions")
+            }
             Repeater {
                 model: Logic.permissionNames.filter(n => !Permissions.describe(n).restricted)
 

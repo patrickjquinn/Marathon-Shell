@@ -75,7 +75,20 @@ pub mod qobject {
         #[qproperty(QString, active_number, cxx_name = "activeNumber", READ, NOTIFY = active_number_changed)]
         /// The modem can make calls.
         #[qproperty(bool, has_modem, cxx_name = "hasModem", READ, NOTIFY = modem_changed)]
+        /// The call's audio: on the loudspeaker; the microphone muted.
+        #[qproperty(bool, speakerphone, READ, NOTIFY = call_audio_changed)]
+        #[qproperty(bool, call_muted, cxx_name = "callMuted", READ, NOTIFY = call_audio_changed)]
         type Modem = super::ModemRust;
+
+        #[qsignal]
+        #[cxx_name = "callAudioChanged"]
+        fn call_audio_changed(self: Pin<&mut Self>);
+        #[qinvokable]
+        #[cxx_name = "setSpeakerphone"]
+        fn set_speakerphone(self: Pin<&mut Modem>, on: bool);
+        #[qinvokable]
+        #[cxx_name = "setCallMuted"]
+        fn set_call_muted(self: Pin<&mut Modem>, muted: bool);
 
         #[qsignal]
         #[cxx_name = "callStateChanged"]
@@ -206,6 +219,8 @@ fn now_ms() -> i64 {
 enum Command {
     Enable(bool),
     Data(bool, bool),
+    /// Data roaming allowed: written to the profile at once.
+    Roaming(bool),
     Modes(u32),
     Dial(String),
     Call(String, CallAction),
@@ -370,6 +385,7 @@ impl Modem {
     fn set_speakerphone(mut self: Pin<&mut Self>, on: bool) {
         if self.speakerphone != on {
             self.as_mut().rust_mut().speakerphone = on;
+            self.as_mut().call_audio_changed();
             route_audio("SetSpeakerphone", on);
         }
     }
@@ -377,6 +393,7 @@ impl Modem {
     fn set_call_muted(mut self: Pin<&mut Self>, muted: bool) {
         if self.call_muted != muted {
             self.as_mut().rust_mut().call_muted = muted;
+            self.as_mut().call_audio_changed();
             route_audio("SetInputMuted", muted);
         }
     }
@@ -526,6 +543,7 @@ impl Modem {
             data_roaming_allowed_changed,
             allowed
         );
+        self.send(Command::Roaming(allowed));
         if !allowed && self.roaming && self.data_enabled {
             self.disable_data();
         }
@@ -703,6 +721,38 @@ impl Modem1 {
         ipc::admit(&h, "Modem", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_allowed_modes(allowed)).await
     }
+
+    /// The APN data uses now, the one set ("" for automatic), and the
+    /// carrier's (name, apn, user, password) for the SIM.
+    #[zbus(name = "GetApn")]
+    async fn get_apn(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<(String, String, Vec<crate::apn::Suggestion>)> {
+        ipc::admit(&h, "Modem", &["network", "system"]).await?;
+        let bus = io::system_bus()
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        Ok(crate::apn::read(&bus).await)
+    }
+
+    /// "" for automatic: the carrier's attach APN.
+    #[zbus(name = "SetApn")]
+    async fn set_apn(
+        &self,
+        apn: String,
+        user: String,
+        password: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        ipc::admit(&h, "Modem", &["system"]).await?;
+        let bus = io::system_bus()
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        crate::apn::set(&bus, apn.trim(), &user, &password)
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))
+    }
 }
 
 /// `WirePlumber`'s call routing follows marathon-audiod's speakerphone.
@@ -723,6 +773,11 @@ async fn phone(h: &Header<'_>) -> fdo::Result<()> {
     ipc::admit(h, "Telephony", &["telephony", "phone"])
         .await
         .map(drop)
+}
+
+/// The simulated calls: an app with only `telephony` could fake a caller.
+async fn test_hook(h: &Header<'_>) -> fdo::Result<()> {
+    ipc::admit(h, "Telephony", &["system"]).await.map(drop)
 }
 
 #[zbus::interface(name = "org.marathonos.Shell.Telephony1")]
@@ -788,7 +843,7 @@ impl Telephony1 {
         number: String,
         #[zbus(header)] h: Header<'_>,
     ) -> fdo::Result<()> {
-        phone(&h).await?;
+        test_hook(&h).await?;
         ipc::on_gui(&self.qt, move |obj| {
             obj.simulate_incoming_call(&QString::from(&number));
         })
@@ -800,7 +855,7 @@ impl Telephony1 {
         state: String,
         #[zbus(header)] h: Header<'_>,
     ) -> fdo::Result<()> {
-        phone(&h).await?;
+        test_hook(&h).await?;
         ipc::on_gui(&self.qt, move |obj| {
             obj.simulate_call_state_change(&QString::from(&state));
         })
@@ -1053,6 +1108,8 @@ enum Event {
     Command(Command),
     Closed,
     Objects,
+    /// `ModemManager` started again: the same modem path, new signals to follow.
+    Restarted,
     Changed(HashMap<String, OwnedValue>),
     BroadcastAdded(OwnedObjectPath),
     BroadcastGone(OwnedObjectPath),
@@ -1062,6 +1119,10 @@ enum Event {
     NmState(OwnedObjectPath, u32),
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the modem actor keeps its connection and event-loop state in one task"
+)]
 async fn run(qt: Qt, commands: Receiver<Command>) {
     let Ok(bus) = io::system_bus().await else {
         return;
@@ -1087,7 +1148,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     }
     if let Ok(dbus) = DBusProxy::new(&bus).await {
         if let Ok(owners) = dbus.receive_name_owner_changed_with_args(&[(0, MM)]).await {
-            objects = objects.or(owners.map(|_| Event::Objects)).boxed();
+            objects = objects.or(owners.map(|_| Event::Restarted)).boxed();
         }
     }
     objects = objects.or(nm_events(&bus).await).boxed();
@@ -1131,6 +1192,10 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             Some(Event::Objects) => {
                 daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
             }
+            Some(Event::Restarted) => {
+                state.path = None;
+                daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
+            }
             Some(Event::NmDevices) => follow_nm(&bus, &mut state).await,
             Some(Event::NmState(path, nm_state)) => state.nm_changed(&path, nm_state),
             Some(Event::Changed(changed)) => {
@@ -1147,10 +1212,26 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 qt.queue(move |obj| obj.broadcast_gone(path.as_str())).ok();
             }
             Some(Event::CallAdded(path)) => {
-                let props = properties(&bus, &path, CALL).await;
-                // MM_CALL_DIRECTION_INCOMING is 1.
-                let incoming =
-                    props.get("Direction").and_then(|v| u32::try_from(v).ok()) == Some(1);
+                // A call object just exported may not answer yet: ask again
+                // before taking a ringing call for one of ours.
+                let mut props = properties(&bus, &path, CALL).await;
+                for _ in 0..5 {
+                    if props.contains_key("Direction") {
+                        break;
+                    }
+                    async_io::Timer::after(std::time::Duration::from_millis(100)).await;
+                    props = properties(&bus, &path, CALL).await;
+                }
+                let get = |key: &str| props.get(key).and_then(mm_enum);
+                // MM_CALL_DIRECTION_INCOMING is 1, MM_CALL_STATE_RINGING_IN 3.
+                let incoming = get("Direction") == Some(1) || get("State") == Some(3);
+                log::warn(
+                    "modem",
+                    format_args!(
+                        "call {path} added, incoming {incoming}, {} properties",
+                        props.len()
+                    ),
+                );
                 let number = props
                     .get("Number")
                     .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
@@ -1207,6 +1288,18 @@ async fn discover(
     follow_nm(bus, state).await;
     if let Err(e) = default_data_on(bus).await {
         log::warn("modem", e);
+    }
+    if let Some((_, settings)) = gsm_profile(bus).await {
+        let allowed = roaming_allowed(&settings);
+        qt.queue(move |mut obj| {
+            set!(
+                obj,
+                data_roaming_allowed,
+                data_roaming_allowed_changed,
+                allowed
+            );
+        })
+        .ok();
     }
     let broadcasts = interfaces
         .iter()
@@ -1351,7 +1444,7 @@ async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::
             let path = m.header().path()?.to_string();
             let (interface, changed, _): (String, HashMap<String, OwnedValue>, Vec<String>) =
                 m.body().deserialize().ok()?;
-            let state = u32::try_from(changed.get("State")?).ok()?;
+            let state = mm_enum(changed.get("State")?)?;
             (interface == CALL).then_some(Event::CallChanged(path, Some(state)))
         });
         events = events.or(states).boxed();
@@ -1366,6 +1459,16 @@ async fn signals(
     MessageStream::for_match_rule(rule.build().ok()?, bus, std::num::NonZeroUsize::new(16))
         .await
         .ok()
+}
+
+/// A `ModemManager` enum: int32 on the bus for calls (`MMCallState`,
+/// `MMCallDirection`), uint32 elsewhere.
+fn mm_enum(value: &OwnedValue) -> Option<u32> {
+    u32::try_from(value).ok().or_else(|| {
+        i32::try_from(value)
+            .ok()
+            .and_then(|v| u32::try_from(v).ok())
+    })
 }
 
 async fn properties(
@@ -1489,6 +1592,7 @@ async fn act(
                 CallAction::Dtmf(digit) => call.send_dtmf(&digit).await,
             }
         }
+        Command::Roaming(allowed) => data_roaming(bus, allowed).await,
         Command::Data(..) | Command::Inhibit(_) => Ok(()),
     }
 }
@@ -1511,22 +1615,7 @@ async fn mobile_data(
     let none = zbus::ObjectPath::from_static_str_unchecked("/");
     if let Some((path, mut settings)) = gsm_profile(bus).await {
         set_data(&mut settings, on, roaming);
-        let settings: Settings<'_> = settings
-            .iter()
-            .map(|(group, props)| {
-                let props = props
-                    .iter()
-                    .filter_map(|(k, v)| Some((k.as_str(), Value::try_from(v).ok()?)))
-                    .collect();
-                (group.as_str(), props)
-            })
-            .collect();
-        SavedConnectionProxy::builder(bus)
-            .path(path.clone())
-            .build()
-            .await?
-            .update(settings)
-            .await?;
+        save_profile(bus, &path, &settings).await?;
         if on {
             return nm
                 .activate_connection(&path, &device, &none)
@@ -1555,8 +1644,56 @@ async fn mobile_data(
 
 type SavedSettings = HashMap<String, HashMap<String, OwnedValue>>;
 
+async fn save_profile(
+    bus: &zbus::Connection,
+    path: &OwnedObjectPath,
+    settings: &SavedSettings,
+) -> zbus::Result<()> {
+    let settings: Settings<'_> = settings
+        .iter()
+        .map(|(group, props)| {
+            let props = props
+                .iter()
+                .filter_map(|(k, v)| Some((k.as_str(), Value::try_from(v).ok()?)))
+                .collect();
+            (group.as_str(), props)
+        })
+        .collect();
+    SavedConnectionProxy::builder(bus)
+        .path(path.clone())
+        .build()
+        .await?
+        .update(settings)
+        .await
+}
+
+/// The profile's `home-only` is the data roaming switch, kept where
+/// `NetworkManager` reads it, so it holds across restarts and needs no
+/// switching data off and on.
+async fn data_roaming(bus: &zbus::Connection, allowed: bool) -> zbus::Result<()> {
+    let Some((path, mut settings)) = gsm_profile(bus).await else {
+        return Ok(());
+    };
+    settings
+        .entry("gsm".to_owned())
+        .or_default()
+        .insert("home-only".to_owned(), OwnedValue::from(!allowed));
+    save_profile(bus, &path, &settings).await
+}
+
+/// `home-only` defaults to false, and `NetworkManager` leaves defaults out.
+fn roaming_allowed(settings: &SavedSettings) -> bool {
+    settings
+        .get("gsm")
+        .and_then(|g| g.get("home-only"))
+        .and_then(|v| bool::try_from(v).ok())
+        != Some(true)
+}
+
 // The first saved gsm profile: Marathon's, or one the person made.
-async fn gsm_profile(bus: &zbus::Connection) -> Option<(OwnedObjectPath, SavedSettings)> {
+pub(crate) async fn gsm_profile(
+    bus: &zbus::Connection,
+) -> Option<(OwnedObjectPath, SavedSettings)> {
     let paths = NmSettingsProxy::new(bus)
         .await
         .ok()?
@@ -1676,7 +1813,15 @@ trait Call {
 
 #[cfg(test)]
 mod tests {
-    use super::{gsm_settings, network_type, set_data, SavedSettings, Snapshot};
+    use super::{gsm_settings, mm_enum, network_type, set_data, SavedSettings, Snapshot};
+
+    #[test]
+    fn call_enums_read_as_either_width() {
+        // ModemManager sends a call's Direction and State as int32.
+        assert_eq!(mm_enum(&zbus::OwnedVariant::from(3_i32)), Some(3));
+        assert_eq!(mm_enum(&zbus::OwnedVariant::from(4_u32)), Some(4));
+        assert_eq!(mm_enum(&zbus::OwnedVariant::from(-1_i32)), None);
+    }
     use zbus::Variant as Value;
 
     #[test]

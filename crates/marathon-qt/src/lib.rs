@@ -42,7 +42,7 @@ pub fn to_qt(value: &Value<'_>) -> QVariant {
             for (key, item) in dict.iter() {
                 let key = match key {
                     Value::Str(s) => s.as_str().to_owned(),
-                    other => number(other).map(|n| n.to_string()).unwrap_or_default(),
+                    other => number(other).map_or_default(|n| n.to_string()),
                 };
                 map.insert(QString::from(&key), to_qt(item));
             }

@@ -27,7 +27,9 @@ QtObject {
     readonly property int sizeCaption: Math.round(12 * unit)
     readonly property int sizeEyebrow: Math.round(11 * unit)
 
-    // ── Weights (Sora is a variable font, 100-800 axis) ──────
+    // ── Weights ──────────────────────────────────────────────
+    // The face is Theme.fontFamily (Source Sans 3); the notes below on
+    // variable Sora are from its earlier design.
     // Defaults per role:
     //   Display/TitleL/Title1   200
     //   Title2                  300

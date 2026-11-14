@@ -6,7 +6,7 @@
 //! controlled through its own `Props`. Levels are cubic, as `wpctl` and
 //! pavucontrol show them.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const SPEAKERPHONE_SETTING: &str = "marathon.call.speakerphone";
 const JSON: &str = "Spa:String:JSON";
@@ -30,6 +30,8 @@ pub struct Node {
     pub description: String,
     pub media_class: String,
     pub app_name: Option<String>,
+    /// The client's process, for a stream.
+    pub pid: Option<u32>,
     pub device: Option<u32>,
     pub profile_device: Option<i32>,
     pub props: Option<Mix>,
@@ -52,6 +54,8 @@ pub struct RouteId {
 #[derive(Debug, Clone, Default)]
 pub struct Device {
     pub routes: BTreeMap<i32, (RouteId, Mix)>,
+    /// The route devices whose active route is headphones or a headset.
+    pub wired: BTreeSet<i32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,6 +152,10 @@ pub struct Snapshot {
     pub sources: Vec<Port>,
     pub streams: Vec<Stream>,
     pub speakerphone: bool,
+    /// What the default sink is when it isn't the phone's own: "wired" or "bluetooth".
+    pub output: &'static str,
+    /// The streams recording: (client pid, app), for the privacy indicator.
+    pub recording: Vec<(u32, String)>,
 }
 
 #[derive(Debug, Default)]
@@ -335,6 +343,46 @@ impl Graph {
             .collect()
     }
 
+    fn recording(&self) -> Vec<(u32, String)> {
+        let mut recording: Vec<(u32, String)> = self
+            .nodes
+            .values()
+            .filter(|n| n.media_class == "Stream/Input/Audio" && !n.is_role_loopback())
+            .map(|n| {
+                let name = n
+                    .app_name
+                    .clone()
+                    .or_else(|| (!n.description.is_empty()).then(|| n.description.clone()))
+                    .unwrap_or_else(|| n.name.clone());
+                (n.pid.unwrap_or(0), name)
+            })
+            .collect();
+        recording.sort();
+        recording
+    }
+
+    fn output(&self) -> &'static str {
+        let Some((_, node)) = self.default_node(Direction::Output) else {
+            return "";
+        };
+        if node.name.starts_with("bluez_output.") {
+            return "bluetooth";
+        }
+        let wired = node
+            .device
+            .zip(node.profile_device)
+            .is_some_and(|(device, route)| {
+                self.devices
+                    .get(&device)
+                    .is_some_and(|d| d.wired.contains(&route))
+            });
+        if wired {
+            "wired"
+        } else {
+            ""
+        }
+    }
+
     fn level_of(&self, direction: Direction) -> (f64, bool, String) {
         let (volume, muted) = self
             .level_node(direction)
@@ -342,8 +390,7 @@ impl Graph {
             .map_or((0.0, false), |(_, mix)| (level(&mix), mix.mute));
         let name = self
             .default_node(direction)
-            .map(|(_, node)| node.name.clone())
-            .unwrap_or_default();
+            .map_or_default(|(_, node)| node.name.clone());
         (volume, muted, name)
     }
 
@@ -432,6 +479,8 @@ impl Graph {
             sources: self.ports(Direction::Input),
             streams,
             speakerphone: self.speakerphone,
+            output: self.output(),
+            recording: self.recording(),
         }
     }
 }
@@ -483,6 +532,7 @@ mod tests {
             87,
             Device {
                 routes: BTreeMap::from([(1, (route, mix(0.125, false)))]),
+                ..Device::default()
             },
         );
 
@@ -647,6 +697,7 @@ mod tests {
             87,
             Device {
                 routes: BTreeMap::from([(1, (route, mix(0.125, false)))]),
+                ..Device::default()
             },
         );
         (g, route)
@@ -657,6 +708,7 @@ mod tests {
             87,
             Device {
                 routes: BTreeMap::from([(1, (route, mix))]),
+                ..Device::default()
             },
         );
     }

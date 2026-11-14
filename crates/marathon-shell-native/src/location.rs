@@ -11,7 +11,7 @@
 //! holds a `Start`, until it calls `Stop` or leaves the bus.
 
 use crate::i18n::fl;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -19,7 +19,7 @@ use std::time::Duration;
 use async_channel::{Receiver, Sender};
 use async_io::Timer;
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::QString;
+use cxx_qt_lib::{QString, QStringList};
 use futures_lite::{stream, StreamExt};
 use zbus::fdo::{self, DBusProxy};
 use zbus::message::Header;
@@ -27,19 +27,23 @@ use zbus::names::BusName;
 use zbus::{ObjectPath, OwnedObjectPath, OwnedVariant as OwnedValue};
 
 use crate::ipc::{self, value, State};
-use crate::{io, log, permissions};
+use crate::{io, log, permissions, privacy};
 
 #[cxx_qt::bridge]
 pub mod qobject {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
+        include!("cxx-qt-lib/qstringlist.h");
+        type QStringList = cxx_qt_lib::QStringList;
     }
 
     extern "RustQt" {
         #[qobject]
         #[qproperty(bool, available, READ, NOTIFY)]
         #[qproperty(bool, active, READ, NOTIFY)]
+        /// The apps holding a fix: app ids, else process names.
+        #[qproperty(QStringList, users, READ, NOTIFY)]
         /// The system's location switch.
         #[qproperty(bool, enabled, READ, WRITE = set_enabled, NOTIFY)]
         #[qproperty(f64, latitude, READ, NOTIFY = location_changed)]
@@ -71,6 +75,7 @@ use qobject::Location;
 pub struct LocationRust {
     available: bool,
     active: bool,
+    users: QStringList,
     enabled: bool,
     latitude: f64,
     longitude: f64,
@@ -87,6 +92,7 @@ impl Default for LocationRust {
         Self {
             available: false,
             active: false,
+            users: QStringList::default(),
             enabled: true,
             latitude: 0.0,
             longitude: 0.0,
@@ -404,7 +410,8 @@ async fn run(qt: Qt, asks: Receiver<Ask>) {
         .or(Timer::interval(RELOCATE).map(|_| Event::Relocate))
         .or(rounds_over.map(Event::GiveUp));
     let mut events = std::pin::pin!(events);
-    let mut holders = HashSet::new();
+    // Bus name to app.
+    let mut holders: HashMap<String, String> = HashMap::new();
     // The shell's own fix, while it waits for one.
     let (mut own, mut rounds) = (None, 0u32);
     let mut level = 0;
@@ -422,10 +429,21 @@ async fn run(qt: Qt, asks: Receiver<Ask>) {
                 }
             }
             Event::Ask(Ask::Hold(name)) => {
-                holders.insert(name);
+                let pid = match (&session, BusName::try_from(name.as_str())) {
+                    (Some(s), Ok(bus_name)) => {
+                        s.get_connection_unix_process_id(bus_name).await.ok()
+                    }
+                    _ => None,
+                };
+                let app = pid.map_or_default(privacy::name);
+                if holders.insert(name, app).is_none() {
+                    users(&qt, &holders);
+                }
             }
             Event::Ask(Ask::Release(name)) | Event::Left(name) => {
-                holders.remove(&name);
+                if holders.remove(&name).is_some() {
+                    users(&qt, &holders);
+                }
             }
             Event::Restarted(true) => agent = add_agent(&bus).await,
             Event::Restarted(false) => {
@@ -489,6 +507,18 @@ async fn run(qt: Qt, asks: Receiver<Ask>) {
         qt.queue(move |mut obj| set!(obj, active, active_changed, active))
             .ok();
     }
+}
+
+fn users(qt: &Qt, holders: &HashMap<String, String>) {
+    let mut names: Vec<&String> = holders.values().filter(|n| !n.is_empty()).collect();
+    names.sort();
+    names.dedup();
+    let mut users = QStringList::default();
+    for n in names {
+        users.append(QString::from(n.as_str()));
+    }
+    qt.queue(move |mut obj| set!(obj, users, users_changed, users))
+        .ok();
 }
 
 /// Starts a round of the shell's own fix, given up after `GIVE_UP`.

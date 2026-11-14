@@ -133,7 +133,7 @@ pub mod qobject {
         fn set_power_save_mode(self: Pin<&mut Power>, enabled: bool);
         #[qinvokable]
         #[cxx_name = "setPowerProfile"]
-        fn set_power_profile(self: &Power, profile: &QString);
+        fn set_power_profile(self: Pin<&mut Power>, profile: &QString);
         #[qinvokable]
         #[cxx_name = "acquireWakelock"]
         fn acquire_wakelock(self: Pin<&mut Power>, name: &QString) -> bool;
@@ -168,6 +168,68 @@ use qobject::Power;
 #[path = "battery_measurement.rs"]
 mod measurement;
 
+/// Saver at low battery, performance while full on a charger with the
+/// screen on.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Auto {
+    Saver,
+    Performance,
+}
+
+impl Auto {
+    /// The mode the shell chose by itself, kept across its restarts: the
+    /// profile service keeps the profile, and without this a restart would
+    /// take an automatic one for a choice by hand and never undo it.
+    fn file() -> Option<std::path::PathBuf> {
+        let state = std::env::var_os("XDG_STATE_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".local/state"))
+            })?;
+        Some(state.join("marathon/power-auto"))
+    }
+
+    fn load() -> Option<Self> {
+        match std::fs::read_to_string(Self::file()?).ok()?.trim() {
+            "saver" => Some(Self::Saver),
+            "performance" => Some(Self::Performance),
+            _ => None,
+        }
+    }
+
+    fn store(auto: Option<Self>) {
+        let Some(file) = Self::file() else { return };
+        let written = match auto {
+            Some(a) => file
+                .parent()
+                .map_or(Ok(()), std::fs::create_dir_all)
+                .and_then(|()| {
+                    std::fs::write(
+                        &file,
+                        if a == Self::Saver {
+                            "saver"
+                        } else {
+                            "performance"
+                        },
+                    )
+                }),
+            None => std::fs::remove_file(&file).or_else(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Ok(())
+                } else {
+                    Err(e)
+                }
+            }),
+        };
+        if let Err(e) = written {
+            log::warn("power", format_args!("{}: {e}", file.display()));
+        }
+    }
+}
+
+/// The battery level at or under which saver comes on by itself.
+const AUTO_SAVER_AT: i32 = 20;
+
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
 pub struct PowerRust {
     battery_level: i32,
@@ -182,6 +244,12 @@ pub struct PowerRust {
     wake_lock_count: i32,
     critical_action: QString,
     profile_before_saver: Option<String>,
+    /// The profile Marathon chose by itself, undone when the reason ends.
+    auto: Option<Auto>,
+    /// Saver came on at low battery this discharge (or was turned off since).
+    saver_spent: bool,
+    /// Full on the charger: performance's reason, with the screen on.
+    charged: bool,
     has_active_calls: bool,
     /// The level last warned at, 100 for none since charging.
     warned_at: i32,
@@ -205,6 +273,9 @@ impl Default for PowerRust {
             wake_lock_count: 0,
             critical_action: QString::from("PowerOff"),
             profile_before_saver: None,
+            auto: None,
+            saver_spent: false,
+            charged: false,
             has_active_calls: false,
             warned_at: 100,
             shutdown_armed: false,
@@ -237,6 +308,7 @@ impl cxx_qt::Initialize for Power {
         let (tx, rx) = async_channel::bounded(64);
         let qt = self.qt_thread();
         POWER.set(qt.clone()).ok();
+        self.as_mut().rust_mut().auto = Auto::load();
         ipc::export("Power", Power1 { qt: qt.clone() });
         watch_power_keys(qt.clone());
         io::spawn(run(qt, rx));
@@ -277,9 +349,20 @@ impl Power {
         self.act(Action::Reboot);
     }
 
+    // A choice made by hand stands: the automatic modes leave it alone.
+    fn set_power_save_mode(mut self: Pin<&mut Self>, enabled: bool) {
+        self.as_mut().set_auto(None);
+        self.save_mode(enabled);
+    }
+
+    fn set_power_profile(mut self: Pin<&mut Self>, profile: &QString) {
+        self.as_mut().set_auto(None);
+        self.request_profile(&profile.to_string());
+    }
+
     // Saver is the power-saver profile; leaving it restores the profile from
     // before. It never enables suspend: Doze is the low-power path.
-    fn set_power_save_mode(mut self: Pin<&mut Self>, enabled: bool) {
+    fn save_mode(mut self: Pin<&mut Self>, enabled: bool) {
         if self.is_power_save_mode == enabled {
             return;
         }
@@ -298,10 +381,6 @@ impl Power {
         self.as_mut().rust_mut().is_power_save_mode = enabled;
         self.is_power_save_mode_changed();
         state_changed();
-    }
-
-    fn set_power_profile(&self, profile: &QString) {
-        self.request_profile(&profile.to_string());
     }
 
     fn request_profile(&self, profile: &str) {
@@ -463,7 +542,58 @@ impl Power {
         if state(&self) != before {
             state_changed();
         }
-        self.warn_battery();
+        self.as_mut().warn_battery();
+        let charged = plugged_in && (battery.state == 4 || level >= 100);
+        self.as_mut().rust_mut().charged = charged;
+        self.auto_profile();
+    }
+
+    /// Saver at low battery off the charger, performance while full on it
+    /// with the screen on (performance pins the clocks at their top); each is
+    /// undone when its reason ends, unless a choice by hand came between.
+    fn auto_profile(mut self: Pin<&mut Self>) {
+        if !self.power_profiles_supported || !measurement::known(self.battery_level) {
+            return;
+        }
+        let (level, plugged) = (self.battery_level, self.is_plugged_in);
+        let low = !plugged && level <= AUTO_SAVER_AT;
+        match self.auto {
+            Some(Auto::Saver) if plugged => {
+                self.as_mut().set_auto(None);
+                self.as_mut().save_mode(false);
+            }
+            Some(Auto::Performance) if !self.charged || !display::screen_on() => {
+                self.as_mut().set_auto(None);
+                self.request_profile("balanced");
+            }
+            None if low && !self.saver_spent && !self.is_power_save_mode => {
+                self.as_mut().set_auto(Some(Auto::Saver));
+                self.as_mut().save_mode(true);
+                self.as_mut().battery_warning(
+                    &QString::from(&fl!("battery-saver-auto-title")),
+                    &QString::from(&fl!("battery-saver-auto-body", level = level)),
+                    &QString::from("leaf"),
+                    1,
+                );
+            }
+            None if self.charged
+                && display::screen_on()
+                && self.power_profile.to_string() == "balanced" =>
+            {
+                self.as_mut().set_auto(Some(Auto::Performance));
+                self.request_profile("performance");
+            }
+            _ => {}
+        }
+        let spent = low || (self.saver_spent && !plugged);
+        self.as_mut().rust_mut().saver_spent = spent;
+    }
+
+    fn set_auto(mut self: Pin<&mut Self>, auto: Option<Auto>) {
+        if self.auto != auto {
+            self.as_mut().rust_mut().auto = auto;
+            Auto::store(auto);
+        }
     }
 
     fn apply_profile(mut self: Pin<&mut Self>, profile: &str) {
@@ -816,12 +946,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     actor.lifelong = actor.inhibit("marathon-shell", "Handle wake events").await;
     actor.read_critical_action(&qt).await;
     actor.read_battery(&qt).await;
-    // tuned-ppd is deliberately delayed until after the interactive boot.
-    // Merely reading its property would D-Bus-activate tuned here and put its
-    // expensive Python startup back on the shell's critical path.
-    if actor.profile_service_running().await {
-        actor.read_profile(&qt).await;
-    }
+    actor.read_profile(&qt).await;
 
     let events = commands
         .map(Event::Command)
@@ -860,16 +985,6 @@ fn queue_profile(qt: &Qt, profile: String) {
 }
 
 impl Actor {
-    async fn profile_service_running(&self) -> bool {
-        let Ok(dbus) = DBusProxy::new(&self.bus).await else {
-            return false;
-        };
-        let Ok(name) = PROFILES.try_into() else {
-            return false;
-        };
-        dbus.name_has_owner(name).await.unwrap_or(false)
-    }
-
     async fn inhibit(&self, who: &str, why: &str) -> Option<OwnedFd> {
         match self.logind.inhibit("sleep", who, why, "delay").await {
             Ok(fd) => Some(fd),
@@ -1442,8 +1557,11 @@ pub(crate) fn hold_wakelock(name: &'static str, time: std::time::Duration) {
 /// Power1's state moved: the battery, the profile or the screen.
 pub(crate) fn state_changed() {
     if let Some(qt) = POWER.get() {
-        qt.queue(|obj| ipc::signal("Power", "StateChanged", (state(&obj),)))
-            .ok();
+        qt.queue(|obj| {
+            ipc::signal("Power", "StateChanged", (state(&obj),));
+            obj.auto_profile();
+        })
+        .ok();
     }
 }
 

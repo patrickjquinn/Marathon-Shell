@@ -120,9 +120,10 @@ Item {
 
                 MouseArea {
                     id: trackHit
-                    anchors.fill: track
-                    anchors.topMargin: -16
-                    anchors.bottomMargin: -16
+                    // The slider's whole row, and at least the 7 mm minimum.
+                    anchors.fill: parent
+                    anchors.topMargin: -(Math.max(trackHost.height, Constants.touchTargetMinimum) - track.height) / 2
+                    anchors.bottomMargin: anchors.topMargin
                     // Undecided until the finger passes the drag threshold:
                     // sideways locks the slider against the shade's Flickable
                     // and dismiss drag, vertical leaves the gesture to them.

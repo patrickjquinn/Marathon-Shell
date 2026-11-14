@@ -200,8 +200,7 @@ static APPS_ORDER: LazyLock<RwLock<Vec<App>>> = LazyLock::new(RwLock::default);
 fn text(map: &QMap<QMapPair_QString_QVariant>, key: &str) -> String {
     map.get(&QString::from(key))
         .and_then(|v| v.value::<QString>())
-        .map(|s| s.to_string())
-        .unwrap_or_default()
+        .map_or_default(|s| s.to_string())
 }
 
 fn list(map: &QMap<QMapPair_QString_QVariant>, key: &str) -> Vec<String> {
@@ -214,15 +213,12 @@ fn list(map: &QMap<QMapPair_QString_QVariant>, key: &str) -> Vec<String> {
             .map(ToString::to_string)
             .collect();
     }
-    value
-        .value::<QList<QVariant>>()
-        .map(|l| {
-            l.iter()
-                .filter_map(QVariant::value::<QString>)
-                .map(|s| s.to_string())
-                .collect()
-        })
-        .unwrap_or_default()
+    value.value::<QList<QVariant>>().map_or_default(|l| {
+        l.iter()
+            .filter_map(QVariant::value::<QString>)
+            .map(|s| s.to_string())
+            .collect()
+    })
 }
 
 fn map_of(value: &QVariant) -> Option<QMap<QMapPair_QString_QVariant>> {
@@ -373,19 +369,14 @@ impl Apps {
 
     fn find_by_id(&self, app_id: &QString) -> QMap<QMapPair_QString_QVariant> {
         let id = app_id.to_string();
-        self.apps
-            .iter()
-            .find(|a| a.id == id)
-            .map(to_map)
-            .unwrap_or_default()
+        self.apps.iter().find(|a| a.id == id).map_or_default(to_map)
     }
 
     fn get_app_at_index(&self, index: i32) -> QMap<QMapPair_QString_QVariant> {
         usize::try_from(index)
             .ok()
             .and_then(|i| self.apps.get(i))
-            .map(to_map)
-            .unwrap_or_default()
+            .map_or_default(to_map)
     }
 
     fn app_ids_by_type(&self, kind: &QString) -> QStringList {
@@ -425,8 +416,7 @@ impl Apps {
     fn get_app(&self, app_id: &QString) -> QMap<QMapPair_QString_QVariant> {
         manifest(&app_id.to_string())
             .as_ref()
-            .map(manifest_map)
-            .unwrap_or_default()
+            .map_or_default(manifest_map)
     }
 
     #[allow(clippy::unused_self, reason = "a QML invokable")]

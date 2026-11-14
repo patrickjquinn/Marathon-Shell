@@ -93,9 +93,7 @@ impl Accounts {
             .ok()
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_else(|| {
-                fs::read_to_string(shell_settings)
-                    .map(|ini| from_shell_settings(&ini))
-                    .unwrap_or_default()
+                fs::read_to_string(shell_settings).map_or_default(|ini| from_shell_settings(&ini))
             });
         let mut accounts = Self {
             file,

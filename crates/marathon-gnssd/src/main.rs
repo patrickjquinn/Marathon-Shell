@@ -449,8 +449,7 @@ impl Engine {
                 let samples = fix
                     .as_ref()
                     .filter(|f| f.hdop < 2.0 && f.redundancy >= 2)
-                    .map(|f| self.slot_samples(&obs, t, &f.ecef))
-                    .unwrap_or_default();
+                    .map_or_default(|f| self.slot_samples(&obs, t, &f.ecef));
                 // The height measured without the height constraint.
                 let free = fix
                     .as_ref()
@@ -1161,14 +1160,13 @@ fn new_engine(
         d1: HashMap::new(),
         iono: None,
         filter: Filter::default(),
-        almanac: state.as_deref().map(load_almanac).unwrap_or_default(),
+        almanac: state.as_deref().map_or_default(load_almanac),
         searching: String::new(),
         tsx: None,
         clock: state
             .as_deref()
             .and_then(|p| std::fs::read_to_string(format!("{p}.clk")).ok())
-            .map(|s| clock::Model::from_lines(&s))
-            .unwrap_or_default(),
+            .map_or_default(|s| clock::Model::from_lines(&s)),
         clock_saved: 0.0,
         clock_learnt: 0.0,
         doppler: None,

@@ -132,6 +132,7 @@ class WaylandCompositor : public QWaylandCompositor {
     // if the app showed no change (docs/NATIVE_APP_LIFECYCLE.md).
     Q_INVOKABLE void sendNativeBack(int surfaceId, bool keelHosted);
     Q_INVOKABLE void sendNativeForward(int surfaceId, bool keelHosted);
+    Q_INVOKABLE void sendNativeScrollToTop(int surfaceId);
     // The pill's back drag over a marathon_surface_v1 window, at a point in
     // scene coordinates; endBackGesture cancels it unless back went out.
     Q_INVOKABLE void sendBackProgress(int surfaceId, qreal progress, const QPointF &scenePosition);
@@ -183,6 +184,8 @@ class WaylandCompositor : public QWaylandCompositor {
     void systemCallTriggered();
     void systemEndTriggered();
     void systemSwitcherTriggered();
+    // A Super shortcut: search, switcher, lock, quicksettings, close, keyboard.
+    void systemShortcut(const QString &name);
     void systemHangupTriggered();
     void userActivity();
     void keyPressed();
@@ -331,6 +334,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QElapsedTimer           m_frameClock;
     QElapsedTimer           m_lastUserInput;
     QElapsedTimer           m_activityEmitted;
+    bool                    m_superShortcut = false;
     QElapsedTimer           m_keyboardFocusSince;
     QStringList             m_secureApps;
     QTimer                  m_hiddenFrameTimer;
@@ -362,7 +366,7 @@ class WaylandCompositor : public QWaylandCompositor {
     bool            m_simpleDozeDetached = false;
     bool            m_simpleDrmQualified = false;
     bool            setSimpleDrmPowerState(bool on);
-    void            releaseSimpleDozeState(SimpleDozeState &state);
+    void            releaseSimpleDozeState(SimpleDozeState &state) const;
 };
 
 #endif

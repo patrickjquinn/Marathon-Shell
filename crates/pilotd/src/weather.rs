@@ -111,25 +111,28 @@ fn weekday(date: &str) -> Option<&'static str> {
     )
 }
 
-/// The units a forecast is given in: metric, or (the United States,
-/// Liberia and Myanmar) Fahrenheit, mph and inches.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The units a forecast is given in, as Settings resolves them: °F with
+/// inches of rain, and mph.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Units {
-    pub imperial: bool,
+    pub fahrenheit: bool,
+    pub miles_per_hour: bool,
 }
 
 impl Units {
-    pub fn for_locale(locale: &crate::lang::Locale) -> Units {
+    pub fn current() -> Units {
+        let units = marathon_rt::units::Units::current();
         Units {
-            imperial: locale.imperial(),
+            fahrenheit: units.fahrenheit,
+            miles_per_hour: units.miles_per_hour,
         }
     }
 
     /// `name` with its unit: `temp` -> `temp_c` or `temp_f`.
     fn key(self, name: &str) -> String {
-        let unit = match (name, self.imperial) {
-            ("wind", false) => "kmh",
-            ("wind", true) => "mph",
+        let unit = match (name, self.fahrenheit) {
+            ("wind", _) if self.miles_per_hour => "mph",
+            ("wind", _) => "kmh",
             ("rain", false) => "mm",
             ("rain", true) => "in",
             (_, false) => "c",
@@ -139,7 +142,7 @@ impl Units {
     }
 
     fn temp(self, celsius: f64) -> f64 {
-        if self.imperial {
+        if self.fahrenheit {
             celsius * 1.8 + 32.0
         } else {
             celsius
@@ -148,11 +151,11 @@ impl Units {
 
     /// From the service's metres per second.
     fn wind(self, metres_per_second: f64) -> f64 {
-        metres_per_second * if self.imperial { 2.236_94 } else { 3.6 }
+        metres_per_second * if self.miles_per_hour { 2.236_94 } else { 3.6 }
     }
 
     fn rain(self, millimetres: f64) -> f64 {
-        if self.imperial {
+        if self.fahrenheit {
             millimetres / 25.4
         } else {
             millimetres
@@ -160,7 +163,7 @@ impl Units {
     }
 
     fn degree(self) -> &'static str {
-        if self.imperial {
+        if self.fahrenheit {
             "°F"
         } else {
             "°C"
@@ -200,28 +203,24 @@ pub fn summarise(place: &str, f: &Value, units: Units, days: usize) -> (Value, S
     now[k("temp")] = json!(num(cur, "temperature").map(|t| round1(units.temp(t))));
     now[k("feels_like")] = json!(num(cur, "apparent").map(|t| round1(units.temp(t))));
     now[k("wind")] = json!(num(cur, "wind_speed").map(|w| round1(units.wind(w))));
-    let hours: Vec<Value> = f["hourly"]
-        .as_array()
-        .map(|h| {
-            h.iter()
-                .step_by(3)
-                .take(8)
-                .map(|h| {
-                    let mut out = json!({
-                        "time": h["time"].as_i64().map(|t| clock(t, offset)),
-                        "sky": h["symbol"].as_str().map(sky),
-                        "rain_chance_pct": h.get("precipitation_probability"),
-                    });
-                    out[k("temp")] = json!(num(h, "temperature").map(|t| round1(units.temp(t))));
-                    out
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let hours: Vec<Value> = f["hourly"].as_array().map_or_default(|h| {
+        h.iter()
+            .step_by(3)
+            .take(8)
+            .map(|h| {
+                let mut out = json!({
+                    "time": h["time"].as_i64().map(|t| clock(t, offset)),
+                    "sky": h["symbol"].as_str().map(sky),
+                    "rain_chance_pct": h.get("precipitation_probability"),
+                });
+                out[k("temp")] = json!(num(h, "temperature").map(|t| round1(units.temp(t))));
+                out
+            })
+            .collect()
+    });
     let daily: Vec<&Value> = f["daily"]
         .as_array()
-        .map(|d| d.iter().take(days.max(WEEK)).collect())
-        .unwrap_or_default();
+        .map_or_default(|d| d.iter().take(days.max(WEEK)).collect());
     let day_rows: Vec<Value> = daily
         .iter()
         .map(|d| {
@@ -290,7 +289,7 @@ fn answer(place: &str, f: &Value, units: Units, days: usize) -> String {
             _ if rain >= 0.2 => format!(
                 "{} {} of rain",
                 round1(units.rain(rain)),
-                if units.imperial { "in" } else { "mm" }
+                if units.fahrenheit { "in" } else { "mm" }
             ),
             _ => "dry".into(),
         });
@@ -323,7 +322,7 @@ impl ToolExecutor for Weather {
             .and_then(Value::as_u64)
             .unwrap_or(3)
             .clamp(1, 10);
-        let units = Units::for_locale(&crate::lang::current());
+        let units = Units::current();
         let weather = service().await?;
         let failed = |e: zbus::Error| ToolError::Failed(format!("the weather service: {e}"));
         let (place, forecast) = match asked {
@@ -393,7 +392,7 @@ mod tests {
                       {"date": "2026-10-31", "high": 14.2, "low": 7.9, "precipitation": 0.0,
                        "precipitation_probability": 60, "symbol": "cloudy"}]
         });
-        let (data, words) = summarise("Dublin", &f, Units { imperial: false }, 3);
+        let (data, words) = summarise("Dublin", &f, Units::default(), 3);
         assert_eq!(
             words,
             "Dublin: 14°C and partly cloudy now, feels like 10°C. Today partly cloudy, 11 to 15°C, \
@@ -403,7 +402,15 @@ mod tests {
         assert_eq!(data["now"]["wind_kmh"], json!(17.6));
         assert_eq!(data["next_24_hours"][0]["sky"], "light rain showers");
         assert_eq!(data["days"][2]["day"], "Saturday");
-        let (us, words) = summarise("Boston", &f, Units { imperial: true }, 1);
+        let (us, words) = summarise(
+            "Boston",
+            &f,
+            Units {
+                fahrenheit: true,
+                miles_per_hour: true,
+            },
+            1,
+        );
         assert!(words.starts_with("Boston: 57°F"));
         assert_eq!(us["now"]["wind_mph"], json!(11.0));
         assert_eq!(weekday("2024-02-29"), Some("Thursday"));

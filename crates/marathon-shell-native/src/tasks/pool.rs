@@ -255,8 +255,7 @@ impl Tasks {
                     key,
                     value
                         .value::<QString>()
-                        .map(|v| v.to_string())
-                        .unwrap_or_default()
+                        .map_or_default(|v| v.to_string())
                         .into(),
                 );
             }

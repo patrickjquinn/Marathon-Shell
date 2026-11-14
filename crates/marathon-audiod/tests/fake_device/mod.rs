@@ -181,7 +181,7 @@ impl Card {
         if device != Some(ROUTE_DEVICE) || !self.active {
             return -EINVAL;
         }
-        for p in props.map(|o| o.properties).unwrap_or_default() {
+        for p in props.map_or_default(|o| o.properties) {
             match (p.key, p.value) {
                 (spa::SPA_PROP_channelVolumes, Value::ValueArray(ValueArray::Float(v)))
                     if !v.is_empty() =>

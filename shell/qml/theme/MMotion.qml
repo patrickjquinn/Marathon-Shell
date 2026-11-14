@@ -67,9 +67,11 @@ QtObject {
     //             and opacity must never ring (a button bg that
     //             overshoots to a darker shade looks broken).
     //
-    // Qt's `damping` units don't strictly map to the dimensionless
-    // ratio (it's also acceleration-flavoured), so these are
-    // calibrated for Qt SpringAnimation by feel.
+    // Qt's `damping` is not that ratio: higher only means slower.
+    // Measured 0→1 (Qt 6.11): stiffness 2.0 with damping 0.35 settles
+    // with no overshoot, 4.0 needs 0.5; damping 1.0 at stiffness 1.0
+    // is only 78% of the way after 1.5 s. Everyday UI must not
+    // overshoot; check a new pairing before using it.
     readonly property real dampingCritical: 1.0
     readonly property real dampingUnderdamped: 0.5
     readonly property real dampingOverdamped: 1.4
@@ -118,6 +120,11 @@ QtObject {
     readonly property int staggerShort: 50
     // The home screen building in as setup hands over.
     readonly property int staggerHome: 30
+    // A cascade's last item starts within this, however long the list.
+    readonly property int staggerCap: 200
+    function stagger(index, step) {
+        return reduceMotion ? 0 : Math.min(index * step, staggerCap);
+    }
 
     readonly property int rippleDuration: slow
     readonly property real rippleMaxRadius: 2.5
@@ -149,6 +156,14 @@ QtObject {
 
     function dur(token) {
         return reduceMotion ? micro : token;
+    }
+    // Reduce motion removes travel and scale and keeps short fades.
+    readonly property int reducedFade: 150
+    function travel(px) {
+        return reduceMotion ? 0 : px;
+    }
+    function startScale(s) {
+        return reduceMotion ? 1 : s;
     }
 
     // ── Role-based motion API ─────────────────────────────────
@@ -399,6 +414,11 @@ QtObject {
     }
     function easingFor(role) {
         return reduceMotion ? Easing.OutQuad : _role(role).easing;
+    }
+    // Leaving needs less attention than arriving: exits run 20% shorter.
+    readonly property real exitFactor: 0.8
+    function exitDurationFor(role) {
+        return Math.round(durationFor(role) * exitFactor);
     }
     function easingCurveFor(role) {
         return _role(role).curve;

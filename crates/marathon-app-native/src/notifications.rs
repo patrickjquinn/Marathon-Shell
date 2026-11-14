@@ -124,8 +124,7 @@ impl cxx_qt::Initialize for Notifications {
                 let member = message
                     .header()
                     .member()
-                    .map(ToString::to_string)
-                    .unwrap_or_default();
+                    .map_or_default(ToString::to_string);
                 let body = message.body();
                 if member == "NotificationClosed" {
                     if let Ok((id, reason)) = body.deserialize::<(u32, u32)>() {
@@ -158,18 +157,16 @@ impl Notifications {
         let text = |key: &str| {
             option(key)
                 .and_then(|v| v.value::<QString>())
-                .map(|v| v.to_string())
-                .unwrap_or_default()
+                .map_or_default(|v| v.to_string())
         };
         let actions: Vec<String> = option("actions")
             .and_then(|v| v.value::<cxx_qt_lib::QList<QVariant>>())
-            .map(|list| {
+            .map_or_default(|list| {
                 list.iter()
                     .filter_map(QVariant::value::<QString>)
                     .flat_map(|a| [a.to_string(), a.to_string()])
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         let mut hints: HashMap<&str, Value<'_>> = HashMap::new();
         if option("category").is_some() {
             hints.insert("category", Value::from(text("category")));

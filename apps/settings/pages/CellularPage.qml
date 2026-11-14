@@ -11,6 +11,9 @@ Page {
 
     readonly property bool ready: Modem.available && Modem.simPresent
 
+    onStatusChanged: if (status === PageStatus.Active && ready)
+        Modem.loadApn()
+
     SilicaFlickable {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
@@ -59,6 +62,36 @@ Page {
                             text: Logic.networkModeTitle(modelData)
                             onClicked: Modem.setAllowedModes(modelData)
                         }
+                    }
+                }
+            }
+            ListItem {
+                id: apnEntry
+
+                readonly property string subtitle: Modem.apn !== "" ? (Modem.customApn !== "" ? Modem.apn : qsTr("%1 (automatic)").arg(Modem.apn)) : qsTr("Automatic")
+
+                objectName: "apnEntry"
+                visible: page.ready
+                contentHeight: Theme.itemSizeMedium
+                Accessible.name: qsTr("Access point (APN)") + ", " + subtitle
+                onClicked: pageStack.push(Qt.resolvedUrl("ApnPage.qml"))
+
+                Column {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Label {
+                        width: parent.width
+                        text: qsTr("Access point (APN)")
+                        color: apnEntry.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    }
+                    Label {
+                        width: parent.width
+                        text: apnEntry.subtitle
+                        truncationMode: TruncationMode.Fade
+                        font.pixelSize: Theme.fontSizeExtraSmall
+                        color: apnEntry.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
                     }
                 }
             }

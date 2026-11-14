@@ -232,8 +232,7 @@ impl Sms {
             let name = field("name").filter(|n| !n.is_empty()).unwrap_or_else(|| {
                 Path::new(&path)
                     .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default()
+                    .map_or_default(|n| n.to_string_lossy().into_owned())
             });
             kinds.push((field("contentType").unwrap_or_default(), name));
             files.push(file);

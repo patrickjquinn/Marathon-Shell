@@ -2013,7 +2013,11 @@ void WaylandCompositor::setCompositorActive(bool active) {
             ++m_activeSeq;
             suspendCompositor();
         };
-        connect(m_window, &QQuickWindow::frameSwapped, this, suspend, Qt::SingleShotConnection);
+        // frameSwapped is the flip queued, not shown: the doze keeps whatever
+        // is scanned out, so wait two vblanks for the new frame to land.
+        connect(
+            m_window, &QQuickWindow::frameSwapped, this,
+            [this, suspend] { QTimer::singleShot(30, this, suspend); }, Qt::SingleShotConnection);
         QTimer::singleShot(150, this, suspend);
         m_window->update();
         return;
@@ -2202,7 +2206,7 @@ bool WaylandCompositor::initAtomicDisplay() {
 // before ACTIVE=0, and restored to ACTIVE=1 before render resumes —
 // callers in setCompositorActive guarantee that ordering.
 
-void WaylandCompositor::releaseSimpleDozeState(SimpleDozeState &state) {
+void WaylandCompositor::releaseSimpleDozeState(SimpleDozeState &state) const {
     for (uint32_t fb : std::as_const(state.framebuffers))
         drmModeRmFB(m_driFd, fb);
     if (state.modeBlob)
@@ -2586,6 +2590,14 @@ void WaylandCompositor::sendNativeForward(int surfaceId, bool keelHosted) {
         sendKeyTo(surface, Qt::Key_Forward, Qt::NoModifier);
 }
 
+// Ctrl+Home: the top in GTK's scrolled windows and web pages; Android's
+// ScrollView takes it as MOVE_HOME.
+void WaylandCompositor::sendNativeScrollToTop(int surfaceId) {
+    QWaylandSurface *surface = m_surfaceMap.value(surfaceId);
+    if (surface && surface->client())
+        sendKeyTo(surface, Qt::Key_Home, Qt::ControlModifier);
+}
+
 // Wayland has no reply to a key: back counts as handled once the app shows a
 // change, and as unhandled if the watch window passes without one.
 void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId,
@@ -2895,6 +2907,26 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
                               select->device());
             QCoreApplication::sendEvent(watched, &enter);
             return true;
+        }
+        if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
+            const auto *keyEvent = static_cast<QKeyEvent *>(event);
+            const int   key      = keyEvent->key();
+            const bool  super =
+                key == Qt::Key_Super_L || key == Qt::Key_Super_R || key == Qt::Key_Meta;
+            if (!super && (keyEvent->modifiers() & Qt::MetaModifier)) {
+                const QString shortcut = KeyRouting::superShortcut(key);
+                if (!shortcut.isEmpty()) {
+                    m_superShortcut = true;
+                    if (type == QEvent::KeyPress && !keyEvent->isAutoRepeat())
+                        emit systemShortcut(shortcut);
+                    return true;
+                }
+            }
+            // Super alone is home; Super that held a shortcut is not.
+            if (super && type == QEvent::KeyPress && !keyEvent->isAutoRepeat())
+                m_superShortcut = false;
+            if (super && type == QEvent::KeyRelease && m_superShortcut)
+                return true;
         }
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             const auto              *keyEvent = static_cast<QKeyEvent *>(event);

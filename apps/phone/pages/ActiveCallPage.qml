@@ -80,6 +80,10 @@ Page {
             color: Theme.highlightColor
             font.pixelSize: Theme.fontSizeHuge
             font.weight: Font.ExtraLight
+            // The call timer ticks: figures of one width keep it still.
+            font.features: ({
+                    "tnum": 1
+                })
             Accessible.name: root.connected || root.endedAt > 0 ? qsTr("Call duration %1").arg(text) : text
         }
         Label {

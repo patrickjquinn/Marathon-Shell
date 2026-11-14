@@ -1,0 +1,109 @@
+#!/bin/sh
+# What the USB port offers a computer (the shell's USB notification).
+# Run as root, through pkexec.
+#
+#   charging      nothing: the gadget is unbound and the phone only charges
+#   files         file transfer (MTP) of the user's home, umtprd over
+#                 FunctionFS; its files stay hidden until "unlock"
+#   developer     the image's USB network (pmOS's g1 gadget)
+#   lock, unlock  hide or show the files during file transfer
+#
+# Exit status: 0 done, 2 usage, 1 any other failure.
+set -u
+
+g=/sys/kernel/config/usb_gadget/g1
+ffs=/run/marathon/usb-mtp
+conf=/run/marathon/umtprd.conf
+unit=marathon-usb-mtp
+ids=/run/marathon/usb-ids
+
+die() {
+	echo "marathon-usb-mode: $2" >&2
+	exit "$1"
+}
+
+case "${1:-}" in
+lock | unlock)
+	systemctl -q is-active "$unit" || exit 0
+	exec umtprd -cmd:"$1"
+	;;
+charging | files | developer) mode=$1 ;;
+*) die 2 "usage: marathon-usb-mode charging|files|developer|lock|unlock" ;;
+esac
+[ -d "$g/configs/c.1" ] || die 1 "no USB gadget"
+
+echo "" >"$g/UDC" 2>/dev/null
+for link in "$g"/configs/c.1/*; do
+	[ -L "$link" ] && rm -f "$link"
+done
+systemctl stop "$unit" 2>/dev/null
+mountpoint -q "$ffs" && umount "$ffs"
+# A FunctionFS instance is not reused: each file transfer starts afresh.
+[ -d "$g/functions/ffs.mtp" ] && rmdir "$g/functions/ffs.mtp"
+# File transfer has its own ids, so a computer doesn't take it for the
+# network device it has seen under the image's (libmtp has quirks for some).
+mkdir -p /run/marathon
+[ -e "$ids" ] || echo "$(cat "$g/idVendor") $(cat "$g/idProduct")" >"$ids"
+read -r vendor product <"$ids"
+echo "$vendor" >"$g/idVendor"
+echo "$product" >"$g/idProduct"
+
+case $mode in
+charging)
+	exit 0
+	;;
+developer)
+	for f in "$g"/functions/*; do
+		case ${f##*/} in ffs.*) continue ;; esac
+		ln -s "$f" "$g/configs/c.1/"
+	done
+	;;
+files)
+	command -v umtprd >/dev/null || die 1 "umtprd is not installed"
+	IFS=: read -r _ _ uid gid _ home _ <<-EOF
+		$(getent passwd "${PKEXEC_UID:-1000}")
+	EOF
+	[ -d "${home:-}" ] || die 1 "no home for uid ${PKEXEC_UID:-1000}"
+	modprobe usb_f_fs 2>/dev/null
+	mkdir -p "$g/functions/ffs.mtp" "$ffs" || die 1 "cannot create the MTP function"
+	echo 0x1d6b >"$g/idVendor"
+	echo 0x0100 >"$g/idProduct"
+	ln -s "$g/functions/ffs.mtp" "$g/configs/c.1/"
+	mount -t functionfs mtp "$ffs" || die 1 "cannot mount FunctionFS"
+	product=$(cat "$g/strings/0x409/product" 2>/dev/null)
+	cat >"$conf" <<-EOF
+		loop_on_disconnect 1
+		show_hidden_files 0x0
+		no_inotify 0x1
+		storage "$home" "Internal storage" "rw,locked,uid=$uid,gid=$gid"
+		manufacturer "Marathon OS"
+		product "${product:-Marathon OS}"
+		serial "$(cat "$g/strings/0x409/serialnumber" 2>/dev/null)"
+		firmware_version "1.0"
+		interface "MTP"
+		usb_functionfs_mode 0x1
+		usb_dev_path "$ffs/ep0"
+		usb_epin_path "$ffs/ep1"
+		usb_epout_path "$ffs/ep2"
+		usb_epint_path "$ffs/ep3"
+		usb_max_packet_size 0x200
+	EOF
+	systemd-run -q --unit="$unit" --collect umtprd -conf "$conf" ||
+		die 1 "cannot start umtprd"
+	# Its endpoints appear once it has written the descriptors; the UDC
+	# binds only after.
+	tries=50
+	until [ -e "$ffs/ep1" ]; do
+		tries=$((tries - 1))
+		[ "$tries" -gt 0 ] || die 1 "umtprd did not set up the endpoints"
+		sleep 0.1
+	done
+	sleep 0.5
+	;;
+esac
+
+set -- /sys/class/udc/*
+udc=${1##*/}
+echo "$udc" >"$g/UDC" || die 1 "cannot bind ${udc:-a UDC}"
+[ "$mode" = files ] && umtprd -cmd:unlock >/dev/null
+exit 0

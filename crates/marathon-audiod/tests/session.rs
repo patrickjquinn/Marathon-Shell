@@ -262,8 +262,7 @@ impl Session {
     /// The level wpctl shows for the node named `name`.
     fn volume_of(&self, name: &str) -> String {
         self.node_id(name)
-            .map(|id| self.wpctl_volume(&id.to_string()))
-            .unwrap_or_default()
+            .map_or_default(|id| self.wpctl_volume(&id.to_string()))
     }
 
     /// The nodes the node named `name` plays into.

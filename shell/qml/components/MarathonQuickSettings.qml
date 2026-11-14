@@ -62,6 +62,12 @@ Item {
     // The drawn height: follows UIStore while a finger drags the shade and
     // springs to each new height from the release velocity.
     readonly property alias drawnHeight: shadeDrag.value
+    property bool captureWhenClosed: false
+
+    onDrawnHeightChanged: if (captureWhenClosed && drawnHeight <= 0) {
+        captureWhenClosed = false;
+        Qt.callLater(SystemControlStore.captureScreenshot);
+    }
     readonly property alias tracker: shadeDrag
 
     // A drag always comes to rest shut or fully open.
@@ -122,7 +128,8 @@ Item {
         onActiveChanged: {
             if (active) {
                 startY = centroid.position.y;
-                startHeight = UIStore.quickSettingsHeight;
+                // From where the shade is drawn: a settle in flight is caught, not skipped.
+                startHeight = quickSettings.drawnHeight;
                 UIStore.quickSettingsDragging = true;
             } else {
                 UIStore.quickSettingsDragging = false;
@@ -166,7 +173,7 @@ Item {
                 id: "wifi",
                 icon: "wifi-high",
                 label: qsTr("Wi-Fi"),
-                on: SystemControlStore.isWifiOn
+                on: SystemControlStore.shown("wifi", SystemControlStore.isWifiOn)
             }
         ];
         if (Modem.modemAvailable)
@@ -174,18 +181,18 @@ Item {
                 id: "cellular",
                 icon: "cell-signal-high",
                 label: qsTr("Mobile"),
-                on: SystemControlStore.isCellularDataOn
+                on: SystemControlStore.shown("cellular", SystemControlStore.isCellularDataOn)
             });
         t.push({
             id: "bluetooth",
             icon: "bluetooth",
             label: qsTr("Bluetooth"),
-            on: SystemControlStore.isBluetoothOn
+            on: SystemControlStore.shown("bluetooth", SystemControlStore.isBluetoothOn)
         }, {
             id: "airplane",
             icon: "airplane-tilt",
             label: qsTr("Flight"),
-            on: SystemControlStore.isAirplaneModeOn
+            on: SystemControlStore.shown("airplane", SystemControlStore.isAirplaneModeOn)
         }, {
             id: "dnd",
             icon: "bell-slash",
@@ -208,7 +215,7 @@ Item {
             id: "hotspot",
             icon: "broadcast",
             label: qsTr("Hotspot"),
-            on: SystemControlStore.isHotspotOn
+            on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
         }, {
             id: "nightlight",
             icon: "moon",
@@ -235,6 +242,13 @@ Item {
             label: qsTr("Saver"),
             on: SystemControlStore.isLowPowerMode
         });
+        if (typeof TrackpadInput !== "undefined" && TrackpadInput.available)
+            t.push({
+                id: "trackpad",
+                icon: "cursor",
+                label: qsTr("Pointer"),
+                on: SettingsManagerCpp.trackpadMode === "mouse"
+            });
         if (HapticManager.available)
             t.push({
                 id: "vibration",
@@ -473,7 +487,7 @@ Item {
 
             Column {
                 width: parent.width
-                visible: quickSettings.hotspotDetailsShown
+                visible: quickSettings.hotspotDetailsShown && !SessionStore.isLocked
 
                 Silica.DetailItem {
                     leftMargin: 0
@@ -604,6 +618,9 @@ Item {
         case "vibration":
             SystemControlStore.toggleVibration();
             break;
+        case "trackpad":
+            SettingsManagerCpp.trackpadMode = SettingsManagerCpp.trackpadMode === "mouse" ? "gesture" : "mouse";
+            break;
         case "settings":
             quickSettings.closed();
             quickSettings.launchApp({
@@ -615,7 +632,8 @@ Item {
     }
 
     function hold(id) {
-        if (id !== "hotspot")
+        // The hotspot's details show its password: not over the lock screen.
+        if (id !== "hotspot" || SessionStore.isLocked)
             return;
         MHaptics.light();
         SystemControlStore.ensureHotspotCredentials();
@@ -632,9 +650,9 @@ Item {
         }
         switch (id) {
         case "screenshot":
-            // Dismiss first so the shade isn't in the capture.
+            // Captured once the shade has closed, so it isn't in the picture.
+            quickSettings.captureWhenClosed = true;
             quickSettings.closed();
-            SystemControlStore.captureScreenshot();
             break;
         case "power":
             quickSettings.closed();

@@ -1,0 +1,17 @@
+[Unit]
+Description=Marathon power profiles (the CPU governor)
+Conflicts=tuned.service tuned-ppd.service power-profiles-daemon.service
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.UPower.PowerProfiles
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-power-profiles
+StateDirectory=marathon-power-profiles
+Restart=on-failure
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

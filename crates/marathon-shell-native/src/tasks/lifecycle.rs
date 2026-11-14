@@ -173,8 +173,7 @@ impl Tasks {
         let text = |k: &str| {
             info.get(&q(k))
                 .and_then(|v| v.value::<QString>())
-                .map(|s| s.to_string())
-                .unwrap_or_default()
+                .map_or_default(|s| s.to_string())
         };
         let instance = Instance {
             name: text("appName"),
@@ -357,6 +356,22 @@ impl Tasks {
         true
     }
 
+    pub(super) fn handle_system_scroll_to_top(mut self: Pin<&mut Self>) -> bool {
+        let front = self.lifecycle.foreground.clone();
+        if front.is_empty() {
+            return false;
+        }
+        if Self::is_marathon_app(&front) || self.is_keel_host(&front) {
+            dbus::runner(&front, "ScrollToTop", ());
+            return true;
+        }
+        let Some(surface) = self.native_surface(&front) else {
+            return false;
+        };
+        self.as_mut().native_scroll_to_top_requested(surface);
+        true
+    }
+
     pub(super) fn native_back_unhandled(mut self: Pin<&mut Self>, surface_id: i32) {
         let front = self.lifecycle.foreground.clone();
         if self.native_surface(&front) == Some(surface_id) {
@@ -437,8 +452,7 @@ impl Tasks {
             .lifecycle
             .apps
             .get(app_id)
-            .map(|a| a.capabilities.iter().cloned().collect())
-            .unwrap_or_default();
+            .map_or_default(|a| a.capabilities.iter().cloned().collect());
         caps.sort();
         caps
     }

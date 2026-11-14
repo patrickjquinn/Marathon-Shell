@@ -193,8 +193,7 @@ pub fn sign_in(
         }
     };
     let query: HashMap<String, String> = Url::parse(&format!("http://localhost{}", request.url()))
-        .map(|u| u.query_pairs().into_owned().collect())
-        .unwrap_or_default();
+        .map_or_default(|u| u.query_pairs().into_owned().collect());
     request
         .respond(tiny_http::Response::from_string(
             "Marathon Mail is signed in. You can close this page.",

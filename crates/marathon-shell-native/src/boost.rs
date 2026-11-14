@@ -32,9 +32,7 @@ struct Policy {
 }
 
 fn read(dir: &Path, name: &str) -> String {
-    fs::read_to_string(dir.join(name))
-        .map(|s| s.trim().to_owned())
-        .unwrap_or_default()
+    fs::read_to_string(dir.join(name)).map_or_default(|s| s.trim().to_owned())
 }
 
 fn policies() -> Vec<Policy> {

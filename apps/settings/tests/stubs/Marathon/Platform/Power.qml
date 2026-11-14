@@ -11,6 +11,12 @@ QtObject {
     property bool powerProfilesSupported: true
     property bool hasAssistKey: true
     property bool hasTrackpad: true
+    property var chargeHistory: []
+    property var rateHistory: []
+    signal historyChanged
+
+    function loadHistory(hours) {
+    }
 
     function reset() {
         batteryLevel = 80;

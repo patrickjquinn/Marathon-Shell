@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -17,8 +18,16 @@
 int __android_log_print(int prio, const char *tag, const char *fmt, ...)
 {
 	static const char lv[] = "??VDIWEF";
+	/* Info and below (fsd hex-dumps every request) only on request: they
+	 * cost a wakeup's worth of formatting and a journal write each. */
+	static int verbose = -1;
 	va_list ap;
 	int n;
+
+	if (verbose < 0)
+		verbose = getenv("Q25_MODEM_VERBOSE") != NULL;
+	if (prio < ANDROID_LOG_WARN && !verbose)
+		return 0;
 
 	/* systemd-journald maps the <N> prefix to a syslog priority */
 	fprintf(stderr, "<%d>%s %c: ", prio >= ANDROID_LOG_ERROR ? 3 :

@@ -2998,7 +2998,6 @@ name = "keel-actions-schema"
 version = "0.1.0"
 dependencies = [
  "regex",
- "serde",
  "serde_json",
 ]
 
@@ -3320,6 +3319,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-charger"
+version = "0.1.0"
+dependencies = [
+ "evdev",
+ "nix 0.31.3",
+]
+
+[[package]]
 name = "marathon-davd"
 version = "0.1.0"
 dependencies = [
@@ -3426,12 +3433,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-navigator"
+version = "0.1.0"
+dependencies = [
+ "polyline",
+ "serde_json",
+]
+
+[[package]]
 name = "marathon-permissions"
 version = "0.1.0"
 dependencies = [
  "regex",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "marathon-power-profiles"
+version = "0.1.0"
+dependencies = [
+ "zbus 6.1.0",
 ]
 
 [[package]]
@@ -3485,6 +3507,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "image",
+ "inotify",
  "libc",
  "marathon-apps",
  "marathon-i18n",
@@ -3786,6 +3809,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
+ "memoffset",
 ]
 
 [[package]]

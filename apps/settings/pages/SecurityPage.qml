@@ -43,6 +43,45 @@ Page {
         dialog.accepted.connect(() => page.removePin(dialog.password));
     }
 
+    property string comboPending: ""
+
+    Component {
+        id: removeComboDialog
+
+        Dialog {
+            property alias pin: removePin.text
+
+            canAccept: pin.length >= 4
+
+            Column {
+                width: parent.width
+
+                DialogHeader {
+                    acceptText: qsTr("Remove")
+                    title: qsTr("Remove trackpad unlock")
+                }
+                PasswordField {
+                    id: removePin
+
+                    width: parent.width
+                    label: qsTr("Quick PIN")
+                    placeholderText: qsTr("Your quick PIN")
+                    inputMethodHints: Qt.ImhDigitsOnly
+                    focus: true
+                }
+            }
+        }
+    }
+
+    Connections {
+        target: Security
+
+        function onTrackpadComboSaved() {
+            Notices.show(page.comboPending === "removed" ? qsTr("Trackpad unlock removed") : qsTr("Trackpad unlock saved"));
+            page.comboPending = "";
+        }
+    }
+
     Connections {
         target: Security
 
@@ -52,6 +91,11 @@ Page {
             page.pending = "";
         }
         function onAuthenticationFailed(reason) {
+            if (page.comboPending !== "") {
+                page.comboPending = "";
+                Notices.show(reason);
+                return;
+            }
             const was = page.pending;
             page.pending = "";
             if (was === "set")
@@ -132,6 +176,30 @@ Page {
                 text: qsTr("Remove quick PIN")
                 enabled: page.pending === ""
                 onClicked: page.openRemoveDialog()
+            }
+            ActionItem {
+                objectName: "comboItem"
+                visible: Security.hasQuickPIN && Power.hasTrackpad
+                text: Security.hasTrackpadCombo ? qsTr("Change trackpad unlock") : qsTr("Set up trackpad unlock")
+                onClicked: {
+                    const dialog = pageStack.push(Qt.resolvedUrl("TrackpadComboDialog.qml"));
+                    dialog.accepted.connect(() => {
+                        page.comboPending = Security.hasTrackpadCombo ? "changed" : "set";
+                        Security.setTrackpadCombo(dialog.first, dialog.pin);
+                    });
+                }
+            }
+            ActionItem {
+                objectName: "removeComboItem"
+                visible: Security.hasTrackpadCombo
+                text: qsTr("Remove trackpad unlock")
+                onClicked: {
+                    const dialog = pageStack.push(removeComboDialog);
+                    dialog.accepted.connect(() => {
+                        page.comboPending = "removed";
+                        Security.setTrackpadCombo("", dialog.pin);
+                    });
+                }
             }
             Row {
                 x: Theme.horizontalPageMargin

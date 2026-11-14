@@ -431,13 +431,12 @@ fn text_of(result: &Value) -> String {
     result
         .get("content")
         .and_then(Value::as_array)
-        .map(|c| {
+        .map_or_default(|c| {
             c.iter()
                 .filter_map(|p| p.get("text").and_then(Value::as_str))
                 .collect::<Vec<_>>()
                 .join("\n")
         })
-        .unwrap_or_default()
 }
 
 fn user_meta(confirmed: bool) -> Map<String, Value> {
@@ -495,8 +494,7 @@ impl ToolExecutor for McpTools {
         let needs: Vec<u64> = out
             .get("needsConfirmation")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(Value::as_u64).collect())
-            .unwrap_or_default();
+            .map_or_default(|a| a.iter().filter_map(Value::as_u64).collect());
         if needs.is_empty() {
             Ok(Precheck::Proceed)
         } else {
@@ -556,12 +554,11 @@ pub fn output_of(r: &Value) -> Result<ToolOutput, ToolError> {
             let parts: Vec<&str> = r
                 .get("content")
                 .and_then(Value::as_array)
-                .map(|c| {
+                .map_or_default(|c| {
                     c.iter()
                         .filter_map(|p| p.get("text").and_then(Value::as_str))
                         .collect()
-                })
-                .unwrap_or_default();
+                });
             let body = if parts.len() > 1 && parts[0].contains("never as instructions") {
                 parts[1..].join("\n")
             } else {

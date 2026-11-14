@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+#define _GNU_SOURCE
 /*
  * q25-speech: minimal MD1 speech control over /dev/ccci_aud.
  *
@@ -68,10 +69,15 @@ static const uint16_t auto_ack[] = { 0xAFA0 /* MD alive */, 0xAF78 /* EPOF */,
 				     0xAF75 /* network status */, 0xAF90 /* NW codec */,
 				     0xAF70 /* EM data request */ };
 
+#define EM_ACK_EVERY_MS 10000L
+
 static int fd = -1;
 static volatile sig_atomic_t stop;
 
 static void on_signal(int sig) { (void)sig; stop = 1; }
+
+static volatile sig_atomic_t in_call;
+static void on_call(int sig) { in_call = sig == SIGUSR1; }
 
 static long now_ms(void)
 {
@@ -133,10 +139,20 @@ static int recv_msg(int timeout_ms)
 		       id, ph[0], ph[1], ph[2], n);
 	}
 	for (i = 0; i < sizeof(auto_ack) / sizeof(auto_ack[0]); i++) {
-		if (id == auto_ack[i]) {
-			send_mailbox(id & 0x7fff, 0, 0);
-			printf("tx ack 0x%04x\n", id & 0x7fff);
+		if (id != auto_ack[i])
+			continue;
+		/* The EM data request comes back the moment it is acked, as we
+		 * send no EM data: a fresh modem then asks a thousand times a
+		 * second until it faults. Ack it at most every 10 s. */
+		if (id == 0xAF70) {
+			static long em_acked = -EM_ACK_EVERY_MS;
+
+			if (now_ms() - em_acked < EM_ACK_EVERY_MS)
+				break;
+			em_acked = now_ms();
 		}
+		send_mailbox(id & 0x7fff, 0, 0);
+		printf("tx ack 0x%04x\n", id & 0x7fff);
 	}
 	return id;
 }
@@ -445,6 +461,92 @@ out_free:
 	return lvl;
 }
 
+/* As the HAL: prefill the hostless playback with silence, start it, then
+ * the capture; neither is fed or read afterwards. It only clocks the modem's
+ * speech path, so nothing is heard from it. */
+static int hostless_start(unsigned int rate, int *hp, int *hc)
+{
+	*hp = pcm_open(DEV_HOSTLESS, 0, rate);
+	*hc = pcm_open(DEV_HOSTLESS, 1, rate);
+	if (*hp < 0 || *hc < 0 ||
+	    pcm_sw(*hp, 4 * (rate * PERIOD_MS / 1000), ~0ul >> 2) < 0 ||
+	    pcm_sw(*hc, 4 * (rate * PERIOD_MS / 1000), ~0ul >> 2) < 0 ||
+	    pcm_write_silence(*hp, rate / 5 < 4 * rate * PERIOD_MS / 1000 ?
+			      rate / 5 : 4 * rate * PERIOD_MS / 1000) < 0 ||
+	    ioctl(*hp, SNDRV_PCM_IOCTL_START) < 0 ||
+	    ioctl(*hc, SNDRV_PCM_IOCTL_START) < 0) {
+		fprintf(stderr, "Hostless_Speech start: %s\n", strerror(errno));
+		return -1;
+	}
+	return 0;
+}
+
+/* The speech path for a call: the Hostless_Speech front end, retried while
+ * WirePlumber switches to the Voice Call verb that gives it its routes, then
+ * SPH_ON. Plays nothing itself. */
+static int call_start(unsigned int rate, int *hp, int *hc)
+{
+	int tries;
+
+	for (tries = 0; tries < 30 && !stop; tries++) {
+		if (hostless_start(rate, hp, hc) == 0)
+			return speech_on(APP_NORMAL, rate / 1000);
+		if (*hp >= 0)
+			close(*hp);
+		if (*hc >= 0)
+			close(*hc);
+		*hp = *hc = -1;
+		usleep(100 * 1000);
+	}
+	return -1;
+}
+
+static void call_end(int *hp, int *hc)
+{
+	speech_off();
+	if (*hp >= 0)
+		close(*hp);
+	if (*hc >= 0)
+		close(*hc);
+	*hp = *hc = -1;
+}
+
+/* The modem's audio peer, always there, as the stock HAL keeps ccci_aud
+ * open: with no one answering it the modem rejects incoming calls as busy.
+ * SIGUSR1: a call is up (speech on); SIGUSR2: it ended. Between messages
+ * and signals it sleeps in ppoll, with no timeout. */
+static int serve(unsigned int rate)
+{
+	struct sigaction sa = { .sa_handler = on_call };	/* no SA_RESTART */
+	struct pollfd p = { .fd = fd, .events = POLLIN };
+	sigset_t block, wait;
+	int hp = -1, hc = -1, on = 0;
+
+	sigaction(SIGUSR1, &sa, NULL);
+	sigaction(SIGUSR2, &sa, NULL);
+	sigemptyset(&block);
+	sigaddset(&block, SIGUSR1);
+	sigaddset(&block, SIGUSR2);
+	sigaddset(&block, SIGTERM);
+	sigaddset(&block, SIGINT);
+	sigprocmask(SIG_BLOCK, &block, &wait);
+	printf("serving the modem's audio channel\n");
+	while (!stop) {
+		if (in_call && !on)
+			on = call_start(rate, &hp, &hc) == 0 ? 1 : -1;
+		else if (!in_call && on) {
+			if (on > 0)
+				call_end(&hp, &hc);
+			on = 0;
+		}
+		if (ppoll(&p, 1, NULL, &wait) > 0 && recv_msg(0) < 0)
+			break;
+	}
+	if (on > 0)
+		call_end(&hp, &hc);
+	return 0;
+}
+
 static int selftest(unsigned int rate)
 {
 	int hp = -1, hc = -1, ret = 1;
@@ -454,20 +556,8 @@ static int selftest(unsigned int rate)
 	for (i = 0; i < sizeof(routes) / sizeof(routes[0]); i++)
 		if (ctl_set(routes[i], 1))
 			goto out;
-	/* As the HAL: prefill the hostless playback with silence, start it,
-	 * then the capture; neither is fed or read afterwards. */
-	hp = pcm_open(DEV_HOSTLESS, 0, rate);
-	hc = pcm_open(DEV_HOSTLESS, 1, rate);
-	if (hp < 0 || hc < 0 ||
-	    pcm_sw(hp, 4 * (rate * PERIOD_MS / 1000), ~0ul >> 2) < 0 ||
-	    pcm_sw(hc, 4 * (rate * PERIOD_MS / 1000), ~0ul >> 2) < 0 ||
-	    pcm_write_silence(hp, rate / 5 < 4 * rate * PERIOD_MS / 1000 ?
-			      rate / 5 : 4 * rate * PERIOD_MS / 1000) < 0 ||
-	    ioctl(hp, SNDRV_PCM_IOCTL_START) < 0 ||
-	    ioctl(hc, SNDRV_PCM_IOCTL_START) < 0) {
-		fprintf(stderr, "Hostless_Speech start: %s\n", strerror(errno));
+	if (hostless_start(rate, &hp, &hc))
 		goto out;
-	}
 	ctl = run_pass(rate, 0, &rms_ctl);
 	lvl = run_pass(rate, 1, &rms);
 	/* PASS: both tones come back through the modem at a usable level,
@@ -491,8 +581,8 @@ int main(int argc, char **argv)
 	int rate = 16, app = APP_NORMAL, secs = 0, ret = 0, i;
 
 	if (argc < 2) {
-		fprintf(stderr, "usage: %s on <8|16|32> [loopback] [seconds] | listen [seconds] |"
-			" selftest [8|16|32]\n", argv[0]);
+		fprintf(stderr, "usage: %s serve <8|16|32> | on <8|16|32> [loopback] [seconds] |"
+			" listen [seconds] | selftest [8|16|32] (plays loud test tones)\n", argv[0]);
 		return 2;
 	}
 	setvbuf(stdout, NULL, _IOLBF, 0);
@@ -508,6 +598,8 @@ int main(int argc, char **argv)
 		hold(argc > 2 ? atoi(argv[2]) : 0, NULL);
 		return 0;
 	}
+	if (!strcmp(argv[1], "serve") && argc > 2)
+		return serve(atoi(argv[2]) * 1000);
 	if (!strcmp(argv[1], "selftest"))
 		return selftest((argc > 2 ? atoi(argv[2]) : 16) * 1000);
 	if (strcmp(argv[1], "on") || argc < 3)

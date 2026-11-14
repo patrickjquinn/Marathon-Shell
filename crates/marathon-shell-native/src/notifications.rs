@@ -24,7 +24,7 @@ use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::{
     apps, audio, clock, gate, haptics, io, ipc, log, modem, power, settings, tasks, telephonyd,
-    variant,
+    usb, variant,
 };
 
 pub use proxy::NotificationsProxy;
@@ -303,7 +303,7 @@ impl cxx_qt::Initialize for Notifications {
         let store = open_store()
             .map_err(|e| log::warn("notifications", format_args!("no history: {e}")))
             .ok();
-        let rows = store.as_ref().map(load).unwrap_or_default();
+        let rows = store.as_ref().map_or_default(load);
         let mut rust = self.as_mut().rust_mut();
         rust.store = store;
         rust.next_transient = TRANSIENT;
@@ -610,18 +610,14 @@ impl Notifications {
             8 => QVariant::from(&row.hint("action-icons").as_bool().unwrap_or(false)),
             9 => QVariant::from(&row.ongoing()),
             10 => QVariant::from(&row.progress()),
-            11 => text(
-                &clock::local(row.timestamp_ms / 1000)
-                    .map(|t| {
-                        format!(
-                            "{:04}-{:02}-{:02}",
-                            t.tm_year + 1900,
-                            t.tm_mon + 1,
-                            t.tm_mday
-                        )
-                    })
-                    .unwrap_or_default(),
-            ),
+            11 => text(&clock::local(row.timestamp_ms / 1000).map_or_default(|t| {
+                format!(
+                    "{:04}-{:02}-{:02}",
+                    t.tm_year + 1900,
+                    t.tm_mon + 1,
+                    t.tm_mday
+                )
+            })),
             _ => QVariant::default(),
         }
     }
@@ -699,9 +695,7 @@ impl Notifications {
     }
 
     fn get_notification(&self, id: i32) -> Map {
-        self.row(id)
-            .map(|r| variant::map(&r.to_json()))
-            .unwrap_or_default()
+        self.row(id).map_or_default(|r| variant::map(&r.to_json()))
     }
 
     fn get_notification_count_for_app(&self, app_id: &QString) -> i32 {
@@ -922,10 +916,11 @@ impl Notifications {
         let mut rows = self.rows.clone();
         rows.insert(0, row);
         self.as_mut().set_rows(rows);
-        // Progress is for the Hub; it doesn't call for attention.
+        // Progress is for the Hub; it doesn't call for attention. Nor, beyond
+        // its banner, does a low-urgency one.
         if !ongoing {
             self.as_mut().notification_received(&shown);
-            if !self.is_dnd_enabled {
+            if !self.is_dnd_enabled && priority > 0 {
                 if !quiet {
                     audio::notification_sound();
                 }
@@ -1059,6 +1054,7 @@ impl Notifications {
                 modem::dial(number);
                 deep_link("phone", "", &json!({}));
             }
+            ("usb", mode) => usb::choose(mode),
             ("phone", "message") => {
                 deep_link("messages", "conversation", &json!({"number": number}));
             }
@@ -1265,7 +1261,7 @@ impl Server {
         expire_timeout: i32,
         #[zbus(header)] h: Header<'_>,
     ) -> fdo::Result<u32> {
-        let sender = h.sender().map(ToString::to_string).unwrap_or_default();
+        let sender = h.sender().map_or_default(ToString::to_string);
         let pid = match h.sender() {
             Some(s) => fdo::DBusProxy::new(&io::session_bus().await?)
                 .await?

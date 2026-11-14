@@ -167,38 +167,26 @@ fn entry(pkg: &str, p: &Package) -> Option<Value> {
                 .find_map(|l| icons.get(*l))
                 .or_else(|| icons.values().next())
         })
-        .map(|f| format!("{REPO}{}", f.name))
-        .unwrap_or_default();
+        .map_or_default(|f| format!("{REPO}{}", f.name));
     let mut anti: Vec<&str> = v
         .anti_features
         .as_ref()
-        .map(|a| a.keys().map(String::as_str).collect())
-        .unwrap_or_default();
+        .map_or_default(|a| a.keys().map(String::as_str).collect());
     anti.sort_unstable();
-    let permissions: Vec<&str> = v
-        .manifest
-        .uses_permission
-        .as_ref()
-        .map(|perms| {
-            perms
-                .iter()
-                .filter(|p| p.max_sdk_version.is_none_or(|max| max >= SDK))
-                .map(|p| p.name.as_str())
-                .collect()
-        })
-        .unwrap_or_default();
-    let features: Vec<&str> = v
-        .manifest
-        .features
-        .as_ref()
-        .map(|list| {
-            list.iter()
-                .filter_map(|f| f.get("name").and_then(Value::as_str).or_else(|| f.as_str()))
-                .filter(|f| PACKAGE_RE.is_match(f))
-                .take(64)
-                .collect()
-        })
-        .unwrap_or_default();
+    let permissions: Vec<&str> = v.manifest.uses_permission.as_ref().map_or_default(|perms| {
+        perms
+            .iter()
+            .filter(|p| p.max_sdk_version.is_none_or(|max| max >= SDK))
+            .map(|p| p.name.as_str())
+            .collect()
+    });
+    let features: Vec<&str> = v.manifest.features.as_ref().map_or_default(|list| {
+        list.iter()
+            .filter_map(|f| f.get("name").and_then(Value::as_str).or_else(|| f.as_str()))
+            .filter(|f| PACKAGE_RE.is_match(f))
+            .take(64)
+            .collect()
+    });
     let name = localized(m.name.as_ref());
     Some(json!({
         "app_id": format!("android:{pkg}"),
@@ -817,14 +805,11 @@ pub fn lists() -> (Vec<Value>, Vec<Value>) {
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or(Value::Null);
-    let codes: HashMap<&str, i64> = catalogue["apps"]
-        .as_array()
-        .map(|apps| {
-            apps.iter()
-                .filter_map(|a| Some((a["pkg"].as_str()?, a["version"]["code"].as_i64()?)))
-                .collect()
-        })
-        .unwrap_or_default();
+    let codes: HashMap<&str, i64> = catalogue["apps"].as_array().map_or_default(|apps| {
+        apps.iter()
+            .filter_map(|a| Some((a["pkg"].as_str()?, a["version"]["code"].as_i64()?)))
+            .collect()
+    });
     let mut installed = Vec::new();
     let mut updates = Vec::new();
     for p in &listed {

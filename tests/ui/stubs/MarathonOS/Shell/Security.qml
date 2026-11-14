@@ -6,6 +6,13 @@ QtObject {
     property bool isLockedOut: false
     property int lockoutSecondsRemaining: 0
     property bool fingerprintAvailable: false
+    property bool hasTrackpadCombo: false
+    property bool recordingCombo: false
+    property string recordedCombo: ""
+    function authenticateTrackpadCombo(combo) {
+    }
+    function recordStroke(stroke) {
+    }
     property var attempts: []
     property var firstRunPins: []
     // Accept the next first-run PIN, then fail to store it, as a full disk would.

@@ -1,0 +1,13 @@
+[Unit]
+Description=Q25 MD1: the modem's audio peer, speech on during voice calls
+After=ModemManager.service q25-modem-init.service
+# Its call signals come from this ModemManager: follow it when it restarts.
+PartOf=ModemManager.service
+PartOf=q25-modem.target
+
+[Service]
+ExecStart=/usr/libexec/q25-modem/q25-call-audio
+# Stopping takes q25-speech down with it, which turns any speech off.
+KillMode=control-group
+Restart=on-failure
+RestartSec=5

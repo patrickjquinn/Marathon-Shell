@@ -324,23 +324,11 @@ Item {
                     model: pinScreen.pin.length
 
                     Rectangle {
-                        id: pinDot
-
-                        required property int index
-
                         width: Math.round(14 * Constants.scaleFactor)
                         height: Math.round(14 * Constants.scaleFactor)
                         radius: Math.round(7 * Constants.scaleFactor)
                         color: Silica.Theme.highlightColor
                         antialiasing: true
-                        scale: pinDot.index === pinScreen.pin.length - 1 ? 1.3 : 1
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 150
-                                easing.type: Easing.OutQuad
-                            }
-                        }
                     }
                 }
             }
@@ -356,6 +344,7 @@ Item {
                 Behavior on opacity {
                     NumberAnimation {
                         duration: 150
+                        easing.type: Easing.OutCubic
                     }
                 }
             }
@@ -411,11 +400,12 @@ Item {
             Behavior on opacity {
                 NumberAnimation {
                     duration: 150
+                    easing.type: Easing.OutCubic
                 }
             }
 
             SequentialAnimation on x {
-                running: pinScreen.error !== ""
+                running: pinScreen.error !== "" && !MMotion.reduceMotion
 
                 NumberAnimation {
                     to: 8
@@ -483,6 +473,8 @@ Item {
                             anchors.centerIn: parent
                             disabled: Security.isLockedOut
                             text: pinKey.digit
+                            // The whole cell and half the gap, so a near miss still lands.
+                            hitMargin: (pinKey.width - diameter + Math.min(keypad.columnSpacing, keypad.rowSpacing)) / 2
                             iconSize: pinScreen.compactLayout ? Math.round(28 * pinScreen.compactUnit) : 28
                             buttonSize: pinScreen.keyButtonSize
                             variant: "secondary"
@@ -637,6 +629,7 @@ Item {
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 150
+                            easing.type: Easing.OutCubic
                         }
                     }
                 }

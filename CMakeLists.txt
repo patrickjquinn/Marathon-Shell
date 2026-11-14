@@ -248,6 +248,22 @@ install(PROGRAMS tools/marathon-data-key/marathon-data-key
 install(PROGRAMS tools/marathon-remote-connection/marathon-remote-connection
     DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
 )
+install(PROGRAMS tools/marathon-usb-mode/marathon-usb-mode
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
+install(PROGRAMS tools/marathon-update-channel/marathon-update-channel
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
+install(PROGRAMS tools/marathon-bug-report/marathon-bug-report
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
+install(FILES tools/marathon-update-channel/marathon-update-channel.service
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system
+)
+install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/system/sysinit.target.wants\")
+    file(MAKE_DIRECTORY \"\${_wants}\")
+    file(CREATE_LINK ../marathon-update-channel.service
+         \"\${_wants}/marathon-update-channel.service\" SYMBOLIC)")
 
 # Install polkit policy
 install(FILES polkit/org.marathonos.shell.policy

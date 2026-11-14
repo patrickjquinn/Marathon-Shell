@@ -1,0 +1,12 @@
+[package]
+name = "marathon-power-profiles"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+zbus = { version = "=6.1.0", default-features = false, features = ["default-rt", "service"] }
+
+[lints]
+workspace = true

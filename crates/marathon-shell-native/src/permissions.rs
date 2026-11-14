@@ -754,12 +754,7 @@ impl Permissions {
     pub(crate) fn request_declared_permissions(self: Pin<&mut Self>, app_id: &QString) {
         let app = app_id.to_string();
         self.with(|core, out| {
-            for permission in core
-                .apps
-                .get(&app)
-                .map(|f| f.declared.clone())
-                .unwrap_or_default()
-            {
+            for permission in core.apps.get(&app).map_or_default(|f| f.declared.clone()) {
                 core.request(&app, &permission, out);
             }
         });
@@ -1091,7 +1086,7 @@ impl Permissions1 {
             waiting.insert(key.clone(), tx);
         }
         let _waiting = Waiting(key.clone());
-        let sender = h.sender().map(ToString::to_string).unwrap_or_default();
+        let sender = h.sender().map_or_default(ToString::to_string);
         let bus = io::session_bus().await?;
         let mut gone = fdo::DBusProxy::new(&bus)
             .await?

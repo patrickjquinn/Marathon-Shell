@@ -18,7 +18,7 @@ use zbus::message::Header;
 use zbus::{DynamicType, OwnedVariant as OwnedValue};
 
 use crate::ipc::{self, value, State};
-use crate::{haptics, io, log, settings};
+use crate::{haptics, io, log, privacy, settings};
 
 #[cxx_qt::bridge(namespace = "marathon")]
 pub mod qobject {
@@ -26,6 +26,8 @@ pub mod qobject {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qlist.h");
         type QList_QVariant = cxx_qt_lib::QList<cxx_qt_lib::QVariant>;
+        include!("cxx-qt-lib/qstring.h");
+        type QString = cxx_qt_lib::QString;
     }
 
     extern "RustQt" {
@@ -38,6 +40,8 @@ pub mod qobject {
         /// Each stream a map of streamId, name, appName, volume, muted and
         /// mediaClass.
         #[qproperty(QList_QVariant, streams, READ, NOTIFY)]
+        /// "wired" or "bluetooth" while audio goes to headphones, else "".
+        #[qproperty(QString, output, READ, NOTIFY)]
         type Audio = super::AudioRust;
 
         /// A sink the shell knew changed its level: not a first report,
@@ -97,6 +101,7 @@ pub struct AudioRust {
     muted: bool,
     is_playing: bool,
     streams: QList<QVariant>,
+    output: QString,
     sink: Sink,
     actor: Option<Sender<Command>>,
     /// Until then a level change is the new default sink settling (a
@@ -597,6 +602,9 @@ impl Audio {
             self.as_mut().streams_changed();
             set!(self, is_playing, is_playing_changed, !streams.is_empty());
         }
+        if let Some(output) = report.output {
+            set!(self, output, output_changed, QString::from(output.as_str()));
+        }
         set!(self, available, available_changed, report.available);
     }
 }
@@ -614,6 +622,7 @@ struct Report {
     default: Option<String>,
     level: Option<(f64, bool)>,
     streams: Option<Vec<Stream>>,
+    output: Option<String>,
 }
 
 enum Event {
@@ -650,11 +659,22 @@ impl Cache {
         let streams = props
             .get("Streams")
             .and_then(|v| Vec::<Stream>::try_from(v.try_clone().ok()?).ok());
+        let output = props
+            .get("Output")
+            .and_then(|v| v.downcast_ref::<&str>().ok())
+            .map(str::to_owned);
+        if let Some(recording) = props
+            .get("Recording")
+            .and_then(|v| Vec::<(u32, String)>::try_from(v.try_clone().ok()?).ok())
+        {
+            privacy::recording(&recording);
+        }
         Report {
             available: true,
             default,
             level,
             streams,
+            output,
         }
     }
 }
@@ -919,12 +939,14 @@ pub async fn call<B: serde::Serialize + DynamicType>(
 
 /// The service is gone: no sink, no streams.
 fn gone(cache: &mut Cache) -> Report {
+    privacy::recording(&[]);
     *cache = Cache::default();
     Report {
         available: false,
         default: Some(String::new()),
         level: None,
         streams: Some(Vec::new()),
+        output: Some(String::new()),
     }
 }
 

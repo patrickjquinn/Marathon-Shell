@@ -6,6 +6,9 @@ import Marathon.Platform 1.0
 import MarathonOS.Settings 1.0
 import "../SettingsLogic.js" as Logic
 
+// qmllint disable required
+// (qmllint cannot see a ListModel filled at run time give its delegates their index.)
+
 Page {
     id: page
 
@@ -13,6 +16,15 @@ Page {
     // The controller keeps the password dialog's state; it is shown again after a failed attempt.
     readonly property bool dialogWanted: SettingsController.wifiDialogVisible && !SettingsController.wifiDialogConnecting
     readonly property var others: Network.availableNetworks.filter(n => !(Network.wifiConnected && n.ssid === Network.wifiSsid))
+    // Rows keep their places while the page is open (Logic.syncKeys); each
+    // shows its network's latest scan.
+    readonly property var networkBySsid: Logic.byKey(page.others, "ssid")
+
+    function syncNetworks() {
+        Logic.syncKeys(networkOrder, Network.wifiEnabled ? page.others : [], "ssid");
+    }
+
+    onOthersChanged: page.syncNetworks()
 
     function scan() {
         scanning = true;
@@ -36,8 +48,13 @@ Page {
     onDialogWantedChanged: Qt.callLater(showDialog)
     onStatusChanged: Qt.callLater(showDialog)
     Component.onCompleted: {
+        page.syncNetworks();
         if (Network.wifiAvailable && Network.wifiEnabled)
             scan();
+    }
+
+    ListModel {
+        id: networkOrder
     }
 
     Timer {
@@ -54,6 +71,7 @@ Page {
             page.scanning = false;
         }
         function onWifiEnabledChanged() {
+            page.syncNetworks();
             if (Network.wifiEnabled)
                 page.scan();
         }
@@ -89,13 +107,46 @@ Page {
                 title: qsTr("Wi-Fi")
             }
             TextSwitch {
+                id: wifiSwitch
+
+                // The state asked for, shown until Wi-Fi reaches it (10 s at most).
+                property var pending: undefined
+
                 objectName: "wifiSwitch"
                 text: qsTr("Wi-Fi")
                 description: Network.wifiEnabled ? qsTr("Connect to wireless networks") : qsTr("Turn on to see networks")
                 automaticCheck: false
                 enabled: Network.wifiAvailable
-                checked: Network.wifiAvailable && Network.wifiEnabled
-                onClicked: Network.toggleWifi()
+                checked: pending !== undefined ? pending : Network.wifiAvailable && Network.wifiEnabled
+                busy: pending !== undefined
+                onClicked: {
+                    if (pending !== undefined)
+                        return;
+                    pending = !Network.wifiEnabled;
+                    wifiTimeout.restart();
+                    Network.toggleWifi();
+                }
+
+                Connections {
+                    target: Network
+
+                    function onWifiEnabledChanged() {
+                        if (wifiSwitch.pending === Network.wifiEnabled) {
+                            wifiSwitch.pending = undefined;
+                            wifiTimeout.stop();
+                        }
+                    }
+                }
+                Timer {
+                    id: wifiTimeout
+
+                    interval: 10000
+                    onTriggered: {
+                        const on = wifiSwitch.pending;
+                        wifiSwitch.pending = undefined;
+                        Notices.show(on ? qsTr("Wi-Fi didn't turn on") : qsTr("Wi-Fi didn't turn off"));
+                    }
+                }
             }
 
             Row {
@@ -124,11 +175,21 @@ Page {
             ListItem {
                 id: current
 
+                // The network's sign-in page, behind a captive portal.
+                readonly property bool portal: Network.connectivity === "portal"
+                readonly property bool noInternet: Network.connectivity === "limited" || Network.connectivity === "none"
+
                 objectName: "currentNetwork"
                 visible: Network.wifiEnabled && Network.wifiConnected
                 contentHeight: Theme.itemSizeMedium
                 Accessible.name: qsTr("Connected to %1").arg(Network.wifiSsid)
                 menu: ContextMenu {
+                    MenuItem {
+                        objectName: "signInItem"
+                        visible: current.portal
+                        text: qsTr("Sign in to network")
+                        onClicked: Network.openPortal()
+                    }
                     MenuItem {
                         objectName: "disconnectItem"
                         text: qsTr("Disconnect")
@@ -143,7 +204,7 @@ Page {
                         }
                     }
                 }
-                onClicked: openMenu()
+                onClicked: current.portal ? Network.openPortal() : openMenu()
 
                 Icon {
                     id: currentIcon
@@ -170,7 +231,8 @@ Page {
                     }
                     Label {
                         width: parent.width
-                        text: qsTr("Connected") + " · " + Logic.signalText(Network.wifiSignalStrength)
+                        objectName: "currentStatus"
+                        text: (current.portal ? qsTr("Sign-in required") : current.noInternet ? qsTr("Connected · No internet") : qsTr("Connected")) + " · " + Logic.signalText(Network.wifiSignalStrength)
                         font.pixelSize: Theme.fontSizeExtraSmall
                         color: Theme.secondaryHighlightColor
                     }
@@ -184,12 +246,17 @@ Page {
             }
             Repeater {
                 objectName: "networks"
-                model: Network.wifiEnabled ? page.others : []
+                model: networkOrder
 
                 ListItem {
                     id: item
 
-                    required property var modelData
+                    required property int index
+                    // A row's network never changes; only its index does.
+                    readonly property string ssid: (networkOrder.get(index) || {}).ssid || ""
+                    readonly property var modelData: page.networkBySsid[item.ssid] || ({
+                            ssid: item.ssid
+                        })
 
                     objectName: "network-" + modelData.ssid
                     contentHeight: Theme.itemSizeMedium

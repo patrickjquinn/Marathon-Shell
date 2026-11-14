@@ -49,6 +49,9 @@ pub mod qobject {
             CONSTANT
         )]
         #[qproperty(f64, brightness, READ, NOTIFY)]
+        /// How much of the frame's light to keep, under 1 at the bottom of
+        /// the slider on a panel whose dimmest level is still too bright.
+        #[qproperty(f64, dim, READ, NOTIFY)]
         #[qproperty(bool, auto_brightness, cxx_name = "autoBrightness", READ, WRITE = set_auto_brightness, NOTIFY)]
         #[qproperty(bool, rotation_locked, cxx_name = "rotationLocked", READ, WRITE = set_rotation_locked, NOTIFY)]
         #[qproperty(bool, rotation_available, cxx_name = "rotationAvailable", READ, NOTIFY)]
@@ -87,6 +90,8 @@ pub mod qobject {
         /// The one record of whether the screen is on.
         #[qproperty(bool, screen_on, cxx_name = "screenOn", READ, NOTIFY)]
         #[qproperty(bool, proximity_near, cxx_name = "proximityNear", READ, NOTIFY)]
+        /// Blanked at the ear in a call: touches are dropped as with the screen off.
+        #[qproperty(bool, proximity_blanked, cxx_name = "proximityBlanked", READ, NOTIFY)]
         #[qproperty(i32, ambient_light, cxx_name = "ambientLight", READ, NOTIFY)]
         type Display = super::DisplayRust;
 
@@ -110,9 +115,16 @@ pub mod qobject {
         fn set_night_light_to(self: Pin<&mut Display>, minutes: i32);
 
         /// The backlight under `backlight_dir`, the iio sensors under
-        /// `iio_dir`, and the lowest duty the panel is visible at.
+        /// `iio_dir`, the lowest duty the panel is visible at, and the light
+        /// the frame keeps at the bottom of the slider (1 for all of it).
         #[qinvokable]
-        fn start(self: Pin<&mut Display>, backlight_dir: &QString, iio_dir: &QString, floor: f64);
+        fn start(
+            self: Pin<&mut Display>,
+            backlight_dir: &QString,
+            iio_dir: &QString,
+            floor: f64,
+            dim: f64,
+        );
         #[qinvokable]
         #[cxx_name = "setBrightness"]
         fn set_brightness(self: Pin<&mut Display>, brightness: f64);
@@ -167,6 +179,7 @@ pub struct DisplayRust {
     light_available: bool,
     proximity_available: bool,
     brightness: f64,
+    dim: f64,
     auto_brightness: bool,
     rotation_locked: bool,
     rotation_available: bool,
@@ -204,6 +217,7 @@ impl Default for DisplayRust {
             light_available: false,
             proximity_available: false,
             brightness: 0.5,
+            dim: 1.0,
             auto_brightness: false,
             rotation_locked: false,
             rotation_available: false,
@@ -235,24 +249,62 @@ impl Default for DisplayRust {
     }
 }
 
+/// Where the slider leaves the panel's lowest level and dims the frame instead.
+const DIM_KNEE: f64 = 0.2;
+
 /// The backlight as the user sees it: their 0..1 runs from the panel's
-/// visible floor to full duty, on the nearest of its levels.
+/// visible floor to full duty, on the nearest of its levels. With `dim`
+/// under 1, the bottom of the slider holds the lowest level and darkens
+/// the frame down to `dim` of its light.
 struct Panel {
     dir: PathBuf,
     max: i32,
     floor: f64,
+    dim: f64,
     actor: Sender<Command>,
 }
 
 impl Panel {
+    fn knee(&self) -> f64 {
+        if self.dim < 1.0 {
+            DIM_KNEE
+        } else {
+            0.0
+        }
+    }
+
     #[allow(clippy::cast_possible_truncation, reason = "at most max_brightness")]
     fn level(&self, user: f64) -> i32 {
-        let duty = self.floor + (1.0 - self.floor) * user.clamp(0.0, 1.0);
+        let knee = self.knee();
+        let user = ((user - knee) / (1.0 - knee)).clamp(0.0, 1.0);
+        let duty = self.floor + (1.0 - self.floor) * user;
         ((duty * f64::from(self.max)).round() as i32).clamp(1, self.max)
     }
 
     fn user(&self, level: i32) -> f64 {
-        ((f64::from(level) / f64::from(self.max) - self.floor) / (1.0 - self.floor)).clamp(0.0, 1.0)
+        let knee = self.knee();
+        let user = ((f64::from(level) / f64::from(self.max) - self.floor) / (1.0 - self.floor))
+            .clamp(0.0, 1.0);
+        knee + (1.0 - knee) * user
+    }
+
+    /// The share of the frame's light kept at `user`.
+    fn dim(&self, user: f64) -> f64 {
+        let knee = self.knee();
+        if user >= knee {
+            1.0
+        } else {
+            self.dim + (1.0 - self.dim) * user.max(0.0) / knee
+        }
+    }
+
+    /// What the slider shows for `user` once it is on a level.
+    fn shown(&self, user: f64) -> f64 {
+        if user < self.knee() {
+            user.max(0.0)
+        } else {
+            self.user(self.level(user))
+        }
     }
 
     fn send(&self, command: Command) {
@@ -263,7 +315,20 @@ impl Panel {
 }
 
 impl Display {
-    fn start(mut self: Pin<&mut Self>, backlight_dir: &QString, iio_dir: &QString, floor: f64) {
+    fn set_dim(mut self: Pin<&mut Self>, dim: f64) {
+        if (self.dim - dim).abs() > f64::EPSILON {
+            self.as_mut().rust_mut().dim = dim;
+            self.dim_changed();
+        }
+    }
+
+    fn start(
+        mut self: Pin<&mut Self>,
+        backlight_dir: &QString,
+        iio_dir: &QString,
+        floor: f64,
+        dim: f64,
+    ) {
         DISPLAY.set(self.qt_thread()).ok();
         if let Some(class) = Path::new(&backlight_dir.to_string()).parent() {
             self.as_mut().rust_mut().leds_dir = class.join("leds");
@@ -277,6 +342,7 @@ impl Display {
                 dir,
                 max,
                 floor,
+                dim: dim.clamp(0.05, 1.0),
                 actor: tx,
             };
             let mut rust = self.as_mut().rust_mut();
@@ -332,14 +398,15 @@ impl Display {
 
     fn set_brightness(mut self: Pin<&mut Self>, brightness: f64) {
         let Some(panel) = &self.panel else { return };
-        let level = panel.level(brightness);
-        let shown = panel.user(level);
-        panel.send(Command::Level(level));
+        let shown = panel.shown(brightness);
+        let dim = panel.dim(shown);
+        panel.send(Command::Level(panel.level(brightness)));
         let mut rust = self.as_mut().rust_mut();
         // The user's level wins over auto-brightness for a while.
         rust.manual_at = Some(Instant::now());
         rust.brightness = shown;
-        self.brightness_changed();
+        self.as_mut().brightness_changed();
+        self.as_mut().set_dim(dim);
     }
 
     fn set_brightness_from_user(mut self: Pin<&mut Self>, brightness: f64) {
@@ -481,8 +548,10 @@ impl Display {
             })
             .collect();
         panel.send(Command::Ramp(levels));
+        let dim = panel.dim(target);
         self.as_mut().rust_mut().brightness = target;
-        self.brightness_changed();
+        self.as_mut().brightness_changed();
+        self.as_mut().set_dim(dim);
     }
 
     pub(crate) fn turn_screen_on(self: Pin<&mut Self>) {
@@ -541,6 +610,7 @@ impl Display {
         }
         panel.send(Command::Blank(blank, panel.level(self.brightness)));
         self.as_mut().rust_mut().proximity_blanked = blank;
+        self.proximity_blanked_changed();
     }
 
     fn set_proximity_wanted(mut self: Pin<&mut Self>, wanted: bool) {
@@ -897,8 +967,7 @@ impl Led {
         let name = self
             .dir
             .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
+            .map_or_default(|n| n.to_string_lossy().into_owned());
         let session = SessionProxy::new(&io::system_bus().await?).await?;
         session
             .set_brightness("backlight", &name, u32::try_from(level).unwrap_or(0))

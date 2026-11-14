@@ -8,8 +8,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=37
-_commit=77f55d6c44d70562f328f492ada0099a8e65954f
+pkgrel=39
+_commit=dc3ae59f4678054763f2057b9df3367971ceb625
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -18,14 +18,15 @@ license="GPL-3.0-or-later AND GPL-3.0-only"
 # iproute2's ip (its bridge; busybox ip has no link add);
 # deckard-boot-evidence runs ss and nsenter; deckard-migrate runs
 # marathon-shell-bin --rename-app-ids.
+# deckard-overlay-sync links libxkbcommon (the keyboard's Android keymap).
 # deckard-camera links GStreamer; a camera device's package brings libcamerasrc.
-depends="lxc dnsmasq iptables kmod iproute2 util-linux-misc libgcc gstreamer gst-plugins-base marathon-shell>=1.0.0-r492"
+depends="lxc dnsmasq iptables kmod iproute2 util-linux-misc libgcc libxkbcommon gstreamer gst-plugins-base marathon-shell>=1.0.0-r492"
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so the Rust binaries' libgcc_s is listed above instead.
 # Cargo strips the binaries; abuild's strip would rewrite them after package()
 # and break the build manifest's digests.
 options="!tracedeps !strip net"
-makedepends="cargo unzip gstreamer-dev gst-plugins-base-dev"
+makedepends="cargo unzip libxkbcommon-dev gstreamer-dev gst-plugins-base-dev"
 checkdepends="dbus"
 install="$pkgname.post-install $pkgname.post-upgrade"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).

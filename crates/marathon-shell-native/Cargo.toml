@@ -13,6 +13,7 @@ argon2 = { version = "0.6.0", default-features = false, features = ["alloc"] }
 async-channel = "2.5.0"
 async-executor = "1.14.0"
 async-io = "2.6.0"
+inotify = { version = "0.11.5", default-features = false }
 async-lock = "3.4.2"
 async-tungstenite = { version = "0.35.0", default-features = false, features = ["handshake", "smol-runtime", "futures-rustls-webpki-roots"] }
 blocking = "1.7.0"

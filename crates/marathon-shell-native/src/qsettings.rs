@@ -94,7 +94,7 @@ impl Value {
                 dict.iter()
                     .map(|(k, v)| {
                         (
-                            <&str>::try_from(k).map(str::to_owned).unwrap_or_default(),
+                            <&str>::try_from(k).map_or_default(str::to_owned),
                             Self::from_dbus(v),
                         )
                     })

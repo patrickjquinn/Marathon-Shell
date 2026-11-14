@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Pristine copies of the BSD-licensed QML/JS of sailfishsilica-qt5 1.2.156
+# (Sailfish OS 5.2.0.15), kept byte for byte so that port.py can check Keel's
+# ports against them. Each file carries Jolla's (or Nokia's) BSD licence
+# header, which REUSE does not parse as a licence tag; this annotation states
+# it. Only files whose own header is BSD are here (keel/silica/PROVENANCE.md).
+# LICENSE and LICENSE.BSD are the package's licence notices.
+version = 1
+
+[[annotations]]
+path = ["sailfishsilica-qt5-1.2.156/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = ["2012-2021 Jolla Ltd.", "2019-2021 Open Mobile Platform LLC", "2011 Nokia Corporation and/or its subsidiary(-ies)"]
+SPDX-License-Identifier = "BSD-3-Clause"

@@ -317,7 +317,7 @@ TestCase {
         s.page.resetTiles();
         compare(Settings.enabledQuickSettingsTiles, Logic.defaultTiles);
         // The shell's top menu IDs, not Settings' own names.
-        compare(Logic.tiles.map(t => t.id), ["wifi", "cellular", "bluetooth", "airplane", "dnd", "torch", "location", "hotspot", "nightlight", "rotation", "autobrightness", "lowpower", "vibration", "power"]);
+        compare(Logic.tiles.map(t => t.id), ["wifi", "cellular", "bluetooth", "airplane", "dnd", "torch", "location", "hotspot", "nightlight", "rotation", "autobrightness", "lowpower", "trackpad", "vibration", "power"]);
         compare(Logic.defaultTiles, Logic.tiles.map(t => t.id));
     }
 

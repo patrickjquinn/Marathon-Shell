@@ -126,7 +126,7 @@ Item {
         property: "opacity"
         to: 0
         duration: 200
-        easing.type: Easing.InCubic
+        easing.type: Easing.OutCubic
         onFinished: {
             screenshotPreview.showing = false;
         }
@@ -163,7 +163,7 @@ Item {
                 property: "opacity"
                 to: 0
                 duration: 200
-                easing.type: Easing.InCubic
+                easing.type: Easing.OutCubic
             }
         }
     }

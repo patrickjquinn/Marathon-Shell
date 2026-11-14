@@ -1,0 +1,399 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types org.nemomobile.accounts 1.0 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "AccountInterface"
+        prototype: "QObject"
+        exports: ["org.nemomobile.accounts/Account 1.0"]
+        exportMetaObjectRevisions: [256]
+        Enum {
+            name: "Status"
+            values: {
+                "Initialized": 0,
+                "Initializing": 1,
+                "Synced": 2,
+                "SyncInProgress": 3,
+                "Modified": 4,
+                "Error": 5,
+                "Invalid": 6
+            }
+        }
+        Enum {
+            name: "ErrorType"
+            values: {
+                "NoError": 0,
+                "UnknownError": 1,
+                "DatabaseError": 2,
+                "DeletedError": 3,
+                "DatabaseLockedError": 4,
+                "AccountNotFoundError": 5,
+                "ConflictingProviderError": 6,
+                "InitializationFailedError": 7
+            }
+        }
+        Property { name: "enabled"; type: "bool" }
+        Property { name: "identifier"; type: "int" }
+        Property { name: "identityIdentifiers"; type: "QVariantMap"; isReadonly: true }
+        Property { name: "providerName"; type: "QString" }
+        Property { name: "displayName"; type: "QString" }
+        Property { name: "supportedServiceNames"; type: "QStringList"; isReadonly: true }
+        Property { name: "enabledServiceNames"; type: "QStringList"; isReadonly: true }
+        Property { name: "configurationValues"; type: "QVariantMap" }
+        Property { name: "status"; type: "AccountInterface::Status"; isReadonly: true }
+        Property { name: "error"; type: "AccountInterface::ErrorType"; isReadonly: true }
+        Property { name: "errorMessage"; type: "QString"; isReadonly: true }
+        Method { name: "sync" }
+        Method { name: "remove" }
+        Method {
+            name: "setConfigurationValue"
+            Parameter { name: "key"; type: "QString" }
+            Parameter { name: "value"; type: "QVariant" }
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "setConfigurationValue"
+            Parameter { name: "key"; type: "QString" }
+            Parameter { name: "value"; type: "QVariant" }
+        }
+        Method {
+            name: "removeConfigurationValue"
+            Parameter { name: "key"; type: "QString" }
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "removeConfigurationValue"
+            Parameter { name: "key"; type: "QString" }
+        }
+        Method {
+            name: "serviceConfigurationValues"
+            type: "QVariantMap"
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "setConfigurationValues"
+            Parameter { name: "values"; type: "QVariantMap" }
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "encodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+            Parameter { name: "scheme"; type: "QString" }
+            Parameter { name: "key"; type: "QString" }
+        }
+        Method {
+            name: "encodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+            Parameter { name: "scheme"; type: "QString" }
+        }
+        Method {
+            name: "encodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+        }
+        Method {
+            name: "decodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+            Parameter { name: "scheme"; type: "QString" }
+            Parameter { name: "key"; type: "QString" }
+        }
+        Method {
+            name: "decodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+            Parameter { name: "scheme"; type: "QString" }
+        }
+        Method {
+            name: "decodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+        }
+        Method {
+            name: "supportsServiceType"
+            type: "bool"
+            Parameter { name: "serviceType"; type: "QString" }
+        }
+        Method {
+            name: "enableWithService"
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "disableWithService"
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "identityIdentifier"
+            type: "int"
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method { name: "identityIdentifier"; type: "int" }
+        Method {
+            name: "setIdentityIdentifier"
+            Parameter { name: "id"; type: "int" }
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "setIdentityIdentifier"
+            Parameter { name: "id"; type: "int" }
+        }
+    }
+    Component {
+        name: "AccountManagerInterface"
+        prototype: "QObject"
+        exports: ["org.nemomobile.accounts/AccountManager 1.0"]
+        exportMetaObjectRevisions: [256]
+        Property { name: "timeout"; type: "int" }
+        Property { name: "serviceTypeFilter"; type: "QString" }
+        Property { name: "serviceTypeNames"; type: "QStringList"; isReadonly: true }
+        Property { name: "providerNames"; type: "QStringList"; isReadonly: true }
+        Property { name: "serviceNames"; type: "QStringList"; isReadonly: true }
+        Property { name: "accountIdentifiers"; type: "QStringList"; isReadonly: true }
+        Method {
+            name: "createAccount"
+            type: "AccountInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+        }
+        Method {
+            name: "removeAccount"
+            Parameter { name: "account"; type: "AccountInterface"; isPointer: true }
+        }
+        Method {
+            name: "serviceType"
+            type: "ServiceTypeInterface*"
+            Parameter { name: "serviceTypeName"; type: "QString" }
+        }
+        Method {
+            name: "service"
+            type: "ServiceInterface*"
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+        }
+        Method {
+            name: "account"
+            type: "AccountInterface*"
+            Parameter { name: "accountIdentifier"; type: "QString" }
+        }
+        Method {
+            name: "account"
+            type: "AccountInterface*"
+            Parameter { name: "accountIdentifier"; type: "int" }
+        }
+        Method {
+            name: "serviceAccount"
+            type: "ServiceAccountInterface*"
+            Parameter { name: "accountIdentifier"; type: "QString" }
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "serviceAccount"
+            type: "ServiceAccountInterface*"
+            Parameter { name: "accountIdentifier"; type: "int" }
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "serviceAccountFromProvider"
+            type: "ServiceAccountInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "serviceAccountFromProvider"
+            type: "ServiceAccountInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+        }
+    }
+    Component {
+        name: "AccountModel"
+        prototype: "QAbstractListModel"
+        exports: ["org.nemomobile.accounts/AccountModel 1.0"]
+        exportMetaObjectRevisions: [256]
+        Method {
+            name: "serviceAccount"
+            type: "ServiceAccountInterface*"
+            Parameter { name: "accountId"; type: "int" }
+            Parameter { name: "serviceName"; type: "QString" }
+            Parameter { name: "parent"; type: "QObject"; isPointer: true }
+        }
+        Method {
+            name: "serviceAccount"
+            type: "ServiceAccountInterface*"
+            Parameter { name: "accountId"; type: "int" }
+            Parameter { name: "serviceName"; type: "QString" }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+            Parameter { name: "parent"; type: "QObject"; isPointer: true }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "accountId"; type: "int" }
+            Parameter { name: "parent"; type: "QObject"; isPointer: true }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "accountId"; type: "int" }
+        }
+    }
+    Component {
+        name: "AccountProviderModel"
+        prototype: "QAbstractTableModel"
+        exports: ["org.nemomobile.accounts/AccountProviderModel 1.0"]
+        exportMetaObjectRevisions: [256]
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+            Parameter { name: "parent"; type: "QObject"; isPointer: true }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+        }
+    }
+    Component {
+        name: "AuthDataInterface"
+        prototype: "QObject"
+        exports: ["org.nemomobile.accounts/AuthData 1.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [256]
+        Property { name: "identityIdentifier"; type: "int"; isReadonly: true }
+        Property { name: "method"; type: "QString"; isReadonly: true }
+        Property { name: "mechanism"; type: "QString"; isReadonly: true }
+        Property { name: "parameters"; type: "QVariantMap"; isReadonly: true }
+    }
+    Component {
+        name: "ProviderInterface"
+        prototype: "QObject"
+        exports: ["org.nemomobile.accounts/Provider 1.0"]
+        exportMetaObjectRevisions: [256]
+        Property { name: "name"; type: "QString"; isReadonly: true }
+        Property { name: "displayName"; type: "QString"; isReadonly: true }
+        Property { name: "iconName"; type: "QString"; isReadonly: true }
+        Property { name: "serviceNames"; type: "QStringList"; isReadonly: true }
+    }
+    Component { name: "QAbstractTableModel"; prototype: "QAbstractItemModel" }
+    Component {
+        name: "ServiceAccountInterface"
+        prototype: "QObject"
+        exports: ["org.nemomobile.accounts/ServiceAccount 1.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [256]
+        Property { name: "enabled"; type: "bool"; isReadonly: true }
+        Property { name: "identifier"; type: "int"; isReadonly: true }
+        Property { name: "authData"; type: "AuthDataInterface"; isReadonly: true; isPointer: true }
+        Property { name: "service"; type: "ServiceInterface"; isReadonly: true; isPointer: true }
+        Property { name: "provider"; type: "ProviderInterface"; isReadonly: true; isPointer: true }
+        Property { name: "configurationValues"; type: "QVariantMap"; isReadonly: true }
+        Method {
+            name: "setConfigurationValue"
+            Parameter { name: "key"; type: "QString" }
+            Parameter { name: "value"; type: "QVariant" }
+        }
+        Method {
+            name: "removeConfigurationValue"
+            Parameter { name: "key"; type: "QString" }
+        }
+        Method { name: "unrelatedValues"; type: "QVariantMap" }
+        Method {
+            name: "encodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+            Parameter { name: "scheme"; type: "QString" }
+            Parameter { name: "key"; type: "QString" }
+        }
+        Method {
+            name: "encodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+            Parameter { name: "scheme"; type: "QString" }
+        }
+        Method {
+            name: "encodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+        }
+        Method {
+            name: "decodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+            Parameter { name: "scheme"; type: "QString" }
+            Parameter { name: "key"; type: "QString" }
+        }
+        Method {
+            name: "decodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+            Parameter { name: "scheme"; type: "QString" }
+        }
+        Method {
+            name: "decodeConfigurationValue"
+            type: "QString"
+            Parameter { name: "value"; type: "QString" }
+        }
+    }
+    Component {
+        name: "ServiceAccountModel"
+        prototype: "QAbstractListModel"
+        exports: ["org.nemomobile.accounts/ServiceAccountModel 1.0"]
+        exportMetaObjectRevisions: [256]
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+            Parameter { name: "parent"; type: "QObject"; isPointer: true }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "providerName"; type: "QString" }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "accountId"; type: "int" }
+            Parameter { name: "parent"; type: "QObject"; isPointer: true }
+        }
+        Method {
+            name: "provider"
+            type: "ProviderInterface*"
+            Parameter { name: "accountId"; type: "int" }
+        }
+    }
+    Component {
+        name: "ServiceInterface"
+        prototype: "QObject"
+        exports: ["org.nemomobile.accounts/Service 1.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [256]
+        Property { name: "name"; type: "QString"; isReadonly: true }
+        Property { name: "displayName"; type: "QString"; isReadonly: true }
+        Property { name: "serviceType"; type: "QString"; isReadonly: true }
+        Property { name: "providerName"; type: "QString"; isReadonly: true }
+        Property { name: "iconName"; type: "QString"; isReadonly: true }
+        Property { name: "tags"; type: "QStringList"; isReadonly: true }
+    }
+}

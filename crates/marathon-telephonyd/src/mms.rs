@@ -261,7 +261,7 @@ pub async fn watch(core: &Core) {
         let (Some(interface), Some(member)) = (header.interface(), header.member()) else {
             continue;
         };
-        let path = header.path().map(ToString::to_string).unwrap_or_default();
+        let path = header.path().map_or_default(ToString::to_string);
         let body = message.body();
         match (interface.as_str(), member.as_str()) {
             ("org.freedesktop.DBus", "NameOwnerChanged") => {

@@ -385,12 +385,7 @@ impl Bluetooth {
 
 impl Device {
     fn set(&mut self, key: &str, value: &Value<'_>) {
-        let text = || {
-            value
-                .downcast_ref::<&str>()
-                .map(str::to_owned)
-                .unwrap_or_default()
-        };
+        let text = || value.downcast_ref::<&str>().map_or_default(str::to_owned);
         let flag = || value.downcast_ref::<bool>().unwrap_or(false);
         match key {
             "Address" => self.address = text(),
@@ -572,10 +567,7 @@ impl Adapter {
             "Discovering" => self.discovering = value.downcast_ref().unwrap_or(false),
             "Discoverable" => self.discoverable = value.downcast_ref().unwrap_or(false),
             "Alias" => {
-                self.alias = value
-                    .downcast_ref::<&str>()
-                    .map(str::to_owned)
-                    .unwrap_or_default();
+                self.alias = value.downcast_ref::<&str>().map_or_default(str::to_owned);
             }
             _ => {}
         }
@@ -615,8 +607,7 @@ fn address_of(path: &str) -> String {
     path.rsplit('/')
         .next()
         .and_then(|s| s.strip_prefix("dev_"))
-        .map(|s| s.replace('_', ":"))
-        .unwrap_or_default()
+        .map_or_default(|s| s.replace('_', ":"))
 }
 
 const BLUEZ: &str = "org.bluez";
@@ -745,8 +736,14 @@ async fn run(
                     interface.as_str(),
                     actor.devices.iter_mut().find(|d| d.path == path.as_str()),
                 ) {
+                    // While scanning, every advertisement brings RSSI and
+                    // advertising data; nothing shows them, so they publish nothing.
+                    let mut was = device.clone();
                     values.for_each(|(k, v)| device.set(k, v));
-                    actor.publish_devices();
+                    was.rssi = device.rssi;
+                    if *device != was {
+                        actor.publish_devices();
+                    }
                 }
             }
             Event::Added { path, interfaces } => {

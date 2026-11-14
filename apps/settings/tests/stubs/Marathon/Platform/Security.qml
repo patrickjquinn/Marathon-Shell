@@ -2,6 +2,15 @@ pragma Singleton
 import QtQml
 
 QtObject {
+    property bool hasTrackpadCombo: false
+    property bool recordingCombo: false
+    property string recordedCombo: ""
+    signal trackpadComboSaved
+    function setTrackpadCombo(combo, pin) {
+    }
+    function recordTrackpadCombo(on) {
+    }
+
     property int authMode: 0
     property bool hasQuickPIN: false
     property bool fingerprintAvailable: false
@@ -18,6 +27,8 @@ QtObject {
     signal eraseFailed(string reason)
     signal remoteConnectionApplied
     signal remoteConnectionFailed(string reason)
+    signal bugReportCreated(string path)
+    signal bugReportFailed(string reason)
 
     function reset() {
         authMode = 0;
@@ -41,6 +52,9 @@ QtObject {
     }
     function setRemoteConnection(on, password, pin) {
         calls = calls.concat([["remote", on, password, pin]]);
+    }
+    function createBugReport() {
+        calls = calls.concat([["bugReport"]]);
     }
     function currentUsername() {
         return "user";

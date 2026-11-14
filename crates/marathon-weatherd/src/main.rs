@@ -205,9 +205,7 @@ impl Daemon {
             return String::new();
         };
         let tz = self.zones.at(loc.latitude, loc.longitude);
-        met::forecast(body, &loc, automatic, &tz, now())
-            .map(|f| f.to_string())
-            .unwrap_or_default()
+        met::forecast(body, &loc, automatic, &tz, now()).map_or_default(|f| f.to_string())
     }
 
     fn update_fix(&mut self) {

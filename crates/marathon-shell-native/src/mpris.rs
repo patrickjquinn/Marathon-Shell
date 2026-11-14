@@ -287,8 +287,7 @@ impl Player {
         let mut chars = short.chars();
         let name = chars
             .next()
-            .map(|c| c.to_uppercase().chain(chars).collect())
-            .unwrap_or_default();
+            .map_or_default(|c| c.to_uppercase().chain(chars).collect());
         Self {
             bus_name: bus_name.to_owned(),
             name,
@@ -299,12 +298,7 @@ impl Player {
     }
 
     fn set(&mut self, key: &str, value: &Value<'_>) {
-        let text = || {
-            value
-                .downcast_ref::<&str>()
-                .map(str::to_owned)
-                .unwrap_or_default()
-        };
+        let text = || value.downcast_ref::<&str>().map_or_default(str::to_owned);
         let flag = || value.downcast_ref::<bool>().unwrap_or(false);
         match key {
             "Identity" | "DesktopEntry" => {
@@ -442,11 +436,28 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     let events = commands
         .map(Event::Command)
         .chain(stream::once(Event::Closed))
-        .or(actor.signals().await)
-        .or(Timer::interval(Duration::from_secs(1)).map(|_| Event::Tick));
+        .or(actor.signals().await);
     let mut events = std::pin::pin!(events);
     actor.scan().await;
-    while let Some(event) = events.next().await {
+    // The position is read each second only while something plays; idle, the
+    // timer is never armed and wakes nothing.
+    let mut ticker = Timer::never();
+    loop {
+        let playing = actor.player.active && actor.player.status == "Playing";
+        if playing != ticker.will_fire() {
+            ticker = if playing {
+                Timer::interval(Duration::from_secs(1))
+            } else {
+                Timer::never()
+            };
+        }
+        let tick = async {
+            ticker.next().await;
+            Some(Event::Tick)
+        };
+        let Some(event) = futures_lite::future::or(events.next(), tick).await else {
+            break;
+        };
         match event {
             Event::Command(command) => actor.handle(command).await,
             Event::Closed => break,
@@ -477,11 +488,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     }
                 }
             }
-            Event::Tick => {
-                if actor.player.active && actor.player.status == "Playing" {
-                    actor.read_position().await;
-                }
-            }
+            Event::Tick => actor.read_position().await,
         }
     }
 }

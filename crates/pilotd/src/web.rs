@@ -92,7 +92,7 @@ pub fn results(reply: &Value) -> Vec<Value> {
     reply
         .get("items")
         .and_then(Value::as_array)
-        .map(|items| {
+        .map_or_default(|items| {
             items
                 .iter()
                 .filter_map(|i| {
@@ -105,7 +105,6 @@ pub fn results(reply: &Value) -> Vec<Value> {
                 })
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 #[async_trait]

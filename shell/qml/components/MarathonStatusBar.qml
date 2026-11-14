@@ -22,8 +22,13 @@ Item {
         return strength === 0 ? "cell-signal-none" : strength <= 25 ? "cell-signal-low" : strength <= 50 ? "cell-signal-medium" : strength <= 75 ? "cell-signal-high" : "cell-signal-full";
     }
 
-    function wifiIcon(enabled, strength, connected) {
-        return !enabled || !connected ? "wifi-slash" : strength <= 33 ? "wifi-low" : strength <= 66 ? "wifi-medium" : "wifi-high";
+    // Connected with no way through (no internet, or a portal to sign in to): wifi-x.
+    function wifiIcon(enabled, strength, connected, connectivity) {
+        if (!enabled || !connected)
+            return "wifi-slash";
+        if (connectivity === "portal" || connectivity === "limited" || connectivity === "none")
+            return "wifi-x";
+        return strength <= 33 ? "wifi-low" : strength <= 66 ? "wifi-medium" : "wifi-high";
     }
 
     // Each cluster's glyphs go dark over a light backdrop, light over a dark one.
@@ -91,6 +96,15 @@ Item {
             renderType: Text.QtRendering
             anchors.verticalCenter: parent.verticalCenter
         }
+
+        GlyphIcon {
+            name: Power.isPowerSaveMode ? "leaf" : "lightning"
+            Accessible.name: Power.isPowerSaveMode ? qsTr("Battery saver on") : qsTr("Performance mode on")
+            visible: Power.isPowerSaveMode || Power.powerProfile === "performance"
+            color: leftTone.glyph
+            size: Silica.Theme.iconSizeExtraSmall
+            anchors.verticalCenter: parent.verticalCenter
+        }
     }
 
     Loader {
@@ -107,6 +121,66 @@ Item {
                 duration: MMotion.quick
                 easing.type: Easing.OutCubic
             }
+        }
+    }
+
+    // What is in use, a slice each, beside the clock: the microphone red, the
+    // camera orange, location blue. From the kernel's own device opens
+    // (Privacy) and the location service, so nothing uses them unseen.
+    readonly property var privacyColors: {
+        const colors = [];
+        if (Privacy.microphone)
+            colors.push("#ff3b30");
+        if (Privacy.camera)
+            colors.push("#ff9500");
+        if (typeof LocationManager !== "undefined" && LocationManager && LocationManager.active)
+            colors.push("#0a84ff");
+        return colors;
+    }
+
+    function privacyDotContains(item, x, y) {
+        if (!privacyDot.visible)
+            return false;
+        const p = privacyDot.mapFromItem(item, x, y);
+        const slop = Silica.Theme.paddingLarge;
+        return p.x >= -slop && p.y >= -slop && p.x <= privacyDot.width + slop && p.y <= privacyDot.height + slop;
+    }
+
+    Canvas {
+        id: privacyDot
+
+        objectName: "privacyDot"
+        anchors.left: centerContent.right
+        anchors.leftMargin: Silica.Theme.paddingSmall
+        anchors.verticalCenter: centerContent.verticalCenter
+        width: Math.round(Silica.Theme.fontSizeSmall * 0.55)
+        height: width
+        visible: statusBar.privacyColors.length > 0
+        renderStrategy: Canvas.Cooperative
+        Accessible.role: Accessible.Button
+        Accessible.name: qsTr("Camera, microphone or location in use")
+        onVisibleChanged: requestPaint()
+        onPaint: {
+            const ctx = getContext("2d");
+            ctx.reset();
+            const colors = statusBar.privacyColors, r = width / 2;
+            const step = 2 * Math.PI / Math.max(1, colors.length);
+            for (let i = 0; i < colors.length; ++i) {
+                ctx.beginPath();
+                ctx.moveTo(r, r);
+                ctx.arc(r, r, r, -Math.PI / 2 + i * step, -Math.PI / 2 + (i + 1) * step);
+                ctx.closePath();
+                ctx.fillStyle = colors[i];
+                ctx.fill();
+            }
+        }
+
+        Connections {
+            function onPrivacyColorsChanged() {
+                privacyDot.requestPaint();
+            }
+
+            target: statusBar
         }
     }
 
@@ -200,6 +274,15 @@ Item {
         z: 1
 
         GlyphIcon {
+            name: "headphones"
+            color: rightTone.glyph
+            size: Silica.Theme.iconSizeExtraSmall
+            anchors.verticalCenter: parent.verticalCenter
+            visible: AudioManagerCpp.output !== ""
+            Accessible.name: AudioManagerCpp.output === "bluetooth" ? qsTr("Bluetooth headphones connected") : qsTr("Headphones connected")
+        }
+
+        GlyphIcon {
             name: "plane"
             color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
@@ -249,7 +332,7 @@ Item {
         }
 
         GlyphIcon {
-            name: statusBar.wifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, Network.wifiConnected)
+            name: statusBar.wifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, Network.wifiConnected, Network.connectivity)
             color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter

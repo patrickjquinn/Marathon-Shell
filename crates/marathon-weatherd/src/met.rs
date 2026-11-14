@@ -157,7 +157,7 @@ impl Period<'_> {
 fn steps(met: &Value) -> Vec<Step<'_>> {
     met["properties"]["timeseries"]
         .as_array()
-        .map(|series| {
+        .map_or_default(|series| {
             series
                 .iter()
                 .filter_map(|s| {
@@ -168,7 +168,6 @@ fn steps(met: &Value) -> Vec<Step<'_>> {
                 })
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 type DayKey = (i32, u8, u8);

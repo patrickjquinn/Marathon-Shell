@@ -219,6 +219,55 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.marathonos.Audio.service"
 install(DIRECTORY marathon-audiod/data/wireplumber/
     DESTINATION ${CMAKE_INSTALL_DATADIR}/wireplumber)
 
+# Power profiles: org.freedesktop.UPower.PowerProfiles, the CPU governor,
+# a system service started at boot.
+set(MARATHON_POWER_PROFILES_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-power-profiles")
+add_custom_target(marathon_power_profiles_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-power-profiles
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_POWER_PROFILES_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-power-profiles (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_POWER_PROFILES_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+configure_file(marathon-power-profiles/data/marathon-power-profiles.service.in
+    marathon-power-profiles.service @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-power-profiles.service"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
+install(FILES marathon-power-profiles/data/org.marathonos.power-profiles.conf
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system.d)
+install(FILES marathon-power-profiles/data/org.marathonos.power-profiles.policy
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions)
+install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/system/multi-user.target.wants\")
+    file(MAKE_DIRECTORY \"\${_wants}\")
+    file(CREATE_LINK ../marathon-power-profiles.service
+         \"\${_wants}/marathon-power-profiles.service\" SYMBOLIC)")
+
+# The charging screen a charger-started phone boots into instead of the
+# session: a generator picks marathon-charging.target from the boot reason.
+set(MARATHON_CHARGER_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-charger")
+add_custom_target(marathon_charger_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-charger
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_CHARGER_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-charger (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_CHARGER_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+configure_file(marathon-charger/data/marathon-charger.service.in
+    marathon-charger.service @ONLY)
+configure_file(marathon-charger/data/marathon-charging-generator.in
+    marathon-charging-generator @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-charger.service"
+    marathon-charger/data/marathon-charging.target
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/marathon-charging-generator"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system-generators)
+
 # A session daemon that serves apps: bus-activated into its systemd user
 # unit, and admitted by the shell as a session service
 # (/usr/share/marathon-shell/services) that asks Permissions1.Admit.

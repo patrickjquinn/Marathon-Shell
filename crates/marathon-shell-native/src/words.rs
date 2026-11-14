@@ -344,8 +344,7 @@ fn phrases(context: &str) -> &'static [&'static str] {
     let words: Vec<&str> = key.split_whitespace().collect();
     let last_two = words
         .get(words.len().saturating_sub(2)..)
-        .map(|w| w.join(" "))
-        .unwrap_or_default();
+        .map_or_default(|w| w.join(" "));
     PHRASES
         .iter()
         .find(|(k, _)| *k == key)

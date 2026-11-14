@@ -120,14 +120,14 @@ Item {
             id: settle
 
             PauseAnimation {
-                duration: MMotion.reduceMotion || !appGrid.editing ? 0 : iconCell.index * MMotion.staggerMicro
+                duration: appGrid.editing ? MMotion.stagger(iconCell.index, MMotion.staggerMicro) : 0
             }
             NumberAnimation {
                 target: iconCell
                 property: "edit"
                 to: appGrid.editing ? 1 : 0
                 duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
-                easing.type: appGrid.editing ? Easing.OutBack : Easing.OutCubic
+                easing.type: Easing.OutCubic
             }
         }
 
@@ -174,7 +174,7 @@ Item {
                 value: 0
             }
             PauseAnimation {
-                duration: MMotion.reduceMotion ? 0 : iconCell.index * MMotion.staggerHome
+                duration: MMotion.stagger(iconCell.index, MMotion.staggerHome)
             }
             NumberAnimation {
                 target: iconCell
@@ -220,7 +220,7 @@ Item {
 
                 NumberAnimation {
                     duration: MMotion.durationFor("nav")
-                    easing.type: Easing.InCubic
+                    easing.type: Easing.OutCubic
                 }
             }
 
@@ -297,13 +297,19 @@ Item {
         MouseArea {
             id: iconMouseArea
 
-            readonly property bool pressShown: pressed && !tapTimeout.running
+            // A tap shorter than the tap timeout still shows the press.
+            readonly property bool pressShown: (pressed && !tapTimeout.running) || tapFlash.running
 
             Timer {
                 id: tapTimeout
 
                 interval: MMotion.tapTimeout
                 running: iconMouseArea.pressed
+            }
+            Timer {
+                id: tapFlash
+
+                interval: Silica.Theme.minimumPressHighlightTime
             }
 
             property real pressX: 0
@@ -358,6 +364,7 @@ Item {
                 }
                 // A tap: a swipe the pager did not take still moved the finger.
                 if (!isSearchGesture && !held && !moved) {
+                    tapFlash.restart();
                     if (iconCell.appData && appGrid.editing) {
                         iconCell.showInfo();
                         HapticManager.light();
@@ -366,6 +373,11 @@ Item {
                         HapticManager.medium();
                     }
                 }
+                isSearchGesture = false;
+            }
+            // The pager took the touch: a part-pulled search goes back.
+            onCanceled: {
+                appGrid.searchGestureActive = false;
                 isSearchGesture = false;
             }
             onPressAndHold: {
@@ -605,12 +617,13 @@ Item {
             Behavior on opacity {
                 NumberAnimation {
                     duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                    easing.type: Easing.OutCubic
                 }
             }
             Behavior on scale {
                 NumberAnimation {
                     duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
-                    easing.type: Easing.OutBack
+                    easing.type: Easing.OutCubic
                 }
             }
 
@@ -741,6 +754,7 @@ Item {
             Behavior on opacity {
                 NumberAnimation {
                     duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                    easing.type: Easing.OutCubic
                 }
             }
         }
@@ -792,6 +806,10 @@ Item {
                 }
                 mouse.accepted = true;
             }
+            isDownwardSwipe = false;
+        }
+        onCanceled: {
+            appGrid.searchGestureActive = false;
             isDownwardSwipe = false;
         }
     }

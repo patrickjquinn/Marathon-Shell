@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# `import QtMultimedia 5.x` on Qt 6. Qt looks up the version-qualified
+# directory QtMultimedia.5 before Qt 6's own QtMultimedia, so Qt 5 imports get
+# these Qt 5 API wrappers over Qt 6 Multimedia, while `import QtMultimedia 6.x`
+# (and an unversioned import) is unaffected. Only the subset in README.md is
+# provided (no Radio, Playlist, Torch).
+module QtMultimedia
+MediaPlayer 5.0 MediaPlayer.qml
+Audio 5.0 MediaPlayer.qml
+VideoOutput 5.0 VideoOutput.qml
+SoundEffect 5.0 SoundEffect.qml
+Camera 5.0 Camera.qml
+CameraCapture 5.0 CameraCapture.qml
+CameraExposure 5.0 CameraExposure.qml
+CameraFlash 5.0 CameraFlash.qml
+CameraFocus 5.0 CameraFocus.qml
+CameraImageProcessing 5.0 CameraImageProcessing.qml
+CameraMetaData 5.0 CameraMetaData.qml
+CameraRecorder 5.0 CameraRecorder.qml
+CameraViewfinder 5.5 CameraViewfinder.qml
+internal CameraBackend CameraBackend.qml
+singleton QtMultimedia 5.4 QtMultimediaGlobal.qml

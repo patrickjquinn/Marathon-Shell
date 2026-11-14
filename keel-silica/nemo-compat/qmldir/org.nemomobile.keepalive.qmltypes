@@ -1,0 +1,88 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: MIT
+//
+// The types org.nemomobile.keepalive 1.1 registers at run time, as its plugin reports them
+// (qmlplugindump, Qt 6.11.2). For QML tooling only. Regenerate with
+// keel/tools/qmltypes.py --write; ctest keel_qmltypes checks it.
+
+import QtQuick.tooling 1.2
+
+
+Module {
+    Component {
+        name: "DeclarativeBackgroundJob"
+        prototype: "QObject"
+        exports: [
+            "org.nemomobile.keepalive/BackgroundJob 1.0",
+            "org.nemomobile.keepalive/BackgroundJob 1.1"
+        ]
+        exportMetaObjectRevisions: [256, 257]
+        Enum {
+            name: "Frequency"
+            values: {
+                "Range": 0,
+                "ThirtySeconds": 30,
+                "TwoAndHalfMinutes": 150,
+                "FiveMinutes": 300,
+                "TenMinutes": 600,
+                "FifteenMinutes": 900,
+                "ThirtyMinutes": 1800,
+                "OneHour": 3600,
+                "TwoHours": 7200,
+                "FourHours": 14400,
+                "EightHours": 28800,
+                "TenHours": 36000,
+                "TwelveHours": 43200,
+                "TwentyFourHours": 86400,
+                "MaximumFrequency": 2147483647
+            }
+        }
+        Property { name: "triggeredOnEnable"; type: "bool" }
+        Property { name: "enabled"; type: "bool" }
+        Property { name: "running"; type: "bool"; isReadonly: true }
+        Property { name: "frequency"; type: "DeclarativeBackgroundJob::Frequency" }
+        Property { name: "minimumWait"; type: "int" }
+        Property { name: "maximumWait"; type: "int" }
+        Signal { name: "triggered" }
+        Method { name: "begin" }
+        Method { name: "finished" }
+    }
+    Component {
+        name: "DeclarativeKeepAlive"
+        prototype: "QObject"
+        exports: [
+            "org.nemomobile.keepalive/KeepAlive 1.0",
+            "org.nemomobile.keepalive/KeepAlive 1.1"
+        ]
+        isCreatable: false
+        isSingleton: true
+        exportMetaObjectRevisions: [256, 257]
+        Property { name: "enabled"; type: "bool" }
+    }
+    Component {
+        name: "DisplayBlanking"
+        prototype: "QObject"
+        exports: [
+            "org.nemomobile.keepalive/DisplayBlanking 1.0",
+            "org.nemomobile.keepalive/DisplayBlanking 1.1"
+        ]
+        isCreatable: false
+        isSingleton: true
+        exportMetaObjectRevisions: [256, 257]
+        Enum {
+            name: "Status"
+            values: {
+                "Unknown": 0,
+                "Off": 1,
+                "Dimmed": 2,
+                "On": 3
+            }
+        }
+        Property { name: "preventBlanking"; type: "bool" }
+        Property { name: "status"; type: "DisplayBlanking::Status"; isReadonly: true }
+        Method {
+            name: "setPreventBlanking"
+            Parameter { type: "bool" }
+        }
+    }
+}

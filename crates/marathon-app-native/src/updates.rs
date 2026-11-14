@@ -30,6 +30,7 @@ pub mod qobject {
         #[qproperty(QString, last_error, cxx_name = "lastError", READ, NOTIFY = state_changed)]
         #[qproperty(i64, last_checked_ms, cxx_name = "lastCheckedMs", READ, NOTIFY = state_changed)]
         #[qproperty(bool, auto_update, cxx_name = "autoUpdate", READ, WRITE = set_auto_update, NOTIFY = state_changed)]
+        #[qproperty(bool, developer_updates, cxx_name = "developerUpdates", READ, WRITE = set_developer_updates, NOTIFY = state_changed)]
         #[qproperty(bool, restart_scheduled, cxx_name = "restartScheduled", READ, NOTIFY = state_changed)]
         #[qproperty(QString, current_release_notes, cxx_name = "currentReleaseNotes", READ, NOTIFY = state_changed)]
         type Updates = super::UpdatesRust;
@@ -40,6 +41,8 @@ pub mod qobject {
 
         #[cxx_name = "setAutoUpdate"]
         fn set_auto_update(self: Pin<&mut Updates>, on: bool);
+        #[cxx_name = "setDeveloperUpdates"]
+        fn set_developer_updates(self: Pin<&mut Updates>, on: bool);
         #[qinvokable]
         #[cxx_name = "checkNow"]
         fn check_now(self: &Updates);
@@ -78,6 +81,7 @@ pub struct UpdatesRust {
     last_error: QString,
     last_checked_ms: i64,
     auto_update: bool,
+    developer_updates: bool,
     restart_scheduled: bool,
     current_release_notes: QString,
 }
@@ -107,6 +111,7 @@ impl cxx_qt::Initialize for Updates {
             u.last_error = get(&s, "lastError");
             u.last_checked_ms = get(&s, "lastCheckedMs");
             u.auto_update = !s.contains_key("autoUpdate") || get(&s, "autoUpdate");
+            u.developer_updates = get(&s, "developerUpdates");
             u.restart_scheduled = get(&s, "restartScheduled");
             u.current_release_notes = get(&s, "currentReleaseNotes");
             obj.state_changed();
@@ -117,6 +122,7 @@ impl cxx_qt::Initialize for Updates {
 impl Updates {
     crate::shell::calls! { UPDATES; mut
         set_auto_update(on: bool) => "SetAutoUpdate";
+        set_developer_updates(on: bool) => "SetDeveloperUpdates";
     }
     crate::shell::calls! { UPDATES;
         check_now() => "CheckNow";

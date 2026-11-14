@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+#
+# Qt Quick 2.x types that Qt 6 removed, re-exported into `import QtQuick 2.0`
+# to `2.14` by the generated QtQuick.2.<minor>/qmldir files (see README.md).
+module KeelQt5Compat.QtQuick
+RegExpValidator 1.0 RegExpValidator.qml
+VisualItemModel 1.0 VisualItemModel.qml

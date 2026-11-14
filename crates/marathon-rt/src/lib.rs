@@ -7,6 +7,7 @@ pub mod io;
 pub mod log;
 #[cfg(feature = "testing")]
 pub mod testing;
+pub mod units;
 
 /// Sets a property's field and notifies, if it changed.
 #[macro_export]

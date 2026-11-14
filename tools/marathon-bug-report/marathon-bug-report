@@ -1,0 +1,59 @@
+#!/bin/sh
+# Settings > Developer tools > Create bug report: the system's logs in one
+# text file in the Documents folder of the user who asked (pkexec's
+# PKEXEC_UID), written as that user. Prints the file's path.
+#
+#   marathon-bug-report create
+#
+# Exit status: 0 done, 2 usage, 1 any other failure.
+# Each step that can stop the report says why on stderr: the shell shows
+# the last line. A section that fails is noted in the report instead.
+set -u
+fail() { echo "$*" >&2; exit 1; }
+[ "${1:-}" = create ] || { echo "usage: $0 create" >&2; exit 2; }
+uid=${PKEXEC_UID:?run through pkexec}
+user=$(getent passwd "$uid" | cut -d: -f1)
+home=$(getent passwd "$uid" | cut -d: -f6)
+[ -n "$user" ] && [ -d "$home" ] || fail "no home folder for user $uid"
+
+as_user() { runuser -u "$user" -- "$@"; }
+
+# Deckard shares the same folder with Android, so an Android app can attach it.
+# shellcheck disable=SC2016 # expanded by the user's shell
+docs=$(as_user sh -c '. "$HOME/.config/user-dirs.dirs" 2>/dev/null; echo "${XDG_DOCUMENTS_DIR:-$HOME/Documents}"')
+docs=$(echo "$docs" | sed "s#\$HOME#$home#")
+as_user mkdir -p "$docs" || fail "can't make $docs"
+dest=$docs/marathon-bug-report-$(date +%Y%m%d-%H%M%S).txt
+
+work=$(mktemp -d) || fail "no temporary folder"
+trap 'rm -rf "$work"' EXIT
+out=$work/report
+
+section() {
+	printf '\n===== %s =====\n' "$1"
+	shift
+	timeout 60 "$@" 2>&1 || printf '(exit %s)\n' "$?"
+}
+
+{
+	printf 'Marathon OS bug report, %s\n' "$(date -R)"
+	section "Release" cat /etc/os-release
+	section "Kernel" uname -a
+	section "Uptime" uptime
+	section "Failed units" systemctl --failed --no-pager
+	section "Camera devices" sh -c 'ls -l /dev/media* /dev/video* /dev/v4l-subdev* /dev/udmabuf /dev/dma_heap 2>&1'
+	section "Cameras libcamera finds" env LIBCAMERA_LOG_LEVELS='*:INFO' \
+		timeout 20 gst-device-monitor-1.0 Video/Source
+	section "Kernel log" dmesg
+	section "Journal, this boot" sh -c 'journalctl -b -o short-monotonic --no-pager | tail -n 40000'
+	section "Journal, last boot, warnings" sh -c 'journalctl -b -1 -p warning -o short-monotonic --no-pager | tail -n 3000'
+	if lxc-info -P /var/lib/deckard/lxc -n deckard -s 2>/dev/null | grep -q RUNNING; then
+		section "Android log" sh -c 'lxc-attach -P /var/lib/deckard/lxc -n deckard --clear-env -- /system/bin/logcat -d -v threadtime | tail -n 40000'
+	else
+		printf '\n===== Android log =====\nAndroid is not running\n'
+	fi
+} > "$out"
+
+# shellcheck disable=SC2016 # expanded by the user's shell
+as_user sh -c 'umask 077; set -C; cat > "$1"' sh "$dest" < "$out" || fail "can't write $dest"
+echo "$dest"

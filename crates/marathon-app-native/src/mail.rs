@@ -538,7 +538,7 @@ impl MailService {
         }
         let id = self.current_account_id.to_string();
         if !accounts.iter().any(|a| text(a, "id").to_string() == id) {
-            let first = accounts.first().map(|a| text(a, "id")).unwrap_or_default();
+            let first = accounts.first().map_or_default(|a| text(a, "id"));
             self.as_mut().rust_mut().current_account_id = first;
             self.as_mut().rust_mut().current_folder_id = QString::default();
         }
@@ -551,8 +551,7 @@ impl MailService {
         let folders: Vec<Map> = account
             .get(&QString::from("folders"))
             .and_then(|v| v.value::<QList<QVariant>>())
-            .map(|l| maps(&l))
-            .unwrap_or_default();
+            .map_or_default(|l| maps(&l));
         let folder = self.current_folder_id.to_string();
         let open = folders
             .iter()
@@ -562,9 +561,7 @@ impl MailService {
                     .iter()
                     .find(|f| text(f, "kind").to_string() == "inbox")
             });
-        let (folder_id, folder_name) = open
-            .map(|f| (text(f, "id"), text(f, "name")))
-            .unwrap_or_default();
+        let (folder_id, folder_name) = open.map_or_default(|f| (text(f, "id"), text(f, "name")));
         let name = text(&account, "name");
         if self.current_account_name != name || self.current_account_id.to_string() != id {
             self.as_mut().rust_mut().current_account_name = name;

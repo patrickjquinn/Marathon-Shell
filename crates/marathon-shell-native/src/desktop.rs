@@ -201,9 +201,7 @@ fn scan(paths: &QStringList, phone_only: bool) -> QList<QVariant> {
 }
 
 pub(crate) fn parse(path: &QString) -> QMap<QMapPair_QString_QVariant> {
-    read_app(Path::new(&path.to_string()), &mut Icons::new())
-        .map(|app| app.to_qt())
-        .unwrap_or_default()
+    read_app(Path::new(&path.to_string()), &mut Icons::new()).map_or_default(|app| app.to_qt())
 }
 
 fn phone_apps_path() -> QString {
@@ -237,7 +235,7 @@ fn read_app(path: &Path, icons: &mut Icons) -> Option<App> {
     let entry = Entry::parse(fs::read(path).ok()?).ok()?;
     let desktop = entry.section("Desktop Entry")?;
     let get = |key: &str| desktop.attr(key).last().map(String::as_str);
-    let list = |key: &str| get(key).map(split).unwrap_or_default();
+    let list = |key: &str| get(key).map_or_default(split);
     let yes = |key: &str| get(key).is_some_and(|v| v.eq_ignore_ascii_case("true"));
     if get("Type").is_some_and(|t| t != "Application") {
         return None;
@@ -247,8 +245,7 @@ fn read_app(path: &Path, icons: &mut Icons) -> Option<App> {
     let binary = exec
         .split_whitespace()
         .find(|t| !t.starts_with('-'))
-        .map(file_name)
-        .unwrap_or_default();
+        .map_or_default(file_name);
     if X11_ONLY.contains(&binary) {
         return None;
     }

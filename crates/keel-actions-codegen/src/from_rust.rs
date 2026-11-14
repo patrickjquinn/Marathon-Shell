@@ -82,11 +82,7 @@ fn attr_args(attr: &Attribute) -> syn::Result<Vec<(String, Value)>> {
         return Ok(out);
     }
     attr.parse_nested_meta(|meta| {
-        let key = meta
-            .path
-            .get_ident()
-            .map(ToString::to_string)
-            .unwrap_or_default();
+        let key = meta.path.get_ident().map_or_default(ToString::to_string);
         if meta.input.peek(syn::Token![=]) {
             let expr: Expr = meta.value()?.parse()?;
             let value =
@@ -417,7 +413,7 @@ pub fn read(files: &[(String, syn::File)], diag: &mut Diagnostics) -> Found {
                             }
                         }
                     }
-                    Err(e) => reader.diag.error(source.clone(), e.to_string()),
+                    Err(e) => reader.diag.error(source, e.to_string()),
                 }
                 entity_order.push(s.ident.to_string());
             }

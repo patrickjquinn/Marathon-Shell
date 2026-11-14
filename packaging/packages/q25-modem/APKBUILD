@@ -4,7 +4,7 @@
 # ECCCI modules are built with the kernel and ship in q25-kernel-modules.
 pkgname=q25-modem
 pkgver=1.0.0
-pkgrel=12
+pkgrel=16
 pkgdesc="Zinwa Q25 MD1 modem stack: CCCI daemons and services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -15,9 +15,10 @@ depends="kmod util-linux q25-kernel-modules>=7.0.0-r30 modemmanager-mtk-ccci
 makedepends="gcc make musl-dev linux-headers"
 _units="q25-modem.target q25-modem-owner.service q25-modem-stack.service q25-modem-nv.service
  q25-ccci-rpcd.service q25-ccci-fsd.service q25-ccci-mdinit.service q25-modem-init.service
- q25-modem-reset.path q25-modem-reset.service q25-md1-firmware.service"
-source="q25-modem-up q25-modem-nv q25-modem-init properties modem.conf
- 78-q25-modem.rules q25-modem.conf.modprobe q25-modem.dtbo q25-md1-firmware $_units"
+ q25-modem-reset.path q25-modem-reset.service q25-md1-firmware.service q25-call-audio.service"
+source="q25-modem-up q25-modem-nv q25-modem-init q25-call-audio properties modem.conf
+ 78-q25-modem.rules q25-modem.conf.modprobe q25-modem.dtbo q25-md1-firmware $_units
+ ModemManager-q25-call-audio.conf"
 
 prepare() {
     default_prepare
@@ -36,7 +37,7 @@ package() {
     done
     install -d "$pkgdir/usr/bin"
     ln -s ../libexec/q25-modem/q25-speech "$pkgdir/usr/bin/q25-speech"
-    for m in q25-modem-up q25-modem-nv q25-modem-init q25-md1-firmware; do
+    for m in q25-modem-up q25-modem-nv q25-modem-init q25-call-audio q25-md1-firmware; do
         install -Dm755 "$srcdir/$m" "$x/$m"
     done
     # q25-md1-firmware.service copies the image there on first boot.
@@ -52,18 +53,20 @@ package() {
     for u in $_units; do
         install -Dm644 "$srcdir/$u" "$pkgdir/usr/lib/systemd/system/$u"
     done
+    install -Dm644 "$srcdir/ModemManager-q25-call-audio.conf" \
+        "$pkgdir/usr/lib/systemd/system/ModemManager.service.d/50-q25-call-audio.conf"
 }
 sha512sums="
-d9b8241f1135d110fdcfce09c02c980fdcac4df41ebfb986284194a793e89debb05c784f1a31c68e159f77ecd7cbe4dc3f673000d29bab0291d61322164f0b25  q25-modem-up
+2dc83f8c365c437040aaf639b12f9a09caa22ede104a8a070ba26a9866abae807135a0cde1abfe1f1b7e3bef7e158abfc58207990010d4d77f9fd62140844c77  q25-modem-up
 feafd0fb05726d0106a576721521de5a8cff6ad9c4b2dd98ed4da965cbc8d9acc585285b8cc5bf1954b8ac17d8ba4cd583ef8d882ab1ec805e0f4a86cd63998d  q25-modem-nv
-4abe7f0eebe886b9a872e7767400346e44a98c27e87b1214377eee6a94d1dae807cbf27e4dafada83fce063a2d93994fd4afe8f13cd14051a9e0af9bf741730a  q25-modem-init
+2fdc4e6be267ff131550b1ef17351e3b8fca51d908d77274b96d1490a1dc1ec4462000c1ca5abe4c4a6645effa1eb9ae6d144f45f34bb86cb21ff5f6a7b7197a  q25-modem-init
 9ff481adbffd3c92ebbc911e754a5cf753c572a8fbebf7bb2cf96b6d74fdf623e69ae91d8e67471948db9765c4aa8e9b400308b8cb46c3de8c261ddf025d62fe  properties
 75757bc6ab8e9a0427827e2402e5747a07acf30c1ef959f48580f77e7847d9897ad0fd673e4127ced1d0c66d83d6a9e73bc42585a8931b8c1ad607533f2f01a9  modem.conf
 ad80d0bf1c04ee3207c24fb4e809b639c7ee22ea6125737cb315ce7ef054eb3fb1a37aebdbc5fcfa5e0a3de185f07f884063ec02380a8588d018301e6eb44d79  78-q25-modem.rules
 8ef3d056d8509e4f871fe2b7833a5e15ee7097517e6ac8e5a7c6c7a40c3f2494da3578fec7c471dad46376394f32f2eb56818090ffbcefee5bfc6ca42013f4d2  q25-modem.conf.modprobe
 150fa4492634645845a7961575d8d96838fc7cde3624613dcfc26eb075d85f95a0a52fc9053341fac05a010762597bc172afa763a1341ae1b8f61c3563842a29  q25-modem.dtbo
 23ee0f2578ae39bf1aa29e5cdc0e84ec1ecd24fba17b22a8814b0f69a90bed4425bae044105fb0404284d9be9e5a51472443ab6c13b534e171587c508e8d2fb2  q25-md1-firmware
-ca1b76b1fbf3a26aefc25f113fec2c208819ed7dbc56f7c252815aec417ef023c7cc2040e57f2479eb4c31a5545f7736fd24fefe37a6c51f86f243467f312edf  q25-modem.target
+5cbe72c5b1b77c94384f60951b885f7e08da26ce179989e31ea8ab074bb4121741534294470a894474e7215f2b84a6a39c4d676303332c2bf2423e4752e76528  q25-modem.target
 1daa9fc0334941c6d621791d92b6bf1fc335d154a2259fde463d511683aa01c562d21efb01c68c837004980af7763a5e21293fdf4389ffedb880a8b17d3cf068  q25-modem-owner.service
 afdd4e415e32789b557e32993cddedd64ae45c564a4c311b5097cde83ab3168019a78359eb94cae6e95136634636cd6ff90aef8cdc174f8fa6459efc5d108ee1  q25-modem-stack.service
 e2be82e88817e9cbe16b738f24668085d84100bc92eeb6265e14b9bbc0b7d98c187b25915bf25246f07b7c13117a3668d83281e40d258b8bdbd22c3c69b76f63  q25-modem-nv.service
@@ -74,4 +77,7 @@ c2abf7660afc84a58eaf29cf732c8afaae224d3e5b216fb23e08326146c96ec84f650914fdf66b79
 a5bee7fca7538728756f296a65dc078e14856864210a8b8baa7b1083a382c3da97f310351bc771dd12a5e7b3aabb339e9174c3207d61d48b988dcfce76e43478  q25-modem-reset.path
 68855619a9156a2f4865bef479a3569c3eb05a6ebb5b3e534389b65c4d37716b74badf2f8d5cc69181360ac0401b167037a9953f7ede693f12c30f6b85b0846c  q25-modem-reset.service
 3265118b03cccc13f1a0ffc99dc8e40e5559de8bbce3b88754d9fa18142f2644006ddd8db9bfa488fa0aa615b747c44e95bd1caf8700dcdf07ef28f104dde414  q25-md1-firmware.service
+b0811e7636b58be0b637ff6fdd4836dac627659cc3ca208c0eb5cf3b4d106e3fde83349c4b7dbcf1c8c145d51fb07fc2b7667ba831f101991323d73502971011  q25-call-audio
+af40fc079a060d5b7a41d2e610cf33f1b94ac7245aa1bbf698874d4f411450a7193644a2d8fda60792a845d78c302f9671f7c46dca324712918d8158277d4c13  q25-call-audio.service
+f310f8c322648df111252918954f8bc48343f60ace9067dba3e7a6f02c1f5bf643f09bb44d4e6390b984cd99fb5bb234ce6ae93fadb9d3c0c9dc65e6b0d28de4  ModemManager-q25-call-audio.conf
 "

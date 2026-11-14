@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=64
+pkgrel=66
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -43,12 +43,7 @@ depends="
 	ttf-dejavu
         greetd
 	gpg
-	tuned-ppd
 "
-# tuned-ppd: power profiles (Battery Saver) over power-profiles-daemon's
-# D-Bus API, with tuned owning the CPU governor through the profiles below.
-# power-profiles-daemon itself has no driver for these SoCs' cpufreq
-# (placeholder only), so its power-saver would change nothing.
 # font-noto-cjk, font-noto-devanagari: Chinese, Japanese, Korean and Hindi
 # text, which otherwise renders as boxes. Noto Sans/Serif CJK are Android's
 # CJK fonts; font-noto-cjk is Regular and Bold only (93 MB installed;
@@ -85,17 +80,13 @@ source="
 	marathon-sleep-log
 	marathon-modem-sleep
 	marathon-modem-sleep.service
-	marathon-power-profiles.service
-	marathon-power-profiles.timer
 	marathon-flatpak-gc.service
 	marathon-flatpak-gc.timer
-	marathon-power-profiles-on-demand.conf
-	tuned-balanced.conf
-	tuned-balanced-battery.conf
-	tuned-powersave.conf
-	tuned-throughput-performance.conf
+	20-marathon-connectivity.conf
 "
 package() {
+	install -Dm644 "$srcdir/20-marathon-connectivity.conf" \
+		"$pkgdir/usr/lib/NetworkManager/conf.d/20-marathon-connectivity.conf"
 	install -Dm644 "$srcdir/50-marathon-watchdog.conf" \
 		"$pkgdir/etc/systemd/system.conf.d/50-marathon-watchdog.conf"
 	install -Dm755 "$srcdir/marathon-sleep-log" \
@@ -112,29 +103,6 @@ package() {
 		"$pkgdir/etc/systemd/zram-generator.conf.d/50-marathon.conf"
 	install -Dm644 "$srcdir/60-marathon-cpufreq.rules" \
 		"$pkgdir/etc/udev/rules.d/60-marathon-cpufreq.rules"
-	# tuned-ppd maps power-saver/balanced/performance to these tuned profile
-	# names (balanced becomes balanced-battery on battery). /etc/tuned/profiles
-	# overrides the stock ones, which also touch USB autosuspend, disks and
-	# the like; these set only the CPU governor.
-	local _profile
-	for _profile in balanced balanced-battery powersave throughput-performance; do
-		install -Dm644 "$srcdir/tuned-$_profile.conf" \
-			"$pkgdir/etc/tuned/profiles/$_profile/tuned.conf"
-	done
-	# tuned takes about twelve seconds to import its Python plugins on the
-	# CM5. It remains D-Bus activatable, but starts after the shell instead
-	# of holding multi-user.target and graphical.target open.
-	install -Dm644 "$srcdir/marathon-power-profiles.timer" \
-		"$pkgdir/usr/lib/systemd/system/marathon-power-profiles.timer"
-	install -Dm644 "$srcdir/marathon-power-profiles.service" \
-		"$pkgdir/usr/lib/systemd/system/marathon-power-profiles.service"
-	for _unit in tuned tuned-ppd; do
-		install -Dm644 "$srcdir/marathon-power-profiles-on-demand.conf" \
-			"$pkgdir/usr/lib/systemd/system/$_unit.service.d/marathon-on-demand.conf"
-	done
-	install -d "$pkgdir/usr/lib/systemd/system/timers.target.wants"
-	ln -sf ../marathon-power-profiles.timer \
-		"$pkgdir/usr/lib/systemd/system/timers.target.wants/marathon-power-profiles.timer"
 	# In /usr: udev's coldplug runs before the /etc confext merges, so a rule
 	# in /etc took the image's old copy at boot. 61 sorts after that copy.
 	install -Dm644 "$srcdir/61-marathon-iosched.rules" \
@@ -226,11 +194,6 @@ disable NetworkManager-wait-online.service
 # both daemons race for nl80211 on the same wiphy. wpa_supplicant
 # stays enabled.
 disable iwd.service
-
-# Power profiles are available shortly after login, without making TuneD's
-# Python startup a prerequisite for the display manager.
-disable tuned.service
-disable tuned-ppd.service
 PRESET
 
 	# User-scope preset: no socket-activated gnome-keyring. The session
@@ -396,13 +359,7 @@ db146f0f6ec6a0d78ce2436e2f390edd7d0c9c43b8857eb04b6d63d100da2a4e76dcfb95a58f91fe
 7179719bb41b61f57043bbaa1591d3a087a434f71374d80a1950aedce01c53df15bcda89a05d3abe45b03a3f967a1792067534e6548f706b9063daf098f6c73a  marathon-sleep-log
 59389161ed320b918a42ea453f384546bfc6e648fafa35681f7b08299e8a3e64589a88bb1b111ec441b6cc1384c6792d180f79972ac7707ada76f4e8fcb8a41c  marathon-modem-sleep
 d10016488f9eb217cae82aa0274f2b388f54bb9aefc47e340b3ddff7cb341912638b626800293013c86ef95f90442e802732809f798ec07fff7bc8c093377bd3  marathon-modem-sleep.service
-SKIP  marathon-power-profiles.service
-SKIP  marathon-power-profiles.timer
 28704136f277805371f0c0b68e610994a5e7d58c2aba9e9c567836216fa5fe90c96061e0d470a076604f04563288a916720d5c524ba421056b60a66e54b16712  marathon-flatpak-gc.service
 593a9a00f4291e3d502934f1ebb74546602a50f16e4ad681cda0565f9515d76d3ff4545040d0afbfdd84f3b857fe3970b0bc7048759ed3cbee9a2c9e4ae413ff  marathon-flatpak-gc.timer
-SKIP  marathon-power-profiles-on-demand.conf
-fa7bec3a2a7175f9b0651201f3687f1555054c4140ff310c331474d02466ea169057b5f131db490be3b6459413761f859a5291084ec901df59c0476221b693bc  tuned-balanced.conf
-c459546fda45f9cf56f2c49e6816f3f56597abffcc8ff9de2bc453cc390a5e34bee5628c9dd572f89f15f488ad839657a763c06421a12d9d3facb867c5d5de0c  tuned-balanced-battery.conf
-7308f130022acbf3ee1b21b187119234d058a65f0568d7a99516acc777a4d3abe777e9d3013796f8eae84d2d15c6f20126a1032e9acd39bebfcae57c5489e654  tuned-powersave.conf
-428a11fbf32962de19d580ec832b415bd79e37f797f0e31687738e4dd832db44fa8614efe63d2bd266fce541a265bc8c932dd5cbff5aa69d51d1a6788c533c96  tuned-throughput-performance.conf
+8bc62ab94330af78f4d7ed3e3a791cb9bbfed7839e053a793cd4c68e12d8643d01cc1b625e2fba911c97535b407e6df41db7e4f84ddc1c1e979c1c310b73d8af  20-marathon-connectivity.conf
 "

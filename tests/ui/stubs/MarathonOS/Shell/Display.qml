@@ -3,6 +3,7 @@ import QtQml
 
 // As the Rust: every turnScreenOn re-asserts the panel; screenOn changes only on an edge.
 QtObject {
+    property real dim: 1
     property bool screenOn: true
     property bool lightAvailable: true
     property bool rotationAvailable: true
