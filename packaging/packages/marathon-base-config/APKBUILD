@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=65
+pkgrel=66
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -82,8 +82,11 @@ source="
 	marathon-modem-sleep.service
 	marathon-flatpak-gc.service
 	marathon-flatpak-gc.timer
+	20-marathon-connectivity.conf
 "
 package() {
+	install -Dm644 "$srcdir/20-marathon-connectivity.conf" \
+		"$pkgdir/usr/lib/NetworkManager/conf.d/20-marathon-connectivity.conf"
 	install -Dm644 "$srcdir/50-marathon-watchdog.conf" \
 		"$pkgdir/etc/systemd/system.conf.d/50-marathon-watchdog.conf"
 	install -Dm755 "$srcdir/marathon-sleep-log" \
@@ -358,4 +361,5 @@ db146f0f6ec6a0d78ce2436e2f390edd7d0c9c43b8857eb04b6d63d100da2a4e76dcfb95a58f91fe
 d10016488f9eb217cae82aa0274f2b388f54bb9aefc47e340b3ddff7cb341912638b626800293013c86ef95f90442e802732809f798ec07fff7bc8c093377bd3  marathon-modem-sleep.service
 28704136f277805371f0c0b68e610994a5e7d58c2aba9e9c567836216fa5fe90c96061e0d470a076604f04563288a916720d5c524ba421056b60a66e54b16712  marathon-flatpak-gc.service
 593a9a00f4291e3d502934f1ebb74546602a50f16e4ad681cda0565f9515d76d3ff4545040d0afbfdd84f3b857fe3970b0bc7048759ed3cbee9a2c9e4ae413ff  marathon-flatpak-gc.timer
+8bc62ab94330af78f4d7ed3e3a791cb9bbfed7839e053a793cd4c68e12d8643d01cc1b625e2fba911c97535b407e6df41db7e4f84ddc1c1e979c1c310b73d8af  20-marathon-connectivity.conf
 "

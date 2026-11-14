@@ -22,8 +22,13 @@ Item {
         return strength === 0 ? "cell-signal-none" : strength <= 25 ? "cell-signal-low" : strength <= 50 ? "cell-signal-medium" : strength <= 75 ? "cell-signal-high" : "cell-signal-full";
     }
 
-    function wifiIcon(enabled, strength, connected) {
-        return !enabled || !connected ? "wifi-slash" : strength <= 33 ? "wifi-low" : strength <= 66 ? "wifi-medium" : "wifi-high";
+    // Connected with no way through (no internet, or a portal to sign in to): wifi-x.
+    function wifiIcon(enabled, strength, connected, connectivity) {
+        if (!enabled || !connected)
+            return "wifi-slash";
+        if (connectivity === "portal" || connectivity === "limited" || connectivity === "none")
+            return "wifi-x";
+        return strength <= 33 ? "wifi-low" : strength <= 66 ? "wifi-medium" : "wifi-high";
     }
 
     // Each cluster's glyphs go dark over a light backdrop, light over a dark one.
@@ -327,7 +332,7 @@ Item {
         }
 
         GlyphIcon {
-            name: statusBar.wifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, Network.wifiConnected)
+            name: statusBar.wifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, Network.wifiConnected, Network.connectivity)
             color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter

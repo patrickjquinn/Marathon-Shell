@@ -23,6 +23,9 @@ pub mod qobject {
         #[qproperty(bool, wifi_enabled, cxx_name = "wifiEnabled", READ, NOTIFY)]
         #[qproperty(bool, wifi_connected, cxx_name = "wifiConnected", READ, NOTIFY)]
         #[qproperty(QString, wifi_ssid, cxx_name = "wifiSsid", READ, NOTIFY)]
+        /// "" (unknown), "none", "portal", "limited" or "full".
+        #[qproperty(QString, connectivity, READ, NOTIFY)]
+        #[qproperty(QString, portal_url, cxx_name = "portalUrl", READ, NOTIFY)]
         #[qproperty(
             i32,
             wifi_signal_strength,
@@ -101,6 +104,13 @@ pub mod qobject {
         #[cxx_name = "forgetNetwork"]
         fn forget_network(self: &Network, ssid: &QString);
         #[qinvokable]
+        #[cxx_name = "checkConnectivity"]
+        fn check_connectivity(self: &Network);
+        /// Opens a captive portal's sign-in in the browser.
+        #[qinvokable]
+        #[cxx_name = "openPortal"]
+        fn open_portal(self: &Network);
+        #[qinvokable]
         #[cxx_name = "disconnectWifi"]
         fn disconnect_wifi(self: &Network);
         #[qinvokable]
@@ -131,6 +141,8 @@ pub struct NetworkRust {
     wifi_enabled: bool,
     wifi_connected: bool,
     wifi_ssid: QString,
+    connectivity: QString,
+    portal_url: QString,
     wifi_signal_strength: i32,
     ethernet_connected: bool,
     ethernet_connection_name: QString,
@@ -175,6 +187,13 @@ impl cxx_qt::Initialize for Network {
                 get(&s, "wifiConnected")
             );
             set!(obj, wifi_ssid, wifi_ssid_changed, get(&s, "wifiSsid"));
+            set!(
+                obj,
+                connectivity,
+                connectivity_changed,
+                get(&s, "connectivity")
+            );
+            set!(obj, portal_url, portal_url_changed, get(&s, "portalUrl"));
             set!(
                 obj,
                 wifi_signal_strength,
@@ -245,6 +264,8 @@ impl Network {
         connect_to_network(ssid: &QString, password: &QString) => "ConnectToNetwork";
         connect_to_hidden_network(ssid: &QString, security: &QString, password: &QString) => "ConnectToHiddenNetwork";
         forget_network(ssid: &QString) => "ForgetNetwork";
+        check_connectivity() => "CheckConnectivity";
+        open_portal() => "OpenPortal";
         create_hotspot(ssid: &QString, password: &QString) => "CreateHotspot";
     }
     crate::shell::asks! { NETWORK;
