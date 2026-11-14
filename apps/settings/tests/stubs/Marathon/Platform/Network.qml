@@ -8,6 +8,8 @@ QtObject {
     property string wifiSsid: ""
     property int wifiSignalStrength: 0
     property bool airplaneModeEnabled: false
+    property string connectivity: "full"
+    property string portalUrl: ""
     property var availableNetworks: []
     property var calls: []
 
@@ -21,6 +23,7 @@ QtObject {
         wifiSsid = "";
         wifiSignalStrength = 0;
         airplaneModeEnabled = false;
+        connectivity = "full";
         availableNetworks = [];
         calls = [];
     }
@@ -38,6 +41,12 @@ QtObject {
         availableNetworks = availableNetworks.map(n => n.ssid === ssid ? Object.assign({}, n, {
                 known: false
             }) : n);
+    }
+    function openPortal() {
+        record(["openPortal"]);
+    }
+    function checkConnectivity() {
+        record(["checkConnectivity"]);
     }
     function scanWifi() {
         record(["scanWifi"]);

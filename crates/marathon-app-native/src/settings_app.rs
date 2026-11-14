@@ -882,6 +882,8 @@ pub struct SettingsControllerRust {
     wifi_dialog_security: QString,
     wifi_dialog_secured: bool,
     wifi_dialog_connecting: bool,
+    /// Bumped per connection attempt, so a stale backstop leaves a newer one be.
+    wifi_attempt: u64,
     wifi_dialog_error: QString,
     wifi_dialog_password: QString,
     wifi_dialog_hidden: bool,
@@ -1008,6 +1010,7 @@ impl Default for SettingsControllerRust {
             wifi_dialog_security: QString::default(),
             wifi_dialog_secured: true,
             wifi_dialog_connecting: false,
+            wifi_attempt: 0,
             wifi_dialog_error: QString::default(),
             wifi_dialog_password: QString::default(),
             wifi_dialog_hidden: false,
@@ -1202,8 +1205,32 @@ impl SettingsController {
         r.wifi_dialog_connecting = true;
         r.wifi_dialog_password = password.clone();
         r.wifi_dialog_error = QString::default();
-        self.wifi_dialog_changed();
+        self.as_mut().wifi_dialog_changed();
+        self.watch_wifi_attempt();
         NETWORK.call("ConnectToNetwork", (ssid, pw));
+    }
+
+    // The shell ends every attempt within 60 s; should its answer be lost
+    // (the shell restarted), the dialog still leaves "Connecting".
+    fn watch_wifi_attempt(mut self: Pin<&mut Self>) {
+        let attempt = {
+            let mut r = self.as_mut().rust_mut();
+            r.wifi_attempt += 1;
+            r.wifi_attempt
+        };
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            async_io::Timer::after(std::time::Duration::from_secs(75)).await;
+            qt.queue(move |mut obj| {
+                if obj.wifi_attempt == attempt && obj.wifi_dialog_connecting {
+                    let mut r = obj.as_mut().rust_mut();
+                    r.wifi_dialog_connecting = false;
+                    r.wifi_dialog_error = QString::from("Couldn't connect");
+                    obj.wifi_dialog_changed();
+                }
+            })
+            .ok();
+        });
     }
 
     fn connect_saved_network(
@@ -1246,7 +1273,8 @@ impl SettingsController {
         r.wifi_dialog_password = password.clone();
         r.wifi_dialog_connecting = true;
         r.wifi_dialog_error = QString::default();
-        self.wifi_dialog_changed();
+        self.as_mut().wifi_dialog_changed();
+        self.watch_wifi_attempt();
         NETWORK.call(
             "ConnectToHiddenNetwork",
             (ssid.to_string(), security.to_string(), password.to_string()),

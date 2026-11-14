@@ -5,6 +5,7 @@ QtObject {
     property int cancelledConnects: 0
     property var availableNetworks: []
     property bool wifiConnected: false
+    property string connectivity: "full"
     property string wifiSsid: ""
     signal connectionSuccess
     signal connectionFailed(string message)

@@ -175,11 +175,21 @@ Page {
             ListItem {
                 id: current
 
+                // The network's sign-in page, behind a captive portal.
+                readonly property bool portal: Network.connectivity === "portal"
+                readonly property bool noInternet: Network.connectivity === "limited" || Network.connectivity === "none"
+
                 objectName: "currentNetwork"
                 visible: Network.wifiEnabled && Network.wifiConnected
                 contentHeight: Theme.itemSizeMedium
                 Accessible.name: qsTr("Connected to %1").arg(Network.wifiSsid)
                 menu: ContextMenu {
+                    MenuItem {
+                        objectName: "signInItem"
+                        visible: current.portal
+                        text: qsTr("Sign in to network")
+                        onClicked: Network.openPortal()
+                    }
                     MenuItem {
                         objectName: "disconnectItem"
                         text: qsTr("Disconnect")
@@ -194,7 +204,7 @@ Page {
                         }
                     }
                 }
-                onClicked: openMenu()
+                onClicked: current.portal ? Network.openPortal() : openMenu()
 
                 Icon {
                     id: currentIcon
@@ -221,7 +231,8 @@ Page {
                     }
                     Label {
                         width: parent.width
-                        text: qsTr("Connected") + " · " + Logic.signalText(Network.wifiSignalStrength)
+                        objectName: "currentStatus"
+                        text: (current.portal ? qsTr("Sign-in required") : current.noInternet ? qsTr("Connected · No internet") : qsTr("Connected")) + " · " + Logic.signalText(Network.wifiSignalStrength)
                         font.pixelSize: Theme.fontSizeExtraSmall
                         color: Theme.secondaryHighlightColor
                     }

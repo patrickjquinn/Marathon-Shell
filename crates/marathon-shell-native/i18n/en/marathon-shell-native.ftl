@@ -34,6 +34,11 @@ network-failed-because = Failed: { $message }
 # $name is NetworkManager's error name.
 network-failed-named = Failed ({ $name })
 network-couldnt-connect = Couldn't connect
+network-no-address = The network gave no address
+network-portal-app = Wi-Fi
+network-portal-title = Sign in to { $ssid }
+network-portal-body = This network asks you to sign in before it lets you on the internet.
+network-portal-sign-in = Sign in
 wifi-enable-failed = Failed to enable WiFi
 wifi-disable-failed = Failed to disable WiFi
 wifi-disconnect-failed = Failed to disconnect Wi-Fi
