@@ -6,12 +6,15 @@
 #   marathon-bug-report create
 #
 # Exit status: 0 done, 2 usage, 1 any other failure.
-set -eu
+# Each step that can stop the report says why on stderr: the shell shows
+# the last line. A section that fails is noted in the report instead.
+set -u
+fail() { echo "$*" >&2; exit 1; }
 [ "${1:-}" = create ] || { echo "usage: $0 create" >&2; exit 2; }
 uid=${PKEXEC_UID:?run through pkexec}
 user=$(getent passwd "$uid" | cut -d: -f1)
 home=$(getent passwd "$uid" | cut -d: -f6)
-[ -n "$user" ] && [ -d "$home" ]
+[ -n "$user" ] && [ -d "$home" ] || fail "no home folder for user $uid"
 
 as_user() { runuser -u "$user" -- "$@"; }
 
@@ -19,10 +22,10 @@ as_user() { runuser -u "$user" -- "$@"; }
 # shellcheck disable=SC2016 # expanded by the user's shell
 docs=$(as_user sh -c '. "$HOME/.config/user-dirs.dirs" 2>/dev/null; echo "${XDG_DOCUMENTS_DIR:-$HOME/Documents}"')
 docs=$(echo "$docs" | sed "s#\$HOME#$home#")
-as_user mkdir -p "$docs"
+as_user mkdir -p "$docs" || fail "can't make $docs"
 dest=$docs/marathon-bug-report-$(date +%Y%m%d-%H%M%S).txt
 
-work=$(mktemp -d)
+work=$(mktemp -d) || fail "no temporary folder"
 trap 'rm -rf "$work"' EXIT
 out=$work/report
 
@@ -52,5 +55,5 @@ section() {
 } > "$out"
 
 # shellcheck disable=SC2016 # expanded by the user's shell
-as_user sh -c 'umask 077; set -C; cat > "$1"' sh "$dest" < "$out"
+as_user sh -c 'umask 077; set -C; cat > "$1"' sh "$dest" < "$out" || fail "can't write $dest"
 echo "$dest"
