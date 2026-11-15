@@ -86,7 +86,19 @@ pub fn parse_desktop(text: &str) -> Option<(String, App)> {
     ))
 }
 
-/// Installed apps by Keel app id, from their desktop entries (read once).
+/// A Marathon app's name and description by its Keel app id, from its
+/// `manifest.json`.
+fn parse_manifest(bytes: &[u8]) -> Option<App> {
+    let m: serde_json::Value = serde_json::from_slice(bytes).ok()?;
+    Some(App {
+        id: format!("org.marathonos.{}", m["id"].as_str()?),
+        name: m["name"].as_str()?.to_owned(),
+        comment: m["description"].as_str().unwrap_or_default().to_owned(),
+    })
+}
+
+/// Installed apps by Keel app id, from their desktop entries and Marathon
+/// app manifests (read once).
 fn installed_apps() -> &'static std::collections::HashMap<String, App> {
     use std::sync::OnceLock;
     static APPS: OnceLock<std::collections::HashMap<String, App>> = OnceLock::new();
@@ -100,6 +112,18 @@ fn installed_apps() -> &'static std::collections::HashMap<String, App> {
                     .and_then(parse_desktop)
                 {
                     m.insert(app.id.clone(), app);
+                }
+            }
+        }
+        // Marathon's apps serve their actions as org.marathonos.<id>.
+        if let Ok(entries) = std::fs::read_dir("/usr/share/marathon-apps") {
+            for e in entries.flatten() {
+                if let Some(app) = std::fs::read(e.path().join("manifest.json"))
+                    .ok()
+                    .as_deref()
+                    .and_then(parse_manifest)
+                {
+                    m.entry(app.id.clone()).or_insert(app);
                 }
             }
         }
@@ -359,6 +383,23 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn a_marathon_manifest_names_its_keel_app() {
+        let app = parse_manifest(
+            br#"{"id": "shipwright-pacific", "name": "Pacific", "description": "Browse the web"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            app,
+            App {
+                id: "org.marathonos.shipwright-pacific".into(),
+                name: "Pacific".into(),
+                comment: "Browse the web".into(),
+            }
+        );
+        assert!(parse_manifest(br#"{"name": "No id"}"#).is_none());
+    }
 
     #[test]
     fn desktop_entry_gives_the_keel_app_id() {
