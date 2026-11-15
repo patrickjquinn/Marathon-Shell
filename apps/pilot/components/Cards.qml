@@ -12,6 +12,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Qt.labs.qmlmodels
+import MarathonOS.Pilot 1.0
 
 DelegateChooser {
     id: cards
@@ -133,6 +134,8 @@ DelegateChooser {
                 cards.look(question);
             }
             onOpenSettings: cards.openSettings()
+            onRetry: Conversation.retry(index)
+            onDownload: Pilot.downloadModels(false)
         }
     }
 }

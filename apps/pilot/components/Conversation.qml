@@ -88,6 +88,7 @@ QtObject {
             answered: false,
             allowed: false,
             payload: "",
+            code: "",
             via: "",
             ms: 0,
             time: Format.formatDate(new Date(), Formatter.TimeValue)
@@ -107,14 +108,16 @@ QtObject {
                 kind: "you",
                 text: result.transcript
             }));
-        if (result.error !== undefined) {
-            model.append(entry({
-                kind: "error",
-                text: result.error
-            }));
-            grew();
-            return;
-        }
+        // A failed turn has a typed error card; an older pilotd's failure
+        // is only its message.
+        if (result.cards === undefined)
+            result.cards = [
+                {
+                    kind: "error",
+                    code: "internal",
+                    text: String(result.error || "")
+                }
+            ];
         // A declined confirmation: its card already says Cancelled.
         if (result.route === "declined")
             return;
@@ -132,6 +135,7 @@ QtObject {
                 outbound: !!c.outbound,
                 destructive: !!c.destructive,
                 payload: JSON.stringify(c),
+                code: c.code || "",
                 via: last ? (result.via || "") : "",
                 ms: last ? (result.ms || 0) : 0
             }));
@@ -189,6 +193,17 @@ QtObject {
         model.setProperty(index, "answered", true);
         (approved && (e.destructive || e.outbound) ? _commit : _press).play();
         Pilot.confirm(e.cardId, approved);
+    }
+
+    // Try again: the question the failed card answered, asked anew.
+    function retry(index) {
+        model.setProperty(index, "answered", true);
+        for (var i = index - 1; i >= 0; --i) {
+            if (model.get(i).who === "you") {
+                send(model.get(i).text);
+                return;
+            }
+        }
     }
 
     function listen() {

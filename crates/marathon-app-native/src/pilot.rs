@@ -36,7 +36,8 @@ pub mod qobject {
         /// Answers a confirmation card; the result arrives as `turnFinished`.
         #[qinvokable]
         fn confirm(self: Pin<&mut Pilot>, id: &QString, approved: bool);
-        /// The `TurnResult` JSON of apps/pilot/README.md, or `{"error": ...}`.
+        /// The `TurnResult` JSON of apps/pilot/README.md; a turn that got no
+        /// result has `error` (timeout, internal) and one error card.
         #[qsignal]
         #[cxx_name = "turnFinished"]
         fn turn_finished(self: Pin<&mut Pilot>, json: QString);
@@ -186,7 +187,7 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
 use marathon_rt::log;
 
-use client::{Change, Client};
+use client::{Change, Client, Failure};
 
 #[derive(Default)]
 #[allow(
@@ -223,6 +224,14 @@ fn err_json(msg: &str) -> QString {
     q(&serde_json::json!({ "error": msg }).to_string())
 }
 
+/// A turn without a result, shaped as pilotd shapes a failed one.
+fn failure_json(f: &Failure) -> QString {
+    q(&serde_json::json!({
+        "error": f.code,
+        "cards": [{ "kind": "error", "code": f.code, "text": f.text }],
+    })
+    .to_string())
+}
 
 impl cxx_qt::Initialize for qobject::Pilot {
     fn initialize(self: Pin<&mut Self>) {
@@ -377,11 +386,11 @@ impl qobject::Pilot {
     /// Runs `work` on a worker and emits its JSON as `turnFinished`.
     fn turn(
         mut self: Pin<&mut Self>,
-        work: impl FnOnce(&Client) -> Result<String, String> + Send + 'static,
+        work: impl FnOnce(&Client) -> Result<String, Failure> + Send + 'static,
     ) {
         let Some(client) = self.client() else {
             self.as_mut()
-                .turn_finished(err_json("Pilot is not available"));
+                .turn_finished(failure_json(&Failure::internal("Pilot is not available")));
             return;
         };
         set!(self, busy, busy_changed, true);
@@ -391,7 +400,7 @@ impl qobject::Pilot {
             .spawn(move || {
                 let json = match work(&client) {
                     Ok(j) => q(&j),
-                    Err(e) => err_json(&e),
+                    Err(f) => failure_json(&f),
                 };
                 thread
                     .queue(move |mut o| {
@@ -404,7 +413,7 @@ impl qobject::Pilot {
         if spawned.is_err() {
             set!(self, busy, busy_changed, false);
             self.as_mut()
-                .turn_finished(err_json("could not start a worker"));
+                .turn_finished(failure_json(&Failure::internal("could not start a worker")));
         }
     }
 
@@ -592,9 +601,9 @@ impl qobject::Pilot {
         self.turn(move |c| {
             let small = path.with_extension("pilot.jpg");
             let bytes = if photo::prepare(&path, &small, PHOTO_SIDE) {
-                std::fs::read(&small).map_err(|e| e.to_string())
+                std::fs::read(&small).map_err(|e| Failure::internal(e.to_string()))
             } else {
-                Err("the photo could not be read".into())
+                Err(Failure::internal("the photo could not be read"))
             };
             // Nothing of the photo stays behind on the app's side.
             std::fs::remove_file(&path).ok();

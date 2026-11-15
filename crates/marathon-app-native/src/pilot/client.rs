@@ -34,6 +34,30 @@ pub enum Change {
     ModelState(String),
 }
 
+/// Why a turn did not reach an answer, as pilotd's error codes put it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Failure {
+    pub code: &'static str,
+    pub text: String,
+}
+
+impl Failure {
+    pub fn internal(text: impl Into<String>) -> Failure {
+        Failure {
+            code: "internal",
+            text: text.into(),
+        }
+    }
+}
+
+fn failure(e: &zbus::Error) -> Failure {
+    let code = match e {
+        zbus::Error::InputOutput(io) if io.kind() == std::io::ErrorKind::TimedOut => "timeout",
+        _ => "internal",
+    };
+    Failure { code, text: err(e) }
+}
+
 fn err(e: &zbus::Error) -> String {
     match e {
         zbus::Error::MethodError(_, Some(msg), _) => msg.clone(),
@@ -68,12 +92,24 @@ impl Client {
         zbus::block_on(self.proxy()?.call(method, body)).map_err(|e| err(&e))
     }
 
-    pub fn ask(&self, text: &str, spoken: bool) -> Result<String, String> {
-        self.call("Ask", &(text, spoken))
+    /// A turn's call: its `TurnResult` JSON, or why there is none.
+    fn turn<B>(&self, method: &str, body: &B) -> Result<String, Failure>
+    where
+        B: serde::Serialize + zbus::DynamicType,
+    {
+        zbus::block_on(async {
+            let proxy = Proxy::new(&self.conn, BUS_NAME, PATH, INTERFACE).await?;
+            proxy.call(method, body).await
+        })
+        .map_err(|e| failure(&e))
     }
 
-    pub fn confirm(&self, id: &str, approved: bool) -> Result<String, String> {
-        self.call("Confirm", &(id, approved))
+    pub fn ask(&self, text: &str, spoken: bool) -> Result<String, Failure> {
+        self.turn("Ask", &(text, spoken))
+    }
+
+    pub fn confirm(&self, id: &str, approved: bool) -> Result<String, Failure> {
+        self.turn("Confirm", &(id, approved))
     }
 
     pub fn settings(&self) -> Result<String, String> {
@@ -155,13 +191,13 @@ impl Client {
     }
 
     /// A camera turn: the question and the prepared photo's bytes.
-    pub fn look(&self, question: &str, jpeg: &[u8]) -> Result<String, String> {
-        self.call("Look", &(question, jpeg))
+    pub fn look(&self, question: &str, jpeg: &[u8]) -> Result<String, Failure> {
+        self.turn("Look", &(question, jpeg))
     }
 
     /// A push-to-talk turn through pilot-voice; the `TurnResult` JSON.
-    pub fn listen(&self) -> Result<String, String> {
-        self.call("Listen", &())
+    pub fn listen(&self) -> Result<String, Failure> {
+        self.turn("Listen", &())
     }
 
     /// Whether pilot-voice is installed; false from a pilotd that does not
@@ -272,5 +308,20 @@ impl Client {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_call_that_ran_out_of_time_is_a_timeout() {
+        let timed_out = zbus::Error::from(std::io::Error::from(std::io::ErrorKind::TimedOut));
+        assert_eq!(failure(&timed_out).code, "timeout");
+        let refused =
+            zbus::Error::from(std::io::Error::from(std::io::ErrorKind::ConnectionRefused));
+        assert_eq!(failure(&refused).code, "internal");
+        assert_eq!(Failure::internal("x").code, "internal");
     }
 }

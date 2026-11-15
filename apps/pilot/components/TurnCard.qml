@@ -26,6 +26,8 @@ Item {
     required property bool outbound
     required property bool destructive
     required property bool answered
+    // A failed turn's code (pilotd's ErrorCode): what it says and offers.
+    required property string code
     // When it was said (formatted by the page) and, for an answered
     // confirmation, whether it was allowed.
     property string stamp: ""
@@ -33,9 +35,31 @@ Item {
     signal answer(bool approved)
     signal look(string question)
     signal openSettings
-    // A reply that points to a setting (spoken or typed questions are
-    // off) takes you there.
-    readonly property bool pointsToSettings: !mine && (kind === "offline" || kind === "error") && text.indexOf("Pilot's settings") >= 0
+    signal retry
+    signal download
+    readonly property bool failed: !mine && (kind === "offline" || kind === "error")
+    readonly property bool pointsToSettings: failed && code === "consent-needed"
+    readonly property bool offersRetry: failed && !answered && ["offline", "model-loading", "timeout", "internal", ""].indexOf(code) >= 0
+    readonly property bool offersDownload: failed && code === "model-unavailable"
+
+    function headline() {
+        switch (code) {
+        case "offline":
+            return qsTr("You're offline");
+        case "model-unavailable":
+            return qsTr("Pilot's model isn't on this phone yet");
+        case "model-loading":
+            return qsTr("Pilot is getting ready");
+        case "timeout":
+            return qsTr("That took too long");
+        case "consent-needed":
+            return qsTr("Pilot needs your permission");
+        case "voice-unavailable":
+            return qsTr("Speaking isn't available on this phone");
+        default:
+            return qsTr("Something went wrong");
+        }
+    }
 
     width: parent ? parent.width : 0
     height: bubble.height + Theme.paddingMedium
@@ -49,7 +73,7 @@ Item {
 
         // The opposite side always keeps a free strip, as in Messages.
         readonly property real maximumWidth: Math.min(card.width - 2 * Theme.horizontalPageMargin - Theme.paddingLarge, 6 * Theme.itemSizeLarge)
-        readonly property real naturalWidth: Math.max(titleLabel.visible ? titleLabel.implicitWidth : 0, textWidth.advanceWidth, stampLabel.implicitWidth, cameraButton.visible ? cameraButton.implicitWidth : 0, card.pointsToSettings ? Theme.buttonWidthSmall : 0, buttonRow.visible ? 2 * Theme.buttonWidthExtraSmall + Theme.paddingMedium : 0)
+        readonly property real naturalWidth: Math.max(titleLabel.visible ? titleLabel.implicitWidth : 0, textWidth.advanceWidth, stampLabel.implicitWidth, cameraButton.visible ? cameraButton.implicitWidth : 0, card.pointsToSettings || card.offersRetry || card.offersDownload ? Theme.buttonWidthSmall : 0, buttonRow.visible ? 2 * Theme.buttonWidthExtraSmall + Theme.paddingMedium : 0)
         width: Math.min(maximumWidth, naturalWidth + 2 * Theme.paddingLarge)
 
         // The text's unwrapped width (a wrapping label's own implicit width
@@ -79,11 +103,12 @@ Item {
             Label {
                 id: titleLabel
                 objectName: "cardTitle"
-                visible: card.kind === "confirm"
+                visible: card.kind === "confirm" || card.failed
                 width: parent.width
+                wrapMode: card.failed ? Text.Wrap : Text.NoWrap
                 truncationMode: TruncationMode.Fade
                 color: Theme.primaryColor
-                text: card.title
+                text: card.failed ? card.headline() : card.title
             }
             Label {
                 id: textLabel
@@ -92,7 +117,8 @@ Item {
                 wrapMode: Text.Wrap
                 textFormat: Text.PlainText
                 horizontalAlignment: card.mine ? Text.AlignRight : Text.AlignLeft
-                color: card.kind === "error" ? Theme.errorColor : Theme.primaryColor
+                font.pixelSize: card.failed ? Theme.fontSizeSmall : Theme.fontSizeMedium
+                color: card.failed ? Theme.secondaryColor : Theme.primaryColor
                 text: card.kind === "confirm" ? card.detail : card.text
             }
             Label {
@@ -110,6 +136,20 @@ Item {
                 preferredWidth: Theme.buttonWidthSmall
                 text: qsTr("Open settings")
                 onClicked: card.openSettings()
+            }
+            Button {
+                objectName: "retryButton"
+                visible: card.offersRetry
+                preferredWidth: Theme.buttonWidthSmall
+                text: qsTr("Try again")
+                onClicked: card.retry()
+            }
+            Button {
+                objectName: "downloadButton"
+                visible: card.offersDownload
+                preferredWidth: Theme.buttonWidthSmall
+                text: qsTr("Download model")
+                onClicked: card.download()
             }
             Button {
                 id: cameraButton
