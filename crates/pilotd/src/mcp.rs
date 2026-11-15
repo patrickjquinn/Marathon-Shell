@@ -780,7 +780,7 @@ mod tests {
         let r = json!({
             "content": [{"type": "text", "text": "{}"}],
             "structuredContent": {"ok": true, "completed": 1,
-                                  "steps": [{"tool": "org.shipwright.pacific__page.read", "ok": true,
+                                  "steps": [{"tool": "org.marathonos.shipwright-pacific__page.read", "ok": true,
                                              "result": {"text": "x"}, "untrusted": true}]}
         });
         assert!(output_of(&r).unwrap().untrusted);

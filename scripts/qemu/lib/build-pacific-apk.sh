@@ -5,7 +5,8 @@
 #
 # The aport's source tarball is staged from the tree, uncommitted changes
 # included, so its source= URL is never fetched here: apps/pacific, crates/
-# (the Keel crates the app uses inherit that workspace) and the build helpers
+# (the Keel crates the app uses inherit that workspace), the Keel Actions
+# activation template (apps/keel-actions.service.in) and the build helpers
 # in tools/keel-launcher.
 #
 # PACIFIC_SRC=<checkout> (else MARATHON_SHELL_SRC) builds that tree instead
@@ -43,7 +44,7 @@ mkdir -p "$WORK_DIR/distfiles"
 tar -C "$PACIFIC_SRC" --exclude=crates/target --exclude=apps/pacific/app/target \
     --exclude=apps/pacific/core/target \
     --transform 's,^,Marathon-Shell-main/,' \
-    -czf "$WORK_DIR/distfiles/pacific-$PKGVER.tar.gz" crates apps/pacific tools/keel-launcher
+    -czf "$WORK_DIR/distfiles/pacific-$PKGVER.tar.gz" crates apps/pacific apps/keel-actions.service.in tools/keel-launcher
 
 podman run --rm -i \
     --net=host \

@@ -7,7 +7,7 @@
 # and it follows a branch.
 pkgname=pacific
 pkgver=0.1.0
-pkgrel=10
+pkgrel=11
 pkgdesc="Pacific web browser for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
@@ -73,7 +73,7 @@ package() {
 	local app=shipwright-pacific
 	local p=apps/pacific
 	local out="$builddir/target/release"
-	local actions="$out/keel-actions/org.shipwright.pacific"
+	local actions="$out/keel-actions/org.marathonos.$app"
 
 	DESTDIR="$pkgdir" cmake --install build-webview
 
@@ -96,12 +96,13 @@ package() {
 			"$pkgdir/usr/share/icons/hicolor/${s}x$s/apps/$app.png"
 	done
 
-	install -Dm644 "$actions/actions.json" \
-		"$pkgdir/usr/share/keel/actions/org.shipwright.pacific.json"
-	install -Dm644 "$actions/org.shipwright.pacific.actions.xml" \
-		"$pkgdir/usr/share/dbus-1/interfaces/org.shipwright.pacific.actions.xml"
-	sed -e '/^#/d' -e "s|^Exec=.*|Exec=/usr/libexec/marathon-activate $app org.shipwright.pacific|" \
-		"$actions/org.shipwright.pacific.service" > "$pkgdir/usr/share/dbus-1/services/org.shipwright.pacific.service"
+	local keel=org.marathonos.$app
+	install -Dm644 "$actions/actions.json" "$pkgdir/usr/share/keel/actions/$keel.json"
+	install -Dm644 "$actions/$keel.actions.xml" \
+		"$pkgdir/usr/share/dbus-1/interfaces/$keel.actions.xml"
+	install -d "$pkgdir/usr/share/dbus-1/services"
+	sed -e "s|@KEEL_APP@|$app|g" -e "s|@MARATHON_ACTIVATE@|/usr/libexec/marathon-activate|" \
+		apps/keel-actions.service.in > "$pkgdir/usr/share/dbus-1/services/$keel.service"
 }
 
 sha512sums="

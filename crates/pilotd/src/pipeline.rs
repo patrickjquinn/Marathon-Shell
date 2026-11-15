@@ -3674,7 +3674,7 @@ fn about_screen(answers: &crate::jev::Answers) -> bool {
 
 fn domain_question(registry: &Registry, domains: &[String]) -> Question {
     // An app by its name and what it is for, then every action it has:
-    // Pacific was "org.shipwright.pacific" and its first six actions (all
+    // Pacific was "org.marathonos.shipwright-pacific" and its first six actions (all
     // bookmarks and background browsing), so "open ... in the browser" and
     // "what tabs do I have open" were never routed to it, and the model,
     // without its tools, answered them from nothing.

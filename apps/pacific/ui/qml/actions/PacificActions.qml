@@ -40,7 +40,7 @@ Item {
     // checking ids before clicks and fills.
     property var snapshots: ({})
 
-    readonly property string appId: "org.shipwright.pacific"
+    readonly property string appId: "org.marathonos.shipwright-pacific"
 
     // ---- Helpers ---------------------------------------------------------
 

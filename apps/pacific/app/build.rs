@@ -54,6 +54,7 @@ fn main() {
     keel_actions_codegen::Config {
         qml: vec![repo.join("apps/pacific/ui/qml")],
         desktop: Some(repo.join("apps/pacific/app/packaging/shipwright-pacific.desktop")),
+        app_id: Some("org.marathonos.shipwright-pacific".into()),
         ..Default::default()
     }
     .build_script();

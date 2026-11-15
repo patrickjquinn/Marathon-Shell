@@ -66,10 +66,10 @@ Pacific stores no passwords. Shoal Keys serves `org.shipwright.Keys.Autofill1` (
 
 ### Pilot (Keel Actions)
 
-`ui/qml/actions/PacificActions.qml` declares the browser for Pilot and any MCP client (ADR-0018), app id `org.shipwright.pacific`:
+`ui/qml/actions/PacificActions.qml` declares the browser for Pilot and any MCP client (ADR-0018), app id `org.marathonos.shipwright-pacific`:
 
 - Opening: `browser.open`, `browser.search`.
-- Tabs: `tabs.list`, `tabs.switch`, `tabs.close`; entities `tab`, `bookmark`, `history` (`keel://org.shipwright.pacific/<type>/<id>`) with find and resolve.
+- Tabs: `tabs.list`, `tabs.switch`, `tabs.close`; entities `tab`, `bookmark`, `history` (`keel://org.marathonos.shipwright-pacific/<type>/<id>`) with find and resolve.
 - Reading: `page.read` (readable text, bounded, default 8,000 characters), `page.find`, `page.links` (a snapshot outline of links, buttons and fields with ids like `e12`, and the forms with what submitting them would do), `page.screenshot`, `page.scroll`.
 - Acting, always confirmed by the person: `page.click`, `page.fill` (never password, one-time-code or payment fields), `page.submit` (also destructive and outbound; payment forms refused).
 - Browse for me: `browse.open` loads pages in a headless view on the private profile, without touching the person's tabs; the browser shows "Pilot is browsing" with Show (the page opens in a private tab) and Stop; `browse.show`, `browse.close`; every page action takes `background: true` for that view.

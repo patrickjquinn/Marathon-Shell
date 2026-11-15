@@ -12,7 +12,7 @@
       gesture (ftrace, as scroll_bench.py).
 
 Open the page in Pacific (as uid 1000):
-  busctl --user call org.shipwright.pacific /org/shipwright/Keel/Actions \\
+  busctl --user call org.marathonos.shipwright-pacific /org/shipwright/Keel/Actions \\
     org.shipwright.Keel.Actions Invoke 'ssa{sv}' browser.open \\
     '{"url":"http://127.0.0.1:8765/?run=1"}' 0
 """
