@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 15 Nov 2026 12:00:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Use the measured
+ battery resistance
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The fuel gauge seeds its state of charge from the battery voltage,
+corrected by the current times the internal resistance. The 155 mOhm of
+the stock gauge profile overcorrects, so every seed taken under load
+reads high: a boot at 3645 mV and -998 mA seeded 41% where the cell was
+at about 18%.
+
+Measured on the phone, the voltage moves by 78 to 81 mOhm per ampere
+between a sustained load and the light load after it (3686 mV at -451 mA
+and 3698 mV at -312 mA against 3717 mV at -69 mA), and sample pairs a
+few seconds apart give a median of 60 to 70 mOhm. Use 80 mOhm, which
+reproduces the sustained-load points and leaves a seed under load on
+the pessimistic side if anything.
+
+Charging near empty behaves like about 120 mOhm, so a seed taken on the
+charger now reads high instead; the end of charge re-anchors at full,
+and it is the discharge side that runs a battery flat.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -176,8 +176,8 @@
+ 	/*
+ 	 * Battery — 3000 mAh Li-ion pack. Values from the stock DTBO
+ 	 * (upm6922 vreg 4440 mV, ichg 3000 mA, iprechg 180 mA, iterm 200 mA;
+-	 * gauge shutdown floor 3.4 V). The capacity, OCV table and internal
+-	 * resistance are the stock gauge profile's at 25 °C.
++	 * gauge shutdown floor 3.4 V). The capacity and OCV table are the stock
++	 * gauge profile's at 25 °C; the internal resistance is measured.
+ 	 */
+ 	battery: battery {
+ 		compatible = "simple-battery";
+@@ -189,7 +189,7 @@
+ 		constant-charge-voltage-max-microvolt = <4440000>;
+ 		precharge-current-microamp = <180000>;
+ 		charge-term-current-microamp = <200000>;
+-		factory-internal-resistance-micro-ohms = <155000>;
++		factory-internal-resistance-micro-ohms = <80000>;
+ 		ocv-capacity-celsius = <25>;
+ 		ocv-capacity-table-0 = <4393000 100>, <4368447 98>, <4357671 97>,
+ 				       <4346895 96>, <4336118 95>, <4324464 94>, <4312708 93>,
+-- 
+2.55.0
+
