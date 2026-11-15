@@ -45,7 +45,7 @@ restricted permissions.
 | `tested-on` | each width in `testedOn.widths` is laid out by a test under `tests/` (`width: N`), and `keyboard` is only declared when a test sends key events |
 | `id-cmake` | `add_marathon_app(...)` and `install_keel_actions(...)` in `CMakeLists.txt` use the app id, which names the install directory and the `org.marathonos.<id>` D-Bus name |
 | `id-keel-actions` | the Keel Actions manifest's `appId` is `org.marathonos.<id>` |
-| `id-directory` | with `--system-app`, the app's directory is named after its id |
+| `id-directory` | with `--system-app`, the app's directory is named after its id; an app from Shipwright keeps its id in a directory without the `shipwright-` or `shoal-` prefix (`apps/pacific` holds `shipwright-pacific`) |
 | `id-package` | (warning) the package is named `<id>.marathon` or `<id>-<version>.marathon` |
 | `package` | the package extracts (the installer's archive rules: no symlinks, no paths outside the app) |
 

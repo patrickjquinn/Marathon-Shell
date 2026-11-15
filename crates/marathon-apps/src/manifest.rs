@@ -329,7 +329,12 @@ pub fn lint_dir(dir: &Path, class: AppClass) -> Vec<Finding> {
             .ok()
             .and_then(|d| d.file_name().map(|n| n.to_string_lossy().into_owned()))
             .unwrap_or_default();
-        if name != id {
+        // Apps from Shipwright keep their ids (shipwright-pacific) in a
+        // directory without the prefix (apps/pacific).
+        let shipwright = ["shipwright-", "shoal-"]
+            .iter()
+            .any(|p| id.strip_prefix(p) == Some(name.as_str()));
+        if name != id && !shipwright {
             lint.error(
                 "id-directory",
                 "",
@@ -645,6 +650,19 @@ mod tests {
         fs::write(moved.join("manifest.json"), ours.to_string()).unwrap();
         assert_eq!(lint_dir(&moved, SYSTEM), Vec::new());
         fs::rename(&moved, root.path().join("memo")).unwrap();
+        assert_eq!(
+            rules(&lint_dir(&root.path().join("memo"), SYSTEM)),
+            [("id-directory", "")]
+        );
+        let shipwright = with(manifest(), "/id", json!("shipwright-memo"));
+        fs::write(
+            root.path().join("memo/manifest.json"),
+            shipwright.to_string(),
+        )
+        .unwrap();
+        assert_eq!(lint_dir(&root.path().join("memo"), SYSTEM), Vec::new());
+        let other = with(manifest(), "/id", json!("other-memo"));
+        fs::write(root.path().join("memo/manifest.json"), other.to_string()).unwrap();
         assert_eq!(
             rules(&lint_dir(&root.path().join("memo"), SYSTEM)),
             [("id-directory", "")]
