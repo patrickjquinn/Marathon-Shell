@@ -189,6 +189,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0126-usb-musb-gadget-Don-t-drop-an-OUT-packet-that-arrives.patch
 	0127-arm64-dts-mediatek-mt8781-zinwa-q25-Use-the-measured.patch
 	0128-power-supply-mt6358-gauge-Seed-again-once-the-batter.patch
+	0129-power-supply-mt6358-gauge-Follow-the-voltage-down-ne.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -404,6 +405,7 @@ d3d5031ccfe4f06d5d809195edf1fbe53fc4ab73d04b305bc9332556778d1d7b7674a2f56e47cf87
 f394ab16e759c83ea4449ea897b88cc1ecf451f0d83347eb37d50e5a92dd5fcf5a11722da1f35ec593bfba7cbbd7bf4f715530cb0617823bb98edd9fd4ab1c5b  0126-usb-musb-gadget-Don-t-drop-an-OUT-packet-that-arrives.patch
 e8deb4628461a7b967b96defc76f0a5d8584ab2ced69f7ff1939dcc8de8279b9c691aa1086f2819d2377435eaf24c69af4af6df5b02d649511db077de90441ea  0127-arm64-dts-mediatek-mt8781-zinwa-q25-Use-the-measured.patch
 0d7e1db7b6f9080bae6688eff2f56b7d065402525e3fde47d39cc0db1b23d8e7b6dc1bfe840328f68654aa2390e10b2f71b78fc01bde207c5a5827bd90d277b2  0128-power-supply-mt6358-gauge-Seed-again-once-the-batter.patch
+e135c9b202af8728506a53af79f0033c553027f99108f93edee09581c12994d7f1e16b6fdd379332dcd64d166696d2e4ca4f8ed5a575c2d2d294b28939f8e2f9  0129-power-supply-mt6358-gauge-Follow-the-voltage-down-ne.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
