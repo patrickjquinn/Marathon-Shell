@@ -507,7 +507,7 @@ void WebEngine::setDarkMode(bool dark)
         return;
     m_darkMode = dark;
     using SetDarkModeFn = void (*)(int);
-    static const auto setDarkMode = reinterpret_cast<SetDarkModeFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_dark_mode"));
+    static const auto setDarkMode = reinterpret_cast<SetDarkModeFn>(engineSymbol("wpe_sfos_set_dark_mode"));
     if (setDarkMode)
         setDarkMode(dark ? 1 : 0);
     Q_EMIT darkModeChanged();

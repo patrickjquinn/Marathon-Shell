@@ -18,7 +18,16 @@
 
 #include <QObject>
 
+#include <dlfcn.h>
 #include <wpe/webkit.h>
+
+// An engine entry point. Qt loads this plugin RTLD_LOCAL, and musl's
+// RTLD_DEFAULT does not search the libraries it brought in.
+inline void* engineSymbol(const char* name)
+{
+    static void* const engine = dlopen("libWPEWebKit-2.0.so.1", RTLD_NOW | RTLD_NOLOAD);
+    return dlsym(engine ? engine : RTLD_DEFAULT, name);
+}
 
 class QGeoPositionInfo;
 class QGeoPositionInfoSource;

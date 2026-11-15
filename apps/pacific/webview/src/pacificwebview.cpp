@@ -1082,7 +1082,7 @@ void PacificWebView::setSafeAreaTop(qreal top)
 void PacificWebView::applySafeArea()
 {
     using SetInsetsFn = void (*)(WebKitWebView*, double, double, double, double);
-    static const auto setInsets = reinterpret_cast<SetInsetsFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_safe_area_insets"));
+    static const auto setInsets = reinterpret_cast<SetInsetsFn>(engineSymbol("wpe_sfos_set_safe_area_insets"));
     if (!m_webView || !setInsets)
         return;
     const qreal itemPerCss = cssToItem(1, 0).x() - cssToItem(0, 0).x();
@@ -1106,7 +1106,7 @@ void PacificWebView::applyObscured()
 {
     using SetInsetsFn = void (*)(WebKitWebView*, double, double, double, double);
     static const auto setInsets
-        = reinterpret_cast<SetInsetsFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_obscured_content_insets"));
+        = reinterpret_cast<SetInsetsFn>(engineSymbol("wpe_sfos_set_obscured_content_insets"));
     if (!m_webView || !setInsets)
         return;
     const qreal itemPerCss = cssToItem(1, 0).x() - cssToItem(0, 0).x();
@@ -3248,12 +3248,12 @@ using GetPageScaleFn = double (*)(WebKitWebView*);
 // Atlantic's engine patch (webkit-wpe-page-scale-api); absent: no pinch.
 SetPageScaleFn setPageScaleFn()
 {
-    static const auto fn = reinterpret_cast<SetPageScaleFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_page_scale"));
+    static const auto fn = reinterpret_cast<SetPageScaleFn>(engineSymbol("wpe_sfos_set_page_scale"));
     return fn;
 }
 GetPageScaleFn getPageScaleFn()
 {
-    static const auto fn = reinterpret_cast<GetPageScaleFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_get_page_scale"));
+    static const auto fn = reinterpret_cast<GetPageScaleFn>(engineSymbol("wpe_sfos_get_page_scale"));
     return fn;
 }
 constexpr double kMinPageScale = 1.0;

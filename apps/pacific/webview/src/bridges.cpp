@@ -114,9 +114,9 @@ const SensorAbi& sensorAbi()
 {
     static const SensorAbi abi = [] {
         SensorAbi a;
-        a.setCallback = reinterpret_cast<SetSensorsCallbackFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_device_sensors_callback"));
-        a.orientation = reinterpret_cast<OrientationChangedFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_device_orientation_changed"));
-        a.motion = reinterpret_cast<MotionChangedFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_device_motion_changed"));
+        a.setCallback = reinterpret_cast<SetSensorsCallbackFn>(engineSymbol("wpe_sfos_set_device_sensors_callback"));
+        a.orientation = reinterpret_cast<OrientationChangedFn>(engineSymbol("wpe_sfos_device_orientation_changed"));
+        a.motion = reinterpret_cast<MotionChangedFn>(engineSymbol("wpe_sfos_device_motion_changed"));
         if (!a.setCallback || !a.orientation || !a.motion)
             a = SensorAbi();
         return a;
@@ -300,7 +300,7 @@ bool ClipboardBridge::ensure()
         if (qEnvironmentVariableIntValue("PACIFIC_DISABLE_CLIPBOARD_BRIDGE") == 1)
             return false;
         using HookFn = void (*)(void (*)(const char*));
-        auto hook = reinterpret_cast<HookFn>(dlsym(RTLD_DEFAULT, "wpe_qt_set_clipboard_write_hook"));
+        auto hook = reinterpret_cast<HookFn>(engineSymbol("wpe_qt_set_clipboard_write_hook"));
         if (!hook)
             return false;
         // Called on the GUI thread, where the pasteboard IPC is dispatched.
