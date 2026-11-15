@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=66
+pkgrel=67
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -299,6 +299,29 @@ EOF
 [Unit]
 After=NetworkManager.service
 Wants=NetworkManager.service
+EOF
+
+	# A restart that hangs (a wedged Wi-Fi driver held one on the Q25)
+	# is forced after 30 s instead of 30 min; a normal one takes ~11 s.
+	# The journal is written out as shutdown starts, so a hang that ends
+	# in a forced reset still leaves its record.
+	for unit in reboot poweroff halt; do
+		install -d "$pkgdir/usr/lib/systemd/system/$unit.target.d"
+		printf '[Unit]\nJobTimeoutSec=30s\n' \
+			> "$pkgdir/usr/lib/systemd/system/$unit.target.d/50-marathon-timeout.conf"
+		install -d "$pkgdir/usr/lib/systemd/system/$unit.target.wants"
+		ln -s ../marathon-shutdown-sync.service \
+			"$pkgdir/usr/lib/systemd/system/$unit.target.wants/marathon-shutdown-sync.service"
+	done
+	cat > "$pkgdir/usr/lib/systemd/system/marathon-shutdown-sync.service" <<'EOF'
+[Unit]
+Description=Write the journal to disk as shutdown starts
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/journalctl --sync
 EOF
 
 	# Persistent journald. A volatile journal lost every hang's record on
