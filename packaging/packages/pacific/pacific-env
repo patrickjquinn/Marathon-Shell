@@ -1,6 +1,6 @@
 #!/bin/sh
 # Pacific's runtime environment on Marathon; the app execs itself through
-# this (shoal/pacific/app/src/lib.rs). Sailfish uses engine/launcher/
+# this (apps/pacific/app/src/lib.rs). Sailfish used Shipwright's
 # pacific-env.c; its libhybris, Sailjail and droid media settings don't
 # apply here.
 export PACIFIC_ENV=1
@@ -23,8 +23,8 @@ esac
 
 dflt WEBKIT_GST_ENABLE_HLS_SUPPORT 1
 
-# The rest is Sailfish's pacific-env (shoal/pacific/engine/launcher/
-# pacific-env.c): flags of the engine's patch stack, with no upstream meaning.
+# The rest is Sailfish's pacific-env.c: flags of the engine's patch stack,
+# with no upstream meaning.
 dflt JSC_numberOfFTLCompilerThreads 2
 dflt JSC_numberOfDFGCompilerThreads 2
 dflt JSC_numberOfBaselineCompilerThreads 2
