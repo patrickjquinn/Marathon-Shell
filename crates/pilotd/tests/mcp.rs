@@ -30,9 +30,10 @@ use pilotd::pipeline::{Card, Step};
 use rmcp::ServiceExt as _;
 use serde_json::{json, Value};
 
-/// The notes app: records invocations, answers like the real one.
+/// The notes app: records invocations, answers like the real one; the
+/// second field is what it says it shows (its context).
 #[derive(Default)]
-struct Notes(Mutex<Vec<(String, Value)>>);
+struct Notes(Mutex<Vec<(String, Value)>>, Value);
 
 impl Backend for Notes {
     fn running_manifests(&self) -> BoxFuture<'_, Vec<Value>> {
@@ -84,7 +85,7 @@ impl Backend for Notes {
         Box::pin(async { Ok(json!({"items": []})) })
     }
     fn get_context<'a>(&'a self, _: &'a str) -> BoxFuture<'a, CallResult> {
-        Box::pin(async { Ok(Value::Null) })
+        Box::pin(async { Ok(self.1.clone()) })
     }
 }
 
@@ -742,4 +743,54 @@ printf '{{"jsonrpc":"2.0","id":%s,"result":{{"supportedVersions":["{}"]}}}}\n' "
         pilotd::pipeline::mcp_restart_backoff(40),
         Duration::from_secs(600)
     );
+}
+
+/// Opened over an app, Pilot sends what it showed only with a question
+/// the router finds is about it ("what is a marathon" over a note is not),
+/// and once the screen is cleared (the overlay closed) it does not ask.
+#[tokio::test]
+async fn the_screen_goes_only_with_questions_about_it() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => {
+            let utterance = req.body["state"]["utterance"].as_str().unwrap_or("");
+            let about = if utterance.contains("this") {
+                json!({"screen": 0.9, "other": 0.1})
+            } else {
+                json!({"other": 0.9, "screen": 0.1})
+            };
+            Reply::ok(json!({"answers": {
+                "intent": {"probabilities": {"open_ended": 0.9}, "confidence": 0.9},
+                "needs_generation": {"noul": 0.9},
+                "needs_web": {"noul": 0.0},
+                "ambiguity": {"score": 0.0},
+                "domain": {"probabilities": {"general": 0.9, "org.example.notes": 0.1}, "confidence": 0.9},
+                "about_screen": {"probabilities": about},
+            }}))
+        }
+        _ => Reply::us(chat_text("An answer.")),
+    })
+    .await;
+    let app = Arc::new(Notes(
+        Mutex::default(),
+        json!({"title": "Shopping list", "text": "eggs, flour"}),
+    ));
+    let d = daemon_with(&srv, Arc::clone(&app)).await;
+    d.pipeline
+        .capture_on_screen("org.example.notes", "Notes")
+        .await;
+    let sent = |i: usize| srv.seen("/v1/llm/chat/completions")[i].body.to_string();
+
+    d.pipeline.ask("what is a marathon", false).await;
+    assert!(!sent(0).contains("Shopping list"), "{}", sent(0));
+    d.pipeline.ask("summarise this", false).await;
+    assert!(sent(1).contains("Shopping list"), "{}", sent(1));
+
+    d.pipeline.clear_on_screen();
+    d.pipeline.ask("summarise this", false).await;
+    assert!(!sent(2).contains("Shopping list"));
+    let asked = srv.seen("/v1/jev");
+    assert!(asked[0].body["questions"].get("about_screen").is_some());
+    assert!(asked.last().unwrap().body["questions"]
+        .get("about_screen")
+        .is_none());
 }

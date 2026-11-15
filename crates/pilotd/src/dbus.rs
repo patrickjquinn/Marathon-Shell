@@ -170,7 +170,11 @@ impl PilotService {
             Some(app) => Some(app),
             None => crate::onscreen::app_for_pid(pid),
         }
-        .filter(|a| a.id != "org.shipwright.shoal-pilot");
+        // Pilot itself: its Sailfish id, or the shell's for it.
+        .filter(|a| {
+            a.id != "org.shipwright.shoal-pilot"
+                && a.id.strip_prefix("org.marathonos.") != Some(crate::callers::PILOT_APP)
+        });
         if let Some(app) = app {
             let pipeline = Arc::clone(&self.pipeline);
             let (id, name) = (app.id.clone(), app.name.clone());

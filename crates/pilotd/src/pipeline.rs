@@ -1773,6 +1773,11 @@ impl Pipeline {
         if domains.len() > 1 {
             questions.insert("domain".into(), domain_question(&registry, &domains));
         }
+        // Opened over an app: whether this request is about what it shows.
+        let on_screen = self.on_screen_now();
+        if let Some(o) = &on_screen {
+            questions.insert(SCREEN_QUESTION.into(), screen_question(&o.name));
+        }
         let req = DecideRequest {
             state: json!({
                 "utterance": crate::redact::for_jev(&redacted.text, &self.own_name()),
@@ -1881,11 +1886,13 @@ impl Pipeline {
             }
             None => scope,
         };
-        // Opened over an app with actions: its tools come first, and a
-        // request that would be a clarifying question ("switch to night
-        // mode": which setting?) or a look through the camera ("what am I
-        // looking at") goes to the model with that app's screen and tools.
-        let (route, scope) = match self.on_screen_now() {
+        let screen = on_screen.filter(|_| about_screen(&answers));
+        // Opened over an app with actions, about what it shows: its tools
+        // come first, and a request that would be a clarifying question
+        // ("switch to night mode": which setting?) or a look through the
+        // camera ("what am I looking at") goes to the model with that app's
+        // screen and tools.
+        let (route, scope) = match screen.clone() {
             Some(o)
                 if registry
                     .entries()
@@ -1946,6 +1953,7 @@ impl Pipeline {
                                 false,
                                 insist,
                                 sure.is_some(),
+                                screen.as_ref(),
                             )
                             .await,
                         )
@@ -1975,6 +1983,7 @@ impl Pipeline {
                         web_first,
                         insist,
                         sure.is_some(),
+                        screen.as_ref(),
                     )
                     .await,
                 )
@@ -1997,6 +2006,7 @@ impl Pipeline {
                     web_first,
                     insist,
                     sure.is_some(),
+                    screen.as_ref(),
                 )
                 .await,
             ),
@@ -2012,6 +2022,7 @@ impl Pipeline {
                     web_first,
                     insist,
                     sure.is_some(),
+                    screen.as_ref(),
                 )
                 .await,
             ),
@@ -2517,6 +2528,7 @@ impl Pipeline {
         web_first: bool,
         insist: bool,
         ground: bool,
+        screen: Option<&OnScreen>,
     ) -> Vec<Card> {
         let deep = [
             "work this out",
@@ -2681,10 +2693,7 @@ impl Pipeline {
         // this request the person started), and for a web page the page's
         // own text, as data (a page or an e-mail subject comes from
         // someone else), so later actions need a yes.
-        if let Some(o) = self
-            .on_screen_now()
-            .filter(|o| !o.context.trim().is_empty())
-        {
+        if let Some(o) = screen.filter(|o| !o.context.trim().is_empty()) {
             let page = match crate::onscreen::page_url(&o.context) {
                 Some(url) if may_leave => {
                     self.stage(turn, "reading", &site_of(&url));
@@ -3545,6 +3554,37 @@ const DOMAIN_TITLES: usize = 24;
 /// Stage one's answer for nothing on the phone: no app's tools, no
 /// insisting on a tool call.
 const GENERAL: &str = "general";
+
+/// Asked only when Pilot was opened over an app: answered "screen", the
+/// request is about what that app shows, and its screen goes with it.
+const SCREEN_QUESTION: &str = "about_screen";
+
+/// By meaning, as stage one picks an app: e5's multilingual embeddings on
+/// the phone, the router model in the cloud.
+fn screen_question(app: &str) -> Question {
+    Question::Choice {
+        options: vec!["screen".into(), "other".into()],
+        criteria: format!("Is `utterance` about what {app} shows on the screen right now?"),
+        descriptions: vec![
+            format!(
+                "About what {app} shows now: this page, this message, this article, this \
+                 photo, this setting or item; summarise it, explain it, translate it, reply to \
+                 it, change it."
+            ),
+            "Not about the screen: a general question about the world, facts, advice, \
+             writing, sums, or a phone action that needs nothing on screen."
+                .into(),
+        ],
+    }
+}
+
+fn about_screen(answers: &crate::jev::Answers) -> bool {
+    matches!(
+        answers.get(SCREEN_QUESTION),
+        Some(crate::jev::Answer::Choice { distribution, .. })
+            if distribution.first().is_some_and(|(o, _)| o == "screen")
+    )
+}
 
 fn domain_question(registry: &Registry, domains: &[String]) -> Question {
     // An app by its name and what it is for, then every action it has:
