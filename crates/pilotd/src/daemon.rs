@@ -134,6 +134,7 @@ pub struct Daemon {
     pub http: reqwest::Client,
     /// Who may call the D-Bus interface: on Marathon, Pilot and the shell.
     pub callers: Arc<crate::callers::Callers>,
+    pub models: Arc<crate::models::Models>,
 }
 
 /// The health URLs of the servers on this machine to warm: the router's
@@ -158,6 +159,18 @@ fn local_health_urls(config: &Config) -> Vec<String> {
             Some(url.into())
         })
         .collect()
+}
+
+/// The models local mode answers with, when the chat model is the phone's.
+fn local_models(config: &Config, system: Option<zbus::Connection>) -> crate::models::Models {
+    let run = PathBuf::from(&config.local.models_command);
+    let on_phone = config.local.enabled
+        && config
+            .backends
+            .get("standard")
+            .is_some_and(|b| b.llm.provider == "local")
+        && run.exists();
+    crate::models::Models::new(on_phone.then_some(run), system)
 }
 
 fn sailfish_adapters(
@@ -457,6 +470,7 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
     let http = crate::remote::http_client()?;
     let credential = choose_credential(credential, &mut config)?;
     let warm = local_health_urls(&config);
+    let models = Arc::new(local_models(&config, system.clone()));
     let remote = Remote::new(
         http.clone(),
         credential,
@@ -534,6 +548,7 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
         } else {
             crate::callers::Policy::Any
         })),
+        models,
     })
 }
 
@@ -564,6 +579,7 @@ impl Daemon {
             http: self.http.clone(),
             callers: Arc::clone(&self.callers),
             session: conn.clone(),
+            models: Arc::clone(&self.models),
         }
     }
 
@@ -727,6 +743,20 @@ impl Daemon {
 pub async fn serve_on(d: &Daemon, conn: &zbus::Connection) -> zbus::Result<()> {
     conn.object_server().at(PATH, d.service(conn)).await?;
     conn.request_name(BUS_NAME).await?;
+    let mut models = d.models.subscribe();
+    let on = conn.clone();
+    tokio::spawn(async move {
+        while models.changed().await.is_ok() {
+            if let Ok(iface) = on.object_server().interface::<_, PilotService>(PATH).await {
+                iface
+                    .get()
+                    .await
+                    .model_state_changed(iface.signal_emitter())
+                    .await
+                    .ok();
+            }
+        }
+    });
     // A turn's stages, as TurnProgress signals.
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
     d.pipeline.set_progress(tx);

@@ -4,10 +4,10 @@
 # Qwen3 (1.7B with 8 GB of RAM, else 0.6B) on 127.0.0.1:8088,
 # OpenAI-compatible, and multilingual-e5-small embeddings on :8087, which
 # pick the tools the model sees. Models download to
-# ~/.local/share/marathon-llm on first use.
+# ~/.local/share/marathon-llm when the person asks Pilot to (run download).
 pkgname=marathon-llm
 pkgver=0.1.0
-pkgrel=5
+pkgrel=6
 pkgdesc="On-device language model server for Pilot"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="noarch"
@@ -38,11 +38,11 @@ package() {
 }
 
 sha512sums="
-cbe6fd41b58bd98aaf0b64962da6d10b943e26987ae554289accb6c00265f71667e0543d9f4027b103dd87816e0290c1613c3547290334ed1ac65db8d7643024  run
+8224596dd504eae047cb5072d583f8da720726678f64c8f5f53e1d4e64dfd6488f87a963f7fa937ab093e9c1825e5e3d13961cdff0f88b04abd3fc009a2e105c  run
 404aee60a551380e716f71fb85ab4ad55316afded2e8b7a0d2620fbd9c5411f2b59b5c1e5b24a6dfbd0cf8780f60b8524ffd643162bbdcd64b2b4dff2dc7c7e7  marathon-llm-chat.socket
 7e7ee00bc380fe693a0d10717a103ba411f80a3e1dda642f165cf7c195218bae0317ec8c7b1ef989c21f7d6fc7c4aaadcb2bb1fbe2532fd53d02bcaf263fb43c  marathon-llm-chat-proxy.service
-5943eda6e5174dd922268348fdae2ed9d53fb3469d72d251f3bff020e027d71e325be6b3603b9fa1c34a21d9d3989fe3d1738bd155dc1ace46834748f5096d15  marathon-llm-chat.service
+1009f7b30ea8a431fd36f7c8ea7d8d4b8d3972afe5ed116bc7873764b801617ba2973b07fec28998238baab055f55a2963f696f19747025b156dfbe6cfe285b1  marathon-llm-chat.service
 643a01f1c94550fb05a9dfb7efa7b4b217517806536b56c9812fc904f68ce828d398c4f02431a2c084037fd50f9440c0e8442050dd090b878dc0907b7dbc0646  marathon-llm-embed.socket
 757b0d790fad3d7bce7f41e110c85dd329aaa75989fb572d770f0b415aeec5cb7c81d23f906f3db8c43acb8358711e27eeda50c2f21382969ae08edb2b994c0c  marathon-llm-embed-proxy.service
-42c5f8d437e0c95810d9d137f372af7713b7773b2f5b88abb86d9938b9765545a2506888887c02a005616e1c94ad5ecc1a33c998e56769da0cbf30060aeebb5f  marathon-llm-embed.service
+165a8b72a8f5f3c8ab87159a27d7996b173daf8e995d7bce55b4aa607f4feba2cbf87cb70b9a794911e856a9e00e3aaedfa44a9364daa21e045583325913d13f  marathon-llm-embed.service
 "

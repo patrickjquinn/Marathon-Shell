@@ -21,6 +21,7 @@ pub mod localtime;
 pub mod logger;
 pub mod mcp;
 pub mod memory;
+pub mod models;
 pub mod now;
 pub mod onscreen;
 pub mod photo;

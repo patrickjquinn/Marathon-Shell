@@ -3,11 +3,13 @@ Description=Pilot's on-device tool-picking embeddings (llama.cpp)
 Documentation=https://github.com/ggml-org/llama.cpp/tree/master/tools/server
 # Gone once its proxy has been idle.
 StopWhenUnneeded=yes
+# Not downloaded yet: skipped, and pilotd picks tools by shared words.
+ConditionPathExists=%h/.local/share/marathon-llm/multilingual-e5-small-xlmr-q8_0.gguf
 
 [Service]
 ExecStart=/usr/libexec/marathon-llm/run embed
 ExecStartPost=/usr/libexec/marathon-llm/run wait 8091
-# The first start downloads the model.
+# A phone reads a model slowly.
 TimeoutStartSec=infinity
 # Behind the shell and the app in front, ahead of frozen apps under OOM.
 Nice=5

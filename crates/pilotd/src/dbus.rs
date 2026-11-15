@@ -30,6 +30,8 @@
 //! | `RemoveVoiceModels()` | `-> t` | Deletes them; the bytes freed |
 //! | `Offline` | property `b` | Privacy switch engaged |
 //! | `VoiceAvailable` | property `b` | pilot-voice is installed; read it, no change signal |
+//! | `ModelState` | property `s` | The models on the phone: `{"state", "bytes", "total", "error"}` (`models::Status`) |
+//! | `DownloadModels(allow_metered)` | `b` → `s` | Starts their download (unmetered network, room for them); `ModelState` after |
 //! | `LastResponse` | property `s` | Headline of the last turn (cover) |
 //! | `EventsRequested` | property `u` | Counts `OpenEvents` calls; a running app shows its events page on change |
 //! | `SheetRequested` | property `u` | Counts `ShowSheet` calls; a running app opens its sheet on change |
@@ -102,6 +104,7 @@ pub struct PilotService {
     pub callers: Arc<crate::callers::Callers>,
     /// The connection this object is served on.
     pub session: zbus::Connection,
+    pub models: Arc<crate::models::Models>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -359,7 +362,14 @@ impl PilotService {
     /// also starts the models loading.
     async fn now(&self, #[zbus(header)] header: zbus::message::Header<'_>) -> fdo::Result<String> {
         self.admit(&header).await?;
-        for url in self.warm.clone() {
+        // Not downloaded: nothing to load, and asking would only start a
+        // server that is not there.
+        let warm = if self.models.present() {
+            self.warm.clone()
+        } else {
+            Vec::new()
+        };
+        for url in warm.clone() {
             let http = self.http.clone();
             self.runtime.spawn(async move {
                 let wake = http.get(url).timeout(std::time::Duration::from_secs(2));
@@ -367,9 +377,13 @@ impl PilotService {
             });
         }
         // Only a router on the phone: an empty question never leaves it.
-        if !self.warm.is_empty() {
-            let pipeline = Arc::clone(&self.pipeline);
-            self.runtime.spawn(async move { pipeline.warm().await });
+        if !warm.is_empty() {
+            let (pipeline, models) = (Arc::clone(&self.pipeline), Arc::clone(&self.models));
+            self.runtime.spawn(async move {
+                models.set_loading(true);
+                pipeline.warm().await;
+                models.set_loading(false);
+            });
         }
         let adapters = Arc::clone(&self.adapters);
         let store = Arc::clone(&self.store);
@@ -850,6 +864,35 @@ impl PilotService {
             return Ok(0);
         };
         crate::voice_models::remove(&dir).map_err(|e| fdo::Error::Failed(e.to_string()))
+    }
+
+    /// The models on the phone, JSON (`models::Status`): `state` none,
+    /// absent, downloading, loading, ready or failed, `bytes` of `total`,
+    /// and `error` (offline, metered, no-space, download) when a download
+    /// did not start or finish. Signalled as it changes, every second while
+    /// downloading.
+    #[zbus(property)]
+    fn model_state(&self) -> String {
+        serde_json::to_string(&self.models.status()).unwrap_or_else(|_| "{}".into())
+    }
+
+    /// Downloads the models on the phone, which a question never does: on
+    /// a network that is not metered unless `allow_metered`, and with room
+    /// for them. The state after (`ModelState`); `error` says why it did
+    /// not start.
+    async fn download_models(
+        &self,
+        allow_metered: bool,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
+        let models = Arc::clone(&self.models);
+        let status = self
+            .runtime
+            .spawn(async move { models.download(allow_metered).await })
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        Ok(serde_json::to_string(&status).unwrap_or_else(|_| "{}".into()))
     }
 
     /// Speech recognition (pilot-voice) is installed: without it the UI

@@ -286,6 +286,8 @@ pub struct LocalConfig {
     pub web_search_url: String,
     /// OpenAI-compatible embeddings on this machine, which pick the tools.
     pub embed_url: String,
+    /// marathon-llm's `run`, which names and downloads the models.
+    pub models_command: String,
 }
 
 impl Default for LocalConfig {
@@ -298,6 +300,7 @@ impl Default for LocalConfig {
             timeout_secs: 120,
             web_search_url: "http://127.0.0.1:8089/v1/search".into(),
             embed_url: "http://127.0.0.1:8087/v1/embeddings".into(),
+            models_command: "/usr/libexec/marathon-llm/run".into(),
         }
     }
 }

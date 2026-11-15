@@ -9,10 +9,27 @@
 #               (llama.cpp cannot reuse Qwen3.5's hybrid state).
 #   run embed   multilingual-e5-small (MIT), which picks the tools
 #   run wait P  until the server on port P answers
-# A model downloads on first use and is checked against its sha256.
+#   run models  the files this phone needs, "PATH BYTES" a line
+#   run download  fetches them, each checked against its sha256
+# Nothing downloads on first use: pilotd runs `download` when the person
+# asks, on an unmetered network with room for them.
 set -eu
 
 DIR="${XDG_DATA_HOME:-$HOME/.local/share}/marathon-llm"
+
+EMBED=multilingual-e5-small-xlmr-q8_0.gguf
+EMBED_BYTES=132440608
+
+chat_model() {
+	if [ "$(awk '/^MemTotal/ { print $2 }' /proc/meminfo)" -ge 7500000 ]; then
+		size=1.7B sha=c470091d31c4ada174ee5c2547daa020e930593cbca5ca8ca385ce8ff59a2fdf
+		bytes=1231813024
+	else
+		size=0.6B sha=4b78d8e3c61976cebb78ef5affe19d0eca75b1b47ec66f613a5a3245484758d5
+		bytes=469671328
+	fi
+	model=Qwen_Qwen3-$size-Q4_0.gguf
+}
 
 fetch() { # file url sha256
 	[ -f "$DIR/$1" ] && return
@@ -26,38 +43,49 @@ fetch() { # file url sha256
 	mv "$DIR/$1.part" "$DIR/$1"
 }
 
+need() { # file
+	[ -f "$DIR/$1" ] || {
+		echo "marathon-llm: $1 is not downloaded (run download)" >&2
+		exit 1
+	}
+}
+
 case "${1:-}" in
 chat)
-	if [ "$(awk '/^MemTotal/ { print $2 }' /proc/meminfo)" -ge 7500000 ]; then
-		size=1.7B sha=c470091d31c4ada174ee5c2547daa020e930593cbca5ca8ca385ce8ff59a2fdf
-	else
-		size=0.6B sha=4b78d8e3c61976cebb78ef5affe19d0eca75b1b47ec66f613a5a3245484758d5
-	fi
-	model=Qwen_Qwen3-$size-Q4_0.gguf
-	fetch "$model" "https://huggingface.co/bartowski/Qwen_Qwen3-$size-GGUF/resolve/main/$model" "$sha"
-	for old in "$DIR"/Qwen_Qwen3-*.gguf; do
-		[ "$old" = "$DIR/$model" ] || rm -f "$old"
-	done
+	chat_model
+	need "$model"
 	exec llama-server --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
 		--jinja --reasoning off --threads 4 --ctx-size 8192 --parallel 1 --flash-attn on \
 		--cache-reuse 256 --no-webui
 	;;
 embed)
-	# convert-e5.py's conversion, with the model's own XLM-R vocabulary: the
-	# published GGUFs embedded every sentence alike.
-	model=multilingual-e5-small-xlmr-q8_0.gguf
-	fetch "$model" "https://github.com/patrickjquinn/Marathon-Shell/releases/download/marathon-llm-models-1/$model" \
-		37f2924392582027abaf43a0b2cc82726a1a3dae3da610f67ae61e89e3a4af54
-	rm -f "$DIR/multilingual-e5-small-Q8_0.gguf"
-	exec llama-server --host 127.0.0.1 --port 8091 --model "$DIR/$model" --alias e5-small \
+	need "$EMBED"
+	exec llama-server --host 127.0.0.1 --port 8091 --model "$DIR/$EMBED" --alias e5-small \
 		--embedding --pooling mean --threads 2 --ctx-size 512 --batch-size 512 --ubatch-size 512 \
 		--parallel 1 --no-webui
+	;;
+models)
+	chat_model
+	echo "$DIR/$model $bytes"
+	echo "$DIR/$EMBED $EMBED_BYTES"
+	;;
+download)
+	chat_model
+	fetch "$model" "https://huggingface.co/bartowski/Qwen_Qwen3-$size-GGUF/resolve/main/$model" "$sha"
+	for old in "$DIR"/Qwen_Qwen3-*.gguf; do
+		[ "$old" = "$DIR/$model" ] || rm -f "$old"
+	done
+	# convert-e5.py's conversion, with the model's own XLM-R vocabulary: the
+	# published GGUFs embedded every sentence alike.
+	fetch "$EMBED" "https://github.com/patrickjquinn/Marathon-Shell/releases/download/marathon-llm-models-1/$EMBED" \
+		37f2924392582027abaf43a0b2cc82726a1a3dae3da610f67ae61e89e3a4af54
+	rm -f "$DIR/multilingual-e5-small-Q8_0.gguf"
 	;;
 wait)
 	until wget -q -O /dev/null "http://127.0.0.1:$2/health"; do sleep 0.3; done
 	;;
 *)
-	echo "usage: run chat|embed|wait PORT" >&2
+	echo "usage: run chat|embed|models|download|wait PORT" >&2
 	exit 2
 	;;
 esac

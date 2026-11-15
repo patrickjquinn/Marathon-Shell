@@ -48,6 +48,8 @@ enabled = true
 # embed_url = "http://127.0.0.1:8087/v1/embeddings"
 # web_search_url = "http://127.0.0.1:8089/v1/search"
 # timeout_secs = 120
+# Names and downloads the models (DownloadModels); nothing downloads on its own.
+# models_command = "/usr/libexec/marathon-llm/run"
 
 # Or the owner's own Groq and Jev keys, in ~/.config/shoal-pilot/keys.env
 # (PILOT_RELAY_GROQ_KEY=..., PILOT_RELAY_JEV_KEY=..., chmod 600), with
