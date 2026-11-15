@@ -159,12 +159,9 @@ Item {
 
         readonly property real keyboard: Qt.inputMethod.visible ? (landscape ? Qt.inputMethod.keyboardRectangle.width : Qt.inputMethod.keyboardRectangle.height) : 0
 
-        // The app stays in view, dimmed; deeper behind the answers and
-        // the field so they read over any page.
-        Rectangle {
-            anchors.fill: parent
-            color: Theme.rgba(Theme.overlayBackgroundColor, 0.3)
-        }
+        // The shell blurs and darkens the app behind a dialog window; this
+        // only deepens it behind the answers and the field, so they read
+        // over any page.
         Rectangle {
             anchors {
                 left: parent.left
