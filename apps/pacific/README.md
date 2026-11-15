@@ -14,10 +14,12 @@ Pacific's own code is Apache-2.0, Marathon's licence. The web view (`webview/`) 
 | Path | What |
 | --- | --- |
 | `core/` | `pacific-core`, its own Cargo workspace: profile database, frecency and suggestions, search engines, sessions, tab lifecycle, content blocking, autoconsent, HTTPS-first, reader mode, downloads, site settings, privacy, Shoal Keys client, Pilot helpers. `core/data/versions.env` pins the bundled third-party data. |
-| `app/` | `shipwright-pacific`, its own Cargo workspace: the `Pacific` singleton (`bridge.rs`), the models `TabModel`, `SuggestionModel`, `PacificList` (`models.rs` declares them; `tabs.rs`, `suggestions.rs`, `lists.rs` implement them), the core thread (`worker.rs`), HTTPS for suggestions and list updates (`net.rs`), `openUrl` on D-Bus (`dbus.rs`). |
-| `ui/qml/` | The pages, components, cover and Keel Actions (`actions/PacificActions.qml`). |
+| `app/` | `shipwright-pacific`, its own Cargo workspace and the QML plugin `Shipwright.Pacific 1.0`: the `Pacific` singleton (`bridge.rs`), the models `TabModel`, `SuggestionModel`, `PacificList` (`models.rs` declares them; `tabs.rs`, `suggestions.rs`, `lists.rs` implement them), the core thread (`worker.rs`), HTTPS for suggestions and list updates (`net.rs`), `openUrl` on D-Bus (`dbus.rs`). |
+| `ui/qml/` | The pages, components, cover and Keel Actions (`actions/PacificActions.qml`); `shipwright-pacific.qml` is the entry point. |
 | `ui/tests/` | QML tests (`run-tests.sh`) and `mockview/`, a stand-in for `Shipwright.Pacific.WebView` with the same API that draws pages from fixtures (a small C++ base for the properties whose change signals QML cannot declare, plus QML). |
 | `webview/` | `Shipwright.Pacific.WebView 1.0`: the Qt 6 view of WPE WebKit pages, the agent API for Pilot, pacific-minibrowser. |
+| `tests/` | The app's tests (`run.sh`): the real UI and plugin over the mock web view. |
+| `manifest.json`, `shipwright-pacific.desktop`, `shipwright-pacific`, `org.shipwright.pacific.ui.service` | The Marathon app manifest; the hidden desktop entry `mimeapps.list` names, whose command is the opener script `shipwright-pacific`; the D-Bus activation file for `openUrl`. |
 | `icons/` | The app icon. |
 
 ## Engine and web view
@@ -25,6 +27,18 @@ Pacific's own code is Apache-2.0, Marathon's licence. The web view (`webview/`) 
 The engine is the `wpewebkit` aport (`packaging/packages/wpewebkit`): WPE WebKit 2.54 on the legacy libwpe + WPEBackend-fdo API, with Atlantic's and Pacific's patches. Frames reach Qt's scene graph as EGLImages bound to GL textures, with no CPU copy. Qt Quick has to run on the OpenGL RHI. `webview/README.md` has the QML API for the UI and the core: WebView, WebProfile, WebEngine and the request types; the keyboard and input method; the agent API (isolated script world, element snapshots, trusted taps, headless views); building and running.
 
 Atlantic (SpecSierra's atlantic-engine and atlantic-browser) did the hard part: the WebKit build, the Qt 5 view this one is ported from, and months of device measurements cited throughout; the view's files credit them in each header.
+
+## On Marathon
+
+Pacific is a Marathon app that `marathon-app-runner` hosts, like Camera: the runner loads `ui/qml/shipwright-pacific.qml` from `/usr/share/marathon-apps/shipwright-pacific`, whose root is Marathon.Silica's `ApplicationWindow` (app id `shipwright-pacific`), and the QML engine loads the plugins `Shipwright.Pacific` (`app/`, Rust through CXX-Qt) and `Shipwright.Pacific.WebView` (`webview/`) from Qt's QML directory. They stay plugins of their own, not part of `crates/marathon-app-native` as Pilot's client is: the browser core (adblock, SQLite, the reader, rustls) and WPE would otherwise load into every app's runner, and Marathon's shell build would need the engine.
+
+- **Sandbox.** The manifest's `"webEngine": "webkit"` has the runner keep what WPE's own bubblewrap needs (user namespaces, `mount`, `pivot_root`, no Landlock file rules), and the runner is never a pool spare; WebKit's per-WebProcess sandbox stays on inside the runner's. The manifest's `environment` carries the engine's tuning (it was `pacific-env`); the plugin adds what depends on the phone (CPU painting on etnaviv and lima, the memory tier) when the engine loads it (`app/src/lib.rs`).
+- **Data.** The profile is `~/.local/share/marathon-apps/shipwright-pacific` and the cache `~/.cache/marathon-apps/shipwright-pacific`, which the sandbox binds; at the first launch in the runner the shell moves Sailjail's `org.shipwright/pacific` directories there (`marathon_apps::paths::adopt_legacy_dirs`).
+- **Back and forward** (`handleBack`, `handleForward`; the gestures, Escape and Alt+Left/Right, which the web view leaves to the window): the link, page and tabs menus, find, the address sheet and the login bar close first, then DOM fullscreen ends, reader mode leaves, the page stack pops (Settings, History, the tab overview, dialogs), the tab goes back; a tab another app opened through `openUrl` closes from its first page and the shell returns to that app; otherwise back leaves Pacific.
+- **Freeze and thaw** (`handleFreeze`, `handleThaw`): before the runner is frozen the session is saved and marked a clean exit, so a kill for memory brings the tabs back without "closed unexpectedly"; tabs behind give their web processes back under memory pressure; and `org.shipwright.pacific.ui` is released, so `openUrl` bus-activates the app (the shell thaws it) instead of timing out on a frozen process. Thawed, it takes the name back and wakes the tab in front.
+- **Background work.** A download or a page playing sound holds a runner background task (`download`, `audio-playback`), so the app is not frozen meanwhile.
+- **Links from elsewhere.** `/usr/bin/shipwright-pacific URL...` calls `openUrl`; `mimeapps.list`'s `shipwright-pacific.desktop` (hidden from the app grid) runs it. The share sheet's "Open in Pacific" opens a shared link or searches shared text, and search's deep links open a new or private tab, bookmarks, history or downloads.
+- "Add to app grid" is hidden in the runner: the sandbox's home is in memory, and the shell has no call yet to add a launcher entry for an app.
 
 ## Browser: core, app and UI
 
@@ -58,11 +72,11 @@ Text fields are spell-checked by the engine (WebKit's enchant/hunspell checker, 
 
 ### Reader mode, downloads, home screen
 
-Reader mode extracts the article from the live DOM with `dom_smoothie` (MIT; chosen over `readabilityrs` for its maintenance and releases) and writes a static page under a Content Security Policy that allows no script, frame or form, with the reading time (230 words or 500 CJK characters a minute), in light, sepia or dark. Downloads go to a free name in `~/Downloads` and are listed with progress, open, share, retry and remove. "Add to home screen" writes a launcher entry that opens the page.
+Reader mode extracts the article from the live DOM with `dom_smoothie` (MIT; chosen over `readabilityrs` for its maintenance and releases) and writes a static page under a Content Security Policy that allows no script, frame or form, with the reading time (230 words or 500 CJK characters a minute), in light, sepia or dark. Downloads go to a free name in `~/Downloads` and are listed with progress, open, share, retry and remove. "Add to app grid" writes a launcher entry that opens the page through `/usr/bin/shipwright-pacific`, with the site's icon when Pacific has it (outside the runner's sandbox only, above).
 
 ### Logins from Shoal Keys
 
-Pacific stores no passwords. Shoal Keys serves `org.shipwright.Keys.Autofill1` (bus name `org.shipwright.shoal-keys.Autofill`; shoal/keys/README.md, "Autofill for other apps"): when a page has a login form, Pacific asks Keys which logins it has for the site (names only, only while Keys is open) and offers "Sign in as …"; filling brings Keys up, where the person unlocks if needed and taps the login to send, and Pacific comes back to the front by itself when the answer arrives (or the choice is declined). When a login form is submitted, Pacific offers to save it, and Keys asks again before storing. The client is `core/src/passwords.rs`; Pacific needs the `ShoalKeysAutofill` Sailjail permission, which Keys installs. Pilot never fills passwords.
+Pacific stores no passwords. Shoal Keys serves `org.shipwright.Keys.Autofill1` (bus name `org.shipwright.shoal-keys.Autofill`; shoal/keys/README.md, "Autofill for other apps"): when a page has a login form, Pacific asks Keys which logins it has for the site (names only, only while Keys is open) and offers "Sign in as …"; filling brings Keys up, where the person unlocks if needed and taps the login to send, and Pacific comes back to the front by itself when the answer arrives (or the choice is declined). When a login form is submitted, Pacific offers to save it, and Keys asks again before storing. The client is `core/src/passwords.rs`. Pilot never fills passwords.
 
 ### Pilot (Keel Actions)
 
@@ -94,7 +108,7 @@ Pacific follows the Sailfish Browser's chrome and Silica's patterns (page stack,
 - Pacific is the default browser through its desktop file (`x-scheme-handler/http(s)`, `text/html`) and `org.shipwright.pacific.ui` `openUrl(as)` on the session bus (`app/src/dbus.rs`).
 - Touch targets are at least `Theme.itemSizeSmall`; text uses Theme font sizes (they follow the system text size); untrusted text is shown as plain text.
 
-**Start-up.** `PACIFIC_TRACE_STARTUP=1` prints the time from the process's start to the first frame. On the host (debug build, offscreen software rendering, the mock web view, a profile in use) it is about 180–200 ms over 7 runs, the same with the page menu, the link menu and Pilot's actions built eagerly or (as now) after the first frame. The phone, with booster-keel and the real engine, still has to be measured.
+**Start-up.** On the host (debug build, offscreen software rendering, the mock web view, a profile in use) it is about 180–200 ms over 7 runs, the same with the page menu, the link menu and Pilot's actions built eagerly or (as now) after the first frame. The phone, in the runner with the real engine, still has to be measured (`MARATHON_STARTUP_TIMING=1`).
 
 ### How Pacific compares
 
@@ -119,9 +133,12 @@ Fixed during the reviews: the address was cut by icons; titles in the tab overvi
 ```
 # core
 cd apps/pacific/core && cargo +1.100.0 clippy --all-targets -- -D warnings && cargo test
-# app (needs Qt 6 and Keel's sailfishapp; see tools/keel-launcher)
-cd apps/pacific/app && cargo clippy --all-targets -- -D warnings && cargo test
-# QML tests and lint
+# app (needs Qt 6)
+cd apps/pacific/app && cargo +1.100.0 clippy --all-targets -- -D warnings && cargo test
+# the app's tests: the built plugin as the package installs it, then run.sh
+cp target/debug/libshipwright_pacific.so target/cxxqt/qml_modules/Shipwright/Pacific/libShipwright_Pacific.so
+KEEL_QML=<keel build>/qml PACIFIC_PLUGIN=target/cxxqt/qml_modules apps/pacific/tests/run.sh
+# the UI's helpers and the mock web view's contract
 KEEL_QML=<keel build>/qml apps/pacific/ui/tests/run-tests.sh
 # the package, with the keel-silica and wpewebkit apks in mkosi.packages/
 scripts/qemu/lib/build-pacific-apk.sh
@@ -134,6 +151,6 @@ Real-file tests run when the data is around: `PACIFIC_EASYLIST`, `PACIFIC_RESOUR
 - Everything the mock web view only imitates: real loads, the HTTPS-first timings, content filters compiling and blocking, cosmetic injection and scriptlets on real pages, autoconsent on real consent dialogs, reader extraction from real DOMs, thumbnails, discard and reload, session-state restore, downloads, the agent API on real pages.
 - Memory: the live-tab budget and pressure thresholds against measured PSS on the 8 and 12 GB phones; content-filter compile time and peak memory with 139,000 rules.
 - The blocked-request count per page: the UI listens for `WebView.blockedRequest(url)` (the engine agent is adding it; the mock emits it), `Sec-GPC`.
-- Lipstick: `openUrl` for a running instance, D-Bus activation through Sailjail, the default-browser choice, the Keel Actions service under Sailjail with the launcher script.
-- Shoal Keys autofill under Sailjail: Keys owning `org.shipwright.shoal-keys.Autofill`, D-Bus activation through `sailjail -p`, and Keys coming to the front for a fill.
-- Start-up time with booster-keel and the real engine; 60 fps of the swipe and overview gestures with live WebKit textures.
+- In the runner's sandbox: WebKit's bubblewrap starting each WebProcess (mounting `/proc`, its seccomp filter, xdg-dbus-proxy), GPU rendering through the render node, media through GStreamer and PipeWire, DNS and certificates, camera, microphone and location for sites, and downloads into `~/Downloads`.
+- The move of an existing profile from `org.shipwright/pacific`, `openUrl` to a running, frozen and stopped Pacific, the portal sign-in, Pilot's actions as `org.marathonos.shipwright-pacific`, the share sheet and search's deep links.
+- Start-up time in the runner with the real engine; 60 fps of the swipe and overview gestures with live WebKit textures.

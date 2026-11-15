@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
 # SPDX-License-Identifier: Apache-2.0
 #
-# A stand-in for Shipwright.Pacific.WebView (shoal/pacific/webview) with
+# A stand-in for Shipwright.Pacific.WebView (apps/pacific/webview) with
 # the same QML API: pages are drawn from fixtures, not loaded. For the UI's
 # tests, qmllint and screenshots on hosts without the WPE engine.
 #
-#   cmake -S shoal/pacific/ui/tests/mockview -B <build> && cmake --build <build>
+#   cmake -S apps/pacific/ui/tests/mockview -B <build> && cmake --build <build>
 #   then import <build>/qml
 cmake_minimum_required(VERSION 3.21)
 project(pacific-mockview LANGUAGES CXX)

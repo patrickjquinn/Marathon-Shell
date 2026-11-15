@@ -4,14 +4,13 @@
 # Shipwright.Pacific.WebView 1.0: the QML module that shows WPE WebKit pages in
 # Qt 6 Quick on the legacy libwpe + WPEBackend-fdo path (README.md).
 #
-#   cmake -S shoal/pacific/webview -B build -G Ninja
+#   cmake -S apps/pacific/webview -B build -G Ninja
 #   cmake --build build -j4
 #
 # Needs Qt 6.8+ (Core, Gui and its private headers, Qml, Quick, Positioning;
 # Sensors optional), and pkg-config files for wpe-webkit-2.0, wpe-1.0,
-# wpebackend-fdo-1.0, egl and glesv2 (shoal/pacific/engine provides them from
-# the engine packages; tools/sdk-prefix.sh makes a build prefix from the
-# mirrored RPMs).
+# wpebackend-fdo-1.0, egl and glesv2 (the wpewebkit, libwpe and
+# libwpebackend-fdo -dev packages).
 cmake_minimum_required(VERSION 3.21)
 project(pacific-webview VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -20,7 +19,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 option(PACIFIC_WEBVIEW_EXAMPLES "Build examples/minibrowser" ON)
-# Where the engine's libraries live on the device (shoal/pacific/engine).
+# Where the engine's libraries live on the device (the aport sets /usr/lib).
 set(PACIFIC_ENGINE_LIBDIR "/opt/pacific/lib" CACHE PATH "Run path for libWPEWebKit and friends")
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick Positioning)
