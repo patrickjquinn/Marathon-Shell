@@ -22,10 +22,25 @@ pub enum RemoteError {
     Status { provider: String, status: u16 },
     #[error("{provider} unreachable: {message}")]
     Transport { provider: String, message: String },
+    #[error("{provider} did not answer in time")]
+    Timeout { provider: String },
     #[error("{provider} sent an unusable reply: {message}")]
     Decode { provider: String, message: String },
     #[error("processing region not confirmed as allowed ({0}); request dropped")]
     Region(String),
+}
+
+/// A request that failed on its way, its timeout told apart.
+fn transport(provider: &str, e: reqwest::Error) -> RemoteError {
+    let provider = provider.to_owned();
+    if e.is_timeout() {
+        RemoteError::Timeout { provider }
+    } else {
+        RemoteError::Transport {
+            provider,
+            message: e.without_url().to_string(),
+        }
+    }
 }
 
 impl RemoteError {
@@ -34,6 +49,7 @@ impl RemoteError {
             RemoteError::Offline => "offline".into(),
             RemoteError::Status { status, .. } => format!("http-{status}"),
             RemoteError::Transport { .. } => "transport".into(),
+            RemoteError::Timeout { .. } => "timeout".into(),
             RemoteError::Decode { .. } => "decode".into(),
             RemoteError::Region(_) => "region-blocked".into(),
         }
@@ -144,19 +160,13 @@ impl Remote {
         }
         let llm = direct.as_ref().filter(|(_, out)| out.llm).map(|(d, _)| d);
         let sent = async {
-            let resp = req.send().await.map_err(|e| RemoteError::Transport {
-                provider: provider.to_owned(),
-                message: e.without_url().to_string(),
-            })?;
+            let resp = req.send().await.map_err(|e| transport(provider, e))?;
             let status = resp.status();
             let mut headers = resp.headers().clone();
             if let Some(d) = llm {
                 d.stamp(&mut headers);
             }
-            let raw = resp.bytes().await.map_err(|e| RemoteError::Transport {
-                provider: provider.to_owned(),
-                message: e.without_url().to_string(),
-            })?;
+            let raw = resp.bytes().await.map_err(|e| transport(provider, e))?;
             Ok::<_, RemoteError>((status, headers, raw))
         };
         let outcome = tokio::select! {
@@ -222,16 +232,10 @@ impl Remote {
         };
         let req = self.client.get(url).timeout(self.timeout);
         let sent = async {
-            let resp = req.send().await.map_err(|e| RemoteError::Transport {
-                provider: provider.to_owned(),
-                message: e.without_url().to_string(),
-            })?;
+            let resp = req.send().await.map_err(|e| transport(provider, e))?;
             let status = resp.status();
             let headers = resp.headers().clone();
-            let raw = resp.bytes().await.map_err(|e| RemoteError::Transport {
-                provider: provider.to_owned(),
-                message: e.without_url().to_string(),
-            })?;
+            let raw = resp.bytes().await.map_err(|e| transport(provider, e))?;
             Ok::<_, RemoteError>((status, headers, raw))
         };
         let outcome = tokio::select! {

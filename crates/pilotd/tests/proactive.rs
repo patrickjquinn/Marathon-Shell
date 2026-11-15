@@ -320,7 +320,7 @@ async fn a_camera_turn_sends_the_photo_without_metadata() {
     // Off at first run: no camera card, and Look sends nothing.
     let r = d.pipeline.ask("what am I looking at", false).await;
     assert!(
-        matches!(&r.cards[0], Card::Offline { text } if text.contains("camera")),
+        matches!(&r.cards[0], Card::Offline { text, .. } if text.contains("camera")),
         "{r:?}"
     );
     let r = d.pipeline.look("is it ripe?", &photo_with_exif()).await;
@@ -362,7 +362,7 @@ async fn a_camera_turn_sends_the_photo_without_metadata() {
     // Not a photo: refused on the device.
     let r = d.pipeline.look("what is it", b"GIF89a").await;
     assert!(
-        matches!(&r.cards[0], Card::Error { text } if text.contains("not a JPEG")),
+        matches!(&r.cards[0], Card::Error { text, .. } if text.contains("not a JPEG")),
         "{r:?}"
     );
     assert_eq!(srv.seen("/v1/llm/chat/completions").len(), 1);

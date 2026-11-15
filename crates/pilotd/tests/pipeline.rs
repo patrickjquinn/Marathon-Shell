@@ -42,9 +42,9 @@ fn text_of(card: &Card) -> String {
     match card {
         Card::Response { text, .. }
         | Card::Clarify { text, .. }
-        | Card::Offline { text }
+        | Card::Offline { text, .. }
         | Card::Camera { text, .. }
-        | Card::Error { text }
+        | Card::Error { text, .. }
         | Card::Timer { text, .. }
         | Card::Alarm { text, .. }
         | Card::Reminder { text, .. }
@@ -606,10 +606,10 @@ async fn consent_withdrawn_means_local_only() {
 }
 
 /// Both models on the phone (Marathon's local mode).
-fn local_daemon(base: &str) -> pilotd::daemon::Daemon {
+fn local_daemon(base: &str, timeout_secs: u64) -> pilotd::daemon::Daemon {
     let config = pilotd::config::Config::parse(&format!(
         r#"
-        timeout_secs = 5
+        timeout_secs = {timeout_secs}
         web_search_url = "{base}/v1/search"
         [privacy]
         source = "none"
@@ -645,7 +645,7 @@ async fn consent_off_keeps_the_model_on_the_phone() {
         _ => Reply::stamped(chat_text("A footrace of 42.195 km."), "device"),
     })
     .await;
-    let d = local_daemon(&srv.base);
+    let d = local_daemon(&srv.base, 5);
     d.live.lock().unwrap().consent.text_qa = false;
     let r = d
         .pipeline
@@ -660,6 +660,56 @@ async fn consent_off_keeps_the_model_on_the_phone() {
         "the web tool is not offered"
     );
     assert!(srv.seen("/v1/search").is_empty());
+}
+
+/// A failed turn says why in a code as well as in words: the UI offers the
+/// model download, a retry or the consent switch from it.
+#[tokio::test]
+async fn errors_carry_a_code() {
+    use pilotd::pipeline::ErrorCode;
+    // Nothing listens: the model on the phone is not there.
+    let d = local_daemon("http://127.0.0.1:9", 5);
+    let r = d.pipeline.ask("write me a poem", false).await;
+    assert_eq!(r.error, Some(ErrorCode::ModelUnavailable));
+    let json = serde_json::to_value(&r).unwrap();
+    assert_eq!(json["error"], "model-unavailable");
+    assert_eq!(json["cards"][0]["code"], "model-unavailable");
+
+    let loading = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/embeddings" => Reply::ok(json!({"data": []})),
+        _ => Reply {
+            status: 503,
+            headers: vec![],
+            body: json!({"error": {"message": "Loading model"}}),
+            delay: Duration::ZERO,
+        },
+    })
+    .await;
+    let r = local_daemon(&loading.base, 5)
+        .pipeline
+        .ask("write me a poem", false)
+        .await;
+    assert_eq!(r.error, Some(ErrorCode::ModelLoading));
+
+    let slow = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/embeddings" => Reply::ok(json!({"data": []})),
+        _ => Reply {
+            delay: Duration::from_secs(3),
+            ..Reply::stamped(chat_text("Too late."), "device")
+        },
+    })
+    .await;
+    let r = local_daemon(&slow.base, 1)
+        .pipeline
+        .ask("write me a poem", false)
+        .await;
+    assert_eq!(r.error, Some(ErrorCode::Timeout));
+
+    let srv = FakeHttp::start(|_: &common::Seen, _| panic!("no network without consent")).await;
+    let d = daemon(&srv.base, &Arc::new(Log::default()), None);
+    d.live.lock().unwrap().consent.text_qa = false;
+    let r = d.pipeline.ask("write me a poem", false).await;
+    assert_eq!(r.error, Some(ErrorCode::ConsentNeeded));
 }
 
 #[tokio::test]

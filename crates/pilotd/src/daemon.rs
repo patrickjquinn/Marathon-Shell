@@ -747,6 +747,9 @@ pub async fn serve_on(d: &Daemon, conn: &zbus::Connection) -> zbus::Result<()> {
     Ok(())
 }
 
+const VOICE_UNAVAILABLE: &str =
+    "Speaking to Pilot isn't available on this phone yet. Type your question instead.";
+
 /// A push-to-talk turn: `pilot-voice` hears it, the pipeline handles the
 /// transcript as a spoken turn, and `pilot-tts` speaks the headline.
 pub async fn listen_turn(
@@ -761,6 +764,7 @@ pub async fn listen_turn(
             "offline",
             Card::Offline {
                 text: "The microphone is closed while the privacy switch is on.".into(),
+                code: crate::pipeline::ErrorCode::Offline,
             },
             true,
         ));
@@ -780,6 +784,7 @@ pub async fn listen_turn(
                 "voice-cpu",
                 Card::Error {
                     text: "Speaking to Pilot needs a newer phone processor than this one has. Typing works as usual.".into(),
+                    code: crate::pipeline::ErrorCode::VoiceUnavailable,
                 },
                 true,
             )),
@@ -795,11 +800,21 @@ pub async fn listen_turn(
                 true,
             ))
         }
+        Err(crate::adapters::AdapterError::Unavailable(_)) => pipeline.record(TurnResult::single(
+            pipeline.turn_id(),
+            "voice-error",
+            Card::Error {
+                text: VOICE_UNAVAILABLE.into(),
+                code: crate::pipeline::ErrorCode::VoiceUnavailable,
+            },
+            true,
+        )),
         Err(e) => pipeline.record(TurnResult::single(
             pipeline.turn_id(),
             "voice-error",
             Card::Error {
                 text: format!("Voice: {e}"),
+                code: crate::pipeline::ErrorCode::Internal,
             },
             true,
         )),

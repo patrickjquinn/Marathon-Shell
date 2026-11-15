@@ -148,9 +148,11 @@ pub enum Card {
     /// Offline, with what still works.
     Offline {
         text: String,
+        code: ErrorCode,
     },
     Error {
         text: String,
+        code: ErrorCode,
     },
     /// A countdown that is running: the UI draws it live from `ends_at`.
     Timer {
@@ -200,6 +202,24 @@ pub enum Card {
         #[serde(skip_serializing_if = "Vec::is_empty")]
         how: Vec<HowStep>,
     },
+}
+
+/// Why a turn failed, for the UI to word and act on (offer a retry, the
+/// model download, the consent switch) without reading the English text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ErrorCode {
+    /// No network, or the privacy switch.
+    Offline,
+    /// The model on the phone is not there or would not start.
+    ModelUnavailable,
+    /// The model on the phone is still loading.
+    ModelLoading,
+    Timeout,
+    /// The person has not allowed what the request needs.
+    ConsentNeeded,
+    VoiceUnavailable,
+    Internal,
 }
 
 /// One thing Pilot did for an answer: `kind` is "memory", "screen",
@@ -305,6 +325,9 @@ pub struct TurnResult {
     /// How long the turn took.
     #[serde(skip_serializing_if = "is_zero")]
     pub ms: u64,
+    /// The first error or offline card's code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorCode>,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref, reason = "serde's signature")]
@@ -323,6 +346,7 @@ impl TurnResult {
             transcript: None,
             via: String::new(),
             ms: 0,
+            error: None,
         }
     }
 
@@ -333,9 +357,9 @@ impl TurnResult {
             .map(|c| match c {
                 Card::Response { text, .. }
                 | Card::Clarify { text, .. }
-                | Card::Offline { text }
+                | Card::Offline { text, .. }
                 | Card::Camera { text, .. }
-                | Card::Error { text }
+                | Card::Error { text, .. }
                 | Card::Timer { text, .. }
                 | Card::Alarm { text, .. }
                 | Card::Reminder { text, .. }
@@ -1411,7 +1435,11 @@ impl Pipeline {
         self.new_turn_id()
     }
 
-    fn finish(&self, result: TurnResult) -> TurnResult {
+    fn finish(&self, mut result: TurnResult) -> TurnResult {
+        result.error = result.cards.iter().find_map(|c| match c {
+            Card::Error { code, .. } | Card::Offline { code, .. } => Some(*code),
+            _ => None,
+        });
         *lock(&self.last) = Some(result.clone());
         result
     }
@@ -1657,6 +1685,7 @@ impl Pipeline {
             transcript: None,
             via: String::new(),
             ms: 0,
+            error: None,
         };
         if text.is_empty() {
             return mk("none", vec![]);
@@ -1795,12 +1824,7 @@ impl Pipeline {
                 if let Some((intent, slots)) = intents::local_intent(text) {
                     return mk("local", self.run_slots(turn, intent, slots, "local").await);
                 }
-                return mk(
-                    "error",
-                    vec![Card::Error {
-                        text: user_error(&e),
-                    }],
-                );
+                return mk("error", vec![error_card(&e)]);
             }
         };
         let Some(decision) = Decision::from_answers(&answers) else {
@@ -1809,6 +1833,7 @@ impl Pipeline {
                 vec![Card::Error {
                     text: "Pilot couldn't work out what you asked. Try saying it another way."
                         .into(),
+                    code: ErrorCode::Internal,
                 }],
             );
         };
@@ -2062,6 +2087,11 @@ impl Pipeline {
         let cards = match intents::local_intent(text) {
             Some((intent, slots)) => self.run_slots(turn, intent, slots, "local").await,
             None => vec![Card::Offline {
+                code: if why == "offline" {
+                    ErrorCode::Offline
+                } else {
+                    ErrorCode::ConsentNeeded
+                },
                 text: match why {
                     "not-onboarded" => "Nothing leaves this phone until you choose: open Pilot to set it up. Timers, alarms, reminders, media and the calendar work now.".into(),
                     "no-consent" => "Cloud answers are off. Turn on typed questions in Settings. Timers, alarms, reminders, media and the calendar still work.".into(),
@@ -2078,6 +2108,7 @@ impl Pipeline {
             transcript: None,
             via: String::new(),
             ms: 0,
+            error: None,
         }
     }
 
@@ -2128,6 +2159,7 @@ impl Pipeline {
         let Some(entry) = registry.get(tool) else {
             return vec![Card::Error {
                 text: format!("{tool} is not registered"),
+                code: ErrorCode::Internal,
             }];
         };
         let errs = entry.spec.input.validate(&args);
@@ -2150,6 +2182,7 @@ impl Pipeline {
                 self.outcome(turn, "failed");
                 vec![Card::Error {
                     text: tool_error_text(&entry.spec.title, &e),
+                    code: ErrorCode::Internal,
                 }]
             }
         }
@@ -2279,6 +2312,7 @@ impl Pipeline {
                 ),
                 Err(e) => Card::Error {
                     text: format!("Pilot could not keep that: {e}"),
+                    code: ErrorCode::Internal,
                 },
             },
             MemoryCommand::Forget(what) => {
@@ -2810,9 +2844,7 @@ impl Pipeline {
                 Ok(r) => r,
                 Err(e) => {
                     self.outcome(turn, "failed");
-                    return vec![Card::Error {
-                        text: user_error(&e),
-                    }];
+                    return vec![error_card(&e)];
                 }
             };
             if resp.tool_calls.is_empty() {
@@ -2955,6 +2987,7 @@ impl Pipeline {
                             self.outcome(turn, "failed");
                             return vec![Card::Error {
                                 text: "Pilot couldn't do that. Try asking another way.".into(),
+                                code: ErrorCode::Internal,
                             }];
                         }
                         rejected_once = true;
@@ -2994,6 +3027,7 @@ impl Pipeline {
                         return vec![Card::Error {
                             text: "Pilot couldn't tell who that is for. Say the name or address again."
                                 .into(),
+                            code: ErrorCode::Internal,
                         }];
                     }
                     rejected_once = true;
@@ -3017,6 +3051,7 @@ impl Pipeline {
                             self.outcome(turn, "failed");
                             return vec![Card::Error {
                                 text: "Pilot couldn't do that. Try asking another way.".into(),
+                                code: ErrorCode::Internal,
                             }];
                         }
                         rejected_once = true;
@@ -3060,6 +3095,7 @@ impl Pipeline {
                             self.outcome(turn, "failed");
                             return vec![Card::Error {
                                 text: "Pilot couldn't find the item that action is for.".into(),
+                                code: ErrorCode::Internal,
                             }];
                         }
                         rejected_once = true;
@@ -3154,6 +3190,7 @@ impl Pipeline {
         self.outcome(turn, "failed");
         vec![Card::Error {
             text: "That took too many steps, so Pilot stopped. Try a simpler request.".into(),
+            code: ErrorCode::Internal,
         }]
     }
 
@@ -3229,6 +3266,7 @@ impl Pipeline {
         if !lock(&self.settings).consent.vision {
             return Card::Offline {
                 text: VISION_OFF.into(),
+                code: ErrorCode::ConsentNeeded,
             };
         }
         Card::Camera {
@@ -3250,6 +3288,7 @@ impl Pipeline {
                     text:
                         "Pilot is offline; photos stay on the phone while the privacy switch is on."
                             .into(),
+                    code: ErrorCode::Offline,
                 },
             ));
         }
@@ -3258,6 +3297,7 @@ impl Pipeline {
                 "no-consent",
                 Card::Offline {
                     text: VISION_OFF.into(),
+                    code: ErrorCode::ConsentNeeded,
                 },
             ));
         }
@@ -3268,6 +3308,7 @@ impl Pipeline {
                     "error",
                     Card::Error {
                         text: format!("Pilot could not use that photo: {e}."),
+                        code: ErrorCode::Internal,
                     },
                 ))
             }
@@ -3314,9 +3355,7 @@ impl Pipeline {
                     source: "qwen".into(),
                 }
             }
-            Err(e) => Card::Error {
-                text: user_error(&e),
-            },
+            Err(e) => error_card(&e),
         };
         self.finish(mk("vision", card))
     }
@@ -3445,12 +3484,14 @@ impl Pipeline {
             transcript: None,
             via: String::new(),
             ms: 0,
+            error: None,
         };
         let Some(p) = pending.filter(|p| p.at.elapsed() < PENDING_TTL) else {
             return self.finish(mk(
                 String::new(),
                 vec![Card::Error {
                     text: "That request has expired.".into(),
+                    code: ErrorCode::Internal,
                 }],
             ));
         };
@@ -3473,6 +3514,7 @@ impl Pipeline {
                 p.turn,
                 vec![Card::Error {
                     text: "That action is no longer available.".into(),
+                    code: ErrorCode::Internal,
                 }],
             ));
         };
@@ -3482,6 +3524,7 @@ impl Pipeline {
                 p.turn,
                 vec![Card::Error {
                     text: "That action is no longer valid.".into(),
+                    code: ErrorCode::Internal,
                 }],
             ));
         }
@@ -3497,6 +3540,7 @@ impl Pipeline {
                 self.outcome(&p.turn, "failed");
                 Card::Error {
                     text: tool_error_text(&entry.spec.title, &e),
+                    code: ErrorCode::Internal,
                 }
             }
         };
@@ -3517,19 +3561,51 @@ fn tool_error_text(title: &str, e: &ToolError) -> String {
     }
 }
 
-fn user_error(e: &RemoteError) -> String {
-    match e {
-        RemoteError::Offline => OFFLINE_HELP.into(),
-        RemoteError::Region(_) => {
-            "Pilot blocked the answer because it couldn't confirm where it was processed.".into()
-        }
-        RemoteError::Status { status: 429, .. } => {
-            "You've reached today's Pilot limit. Timers, alarms and reminders still work.".into()
-        }
+fn error_card(e: &RemoteError) -> Card {
+    let on_phone = |provider: &str| provider == "local";
+    let (code, text) = match e {
+        RemoteError::Offline => (ErrorCode::Offline, OFFLINE_HELP),
+        RemoteError::Timeout { .. } => (
+            ErrorCode::Timeout,
+            "Pilot took too long to answer. Try again.",
+        ),
+        RemoteError::Transport { provider, .. } if on_phone(provider) => (
+            ErrorCode::ModelUnavailable,
+            "Pilot's model on this phone isn't available. Check that it is downloaded in Pilot's settings.",
+        ),
+        RemoteError::Transport { .. } => (
+            ErrorCode::Offline,
+            "Pilot couldn't get an answer from its model. Try again.",
+        ),
+        RemoteError::Status {
+            status: 503,
+            provider,
+        } if on_phone(provider) => (
+            ErrorCode::ModelLoading,
+            "Pilot's model is still loading. Try again in a moment.",
+        ),
+        RemoteError::Region(_) => (
+            ErrorCode::Internal,
+            "Pilot blocked the answer because it couldn't confirm where it was processed.",
+        ),
+        RemoteError::Status { status: 429, .. } => (
+            ErrorCode::Internal,
+            "You've reached today's Pilot limit. Timers, alarms and reminders still work.",
+        ),
         RemoteError::Status {
             status: 401 | 403, ..
-        } => "Pilot's model service refused its key.".into(),
-        _ => "Pilot couldn't get an answer from its model. Try again.".into(),
+        } => (
+            ErrorCode::Internal,
+            "Pilot's model service refused its key.",
+        ),
+        _ => (
+            ErrorCode::Internal,
+            "Pilot couldn't get an answer from its model. Try again.",
+        ),
+    };
+    Card::Error {
+        text: text.into(),
+        code,
     }
 }
 
