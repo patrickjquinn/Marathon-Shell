@@ -210,12 +210,9 @@ Item {
     Connections {
         function onNotificationReceived(notification) {
             if (lockScreen.visible) {
-                Logger.info("LockScreen", "New notification: " + notification.title);
-                // Under Do Not Disturb, never light the screen for a
-                // notification — waking the display is the single most
-                // disruptive thing DND is supposed to prevent. Still refresh
-                // the list quietly so it's there when the user wakes it.
-                if (!NotificationService.isDndEnabled) {
+                // Only one that sounds lights the screen: not under Do Not
+                // Disturb, nor a silent, low-urgency or transient one.
+                if (notification.alerts) {
                     if (!Display.screenOn)
                         Display.turnScreenOn("notification from " + notification.appId);
                     lockScreen.resetIdleTimer();

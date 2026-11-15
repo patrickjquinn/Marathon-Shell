@@ -115,6 +115,22 @@ TestCase {
         SettingsManagerCpp.screenTimeout = 0;
     }
 
+    // A silent one, such as an Android notification updating in place,
+    // leaves the screen off.
+    function test_onlyASoundingNotificationWakesTheScreen() {
+        Display.turnScreenOff("test");
+        NotificationService.notificationReceived({
+            "appId": "silent",
+            "alerts": false
+        });
+        verify(!Display.screenOn);
+        NotificationService.notificationReceived({
+            "appId": "messages",
+            "alerts": true
+        });
+        verify(Display.screenOn);
+    }
+
     function test_tapStillReachesWhatIsBelow() {
         pad.enabled = true;
         pad.z = -1;

@@ -11,6 +11,7 @@ ListModel {
     property var replies: []
     property var sourceNames: ({})
     signal notificationDismissed(int id)
+    signal notificationReceived(var notification)
     function addNotification(appId, title, body, icon) {
         append({
             id: count + 1,

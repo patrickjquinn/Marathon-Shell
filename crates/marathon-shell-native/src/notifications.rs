@@ -917,8 +917,11 @@ impl Notifications {
             actions,
             hints,
         };
-        let shown = variant::map(&row.to_json());
         let quiet = row.hint("suppress-sound").as_bool().unwrap_or(false);
+        let mut shown = row.to_json();
+        // Sounds, so it may light the screen.
+        shown["alerts"] = json!(!self.is_dnd_enabled && priority > 0 && !quiet);
+        let shown = variant::map(&shown);
         let mut rows = self.rows.clone();
         rows.insert(0, row);
         self.as_mut().set_rows(rows);
