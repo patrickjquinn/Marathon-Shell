@@ -1,0 +1,182 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 15 Nov 2026 12:00:00 +0000
+Subject: [PATCH] power: supply: mt6358-gauge: Follow the voltage down near
+ empty
+
+A seed that reads high is carried by the counter all the way down. On
+the Zinwa Q25 the battery went flat at 3.2 V and 2.9 V while the gauge
+still reported 23% and 14%, so userspace never saw a low battery and
+never shut down.
+
+While discharging, also look the resistance-corrected voltage up in
+the OCV table on every poll. Below 5%, where the table falls 18 to
+95 mV per point and a resistance error of tens of milliohms is worth
+about a point, take the voltage's figure whenever it is lower than the
+counter's for three polls running, so that a single sag does not count.
+The counter carries on from there. The 2% at which userspace powers off
+then comes at about 3.56 V open circuit, above the 3.4 V floor of the
+OCV table. sc27xx_fuel_gauge calibrates its capacity against a
+low-voltage threshold in the same way.
+
+Replayed against four days of samples from the phone, the two runs that
+went flat would have reached 2% 27 and 64 minutes before the cell gave
+out, while the counter still read 27% and 18%.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/power/supply/mt6358-gauge.c |   84 ++++++++++++++++++++++++++++-------
+ 1 file changed, 68 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/power/supply/mt6358-gauge.c b/drivers/power/supply/mt6358-gauge.c
+--- a/drivers/power/supply/mt6358-gauge.c
++++ b/drivers/power/supply/mt6358-gauge.c
+@@ -6,7 +6,9 @@
+  * in a coulomb counter. The state of charge is seeded from the battery's
+  * open circuit voltage table, taken again once the battery is at rest if the
+  * first seed was taken under load, then tracked with the counter and
+- * re-anchored at 100% whenever the charger reports the end of charge.
++ * re-anchored at 100% whenever the charger reports the end of charge. When
++ * discharging near empty, where the OCV curve is steep, the voltage takes
++ * over from the counter whenever it reads lower.
+  */
+ 
+ #include <linux/bits.h>
+@@ -47,6 +49,9 @@
+ #define MT6358_FG_OCV_CELSIUS		25
+ #define MT6358_FG_IDLE_UA		50000
+ #define MT6358_FG_RELAX_UA		100000
++/* Below this the OCV curve is steep enough to trust over the counter. */
++#define MT6358_FG_LOW_CAPACITY		5
++#define MT6358_FG_LOW_SAMPLES		3
+ #define MT6358_FG_POLL_MS		(10 * MSEC_PER_SEC)
+ 
+ struct mt6358_gauge {
+@@ -61,6 +66,7 @@
+ 	u32 shunt_uohm;
+ 	bool anchored;
+ 	bool relaxed;
++	unsigned int low_samples;
+ 	s32 anchor_count;
+ 	int anchor_uah;
+ 	int capacity;
+@@ -160,15 +166,25 @@
+ 				     gauge->info->charge_full_design_uah);
+ }
+ 
+-/*
+- * Estimate the open circuit voltage from the loaded voltage and the current,
+- * averaged over a few samples, and look the charge up in the OCV table.
+- */
++/* Correct the loaded voltage into an OCV and look it up in the OCV table. */
++static int mt6358_gauge_ocv2cap(struct mt6358_gauge *gauge, int uv,
++				int current_ua)
++{
++	int ri = power_supply_vbat2ri(gauge->info, uv, current_ua > 0);
++
++	if (ri > 0)
++		uv -= div_s64((s64)current_ua * ri, MICRO);
++
++	return power_supply_batinfo_ocv2cap(gauge->info, uv,
++					    MT6358_FG_OCV_CELSIUS);
++}
++
++/* Seed the charge from the voltage and the current, averaged. */
+ static int mt6358_gauge_seed(struct mt6358_gauge *gauge)
+ {
+ 	struct mt6358_gauge_sample sample;
+-	s64 ocv = 0, current_ua = 0;
+-	int i, uv, ri, soc, ret;
++	s64 vbat = 0, current_ua = 0;
++	int i, uv, soc, ret;
+ 
+ 	for (i = 0; i < MT6358_FG_OCV_SAMPLES; i++) {
+ 		ret = mt6358_gauge_read_voltage(gauge, &uv);
+@@ -179,19 +195,14 @@
+ 		if (ret)
+ 			return ret;
+ 
+-		ocv += uv;
++		vbat += uv;
+ 		current_ua += sample.current_ua;
+ 	}
+ 
+-	ocv = div_s64(ocv, MT6358_FG_OCV_SAMPLES);
++	vbat = div_s64(vbat, MT6358_FG_OCV_SAMPLES);
+ 	current_ua = div_s64(current_ua, MT6358_FG_OCV_SAMPLES);
+ 
+-	ri = power_supply_vbat2ri(gauge->info, (int)ocv, current_ua > 0);
+-	if (ri > 0)
+-		ocv -= div_s64(current_ua * ri, MICRO);
+-
+-	soc = power_supply_batinfo_ocv2cap(gauge->info, (int)ocv,
+-					   MT6358_FG_OCV_CELSIUS);
++	soc = mt6358_gauge_ocv2cap(gauge, (int)vbat, (int)current_ua);
+ 	if (soc < 0)
+ 		return soc;
+ 
+@@ -201,12 +212,49 @@
+ 	gauge->anchored = true;
+ 	gauge->relaxed = abs(current_ua) < MT6358_FG_RELAX_UA;
+ 
+-	dev_dbg(gauge->dev, "OCV %lld uV at %lld uA: %d%%\n", ocv, current_ua,
++	dev_dbg(gauge->dev, "%lld uV at %lld uA: %d%%\n", vbat, current_ua,
+ 		soc);
+ 
+ 	return 0;
+ }
+ 
++/*
++ * Discharging near empty, follow the voltage down when it reads below the
++ * counter.
++ */
++static int mt6358_gauge_follow_empty(struct mt6358_gauge *gauge,
++				     const struct mt6358_gauge_sample *sample)
++{
++	int uv, soc, ret;
++
++	if (sample->current_ua > 0)
++		goto reset;
++
++	ret = mt6358_gauge_read_voltage(gauge, &uv);
++	if (ret)
++		return ret;
++
++	soc = mt6358_gauge_ocv2cap(gauge, uv, sample->current_ua);
++	if (soc < 0)
++		return soc;
++
++	if (soc >= MT6358_FG_LOW_CAPACITY ||
++	    soc >= mt6358_gauge_capacity(gauge, sample))
++		goto reset;
++
++	if (++gauge->low_samples >= MT6358_FG_LOW_SAMPLES) {
++		gauge->anchor_count = sample->count;
++		gauge->anchor_uah = mult_frac(gauge->info->charge_full_design_uah,
++					      soc, 100);
++	}
++
++	return 0;
++
++reset:
++	gauge->low_samples = 0;
++	return 0;
++}
++
+ static bool mt6358_gauge_charger_full(struct mt6358_gauge *gauge)
+ {
+ 	union power_supply_propval val;
+@@ -245,6 +293,10 @@
+ 			ret = mt6358_gauge_seed(gauge);
+ 			if (ret)
+ 				break;
++		} else {
++			ret = mt6358_gauge_follow_empty(gauge, &sample);
++			if (ret)
++				break;
+ 		}
+ 
+ 		capacity = mt6358_gauge_capacity(gauge, &sample);
+-- 
+2.55.0
+
