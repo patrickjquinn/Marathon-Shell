@@ -3285,9 +3285,7 @@ impl Pipeline {
             return self.finish(mk(
                 "offline",
                 Card::Offline {
-                    text:
-                        "Pilot is offline; photos stay on the phone while the privacy switch is on."
-                            .into(),
+                    text: "Pilot is offline; photos stay on the phone.".into(),
                     code: ErrorCode::Offline,
                 },
             ));
@@ -3590,7 +3588,7 @@ fn error_card(e: &RemoteError) -> Card {
         ),
         RemoteError::Status { status: 429, .. } => (
             ErrorCode::Internal,
-            "You've reached today's Pilot limit. Timers, alarms and reminders still work.",
+            "Pilot's model service is busy. Try again in a minute.",
         ),
         RemoteError::Status {
             status: 401 | 403, ..

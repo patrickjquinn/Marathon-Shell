@@ -137,6 +137,10 @@ impl PilotService {
     }
 
     /// Records `sender` as the owner of the turn's confirmation cards.
+    fn on_marathon(&self) -> bool {
+        self.callers.policy == crate::callers::Policy::Marathon
+    }
+
     fn own_cards(&self, r: &TurnResult, sender: Option<String>) {
         let Some(sender) = sender else { return };
         let mut owners = lock(&self.card_owners);
@@ -197,7 +201,7 @@ impl PilotService {
         *lock(&self.launch_request) = Some((what.into(), std::time::Instant::now()));
         // A frozen app reads nothing until it is thawed: the shell wakes a
         // running Pilot (or starts it, behind the app on screen) first.
-        let marathon = self.callers.policy == crate::callers::Policy::Marathon;
+        let marathon = self.on_marathon();
         if marathon {
             match crate::adapters::marathon::start_in_background(
                 &self.session,
@@ -228,7 +232,7 @@ impl PilotService {
     }
 }
 
-/// Whether the home screen has Pilot's gesture (the gesture patch is
+/// Whether Lipstick's home screen has Pilot's gesture (the gesture patch is
 /// applied: its call to `ShowSheetFor` is in Lipstick's compositor).
 fn gesture_installed() -> bool {
     std::fs::read_to_string("/usr/share/lipstick-jolla-home-qt5/compositor.qml")
@@ -624,7 +628,8 @@ impl PilotService {
             "onboarded": s.onboarded,
             "name": s.name,
             "guide": s.guide,
-            "gesture": gesture_installed(),
+            // Marathon's shell has the gesture built in.
+            "gesture": self.on_marathon() || gesture_installed(),
             "offline": self.offline.is_offline(),
         })
         .to_string())

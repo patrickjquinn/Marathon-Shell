@@ -763,7 +763,7 @@ pub async fn listen_turn(
             pipeline.turn_id(),
             "offline",
             Card::Offline {
-                text: "The microphone is closed while the privacy switch is on.".into(),
+                text: "The microphone is closed while Pilot is offline.".into(),
                 code: crate::pipeline::ErrorCode::Offline,
             },
             true,
