@@ -10,6 +10,7 @@ pragma Singleton
 
 import QtQuick
 import Sailfish.Silica 1.0
+import Nemo.Ngf 1.0
 import MarathonOS.Pilot 1.0
 
 QtObject {
@@ -59,6 +60,15 @@ QtObject {
             return;
         Pilot.setGuide(step, true);
         guide = guide.concat([step]);
+    }
+
+    // A question sent, a confirmation answered; a firmer one when that lets
+    // Pilot delete or send.
+    readonly property NonGraphicalFeedback _press: NonGraphicalFeedback {
+        event: "feedback_press"
+    }
+    readonly property NonGraphicalFeedback _commit: NonGraphicalFeedback {
+        event: "feedback_lock"
     }
 
     // Entries were added: the views bring the newest into view.
@@ -144,6 +154,7 @@ QtObject {
             kind: "you",
             text: text
         }));
+        _press.play();
         grew();
         if (now.on_screen)
             markGuide("screen");
@@ -178,6 +189,7 @@ QtObject {
             return;
         model.setProperty(index, "allowed", approved);
         model.setProperty(index, "answered", true);
+        (approved && (e.destructive || e.outbound) ? _commit : _press).play();
         Pilot.confirm(e.cardId, approved);
     }
 
