@@ -568,6 +568,30 @@ Item {
         Pacific.agentStop()
     }
 
+    // ---- Freezing ------------------------------------------------------------
+
+    // The runner freezes the app in the background and the system may end
+    // it there: the session is kept as a clean exit, and under memory
+    // pressure the tabs behind give their web processes back first.
+    function prepareFreeze(): void {
+        leavingFront()
+        for (var i = 0; i < normalModel.count; ++i) {
+            var t = view(normalModel.idAt(i))
+            if (t)
+                t.storeEngineState()
+        }
+        Pacific.prepareFreeze(normalModel.sessionJson())
+        applyLifecycle()
+    }
+
+    function thawed(): void {
+        Pacific.thawed()
+        var t = currentTab
+        if (t)
+            t.wake()
+        lifecycleTimer.restart()
+    }
+
     // ---- Start and stop --------------------------------------------------
 
     Connections {

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-//! `org.shipwright.pacific.ui`: how other apps and Lipstick open links in
+//! `org.shipwright.pacific.ui`: how other apps and the shell open links in
 //! Pacific, the way sailfish-browser serves `org.sailfishos.browser.ui`.
 //!
 //! ```text
@@ -12,10 +12,14 @@
 //!                         with none, only brings it up
 //! ```
 //!
-//! The desktop file names it (`X-Maemo-Service`, `X-Maemo-Method`), so a
+//! `/usr/bin/shipwright-pacific`, the desktop file's command, calls it, so a
 //! link tapped elsewhere reaches the running browser, and D-Bus activation
-//! starts it when it is not running. Only http(s), file and about URLs are
-//! accepted (at most 10 per call).
+//! has the shell start or thaw it otherwise. While the runner freezes the
+//! app the name is let go ([`release`]), so a call activates instead of
+//! waiting on a process that cannot answer. Only http(s), file and about
+//! URLs are accepted (at most 10 per call).
+
+use std::sync::OnceLock;
 
 use cxx_qt::CxxQtThread;
 use cxx_qt_lib::QString;
@@ -66,6 +70,26 @@ impl Ui {
     }
 }
 
+static CONNECTION: OnceLock<zbus::blocking::Connection> = OnceLock::new();
+
+/// Lets go of the bus name (the interface stays served on the connection).
+pub fn release() {
+    if let Some(c) = CONNECTION.get() {
+        if let Err(e) = c.release_name(BUS_NAME) {
+            log::warn!("cannot release {BUS_NAME}: {e}");
+        }
+    }
+}
+
+/// Takes the bus name back after [`release`].
+pub fn reclaim() {
+    if let Some(c) = CONNECTION.get() {
+        if let Err(e) = c.request_name(BUS_NAME) {
+            log::warn!("cannot take {BUS_NAME} back: {e}");
+        }
+    }
+}
+
 /// Serves the interface on the session bus from a background thread. A
 /// second instance (or no bus) only logs.
 pub fn serve(thread: CxxQtThread<Pacific>) {
@@ -78,8 +102,7 @@ pub fn serve(thread: CxxQtThread<Pacific>) {
                 .and_then(zbus::blocking::connection::Builder::build);
             match conn {
                 Ok(c) => {
-                    // Keep the connection (and the service) for the process's life.
-                    std::mem::forget(c);
+                    let _ = CONNECTION.set(c);
                 }
                 Err(e) => log::info!("{BUS_NAME} is not served: {e}"),
             }

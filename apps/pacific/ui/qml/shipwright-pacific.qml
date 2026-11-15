@@ -70,6 +70,14 @@ ApplicationWindow {
         return true
     }
 
+    function handleFreeze(): void {
+        browserState.prepareFreeze()
+    }
+
+    function handleThaw(): void {
+        browserState.thawed()
+    }
+
     function start(): var {
         if (_started || !Pacific.ready)
             return

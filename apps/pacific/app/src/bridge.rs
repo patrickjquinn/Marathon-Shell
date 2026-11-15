@@ -215,6 +215,18 @@ pub mod qobject {
         #[qinvokable]
         fn shutdown(self: Pin<&mut Pacific>);
 
+        /// The runner is about to freeze the app: `session_json` saved,
+        /// counts written and the exit marked clean before this returns, and
+        /// `org.shipwright.pacific.ui` let go so that a caller bus-activates
+        /// the app (the shell thaws it) instead of waiting on it.
+        #[qinvokable]
+        fn prepare_freeze(self: Pin<&mut Pacific>, session_json: &QString);
+
+        /// Thawed: running again (a kill from here on is a crash) and
+        /// serving `org.shipwright.pacific.ui`.
+        #[qinvokable]
+        fn thawed(self: &Pacific);
+
         /// The tab lifecycle decisions for `tabs_json`
         /// (`[{id, lastActive, foreground, pinned, audible, formDirty,
         /// live}]`), as JSON `[{action, tab}]`.
@@ -1434,6 +1446,35 @@ impl qobject::Pacific {
             let _ = c.sessions.mark_clean_exit();
             let _ = c.profile.checkpoint();
         });
+    }
+
+    fn prepare_freeze(mut self: Pin<&mut Self>, session_json: &QString) {
+        let writes = self.as_mut().rust_mut().stats.take_writes(now_ms(), true);
+        let session =
+            serde_json::from_str::<pacific_core::session::Session>(&session_json.to_string());
+        let _ = worker::call(move |c| {
+            write_counts(c, &writes);
+            match session {
+                Ok(s) => {
+                    if let Err(e) = c.sessions.save(&s) {
+                        log::warn!("session: {e}");
+                    }
+                }
+                Err(e) => log::warn!("session JSON: {e}"),
+            }
+            let _ = c.sessions.mark_clean_exit();
+            let _ = c.profile.checkpoint();
+        });
+        crate::dbus::release();
+    }
+
+    fn thawed(&self) {
+        worker::run(|c| {
+            if let Err(e) = c.sessions.mark_running() {
+                log::warn!("cannot write the crash marker: {e}");
+            }
+        });
+        crate::dbus::reclaim();
     }
 
     fn lifecycle(&self, tabs_json: &QString) -> QString {
