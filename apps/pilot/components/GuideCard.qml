@@ -68,6 +68,7 @@ Glass {
         IconButton {
             id: hide
             objectName: "guideHide"
+            Accessible.name: qsTr("Put the guide away")
             anchors {
                 right: parent.right
                 verticalCenter: parent.verticalCenter

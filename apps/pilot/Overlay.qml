@@ -351,6 +351,7 @@ Item {
                         }
                         IconButton {
                             objectName: "overlayExpand"
+                            Accessible.name: qsTr("Open Pilot")
                             anchors.verticalCenter: parent.verticalCenter
                             width: Theme.itemSizeSmall
                             height: Theme.itemSizeSmall
@@ -359,6 +360,7 @@ Item {
                         }
                         IconButton {
                             objectName: "overlayClose"
+                            Accessible.name: qsTr("Close")
                             anchors.verticalCenter: parent.verticalCenter
                             width: Theme.itemSizeSmall
                             height: Theme.itemSizeSmall
@@ -385,6 +387,8 @@ Item {
                         }
                         IconButton {
                             id: sendButton
+                            objectName: "overlaySend"
+                            Accessible.name: qsTr("Send")
                             visible: input.text.trim().length > 0
                             icon.source: "image://theme/icon-m-send"
                             onClicked: overlay.send(input.text)

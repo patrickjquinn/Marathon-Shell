@@ -16,6 +16,8 @@ BackgroundItem {
     property string iconSource: ""
     property bool secondary: false
 
+    Accessible.name: chip.text
+
     // The chip's natural width from its parts' natural widths (not their
     // laid-out widths, which depend on the chip's).
     readonly property real _lead: (monogram.length > 0 ? Theme.iconSizeExtraSmall + Theme.paddingSmall : 0) + (iconSource.length > 0 ? Theme.iconSizeSmall + Theme.paddingSmall : 0)

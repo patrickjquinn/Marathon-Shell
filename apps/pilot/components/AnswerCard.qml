@@ -127,6 +127,7 @@ Glass {
     // Where it was made, and, tapped, how.
     BackgroundItem {
         objectName: "howToggle"
+        Accessible.name: howLabel.visible ? howLabel.text : provenanceLabel.text
         visible: provenanceLabel.text.length > 0 || card.how.length > 0
         width: parent.width
         height: Theme.itemSizeSmall
@@ -205,6 +206,7 @@ Glass {
             model: card.followups
             delegate: BackgroundItem {
                 id: followup
+                Accessible.name: followup.modelData
                 required property string modelData
                 width: parent ? parent.width : 0
                 height: Math.max(Theme.itemSizeSmall, question.height + 2 * Theme.paddingMedium)

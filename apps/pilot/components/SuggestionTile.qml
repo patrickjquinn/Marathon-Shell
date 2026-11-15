@@ -14,6 +14,8 @@ BackgroundItem {
     property string text
     property string icon            // pilotd's key: calendar, news, weather-day, ...
 
+    Accessible.name: tile.text
+
     function source() {
         // The ambience decides which of a weather icon's two drawings
         // shows against it.

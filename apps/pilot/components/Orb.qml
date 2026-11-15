@@ -9,6 +9,7 @@
 import QtQuick
 import QtQuick.Shapes
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
 Item {
     id: orb
@@ -22,6 +23,20 @@ Item {
 
     implicitWidth: Theme.itemSizeMedium
     implicitHeight: implicitWidth
+
+    // With the mic drawn it is a button; otherwise Pilot's state, shown.
+    activeFocusOnTab: glyph
+    Accessible.role: glyph ? Accessible.Button : Accessible.Animation
+    Accessible.name: glyph ? qsTr("Talk to Pilot") : qsTr("Pilot")
+    Accessible.description: mode === "listening" ? qsTr("Listening") : mode === "thinking" ? qsTr("Thinking") : ""
+    Accessible.onPressAction: if (glyph && enabled)
+        clicked()
+    Keys.onPressed: function (event) {
+        if (glyph && enabled && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space)) {
+            event.accepted = true;
+            clicked();
+        }
+    }
 
     // The voice, smoothed so the sphere moves like breath, not like a meter.
     property real _level: 0
@@ -283,5 +298,9 @@ Item {
         anchors.fill: parent
         enabled: orb.enabled
         onClicked: orb.clicked()
+    }
+
+    FocusFrame {
+        parent: orb
     }
 }

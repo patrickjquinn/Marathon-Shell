@@ -405,6 +405,7 @@ Page {
                 IconButton {
                     id: send
                     objectName: "sendButton"
+                    Accessible.name: qsTr("Send")
                     visible: input.text.trim().length > 0
                     icon.source: "image://theme/icon-m-send"
                     onClicked: {
