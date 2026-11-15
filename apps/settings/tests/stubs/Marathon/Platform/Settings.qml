@@ -19,6 +19,11 @@ QtObject {
     property bool reduceMotion: false
     property real userScaleFactor: 1
     property int screenTimeout: 60000
+    property bool nightshadeEnabled: false
+    property int nightshadeFrom: 1320
+    property int nightshadeTo: 420
+    property var nightshadeItems: ["clock", "battery", "weather", "notifications"]
+    property string nightshadeTint: "red"
     property string ringtone: "/sounds/ring_classic.wav"
     property string notificationSound: "/sounds/chime.wav"
     property string alarmSound: "/sounds/alarm_dawn.wav"
@@ -58,6 +63,11 @@ QtObject {
         reduceMotion = false;
         userScaleFactor = 1;
         screenTimeout = 60000;
+        nightshadeEnabled = false;
+        nightshadeFrom = 1320;
+        nightshadeTo = 420;
+        nightshadeItems = ["clock", "battery", "weather", "notifications"];
+        nightshadeTint = "red";
         ringtone = "/sounds/ring_classic.wav";
         notificationSound = "/sounds/chime.wav";
         alarmSound = "/sounds/alarm_dawn.wav";

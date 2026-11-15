@@ -140,6 +140,44 @@ TestCase {
         verify(!from.visible);
     }
 
+    function test_nightshade() {
+        const s = open("display");
+        const from = child(s.page, "nightshadeFrom");
+        const tint = child(s.page, "nightshadeTint");
+        verify(!from.visible);
+        verify(!tint.visible);
+        compare(findChild(s.page, "nightshade-clock"), null);
+
+        child(s.page, "nightshadeSwitch").clicked(null);
+        verify(Settings.nightshadeEnabled);
+        verify(from.visible);
+        verify(child(s.page, "nightshadeTo").visible);
+
+        from.clicked(null);
+        const dialog = pushed(s.app, s.page);
+        compare(dialog.hour, 22);
+        compare(dialog.minute, 0);
+        Settings.nightshadeFrom = 0;
+        dialog.accept();
+        tryCompare(Settings, "nightshadeFrom", 22 * 60);
+        compare(Settings.nightshadeTo, 7 * 60);
+        tryCompare(s.page, "status", PageStatus.Active);
+
+        compare(tint.currentIndex, 0);
+        pick(tint, 1);
+        compare(Settings.nightshadeTint, "amber");
+        Settings.nightshadeTint = "green";
+        compare(tint.currentIndex, 2);
+
+        const weather = child(s.page, "nightshade-weather");
+        verify(weather.checked);
+        weather.clicked(null);
+        compare(Settings.nightshadeItems, ["clock", "battery", "notifications"]);
+        verify(!weather.checked);
+        weather.clicked(null);
+        compare(Settings.nightshadeItems, ["clock", "battery", "weather", "notifications"]);
+    }
+
     function test_displayHidesAbsentSensors() {
         Display.lightSensorAvailable = false;
         Display.rotationAvailable = false;

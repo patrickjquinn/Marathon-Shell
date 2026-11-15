@@ -296,6 +296,25 @@ const nightLightSchedules = [
     { id: "custom", title: qsTr("Custom"), description: qsTr("Between times you choose") }
 ];
 
+const nightshadeTints = [
+    { id: "red", title: qsTr("Red") },
+    { id: "amber", title: qsTr("Amber") },
+    { id: "green", title: qsTr("Green") }
+];
+
+const nightshadeItems = [
+    { id: "clock", title: qsTr("Clock") },
+    { id: "battery", title: qsTr("Battery") },
+    { id: "weather", title: qsTr("Weather") },
+    { id: "notifications", title: qsTr("Notification count") }
+];
+
+// The shown items with id switched on or off, in their own order.
+function toggledItems(shown, id) {
+    const on = shown.indexOf(id) < 0;
+    return nightshadeItems.map(i => i.id).filter(i => i === id ? on : shown.indexOf(i) >= 0);
+}
+
 // Night light warmth, 0-100, over 4500 K (mild) to 2700 K (candlelight).
 function nightLightKelvin(warmth) {
     return Math.round((4500 - Math.max(0, Math.min(100, warmth)) * 18) / 100) * 100;

@@ -129,6 +129,67 @@ Page {
             }
 
             SectionHeader {
+                text: qsTr("Nightshade")
+            }
+            TextSwitch {
+                objectName: "nightshadeSwitch"
+                text: qsTr("Nightshade")
+                description: qsTr("On the charger at night, a dim clock on a black screen stays up instead of the screen turning off")
+                automaticCheck: false
+                checked: Settings.nightshadeEnabled
+                onClicked: Settings.nightshadeEnabled = !checked
+            }
+            ValueButton {
+                objectName: "nightshadeFrom"
+                visible: Settings.nightshadeEnabled
+                label: qsTr("Starts")
+                value: Format.formatDate(Logic.timeOfDay(Settings.nightshadeFrom), Formatter.TimeValue)
+                onClicked: page.pickNightTime(Settings.nightshadeFrom, minutes => Settings.nightshadeFrom = minutes)
+            }
+            ValueButton {
+                objectName: "nightshadeTo"
+                visible: Settings.nightshadeEnabled
+                label: qsTr("Ends")
+                value: Format.formatDate(Logic.timeOfDay(Settings.nightshadeTo), Formatter.TimeValue)
+                onClicked: page.pickNightTime(Settings.nightshadeTo, minutes => Settings.nightshadeTo = minutes)
+            }
+            ComboBox {
+                objectName: "nightshadeTint"
+                visible: Settings.nightshadeEnabled
+                width: parent.width
+                label: qsTr("Colour")
+                description: qsTr("Red disturbs sleep and night vision least")
+                Binding on currentIndex {
+                    value: Math.max(0, Logic.nightshadeTints.findIndex(t => t.id === Settings.nightshadeTint))
+                }
+                menu: ContextMenu {
+                    Repeater {
+                        model: Logic.nightshadeTints
+
+                        MenuItem {
+                            required property var modelData
+
+                            text: modelData.title
+                            onClicked: Settings.nightshadeTint = modelData.id
+                        }
+                    }
+                }
+            }
+            Repeater {
+                model: Settings.nightshadeEnabled ? Logic.nightshadeItems : []
+
+                TextSwitch {
+                    required property var modelData
+
+                    objectName: "nightshade-" + modelData.id
+                    text: modelData.title
+                    automaticCheck: false
+                    checked: Settings.nightshadeItems.indexOf(modelData.id) >= 0
+                    onClicked: Settings.nightshadeItems = Logic.toggledItems(Settings.nightshadeItems, modelData.id)
+                }
+            }
+
+            SectionHeader {
                 text: qsTr("Screen")
             }
             ComboBox {
