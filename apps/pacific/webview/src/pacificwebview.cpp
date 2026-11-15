@@ -2887,8 +2887,22 @@ void PacificWebView::inputMethodEvent(QInputMethodEvent* event)
     event->accept();
 }
 
+// Back and forward belong to the window (Escape, Alt+Left, Alt+Right), as on
+// Marathon's other apps: the page never gets them.
+static bool isNavigationKey(const QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Escape)
+        return true;
+    return (event->modifiers() & Qt::AltModifier)
+        && (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right);
+}
+
 void PacificWebView::keyPressEvent(QKeyEvent* event)
 {
+    if (isNavigationKey(event)) {
+        event->ignore();
+        return;
+    }
     if (!m_backend)
         return;
     // Soft keys carry no scan code. In ScriptInput mode their text goes in by
@@ -2915,6 +2929,10 @@ void PacificWebView::keyPressEvent(QKeyEvent* event)
 
 void PacificWebView::keyReleaseEvent(QKeyEvent* event)
 {
+    if (isNavigationKey(event)) {
+        event->ignore();
+        return;
+    }
     if (!m_backend)
         return;
     if (m_inputMode == ScriptInput && event->nativeScanCode() == 0 && m_im.focused && event->key() != Qt::Key_Return
