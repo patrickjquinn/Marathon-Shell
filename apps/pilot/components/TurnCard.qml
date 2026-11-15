@@ -4,8 +4,8 @@
 // One entry of the conversation: the user's words, or one card from
 // pilotd (response, clarify, confirm, camera, offline, error). Laid out as
 // Jolla Messages lays out a conversation: what you said on the right, what
-// Pilot said on the left, each bubble attached to its own screen edge and
-// leaving the other side free, the time below the text. A confirmation
+// Pilot said on the left, each bubble inside the page margin on its own side
+// and leaving the other side free, the time below the text. A confirmation
 // card says what will happen and waits for Allow or Cancel; it is answered
 // once and then says which. A camera card offers the viewfinder; its
 // question travels in `detail`.
@@ -43,16 +43,14 @@ Item {
     readonly property bool mine: who === "you"
     readonly property bool pending: (kind === "confirm" || kind === "camera") && !answered
 
-    // The bubble. Its corners on the screen-edge side are outside the page
-    // (the list clips them), so it reads as attached to that edge.
-    Rectangle {
+    Item {
         id: bubble
         objectName: "bubble"
 
         // The opposite side always keeps a free strip, as in Messages.
-        readonly property real maximumWidth: Math.min(card.width - Theme.horizontalPageMargin - Theme.paddingLarge, 6 * Theme.itemSizeLarge)
+        readonly property real maximumWidth: Math.min(card.width - 2 * Theme.horizontalPageMargin - Theme.paddingLarge, 6 * Theme.itemSizeLarge)
         readonly property real naturalWidth: Math.max(titleLabel.visible ? titleLabel.implicitWidth : 0, textWidth.advanceWidth, stampLabel.implicitWidth, cameraButton.visible ? cameraButton.implicitWidth : 0, card.pointsToSettings ? Theme.buttonWidthSmall : 0, buttonRow.visible ? 2 * Theme.buttonWidthExtraSmall + Theme.paddingMedium : 0)
-        width: Math.min(maximumWidth, naturalWidth + Theme.horizontalPageMargin + Theme.paddingLarge)
+        width: Math.min(maximumWidth, naturalWidth + 2 * Theme.paddingLarge)
 
         // The text's unwrapped width (a wrapping label's own implicit width
         // follows the width it is given).
@@ -62,25 +60,20 @@ Item {
             text: textLabel.text
         }
 
-        x: card.mine ? card.width - width : 0
+        x: card.mine ? card.width - width - Theme.horizontalPageMargin : Theme.horizontalPageMargin
         height: content.height + 2 * Theme.paddingMedium
 
-        // Drawn wider than `width` by its radius, past the screen edge.
-        color: "transparent"
         Rectangle {
-            x: card.mine ? 0 : -radius
-            width: parent.width + radius
-            height: parent.height
+            anchors.fill: parent
             radius: Theme.paddingLarge
             color: card.kind === "confirm" && card.pending ? Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity) : card.mine ? Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint) : Theme.rgba(Theme.primaryColor, 0.08)
         }
 
         Column {
             id: content
-            // Text starts at the page margin on the edge side.
-            x: card.mine ? Theme.paddingLarge : Theme.horizontalPageMargin
+            x: Theme.paddingLarge
             y: Theme.paddingMedium
-            width: bubble.width - Theme.horizontalPageMargin - Theme.paddingLarge
+            width: bubble.width - 2 * Theme.paddingLarge
             spacing: Theme.paddingSmall
 
             Label {
