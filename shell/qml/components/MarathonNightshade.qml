@@ -175,7 +175,7 @@ Item {
                             //: Battery charge on the bedside clock, e.g. 82%
                             text: qsTr("%1%").arg(Power.batteryLevel)
                             color: root.tint
-                                    font.pixelSize: Silica.Theme.fontSizeMedium
+                            font.pixelSize: Silica.Theme.fontSizeMedium
                         }
                     }
 
@@ -198,7 +198,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: weather.current ? Weather.temperature(weather.current.temperature, SettingsManagerCpp.fahrenheit) : ""
                             color: root.tint
-                                    font.pixelSize: Silica.Theme.fontSizeMedium
+                            font.pixelSize: Silica.Theme.fontSizeMedium
                         }
                     }
 
@@ -218,7 +218,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: NotificationService.unreadCount
                             color: root.tint
-                                    font.pixelSize: Silica.Theme.fontSizeMedium
+                            font.pixelSize: Silica.Theme.fontSizeMedium
                         }
                     }
                 }
