@@ -169,6 +169,7 @@ Item {
                     MenuButton {
                         iconSource: "image://theme/icon-m-add-to-grid"
                         text: qsTr("Add to app grid")
+                        visible: Pacific.canAddToHomeScreen()
                         enabled: menu.webPage
                         onClicked: { Pacific.addToHomeScreen(menu.pageUrl, menu.view.title); menu.hide() }
                     }

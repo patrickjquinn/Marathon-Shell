@@ -15,8 +15,9 @@ use pacific_core::blocker::Blocker;
 use pacific_core::session::SessionStore;
 use pacific_core::Profile;
 
-/// Where things live. Sailjail gives the app these private directories
-/// from OrganizationName/ApplicationName (org.shipwright/pacific).
+/// Where things live: the app's own directories, which the runner's
+/// sandbox binds (`marathon-apps/shipwright-pacific` under the XDG data and
+/// cache homes; the shell moved Sailjail's `org.shipwright/pacific` there).
 #[derive(Debug, Clone)]
 pub struct Dirs {
     pub data: PathBuf,
@@ -25,6 +26,8 @@ pub struct Dirs {
     /// The package's read-only data: bundled filter lists, autoconsent.
     pub share: PathBuf,
 }
+
+const APP_DIR: &str = "marathon-apps/shipwright-pacific";
 
 fn home() -> PathBuf {
     std::env::var_os("HOME").map_or_else(|| PathBuf::from("/tmp"), PathBuf::from)
@@ -43,12 +46,12 @@ impl Dirs {
         let data = env_dir("PACIFIC_DATA").unwrap_or_else(|| {
             env_dir("XDG_DATA_HOME")
                 .unwrap_or_else(|| home().join(".local/share"))
-                .join("org.shipwright/pacific")
+                .join(APP_DIR)
         });
         let cache = env_dir("PACIFIC_CACHE").unwrap_or_else(|| {
             env_dir("XDG_CACHE_HOME")
                 .unwrap_or_else(|| home().join(".cache"))
-                .join("org.shipwright/pacific")
+                .join(APP_DIR)
         });
         let downloads = env_dir("PACIFIC_DOWNLOADS").unwrap_or_else(|| home().join("Downloads"));
         let share = env_dir("PACIFIC_SHARE")

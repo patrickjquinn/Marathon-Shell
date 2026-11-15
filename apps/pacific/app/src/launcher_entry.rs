@@ -1,16 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-//! "Add to home screen": a launcher entry in
-//! `~/.local/share/applications` that opens one page in Pacific (the
-//! Sailfish form of a web-app shortcut, as sailfish-browser does).
+//! "Add to app grid": a launcher entry in `~/.local/share/applications`
+//! that opens one page in Pacific through `/usr/bin/shipwright-pacific`,
+//! with the site's icon when Pacific has it.
 
 use std::path::PathBuf;
 
 use self::sha2_lite::short_hash;
 
-/// The desktop entry for `url` titled `title`.
-pub fn entry(url: &str, title: &str) -> String {
+/// The desktop entry for `url` titled `title`, with `icon` (a file) or
+/// Pacific's own.
+pub fn entry(url: &str, title: &str, icon: Option<&std::path::Path>) -> String {
     let clean = |s: &str| s.chars().filter(|c| !c.is_control()).collect::<String>();
     let name = if title.trim().is_empty() {
         pacific_core::util::display_host(url)
@@ -23,8 +24,12 @@ pub fn entry(url: &str, title: &str) -> String {
         .replace('"', "\\\\\"")
         .replace('`', "\\\\`")
         .replace('$', "\\\\$");
+    let icon = icon.map_or_else(
+        || "shipwright-pacific".to_owned(),
+        |p| clean(&p.to_string_lossy()),
+    );
     format!(
-        "[Desktop Entry]\nType=Application\nName={name}\nIcon=shipwright-pacific\nExec=/usr/bin/shipwright-pacific \"{quoted}\"\nX-Nemo-Single-Instance=no\nX-Shipwright-Pacific-Url={}\nCategories=Network;WebBrowser;\n",
+        "[Desktop Entry]\nType=Application\nName={name}\nIcon={icon}\nExec=/usr/bin/shipwright-pacific \"{quoted}\"\nX-Shipwright-Pacific-Url={}\nCategories=Network;WebBrowser;\n",
         clean(url)
     )
 }
@@ -43,14 +48,21 @@ fn applications_dir() -> PathBuf {
         .join("applications")
 }
 
+/// Whether entries can be written: the runner's sandbox keeps the home in
+/// memory, and the shell has no way yet to add one for the app.
+pub fn available() -> bool {
+    std::env::var_os("MARATHON_SANDBOXED").is_none()
+}
+
 /// Writes the entry; the error is a message for the person.
-pub fn write(url: &str, title: &str) -> Result<(), String> {
+pub fn write(url: &str, title: &str, icon: Option<&std::path::Path>) -> Result<(), String> {
     let parsed = url::Url::parse(url).map_err(|_| format!("{url} is not a web address"))?;
     if !matches!(parsed.scheme(), "http" | "https") {
         return Err("only web pages can be added to the home screen".into());
     }
     let path = applications_dir().join(format!("shipwright-pacific-{}.desktop", short_hash(url)));
-    pacific_core::util::write_atomic(&path, entry(url, title).as_bytes()).map_err(|e| e.to_string())
+    pacific_core::util::write_atomic(&path, entry(url, title, icon).as_bytes())
+        .map_err(|e| e.to_string())
 }
 
 /// A short stable hash for file names (FNV-1a, 64 bits, hex).
@@ -71,7 +83,7 @@ mod tests {
 
     #[test]
     fn entries_quote_and_name() {
-        let e = entry("https://e.example/a?b=\"c\"$d", "My\nPage");
+        let e = entry("https://e.example/a?b=\"c\"$d", "My\nPage", None);
         assert!(e.contains("Name=MyPage\n"));
         assert!(
             e.contains(
@@ -79,14 +91,20 @@ mod tests {
             ),
             "{e}"
         );
-        assert!(entry("https://news.example/", " ").contains("Name=news.example\n"));
+        assert!(entry("https://news.example/", " ", None).contains("Name=news.example\n"));
+        assert!(entry(
+            "https://e.example/",
+            "E",
+            Some(std::path::Path::new("/c/f/1"))
+        )
+        .contains("Icon=/c/f/1\n"));
         assert_eq!(short_hash("a"), short_hash("a"));
         assert_ne!(short_hash("a"), short_hash("b"));
     }
 
     #[test]
     fn refuses_non_web() {
-        assert!(write("file:///etc/passwd", "x").is_err());
-        assert!(write("nonsense", "x").is_err());
+        assert!(write("file:///etc/passwd", "x", None).is_err());
+        assert!(write("nonsense", "x", None).is_err());
     }
 }

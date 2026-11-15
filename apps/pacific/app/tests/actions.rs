@@ -14,7 +14,7 @@ fn manifest() -> Value {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let out = keel_actions_codegen::Config {
         qml: vec![root.join("ui/qml")],
-        desktop: Some(root.join("app/packaging/shipwright-pacific.desktop")),
+        desktop: Some(root.join("shipwright-pacific.desktop")),
         app_id: Some("org.marathonos.shipwright-pacific".into()),
         ..Default::default()
     }
@@ -40,7 +40,8 @@ fn tool<'a>(m: &'a Value, name: &str) -> &'a Value {
 #[test]
 fn passes_reef_review() {
     let m = manifest();
-    let findings = keel_actions_schema::review::review(&m, Some("org.marathonos.shipwright-pacific"));
+    let findings =
+        keel_actions_schema::review::review(&m, Some("org.marathonos.shipwright-pacific"));
     assert!(
         findings.is_empty(),
         "{}",
@@ -84,7 +85,10 @@ fn declares_the_browser_surface() {
         tool(&m, name);
     }
     assert_eq!(m["appId"], "org.marathonos.shipwright-pacific");
-    assert_eq!(m["context"]["uri"], "keel://org.marathonos.shipwright-pacific/context");
+    assert_eq!(
+        m["context"]["uri"],
+        "keel://org.marathonos.shipwright-pacific/context"
+    );
 }
 
 #[test]

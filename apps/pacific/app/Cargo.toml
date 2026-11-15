@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
 # SPDX-License-Identifier: Apache-2.0
 
-# shipwright-pacific: the Pacific browser executable. Loads the QML in
-# ../ui/qml and exposes `Shipwright.Pacific 1.0` (the `Pacific` singleton
-# and the TabModel, SuggestionModel and PacificList models), CXX-Qt
-# QObjects over pacific-core. The page itself is the web view module
-# `Shipwright.Pacific.WebView 1.0` (../webview, its own package).
+# shipwright-pacific: the QML plugin `Shipwright.Pacific 1.0` (the `Pacific`
+# singleton and the TabModel, SuggestionModel and PacificList models),
+# CXX-Qt QObjects over pacific-core, for the UI in ../ui/qml that
+# marathon-app-runner hosts. The page itself is the web view module
+# `Shipwright.Pacific.WebView 1.0` (../webview).
 #
 # Standalone Cargo workspace, like the other CXX-Qt apps.
 [workspace]
@@ -18,12 +18,11 @@ rust-version = "1.87"
 license = "Apache-2.0"
 publish = false
 
-# A shared object that is also executable (tools/keel-launcher/link_sailfishapp.rs).
+# A dynamic QML plugin (CXX-Qt's PluginType::Dynamic).
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-keel = { path = "../../../crates/keel" }
 cxx = "1.0.176"
 cxx-qt = "=0.10.0"
 cxx-qt-lib = { version = "=0.10.0", features = ["qt_gui", "qt_qml"] }

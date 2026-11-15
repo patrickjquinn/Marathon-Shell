@@ -21,21 +21,6 @@ pub mod qobject {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
-        include!("cxx-qt-lib/qstringlist.h");
-        type QStringList = cxx_qt_lib::QStringList;
-        include!("cxx-qt-lib/qguiapplication.h");
-        type QGuiApplication = cxx_qt_lib::QGuiApplication;
-    }
-
-    unsafe extern "C++" {
-        include!("shipwright-pacific/cpp/launcher.h");
-        /// Loads `qml_path` into Keel's `SailfishApp::createView()` and
-        /// shows it. See cpp/launcher.cpp.
-        fn keel_show_main_view(qml_path: &QString) -> bool;
-        /// Deletes the view after the event loop ends.
-        fn keel_destroy_main_view();
-        fn keel_application() -> *mut QGuiApplication;
-        fn keel_launch_arguments() -> QStringList;
     }
 
     #[auto_cxx_name]
@@ -55,8 +40,6 @@ pub mod qobject {
         #[qproperty(bool, crashed, READ, NOTIFY)]
         /// The saved session to restore, as JSON (empty when none).
         #[qproperty(QString, saved_session, cxx_name = "savedSession", READ, NOTIFY)]
-        /// URLs from the command line, as JSON.
-        #[qproperty(QString, startup_urls, cxx_name = "startupUrls", READ, CONSTANT)]
         #[qproperty(bool, blocker_ready, cxx_name = "blockerReady", READ, NOTIFY)]
         #[qproperty(bool, lists_updating, cxx_name = "listsUpdating", READ, NOTIFY)]
         /// Sites with their shields down (blocking and cookie-banner
@@ -126,17 +109,6 @@ pub mod qobject {
         /// `wikipedia.org`), what the address bar shows; "" for non-web pages.
         #[qinvokable]
         fn site_of(self: &Pacific, url: &QString) -> QString;
-
-        /// Whether this process's program was replaced on disk (an update):
-        /// a prestarted Pacific waiting unseen then quits, and its service
-        /// starts the new one (Browser.waiting).
-        #[qinvokable]
-        fn binary_replaced(self: &Pacific) -> bool;
-
-        /// Started ahead of use by its user service (PACIFIC_PRESTART=1):
-        /// loaded with no window until opened (Browser.waiting).
-        #[qinvokable]
-        fn prestarted(self: &Pacific) -> bool;
 
         /// A short name for the site of `url` (`wikipedia` for
         /// `https://en.wikipedia.org/…`), for labels under site icons.
@@ -383,6 +355,10 @@ pub mod qobject {
         #[qinvokable]
         fn add_to_home_screen(self: &Pacific, url: &QString, title: &QString);
 
+        /// Whether `addToHomeScreen` can work here.
+        #[qinvokable]
+        fn can_add_to_home_screen(self: &Pacific) -> bool;
+
         // ---- Pilot --------------------------------------------------------
 
         /// Parses and checks a web view snapshot (agentSnapshot's result as
@@ -504,7 +480,6 @@ pub mod qobject {
 }
 
 use core::pin::Pin;
-use std::sync::OnceLock;
 
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
@@ -529,9 +504,6 @@ use serde_json::{json, Value};
 
 use crate::worker::{self, Core};
 
-/// URLs from the command line (set by `run` before the UI loads).
-pub static STARTUP_URLS: OnceLock<Vec<String>> = OnceLock::new();
-
 #[allow(
     clippy::struct_excessive_bools,
     reason = "backing fields of independent QML properties"
@@ -544,7 +516,6 @@ pub struct PacificRust {
     default_engine: QString,
     crashed: bool,
     saved_session: QString,
-    startup_urls: QString,
     blocker_ready: bool,
     lists_updating: bool,
     shields_down_sites: QString,
@@ -578,10 +549,6 @@ impl Default for PacificRust {
             default_engine: qs("duckduckgo"),
             crashed: false,
             saved_session: QString::default(),
-            startup_urls: qs(&serde_json::to_string(
-                STARTUP_URLS.get().map_or(&[][..], Vec::as_slice),
-            )
-            .unwrap_or_default()),
             blocker_ready: false,
             lists_updating: false,
             shields_down_sites: qs("[]"),
@@ -1102,15 +1069,6 @@ impl qobject::Pacific {
             return QString::default();
         }
         qs(&pacific_core::util::site_name(&host))
-    }
-
-    fn binary_replaced(&self) -> bool {
-        std::fs::read_link("/proc/self/exe")
-            .is_ok_and(|p| p.to_string_lossy().ends_with(" (deleted)"))
-    }
-
-    fn prestarted(&self) -> bool {
-        std::env::var_os("PACIFIC_PRESTART").is_some_and(|v| v == "1")
     }
 
     fn site_of(&self, url: &QString) -> QString {
@@ -1914,11 +1872,21 @@ impl qobject::Pacific {
         qs(passwords::WATCH_SUBMIT_JS)
     }
 
+    fn can_add_to_home_screen(&self) -> bool {
+        crate::launcher_entry::available()
+    }
+
     fn add_to_home_screen(&self, url: &QString, title: &QString) {
         let (url, title) = (url.to_string(), title.to_string());
         let thread = self.qt_thread();
-        worker::run(move |_| {
-            let msg = match crate::launcher_entry::write(&url, &title) {
+        worker::run(move |c| {
+            let icon = c
+                .profile
+                .icon_of(&url)
+                .ok()
+                .map(|i| pacific_core::favicons::file_for(&c.dirs.favicons(), &i))
+                .filter(|f| f.is_file());
+            let msg = match crate::launcher_entry::write(&url, &title, icon.as_deref()) {
                 Ok(()) => format!(
                     "{} added to the home screen",
                     if title.is_empty() { &url } else { &title }
@@ -1987,6 +1955,3 @@ impl qobject::Pacific {
         set_notify!(self, agent, agent_changed, v);
     }
 }
-
-// Keel's launcher: launch_args() and keel_application().
-include!("../../../../tools/keel-launcher/launcher.rs");

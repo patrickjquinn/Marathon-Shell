@@ -32,33 +32,6 @@ Item {
     // The application window (set by it): its page stack and activate().
     property var window
 
-    // Started ahead of use (PACIFIC_PRESTART=1: the shipwright-pacific-prestart
-    // user service, as the Sailfish Browser keeps a prestarted instance): the
-    // pages are loaded but there is no window and no tab is woken, so
-    // nothing goes over the network, until someone opens Pacific. Then the
-    // window shows at once and the tab in front loads.
-    property bool waiting: Pacific.prestarted()
-    // Updated while waiting unseen: the new Pacific takes its place (the
-    // service starts it again), rather than the old one opening.
-    Timer {
-        interval: 60000
-        repeat: true
-        running: browser.waiting
-        onTriggered: if (Pacific.binaryReplaced()) Qt.quit()
-    }
-    // The window shows (whatever activates it: the launcher, a link, the
-    // cover, Pilot's actions) and the tab in front loads.
-    function reveal(): void {
-        if (!waiting)
-            return
-        waiting = false
-        var w = window ? window.Window.window : null
-        if (w && !w.visible)
-            w.showFullScreen()
-        var t = view(modelOf(privateMode).activeId)
-        if (t)
-            t.wake()
-    }
     function bringToFront(): void {
         if (window)
             window.activate()
@@ -217,9 +190,6 @@ Item {
         var restoring = s.length > 0 && (settings.restore === "always" || (settings.restore === "crash" && Pacific.crashed))
         if (restoring)
             normalModel.restore(s)
-        var urls = JSON.parse(Pacific.startupUrls)
-        for (var i = 0; i < urls.length; ++i)
-            open(urls[i], { newTab: true, private: false, transition: "link" })
         if (normalModel.count === 0)
             normalModel.addTab("", "", false)
         if (restoring && Pacific.crashed)

@@ -1175,15 +1175,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "inventory"
-version = "0.3.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
 name = "ipnet"
 version = "2.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1275,16 +1266,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "keel"
-version = "0.1.0"
-dependencies = [
- "inventory",
- "keel-macros",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "keel-actions-codegen"
 version = "0.1.0"
 dependencies = [
@@ -1300,15 +1281,6 @@ version = "0.1.0"
 dependencies = [
  "regex",
  "serde_json",
-]
-
-[[package]]
-name = "keel-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.9",
 ]
 
 [[package]]
@@ -2052,7 +2024,6 @@ dependencies = [
  "cxx-qt",
  "cxx-qt-build",
  "cxx-qt-lib",
- "keel",
  "keel-actions-codegen",
  "keel-actions-schema",
  "log",

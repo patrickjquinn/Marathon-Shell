@@ -103,10 +103,6 @@ Item {
     function wake(): var {
         if (view.webProcessRunning && live && !_parked)
             return
-        // Prestarted and not opened yet (Browser.waiting): it wakes when the
-        // window shows.
-        if (browser && browser.waiting)
-            return
         crashed = false
         _parked = false
         if (url === "" && engineState === "")

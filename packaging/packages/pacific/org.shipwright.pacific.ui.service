@@ -1,6 +1,0 @@
-# Starts Pacific when another app asks it to open a link and it isn't
-# running (apps/pacific/app/src/dbus.rs). The shell starts it, under the
-# Keel host and with the apps' environment.
-[D-BUS Service]
-Name=org.shipwright.pacific.ui
-Exec=/usr/libexec/marathon-activate shipwright-pacific org.shipwright.pacific.ui

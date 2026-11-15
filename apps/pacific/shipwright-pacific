@@ -1,0 +1,7 @@
+#!/bin/sh
+# Opens web addresses in Pacific: the desktop file's command (xdg-open,
+# mimeapps.list) and page shortcuts. D-Bus activation has the shell start or
+# thaw Pacific in its runner; with no address Pacific only comes up.
+set -eu
+exec busctl --user --timeout=30 call org.shipwright.pacific.ui /ui \
+	org.shipwright.pacific.ui openUrl as "$#" "$@" >/dev/null

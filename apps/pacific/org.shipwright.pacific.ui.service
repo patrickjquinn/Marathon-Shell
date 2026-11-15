@@ -1,0 +1,6 @@
+# Starts Pacific, or thaws it, when another app asks it to open a link
+# (apps/pacific/app/src/dbus.rs; a frozen Pacific has let go of the name).
+# The shell starts it in marathon-app-runner.
+[D-BUS Service]
+Name=org.shipwright.pacific.ui
+Exec=/usr/libexec/marathon-activate shipwright-pacific org.shipwright.pacific.ui

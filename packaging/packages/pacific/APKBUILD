@@ -1,23 +1,27 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
-# Pacific, Marathon's web browser (apps/pacific): the app (Rust + CXX-Qt),
-# its Silica QML and the Qt Quick WPE view (Shipwright.Pacific.WebView), over
-# the wpewebkit aport; pacific-env gives the engine its environment.
+# Pacific, Marathon's web browser (apps/pacific), hosted by
+# marathon-app-runner: its Silica QML in /usr/share/marathon-apps, the Rust
+# QML plugin Shipwright.Pacific (CXX-Qt) and the Qt Quick WPE view
+# Shipwright.Pacific.WebView, over the wpewebkit aport. The manifest's
+# environment and webEngine give the engine its settings and sandbox.
 # scripts/qemu/lib/build-pacific-apk.sh stages this repository's tree as the
 # source tarball, so the URL below is fetched only by a standalone abuild,
 # and it follows a branch.
 pkgname=pacific
 pkgver=0.1.0
-pkgrel=11
+pkgrel=12
 pkgdesc="Pacific web browser for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND LGPL-2.1-or-later AND MPL-2.0"
 depends="
+	bubblewrap
 	keel-silica
-	marathon-shell>=1.0.0-r493
+	marathon-shell>=1.0.0-r530
 	qt6-qtdeclarative
 	qt6-qtpositioning
 	wpewebkit>=2.54.0-r1
+	xdg-dbus-proxy
 	"
 makedepends="
 	bash
@@ -39,11 +43,7 @@ makedepends="
 	wayland-dev
 	wpewebkit-dev
 	"
-source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz
-	pacific-env
-	shipwright-pacific.desktop
-	org.shipwright.pacific.ui.service
-	"
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
 builddir="$srcdir/Marathon-Shell-main"
 options="!check net"
 
@@ -60,8 +60,8 @@ build() {
 
 	export CARGO_TARGET_DIR="$builddir/target"
 	export QMAKE=/usr/lib/qt6/bin/qmake
-	export KEEL_SAILFISHAPP_INCLUDEDIR=/usr/include/keel/sailfishapp
-	export KEEL_SAILFISHAPP_LIBDIR=/usr/lib
+	# The web view's types, so more of the UI compiles to C++.
+	export PACIFIC_WEBVIEW_QML_DIR="$builddir/build-webview/qml"
 	cargo build --release --locked --manifest-path $p/app/Cargo.toml
 
 	# Adblock resources and filter lists, pinned in core/data/versions.env:
@@ -74,21 +74,30 @@ package() {
 	local p=apps/pacific
 	local out="$builddir/target/release"
 	local actions="$out/keel-actions/org.marathonos.$app"
+	local appdir="$pkgdir/usr/share/marathon-apps/$app"
+	local module="$pkgdir/usr/lib/qt6/qml/Shipwright/Pacific"
 
 	DESTDIR="$pkgdir" cmake --install build-webview
 
-	install -Dm755 "$out/libshipwright_pacific.so" "$pkgdir/usr/bin/$app"
-	install -Dm755 "$srcdir/pacific-env" "$pkgdir/usr/libexec/pacific/pacific-env"
-	install -d "$pkgdir/usr/share/$app"
-	cp -r $p/ui/qml "$pkgdir/usr/share/$app/qml"
+	# The plugin by the name CXX-Qt's qmldir gives it.
+	install -Dm755 "$out/libshipwright_pacific.so" "$module/libShipwright_Pacific.so"
+	install -m644 "$builddir/target/cxxqt/qml_modules/Shipwright/Pacific/qmldir" \
+		"$builddir/target/cxxqt/qml_modules/Shipwright/Pacific/plugin.qmltypes" "$module/"
+
+	install -Dm644 $p/manifest.json "$appdir/manifest.json"
+	install -Dm644 $p/icons/$app.svg "$appdir/icons/$app.svg"
+	install -d "$appdir/ui"
+	cp -r $p/ui/qml "$appdir/ui/qml"
+	install -Dm755 $p/$app "$pkgdir/usr/bin/$app"
+
 	local d
 	for d in autoconsent adblock filter-lists; do
 		install -d "$pkgdir/usr/share/$app/$d"
 		install -m644 "$builddir"/data/$d/* "$pkgdir/usr/share/$app/$d/"
 	done
 
-	install -Dm644 "$srcdir/$app.desktop" "$pkgdir/usr/share/applications/$app.desktop"
-	install -Dm644 "$srcdir/org.shipwright.pacific.ui.service" \
+	install -Dm644 $p/$app.desktop "$pkgdir/usr/share/applications/$app.desktop"
+	install -Dm644 $p/org.shipwright.pacific.ui.service \
 		"$pkgdir/usr/share/dbus-1/services/org.shipwright.pacific.ui.service"
 	local s
 	for s in 86 108 128 172; do

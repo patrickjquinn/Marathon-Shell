@@ -8,6 +8,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 import Shipwright.Pacific 1.0
 import "components"
 import "pages"
@@ -17,10 +18,18 @@ import "actions"
 ApplicationWindow {
     id: window
 
-    // Every activation (ApplicationWindow.activate) shows a prestarted
-    // Pacific first (Browser.waiting).
-    on_ActivateRequested: browserState.reveal()
+    property bool _started: false
 
+    function start(): var {
+        if (_started || !Pacific.ready)
+            return
+        _started = true
+        browserState.restore()
+        if (!browserState.settings.first_run_done)
+            pageStack.push(Qt.resolvedUrl("pages/FirstRunPage.qml"), { browser: browserState })
+    }
+
+    appId: "shipwright-pacific"
     allowedOrientations: Orientation.All
     initialPage: Component {
         BrowserPage {
@@ -32,6 +41,8 @@ ApplicationWindow {
             browser: browserState
         }
     }
+
+    Component.onCompleted: start()
 
     Browser {
         id: browserState
@@ -55,21 +66,8 @@ ApplicationWindow {
         onTriggered: actionsLoader.active = true
     }
 
-    property bool _started: false
-
-    function start(): var {
-        if (_started || !Pacific.ready)
-            return
-        _started = true
-        browserState.restore()
-        if (!browserState.settings.first_run_done)
-            pageStack.push(Qt.resolvedUrl("pages/FirstRunPage.qml"), { browser: browserState })
-    }
-
     Connections {
         target: Pacific
         function onReadyChanged() { window.start() }
     }
-
-    Component.onCompleted: start()
 }
