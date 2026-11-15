@@ -198,19 +198,10 @@ PILOT_PKGS=shipwright-reef \
 build_if_missing "shipwright-reef"           'shipwright-reef-*.apk'          "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shipwright-reef/APKBUILD"
 APORT=marathon-llm NO_DEPS=1 \
 build_if_missing "marathon-llm"              'marathon-llm-*.apk'             "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-llm/APKBUILD"
-# Pacific is closed. With the Shipwright source here it builds from it;
-# otherwise the prebuilt one packaging/vendor/shipwright.lock pins comes in,
-# or the image goes without it.
-if [ -d "${SHIPWRIGHT_SRC:=$HOME/Developer/Shipwright}/shoal/pacific" ]; then
-# The committed tree, even while Shipwright has work in progress.
-SHIPWRIGHT_REF="${SHIPWRIGHT_REF-$(git -C "$SHIPWRIGHT_SRC" rev-parse HEAD)}"
-PACIFIC_SRC="${PACIFIC_SRC-$SHIPWRIGHT_SRC}" PACIFIC_REF="${PACIFIC_REF-$SHIPWRIGHT_REF}" \
+# Pacific, the browser, from this tree.
 build_if_missing "pacific"                   'pacific-*.apk'                  "$LIB/build-pacific-apk.sh"                   "$APORTS_DIR/pacific/APKBUILD"
 APORT=marathon-shipwright-apps NO_DEPS=1 \
 build_if_missing "marathon-shipwright-apps"  'marathon-shipwright-apps-*.apk' "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-shipwright-apps/APKBUILD"
-else
-bash "$SCRIPT_DIR/vendor/fetch-shipwright-apks.sh" "$MKOSI_PKG_DIR"
-fi
 # Deckard at the APKBUILD's pinned commit; DECKARD_SRC=<checkout> builds a
 # local Marathon-Deckard instead.
 DECKARD_SRC="${DECKARD_SRC-}" \

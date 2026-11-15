@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
-# Builds pacific (Shipwright's browser, shoal/pacific) into mkosi.packages/.
-# Needs the keel-silica and wpewebkit apks there first: Pacific links Keel's
-# SailfishApp and builds its WebView against WPE.
-# PACIFIC_SRC=<Shipwright checkout> builds that checkout's PACIFIC_REF (default HEAD) instead of the
-# public shipwright-open export the APKBUILD pins.
+# Builds pacific (apps/pacific, Marathon's browser) from this repository into
+# mkosi.packages/. Needs the keel-silica and wpewebkit apks there first:
+# Pacific links Keel's SailfishApp and builds its WebView against WPE.
+#
+# The aport's source tarball is staged from the tree, uncommitted changes
+# included, so its source= URL is never fetched here: apps/pacific, crates/
+# (the Keel crates the app uses inherit that workspace) and the build helpers
+# in tools/keel-launcher.
+#
+# PACIFIC_SRC=<checkout> (else MARATHON_SHELL_SRC) builds that tree instead
+# of this one; PACIFIC_BUILD_DIR holds the work tree (default
+# ~/.cache/marathon-build).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "$SCRIPT_DIR/require-clean.sh"
 DURANIUM_DIR="${DURANIUM_DIR:-${HOME}/.cache/marathon-build/duranium}"
 MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-$(cd "$SCRIPT_DIR/../../.." && pwd)/packaging}"
 APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
 MKOSI_PKG_DIR="${MKOSI_PKG_DIR:-$DURANIUM_DIR/mkosi.packages}"
+PACIFIC_SRC="${PACIFIC_SRC:-${MARATHON_SHELL_SRC:-$(cd "$SCRIPT_DIR/../../.." && pwd)}}"
 
 PKGVER="$(grep -E '^pkgver=' "$APORTS_SRC/pacific/APKBUILD" | cut -d= -f2)"
 PKGREL="$(grep -E '^pkgrel=' "$APORTS_SRC/pacific/APKBUILD" | cut -d= -f2)"
@@ -24,28 +31,23 @@ for dep in keel-silica keel-silica-dev wpewebkit wpewebkit-dev; do
     }
 done
 
-echo "+-- building $TARGET --+"
+echo "+-- building $TARGET from $PACIFIC_SRC --+"
 
 # The cargo target directory runs to several GB: keep it off a RAM /tmp
 # (PACIFIC_BUILD_DIR moves it).
+mkdir -p "${PACIFIC_BUILD_DIR:-${HOME}/.cache/marathon-build}"
 WORK_DIR="$(mktemp -d "${PACIFIC_BUILD_DIR:-${HOME}/.cache/marathon-build}/pacific-build.XXXXXX")"
 trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
-LOCAL_COMMIT=""
-if [ -n "${PACIFIC_SRC:-}" ]; then
-    [ -n "${PACIFIC_REF:-}" ] || require_clean "$PACIFIC_SRC"
-    LOCAL_COMMIT="$(git -C "$PACIFIC_SRC" rev-parse "${PACIFIC_REF:-HEAD}")"
-    mkdir -p "$WORK_DIR/distfiles"
-    # Whole tree: the Keel crates Pacific uses inherit the root workspace.
-    git -C "$PACIFIC_SRC" archive --format=tar.gz --prefix="shipwright-open-$LOCAL_COMMIT/" \
-        -o "$WORK_DIR/distfiles/pacific-$LOCAL_COMMIT.tar.gz" "$LOCAL_COMMIT"
-    echo "pacific source: $PACIFIC_SRC @ $LOCAL_COMMIT"
-fi
+mkdir -p "$WORK_DIR/distfiles"
+tar -C "$PACIFIC_SRC" --exclude=crates/target --exclude=apps/pacific/app/target \
+    --exclude=apps/pacific/core/target \
+    --transform 's,^,Marathon-Shell-main/,' \
+    -czf "$WORK_DIR/distfiles/pacific-$PKGVER.tar.gz" crates apps/pacific tools/keel-launcher
 
 podman run --rm -i \
     --net=host \
     -e TARGET="$TARGET" \
-    -e LOCAL_COMMIT="$LOCAL_COMMIT" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
     -v "$MKOSI_PKG_DIR:/out:z" \
     -v "$WORK_DIR:/work:z" \
@@ -67,22 +69,18 @@ KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
 cp "${KEY_PRIV}.pub" /etc/apk/keys/
 printf 'PACKAGER_PRIVKEY=%s\nREPODEST=/root/packages\n' "$KEY_PRIV" > /etc/abuild.conf
 
-mkdir -p /work/aports
+mkdir -p /work/aports /var/cache/distfiles
 rsync -a --checksum --no-times /aports-src/pacific/ /work/aports/pacific/
+cp /work/distfiles/*.tar.gz /var/cache/distfiles/
 cd /work/aports/pacific
 # makedepends besides the local apks installed above.
 apk add --no-cache --quiet $(srcdir=/; . ./APKBUILD; echo $makedepends | tr ' ' '\n' | \
     grep -vE '^(keel-silica-dev|wpewebkit-dev)$') 2>&1 | tail -3
 
-if [ -n "$LOCAL_COMMIT" ]; then
-    mkdir -p /var/cache/distfiles
-    cp /work/distfiles/*.tar.gz /var/cache/distfiles/
-    sed -i "s/^_commit=.*/_commit=$LOCAL_COMMIT/" APKBUILD
-fi
 abuild -F checksum
 abuild -d -F
 
-cp "/root/packages/aports/aarch64/${TARGET}" "/out/${TARGET}"
+cp "/root/packages/aports/"*"/${TARGET}" "/out/${TARGET}"
 echo "wrote /out/${TARGET}"
 CSCRIPT
 

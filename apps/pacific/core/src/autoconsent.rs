@@ -304,7 +304,7 @@ mod tests {
         assert!(report_to_handler("no hook here").is_err());
     }
 
-    /// The real pinned build, when the scratch copy prebuild.sh fetched is
+    /// The real pinned build, when the copy fetch-data.sh fetched is
     /// around (`PACIFIC_AUTOCONSENT_JS`).
     #[test]
     fn real_build_when_available() {

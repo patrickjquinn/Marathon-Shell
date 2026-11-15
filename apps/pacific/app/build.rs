@@ -31,9 +31,8 @@ fn main() {
     builder.build();
     // The UI's QML and JavaScript, compiled ahead of time for where the
     // package installs them, against Keel's modules and, when its build tree
-    // is there (the web view's spec builds it), Shipwright.Pacific.WebView:
-    // what uses their types becomes C++. The package installs the files
-    // empty (shipwright-pacific.spec).
+    // is there (PACIFIC_WEBVIEW_QML_DIR), Shipwright.Pacific.WebView: what
+    // uses their types becomes C++.
     println!("cargo:rerun-if-env-changed=PACIFIC_WEBVIEW_QML_DIR");
     let webview = std::env::var_os("PACIFIC_WEBVIEW_QML_DIR").map_or_else(
         || repo.join("target/pacific-webview-build/qml"),
@@ -46,15 +45,15 @@ fn main() {
         .into_iter()
         .collect();
     precompile_app_qml_typed(
-        &repo.join("shoal/pacific/ui/qml"),
+        &repo.join("apps/pacific/ui/qml"),
         "/usr/share/shipwright-pacific/qml",
         &imports,
     );
     // Keel Actions (ADR-0018): actions.json and the D-Bus files from the
     // QML declarations.
     keel_actions_codegen::Config {
-        qml: vec![repo.join("shoal/pacific/ui/qml")],
-        desktop: Some(repo.join("shoal/pacific/app/packaging/shipwright-pacific.desktop")),
+        qml: vec![repo.join("apps/pacific/ui/qml")],
+        desktop: Some(repo.join("apps/pacific/app/packaging/shipwright-pacific.desktop")),
         ..Default::default()
     }
     .build_script();

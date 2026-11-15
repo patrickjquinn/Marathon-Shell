@@ -27,9 +27,8 @@ history.
 | Device support | `librem5-vivante-blobs`, `callaudiod`, `pinephone-callaudiod-marathon` |
 
 `shoal-pilotd`, `shipwright-reef` and `keel-mcp` build from this tree
-(`scripts/qemu/lib/build-pilot-apk.sh`). `pacific` builds from a local
-Shipwright checkout (`PACIFIC_SRC`; default `~/Developer/Shipwright`), or
-comes prebuilt through `packaging/vendor/shipwright.lock`.
+(`scripts/qemu/lib/build-pilot-apk.sh`), and so does `pacific`
+(`scripts/qemu/lib/build-pacific-apk.sh`, from `apps/pacific`).
 
 ## Building
 

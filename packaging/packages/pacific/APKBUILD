@@ -1,18 +1,17 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
-# Pacific, Shipwright's Keel web browser (shoal/pacific), as Marathon's
-# browser: the app (Rust + CXX-Qt), its Silica QML and the Qt Quick WPE view
-# (Shipwright.Pacific.WebView), over the wpewebkit aport. Built from a
-# Shipwright commit like keel-silica; scripts/qemu/lib/build-pacific-apk.sh
-# stages a local checkout. Sailfish-only pieces (Sailjail, libhybris, the
-# Atlantic engine) are left out; pacific-env gives the engine its environment.
+# Pacific, Marathon's web browser (apps/pacific): the app (Rust + CXX-Qt),
+# its Silica QML and the Qt Quick WPE view (Shipwright.Pacific.WebView), over
+# the wpewebkit aport; pacific-env gives the engine its environment.
+# scripts/qemu/lib/build-pacific-apk.sh stages this repository's tree as the
+# source tarball, so the URL below is fetched only by a standalone abuild,
+# and it follows a branch.
 pkgname=pacific
 pkgver=0.1.0
-pkgrel=9
-_commit=7a6c40a883d1cccdb74f258a0862b08da635c14c
+pkgrel=10
 pkgdesc="Pacific web browser for Marathon"
-url="https://github.com/patrickjquinn/shipwright-open"
+url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
-license="LicenseRef-Shipwright-Proprietary AND LGPL-2.1-or-later"
+license="Apache-2.0 AND LGPL-2.1-or-later AND MPL-2.0"
 depends="
 	keel-silica
 	marathon-shell>=1.0.0-r493
@@ -21,6 +20,7 @@ depends="
 	wpewebkit>=2.54.0-r1
 	"
 makedepends="
+	bash
 	cargo
 	clang
 	cmake
@@ -39,17 +39,17 @@ makedepends="
 	wayland-dev
 	wpewebkit-dev
 	"
-source="$pkgname-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
-	engine-symbols-on-musl.patch
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz
 	pacific-env
 	shipwright-pacific.desktop
 	org.shipwright.pacific.ui.service
 	"
-builddir="$srcdir/shipwright-open-$_commit"
+builddir="$srcdir/Marathon-Shell-main"
 options="!check net"
 
 build() {
-	cmake -S shoal/pacific/webview -B build-webview -G Ninja \
+	local p=apps/pacific
+	cmake -S $p/webview -B build-webview -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_INSTALL_LIBDIR=lib \
@@ -62,15 +62,16 @@ build() {
 	export QMAKE=/usr/lib/qt6/bin/qmake
 	export KEEL_SAILFISHAPP_INCLUDEDIR=/usr/include/keel/sailfishapp
 	export KEEL_SAILFISHAPP_LIBDIR=/usr/lib
-	cargo build --release --locked --manifest-path shoal/pacific/app/Cargo.toml
+	cargo build --release --locked --manifest-path $p/app/Cargo.toml
 
 	# Adblock resources and filter lists, pinned in core/data/versions.env:
 	# blocking works offline from the first start.
-	PACIFIC_SKIP_APP=1 bash shoal/pacific/rpm/prebuild.sh
+	bash $p/fetch-data.sh "$builddir/data"
 }
 
 package() {
 	local app=shipwright-pacific
+	local p=apps/pacific
 	local out="$builddir/target/release"
 	local actions="$out/keel-actions/org.shipwright.pacific"
 
@@ -79,11 +80,11 @@ package() {
 	install -Dm755 "$out/libshipwright_pacific.so" "$pkgdir/usr/bin/$app"
 	install -Dm755 "$srcdir/pacific-env" "$pkgdir/usr/libexec/pacific/pacific-env"
 	install -d "$pkgdir/usr/share/$app"
-	cp -r shoal/pacific/ui/qml "$pkgdir/usr/share/$app/qml"
+	cp -r $p/ui/qml "$pkgdir/usr/share/$app/qml"
 	local d
 	for d in autoconsent adblock filter-lists; do
 		install -d "$pkgdir/usr/share/$app/$d"
-		install -m644 shoal/pacific/rpm/data/$d/* "$pkgdir/usr/share/$app/$d/"
+		install -m644 "$builddir"/data/$d/* "$pkgdir/usr/share/$app/$d/"
 	done
 
 	install -Dm644 "$srcdir/$app.desktop" "$pkgdir/usr/share/applications/$app.desktop"
@@ -91,7 +92,7 @@ package() {
 		"$pkgdir/usr/share/dbus-1/services/org.shipwright.pacific.ui.service"
 	local s
 	for s in 86 108 128 172; do
-		install -Dm644 icons/hicolor/${s}x$s/apps/$app.png \
+		install -Dm644 $p/icons/${s}x$s/$app.png \
 			"$pkgdir/usr/share/icons/hicolor/${s}x$s/apps/$app.png"
 	done
 
@@ -104,5 +105,5 @@ package() {
 }
 
 sha512sums="
-SKIP  pacific-$_commit.tar.gz
+SKIP  pacific-0.1.0.tar.gz
 "

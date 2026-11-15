@@ -549,7 +549,7 @@ news.example##div[data-ad]
         );
     }
 
-    /// Brave's real resources file, when prebuild.sh fetched it
+    /// Brave's real resources file, when fetch-data.sh fetched it
     /// (`PACIFIC_RESOURCES_JSON`).
     #[test]
     fn real_resources_when_available() {
