@@ -5,51 +5,28 @@ SPDX-License-Identifier: Apache-2.0
 
 # Pacific
 
-Pacific is Shipwright's free web browser for Sailfish OS. It runs on Keel (Silica on Qt 6.8) with WPE WebKit.
+Pacific is Marathon's web browser, on WPE WebKit. It began as Shipwright's browser for Sailfish OS and came into Marathon from Shipwright 7a6c40a8 as a core app; the Sailfish packaging (rpm/), the Sailfish engine build (engine/) and the prestart unit stayed behind.
 
-| Directory | What | Licence |
-|---|---|---|
-| `core/`, `app/`, `ui/`, `rpm/` | Rust core, CXX-Qt front end, Silica UI, app package | see each directory |
-| `webview/` | `Shipwright.Pacific.WebView 1.0`: the Qt 6 view of WPE WebKit pages, the agent API for Pilot, pacific-minibrowser | LGPL-2.1-or-later, page bridges MPL-2.0 |
-| `engine/` | The engine packages (WPE WebKit 2.54.2 for Sailfish OS), runtime environment, Sailjail permission, day-1 device check | binaries under their upstream licences; scripts LGPL-2.1-or-later or MPL-2.0 |
+## Licence
 
-## Engine and web view
-
-The engine is WPE WebKit 2.54.2 on the legacy libwpe + WPEBackend-fdo API. WPEPlatform's Qt 6 API cannot run on libhybris yet. Frames reach Qt's scene graph as EGLImages bound to GL textures, with no CPU copy. Qt Quick has to run on the OpenGL RHI.
-
-- `webview/README.md` has the QML API for the UI and the core:
-  - WebView, WebProfile, WebEngine and the request types;
-  - the keyboard and input method;
-  - the agent API (isolated script world, element snapshots, trusted taps, headless views);
-  - building and running;
-  - what the app's Sailjail profile must contain.
-- `engine/README.md` covers:
-  - how the alpha repackages Atlantic's build 746.1 into `/opt/pacific`;
-  - each runtime variable and why it is set;
-  - licences and corresponding source;
-  - the plan to build the same recipe ourselves for the beta;
-  - the day-1 steps on the phone.
-
-Atlantic (SpecSierra's atlantic-engine and atlantic-browser) did the hard part: the Sailfish OS WebKit build, the Qt 5 view this one is ported from, and months of device measurements cited throughout. Pacific's engine files keep Atlantic's licences (MPL-2.0, and LGPL-2.1-or-later for the view) and credit them in each header.
-
-Build all of it for the phone:
-
-```
-tools/build/native/native.sh shoal/pacific/engine/rpm/shipwright-pacific-engine.spec \
-    shoal/pacific/webview/rpm/shipwright-pacific-webview.spec
-```
-
-## Browser: core, app and UI
-
-The browser itself: `core/` (Rust, no Qt), `app/` (the CXX-Qt executable and the `Shipwright.Pacific 1.0` module), `ui/` (Silica QML on Keel) and `rpm/` (the `shipwright-pacific` package). All first-party, `Apache-2.0`; the bundled third-party data keeps its licences (below).
+Pacific's own code is Apache-2.0, Marathon's licence. The web view (`webview/`) is LGPL-2.1-or-later, as the Atlantic view it was ported from, and the page bridges in `webview/js/` taken from Atlantic and Jolla are MPL-2.0. `LICENSES/` has the three texts; each file's SPDX header says which applies. The bundled third-party data keeps its own licences (below).
 
 | Path | What |
 | --- | --- |
 | `core/` | `pacific-core`, its own Cargo workspace: profile database, frecency and suggestions, search engines, sessions, tab lifecycle, content blocking, autoconsent, HTTPS-first, reader mode, downloads, site settings, privacy, Shoal Keys client, Pilot helpers. `core/data/versions.env` pins the bundled third-party data. |
-| `app/` | `shipwright-pacific`, its own Cargo workspace: the `Pacific` singleton (`bridge.rs`), the models `TabModel`, `SuggestionModel`, `PacificList` (`models.rs` declares them; `tabs.rs`, `suggestions.rs`, `lists.rs` implement them), the core thread (`worker.rs`), HTTPS for suggestions and list updates (`net.rs`), `openUrl` on D-Bus (`dbus.rs`), the desktop file and launcher script (`packaging/`). |
+| `app/` | `shipwright-pacific`, its own Cargo workspace: the `Pacific` singleton (`bridge.rs`), the models `TabModel`, `SuggestionModel`, `PacificList` (`models.rs` declares them; `tabs.rs`, `suggestions.rs`, `lists.rs` implement them), the core thread (`worker.rs`), HTTPS for suggestions and list updates (`net.rs`), `openUrl` on D-Bus (`dbus.rs`). |
 | `ui/qml/` | The pages, components, cover and Keel Actions (`actions/PacificActions.qml`). |
 | `ui/tests/` | QML tests (`run-tests.sh`), lint (`lint.sh`, `qmllint-accepted.txt`) and `mockview/`, a stand-in for `Shipwright.Pacific.WebView` with the same API that draws pages from fixtures (a small C++ base for the properties whose change signals QML cannot declare, plus QML). |
-| `rpm/` | `shipwright-pacific.spec` and `prebuild.sh` (builds the app, fetches and checks the bundled data). |
+| `webview/` | `Shipwright.Pacific.WebView 1.0`: the Qt 6 view of WPE WebKit pages, the agent API for Pilot, pacific-minibrowser. |
+| `icons/` | The app icon. |
+
+## Engine and web view
+
+The engine is the `wpewebkit` aport (`packaging/packages/wpewebkit`): WPE WebKit 2.54 on the legacy libwpe + WPEBackend-fdo API, with Atlantic's and Pacific's patches. Frames reach Qt's scene graph as EGLImages bound to GL textures, with no CPU copy. Qt Quick has to run on the OpenGL RHI. `webview/README.md` has the QML API for the UI and the core: WebView, WebProfile, WebEngine and the request types; the keyboard and input method; the agent API (isolated script world, element snapshots, trusted taps, headless views); building and running.
+
+Atlantic (SpecSierra's atlantic-engine and atlantic-browser) did the hard part: the WebKit build, the Qt 5 view this one is ported from, and months of device measurements cited throughout; the view's files credit them in each header.
+
+## Browser: core, app and UI
 
 ### Threads
 
