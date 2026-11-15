@@ -217,7 +217,7 @@ Item {
                 // the list quietly so it's there when the user wakes it.
                 if (!NotificationService.isDndEnabled) {
                     if (!Display.screenOn)
-                        Display.turnScreenOn();
+                        Display.turnScreenOn("notification from " + notification.appId);
                     lockScreen.resetIdleTimer();
                 }
                 lockScreen.refreshNotifications();

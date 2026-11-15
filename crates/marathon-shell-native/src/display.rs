@@ -132,9 +132,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setBrightnessFromUser"]
         fn set_brightness_from_user(self: Pin<&mut Display>, brightness: f64);
+        /// `reason` goes to the log when the screen was off.
         #[qinvokable]
         #[cxx_name = "turnScreenOn"]
-        fn turn_screen_on(self: Pin<&mut Display>);
+        fn turn_screen_on(self: Pin<&mut Display>, reason: &QString);
         #[qinvokable]
         #[cxx_name = "turnScreenOff"]
         fn turn_screen_off(self: Pin<&mut Display>, reason: &QString);
@@ -554,7 +555,10 @@ impl Display {
         self.as_mut().set_dim(dim);
     }
 
-    pub(crate) fn turn_screen_on(self: Pin<&mut Self>) {
+    pub(crate) fn turn_screen_on(self: Pin<&mut Self>, reason: &QString) {
+        if !self.screen_on {
+            log::warn("display", format_args!("screen on by {reason}"));
+        }
         self.set_screen(true);
     }
 
@@ -564,6 +568,7 @@ impl Display {
     }
 
     fn force_screen_on(mut self: Pin<&mut Self>) {
+        log::warn("display", "screen on by resume from suspend");
         let was_on = self.screen_on;
         self.as_mut().set_screen(true);
         if was_on {
@@ -1236,20 +1241,29 @@ impl Display1 {
     }
 
     async fn set_screen_state(&self, on: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
-        ipc::admit(&h, "Display", &["system"]).await?;
+        let caller = ipc::admit(&h, "Display", &["system"]).await?;
+        let reason = format!("D-Bus Display1.SetScreenState from {caller}");
         ipc::on_gui(&self.qt, move |obj| {
+            let reason = QString::from(&reason);
             if on {
-                obj.turn_screen_on();
+                obj.turn_screen_on(&reason);
             } else {
-                obj.turn_screen_off(&QString::from("D-Bus Display1.SetScreenState"));
+                obj.turn_screen_off(&reason);
             }
         })
         .await
     }
 
     /// As the power key does: the lock screen still guards what's behind it.
-    async fn wake(&self) -> fdo::Result<()> {
-        ipc::on_gui(&self.qt, Display::turn_screen_on).await
+    async fn wake(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        let caller = ipc::caller(&h)
+            .await
+            .unwrap_or_else(|| h.sender().map_or_else(String::new, ToString::to_string));
+        let reason = format!("D-Bus Display1.Wake from {caller}");
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.turn_screen_on(&QString::from(&reason));
+        })
+        .await
     }
 }
 

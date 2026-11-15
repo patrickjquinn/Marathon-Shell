@@ -1206,7 +1206,7 @@ int main(int argc, char *argv[]) {
                              display->forceScreenOn();
                      });
     QObject::connect(alarmManager, &Alarms::alarmTriggered, display,
-                     &marathon::Display::turnScreenOn);
+                     [display] { display->turnScreenOn(QStringLiteral("alarm")); });
 
     // logind has HandlePowerKey=ignore (50-marathon.conf): the shell owns
     // the power button, and Power reads it from /dev/input, since Qt routes
@@ -1216,8 +1216,9 @@ int main(int argc, char *argv[]) {
     app.installEventFilter(new InputBoost(&app));
     QObject::connect(power, &Power::powerKeyPressed, &app, [] { marathon::boost::input(); });
     if (device.wake_on_key) {
-        app.installEventFilter(new WakeOnKeyFilter([display]() { return !display->getScreenOn(); },
-                                                   [display]() { display->turnScreenOn(); }, &app));
+        app.installEventFilter(new WakeOnKeyFilter(
+            [display]() { return !display->getScreenOn(); },
+            [display]() { display->turnScreenOn(QStringLiteral("keyboard key")); }, &app));
     }
     QObject::connect(alarmManager, &Alarms::ringing, audioManager, [=](bool sound, bool vibrate) {
         power->acquireWakelock(QStringLiteral("alarm_ringing"));
