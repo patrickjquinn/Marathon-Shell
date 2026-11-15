@@ -830,7 +830,9 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
             if (wlVerbose() && !error.trimmed().isEmpty())
                 qDebug() << "[WaylandCompositor] stderr:" << command << "->" << error.trimmed();
 
-            if (appLogsEnabled() && command.contains("marathon-app-runner") &&
+            if (appLogsEnabled() &&
+                (command.contains("marathon-app-runner") ||
+                 command.contains("marathon-keel-host")) &&
                 !error.trimmed().isEmpty()) {
                 const QStringList lines = error.split('\n');
                 int               shown = 0;
@@ -842,7 +844,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
                         if (line.startsWith("libEGL warning") || line.startsWith("MESA-LOADER:"))
                             continue;
                     }
-                    qInfo().noquote() << "[AppRunner stderr]" << logTag << "->" << line;
+                    qWarning().noquote() << "[AppRunner stderr]" << logTag << "->" << line;
                     if (++shown >= 25)
                         break;
                 }
