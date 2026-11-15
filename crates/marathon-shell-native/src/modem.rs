@@ -911,7 +911,7 @@ impl Snapshot {
     fn set(&mut self, name: &str, value: &Value<'_>) {
         let owned = || value.try_to_owned().ok();
         match name {
-            "Snapshot" => self.state = value.downcast_ref().unwrap_or(self.state),
+            "State" => self.state = value.downcast_ref().unwrap_or(self.state),
             "Sim" => {
                 self.sim = owned()
                     .and_then(|v| OwnedObjectPath::try_from(v).ok())
@@ -987,7 +987,7 @@ impl Snapshot {
     }
 
     fn view(&self, daemon: bool) -> View {
-        // ModemManager's states: 3 enabled and up. Data is NetworkManager's
+        // ModemManager's states: 6 enabled and up. Data is NetworkManager's
         // device state from prepare (40) to activated (100). 3GPP
         // registration: 1 home, 5 roaming. Signal.Rssi, when something set
         // it up, beats the coarser SignalQuality.
@@ -1001,7 +1001,7 @@ impl Snapshot {
         View {
             daemon,
             modem: self.path.is_some(),
-            enabled: self.state >= 3,
+            enabled: self.state >= 6,
             data: (40..=100).contains(&self.nm_state),
             strength,
             registered: matches!(self.registration, 1 | 5),
@@ -1521,7 +1521,7 @@ async fn load_broadcast(bus: &zbus::Connection, qt: &Qt, path: OwnedObjectPath) 
             ("messageCode", number("MessageCode")),
             ("updateNumber", number("UpdateNumber")),
             ("serial", number("Serial")),
-            ("state", number("Snapshot")),
+            ("state", number("State")),
         ],
         received_ms: SystemTime::now()
             .duration_since(UNIX_EPOCH)
