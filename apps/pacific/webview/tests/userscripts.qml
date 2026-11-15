@@ -20,14 +20,14 @@ Window {
     property bool started: false
 
     function check(name, ok, detail) {
-        console.warn("userscripts: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""))
+        console.warn("userscripts: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""));
         if (!ok)
-            failures++
+            failures++;
     }
 
     function finish() {
-        console.warn("userscripts: " + (failures ? failures + " failure(s)" : "all passed"))
-        Qt.exit(failures ? 1 : 0)
+        console.warn("userscripts: " + (failures ? failures + " failure(s)" : "all passed"));
+        Qt.exit(failures ? 1 : 0);
     }
 
     width: 540
@@ -38,8 +38,8 @@ Window {
         interval: 30000
         running: true
         onTriggered: {
-            root.check("finished in time", false)
-            root.finish()
+            root.check("finished in time", false);
+            root.finish();
         }
     }
 
@@ -49,26 +49,24 @@ Window {
         anchors.fill: parent
 
         Component.onCompleted: {
-            addUserScript("window.__pageWorld = 'yes';", "", WebView.DocumentStart, false)
-            addUserScript("window.__namedWorld = 'yes';", "pacific-test", WebView.DocumentStart, false)
-            root.check("scripts added without crashing", true)
-            load("data:text/html;charset=utf-8,<body>user scripts</body>")
+            addUserScript("window.__pageWorld = 'yes';", "", WebView.DocumentStart, false);
+            addUserScript("window.__namedWorld = 'yes';", "pacific-test", WebView.DocumentStart, false);
+            root.check("scripts added without crashing", true);
+            load("data:text/html;charset=utf-8,<body>user scripts</body>");
         }
 
-        onLoadingChanged: function(request) {
+        onLoadingChanged: function (request) {
             if (request.status !== LoadRequest.Succeeded || root.started)
-                return
-            root.started = true
-            view.runJavaScript("[String(window.__pageWorld), String(window.__namedWorld)].join(',')",
-                function(result, error) {
-                    root.check("page-world script ran", String(result).split(",")[0] === "yes", result || error)
-                    root.check("named-world script hidden from the page", String(result).split(",")[1] === "undefined",
-                        result || error)
-                    view.runJavaScriptInWorld("String(window.__namedWorld)", "pacific-test", function(r, e) {
-                        root.check("named-world script ran in its world", r === "yes", r || e)
-                        root.finish()
-                    })
-                })
+                return;
+            root.started = true;
+            view.runJavaScript("[String(window.__pageWorld), String(window.__namedWorld)].join(',')", function (result, error) {
+                root.check("page-world script ran", String(result).split(",")[0] === "yes", result || error);
+                root.check("named-world script hidden from the page", String(result).split(",")[1] === "undefined", result || error);
+                view.runJavaScriptInWorld("String(window.__namedWorld)", "pacific-test", function (r, e) {
+                    root.check("named-world script ran in its world", r === "yes", r || e);
+                    root.finish();
+                });
+            });
         }
     }
 }

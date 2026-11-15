@@ -21,18 +21,18 @@ FilePickerPage {
     nameFilters: importBookmarks ? ["*.html", "*.htm"] : []
 
     onSelectedContentPropertiesChanged: {
-        var path = selectedContentProperties.filePath
+        var path = selectedContentProperties.filePath;
         if (!path)
-            return
-        _answered = true
+            return;
+        _answered = true;
         if (importBookmarks)
-            Pacific.importBookmarks(path)
+            Pacific.importBookmarks(path);
         else if (request)
-            request.select([path])
+            request.select([path]);
     }
 
     Component.onDestruction: {
         if (request && !_answered)
-            request.cancel()
+            request.cancel();
     }
 }

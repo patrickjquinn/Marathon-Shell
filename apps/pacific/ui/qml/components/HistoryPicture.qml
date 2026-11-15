@@ -23,8 +23,8 @@ Item {
     property bool _has: false
 
     function refresh(): void {
-        _has = false
-        _has = !!view && key !== "" && view.hasHistoryPicture(key)
+        _has = false;
+        _has = !!view && key !== "" && view.hasHistoryPicture(key);
     }
     onKeyChanged: refresh()
     onViewChanged: refresh()
@@ -33,7 +33,7 @@ Item {
         ignoreUnknownSignals: true
         function onHistoryPictureReady(k) {
             if (k === picture.key)
-                picture.refresh()
+                picture.refresh();
         }
     }
 

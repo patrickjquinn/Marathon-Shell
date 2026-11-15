@@ -29,18 +29,18 @@ Page {
     allowedOrientations: Orientation.All
 
     function value(key: var, fallback: var): var {
-        var v = siteSettings[key]
-        return v === null || v === undefined ? fallback : v
+        var v = siteSettings[key];
+        return v === null || v === undefined ? fallback : v;
     }
     function permission(name: var): var {
-        var p = siteSettings.permissions || []
+        var p = siteSettings.permissions || [];
         for (var i = 0; i < p.length; ++i)
             if (p[i][0] === name)
-                return p[i][1]
-        return "ask"
+                return p[i][1];
+        return "ask";
     }
     function set(key: var, v: var): void {
-        Pacific.setSiteSetting(pageUrl, key, v, tab.isPrivate)
+        Pacific.setSiteSetting(pageUrl, key, v, tab.isPrivate);
     }
 
     Component.onCompleted: Pacific.loadSiteSettings(pageUrl, tab ? tab.isPrivate : false)
@@ -49,11 +49,11 @@ Page {
         target: Pacific
         function onSiteSettingsLoaded(url, json) {
             if (url === page.pageUrl)
-                page.siteSettings = JSON.parse(json)
+                page.siteSettings = JSON.parse(json);
         }
         function onPageStatsChanged(tabId) {
             if (page.tab && tabId === page.tab.tabId)
-                page.stats = JSON.parse(Pacific.pageStats(tabId))
+                page.stats = JSON.parse(Pacific.pageStats(tabId));
         }
     }
 
@@ -64,7 +64,9 @@ Page {
         PullDownMenu {
             MenuItem {
                 text: qsTr("Reset this site's settings")
-                onClicked: Remorse.popupAction(page, qsTr("Reset this site's settings"), function() { Pacific.clearSiteSettings(page.site) })
+                onClicked: Remorse.popupAction(page, qsTr("Reset this site's settings"), function () {
+                    Pacific.clearSiteSettings(page.site);
+                })
             }
         }
 
@@ -83,27 +85,22 @@ Page {
                 id: shields
                 objectName: "shields"
                 readonly property bool globalOn: page.browser.settings.blocking
-                text: !globalOn ? qsTr("Shields are off")
-                      : checked ? qsTr("Shields are up for this site")
-                      : qsTr("Shields are down for this site")
-                description: !globalOn ? qsTr("Ad and tracker blocking is turned off in Settings.")
-                             : page.tab && page.tab.isPrivate ? qsTr("Change this site's shields in a normal tab.")
-                             : checked ? qsTr("Ads, trackers and cookie banners are blocked here. If the site doesn't work, put shields down.")
-                             : qsTr("Nothing is blocked here and cookie banners are left alone.")
+                text: !globalOn ? qsTr("Shields are off") : checked ? qsTr("Shields are up for this site") : qsTr("Shields are down for this site")
+                description: !globalOn ? qsTr("Ad and tracker blocking is turned off in Settings.") : page.tab && page.tab.isPrivate ? qsTr("Change this site's shields in a normal tab.") : checked ? qsTr("Ads, trackers and cookie banners are blocked here. If the site doesn't work, put shields down.") : qsTr("Nothing is blocked here and cookie banners are left alone.")
                 enabled: globalOn && page.tab !== null && !page.tab.isPrivate
                 checked: globalOn && page.value("blocking", true)
                 automaticCheck: false
                 onClicked: {
-                    var up = !checked
+                    var up = !checked;
                     // Shown at once: the settings come back only after the
                     // filters are made again, seconds later.
-                    var s = Object.assign({}, page.siteSettings)
-                    s.blocking = up
-                    page.siteSettings = s
-                    page.set("blocking", up ? "1" : "0")
+                    var s = Object.assign({}, page.siteSettings);
+                    s.blocking = up;
+                    page.siteSettings = s;
+                    page.set("blocking", up ? "1" : "0");
                     // The filters are made again without (or with) this
                     // site; the page reloads once they are in place.
-                    page.browser.reloadAfterRefilter()
+                    page.browser.reloadAfterRefilter();
                 }
             }
 
@@ -178,7 +175,13 @@ Page {
                     width: column.width
                     height: Theme.itemSizeExtraSmall
                     Label {
-                        anchors { left: parent.left; leftMargin: Theme.horizontalPageMargin; right: count.left; rightMargin: Theme.paddingMedium; verticalCenter: parent.verticalCenter }
+                        anchors {
+                            left: parent.left
+                            leftMargin: Theme.horizontalPageMargin
+                            right: count.left
+                            rightMargin: Theme.paddingMedium
+                            verticalCenter: parent.verticalCenter
+                        }
                         text: parent.modelData[0]
                         truncationMode: TruncationMode.Fade
                         font.pixelSize: Theme.fontSizeSmall
@@ -186,7 +189,11 @@ Page {
                     }
                     Label {
                         id: count
-                        anchors { right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                        anchors {
+                            right: parent.right
+                            rightMargin: Theme.horizontalPageMargin
+                            verticalCenter: parent.verticalCenter
+                        }
                         text: parent.modelData[1]
                         font.pixelSize: Theme.fontSizeSmall
                         color: Theme.secondaryHighlightColor
@@ -199,14 +206,20 @@ Page {
                 height: Theme.itemSizeSmall
                 onClicked: page.showAllBlocked = true
                 Label {
-                    anchors { left: parent.left; leftMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                    anchors {
+                        left: parent.left
+                        leftMargin: Theme.horizontalPageMargin
+                        verticalCenter: parent.verticalCenter
+                    }
                     text: qsTr("Show all %n", "", (page.stats.by_site || []).length)
                     font.pixelSize: Theme.fontSizeSmall
                     color: parent.highlighted ? Theme.highlightColor : Theme.primaryColor
                 }
             }
 
-            SectionHeader { text: qsTr("This site") }
+            SectionHeader {
+                text: qsTr("This site")
+            }
 
             TextSwitch {
                 text: qsTr("JavaScript")
@@ -234,20 +247,34 @@ Page {
                 value: Math.round((page.tab ? page.tab.webView.zoomFactor : 1) * 100)
                 valueText: Math.round(value) + "%"
                 onReleased: {
-                    var z = value / 100
-                    page.tab.webView.zoomFactor = z
-                    page.set("zoom", Math.abs(z - 1) < 0.001 ? "" : String(z))
+                    var z = value / 100;
+                    page.tab.webView.zoomFactor = z;
+                    page.set("zoom", Math.abs(z - 1) < 0.001 ? "" : String(z));
                 }
             }
 
-            SectionHeader { text: qsTr("Permissions") }
+            SectionHeader {
+                text: qsTr("Permissions")
+            }
 
             Repeater {
                 model: [
-                    { key: "location", text: qsTr("Location") },
-                    { key: "camera", text: qsTr("Camera") },
-                    { key: "microphone", text: qsTr("Microphone") },
-                    { key: "notifications", text: qsTr("Notifications") }
+                    {
+                        key: "location",
+                        text: qsTr("Location")
+                    },
+                    {
+                        key: "camera",
+                        text: qsTr("Camera")
+                    },
+                    {
+                        key: "microphone",
+                        text: qsTr("Microphone")
+                    },
+                    {
+                        key: "notifications",
+                        text: qsTr("Notifications")
+                    }
                 ]
                 ComboBox {
                     id: combo
@@ -255,9 +282,18 @@ Page {
                     label: modelData.text
                     currentIndex: ["ask", "allow", "deny"].indexOf(page.permission(modelData.key))
                     menu: ContextMenu {
-                        MenuItem { text: qsTr("Ask"); onClicked: page.set("perm." + combo.modelData.key, "ask") }
-                        MenuItem { text: qsTr("Allow"); onClicked: page.set("perm." + combo.modelData.key, "allow") }
-                        MenuItem { text: qsTr("Block"); onClicked: page.set("perm." + combo.modelData.key, "deny") }
+                        MenuItem {
+                            text: qsTr("Ask")
+                            onClicked: page.set("perm." + combo.modelData.key, "ask")
+                        }
+                        MenuItem {
+                            text: qsTr("Allow")
+                            onClicked: page.set("perm." + combo.modelData.key, "allow")
+                        }
+                        MenuItem {
+                            text: qsTr("Block")
+                            onClicked: page.set("perm." + combo.modelData.key, "deny")
+                        }
                     }
                 }
             }

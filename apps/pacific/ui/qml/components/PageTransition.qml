@@ -26,13 +26,13 @@ Item {
 
     onChangingChanged: {
         if (changing) {
-            fadeOut.stop()
-            capture.scheduleUpdate()
-            copy.opacity = 1
-            blurIn.restart()
+            fadeOut.stop();
+            capture.scheduleUpdate();
+            copy.opacity = 1;
+            blurIn.restart();
         } else if (copy.opacity > 0) {
-            blurIn.stop()
-            fadeOut.restart()
+            blurIn.stop();
+            fadeOut.restart();
         }
     }
 

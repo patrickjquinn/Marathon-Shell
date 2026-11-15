@@ -21,14 +21,13 @@ CoverBackground {
     // the model changes many times a page load, and each read is a JSON
     // round trip on the main thread.
     property int _revision: 0
-    readonly property var current: model && model.activeId !== 0 && _revision >= 0
-                                   ? JSON.parse(model.get(model.activeId)) : ({})
+    readonly property var current: model && model.activeId !== 0 && _revision >= 0 ? JSON.parse(model.get(model.activeId)) : ({})
 
     Connections {
         target: cover.model
         function onDataChanged() {
             if (cover.status === Cover.Active || cover.status === Cover.Activating)
-                refresh.start()
+                refresh.start();
         }
     }
     Timer {
@@ -36,12 +35,19 @@ CoverBackground {
         interval: 250
         onTriggered: cover._revision++
     }
-    onStatusChanged: if (status === Cover.Activating || status === Cover.Active) cover._revision++
+    onStatusChanged: if (status === Cover.Activating || status === Cover.Active)
+        cover._revision++
     readonly property bool privateTab: browser ? browser.privateMode : false
 
     Image {
         id: thumb
-        anchors { left: parent.left; right: parent.right; top: parent.top; bottom: info.top; bottomMargin: Theme.paddingMedium }
+        anchors {
+            left: parent.left
+            right: parent.right
+            top: parent.top
+            bottom: info.top
+            bottomMargin: Theme.paddingMedium
+        }
         source: cover.privateTab ? "" : (cover.current.thumbnail || "")
         fillMode: Image.PreserveAspectCrop
         verticalAlignment: Image.AlignTop
@@ -54,7 +60,13 @@ CoverBackground {
 
     Column {
         id: info
-        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.paddingLarge; bottomMargin: Theme.itemSizeSmall + Theme.paddingMedium }
+        anchors {
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+            margins: Theme.paddingLarge
+            bottomMargin: Theme.itemSizeSmall + Theme.paddingMedium
+        }
         spacing: Theme.paddingSmall
 
         Icon {
@@ -63,8 +75,7 @@ CoverBackground {
         }
         Label {
             width: parent.width
-            text: cover.privateTab ? qsTr("Private tab")
-                                   : (cover.current.url ? (cover.current.title || Logic.host(cover.current.url)) : qsTr("Pacific"))
+            text: cover.privateTab ? qsTr("Private tab") : (cover.current.url ? (cover.current.title || Logic.host(cover.current.url)) : qsTr("Pacific"))
             textFormat: Text.PlainText
             wrapMode: Text.Wrap
             maximumLineCount: 3
@@ -92,15 +103,15 @@ CoverBackground {
         CoverAction {
             iconSource: "image://theme/icon-cover-new"
             onTriggered: {
-                cover.browser.newTab(cover.privateTab)
-                cover.browser.window.activate()
+                cover.browser.newTab(cover.privateTab);
+                cover.browser.window.activate();
             }
         }
         CoverAction {
             iconSource: "image://theme/icon-cover-search"
             onTriggered: {
-                cover.browser.window.activate()
-                cover.browser.openAddress()
+                cover.browser.window.activate();
+                cover.browser.openAddress();
             }
         }
     }

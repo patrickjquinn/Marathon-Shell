@@ -18,20 +18,30 @@ Page {
 
     property var browser
     readonly property var s: JSON.parse(Pacific.settings)
-    property var totals: ({ totals: { blocked: 0, cookie_banners: 0, https_upgrades: 0, bytes_saved_estimate: 0 }, rules: 0 })
+    property var totals: ({
+            totals: {
+                blocked: 0,
+                cookie_banners: 0,
+                https_upgrades: 0,
+                bytes_saved_estimate: 0
+            },
+            rules: 0
+        })
 
     allowedOrientations: Orientation.All
 
     function set(key: var, value: var): void {
-        var patch = {}
-        patch[key] = value
-        Pacific.setSettings(JSON.stringify(patch))
+        var patch = {};
+        patch[key] = value;
+        Pacific.setSettings(JSON.stringify(patch));
     }
 
     Component.onCompleted: Pacific.loadTotals()
     Connections {
         target: Pacific
-        function onTotalsReady(json) { page.totals = JSON.parse(json) }
+        function onTotalsReady(json) {
+            page.totals = JSON.parse(json);
+        }
     }
 
     SilicaFlickable {
@@ -65,9 +75,18 @@ Page {
                 width: parent.width - 2 * x
                 Repeater {
                     model: [
-                        { n: page.totals.totals.blocked, t: qsTr("ads and trackers blocked") },
-                        { n: page.totals.totals.cookie_banners, t: qsTr("cookie banners rejected") },
-                        { n: page.totals.totals.https_upgrades, t: qsTr("connections upgraded") }
+                        {
+                            n: page.totals.totals.blocked,
+                            t: qsTr("ads and trackers blocked")
+                        },
+                        {
+                            n: page.totals.totals.cookie_banners,
+                            t: qsTr("cookie banners rejected")
+                        },
+                        {
+                            n: page.totals.totals.https_upgrades,
+                            t: qsTr("connections upgraded")
+                        }
                     ]
                     Column {
                         id: figure
@@ -101,14 +120,14 @@ Page {
                 color: Theme.secondaryHighlightColor
             }
 
-            SectionHeader { text: qsTr("Protection") }
+            SectionHeader {
+                text: qsTr("Protection")
+            }
 
             TextSwitch {
                 objectName: "blockingSwitch"
                 text: qsTr("Block ads and trackers")
-                description: page.s.blocking && page.browser.protectionIncomplete
-                             ? qsTr("Still preparing %n filter list(s)", "", page.browser.missingFilters.length)
-                             : (page.totals.rules > 0 ? qsTr("%1 filter rules").arg(page.totals.rules.toLocaleString(Qt.locale(), "f", 0)) : "")
+                description: page.s.blocking && page.browser.protectionIncomplete ? qsTr("Still preparing %n filter list(s)", "", page.browser.missingFilters.length) : (page.totals.rules > 0 ? qsTr("%1 filter rules").arg(page.totals.rules.toLocaleString(Qt.locale(), "f", 0)) : "")
                 checked: page.s.blocking
                 onClicked: page.set("blocking", checked)
             }
@@ -119,9 +138,7 @@ Page {
             }
             TextSwitch {
                 text: qsTr("Reject cookie banners")
-                description: Pacific.autoconsentScript.length > 0
-                             ? qsTr("Answers cookie banners with \"Reject all\" for you")
-                             : qsTr("Not available in this build of Pacific")
+                description: Pacific.autoconsentScript.length > 0 ? qsTr("Answers cookie banners with \"Reject all\" for you") : qsTr("Not available in this build of Pacific")
                 enabled: Pacific.autoconsentScript.length > 0
                 checked: page.s.cookie_banners
                 onClicked: page.set("cookie_banners", checked)
@@ -139,17 +156,34 @@ Page {
                 onClicked: page.set("global_privacy_control", checked)
             }
 
-            SectionHeader { text: qsTr("Data") }
+            SectionHeader {
+                text: qsTr("Data")
+            }
 
             ComboBox {
                 label: qsTr("Keep history")
                 currentIndex: [30, 90, 180, 365, 0].indexOf(page.s.history_days)
                 menu: ContextMenu {
-                    MenuItem { text: qsTr("For a month"); onClicked: page.set("history_days", 30) }
-                    MenuItem { text: qsTr("For three months"); onClicked: page.set("history_days", 90) }
-                    MenuItem { text: qsTr("For six months"); onClicked: page.set("history_days", 180) }
-                    MenuItem { text: qsTr("For a year"); onClicked: page.set("history_days", 365) }
-                    MenuItem { text: qsTr("Always"); onClicked: page.set("history_days", 0) }
+                    MenuItem {
+                        text: qsTr("For a month")
+                        onClicked: page.set("history_days", 30)
+                    }
+                    MenuItem {
+                        text: qsTr("For three months")
+                        onClicked: page.set("history_days", 90)
+                    }
+                    MenuItem {
+                        text: qsTr("For six months")
+                        onClicked: page.set("history_days", 180)
+                    }
+                    MenuItem {
+                        text: qsTr("For a year")
+                        onClicked: page.set("history_days", 365)
+                    }
+                    MenuItem {
+                        text: qsTr("Always")
+                        onClicked: page.set("history_days", 0)
+                    }
                 }
             }
             TextSwitch {
@@ -163,7 +197,9 @@ Page {
             }
             ValueButton {
                 label: qsTr("Sites allowed over HTTP")
-                onClicked: pageStack.push(Qt.resolvedUrl("SitesPage.qml"), { kind: "httpsExceptions" })
+                onClicked: pageStack.push(Qt.resolvedUrl("SitesPage.qml"), {
+                    kind: "httpsExceptions"
+                })
             }
             Button {
                 objectName: "clearDataButton"

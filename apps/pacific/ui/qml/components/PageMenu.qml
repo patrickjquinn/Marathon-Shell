@@ -32,11 +32,15 @@ Item {
     // The tallest the card may be (set by the page).
     property real maxHeight: height
 
-    signal findRequested()
+    signal findRequested
     signal pushPage(string page, var props)
 
-    function show(): void { open = true }
-    function hide(): void { open = false }
+    function show(): void {
+        open = true;
+    }
+    function hide(): void {
+        open = false;
+    }
 
     width: parent ? parent.width : 0
     height: parent ? parent.height : 0
@@ -44,23 +48,28 @@ Item {
 
     // 1 closed, 0 open: the card's rise and the dimming.
     property real closed: open ? 0 : 1
-    Behavior on closed { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
+    Behavior on closed {
+        NumberAnimation {
+            duration: 200
+            easing.type: Easing.InOutQuad
+        }
+    }
 
     readonly property real margin: Theme.paddingMedium
     readonly property real cornerRadius: Math.round(12 * Theme.pixelRatio)
 
     onOpenChanged: {
         if (open && webPage)
-            Pacific.checkBookmark(pageUrl)
+            Pacific.checkBookmark(pageUrl);
         if (open)
-            flick.contentY = 0
+            flick.contentY = 0;
     }
 
     Connections {
         target: Pacific
         function onBookmarkState(url, on) {
             if (url === menu.pageUrl)
-                menu.bookmarked = on
+                menu.bookmarked = on;
         }
     }
 
@@ -91,7 +100,9 @@ Item {
         y: menu.height - height - menu.margin + menu.closed * (height + menu.margin)
 
         // Taps inside the card stay in it.
-        MouseArea { anchors.fill: parent }
+        MouseArea {
+            anchors.fill: parent
+        }
 
         // The stock menu's surface: the overlay colour, lifted by a faint
         // wash of the primary colour.
@@ -112,7 +123,10 @@ Item {
             width: parent.width
             height: Theme.paddingLarge + Theme.paddingMedium
             Rectangle {
-                anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom }
+                anchors {
+                    horizontalCenter: parent.horizontalCenter
+                    bottom: parent.bottom
+                }
                 width: Theme.itemSizeLarge
                 height: Theme.paddingSmall
                 radius: height / 2
@@ -122,22 +136,30 @@ Item {
             MouseArea {
                 anchors.fill: parent
                 property real startY
-                onPressed: function(mouse) { startY = mouse.y }
-                onReleased: function(mouse) {
+                onPressed: function (mouse) {
+                    startY = mouse.y;
+                }
+                onReleased: function (mouse) {
                     if (mouse.y - startY > Theme.paddingLarge)
-                        menu.hide()
+                        menu.hide();
                 }
             }
         }
 
         SilicaFlickable {
             id: flick
-            anchors { top: header.bottom; left: parent.left; right: parent.right; bottom: footer.top }
+            anchors {
+                top: header.bottom
+                left: parent.left
+                right: parent.right
+                bottom: footer.top
+            }
             contentHeight: rows.height
             clip: true
             boundsBehavior: Flickable.DragOverBounds
             // Pulled down past its top: the card goes, as the stock menu's.
-            onDragEnded: if (contentY < -Theme.itemSizeSmall) menu.hide()
+            onDragEnded: if (contentY < -Theme.itemSizeSmall)
+                menu.hide()
 
             Column {
                 id: rows
@@ -151,12 +173,18 @@ Item {
                     MenuButton {
                         iconSource: "image://theme/icon-m-tab-new"
                         text: qsTr("New tab")
-                        onClicked: { menu.hide(); menu.browser.newTab(false) }
+                        onClicked: {
+                            menu.hide();
+                            menu.browser.newTab(false);
+                        }
                     }
                     MenuButton {
                         iconSource: "image://theme/icon-m-incognito-new"
                         text: qsTr("New private tab")
-                        onClicked: { menu.hide(); menu.browser.newTab(true) }
+                        onClicked: {
+                            menu.hide();
+                            menu.browser.newTab(true);
+                        }
                     }
                 }
                 Column {
@@ -165,24 +193,36 @@ Item {
                         iconSource: "image://theme/icon-m-search-on-page"
                         text: qsTr("Find in page")
                         enabled: menu.webPage || (menu.tab !== null && menu.tab.readerMode)
-                        onClicked: { menu.hide(); menu.findRequested() }
+                        onClicked: {
+                            menu.hide();
+                            menu.findRequested();
+                        }
                     }
                     MenuButton {
                         iconSource: "image://theme/icon-m-add-to-grid"
                         text: qsTr("Add to app grid")
                         visible: Pacific.canAddToHomeScreen()
                         enabled: menu.webPage
-                        onClicked: { Pacific.addToHomeScreen(menu.pageUrl, menu.view.title); menu.hide() }
+                        onClicked: {
+                            Pacific.addToHomeScreen(menu.pageUrl, menu.view.title);
+                            menu.hide();
+                        }
                     }
                     MenuButton {
                         iconSource: "image://theme/icon-m-share"
                         text: qsTr("Share")
                         enabled: menu.webPage
                         onClicked: {
-                            share.resources = [{ "data": menu.pageUrl, "linkTitle": menu.view.title, "type": "text/x-url" }]
-                            share.title = menu.view.title
-                            share.trigger()
-                            menu.hide()
+                            share.resources = [
+                                {
+                                    "data": menu.pageUrl,
+                                    "linkTitle": menu.view.title,
+                                    "type": "text/x-url"
+                                }
+                            ];
+                            share.title = menu.view.title;
+                            share.trigger();
+                            menu.hide();
                         }
                     }
                 }
@@ -199,22 +239,42 @@ Item {
                     MenuButton {
                         iconSource: "image://theme/icon-m-favorite-selected"
                         text: qsTr("Bookmarks")
-                        onClicked: { menu.hide(); menu.pushPage("BookmarksPage.qml", { browser: menu.browser }) }
+                        onClicked: {
+                            menu.hide();
+                            menu.pushPage("BookmarksPage.qml", {
+                                browser: menu.browser
+                            });
+                        }
                     }
                     MenuButton {
                         iconSource: "image://theme/icon-m-history"
                         text: qsTr("History")
-                        onClicked: { menu.hide(); menu.pushPage("HistoryPage.qml", { browser: menu.browser }) }
+                        onClicked: {
+                            menu.hide();
+                            menu.pushPage("HistoryPage.qml", {
+                                browser: menu.browser
+                            });
+                        }
                     }
                     MenuButton {
                         iconSource: "image://theme/icon-m-downloads"
                         text: qsTr("Downloads")
-                        onClicked: { menu.hide(); menu.pushPage("DownloadsPage.qml", { browser: menu.browser }) }
+                        onClicked: {
+                            menu.hide();
+                            menu.pushPage("DownloadsPage.qml", {
+                                browser: menu.browser
+                            });
+                        }
                     }
                     MenuButton {
                         iconSource: "image://theme/icon-m-setting"
                         text: qsTr("Settings")
-                        onClicked: { menu.hide(); menu.pushPage("SettingsPage.qml", { browser: menu.browser }) }
+                        onClicked: {
+                            menu.hide();
+                            menu.pushPage("SettingsPage.qml", {
+                                browser: menu.browser
+                            });
+                        }
                     }
                 }
             }
@@ -225,7 +285,11 @@ Item {
         // card's bottom corners are its own.
         Item {
             id: footer
-            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            anchors {
+                left: parent.left
+                right: parent.right
+                bottom: parent.bottom
+            }
             height: Theme.itemSizeMedium - Theme.paddingMedium
             // Opaque, a stronger wash than the card's; square at the top.
             Rectangle {
@@ -268,14 +332,20 @@ Item {
                     height: parent.height
                     icon.source: "image://theme/icon-m-tab-close"
                     enabled: menu.tab !== null
-                    onClicked: { menu.hide(); menu.browser.close(menu.browser.currentId, menu.tab.isPrivate) }
+                    onClicked: {
+                        menu.hide();
+                        menu.browser.close(menu.browser.currentId, menu.tab.isPrivate);
+                    }
                 }
                 IconButton {
                     width: parent.cell
                     height: parent.height
                     icon.source: "image://theme/icon-m-forward"
                     enabled: menu.view !== null && menu.view.canGoForward
-                    onClicked: { menu.view.goForward(); menu.hide() }
+                    onClicked: {
+                        menu.view.goForward();
+                        menu.hide();
+                    }
                 }
                 IconButton {
                     objectName: "bookmarkButton"
@@ -293,10 +363,10 @@ Item {
                     enabled: menu.webPage
                     onClicked: {
                         if (menu.view.loading)
-                            menu.view.stop()
+                            menu.view.stop();
                         else
-                            menu.view.reload()
-                        menu.hide()
+                            menu.view.reload();
+                        menu.hide();
                     }
                 }
             }

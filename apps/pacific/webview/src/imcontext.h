@@ -20,23 +20,23 @@
 class PacificWebView;
 
 struct ImState {
-    bool focused = false;
-    QRect cursorRect; // WebKit (CSS px) coordinates
-    QString surrounding;
-    int cursor = 0;
-    int anchor = 0;
+    bool               focused = false;
+    QRect              cursorRect; // WebKit (CSS px) coordinates
+    QString            surrounding;
+    int                cursor  = 0;
+    int                anchor  = 0;
     WebKitInputPurpose purpose = WEBKIT_INPUT_PURPOSE_FREE_FORM;
-    WebKitInputHints hints = WEBKIT_INPUT_HINT_NONE;
+    WebKitInputHints   hints   = WEBKIT_INPUT_HINT_NONE;
 };
 
 namespace ImContext {
-// A new context reporting to the view (unref with g_object_unref).
-WebKitInputMethodContext* create(PacificWebView* view);
-// Clears the back-pointer when the view goes away first.
-void detach(WebKitInputMethodContext* context);
+    // A new context reporting to the view (unref with g_object_unref).
+    WebKitInputMethodContext *create(PacificWebView *view);
+    // Clears the back-pointer when the view goes away first.
+    void detach(WebKitInputMethodContext *context);
 
-// Keyboard -> WebKit.
-void setPreedit(WebKitInputMethodContext* context, const QString& text, int cursor);
-void commit(WebKitInputMethodContext* context, const QString& text);
-void deleteSurrounding(WebKitInputMethodContext* context, int offset, int count);
+    // Keyboard -> WebKit.
+    void setPreedit(WebKitInputMethodContext *context, const QString &text, int cursor);
+    void commit(WebKitInputMethodContext *context, const QString &text);
+    void deleteSurrounding(WebKitInputMethodContext *context, int offset, int count);
 } // namespace ImContext

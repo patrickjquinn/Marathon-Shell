@@ -21,8 +21,12 @@ Dialog {
     canAccept: history.checked || cookies.checked || cache.checked || downloads.checked || sites.checked
 
     onAccepted: Pacific.clearData(ranges[range.currentIndex], JSON.stringify({
-        history: history.checked, cookies: cookies.checked, cache: cache.checked,
-        downloads: downloads.checked, site_settings: sites.checked, session: history.checked && range.currentIndex === 4
+        history: history.checked,
+        cookies: cookies.checked,
+        cache: cache.checked,
+        downloads: downloads.checked,
+        site_settings: sites.checked,
+        session: history.checked && range.currentIndex === 4
     }))
 
     SilicaFlickable {
@@ -41,11 +45,21 @@ Dialog {
                 label: qsTr("From")
                 currentIndex: 0
                 menu: ContextMenu {
-                    MenuItem { text: qsTr("The last hour") }
-                    MenuItem { text: qsTr("Today") }
-                    MenuItem { text: qsTr("The last seven days") }
-                    MenuItem { text: qsTr("The last four weeks") }
-                    MenuItem { text: qsTr("All time") }
+                    MenuItem {
+                        text: qsTr("The last hour")
+                    }
+                    MenuItem {
+                        text: qsTr("Today")
+                    }
+                    MenuItem {
+                        text: qsTr("The last seven days")
+                    }
+                    MenuItem {
+                        text: qsTr("The last four weeks")
+                    }
+                    MenuItem {
+                        text: qsTr("All time")
+                    }
                 }
             }
             TextSwitch {

@@ -30,26 +30,26 @@ Window {
     readonly property string page: "<body><iframe srcdoc='<p>frame</p>'></iframe><script>console.log('page says hello')</script></body>"
 
     function check(name, ok, detail) {
-        console.warn("console: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""))
+        console.warn("console: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""));
         if (!ok)
-            failures++
+            failures++;
     }
 
     function next() {
         if (steps.length === 0) {
-            console.warn("console: " + (failures ? failures + " failure(s)" : "all passed"))
-            Qt.exit(failures ? 1 : 0)
-            return
+            console.warn("console: " + (failures ? failures + " failure(s)" : "all passed"));
+            Qt.exit(failures ? 1 : 0);
+            return;
         }
-        steps.shift()()
+        steps.shift()();
     }
 
     // Loads the page afresh, waits for its frame's report, then fn().
     function loadPage(fn) {
-        consoleLines = []
-        reports = []
-        view.done = fn
-        view.loadHtml(page, "https://example.org/" + Date.now())
+        consoleLines = [];
+        reports = [];
+        view.done = fn;
+        view.loadHtml(page, "https://example.org/" + Date.now());
     }
 
     width: 400
@@ -60,8 +60,8 @@ Window {
         interval: 60000
         running: true
         onTriggered: {
-            root.check("finished in time", false)
-            Qt.exit(1)
+            root.check("finished in time", false);
+            Qt.exit(1);
         }
     }
 
@@ -71,21 +71,20 @@ Window {
         property var done: null
 
         anchors.fill: parent
-        onLoadingChanged: function(request) {
+        onLoadingChanged: function (request) {
             if (request.status === LoadRequest.Succeeded && done)
-                settle.restart()
+                settle.restart();
         }
-        onConsoleMessage: function(level, message, source) {
-            root.consoleLines.push(message)
+        onConsoleMessage: function (level, message, source) {
+            root.consoleLines.push(message);
         }
-        onScriptMessage: function(name, message) {
+        onScriptMessage: function (name, message) {
             if (name === "shipConsent")
-                root.reports.push(message.frame)
+                root.reports.push(message.frame);
         }
         Component.onCompleted: {
-            registerScriptMessageHandler("shipConsent", "")
-            addUserScript("window.webkit.messageHandlers.shipConsent.postMessage({ type: 'autoconsentDone', frame: window.top === window ? 'top' : 'frame' })",
-                          "", WebView.DocumentEnd, true)
+            registerScriptMessageHandler("shipConsent", "");
+            addUserScript("window.webkit.messageHandlers.shipConsent.postMessage({ type: 'autoconsentDone', frame: window.top === window ? 'top' : 'frame' })", "", WebView.DocumentEnd, true);
         }
     }
 
@@ -93,43 +92,39 @@ Window {
         id: settle
 
         interval: 700
-        onTriggered: view.runJavaScript("String(/\\[native code\\]/.test(String(console.log)))", function(native) {
-            const fn = view.done
-            view.done = null
-            fn(native === "true")
+        onTriggered: view.runJavaScript("String(/\\[native code\\]/.test(String(console.log)))", function (native) {
+            const fn = view.done;
+            view.done = null;
+            fn(native === "true");
         })
     }
 
     Component.onCompleted: {
-        steps = [
-            function() {
-                root.check("captureConsole is off by default", view.captureConsole === false)
-                root.loadPage(function(native) {
-                    root.check("the page's console is native", native)
-                    root.check("nothing reaches consoleMessage", root.consoleLines.length === 0, root.consoleLines)
-                    root.check("page-world handler: top frame", root.reports.indexOf("top") >= 0, root.reports)
-                    root.check("page-world handler: subframe", root.reports.indexOf("frame") >= 0, root.reports)
-                    root.next()
-                })
-            },
-            function() {
-                view.captureConsole = true
-                root.loadPage(function(native) {
-                    root.check("captured: console wrapped", !native)
-                    root.check("captured: message arrives", root.consoleLines.indexOf("page says hello") >= 0, root.consoleLines)
-                    root.next()
-                })
-            },
-            function() {
-                view.captureConsole = false
-                root.loadPage(function(native) {
-                    root.check("off again: console native", native)
-                    root.check("off again: nothing arrives", root.consoleLines.length === 0, root.consoleLines)
-                    root.check("off again: reports still arrive", root.reports.length >= 2, root.reports)
-                    root.next()
-                })
-            }
-        ]
-        next()
+        steps = [function () {
+                root.check("captureConsole is off by default", view.captureConsole === false);
+                root.loadPage(function (native) {
+                    root.check("the page's console is native", native);
+                    root.check("nothing reaches consoleMessage", root.consoleLines.length === 0, root.consoleLines);
+                    root.check("page-world handler: top frame", root.reports.indexOf("top") >= 0, root.reports);
+                    root.check("page-world handler: subframe", root.reports.indexOf("frame") >= 0, root.reports);
+                    root.next();
+                });
+            }, function () {
+                view.captureConsole = true;
+                root.loadPage(function (native) {
+                    root.check("captured: console wrapped", !native);
+                    root.check("captured: message arrives", root.consoleLines.indexOf("page says hello") >= 0, root.consoleLines);
+                    root.next();
+                });
+            }, function () {
+                view.captureConsole = false;
+                root.loadPage(function (native) {
+                    root.check("off again: console native", native);
+                    root.check("off again: nothing arrives", root.consoleLines.length === 0, root.consoleLines);
+                    root.check("off again: reports still arrive", root.reports.length >= 2, root.reports);
+                    root.next();
+                });
+            }];
+        next();
     }
 }

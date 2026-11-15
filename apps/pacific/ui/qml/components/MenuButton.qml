@@ -31,16 +31,24 @@ BackgroundItem {
     }
     Label {
         id: label
-        anchors { left: parent.left; leftMargin: Theme.horizontalPageMargin + Theme.iconSizeMedium + Theme.paddingLarge
-                  right: toggle.visible ? toggle.left : parent.right; rightMargin: toggle.visible ? 0 : Theme.horizontalPageMargin
-                  verticalCenter: parent.verticalCenter }
+        anchors {
+            left: parent.left
+            leftMargin: Theme.horizontalPageMargin + Theme.iconSizeMedium + Theme.paddingLarge
+            right: toggle.visible ? toggle.left : parent.right
+            rightMargin: toggle.visible ? 0 : Theme.horizontalPageMargin
+            verticalCenter: parent.verticalCenter
+        }
         truncationMode: TruncationMode.Fade
         color: button.highlighted ? Theme.highlightColor : Theme.primaryColor
     }
     Switch {
         id: toggle
         visible: button.checkable
-        anchors { right: parent.right; rightMargin: Theme.paddingSmall; verticalCenter: parent.verticalCenter }
+        anchors {
+            right: parent.right
+            rightMargin: Theme.paddingSmall
+            verticalCenter: parent.verticalCenter
+        }
         checked: button.checked
         automaticCheck: false
         onClicked: button.clicked(null)

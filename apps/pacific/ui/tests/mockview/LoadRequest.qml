@@ -5,7 +5,14 @@
 import QtQuick
 
 QtObject {
-    enum Status { Started, Redirected, Committed, Succeeded, Failed, Stopped }
+    enum Status {
+        Started,
+        Redirected,
+        Committed,
+        Succeeded,
+        Failed,
+        Stopped
+    }
     property url url
     property int status: LoadRequest.Started
     property string errorString

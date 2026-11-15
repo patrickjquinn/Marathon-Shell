@@ -11,6 +11,10 @@ QtObject {
     property bool proxy: false
     property bool retry: false
     property bool answered: false
-    function authenticate(user, password, remember) { answered = true }
-    function cancel() { answered = true }
+    function authenticate(user, password, remember) {
+        answered = true;
+    }
+    function cancel() {
+        answered = true;
+    }
 }

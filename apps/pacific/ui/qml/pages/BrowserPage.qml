@@ -38,15 +38,7 @@ Page {
     // over it (toolbar, menus, prompts, panels) and it is not being swiped
     // or shrunk into the tab overview. Its frames may then go straight to the
     // compositor (PACIFIC_DIRECT), which cannot stack anything above them.
-    readonly property bool directAllowed: !barUp && !_barHold && toolbar.y >= page.height - 0.5
-            && pullShown === 0
-            && status === PageStatus.Active
-            && !(pageMenu && pageMenu.open) && !(tabsMenu && tabsMenu.open) && !(linkMenu && linkMenu.visible)
-            && prompts.height <= 0 && lift === 0 && swipeX === 0 && navDir === 0 && !navCovering
-            && !addressSheet.shown
-            && tab !== null && tab.interstitial === null && tab.certificateProblem === null
-            && tab.loadError === null && !tab.crashed && !browser.fullscreen
-            && Notices._current === null
+    readonly property bool directAllowed: !barUp && !_barHold && toolbar.y >= page.height - 0.5 && pullShown === 0 && status === PageStatus.Active && !(pageMenu && pageMenu.open) && !(tabsMenu && tabsMenu.open) && !(linkMenu && linkMenu.visible) && prompts.height <= 0 && lift === 0 && swipeX === 0 && navDir === 0 && !navCovering && !addressSheet.shown && tab !== null && tab.interstitial === null && tab.certificateProblem === null && tab.loadError === null && !tab.crashed && !browser.fullscreen && Notices._current === null
     readonly property bool barVisible: toolbar.visible
     // An auto-hiding toolbar floats over the page, as Safari's does: the
     // page is laid out at the full height and the bar's slide only reveals
@@ -78,17 +70,17 @@ Page {
     readonly property real reservedBottom: barFloats ? 0 : _reserve ? toolbar.height : 0
     function _updateReserve(): void {
         if (barUp && barVisible) {
-            _barHold = false
-            reserveTimer.restart()
+            _barHold = false;
+            reserveTimer.restart();
         } else {
-            reserveTimer.stop()
-            _reserve = false
+            reserveTimer.stop();
+            _reserve = false;
             // The page has grown under the bar: the bar stays until WebKit
             // has drawn at the new height (about 70 ms), so its slide reveals
             // the page, not a blank band where a frame was still missing.
             if (barVisible && tab && tab.webView && !tab.webView.frameFitsView) {
-                _barHold = true
-                barHoldTimer.restart()
+                _barHold = true;
+                barHoldTimer.restart();
             }
         }
     }
@@ -102,7 +94,7 @@ Page {
         target: page.tab ? page.tab.webView : null
         function onFrameFitsViewChanged() {
             if (page.tab.webView.frameFitsView)
-                page._barHold = false
+                page._barHold = false;
         }
     }
     onBarUpChanged: _updateReserve()
@@ -127,7 +119,7 @@ Page {
     readonly property var peekTab: peekId !== 0 && browser ? JSON.parse(browser.tabs.get(peekId)) : null
 
     function neighbourFor(dx: var): var {
-        return browser.tabs.neighbour(browser.currentId, dx < 0 ? 1 : -1)
+        return browser.tabs.neighbour(browser.currentId, dx < 0 ? 1 : -1);
     }
 
     NumberAnimation {
@@ -148,60 +140,59 @@ Page {
     }
 
     function gestureStarted(): void {
-        swipeAnim.stop()
-        liftAnim.stop()
-        gestureAxis = swipeX !== 0 ? 1 : (lift !== 0 ? 2 : 0)
-        gestureBase = gestureAxis === 1 ? swipeX : lift
+        swipeAnim.stop();
+        liftAnim.stop();
+        gestureAxis = swipeX !== 0 ? 1 : (lift !== 0 ? 2 : 0);
+        gestureBase = gestureAxis === 1 ? swipeX : lift;
     }
 
     function gestureMoved(dx: var, dy: var): var {
         if (gestureAxis === 0) {
             if (Math.abs(dx) > Math.abs(dy))
-                gestureAxis = 1
+                gestureAxis = 1;
             else if (dy < 0) {
-                gestureAxis = 2
-                _prepareTabs()
-            }
-            else
-                return
-            gestureBase = gestureAxis === 1 ? swipeX : lift
+                gestureAxis = 2;
+                _prepareTabs();
+            } else
+                return;
+            gestureBase = gestureAxis === 1 ? swipeX : lift;
         }
         if (gestureAxis === 1) {
-            var x = gestureBase + dx
-            peekId = neighbourFor(x)
+            var x = gestureBase + dx;
+            peekId = neighbourFor(x);
             // No tab that way: the page resists.
-            swipeX = peekId !== 0 ? x : x / 4
+            swipeX = peekId !== 0 ? x : x / 4;
         } else {
-            lift = Math.max(0, Math.min(1, gestureBase - dy / (page.height * 0.4)))
+            lift = Math.max(0, Math.min(1, gestureBase - dy / (page.height * 0.4)));
         }
     }
 
     function gestureEnded(dx: var, dy: var, vx: var, vy: var): void {
         if (gestureAxis === 1) {
-            var flick = Math.abs(vx) > 900 && (vx < 0) === (swipeX < 0)
-            var go = peekId !== 0 && (Math.abs(swipeX) > webArea.width / 3 || flick)
-            swipeAnim.to = go ? (swipeX < 0 ? -webArea.width : webArea.width) : 0
-            swipeAnim.restart()
+            var flick = Math.abs(vx) > 900 && (vx < 0) === (swipeX < 0);
+            var go = peekId !== 0 && (Math.abs(swipeX) > webArea.width / 3 || flick);
+            swipeAnim.to = go ? (swipeX < 0 ? -webArea.width : webArea.width) : 0;
+            swipeAnim.restart();
         } else if (gestureAxis === 2) {
-            liftAnim.to = lift > 0.35 || vy < -900 ? 1 : 0
-            liftAnim.restart()
+            liftAnim.to = lift > 0.35 || vy < -900 ? 1 : 0;
+            liftAnim.restart();
         }
-        gestureAxis = 0
+        gestureAxis = 0;
     }
 
     function swipeSettled(): void {
         if (Math.abs(swipeX) >= webArea.width - 1 && peekId !== 0) {
-            var id = peekId
-            peekId = 0
-            browser.switchTo(id)
+            var id = peekId;
+            peekId = 0;
+            browser.switchTo(id);
         }
-        swipeX = 0
+        swipeX = 0;
     }
 
     function liftSettled(): void {
         if (lift >= 0.999) {
-            openTabs()
-            lift = 0
+            openTabs();
+            lift = 0;
         }
     }
 
@@ -230,46 +221,46 @@ Page {
 
     function navMoved(dx: var): void {
         if (!tab || !tab.webView)
-            return
-        navAnim.stop()
+            return;
+        navAnim.stop();
         if (navDir === 0) {
-            navDir = dx > 0 ? 1 : -1
-            navItem = tab.webView.historyItemAt(-navDir)
-            _navArmed = false
+            navDir = dx > 0 ? 1 : -1;
+            navItem = tab.webView.historyItemAt(-navDir);
+            _navArmed = false;
         }
         // It does not turn into the other way: back to the start at most.
-        navDx = navDir > 0 ? Math.max(0, dx) : Math.min(0, dx)
-        var armed = Math.abs(navDx) > webArea.width / 3
+        navDx = navDir > 0 ? Math.max(0, dx) : Math.min(0, dx);
+        var armed = Math.abs(navDx) > webArea.width / 3;
         if (armed && !_navArmed && _pullFeedback)
-            _pullFeedback.play()
-        _navArmed = armed
+            _pullFeedback.play();
+        _navArmed = armed;
     }
     function navEnded(dx: var, velocity: var): void {
         if (navDir === 0)
-            return
+            return;
         // px per ms; a flick the right way goes, one back cancels.
-        var flick = Math.abs(velocity) > 0.5
-        var go = flick ? (velocity > 0) === (navDir > 0) : _navArmed
-        _navGoing = go && navItem && navItem.key !== undefined
-        navAnim.to = _navGoing ? navDir * webArea.width : 0
-        navAnim.duration = _navGoing ? Math.max(120, 260 * (1 - navProgress)) : 220
-        navAnim.restart()
+        var flick = Math.abs(velocity) > 0.5;
+        var go = flick ? (velocity > 0) === (navDir > 0) : _navArmed;
+        _navGoing = go && navItem && navItem.key !== undefined;
+        navAnim.to = _navGoing ? navDir * webArea.width : 0;
+        navAnim.duration = _navGoing ? Math.max(120, 260 * (1 - navProgress)) : 220;
+        navAnim.restart();
     }
     function navSettled(): void {
         if (_navGoing && tab && tab.webView) {
-            navCoverItem = navItem
-            navCovering = true
-            navCoverTimeout.restart()
+            navCoverItem = navItem;
+            navCovering = true;
+            navCoverTimeout.restart();
             if (navDir > 0)
-                tab.webView.goBack()
+                tab.webView.goBack();
             else
-                tab.webView.goForward()
+                tab.webView.goForward();
         }
-        _navGoing = false
-        _navArmed = false
-        navDir = 0
-        navDx = 0
-        navItem = null
+        _navGoing = false;
+        _navArmed = false;
+        navDir = 0;
+        navDx = 0;
+        navItem = null;
     }
     NumberAnimation {
         id: navAnim
@@ -281,21 +272,29 @@ Page {
     // The cover goes once the page it shows is the one on screen and has
     // drawn (WebView.pageBlanked is over), or after 4 s whatever happens.
     function _navCoverCheck(): void {
-        var v = tab ? tab.webView : null
+        var v = tab ? tab.webView : null;
         if (!navCovering || !v || !navCoverItem)
-            return
+            return;
         if (v.historyKey === navCoverItem.key && !v.pageBlanked && !v.loading)
-            navCoverDelay.restart()
+            navCoverDelay.restart();
         else if (v.historyKey === navCoverItem.key && !v.pageBlanked && v.loadProgress >= 50)
-            navCoverDelay.restart()
+            navCoverDelay.restart();
     }
     Connections {
         target: page.navCovering && page.tab ? page.tab.webView : null
         ignoreUnknownSignals: true
-        function onBackForwardChanged() { page._navCoverCheck() }
-        function onPageBlankedChanged() { page._navCoverCheck() }
-        function onLoadingStateChanged() { page._navCoverCheck() }
-        function onLoadProgressChanged() { page._navCoverCheck() }
+        function onBackForwardChanged() {
+            page._navCoverCheck();
+        }
+        function onPageBlankedChanged() {
+            page._navCoverCheck();
+        }
+        function onLoadingStateChanged() {
+            page._navCoverCheck();
+        }
+        function onLoadProgressChanged() {
+            page._navCoverCheck();
+        }
     }
     // A frame or two for the page's first picture to reach the screen.
     Timer {
@@ -310,13 +309,19 @@ Page {
     }
     SequentialAnimation {
         id: navCoverFade
-        NumberAnimation { target: navCover; property: "opacity"; to: 0; duration: 160; easing.type: Easing.InOutQuad }
+        NumberAnimation {
+            target: navCover
+            property: "opacity"
+            to: 0
+            duration: 160
+            easing.type: Easing.InOutQuad
+        }
         ScriptAction {
             script: {
-                navCoverTimeout.stop()
-                page.navCovering = false
-                page.navCoverItem = null
-                navCover.opacity = 1
+                navCoverTimeout.stop();
+                page.navCovering = false;
+                page.navCoverItem = null;
+                navCover.opacity = 1;
             }
         }
     }
@@ -328,36 +333,38 @@ Page {
     // something was.
     function closeOverlay(): bool {
         if (linkMenu && linkMenu.visible) {
-            linkMenu.visible = false
-            return true
+            linkMenu.visible = false;
+            return true;
         }
         if (pageMenu && pageMenu.open) {
-            pageMenu.hide()
-            return true
+            pageMenu.hide();
+            return true;
         }
         if (tabsMenu && tabsMenu.open) {
-            tabsMenu.hide()
-            return true
+            tabsMenu.hide();
+            return true;
         }
         if (finding) {
             if (findBar.view)
-                findBar.view.stopFind()
-            findBar.closed()
-            return true
+                findBar.view.stopFind();
+            findBar.closed();
+            return true;
         }
         if (addressSheet.shown) {
-            addressSheet.leave()
-            return true
+            addressSheet.leave();
+            return true;
         }
         if (tab && tab.pendingLogin !== null) {
-            tab.pendingLogin = null
-            return true
+            tab.pendingLogin = null;
+            return true;
         }
-        return false
+        return false;
     }
 
     function push(name: var, props: var): void {
-        pageStack.push(Qt.resolvedUrl(name), props || { browser: browser })
+        pageStack.push(Qt.resolvedUrl(name), props || {
+            browser: browser
+        });
     }
 
     // The address sheet rises over the page (AddressSheet), the toolbar
@@ -366,17 +373,20 @@ Page {
     // and the page behind the glass laid itself out again at the smaller
     // height and back.
     function openAddress(): void {
-        _frozenWebHeight = webArea.height
-        _freezeWeb = true
-        addressSheet.open(tab && !tab.newTabPage && !tab.readerMode ? String(tab.webView.url) : "")
+        _frozenWebHeight = webArea.height;
+        _freezeWeb = true;
+        addressSheet.open(tab && !tab.newTabPage && !tab.readerMode ? String(tab.webView.url) : "");
     }
     property bool _freezeWeb: false
     property real _frozenWebHeight: 0
     readonly property bool _webCanThaw: !addressSheet.shown && !Qt.inputMethod.visible
-    on_WebCanThawChanged: if (_webCanThaw) _freezeWeb = false
+    on_WebCanThawChanged: if (_webCanThaw)
+        _freezeWeb = false
     Connections {
         target: page.browser
-        function onAddressRequested() { page.openAddress() }
+        function onAddressRequested() {
+            page.openAddress();
+        }
     }
 
     // The tab overview: the page shrinks away into it (the lift, as the
@@ -384,11 +394,11 @@ Page {
     // once, its cards settling, instead of the page stack's sideways slide;
     // back from it, the page grows from the overview's size again.
     function showTabs(): void {
-        swipeAnim.stop()
-        liftAnim.stop()
-        _prepareTabs()
-        liftAnim.to = 1
-        liftAnim.restart()
+        swipeAnim.stop();
+        liftAnim.stop();
+        _prepareTabs();
+        liftAnim.to = 1;
+        liftAnim.restart();
     }
     // The overview is built while the page shrinks, off the frame it
     // appears in (made then, its cards and pictures held that frame back
@@ -400,47 +410,51 @@ Page {
     property var _tabsIncubator: null
     function _prepareTabs(): void {
         if (!_tabsIncubator)
-            _tabsIncubator = tabsPageComponent.incubateObject(null, { browser: browser, ownedByCaller: true })
+            _tabsIncubator = tabsPageComponent.incubateObject(null, {
+                browser: browser,
+                ownedByCaller: true
+            });
     }
     function openTabs(): void {
         if (tab && !tab.isPrivate)
-            tab.saveThumbnail()
-        var inc = _tabsIncubator
-        _tabsIncubator = null
+            tab.saveThumbnail();
+        var inc = _tabsIncubator;
+        _tabsIncubator = null;
         if (inc && inc.status === Component.Ready) {
-            pageStack.push(inc.object, {}, PageStackAction.Immediate)
+            pageStack.push(inc.object, {}, PageStackAction.Immediate);
         } else {
             if (inc && inc.status === Component.Loading)
-                inc.forceCompletion()
-            pageStack.push(inc && inc.object ? inc.object : tabsPageComponent, { browser: browser }, PageStackAction.Immediate)
+                inc.forceCompletion();
+            pageStack.push(inc && inc.object ? inc.object : tabsPageComponent, {
+                browser: browser
+            }, PageStackAction.Immediate);
         }
     }
     Connections {
         target: page.browser
         function onTabsReturned() {
-            page.lift = 1
-            liftAnim.to = 0
-            liftAnim.restart()
+            page.lift = 1;
+            liftAnim.to = 0;
+            liftAnim.restart();
         }
     }
 
     function swipe(step: var): void {
-        var next = browser.tabs.neighbour(browser.currentId, step)
+        var next = browser.tabs.neighbour(browser.currentId, step);
         if (next !== 0)
-            browser.switchTo(next)
+            browser.switchTo(next);
     }
 
     // Is the page worth a reader view? Asked once per finished load.
     function checkReadable(): var {
-        readable = false
+        readable = false;
         if (!tab || tab.newTabPage || String(tab.webView.url).indexOf("http") !== 0)
-            return
-        var t = tab
-        t.webView.runJavaScriptInWorld("(function () { var a = document.querySelector('article, main, [role=main]'); var ps = document.querySelectorAll('p'); var n = 0; for (var i = 0; i < ps.length && i < 200; i++) n += (ps[i].innerText || '').length; return (a ? 1000 : 0) + n })()",
-                                        "pacific", function(n) {
+            return;
+        var t = tab;
+        t.webView.runJavaScriptInWorld("(function () { var a = document.querySelector('article, main, [role=main]'); var ps = document.querySelectorAll('p'); var n = 0; for (var i = 0; i < ps.length && i < 200; i++) n += (ps[i].innerText || '').length; return (a ? 1000 : 0) + n })()", "pacific", function (n) {
             if (t === page.tab)
-                page.readable = Number(n) > 1500
-        })
+                page.readable = Number(n) > 1500;
+        });
     }
 
     Connections {
@@ -450,17 +464,17 @@ Page {
             // A new page in this tab: the toolbar comes back, as in any
             // phone browser.
             if (request.status === LoadRequest.Started)
-                page.toolbarShown = true
+                page.toolbarShown = true;
             if (request.status === LoadRequest.Succeeded)
-                page.checkReadable()
+                page.checkReadable();
         }
     }
     onTabChanged: {
-        toolbarShown = true
-        finding = false
-        checkReadable()
+        toolbarShown = true;
+        finding = false;
+        checkReadable();
         if (navCovering)
-            navCoverFade.complete()
+            navCoverFade.complete();
     }
 
     // ---- The pages -------------------------------------------------------
@@ -479,7 +493,9 @@ Page {
         objectName: "tabPeek"
         anchors.fill: webArea
         visible: page.swipeX !== 0 && page.peekId !== 0
-        transform: Translate { x: page.swipeX + (page.swipeX < 0 ? peek.width : -peek.width) }
+        transform: Translate {
+            x: page.swipeX + (page.swipeX < 0 ? peek.width : -peek.width)
+        }
         Rectangle {
             anchors.fill: parent
             color: Theme.overlayBackgroundColor
@@ -557,22 +573,22 @@ Page {
     property var _pullFeedback: null
 
     function _pullMoved(distance: var): void {
-        pullBack.stop()
-        var d = Math.max(1, page.height)
-        pullShown = (1 - 1 / (distance * 0.55 / d + 1)) * d
-        var armed = pullShown >= pullArmAt
+        pullBack.stop();
+        var d = Math.max(1, page.height);
+        pullShown = (1 - 1 / (distance * 0.55 / d + 1)) * d;
+        var armed = pullShown >= pullArmAt;
         if (armed && !_pullArmed && _pullFeedback)
-            _pullFeedback.play()
-        _pullArmed = armed
+            _pullFeedback.play();
+        _pullArmed = armed;
     }
     function _pullEnded(distance: var, velocity: var): void {
-        var reload = _pullArmed && velocity > -0.5
-        _pullArmed = false
+        var reload = _pullArmed && velocity > -0.5;
+        _pullArmed = false;
         if (reload && page.tab && page.tab.webView) {
-            page.tab.webView.reload()
-            page.toolbarShown = true
+            page.tab.webView.reload();
+            page.toolbarShown = true;
         }
-        pullBack.start()
+        pullBack.start();
     }
     NumberAnimation {
         id: pullBack
@@ -584,10 +600,9 @@ Page {
     }
     Component.onCompleted: {
         try {
-            _pullFeedback = SilicaPrivate.Util._keelOptionalObject("ngf-pulldown_lock", "import Nemo.Ngf 1.0",
-                "NonGraphicalFeedback { event: 'pulldown_lock' }", page)
+            _pullFeedback = SilicaPrivate.Util._keelOptionalObject("ngf-pulldown_lock", "import Nemo.Ngf 1.0", "NonGraphicalFeedback { event: 'pulldown_lock' }", page);
         } catch (e) {
-            _pullFeedback = null
+            _pullFeedback = null;
         }
     }
 
@@ -607,12 +622,16 @@ Page {
     // brings the toolbar back, as a tap on iOS's status bar does.
     MouseArea {
         z: 1
-        anchors { top: parent.top; left: parent.left; right: parent.right }
+        anchors {
+            top: parent.top
+            left: parent.left
+            right: parent.right
+        }
         height: page.notch
         enabled: height > 0 && !page.browser.fullscreen && !page.isLandscape && !!page.tab
         onClicked: {
-            page.tab.scrollToTop()
-            page.toolbarShown = true
+            page.tab.scrollToTop();
+            page.toolbarShown = true;
         }
     }
 
@@ -634,7 +653,10 @@ Page {
                 xScale: 1 - 0.45 * page.lift
                 yScale: 1 - 0.45 * page.lift
             },
-            Translate { x: page.swipeX + page.navPageX; y: page.pullShown }
+            Translate {
+                x: page.swipeX + page.navPageX
+                y: page.pullShown
+            }
         ]
 
         Repeater {
@@ -645,18 +667,30 @@ Page {
                 pageStack: page.pageStack
                 directAllowed: page.directAllowed
                 obscuredBottom: page.obscuredBottom
-                onScrolled: function(dy) { page.scrolled(dy) }
+                onScrolled: function (dy) {
+                    page.scrolled(dy);
+                }
                 // A page that stops its own scrolling (a modal, a cookie
                 // wall) gives no scrolls: a pull still brings the toolbar
                 // back, or with it hidden there would be no way to leave.
                 onPulledDown: page.toolbarShown = true
-                onPullMoved: function(distance) { page._pullMoved(distance) }
-                onPullEnded: function(distance, velocity) { page._pullEnded(distance, velocity) }
-                onNavMoved: function(dx) { page.navMoved(dx) }
-                onNavEnded: function(dx, velocity) { page.navEnded(dx, velocity) }
+                onPullMoved: function (distance) {
+                    page._pullMoved(distance);
+                }
+                onPullEnded: function (distance, velocity) {
+                    page._pullEnded(distance, velocity);
+                }
+                onNavMoved: function (dx) {
+                    page.navMoved(dx);
+                }
+                onNavEnded: function (dx, velocity) {
+                    page.navEnded(dx, velocity);
+                }
                 navCovering: page.navCovering
                 swipeFrame: page
-                onReaderFailed: function(message) { Notices.show(message) }
+                onReaderFailed: function (message) {
+                    Notices.show(message);
+                }
             }
         }
         Repeater {
@@ -667,18 +701,30 @@ Page {
                 pageStack: page.pageStack
                 directAllowed: page.directAllowed
                 obscuredBottom: page.obscuredBottom
-                onScrolled: function(dy) { page.scrolled(dy) }
+                onScrolled: function (dy) {
+                    page.scrolled(dy);
+                }
                 // A page that stops its own scrolling (a modal, a cookie
                 // wall) gives no scrolls: a pull still brings the toolbar
                 // back, or with it hidden there would be no way to leave.
                 onPulledDown: page.toolbarShown = true
-                onPullMoved: function(distance) { page._pullMoved(distance) }
-                onPullEnded: function(distance, velocity) { page._pullEnded(distance, velocity) }
-                onNavMoved: function(dx) { page.navMoved(dx) }
-                onNavEnded: function(dx, velocity) { page.navEnded(dx, velocity) }
+                onPullMoved: function (distance) {
+                    page._pullMoved(distance);
+                }
+                onPullEnded: function (distance, velocity) {
+                    page._pullEnded(distance, velocity);
+                }
+                onNavMoved: function (dx) {
+                    page.navMoved(dx);
+                }
+                onNavEnded: function (dx, velocity) {
+                    page.navEnded(dx, velocity);
+                }
                 navCovering: page.navCovering
                 swipeFrame: page
-                onReaderFailed: function(message) { Notices.show(message) }
+                onReaderFailed: function (message) {
+                    Notices.show(message);
+                }
             }
         }
 
@@ -691,8 +737,14 @@ Page {
                 anchors.fill: parent
                 browser: page.browser
                 onSearchClicked: page.openAddress()
-                onOpenUrl: function(url) { page.browser.open(url, { transition: "bookmark" }) }
-                onPushPage: function(name) { page.push(name) }
+                onOpenUrl: function (url) {
+                    page.browser.open(url, {
+                        transition: "bookmark"
+                    });
+                }
+                onPushPage: function (name) {
+                    page.push(name);
+                }
             }
         }
 
@@ -702,25 +754,23 @@ Page {
             visible: page.tab !== null && page.tab.interstitial !== null
             iconSource: "image://theme/icon-m-warning"
             title: qsTr("This site has no secure connection")
-            text: page.tab && page.tab.interstitial
-                  ? qsTr("%1 doesn't support secure connections. Anyone on the network could see or change what you send and receive.").arg(page.tab.interstitial.host)
-                  : ""
+            text: page.tab && page.tab.interstitial ? qsTr("%1 doesn't support secure connections. Anyone on the network could see or change what you send and receive.").arg(page.tab.interstitial.host) : ""
             primaryText: qsTr("Go back")
             secondaryText: qsTr("Continue to the site")
             onPrimaryClicked: {
-                var t = page.tab
-                t.interstitial = null
+                var t = page.tab;
+                t.interstitial = null;
                 if (t.webView.canGoBack)
-                    t.webView.goBack()
+                    t.webView.goBack();
                 else
-                    page.browser.close(t.tabId, t.isPrivate)
+                    page.browser.close(t.tabId, t.isPrivate);
             }
             onSecondaryClicked: {
-                var t = page.tab
-                var s = t.interstitial
-                t.interstitial = null
-                Pacific.httpsAllow(s.host, t.isPrivate)
-                t.webView.load(s.http_url)
+                var t = page.tab;
+                var s = t.interstitial;
+                t.interstitial = null;
+                Pacific.httpsAllow(s.host, t.isPrivate);
+                t.webView.load(s.http_url);
             }
         }
 
@@ -730,23 +780,21 @@ Page {
             visible: page.tab !== null && page.tab.certificateProblem !== null
             iconSource: "image://theme/icon-m-warning"
             title: qsTr("This connection isn't private")
-            text: page.tab && page.tab.certificateProblem
-                  ? qsTr("%1's certificate isn't valid. Someone may be pretending to be this site to steal what you send.").arg(page.tab.certificateProblem.host)
-                  : ""
+            text: page.tab && page.tab.certificateProblem ? qsTr("%1's certificate isn't valid. Someone may be pretending to be this site to steal what you send.").arg(page.tab.certificateProblem.host) : ""
             primaryText: qsTr("Go back")
             secondaryText: qsTr("Continue anyway")
             onPrimaryClicked: {
-                var t = page.tab
-                t.certificateProblem = null
+                var t = page.tab;
+                t.certificateProblem = null;
                 if (t.webView.canGoBack)
-                    t.webView.goBack()
+                    t.webView.goBack();
             }
             onSecondaryClicked: {
-                var t = page.tab
-                var p = t.certificateProblem
-                t.certificateProblem = null
-                t.webView.profile.allowCertificate(p.host, p.pem)
-                t.webView.reload()
+                var t = page.tab;
+                var p = t.certificateProblem;
+                t.certificateProblem = null;
+                t.webView.profile.allowCertificate(p.host, p.pem);
+                t.webView.reload();
             }
         }
 
@@ -760,9 +808,9 @@ Page {
             text: qsTr("Check your connection and the address, then try again.")
             primaryText: qsTr("Try again")
             onPrimaryClicked: {
-                var t = page.tab
-                t.loadError = null
-                t.webView.reload()
+                var t = page.tab;
+                t.loadError = null;
+                t.webView.reload();
             }
         }
 
@@ -775,9 +823,9 @@ Page {
             text: qsTr("Reloading usually brings it back.")
             primaryText: qsTr("Reload")
             onPrimaryClicked: {
-                var t = page.tab
-                t.crashed = false
-                t.webView.reload()
+                var t = page.tab;
+                t.crashed = false;
+                t.webView.reload();
             }
         }
     }
@@ -791,8 +839,14 @@ Page {
         height: webArea.height
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: "transparent" }
-            GradientStop { position: 1; color: Theme.rgba(Theme.overlayBackgroundColor, 0.3) }
+            GradientStop {
+                position: 0
+                color: "transparent"
+            }
+            GradientStop {
+                position: 1
+                color: Theme.rgba(Theme.overlayBackgroundColor, 0.3)
+            }
         }
     }
     // Swiping forward: this page darkens as the next comes over it, with
@@ -819,8 +873,14 @@ Page {
                 height: parent.height
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
-                    GradientStop { position: 0; color: "transparent" }
-                    GradientStop { position: 1; color: Theme.rgba(Theme.overlayBackgroundColor, 0.3) }
+                    GradientStop {
+                        position: 0
+                        color: "transparent"
+                    }
+                    GradientStop {
+                        position: 1
+                        color: Theme.rgba(Theme.overlayBackgroundColor, 0.3)
+                    }
                 }
             }
         }
@@ -847,67 +907,81 @@ Page {
         // Another page over this one: the address sheet is not left open
         // under it.
         if (status !== PageStatus.Active)
-            addressSheet.leave()
+            addressSheet.leave();
         if (status !== PageStatus.Active || !_asking)
-            return
-        _asking = false
-        var t = tab
+            return;
+        _asking = false;
+        var t = tab;
         if (t && _askedFor !== null && t.pendingPermission === _askedFor) {
-            t.pendingPermission = null
-            _askedFor.deny()
+            t.pendingPermission = null;
+            _askedFor.deny();
         } else if (t && _askedFor !== null && t.pendingSave === _askedFor) {
-            t.pendingSave = null
+            t.pendingSave = null;
         }
-        _askedFor = null
+        _askedFor = null;
     }
     Timer {
         interval: 250
         repeat: true
-        running: !page._asking && page.status === PageStatus.Active && page.tab !== null
-                 && (page.tab.pendingPermission !== null || page.tab.pendingSave !== null)
+        running: !page._asking && page.status === PageStatus.Active && page.tab !== null && (page.tab.pendingPermission !== null || page.tab.pendingSave !== null)
         onTriggered: page.askSite()
     }
     function askSite(): var {
-        var t = tab
+        var t = tab;
         if (!t || pageStack.busy)
-            return
-        var d
+            return;
+        var d;
         if (t.pendingPermission !== null) {
-            var r = t.pendingPermission
-            var site = Logic.host(r.origin)
-            var key = Logic.permissionSetting(r.kind)
+            var r = t.pendingPermission;
+            var site = Logic.host(r.origin);
+            var key = Logic.permissionSetting(r.kind);
             d = pageStack.push(Qt.resolvedUrl("SitePromptDialog.qml"), {
-                site: site, question: Logic.permissionQuestion(r.kind, site),
-                iconSource: Logic.permissionIcon(r.kind), rememberVisible: key !== ""
-            })
-            _asking = true
-            _askedFor = r
-            var answer = function(allow) {
-                _askedFor = null
+                site: site,
+                question: Logic.permissionQuestion(r.kind, site),
+                iconSource: Logic.permissionIcon(r.kind),
+                rememberVisible: key !== ""
+            });
+            _asking = true;
+            _askedFor = r;
+            var answer = function (allow) {
+                _askedFor = null;
                 if (t.pendingPermission !== r)
-                    return
-                t.pendingPermission = null
+                    return;
+                t.pendingPermission = null;
                 if (allow)
-                    r.allow()
+                    r.allow();
                 else
-                    r.deny()
+                    r.deny();
                 if (d.remember && key !== "")
-                    Pacific.setSiteSetting(String(r.origin), key, allow ? "allow" : "deny", t.isPrivate)
-            }
-            d.accepted.connect(function() { answer(true) })
-            d.rejected.connect(function() { answer(false) })
+                    Pacific.setSiteSetting(String(r.origin), key, allow ? "allow" : "deny", t.isPrivate);
+            };
+            d.accepted.connect(function () {
+                answer(true);
+            });
+            d.rejected.connect(function () {
+                answer(false);
+            });
         } else if (t.pendingSave !== null) {
-            var l = t.pendingSave
+            var l = t.pendingSave;
             d = pageStack.push(Qt.resolvedUrl("SitePromptDialog.qml"), {
-                site: Logic.host(l.url), iconSource: "image://theme/icon-m-keys",
-                question: l.username !== "" ? qsTr("Save the login %1 in Shoal Keys?").arg(l.username)
-                                            : qsTr("Save this login in Shoal Keys?"),
-                detail: Logic.host(l.url), acceptText: qsTr("Save"), cancelText: qsTr("Not now")
-            })
-            _asking = true
-            _askedFor = l
-            d.accepted.connect(function() { _askedFor = null; t.pendingSave = null; Pacific.keysSave(l.url, l.username, l.password) })
-            d.rejected.connect(function() { _askedFor = null; t.pendingSave = null })
+                site: Logic.host(l.url),
+                iconSource: "image://theme/icon-m-keys",
+                question: l.username !== "" ? qsTr("Save the login %1 in Shoal Keys?").arg(l.username) : qsTr("Save this login in Shoal Keys?"),
+                detail: Logic.host(l.url),
+                acceptText: qsTr("Save"),
+                cancelText: qsTr("Not now")
+            });
+            _asking = true;
+            _askedFor = l;
+            d.accepted.connect(function () {
+                _askedFor = null;
+                t.pendingSave = null;
+                Pacific.keysSave(l.url, l.username, l.password);
+            });
+            d.rejected.connect(function () {
+                _askedFor = null;
+                t.pendingSave = null;
+            });
         }
     }
 
@@ -915,22 +989,24 @@ Page {
 
     Column {
         id: prompts
-        anchors { left: parent.left; right: parent.right; bottom: toolbar.visible ? toolbar.top : parent.bottom }
+        anchors {
+            left: parent.left
+            right: parent.right
+            bottom: toolbar.visible ? toolbar.top : parent.bottom
+        }
 
         PromptBar {
             objectName: "loginBar"
             width: parent.width
             visible: page.tab !== null && page.tab.pendingLogin !== null
             readonly property var login: page.tab ? page.tab.pendingLogin : null
-            text: !login ? "" : login.locked ? qsTr("Sign in with a login from Shoal Keys?")
-                  : login.logins.length === 1 ? qsTr("Sign in as %1?").arg(login.logins[0].username || login.logins[0].title)
-                  : qsTr("Sign in with one of %1 logins from Shoal Keys?").arg(login.logins.length)
+            text: !login ? "" : login.locked ? qsTr("Sign in with a login from Shoal Keys?") : login.logins.length === 1 ? qsTr("Sign in as %1?").arg(login.logins[0].username || login.logins[0].title) : qsTr("Sign in with one of %1 logins from Shoal Keys?").arg(login.logins.length)
             acceptText: qsTr("Fill")
             rejectText: qsTr("Not now")
             onAccepted: {
-                var l = login
-                page.tab.pendingLogin = null
-                page.tab.fillLogin(l.logins.length === 1 ? l.logins[0].id : "")
+                var l = login;
+                page.tab.pendingLogin = null;
+                page.tab.fillLogin(l.logins.length === 1 ? l.logins[0].id : "");
             }
             onRejected: page.tab.pendingLogin = null
         }
@@ -940,8 +1016,7 @@ Page {
             width: parent.width
             readonly property var agent: JSON.parse(Pacific.agent)
             visible: agent.active === true
-            text: qsTr("Pilot is browsing %1").arg(agent.visited && agent.visited.length > 0
-                                                   ? Logic.host(agent.visited[agent.visited.length - 1]) : qsTr("the web"))
+            text: qsTr("Pilot is browsing %1").arg(agent.visited && agent.visited.length > 0 ? Logic.host(agent.visited[agent.visited.length - 1]) : qsTr("the web"))
             acceptText: qsTr("Show")
             rejectText: qsTr("Stop")
             onAccepted: page.browser.takeOverAgent()
@@ -962,12 +1037,20 @@ Page {
     AddressBar {
         id: toolbar
         objectName: "toolbar"
-        anchors { left: parent.left; right: parent.right }
+        anchors {
+            left: parent.left
+            right: parent.right
+        }
         y: page.barUp || page._barHold ? page.height - height : page.height
         visible: !page.browser.fullscreen && !page.finding && (!Qt.inputMethod.visible || addressSheet.shown)
         // Turning into the address sheet's field.
         opacity: 1 - addressSheet.progress
-        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.InOutQuad } }
+        Behavior on y {
+            NumberAnimation {
+                duration: 180
+                easing.type: Easing.InOutQuad
+            }
+        }
         browser: page.browser
         // Frosted over the pages while any of the bar is on screen.
         backdrop: webArea
@@ -979,13 +1062,23 @@ Page {
         readable: page.readable
         onAddressClicked: page.openAddress()
         onTabsClicked: page.showTabs()
-        onTabsHeld: if (page.tabsMenu) page.tabsMenu.open = true
-        onMenuClicked: if (page.pageMenu) page.pageMenu.open = !page.pageMenu.open
-        onShieldClicked: page.push("ProtectionPage.qml", { browser: page.browser, tab: page.tab })
-        onReaderClicked: if (page.tab) page.tab.toggleReader()
+        onTabsHeld: if (page.tabsMenu)
+            page.tabsMenu.open = true
+        onMenuClicked: if (page.pageMenu)
+            page.pageMenu.open = !page.pageMenu.open
+        onShieldClicked: page.push("ProtectionPage.qml", {
+            browser: page.browser,
+            tab: page.tab
+        })
+        onReaderClicked: if (page.tab)
+            page.tab.toggleReader()
         onDragStarted: page.gestureStarted()
-        onDragMoved: function(dx, dy) { page.gestureMoved(dx, dy) }
-        onDragEnded: function(dx, dy, vx, vy) { page.gestureEnded(dx, dy, vx, vy) }
+        onDragMoved: function (dx, dy) {
+            page.gestureMoved(dx, dy);
+        }
+        onDragEnded: function (dx, dy, vx, vy) {
+            page.gestureEnded(dx, dy, vx, vy);
+        }
     }
 
     AddressSheet {
@@ -998,19 +1091,18 @@ Page {
 
     function scrolled(dy: var): void {
         if (obscuredTimer.running)
-            obscuredTimer.restart()
+            obscuredTimer.restart();
         // At the top of the page the toolbar is always there, and it comes
         // back at the end, as Safari's does: there is nothing further to
         // read and the next thing is likely the bar.
         if (tab && tab.lastScrollY <= Theme.paddingLarge)
-            toolbarShown = true
-        else if (tab && dy > 0 && tab.lastContentHeight > 0
-                 && tab.lastScrollY + tab.lastViewportHeight >= tab.lastContentHeight - Theme.paddingLarge)
-            toolbarShown = true
+            toolbarShown = true;
+        else if (tab && dy > 0 && tab.lastContentHeight > 0 && tab.lastScrollY + tab.lastViewportHeight >= tab.lastContentHeight - Theme.paddingLarge)
+            toolbarShown = true;
         else if (dy > Theme.paddingLarge)
-            toolbarShown = false
+            toolbarShown = false;
         else if (dy < -Theme.paddingLarge)
-            toolbarShown = true
+            toolbarShown = true;
     }
 
     // Built after the first frame, off the start-up path.
@@ -1033,10 +1125,12 @@ Page {
             maxHeight: page.height - Theme.paddingLarge
             browser: page.browser
             onFindRequested: {
-                page.finding = true
-                findBar.start()
+                page.finding = true;
+                findBar.start();
             }
-            onPushPage: function(name, props) { page.push(name, props) }
+            onPushPage: function (name, props) {
+                page.push(name, props);
+            }
         }
     }
     readonly property var pageMenu: pageMenuLoader.item
@@ -1071,16 +1165,16 @@ Page {
     Connections {
         target: page.browser
         function onLinkMenuRequested(tab, info) {
-            var menu = page.linkMenu
+            var menu = page.linkMenu;
             if (!menu)
-                return
+                return;
             // Find in page selects each match: that is not the person
             // selecting text, and the menu covered the matches and the bar.
             if (page.finding && !info.linkUrl && !info.imageUrl && !info.misspelled)
-                return
-            menu.tab = tab
-            menu.info = info
-            menu.visible = !!(info.linkUrl || info.imageUrl || info.selectionText || info.misspelled)
+                return;
+            menu.tab = tab;
+            menu.info = info;
+            menu.visible = !!(info.linkUrl || info.imageUrl || info.selectionText || info.misspelled);
         }
     }
 }

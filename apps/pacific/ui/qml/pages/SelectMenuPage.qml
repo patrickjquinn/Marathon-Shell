@@ -19,11 +19,14 @@ Page {
 
     allowedOrientations: Orientation.All
 
-    Component.onDestruction: if (!_answered && view) view.closeSelectMenu()
+    Component.onDestruction: if (!_answered && view)
+        view.closeSelectMenu()
 
     SilicaListView {
         anchors.fill: parent
-        header: PageHeader { title: qsTr("Choose") }
+        header: PageHeader {
+            title: qsTr("Choose")
+        }
         model: page.options
         delegate: ListItem {
             id: item
@@ -32,9 +35,9 @@ Page {
             enabled: modelData.enabled !== false && !modelData.groupLabel
             highlighted: down || index === page.selectedIndex
             onClicked: {
-                page._answered = true
-                page.view.selectMenuOption(index)
-                pageStack.pop()
+                page._answered = true;
+                page.view.selectMenuOption(index);
+                pageStack.pop();
             }
             Label {
                 x: Theme.horizontalPageMargin + (item.modelData.groupChild ? Theme.paddingLarge : 0)
@@ -43,8 +46,7 @@ Page {
                 text: item.modelData.groupLabel ? item.modelData.groupLabel : item.modelData.label
                 textFormat: Text.PlainText
                 truncationMode: TruncationMode.Fade
-                color: item.modelData.groupLabel ? Theme.secondaryHighlightColor
-                                                 : (item.highlighted ? Theme.highlightColor : Theme.primaryColor)
+                color: item.modelData.groupLabel ? Theme.secondaryHighlightColor : (item.highlighted ? Theme.highlightColor : Theme.primaryColor)
                 opacity: item.enabled || item.modelData.groupLabel ? 1.0 : Theme.opacityLow
             }
         }

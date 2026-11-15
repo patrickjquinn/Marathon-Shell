@@ -21,7 +21,11 @@ Dialog {
     allowedOrientations: Orientation.All
     backNavigation: false
 
-    onAccepted: Pacific.setSettings(JSON.stringify({ first_run_done: true, cookie_banners: banners.checked, search_suggestions: suggestions.checked }))
+    onAccepted: Pacific.setSettings(JSON.stringify({
+        first_run_done: true,
+        cookie_banners: banners.checked,
+        search_suggestions: suggestions.checked
+    }))
 
     SilicaFlickable {
         anchors.fill: parent
@@ -40,10 +44,22 @@ Dialog {
 
             Repeater {
                 model: [
-                    { icon: "image://theme/icon-m-browser-permissions", text: qsTr("Ads and trackers are blocked on every site, so pages load faster and use less data.") },
-                    { icon: "image://theme/icon-m-browser-cookies", text: qsTr("Cookie banners are answered with \"Reject all\" for you.") },
-                    { icon: "image://theme/icon-m-incognito", text: qsTr("Private tabs leave no history, cookies or cache behind.") },
-                    { icon: "image://theme/icon-m-gesture", text: qsTr("Everything is in reach of your thumb. Swipe the address bar to change tabs.") }
+                    {
+                        icon: "image://theme/icon-m-browser-permissions",
+                        text: qsTr("Ads and trackers are blocked on every site, so pages load faster and use less data.")
+                    },
+                    {
+                        icon: "image://theme/icon-m-browser-cookies",
+                        text: qsTr("Cookie banners are answered with \"Reject all\" for you.")
+                    },
+                    {
+                        icon: "image://theme/icon-m-incognito",
+                        text: qsTr("Private tabs leave no history, cookies or cache behind.")
+                    },
+                    {
+                        icon: "image://theme/icon-m-gesture",
+                        text: qsTr("Everything is in reach of your thumb. Swipe the address bar to change tabs.")
+                    }
                 ]
                 Row {
                     id: point
@@ -64,15 +80,17 @@ Dialog {
                 }
             }
 
-            SectionHeader { text: qsTr("Choices") }
+            SectionHeader {
+                text: qsTr("Choices")
+            }
 
             ComboBox {
                 label: qsTr("Search engine")
                 currentIndex: {
                     for (var i = 0; i < dialog.engines.length; ++i)
                         if (dialog.engines[i].id === Pacific.defaultEngine)
-                            return i
-                    return 0
+                            return i;
+                    return 0;
                 }
                 menu: ContextMenu {
                     Repeater {

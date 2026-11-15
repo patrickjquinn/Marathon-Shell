@@ -34,7 +34,7 @@ Item {
 
     function bringToFront(): void {
         if (window)
-            window.activate()
+            window.activate();
     }
     readonly property var pageStack: window ? window.pageStack : null
     // Pilot's background tab, if any (see actions/PacificActions.qml).
@@ -42,57 +42,67 @@ Item {
     // A page asked for fullscreen (video): the toolbar hides.
     property bool fullscreen: false
     function exitFullscreen(): void {
-        var t = currentTab
+        var t = currentTab;
         if (t)
-            t.webView.runJavaScript("document.fullscreenElement && document.exitFullscreen()")
-        fullscreen = false
+            t.webView.runJavaScript("document.fullscreenElement && document.exitFullscreen()");
+        fullscreen = false;
     }
 
     // A long press on a link or image in `tab` (BrowserPage shows the menu).
     signal linkMenuRequested(var tab, var info)
     // The address sheet, from outside the browser page (the cover's search).
-    signal addressRequested()
+    signal addressRequested
     // Back from the tab overview to the browser page, which grows the page
     // back from the overview (BrowserPage) instead of the stack's slide.
-    signal tabsReturned()
+    signal tabsReturned
     function returnFromTabs(): void {
         if (pageStack)
-            pageStack.pop(pageStack.find(function(p) { return p.objectName === "browserPage" }), PageStackAction.Immediate)
-        tabsReturned()
+            pageStack.pop(pageStack.find(function (p) {
+                return p.objectName === "browserPage";
+            }), PageStackAction.Immediate);
+        tabsReturned();
     }
     function openAddress(): void {
         if (pageStack)
-            pageStack.pop(pageStack.find(function(p) { return p.objectName === "browserPage" }), PageStackAction.Immediate)
-        addressRequested()
+            pageStack.pop(pageStack.find(function (p) {
+                return p.objectName === "browserPage";
+            }), PageStackAction.Immediate);
+        addressRequested();
     }
 
     function showLinkMenu(tab: var, info: var): void {
-        linkMenuRequested(tab, info)
+        linkMenuRequested(tab, info);
     }
 
-    TabModel { id: normalModel; privateTabs: false }
-    TabModel { id: privateModel; privateTabs: true }
+    TabModel {
+        id: normalModel
+        privateTabs: false
+    }
+    TabModel {
+        id: privateModel
+        privateTabs: true
+    }
 
     function register(tabId: var, item: var): void {
-        var v = _views
-        v[tabId] = item
-        _views = v
+        var v = _views;
+        v[tabId] = item;
+        _views = v;
     }
 
     function unregister(tabId: var, item: var): var {
         if (_views[tabId] !== item)
-            return
-        var v = _views
-        delete v[tabId]
-        _views = v
+            return;
+        var v = _views;
+        delete v[tabId];
+        _views = v;
     }
 
     function view(tabId: var): var {
-        return _views[tabId] || null
+        return _views[tabId] || null;
     }
 
     function modelOf(isPrivate: var): var {
-        return isPrivate ? privateModel : normalModel
+        return isPrivate ? privateModel : normalModel;
     }
 
     // ---- Opening ---------------------------------------------------------
@@ -100,116 +110,116 @@ Item {
     // The tab in front is about to leave it: its picture now, while the
     // view is still shown (a hidden view cannot be snapshotted).
     function leavingFront(): void {
-        var t = currentTab
+        var t = currentTab;
         if (t && !t.isPrivate && t.live && !t.newTabPage)
-            t.saveThumbnail()
+            t.saveThumbnail();
     }
 
     // Opens `url` (already a URL: see navigate() for typed text).
     // opts: { newTab, private, background, transition }
     function open(url: var, opts: var): var {
-        opts = opts || {}
-        var isPrivate = opts.private !== undefined ? opts.private : privateMode
-        var model = modelOf(isPrivate)
+        opts = opts || {};
+        var isPrivate = opts.private !== undefined ? opts.private : privateMode;
+        var model = modelOf(isPrivate);
         if (opts.newTab || model.count === 0) {
             if (!opts.background)
-                leavingFront()
-            var id = model.addTab(url, "", opts.background === true)
+                leavingFront();
+            var id = model.addTab(url, "", opts.background === true);
             if (!opts.background)
-                privateMode = isPrivate
-            var t = view(id)
+                privateMode = isPrivate;
+            var t = view(id);
             if (t) {
-                t.transition = opts.transition || "link"
+                t.transition = opts.transition || "link";
                 if (opts.background)
-                    t.wake()
+                    t.wake();
             }
-            return id
+            return id;
         }
-        var cur = view(model.activeId)
+        var cur = view(model.activeId);
         if (cur)
-            cur.go(url, opts.transition || "link")
-        return model.activeId
+            cur.go(url, opts.transition || "link");
+        return model.activeId;
     }
 
     // Handles text from the address bar: an address or a search.
     function navigate(text: var, opts: var): var {
-        var nav = JSON.parse(Pacific.classify(text))
+        var nav = JSON.parse(Pacific.classify(text));
         if (!nav.url)
-            return false
-        opts = opts || {}
-        opts.transition = "typed"
+            return false;
+        opts = opts || {};
+        opts.transition = "typed";
         if (nav.kind === "search")
-            Pacific.recordSearch(nav.query, nav.engine, opts.private !== undefined ? opts.private : privateMode)
-        open(nav.url, opts)
-        return true
+            Pacific.recordSearch(nav.query, nav.engine, opts.private !== undefined ? opts.private : privateMode);
+        open(nav.url, opts);
+        return true;
     }
 
     // A new tab showing the new-tab page.
     function newTab(isPrivate: var): var {
-        leavingFront()
-        privateMode = isPrivate === true
-        var id = modelOf(privateMode).addTab("", "", false)
-        return id
+        leavingFront();
+        privateMode = isPrivate === true;
+        var id = modelOf(privateMode).addTab("", "", false);
+        return id;
     }
 
     function switchTo(tabId: var, isPrivate: var): void {
         if (tabId !== currentId || (isPrivate !== undefined && isPrivate !== privateMode))
-            leavingFront()
+            leavingFront();
         if (isPrivate !== undefined)
-            privateMode = isPrivate
-        tabs.activate(tabId)
-        lifecycleTimer.restart()
+            privateMode = isPrivate;
+        tabs.activate(tabId);
+        lifecycleTimer.restart();
     }
 
     function close(tabId: var, isPrivate: var): void {
-        var model = modelOf(isPrivate !== undefined ? isPrivate : privateMode)
-        Pacific.tabClosed(tabId)
-        model.closeTab(tabId)
+        var model = modelOf(isPrivate !== undefined ? isPrivate : privateMode);
+        Pacific.tabClosed(tabId);
+        model.closeTab(tabId);
         if (model === privateModel && privateModel.count === 0) {
             // The last private tab: nothing of the session may remain.
-            WebEngine.privateProfile.clearData(WebProfile.AllData, 0)
+            WebEngine.privateProfile.clearData(WebProfile.AllData, 0);
             if (privateMode)
-                privateMode = false
+                privateMode = false;
         }
-        saveTimer.restart()
+        saveTimer.restart();
     }
 
     function closeAll(isPrivate: var): void {
-        var model = modelOf(isPrivate)
+        var model = modelOf(isPrivate);
         while (model.count > 0)
-            close(model.idAt(0), isPrivate)
+            close(model.idAt(0), isPrivate);
     }
 
     function reopenClosed(): var {
-        leavingFront()
-        privateMode = false
-        var id = normalModel.reopenClosed()
-        saveTimer.restart()
-        return id
+        leavingFront();
+        privateMode = false;
+        var id = normalModel.reopenClosed();
+        saveTimer.restart();
+        return id;
     }
 
     // ---- Session ---------------------------------------------------------
 
     function restore(): void {
-        _applyEngineSettings() // before the first view loads anything
-        var s = Pacific.savedSession
-        var restoring = s.length > 0 && (settings.restore === "always" || (settings.restore === "crash" && Pacific.crashed))
+        _applyEngineSettings(); // before the first view loads anything
+        var s = Pacific.savedSession;
+        var restoring = s.length > 0 && (settings.restore === "always" || (settings.restore === "crash" && Pacific.crashed));
         if (restoring)
-            normalModel.restore(s)
+            normalModel.restore(s);
         if (normalModel.count === 0)
-            normalModel.addTab("", "", false)
+            normalModel.addTab("", "", false);
         if (restoring && Pacific.crashed)
-            Notices.show(qsTr("Pacific closed unexpectedly. Your tabs are back."))
+            Notices.show(qsTr("Pacific closed unexpectedly. Your tabs are back."));
     }
 
     function saveSession(): void {
         // The engine's back/forward lists go with the tabs.
         for (var i = 0; i < normalModel.count; ++i) {
-            var t = view(normalModel.idAt(i))
+            var t = view(normalModel.idAt(i));
             if (t)
-                t.storeEngineState()
+                t.storeEngineState();
         }
-        Pacific.saveSession(normalModel.sessionJson())
+        Pacific.saveSession(normalModel.sessionJson());
     }
 
     Timer {
@@ -220,31 +230,35 @@ Item {
 
     Connections {
         target: normalModel
-        function onCountChanged() { saveTimer.restart() }
-        function onActiveIdChanged() { saveTimer.restart() }
+        function onCountChanged() {
+            saveTimer.restart();
+        }
+        function onActiveIdChanged() {
+            saveTimer.restart();
+        }
     }
 
     // Called by tabs when a page finished loading.
     function pageChanged(): void {
-        saveTimer.restart()
+        saveTimer.restart();
     }
 
     // ---- Tab lifecycle ---------------------------------------------------
 
     function applyLifecycle(): void {
-        var models = [normalModel, privateModel]
+        var models = [normalModel, privateModel];
         for (var m = 0; m < models.length; ++m) {
-            var model = models[m]
-            var decisions = JSON.parse(Pacific.lifecycle(model.lifecycleJson()))
+            var model = models[m];
+            var decisions = JSON.parse(Pacific.lifecycle(model.lifecycleJson()));
             for (var i = 0; i < decisions.length; ++i) {
-                var d = decisions[i]
-                var t = view(d.tab)
+                var d = decisions[i];
+                var t = view(d.tab);
                 if (!t)
-                    continue
+                    continue;
                 if (d.action === "discard")
-                    t.discard()
+                    t.discard();
                 else if (d.action === "reload" && model === tabs)
-                    t.wake()
+                    t.wake();
             }
         }
     }
@@ -267,7 +281,7 @@ Item {
     property var _activeFilters: []
 
     function _profiles(): var {
-        return [WebEngine.defaultProfile, WebEngine.privateProfile]
+        return [WebEngine.defaultProfile, WebEngine.privateProfile];
     }
 
     // Engine-wide settings follow the browser's: Global Privacy Control on
@@ -276,30 +290,31 @@ Item {
     // choice, the phone's language, remembered at start.
     property var _defaultSpelling: null
     function _applyEngineSettings(): void {
-        var ps = _profiles()
+        var ps = _profiles();
         for (var i = 0; i < ps.length; ++i)
-            ps[i].globalPrivacyControl = settings.global_privacy_control
+            ps[i].globalPrivacyControl = settings.global_privacy_control;
         if (_defaultSpelling === null)
-            _defaultSpelling = WebEngine.spellCheckingLanguages
-        WebEngine.spellChecking = settings.spell_check
-        WebEngine.darkMode = settings.color_scheme === "dark"
-                || (settings.color_scheme !== "light" && Theme.colorScheme === Theme.LightOnDark)
-        var langs = settings.spell_languages || []
-        WebEngine.spellCheckingLanguages = langs.length > 0 ? langs : _defaultSpelling
+            _defaultSpelling = WebEngine.spellCheckingLanguages;
+        WebEngine.spellChecking = settings.spell_check;
+        WebEngine.darkMode = settings.color_scheme === "dark" || (settings.color_scheme !== "light" && Theme.colorScheme === Theme.LightOnDark);
+        var langs = settings.spell_languages || [];
+        WebEngine.spellCheckingLanguages = langs.length > 0 ? langs : _defaultSpelling;
     }
     // Websites follow the ambience (Settings, Website colours) when it changes.
     Connections {
         target: Theme
-        function onColorSchemeChanged() { browser._applyEngineSettings() }
+        function onColorSchemeChanged() {
+            browser._applyEngineSettings();
+        }
     }
     // (After `settings` has the new values: a handler on Pacific's signal
     // could run before this binding is updated.)
     onSettingsChanged: {
-        _applyEngineSettings()
-        syncFilters()
+        _applyEngineSettings();
+        syncFilters();
         if (settings.blocking !== _lastBlocking) {
-            _lastBlocking = settings.blocking
-            reloadForFilters()
+            _lastBlocking = settings.blocking;
+            reloadForFilters();
         }
     }
 
@@ -307,65 +322,74 @@ Item {
         target: Pacific
         function onContentFilterCompile(identifier, json) {
             if (!browser.settings.blocking)
-                return // compiled when blocking is turned on (it stays unconfirmed)
+                // compiled when blocking is turned on (it stays unconfirmed)
+                return;
             // Asked for again (each profile reports a filter its store lost)
             // while it compiles: one compile, whose result is reported.
             if (browser._compiling[identifier])
-                return
-            browser._compiling[identifier] = true
-            var ps = browser._profiles()
-            var left = ps.length, allOk = true
+                return;
+            browser._compiling[identifier] = true;
+            var ps = browser._profiles();
+            var left = ps.length, allOk = true;
             for (var i = 0; i < ps.length; ++i) {
-                ps[i].compileContentFilter(identifier, json, function(ok, error) {
+                ps[i].compileContentFilter(identifier, json, function (ok, error) {
                     if (!ok) {
-                        allOk = false
+                        allOk = false;
                         // (Dropped on purpose when blocking went off meanwhile.)
                         if (browser.settings.blocking)
-                            console.warn("content filter " + identifier + ": " + error)
+                            console.warn("content filter " + identifier + ": " + error);
                     }
                     if (--left === 0) {
-                        delete browser._compiling[identifier]
+                        delete browser._compiling[identifier];
                         // Recorded as compiled only now, once each store has it.
-                        Pacific.contentFilterResult(identifier, allOk)
-                        browser._filtersSettled()
+                        Pacific.contentFilterResult(identifier, allOk);
+                        browser._filtersSettled();
                     }
-                })
+                });
             }
         }
         function onContentFiltersActive(idsJson) {
-            browser._activeFilters = JSON.parse(idsJson)
-            browser.syncFilters()
-            browser._filtersSettled()
+            browser._activeFilters = JSON.parse(idsJson);
+            browser.syncFilters();
+            browser._filtersSettled();
         }
         function onDataCleared(json) {
-            var e = JSON.parse(json)
+            var e = JSON.parse(json);
             var types = Logic.clearTypes(e, {
-                cookies: WebProfile.Cookies, cache: WebProfile.Cache, localStorage: WebProfile.LocalStorage,
-                indexedDb: WebProfile.IndexedDb, serviceWorkers: WebProfile.ServiceWorkers
-            })
+                cookies: WebProfile.Cookies,
+                cache: WebProfile.Cache,
+                localStorage: WebProfile.LocalStorage,
+                indexedDb: WebProfile.IndexedDb,
+                serviceWorkers: WebProfile.ServiceWorkers
+            });
             if (types !== 0)
-                WebEngine.defaultProfile.clearData(types, Logic.sinceSeconds(e.since_ms, Date.now()))
-            Notices.show(qsTr("Browsing data cleared"))
+                WebEngine.defaultProfile.clearData(types, Logic.sinceSeconds(e.since_ms, Date.now()));
+            Notices.show(qsTr("Browsing data cleared"));
         }
         function onOpenUrlRequested(url) {
             // A link from another app opens in a new tab, unless the tab in
             // front is an untouched new tab (as after starting the browser
             // for the link): that one is used, not left behind empty.
-            var cur = browser.privateMode ? null : browser.view(browser.normalTabs.activeId)
-            var blank = cur !== null && cur.newTabPage && !cur.webView.canGoBack
-            var t = browser.view(browser.open(url, { newTab: !blank, private: false }))
+            var cur = browser.privateMode ? null : browser.view(browser.normalTabs.activeId);
+            var blank = cur !== null && cur.newTabPage && !cur.webView.canGoBack;
+            var t = browser.view(browser.open(url, {
+                newTab: !blank,
+                private: false
+            }));
             // Back from its first page closes it and returns to the caller.
             if (t)
-                t.openedByApp = true
+                t.openedByApp = true;
             if (browser.pageStack)
-                browser.pageStack.pop(browser.pageStack.find(function(p) { return p.objectName === "browserPage" }), PageStackAction.Immediate)
-            browser.bringToFront()
+                browser.pageStack.pop(browser.pageStack.find(function (p) {
+                    return p.objectName === "browserPage";
+                }), PageStackAction.Immediate);
+            browser.bringToFront();
         }
         function onRaiseRequested() {
-            browser.bringToFront()
+            browser.bringToFront();
         }
         function onNotice(text) {
-            Notices.show(text)
+            Notices.show(text);
         }
     }
 
@@ -377,16 +401,16 @@ Item {
     // until they are (the shield says so; never "on" with a list missing).
     readonly property var missingFilters: {
         if (!settings.blocking)
-            return []
-        var want = _activeFilters, out = []
-        var ps = _profiles()
+            return [];
+        var want = _activeFilters, out = [];
+        var ps = _profiles();
         for (var p = 0; p < ps.length; ++p) {
-            var have = ps[p].contentFilters
+            var have = ps[p].contentFilters;
             for (var i = 0; i < want.length; ++i)
                 if (have.indexOf(want[i]) < 0 && out.indexOf(want[i]) < 0)
-                    out.push(want[i])
+                    out.push(want[i]);
         }
-        return out
+        return out;
     }
     readonly property bool protectionIncomplete: Pacific.blockerReady && missingFilters.length > 0
 
@@ -395,16 +419,16 @@ Item {
     // effect from the next page load (see reloadForFilters).
     function _setFilter(profile: var, id: var, on: var): void {
         if (!on) {
-            profile.disableContentFilter(id)
-            return
+            profile.disableContentFilter(id);
+            return;
         }
-        profile.enableContentFilter(id, function(ok, error) {
+        profile.enableContentFilter(id, function (ok, error) {
             if (ok)
-                Pacific.contentFilterResult(id, true)
+                Pacific.contentFilterResult(id, true);
             else if (!browser._compiling[id])
-                Pacific.contentFilterResult(id, false) // missing from the store: compile again
-            browser._filtersSettled()
-        })
+                Pacific.contentFilterResult(id, false); // missing from the store: compile again
+            browser._filtersSettled();
+        });
     }
 
     // Blocking turned on or off, or a site's exception changed: the page in
@@ -415,40 +439,40 @@ Item {
     property bool _lastBlocking: true
     Component.onCompleted: _lastBlocking = settings.blocking
     function reloadForFilters(): void {
-        _reloadPending = true
-        _filtersSettled()
+        _reloadPending = true;
+        _filtersSettled();
     }
     // A site's exception changed: its filters are converted and compiled
     // again; the page reloads once they are in place.
     function reloadAfterRefilter(): void {
-        _reloadPending = true
+        _reloadPending = true;
     }
     function _filtersSettled(): var {
         if (!_reloadPending || Object.keys(_compiling).length > 0)
-            return
-        _reloadPending = false
-        var t = currentTab
+            return;
+        _reloadPending = false;
+        var t = currentTab;
         if (t && t.webView && String(t.webView.url).indexOf("http") === 0)
-            t.webView.reload()
+            t.webView.reload();
     }
 
     // At every start and every change: each wanted filter in force in both
     // profiles (loaded from the store, or compiled again when the store has
     // lost it), the others off; all of them off when blocking is off.
     function syncFilters(): void {
-        var want = settings.blocking ? _activeFilters : []
-        var ps = _profiles()
+        var want = settings.blocking ? _activeFilters : [];
+        var ps = _profiles();
         // Filters still compiling count as there: disabling one now drops
         // it when it finishes (a late compile cannot turn blocking back on).
-        var compiling = Object.keys(_compiling)
+        var compiling = Object.keys(_compiling);
         for (var p = 0; p < ps.length; ++p) {
-            var have = ps[p].contentFilters.concat(compiling)
+            var have = ps[p].contentFilters.concat(compiling);
             for (var i = 0; i < have.length; ++i)
                 if (want.indexOf(have[i]) < 0)
-                    _setFilter(ps[p], have[i], false)
+                    _setFilter(ps[p], have[i], false);
             for (var j = 0; j < want.length; ++j)
                 if (have.indexOf(want[j]) < 0)
-                    _setFilter(ps[p], want[j], true)
+                    _setFilter(ps[p], want[j], true);
         }
     }
 
@@ -466,54 +490,61 @@ Item {
     function _hold(category: string, reason: string, on: bool): void {
         // qmllint disable unqualified
         if (typeof AppLifecycle === "undefined" || !AppLifecycle)
-            return
-        var handle = _tasks[category] || 0
+            return;
+        var handle = _tasks[category] || 0;
         if (on && handle === 0) {
-            _tasks[category] = AppLifecycle.beginBackgroundTask(category, reason)
+            _tasks[category] = AppLifecycle.beginBackgroundTask(category, reason);
         } else if (!on && handle !== 0) {
-            AppLifecycle.endBackgroundTask(handle)
-            _tasks[category] = 0
+            AppLifecycle.endBackgroundTask(handle);
+            _tasks[category] = 0;
         }
         // qmllint enable unqualified
     }
     function _holdForDownloads(): void {
-        _hold("download", qsTr("Downloading"),
-              _downloads.some(function(d) { return d.download.state === Download.InProgress }))
+        _hold("download", qsTr("Downloading"), _downloads.some(function (d) {
+            return d.download.state === Download.InProgress;
+        }));
     }
     function audioChanged(): void {
-        var playing = false
+        var playing = false;
         for (var id in _views) {
             if (_views[id] && _views[id].webView.audioPlaying)
-                playing = true
+                playing = true;
         }
-        _hold("audio-playback", qsTr("Playing a page's sound"), playing)
+        _hold("audio-playback", qsTr("Playing a page's sound"), playing);
     }
 
     function _track(download: var, isPrivate: var): var {
         function choose() {
             if (download.destination)
-                return
-            download.destination = Pacific.downloadDestination(String(download.url), download.suggestedFilename,
-                                                               download.mimeType, isPrivate)
-            Notices.show(qsTr("Downloading %1").arg(download.suggestedFilename || Logic.host(download.url)))
+                return;
+            download.destination = Pacific.downloadDestination(String(download.url), download.suggestedFilename, download.mimeType, isPrivate);
+            Notices.show(qsTr("Downloading %1").arg(download.suggestedFilename || Logic.host(download.url)));
         }
         if (download.suggestedFilename)
-            choose()
+            choose();
         else
-            download.suggestedFilenameChanged.connect(choose)
-        var d = _downloads.slice()
-        d.push({ download: download, isPrivate: isPrivate })
-        _downloads = d
-        _holdForDownloads()
+            download.suggestedFilenameChanged.connect(choose);
+        var d = _downloads.slice();
+        d.push({
+            download: download,
+            isPrivate: isPrivate
+        });
+        _downloads = d;
+        _holdForDownloads();
     }
 
     Connections {
         target: WebEngine.defaultProfile
-        function onDownloadStarted(download) { browser._track(download, false) }
+        function onDownloadStarted(download) {
+            browser._track(download, false);
+        }
     }
     Connections {
         target: WebEngine.privateProfile
-        function onDownloadStarted(download) { browser._track(download, true) }
+        function onDownloadStarted(download) {
+            browser._track(download, true);
+        }
     }
 
     Instantiator {
@@ -523,26 +554,25 @@ Item {
             target: modelData.download
             property double _last: 0
             function report() {
-                var d = modelData.download
-                var states = ["running", "finished", "failed", "cancelled"]
-                Pacific.downloadUpdate(d.destination, d.receivedBytes, d.totalBytes,
-                                       states[d.state] || "running", d.errorString, modelData.isPrivate)
+                var d = modelData.download;
+                var states = ["running", "finished", "failed", "cancelled"];
+                Pacific.downloadUpdate(d.destination, d.receivedBytes, d.totalBytes, states[d.state] || "running", d.errorString, modelData.isPrivate);
             }
             function onProgressChanged() {
-                var now = Date.now()
+                var now = Date.now();
                 if (now - _last > 500) {
-                    _last = now
-                    report()
+                    _last = now;
+                    report();
                 }
             }
             function onStateChanged() {
-                report()
-                browser._holdForDownloads()
-                var d = modelData.download
+                report();
+                browser._holdForDownloads();
+                var d = modelData.download;
                 if (d.state === Download.Finished)
-                    Notices.show(qsTr("Downloaded %1").arg(d.suggestedFilename))
+                    Notices.show(qsTr("Downloaded %1").arg(d.suggestedFilename));
                 else if (d.state === Download.Failed)
-                    Notices.show(qsTr("Download failed: %1").arg(d.errorString))
+                    Notices.show(qsTr("Download failed: %1").arg(d.errorString));
             }
         }
     }
@@ -566,36 +596,39 @@ Item {
 
     function startAgent(): var {
         if (!agentView) {
-            agentView = agentComponent.createObject(browser)
-            Pacific.agentStart(-1)
+            agentView = agentComponent.createObject(browser);
+            Pacific.agentStart(-1);
         }
-        return agentView
+        return agentView;
     }
 
     function stopAgent(): void {
         if (agentView) {
-            agentView.destroy()
-            agentView = null
+            agentView.destroy();
+            agentView = null;
         }
-        Pacific.agentStop()
+        Pacific.agentStop();
         if (privateModel.count === 0)
-            WebEngine.privateProfile.clearData(WebProfile.AllData, 0)
+            WebEngine.privateProfile.clearData(WebProfile.AllData, 0);
     }
 
     // The person takes Pilot's page over: it opens in a private tab (the
     // same private profile, so a login Pilot reached carries over).
     function takeOverAgent(): var {
         if (!agentView)
-            return
-        var u = String(agentView.url)
-        var state = agentView.sessionState()
-        var id = open(u, { newTab: true, private: true })
-        var t = view(id)
+            return;
+        var u = String(agentView.url);
+        var state = agentView.sessionState();
+        var id = open(u, {
+            newTab: true,
+            private: true
+        });
+        var t = view(id);
         if (t && state !== "" && t.webView.restoreSessionState(state))
-            t.webView.reload()
-        agentView.destroy()
-        agentView = null
-        Pacific.agentStop()
+            t.webView.reload();
+        agentView.destroy();
+        agentView = null;
+        Pacific.agentStop();
     }
 
     // ---- Freezing ------------------------------------------------------------
@@ -604,22 +637,22 @@ Item {
     // it there: the session is kept as a clean exit, and under memory
     // pressure the tabs behind give their web processes back first.
     function prepareFreeze(): void {
-        leavingFront()
+        leavingFront();
         for (var i = 0; i < normalModel.count; ++i) {
-            var t = view(normalModel.idAt(i))
+            var t = view(normalModel.idAt(i));
             if (t)
-                t.storeEngineState()
+                t.storeEngineState();
         }
-        Pacific.prepareFreeze(normalModel.sessionJson())
-        applyLifecycle()
+        Pacific.prepareFreeze(normalModel.sessionJson());
+        applyLifecycle();
     }
 
     function thawed(): void {
-        Pacific.thawed()
-        var t = currentTab
+        Pacific.thawed();
+        var t = currentTab;
         if (t)
-            t.wake()
-        lifecycleTimer.restart()
+            t.wake();
+        lifecycleTimer.restart();
     }
 
     // ---- Start and stop --------------------------------------------------
@@ -627,14 +660,14 @@ Item {
     Connections {
         target: Qt.application
         function onAboutToQuit() {
-            browser.saveSession()
-            Pacific.shutdown()
+            browser.saveSession();
+            Pacific.shutdown();
         }
         function onStateChanged() {
             if (Qt.application.state !== Qt.ApplicationActive) {
                 // The page as it was left, for the cover in the switcher.
-                browser.leavingFront()
-                browser.saveSession()
+                browser.leavingFront();
+                browser.saveSession();
             }
         }
     }

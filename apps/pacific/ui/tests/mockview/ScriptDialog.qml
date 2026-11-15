@@ -5,13 +5,25 @@
 import QtQuick
 
 QtObject {
-    enum Type { Alert, Confirm, Prompt, BeforeUnload }
+    enum Type {
+        Alert,
+        Confirm,
+        Prompt,
+        BeforeUnload
+    }
     property int type: ScriptDialog.Alert
     property string message
     property string defaultText
     property bool accepted: false
     property string text
-    signal close()
-    function accept(t) { accepted = true; text = t || ""; close() }
-    function reject() { accepted = false; close() }
+    signal close
+    function accept(t) {
+        accepted = true;
+        text = t || "";
+        close();
+    }
+    function reject() {
+        accepted = false;
+        close();
+    }
 }

@@ -20,7 +20,7 @@ SilicaFlickable {
 
     property var browser
     property var totals: null
-    signal searchClicked()
+    signal searchClicked
     signal openUrl(string url)
     signal pushPage(string page)
 
@@ -33,13 +33,15 @@ SilicaFlickable {
     Component.onCompleted: Pacific.loadTotals()
     onVisibleChanged: {
         if (visible) {
-            recent.refresh()
-            Pacific.loadTotals()
+            recent.refresh();
+            Pacific.loadTotals();
         }
     }
     Connections {
         target: Pacific
-        function onTotalsReady(json) { view.totals = JSON.parse(json).totals }
+        function onTotalsReady(json) {
+            view.totals = JSON.parse(json).totals;
+        }
     }
 
     PullDownMenu {
@@ -140,7 +142,10 @@ SilicaFlickable {
                         ContextMenu {
                             MenuItem {
                                 text: qsTr("Remove")
-                                onClicked: row.remorseDelete(function() { Pacific.deleteSearch(row.query); recent.refresh() })
+                                onClicked: row.remorseDelete(function () {
+                                    Pacific.deleteSearch(row.query);
+                                    recent.refresh();
+                                })
                             }
                         }
                     }
@@ -152,7 +157,13 @@ SilicaFlickable {
                         highlighted: row.highlighted
                     }
                     Label {
-                        anchors { left: recentIcon.right; leftMargin: Theme.paddingMedium; right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                        anchors {
+                            left: recentIcon.right
+                            leftMargin: Theme.paddingMedium
+                            right: parent.right
+                            rightMargin: Theme.horizontalPageMargin
+                            verticalCenter: parent.verticalCenter
+                        }
                         text: row.query
                         textFormat: Text.PlainText
                         truncationMode: TruncationMode.Fade
@@ -194,7 +205,13 @@ SilicaFlickable {
                 }
                 Column {
                     id: rowText
-                    anchors { left: bmIcon.right; leftMargin: Theme.paddingMedium; right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                    anchors {
+                        left: bmIcon.right
+                        leftMargin: Theme.paddingMedium
+                        right: parent.right
+                        rightMargin: Theme.horizontalPageMargin
+                        verticalCenter: parent.verticalCenter
+                    }
                     Label {
                         width: parent.width
                         text: item.title !== "" ? item.title : item.host
@@ -234,12 +251,17 @@ SilicaFlickable {
                 highlighted: report.highlighted
             }
             Label {
-                anchors { left: reportIcon.right; leftMargin: Theme.paddingMedium; right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                anchors {
+                    left: reportIcon.right
+                    leftMargin: Theme.paddingMedium
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin
+                    verticalCenter: parent.verticalCenter
+                }
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: report.highlighted ? Theme.highlightColor : Theme.primaryColor
-                text: view.totals ? qsTr("%1 ads and trackers blocked and %2 cookie banners rejected for you")
-                                    .arg(view.totals.blocked).arg(view.totals.cookie_banners) : ""
+                text: view.totals ? qsTr("%1 ads and trackers blocked and %2 cookie banners rejected for you").arg(view.totals.blocked).arg(view.totals.cookie_banners) : ""
             }
         }
 

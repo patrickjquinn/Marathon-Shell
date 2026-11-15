@@ -20,8 +20,13 @@ Page {
 
     SilicaListView {
         anchors.fill: parent
-        header: PageHeader { title: qsTr("Folder") }
-        model: PacificList { kind: "folders"; revision: Pacific.revision }
+        header: PageHeader {
+            title: qsTr("Folder")
+        }
+        model: PacificList {
+            kind: "folders"
+            revision: Pacific.revision
+        }
         delegate: ListItem {
             id: item
             required property int itemId
@@ -29,8 +34,8 @@ Page {
             required property int depth
             highlighted: down || itemId === page.selected
             onClicked: {
-                page.picked(itemId, title)
-                pageStack.pop()
+                page.picked(itemId, title);
+                pageStack.pop();
             }
             Label {
                 x: Theme.horizontalPageMargin + item.depth * Theme.paddingLarge

@@ -24,8 +24,7 @@ Item {
         anchors.fill: parent
         radius: width / 4
         // The site's own colour, kept dim enough for white text.
-        color: favicon.status === Image.Ready ? Theme.rgba(Theme.primaryColor, 0.9)
-                                              : Qt.hsla(Logic.hostHue(icon.url), 0.45, 0.38, 1.0)
+        color: favicon.status === Image.Ready ? Theme.rgba(Theme.primaryColor, 0.9) : Qt.hsla(Logic.hostHue(icon.url), 0.45, 0.38, 1.0)
         border.width: icon.highlighted ? Theme.paddingSmall / 2 : 0
         border.color: Theme.highlightColor
     }

@@ -23,14 +23,14 @@ Page {
     allowedOrientations: Orientation.All
 
     function sectionTitle(date: var): var {
-        var today = new Date()
-        var d = new Date(date + "T00:00:00")
-        var days = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - d) / 86400000)
+        var today = new Date();
+        var d = new Date(date + "T00:00:00");
+        var days = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - d) / 86400000);
         if (days === 0)
-            return qsTr("Today")
+            return qsTr("Today");
         if (days === 1)
-            return qsTr("Yesterday")
-        return d.toLocaleDateString(Qt.locale(), Locale.LongFormat)
+            return qsTr("Yesterday");
+        return d.toLocaleDateString(Qt.locale(), Locale.LongFormat);
     }
 
     SilicaListView {
@@ -45,7 +45,9 @@ Page {
 
         header: Column {
             width: list.width
-            PageHeader { title: qsTr("History") }
+            PageHeader {
+                title: qsTr("History")
+            }
             SearchField {
                 objectName: "historySearch"
                 width: parent.width
@@ -59,7 +61,9 @@ Page {
         PullDownMenu {
             MenuItem {
                 text: qsTr("Clear history")
-                onClicked: pageStack.push(Qt.resolvedUrl("ClearDataDialog.qml"), { historyOnly: true })
+                onClicked: pageStack.push(Qt.resolvedUrl("ClearDataDialog.qml"), {
+                    historyOnly: true
+                })
             }
         }
 
@@ -85,17 +89,26 @@ Page {
             // As tall as its lines need at a large text size.
             contentHeight: Math.max(Theme.itemSizeMedium, rowText.height + 2 * Theme.paddingSmall)
             onClicked: {
-                page.browser.open(url, { transition: "typed" })
-                pageStack.pop(pageStack.find(function(p) { return p.objectName === "browserPage" }))
+                page.browser.open(url, {
+                    transition: "typed"
+                });
+                pageStack.pop(pageStack.find(function (p) {
+                    return p.objectName === "browserPage";
+                }));
             }
             menu: ContextMenu {
                 MenuItem {
                     text: qsTr("Open in new tab")
-                    onClicked: page.browser.open(item.url, { newTab: true, background: true })
+                    onClicked: page.browser.open(item.url, {
+                        newTab: true,
+                        background: true
+                    })
                 }
                 MenuItem {
                     text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function() { Pacific.deleteHistory(item.url) })
+                    onClicked: item.remorseDelete(function () {
+                        Pacific.deleteHistory(item.url);
+                    })
                 }
             }
             LetterIcon {
@@ -110,7 +123,13 @@ Page {
             }
             Column {
                 id: rowText
-                anchors { left: siteIcon.right; leftMargin: Theme.paddingMedium; right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                anchors {
+                    left: siteIcon.right
+                    leftMargin: Theme.paddingMedium
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin
+                    verticalCenter: parent.verticalCenter
+                }
                 Label {
                     width: parent.width
                     text: item.title

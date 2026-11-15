@@ -18,8 +18,8 @@ Rectangle {
     property alias text: textLabel.text
     property alias primaryText: primary.text
     property alias secondaryText: secondary.text
-    signal primaryClicked()
-    signal secondaryClicked()
+    signal primaryClicked
+    signal secondaryClicked
 
     // Opaque: the page behind must not show through.
     color: Theme.highlightDimmerColor

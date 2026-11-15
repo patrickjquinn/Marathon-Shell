@@ -32,7 +32,8 @@ Page {
             busy: Pacific.listsUpdating
             MenuItem {
                 text: Pacific.listsUpdating ? qsTr("Updating") : qsTr("Update now")
-                onClicked: if (!Pacific.listsUpdating) Pacific.updateLists(true)
+                onClicked: if (!Pacific.listsUpdating)
+                    Pacific.updateLists(true)
             }
         }
         delegate: TextSwitch {
@@ -45,8 +46,7 @@ Page {
             required property real progress
             text: title
             checked: on
-            description: subtitle + (detail !== "" ? "\n" + qsTr("Couldn't update. Pacific tries again later.")
-                                                    : (time > 0 ? "\n" + qsTr("%1 rules, checked %2 ago").arg(progress).arg(Logic.ago(time, Date.now())) : ""))
+            description: subtitle + (detail !== "" ? "\n" + qsTr("Couldn't update. Pacific tries again later.") : (time > 0 ? "\n" + qsTr("%1 rules, checked %2 ago").arg(progress).arg(Logic.ago(time, Date.now())) : ""))
             onClicked: Pacific.setListEnabled(itemId, checked)
         }
         VerticalScrollDecorator {}

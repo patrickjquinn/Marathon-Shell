@@ -9,6 +9,11 @@ QtObject {
     property bool multiple: false
     property var selectedFiles: []
     property bool answered: false
-    function select(files) { selectedFiles = files; answered = true }
-    function cancel() { answered = true }
+    function select(files) {
+        selectedFiles = files;
+        answered = true;
+    }
+    function cancel() {
+        answered = true;
+    }
 }

@@ -24,16 +24,16 @@ Page {
     allowedOrientations: Orientation.All
 
     function set(key: var, value: var): void {
-        var patch = {}
-        patch[key] = value
-        Pacific.setSettings(JSON.stringify(patch))
+        var patch = {};
+        patch[key] = value;
+        Pacific.setSettings(JSON.stringify(patch));
     }
 
     function engineName(): var {
         for (var i = 0; i < engines.length; ++i)
             if (engines[i].id === Pacific.defaultEngine)
-                return engines[i].name
-        return ""
+                return engines[i].name;
+        return "";
     }
 
     SilicaFlickable {
@@ -47,7 +47,9 @@ Page {
             }
             MenuItem {
                 text: qsTr("Privacy and security")
-                onClicked: pageStack.push(Qt.resolvedUrl("PrivacyPage.qml"), { browser: page.browser })
+                onClicked: pageStack.push(Qt.resolvedUrl("PrivacyPage.qml"), {
+                    browser: page.browser
+                })
             }
         }
 
@@ -55,14 +57,18 @@ Page {
             id: column
             width: parent.width
 
-            PageHeader { title: qsTr("Settings") }
+            PageHeader {
+                title: qsTr("Settings")
+            }
 
             BackgroundItem {
                 id: privacyEntry
                 objectName: "privacyEntry"
                 width: parent.width
                 height: Theme.itemSizeMedium
-                onClicked: pageStack.push(Qt.resolvedUrl("PrivacyPage.qml"), { browser: page.browser })
+                onClicked: pageStack.push(Qt.resolvedUrl("PrivacyPage.qml"), {
+                    browser: page.browser
+                })
                 Icon {
                     id: privacyIcon
                     x: Theme.horizontalPageMargin
@@ -71,13 +77,21 @@ Page {
                     highlighted: privacyEntry.highlighted
                 }
                 Label {
-                    anchors { left: privacyIcon.right; leftMargin: Theme.paddingMedium; right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                    anchors {
+                        left: privacyIcon.right
+                        leftMargin: Theme.paddingMedium
+                        right: parent.right
+                        rightMargin: Theme.horizontalPageMargin
+                        verticalCenter: parent.verticalCenter
+                    }
                     text: qsTr("Privacy and security")
                     color: privacyEntry.highlighted ? Theme.highlightColor : Theme.primaryColor
                 }
             }
 
-            SectionHeader { text: qsTr("Search") }
+            SectionHeader {
+                text: qsTr("Search")
+            }
 
             ValueButton {
                 objectName: "engineButton"
@@ -92,15 +106,26 @@ Page {
                 onClicked: page.set("search_suggestions", checked)
             }
 
-            SectionHeader { text: qsTr("Tabs") }
+            SectionHeader {
+                text: qsTr("Tabs")
+            }
 
             ComboBox {
                 label: qsTr("Restore tabs at start")
                 currentIndex: ["always", "crash", "never"].indexOf(page.s.restore)
                 menu: ContextMenu {
-                    MenuItem { text: qsTr("Always"); onClicked: page.set("restore", "always") }
-                    MenuItem { text: qsTr("After a crash"); onClicked: page.set("restore", "crash") }
-                    MenuItem { text: qsTr("Never"); onClicked: page.set("restore", "never") }
+                    MenuItem {
+                        text: qsTr("Always")
+                        onClicked: page.set("restore", "always")
+                    }
+                    MenuItem {
+                        text: qsTr("After a crash")
+                        onClicked: page.set("restore", "crash")
+                    }
+                    MenuItem {
+                        text: qsTr("Never")
+                        onClicked: page.set("restore", "never")
+                    }
                 }
             }
             TextSwitch {
@@ -109,7 +134,9 @@ Page {
                 onClicked: page.set("toolbar_autohide", checked)
             }
 
-            SectionHeader { text: qsTr("Pages") }
+            SectionHeader {
+                text: qsTr("Pages")
+            }
 
             TextSwitch {
                 text: qsTr("JavaScript")
@@ -139,7 +166,9 @@ Page {
                 onReleased: page.set("default_zoom", value / 100)
             }
 
-            SectionHeader { text: qsTr("Spelling") }
+            SectionHeader {
+                text: qsTr("Spelling")
+            }
 
             TextSwitch {
                 objectName: "spellSwitch"
@@ -153,12 +182,11 @@ Page {
                 enabled: page.s.spell_check
                 label: qsTr("Languages")
                 value: {
-                    var langs = page.s.spell_languages && page.s.spell_languages.length > 0
-                              ? page.s.spell_languages : WebEngine.spellCheckingLanguages
-                    var names = []
+                    var langs = page.s.spell_languages && page.s.spell_languages.length > 0 ? page.s.spell_languages : WebEngine.spellCheckingLanguages;
+                    var names = [];
                     for (var i = 0; i < langs.length; ++i)
-                        names.push(Logic.languageName(langs[i]))
-                    return names.join(", ")
+                        names.push(Logic.languageName(langs[i]));
+                    return names.join(", ");
                 }
                 onClicked: pageStack.push(Qt.resolvedUrl("SpellingPage.qml"))
             }
@@ -168,21 +196,41 @@ Page {
                 description: qsTr("Light or dark, for websites that offer both")
                 currentIndex: ["ambience", "light", "dark"].indexOf(page.s.color_scheme)
                 menu: ContextMenu {
-                    MenuItem { text: qsTr("Follow the ambience"); onClicked: page.set("color_scheme", "ambience") }
-                    MenuItem { text: qsTr("Light"); onClicked: page.set("color_scheme", "light") }
-                    MenuItem { text: qsTr("Dark"); onClicked: page.set("color_scheme", "dark") }
+                    MenuItem {
+                        text: qsTr("Follow the ambience")
+                        onClicked: page.set("color_scheme", "ambience")
+                    }
+                    MenuItem {
+                        text: qsTr("Light")
+                        onClicked: page.set("color_scheme", "light")
+                    }
+                    MenuItem {
+                        text: qsTr("Dark")
+                        onClicked: page.set("color_scheme", "dark")
+                    }
                 }
             }
 
-            SectionHeader { text: qsTr("Reader mode") }
+            SectionHeader {
+                text: qsTr("Reader mode")
+            }
 
             ComboBox {
                 label: qsTr("Colours")
                 currentIndex: ["light", "sepia", "dark"].indexOf(page.s.reader_theme)
                 menu: ContextMenu {
-                    MenuItem { text: qsTr("Light"); onClicked: page.set("reader_theme", "light") }
-                    MenuItem { text: qsTr("Sepia"); onClicked: page.set("reader_theme", "sepia") }
-                    MenuItem { text: qsTr("Dark"); onClicked: page.set("reader_theme", "dark") }
+                    MenuItem {
+                        text: qsTr("Light")
+                        onClicked: page.set("reader_theme", "light")
+                    }
+                    MenuItem {
+                        text: qsTr("Sepia")
+                        onClicked: page.set("reader_theme", "sepia")
+                    }
+                    MenuItem {
+                        text: qsTr("Dark")
+                        onClicked: page.set("reader_theme", "dark")
+                    }
                 }
             }
             Slider {
@@ -201,7 +249,9 @@ Page {
                 onClicked: page.set("reader_serif", checked)
             }
 
-            SectionHeader { text: qsTr("Passwords") }
+            SectionHeader {
+                text: qsTr("Passwords")
+            }
 
             TextSwitch {
                 text: qsTr("Fill logins with Shoal Keys")
@@ -210,7 +260,9 @@ Page {
                 onClicked: page.set("keys_autofill", checked)
             }
 
-            SectionHeader { text: qsTr("Pilot") }
+            SectionHeader {
+                text: qsTr("Pilot")
+            }
 
             TextSwitch {
                 text: qsTr("Let Pilot use the browser")
@@ -219,7 +271,9 @@ Page {
                 onClicked: page.set("pilot_actions", checked)
             }
 
-            SectionHeader { text: qsTr("Default browser") }
+            SectionHeader {
+                text: qsTr("Default browser")
+            }
 
             Label {
                 x: Theme.horizontalPageMargin

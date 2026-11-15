@@ -18,26 +18,29 @@ Window {
     property bool done: false
 
     function log(message) {
-        console.warn("minibrowser: " + message)
+        console.warn("minibrowser: " + message);
     }
 
     function finish(code) {
         if (done)
-            return
-        done = true
-        Qt.exit(code)
+            return;
+        done = true;
+        Qt.exit(code);
     }
 
     function afterLoad() {
         if (window.printSnapshot) {
-            web.agentSnapshot({ limit: 40, text: 400 }, function(result, error) {
+            web.agentSnapshot({
+                limit: 40,
+                text: 400
+            }, function (result, error) {
                 if (error)
-                    log("snapshot error " + error)
-                console.warn("minibrowser: snapshot " + JSON.stringify(result))
-                finish(error ? 1 : 0)
-            })
+                    log("snapshot error " + error);
+                console.warn("minibrowser: snapshot " + JSON.stringify(result));
+                finish(error ? 1 : 0);
+            });
         } else if (window.screenshotPath !== "") {
-            settle.start()
+            settle.start();
         }
     }
 
@@ -52,11 +55,11 @@ Window {
 
         interval: window.settleMs
         onTriggered: {
-            window.contentItem.grabToImage(function(image) {
-                const ok = image.saveToFile(window.screenshotPath)
-                window.log("screenshot " + (ok ? "saved " : "FAILED ") + window.screenshotPath)
-                window.finish(ok ? 0 : 1)
-            })
+            window.contentItem.grabToImage(function (image) {
+                const ok = image.saveToFile(window.screenshotPath);
+                window.log("screenshot " + (ok ? "saved " : "FAILED ") + window.screenshotPath);
+                window.finish(ok ? 0 : 1);
+            });
         }
     }
 
@@ -98,36 +101,35 @@ Window {
         url: window.startUrl
         focus: true
 
-        onLoadingChanged: function(request) {
-            const names = ["started", "redirected", "committed", "succeeded", "failed", "stopped"]
-            window.log("load " + names[request.status] + " " + request.url
-                       + (request.errorString ? " (" + request.errorString + ")" : ""))
+        onLoadingChanged: function (request) {
+            const names = ["started", "redirected", "committed", "succeeded", "failed", "stopped"];
+            window.log("load " + names[request.status] + " " + request.url + (request.errorString ? " (" + request.errorString + ")" : ""));
             if (request.status === LoadRequest.Succeeded)
-                window.afterLoad()
+                window.afterLoad();
             else if (request.status === LoadRequest.Failed && (window.printSnapshot || window.screenshotPath !== ""))
-                window.finish(1)
+                window.finish(1);
         }
         onTitleChanged: window.log("title " + title)
         onIconChanged: window.log("icon " + icon)
-        onConsoleMessage: function(level, message, source) {
-            window.log("console." + level + " " + message)
+        onConsoleMessage: function (level, message, source) {
+            window.log("console." + level + " " + message);
         }
-        onWebProcessTerminated: function(reason) {
-            window.log("web process terminated, reason " + reason)
+        onWebProcessTerminated: function (reason) {
+            window.log("web process terminated, reason " + reason);
         }
         onEditableFocusedChanged: window.log("editable focus " + editableFocused + " purpose " + inputPurpose)
         onWebViewCreated: window.log("web view created, engine " + WebEngine.version + ", scale " + contentScale)
-        onPermissionRequested: function(request) {
-            window.log("permission " + request.kind + " from " + request.origin + ": denied")
-            request.deny()
+        onPermissionRequested: function (request) {
+            window.log("permission " + request.kind + " from " + request.origin + ": denied");
+            request.deny();
         }
-        onNewWindowRequested: function(request) {
-            window.log("new window " + request.url + ": opening here")
-            web.url = request.url
+        onNewWindowRequested: function (request) {
+            window.log("new window " + request.url + ": opening here");
+            web.url = request.url;
         }
-        onScriptDialogRequested: function(dialog) {
-            window.log("dialog " + dialog.type + ": " + dialog.message)
-            dialog.accept()
+        onScriptDialogRequested: function (dialog) {
+            window.log("dialog " + dialog.type + ": " + dialog.message);
+            dialog.accept();
         }
     }
 }

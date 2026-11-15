@@ -45,29 +45,31 @@ Item {
 
     // Opens with `text` in the field (selected, so typing replaces it).
     function open(text: var): void {
-        initialText = text || ""
-        field.text = initialText
-        field._selectedOnce = false
-        _open = true
+        initialText = text || "";
+        field.text = initialText;
+        field._selectedOnce = false;
+        _open = true;
         // Open tabs to switch to, but not the one in front: that is
         // where the person already is.
-        var tabs = browser ? JSON.parse(browser.tabs.tabsJson()) : []
-        var front = browser ? browser.tabs.activeId : -1
-        suggestions.tabs = JSON.stringify(tabs.filter(function(t) { return t.id !== front }))
-        suggestions.refresh()
-        closeAnim.stop()
-        openAnim.restart()
-        field.forceActiveFocus()
+        var tabs = browser ? JSON.parse(browser.tabs.tabsJson()) : [];
+        var front = browser ? browser.tabs.activeId : -1;
+        suggestions.tabs = JSON.stringify(tabs.filter(function (t) {
+            return t.id !== front;
+        }));
+        suggestions.refresh();
+        closeAnim.stop();
+        openAnim.restart();
+        field.forceActiveFocus();
     }
     // Back to the page: the glass clears as the keyboard goes.
     function leave(): void {
         if (!_open)
-            return
-        _open = false
-        openAnim.stop()
-        closeAnim.restart()
+            return;
+        _open = false;
+        openAnim.stop();
+        closeAnim.restart();
         // Without focus the field gives up the keyboard.
-        field.focus = false
+        field.focus = false;
     }
     NumberAnimation {
         id: openAnim
@@ -85,8 +87,8 @@ Item {
         duration: 180
         easing.type: Easing.InOutQuad
         onFinished: {
-            field.text = ""
-            page.initialText = ""
+            field.text = "";
+            page.initialText = "";
         }
     }
 
@@ -107,28 +109,32 @@ Item {
 
     function go(text: var): var {
         if (text.trim() === "")
-            return
-        var nav = JSON.parse(Pacific.classify(text))
+            return;
+        var nav = JSON.parse(Pacific.classify(text));
         if (!nav.url)
-            return
+            return;
         if (nav.kind === "search")
-            Pacific.recordSearch(nav.query, nav.engine, privateTab)
-        Pacific.recordSelection(_typed !== "" ? _typed : text, nav.url)
-        browser.open(nav.url, { transition: "typed" })
-        leave()
+            Pacific.recordSearch(nav.query, nav.engine, privateTab);
+        Pacific.recordSelection(_typed !== "" ? _typed : text, nav.url);
+        browser.open(nav.url, {
+            transition: "typed"
+        });
+        leave();
     }
 
     function choose(row: var): void {
-        var s = JSON.parse(suggestions.get(row))
+        var s = JSON.parse(suggestions.get(row));
         if (s.kind === "tab") {
-            browser.switchTo(s.tabId)
+            browser.switchTo(s.tabId);
         } else {
             if (s.kind === "search" || s.kind === "suggestion" || s.kind === "recent")
-                Pacific.recordSearch(s.query, s.engine, privateTab)
-            Pacific.recordSelection(_typed, s.url)
-            browser.open(s.url, { transition: "typed" })
+                Pacific.recordSearch(s.query, s.engine, privateTab);
+            Pacific.recordSelection(_typed, s.url);
+            browser.open(s.url, {
+                transition: "typed"
+            });
         }
-        leave()
+        leave();
     }
 
     SuggestionModel {
@@ -139,16 +145,16 @@ Item {
 
     // Inline completion: only while adding characters at the end.
     function complete(): var {
-        var a = suggestions.autofill
-        var t = field.text
+        var a = suggestions.autofill;
+        var t = field.text;
         if (a === "" || _completing || field.cursorPosition !== t.length)
-            return
+            return;
         if (a.toLowerCase().indexOf(t.toLowerCase()) !== 0 || a.length <= t.length || t !== _typed)
-            return
-        _completing = true
-        field.text = t + a.substring(t.length)
-        field.select(t.length, field.text.length)
-        _completing = false
+            return;
+        _completing = true;
+        field.text = t + a.substring(t.length);
+        field.select(t.length, field.text.length);
+        _completing = false;
     }
 
     // The list and the field come up from where the toolbar was.
@@ -156,12 +162,18 @@ Item {
         id: content
         anchors.fill: parent
         opacity: page.progress
-        transform: Translate { y: (1 - page.progress) * Theme.itemSizeLarge }
+        transform: Translate {
+            y: (1 - page.progress) * Theme.itemSizeLarge
+        }
         SilicaListView {
             id: list
             // As tall as its rows: above them the page shows, and a tap
             // there goes back to it.
-            anchors { left: parent.left; right: parent.right; bottom: field.top }
+            anchors {
+                left: parent.left
+                right: parent.right
+                bottom: field.top
+            }
             height: Math.min(contentHeight, field.y)
             verticalLayoutDirection: ListView.BottomToTop
             clip: true
@@ -189,7 +201,13 @@ Item {
                     }
                     Column {
                         id: pasteText
-                        anchors { left: pasteIcon.right; leftMargin: Theme.paddingMedium; right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                        anchors {
+                            left: pasteIcon.right
+                            leftMargin: Theme.paddingMedium
+                            right: parent.right
+                            rightMargin: Theme.horizontalPageMargin
+                            verticalCenter: parent.verticalCenter
+                        }
                         Label {
                             text: JSON.parse(Pacific.classify(page.clipText)).kind === "url" ? qsTr("Paste and go") : qsTr("Paste and search")
                             color: paste.highlighted ? Theme.highlightColor : Theme.primaryColor
@@ -227,8 +245,10 @@ Item {
                             siteUrl: url
                             iconSource: icon
                             onClicked: {
-                                page.browser.open(url, { transition: "bookmark" })
-                                page.leave()
+                                page.browser.open(url, {
+                                    transition: "bookmark"
+                                });
+                                page.leave();
                             }
                         }
                     }
@@ -253,9 +273,9 @@ Item {
                     ContextMenu {
                         MenuItem {
                             text: qsTr("Remove from recent searches")
-                            onClicked: item.remorseDelete(function() {
-                                Pacific.deleteSearch(item.query)
-                                suggestions.refresh()
+                            onClicked: item.remorseDelete(function () {
+                                Pacific.deleteSearch(item.query);
+                                suggestions.refresh();
                             })
                         }
                     }
@@ -283,7 +303,13 @@ Item {
                 }
                 Column {
                     id: suggestionText
-                    anchors { left: kindIcon.right; leftMargin: Theme.paddingMedium; right: badge.visible ? badge.left : parent.right; rightMargin: badge.visible ? Theme.paddingSmall : Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                    anchors {
+                        left: kindIcon.right
+                        leftMargin: Theme.paddingMedium
+                        right: badge.visible ? badge.left : parent.right
+                        rightMargin: badge.visible ? Theme.paddingSmall : Theme.horizontalPageMargin
+                        verticalCenter: parent.verticalCenter
+                    }
                     Label {
                         width: parent.width
                         text: item.kind === "search" ? qsTr("Search for %1").arg(item.query) : item.title
@@ -294,8 +320,7 @@ Item {
                     Label {
                         width: parent.width
                         visible: text !== ""
-                        text: item.kind === "tab" ? qsTr("Switch to tab") :
-                              (!item.web ? "" : Logic.displayUrl(item.url, "") + (item.url.indexOf("/", 8) > 0 ? item.url.substring(item.url.indexOf("/", 8)) : ""))
+                        text: item.kind === "tab" ? qsTr("Switch to tab") : (!item.web ? "" : Logic.displayUrl(item.url, "") + (item.url.indexOf("/", 8) > 0 ? item.url.substring(item.url.indexOf("/", 8)) : ""))
                         textFormat: Text.PlainText
                         truncationMode: TruncationMode.Fade
                         font.pixelSize: Theme.fontSizeExtraSmall
@@ -305,15 +330,19 @@ Item {
                 // Fill the field with this text to edit it further.
                 IconButton {
                     id: badge
-                    anchors { right: parent.right; rightMargin: Theme.paddingSmall; verticalCenter: parent.verticalCenter }
+                    anchors {
+                        right: parent.right
+                        rightMargin: Theme.paddingSmall
+                        verticalCenter: parent.verticalCenter
+                    }
                     width: Theme.itemSizeSmall
                     height: Theme.itemSizeSmall
                     visible: item.kind !== "tab"
                     icon.source: "image://theme/icon-m-edit"
                     onClicked: {
-                        field.text = item.kind === "search" || item.kind === "suggestion" || item.kind === "recent" ? item.query : item.url
-                        field.cursorPosition = field.text.length
-                        field.forceActiveFocus()
+                        field.text = item.kind === "search" || item.kind === "suggestion" || item.kind === "recent" ? item.query : item.url;
+                        field.cursorPosition = field.text.length;
+                        field.forceActiveFocus();
                     }
                 }
             }
@@ -324,7 +353,12 @@ Item {
         TextField {
             id: field
             objectName: "addressField"
-            anchors { left: parent.left; right: parent.right; bottom: parent.bottom; bottomMargin: Theme.paddingMedium }
+            anchors {
+                left: parent.left
+                right: parent.right
+                bottom: parent.bottom
+                bottomMargin: Theme.paddingMedium
+            }
             label: page.privateTab ? qsTr("Private tab") : qsTr("Address or search")
             placeholderText: qsTr("Search or type an address")
             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
@@ -333,10 +367,10 @@ Item {
             EnterKey.onClicked: page.go(field.text)
             onTextChanged: {
                 if (page._completing)
-                    return
+                    return;
                 // The part a completion added is selected; what is typed is the rest.
-                page._typed = field.selectionStart < field.selectionEnd ? text.substring(0, field.selectionStart) : text
-                suggestions.text = page._typed
+                page._typed = field.selectionStart < field.selectionEnd ? text.substring(0, field.selectionStart) : text;
+                suggestions.text = page._typed;
             }
             // The address is selected, so typing replaces it. Silica's field
             // places the cursor when it takes focus, so select once focus has
@@ -344,8 +378,8 @@ Item {
             property bool _selectedOnce: false
             onActiveFocusChanged: {
                 if (activeFocus && !_selectedOnce && text !== "") {
-                    _selectedOnce = true
-                    Qt.callLater(selectAll)
+                    _selectedOnce = true;
+                    Qt.callLater(selectAll);
                 }
             }
         }

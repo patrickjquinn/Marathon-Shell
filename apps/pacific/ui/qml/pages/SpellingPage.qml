@@ -19,27 +19,30 @@ Page {
 
     readonly property var s: JSON.parse(Pacific.settings)
     // What is checked now: the chosen dictionaries, else the engine's.
-    readonly property var chosen: s.spell_languages && s.spell_languages.length > 0
-                                  ? s.spell_languages : WebEngine.spellCheckingLanguages
+    readonly property var chosen: s.spell_languages && s.spell_languages.length > 0 ? s.spell_languages : WebEngine.spellCheckingLanguages
     readonly property var available: {
-        var list = WebEngine.availableSpellCheckingLanguages.slice()
-        list.sort(function(a, b) { return Logic.languageName(a).localeCompare(Logic.languageName(b)) })
-        return list
+        var list = WebEngine.availableSpellCheckingLanguages.slice();
+        list.sort(function (a, b) {
+            return Logic.languageName(a).localeCompare(Logic.languageName(b));
+        });
+        return list;
     }
 
     allowedOrientations: Orientation.All
 
     function toggle(code: var, on: var): var {
-        var next = []
+        var next = [];
         for (var i = 0; i < chosen.length; ++i)
             if (chosen[i] !== code)
-                next.push(chosen[i])
+                next.push(chosen[i]);
         if (on)
-            next.push(code)
+            next.push(code);
         if (next.length === 0)
-            return false // at least one dictionary stays on
-        Pacific.setSettings(JSON.stringify({ spell_languages: next }))
-        return true
+            return false; // at least one dictionary stays on
+        Pacific.setSettings(JSON.stringify({
+            spell_languages: next
+        }));
+        return true;
     }
 
     SilicaListView {
@@ -48,7 +51,9 @@ Page {
 
         header: Column {
             width: parent.width
-            PageHeader { title: qsTr("Spelling languages") }
+            PageHeader {
+                title: qsTr("Spelling languages")
+            }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * x

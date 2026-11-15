@@ -21,34 +21,37 @@ ApplicationWindow {
     property int current: -1
     property int failures: 0
     property var browserPage: null
-    readonly property string page: "data:text/html;charset=utf-8,<body><script>"
-        + "var n=0;(function f(){n++;requestAnimationFrame(f)})();</script></body>"
+    readonly property string page: "data:text/html;charset=utf-8,<body><script>" + "var n=0;(function f(){n++;requestAnimationFrame(f)})();</script></body>"
 
     function check(name, ok, detail) {
-        console.warn("visibility-silica: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""))
+        console.warn("visibility-silica: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""));
         if (!ok)
-            failures++
+            failures++;
     }
 
     function after(ms, fn) {
-        const t = Qt.createQmlObject("import QtQuick; Timer {}", app)
-        t.interval = ms
-        t.triggered.connect(function() { fn(); t.destroy() })
-        t.start()
+        const t = Qt.createQmlObject("import QtQuick; Timer {}", app);
+        t.interval = ms;
+        t.triggered.connect(function () {
+            fn();
+            t.destroy();
+        });
+        t.start();
     }
 
     function measure(view, fn) {
-        view.runJavaScript("window.__n0=n;window.__t0=performance.now()", function() {
-            after(1000, function() {
-                view.runJavaScript("JSON.stringify({s:document.visibilityState,hz:(n-window.__n0)*1000/(performance.now()-window.__t0)})",
-                    function(r) { fn(JSON.parse(r)) })
-            })
-        })
+        view.runJavaScript("window.__n0=n;window.__t0=performance.now()", function () {
+            after(1000, function () {
+                view.runJavaScript("JSON.stringify({s:document.visibilityState,hz:(n-window.__n0)*1000/(performance.now()-window.__t0)})", function (r) {
+                    fn(JSON.parse(r));
+                });
+            });
+        });
     }
 
     function finish() {
-        console.warn("visibility-silica: " + (failures ? failures + " failure(s)" : "all passed"))
-        Qt.exit(failures ? 1 : 0)
+        console.warn("visibility-silica: " + (failures ? failures + " failure(s)" : "all passed"));
+        Qt.exit(failures ? 1 : 0);
     }
 
     initialPage: Component {
@@ -101,32 +104,32 @@ ApplicationWindow {
         interval: 2000
         running: true
         onTriggered: {
-            app.current = 1
-            app.after(1500, function() {
-                const front = app.browserPage.tabs.itemAt(1).view
-                const back = app.browserPage.tabs.itemAt(0).view
-                app.measure(front, function(f) {
-                    app.check("front tab visible", f.s === "visible", f.s)
-                    app.check("front tab rAF >= 50 Hz", f.hz >= 50, Math.round(f.hz) + " Hz")
-                    back.runJavaScript("document.visibilityState", function(s) {
-                        app.check("background tab hidden", s === "hidden", s)
-                        app.pageStack.push(coverPage, {}, PageStackAction.Immediate)
-                        app.after(1500, function() {
-                            front.runJavaScript("document.visibilityState", function(s2) {
-                                app.check("covered by another page: hidden", s2 === "hidden", s2)
-                                app.pageStack.pop(null, PageStackAction.Immediate)
-                                app.after(1500, function() {
-                                    app.measure(front, function(f2) {
-                                        app.check("page popped: visible again", f2.s === "visible", f2.s)
-                                        app.check("page popped: rAF >= 50 Hz", f2.hz >= 50, Math.round(f2.hz) + " Hz")
-                                        app.finish()
-                                    })
-                                })
-                            })
-                        })
-                    })
-                })
-            })
+            app.current = 1;
+            app.after(1500, function () {
+                const front = app.browserPage.tabs.itemAt(1).view;
+                const back = app.browserPage.tabs.itemAt(0).view;
+                app.measure(front, function (f) {
+                    app.check("front tab visible", f.s === "visible", f.s);
+                    app.check("front tab rAF >= 50 Hz", f.hz >= 50, Math.round(f.hz) + " Hz");
+                    back.runJavaScript("document.visibilityState", function (s) {
+                        app.check("background tab hidden", s === "hidden", s);
+                        app.pageStack.push(coverPage, {}, PageStackAction.Immediate);
+                        app.after(1500, function () {
+                            front.runJavaScript("document.visibilityState", function (s2) {
+                                app.check("covered by another page: hidden", s2 === "hidden", s2);
+                                app.pageStack.pop(null, PageStackAction.Immediate);
+                                app.after(1500, function () {
+                                    app.measure(front, function (f2) {
+                                        app.check("page popped: visible again", f2.s === "visible", f2.s);
+                                        app.check("page popped: rAF >= 50 Hz", f2.hz >= 50, Math.round(f2.hz) + " Hz");
+                                        app.finish();
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
         }
     }
 
@@ -134,8 +137,8 @@ ApplicationWindow {
         interval: 60000
         running: true
         onTriggered: {
-            console.warn("visibility-silica: FAIL timeout")
-            Qt.exit(2)
+            console.warn("visibility-silica: FAIL timeout");
+            Qt.exit(2);
         }
     }
 }

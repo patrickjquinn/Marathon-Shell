@@ -26,10 +26,18 @@ Page {
             width: parent.width
             spacing: Theme.paddingMedium
 
-            PageHeader { title: qsTr("About Pacific") }
+            PageHeader {
+                title: qsTr("About Pacific")
+            }
 
-            DetailItem { label: qsTr("Version"); value: Pacific.version }
-            DetailItem { label: qsTr("Web engine"); value: "WPE WebKit " + WebEngine.version }
+            DetailItem {
+                label: qsTr("Version")
+                value: Pacific.version
+            }
+            DetailItem {
+                label: qsTr("Web engine")
+                value: "WPE WebKit " + WebEngine.version
+            }
 
             Label {
                 x: Theme.horizontalPageMargin
@@ -38,7 +46,9 @@ Page {
                 color: Theme.highlightColor
                 text: qsTr("Pacific is free, with no telemetry, ads or account. It only connects on its own to update its filter lists, and to your search engine for suggestions if you allow it.")
             }
-            SectionHeader { text: qsTr("Thanks") }
+            SectionHeader {
+                text: qsTr("Thanks")
+            }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * x

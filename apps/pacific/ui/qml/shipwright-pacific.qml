@@ -26,92 +26,98 @@ ApplicationWindow {
     // stack, the tab's history, then a tab another app opened goes back to
     // that app. false: the shell leaves Pacific.
     function handleBack(): bool {
-        var current = pageStack.currentPage
-        var menu = current ? window._openMenu(current) : null
+        var current = pageStack.currentPage;
+        var menu = current ? window._openMenu(current) : null;
         if (menu) {
-            menu.close()
-            return true
+            menu.close();
+            return true;
         }
         if (current && current.objectName === "browserPage") {
             if (current.closeOverlay())
-                return true
+                return true;
             if (browserState.fullscreen) {
-                browserState.exitFullscreen()
-                return true
+                browserState.exitFullscreen();
+                return true;
             }
             if (browserState.currentTab && browserState.currentTab.readerMode) {
-                browserState.currentTab.toggleReader()
-                return true
+                browserState.currentTab.toggleReader();
+                return true;
             }
         }
         if (current && current.objectName === "tabsPage") {
-            browserState.returnFromTabs()
-            return true
+            browserState.returnFromTabs();
+            return true;
         }
         if (pageStack.depth > 1) {
-            pageStack.pop()
-            return true
+            pageStack.pop();
+            return true;
         }
-        var tab = browserState.currentTab
+        var tab = browserState.currentTab;
         if (tab && tab.webView.canGoBack) {
-            tab.webView.goBack()
-            return true
+            tab.webView.goBack();
+            return true;
         }
         if (tab && tab.openedByApp)
-            browserState.close(tab.tabId)
-        return false
+            browserState.close(tab.tabId);
+        return false;
     }
 
     // The forward gesture and Alt+Right.
     function handleForward(): bool {
-        var tab = browserState.currentTab
+        var tab = browserState.currentTab;
         if (pageStack.depth > 1 || !tab || !tab.webView.canGoForward)
-            return false
-        tab.webView.goForward()
-        return true
+            return false;
+        tab.webView.goForward();
+        return true;
     }
 
     function handleFreeze(): void {
-        browserState.prepareFreeze()
+        browserState.prepareFreeze();
     }
 
     function handleThaw(): void {
-        browserState.thawed()
+        browserState.thawed();
     }
 
     // A page search offers (manifest deepLinks).
     function openRoute(route: var): void {
         if (route === "new-tab")
-            browserState.newTab(false)
+            browserState.newTab(false);
         else if (route === "private")
-            browserState.newTab(true)
+            browserState.newTab(true);
         else if (route === "bookmarks" || route === "history" || route === "downloads")
-            pageStack.push(Qt.resolvedUrl("pages/" + route.charAt(0).toUpperCase() + route.slice(1) + "Page.qml"),
-                           { browser: browserState })
+            pageStack.push(Qt.resolvedUrl("pages/" + route.charAt(0).toUpperCase() + route.slice(1) + "Page.qml"), {
+                browser: browserState
+            });
     }
 
     // A link or text from the share sheet: an address opens, other text is
     // searched for.
     function receiveShare(resources: var): void {
         for (var i = 0; i < (resources || []).length; ++i) {
-            var text = String(resources[i].data || "").trim()
-            if (text !== "" && browserState.navigate(text, { newTab: true, private: false })) {
-                activate()
-                return
+            var text = String(resources[i].data || "").trim();
+            if (text !== "" && browserState.navigate(text, {
+                newTab: true,
+                private: false
+            })) {
+                activate();
+                return;
             }
         }
     }
 
     function start(): var {
         if (_started || !Pacific.ready)
-            return
-        _started = true
-        browserState.restore()
+            return;
+        _started = true;
+        browserState.restore();
         if (!browserState.settings.first_run_done)
-            pageStack.push(Qt.resolvedUrl("pages/FirstRunPage.qml"), { browser: browserState })
+            pageStack.push(Qt.resolvedUrl("pages/FirstRunPage.qml"), {
+                browser: browserState
+            });
         // qmllint disable unqualified
         if (typeof MARATHON_APP_ROUTE !== "undefined" && MARATHON_APP_ROUTE !== "")
-            openRoute(MARATHON_APP_ROUTE)
+            openRoute(MARATHON_APP_ROUTE);
         // qmllint enable unqualified
     }
 
@@ -160,8 +166,8 @@ ApplicationWindow {
 
         function onDeepLinkRequested(appId, route, params) {
             if (appId === window.appId) {
-                window.activate()
-                window.openRoute(route)
+                window.activate();
+                window.openRoute(route);
             }
         }
     }
@@ -185,6 +191,8 @@ ApplicationWindow {
 
     Connections {
         target: Pacific
-        function onReadyChanged() { window.start() }
+        function onReadyChanged() {
+            window.start();
+        }
     }
 }

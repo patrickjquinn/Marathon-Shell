@@ -19,8 +19,8 @@ Rectangle {
     property alias rejectText: reject.text
     property alias rememberVisible: remember.visible
     property alias remember: remember.checked
-    signal accepted()
-    signal rejected()
+    signal accepted
+    signal rejected
 
     height: column.height + 2 * Theme.paddingMedium
     color: Theme.rgba(Theme.overlayBackgroundColor, 1.0)

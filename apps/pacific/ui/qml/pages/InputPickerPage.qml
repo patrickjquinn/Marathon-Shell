@@ -19,27 +19,30 @@ Dialog {
 
     allowedOrientations: Orientation.All
 
-    function pad(n: var): var { return (n < 10 ? "0" : "") + n }
+    function pad(n: var): var {
+        return (n < 10 ? "0" : "") + n;
+    }
 
     onAccepted: {
-        _answered = true
-        var d = date.date
-        var out = ""
+        _answered = true;
+        var d = date.date;
+        var out = "";
         if (type === "date")
-            out = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
+            out = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
         else if (type === "month")
-            out = d.getFullYear() + "-" + pad(d.getMonth() + 1)
+            out = d.getFullYear() + "-" + pad(d.getMonth() + 1);
         else if (type === "time")
-            out = pad(time.hour) + ":" + pad(time.minute)
+            out = pad(time.hour) + ":" + pad(time.minute);
         else if (type === "datetime-local")
-            out = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(time.hour) + ":" + pad(time.minute)
+            out = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(time.hour) + ":" + pad(time.minute);
         else if (type === "color")
-            out = colorText.text
+            out = colorText.text;
         else
-            out = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
-        view.resolveInputPicker(out)
+            out = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+        view.resolveInputPicker(out);
     }
-    onRejected: if (!_answered && view) view.cancelInputPicker()
+    onRejected: if (!_answered && view)
+        view.cancelInputPicker()
 
     SilicaFlickable {
         anchors.fill: parent
@@ -48,7 +51,9 @@ Dialog {
         Column {
             id: column
             width: parent.width
-            DialogHeader { title: dialog.type === "time" ? qsTr("Time") : (dialog.type === "color" ? qsTr("Colour") : qsTr("Date")) }
+            DialogHeader {
+                title: dialog.type === "time" ? qsTr("Time") : (dialog.type === "color" ? qsTr("Colour") : qsTr("Date"))
+            }
             DatePicker {
                 id: date
                 visible: dialog.type !== "time" && dialog.type !== "color"

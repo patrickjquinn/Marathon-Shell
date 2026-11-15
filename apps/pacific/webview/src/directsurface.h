@@ -56,7 +56,7 @@ struct wl_surface;
 class QWindow;
 
 class DirectSurface {
-public:
+  public:
     // Unless PACIFIC_DIRECT=0, read once.
     static bool enabled();
 
@@ -64,84 +64,95 @@ public:
     // presented frame (the subsurface's frame callback).
     // releaseImage gives an image back to WebKit (GUI thread), for frames
     // whose release was deferred (deferRelease).
-    DirectSurface(std::function<void()> frameDone, std::function<void(struct wpe_fdo_egl_exported_image*)> releaseImage);
+    DirectSurface(std::function<void()>                                    frameDone,
+                  std::function<void(struct wpe_fdo_egl_exported_image *)> releaseImage);
     ~DirectSurface();
 
     // Creates the subsurface under the window's wl_surface on first use;
     // false (and inert) when the platform or the compositor cannot.
-    bool ensureCreated(QWindow* window);
-    bool isValid() const { return m_valid; }
+    bool ensureCreated(QWindow *window);
+    bool isValid() const {
+        return m_valid;
+    }
 
     // Where the web content goes, in the parent surface's pixels.
-    void setGeometry(const QRect& rect);
+    void setGeometry(const QRect &rect);
     // Shown: frames go to the subsurface. Hidden: it is moved off screen.
     void setShown(bool shown);
-    bool isShown() const { return m_valid && m_shown; }
+    bool isShown() const {
+        return m_valid && m_shown;
+    }
     // A presented frame the compositor has not called back for yet.
-    bool framePending() const { return m_frameCallback != nullptr; }
+    bool framePending() const {
+        return m_frameCallback != nullptr;
+    }
 
     // Shows the frame on the subsurface: WebKit's buffer itself, or a GL copy
     // (GUI thread).
-    void present(struct wpe_fdo_egl_exported_image* image);
+    void present(struct wpe_fdo_egl_exported_image *image);
 
     // An image the owner is done with: true when Lipstick still reads its
     // buffer, and the image goes back (releaseImage) when Lipstick lets go.
-    bool deferRelease(struct wpe_fdo_egl_exported_image* image);
+    bool deferRelease(struct wpe_fdo_egl_exported_image *image);
 
-    void onRegistryGlobal(void* registry, uint32_t name, const char* interface);
+    void onRegistryGlobal(void *registry, uint32_t name, const char *interface);
     void onFrameDone();
 
     // WebKit's buffer forwarded to Lipstick, for the buffer's life.
     struct Forwarded;
-    void onBufferReleased(Forwarded* forwarded);
-    void onResourceDestroyed(Forwarded* forwarded);
+    void onBufferReleased(Forwarded *forwarded);
+    void onResourceDestroyed(Forwarded *forwarded);
 
-private:
-    bool bindGlobals();
-    bool setupGl();
-    void applyPosition();
-    void commitParent();
-    void destroy();
-    unsigned textureFor(struct wpe_fdo_egl_exported_image* image);
-    void presentGl(struct wpe_fdo_egl_exported_image* image);
-    bool presentAttached(struct wpe_fdo_egl_exported_image* image);
-    Forwarded* forward(struct wpe_fdo_egl_exported_image* image);
-    void dropForwarded();
+  private:
+    bool       bindGlobals();
+    bool       setupGl();
+    void       applyPosition();
+    void       commitParent();
+    void       destroy();
+    unsigned   textureFor(struct wpe_fdo_egl_exported_image *image);
+    void       presentGl(struct wpe_fdo_egl_exported_image *image);
+    bool       presentAttached(struct wpe_fdo_egl_exported_image *image);
+    Forwarded *forward(struct wpe_fdo_egl_exported_image *image);
+    void       dropForwarded();
 
-    enum class Mode { Unknown, Attach, Gl };
+    enum class Mode {
+        Unknown,
+        Attach,
+        Gl
+    };
 
-    std::function<void()> m_frameDone;
-    std::function<void(struct wpe_fdo_egl_exported_image*)> m_releaseImage;
-    Mode m_mode = Mode::Unknown;
-    wl_proxy* m_wlegl = nullptr;
-    std::vector<std::unique_ptr<Forwarded>> m_forwarded;
-    bool m_valid = false;
-    bool m_attempted = false;
-    bool m_shown = false;
+    std::function<void()>                                    m_frameDone;
+    std::function<void(struct wpe_fdo_egl_exported_image *)> m_releaseImage;
+    Mode                                                     m_mode  = Mode::Unknown;
+    wl_proxy                                                *m_wlegl = nullptr;
+    std::vector<std::unique_ptr<Forwarded>>                  m_forwarded;
+    bool                                                     m_valid     = false;
+    bool                                                     m_attempted = false;
+    bool                                                     m_shown     = false;
 
-    wl_display* m_display = nullptr;
-    wl_surface* m_parent = nullptr;
-    wl_compositor* m_compositor = nullptr;
-    wl_subcompositor* m_subcompositor = nullptr;
-    wl_surface* m_surface = nullptr;
-    wl_subsurface* m_subsurface = nullptr;
-    wl_egl_window* m_eglWindow = nullptr;
-    wl_callback* m_frameCallback = nullptr;
+    wl_display                                              *m_display       = nullptr;
+    wl_surface                                              *m_parent        = nullptr;
+    wl_compositor                                           *m_compositor    = nullptr;
+    wl_subcompositor                                        *m_subcompositor = nullptr;
+    wl_surface                                              *m_surface       = nullptr;
+    wl_subsurface                                           *m_subsurface    = nullptr;
+    wl_egl_window                                           *m_eglWindow     = nullptr;
+    wl_callback                                             *m_frameCallback = nullptr;
 
-    void* m_eglDisplay = nullptr;
-    void* m_eglContext = nullptr;
-    void* m_eglSurface = nullptr;
-    unsigned m_program = 0;
+    void                                                    *m_eglDisplay = nullptr;
+    void                                                    *m_eglContext = nullptr;
+    void                                                    *m_eglSurface = nullptr;
+    unsigned                                                 m_program    = 0;
     struct ImageTexture {
-        void* image = nullptr;
+        void    *image   = nullptr;
         unsigned texture = 0;
     };
-    std::array<ImageTexture, 4> m_textures {};
-    unsigned m_nextTexture = 0;
-    QSize m_textureSize;
-    bool m_dropTextures = false;
-    int m_sampler = -1;
+    std::array<ImageTexture, 4> m_textures{};
+    unsigned                    m_nextTexture = 0;
+    QSize                       m_textureSize;
+    bool                        m_dropTextures = false;
+    int                         m_sampler      = -1;
 
-    QRect m_geometry;
-    QRect m_applied;
+    QRect                       m_geometry;
+    QRect                       m_applied;
 };

@@ -26,7 +26,11 @@ BackgroundItem {
 
     LetterIcon {
         id: letter
-        anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: Theme.paddingSmall }
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            top: parent.top
+            topMargin: Theme.paddingSmall
+        }
         text: Logic.initial(tile.siteTitle, tile.siteUrl)
         url: tile.siteUrl
         iconSource: tile.iconSource
@@ -41,11 +45,18 @@ BackgroundItem {
     // The site's short name (`wikipedia` for en.wikipedia.org), centred,
     // at most two lines, inside the cell.
     Label {
-        anchors { top: letter.bottom; topMargin: Theme.paddingSmall; left: parent.left; right: parent.right; leftMargin: Theme.paddingSmall / 2; rightMargin: Theme.paddingSmall / 2 }
+        anchors {
+            top: letter.bottom
+            topMargin: Theme.paddingSmall
+            left: parent.left
+            right: parent.right
+            leftMargin: Theme.paddingSmall / 2
+            rightMargin: Theme.paddingSmall / 2
+        }
         horizontalAlignment: Text.AlignHCenter
         text: {
-            var site = Pacific.siteName(tile.siteUrl)
-            return site !== "" ? site : (tile.siteTitle !== "" ? tile.siteTitle : Logic.host(tile.siteUrl))
+            var site = Pacific.siteName(tile.siteUrl);
+            return site !== "" ? site : (tile.siteTitle !== "" ? tile.siteTitle : Logic.host(tile.siteUrl));
         }
         textFormat: Text.PlainText
         // Names of several words wrap between words; a long one-word name

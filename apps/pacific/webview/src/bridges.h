@@ -23,9 +23,8 @@
 
 // An engine entry point. Qt loads this plugin RTLD_LOCAL, and musl's
 // RTLD_DEFAULT does not search the libraries it brought in.
-inline void* engineSymbol(const char* name)
-{
-    static void* const engine = dlopen("libWPEWebKit-2.0.so.1", RTLD_NOW | RTLD_NOLOAD);
+inline void *engineSymbol(const char *name) {
+    static void *const engine = dlopen("libWPEWebKit-2.0.so.1", RTLD_NOW | RTLD_NOLOAD);
     return dlsym(engine ? engine : RTLD_DEFAULT, name);
 }
 
@@ -38,44 +37,44 @@ class QRotationSensor;
 class GeolocationBridge final : public QObject {
     Q_OBJECT
 
-public:
-    static void attach(WebKitWebContext* context);
+  public:
+    static void attach(WebKitWebContext *context);
 
-private:
-    explicit GeolocationBridge(WebKitGeolocationManager* manager);
-    void start();
-    void stop();
-    void positionUpdated(const QGeoPositionInfo& info);
+  private:
+    explicit GeolocationBridge(WebKitGeolocationManager *manager);
+    void                      start();
+    void                      stop();
+    void                      positionUpdated(const QGeoPositionInfo &info);
 
-    WebKitGeolocationManager* m_manager;
-    QGeoPositionInfoSource* m_source = nullptr;
+    WebKitGeolocationManager *m_manager;
+    QGeoPositionInfoSource   *m_source = nullptr;
 };
 
 class DeviceOrientationBridge final : public QObject {
     Q_OBJECT
 
-public:
+  public:
     static bool available();
-    static void attach(WebKitWebView* view);
+    static void attach(WebKitWebView *view);
 
-private:
-    explicit DeviceOrientationBridge(WebKitWebView* view);
+  private:
+    explicit DeviceOrientationBridge(WebKitWebView *view);
     ~DeviceOrientationBridge() override;
-    void setNeeded(bool orientation, bool motion);
-    void rotationChanged();
-    void motionChanged();
+    void             setNeeded(bool orientation, bool motion);
+    void             rotationChanged();
+    void             motionChanged();
 
-    WebKitWebView* m_view;
-    QRotationSensor* m_rotation = nullptr;
-    QAccelerometer* m_accelerometer = nullptr;
-    QAccelerometer* m_linearAccelerometer = nullptr;
-    QGyroscope* m_gyroscope = nullptr;
-    bool m_orientationActive = false;
-    bool m_motionActive = false;
+    WebKitWebView   *m_view;
+    QRotationSensor *m_rotation            = nullptr;
+    QAccelerometer  *m_accelerometer       = nullptr;
+    QAccelerometer  *m_linearAccelerometer = nullptr;
+    QGyroscope      *m_gyroscope           = nullptr;
+    bool             m_orientationActive   = false;
+    bool             m_motionActive        = false;
 };
 
 namespace ClipboardBridge {
-// Routes page clipboard writes to QClipboard. Idempotent; true when the
-// engine has the hook.
-bool ensure();
+    // Routes page clipboard writes to QClipboard. Idempotent; true when the
+    // engine has the hook.
+    bool ensure();
 } // namespace ClipboardBridge

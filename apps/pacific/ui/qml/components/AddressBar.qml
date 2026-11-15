@@ -39,15 +39,15 @@ SilicaItem {
     property bool protectionIncomplete: false
     property bool readable: false
 
-    signal addressClicked()
-    signal tabsClicked()
+    signal addressClicked
+    signal tabsClicked
     // Press and hold: the tab menu (new tab, new private tab, close all).
-    signal tabsHeld()
-    signal menuClicked()
-    signal shieldClicked()
-    signal readerClicked()
+    signal tabsHeld
+    signal menuClicked
+    signal shieldClicked
+    signal readerClicked
     // Gestures on the pill: dx, dy from the press; `velocity` px/s at release.
-    signal dragStarted()
+    signal dragStarted
     signal dragMoved(real dx, real dy)
     signal dragEnded(real dx, real dy, real velocityX, real velocityY)
 
@@ -55,8 +55,7 @@ SilicaItem {
     // A page that could not be shown (certificate, HTTPS-only, load
     // error): the bar names the address that was asked for, not the page
     // still behind the panel.
-    readonly property var problem: !tab ? null
-                                   : (tab.certificateProblem || tab.interstitial || tab.loadError || null)
+    readonly property var problem: !tab ? null : (tab.certificateProblem || tab.interstitial || tab.loadError || null)
     readonly property string problemUrl: !problem ? "" : (problem.url || problem.http_url || "")
     readonly property string pageUrl: problemUrl !== "" ? problemUrl : (view ? String(view.url) : "")
     readonly property bool loading: view !== null && view.loading
@@ -98,17 +97,23 @@ SilicaItem {
         id: progressLine
         objectName: "progressLine"
         readonly property real target: bar.width * bar.progress
-        anchors { top: parent.top; bottom: parent.bottom; left: parent.left }
+        anchors {
+            top: parent.top
+            bottom: parent.bottom
+            left: parent.left
+        }
         width: 0
         opacity: bar.loading || grow.running ? 1 : 0
-        Behavior on opacity { FadeAnimation {} }
+        Behavior on opacity {
+            FadeAnimation {}
+        }
         onTargetChanged: {
             if (target < width) {
-                grow.stop()
-                width = target
+                grow.stop();
+                width = target;
             } else {
-                grow.to = target
-                grow.restart()
+                grow.to = target;
+                grow.restart();
             }
         }
         SmoothedAnimation {
@@ -119,8 +124,14 @@ SilicaItem {
         }
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint) }
-            GradientStop { position: 1.0; color: Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityHigh) }
+            GradientStop {
+                position: 0.0
+                color: Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint)
+            }
+            GradientStop {
+                position: 1.0
+                color: Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityHigh)
+            }
         }
     }
 
@@ -128,7 +139,13 @@ SilicaItem {
 
     Row {
         id: row
-        anchors { left: parent.left; right: parent.right; leftMargin: Theme.paddingSmall; rightMargin: Theme.paddingSmall; verticalCenter: parent.verticalCenter }
+        anchors {
+            left: parent.left
+            right: parent.right
+            leftMargin: Theme.paddingSmall
+            rightMargin: Theme.paddingSmall
+            verticalCenter: parent.verticalCenter
+        }
         height: bar.height
 
         // Silica's tab icon with the count inside it.
@@ -137,8 +154,7 @@ SilicaItem {
             objectName: "tabsButton"
             width: bar.buttonWidth
             height: parent.height
-            icon.source: bar.privateTab ? (bar.tabCount > 0 ? "image://theme/icon-m-incognito-selected" : "image://theme/icon-m-incognito")
-                                        : "image://theme/icon-m-tabs"
+            icon.source: bar.privateTab ? (bar.tabCount > 0 ? "image://theme/icon-m-incognito-selected" : "image://theme/icon-m-incognito") : "image://theme/icon-m-tabs"
             onClicked: bar.tabsClicked()
             onPressAndHold: bar.tabsHeld()
 
@@ -150,18 +166,20 @@ SilicaItem {
             property int _lastCount: -1
             readonly property int count: bar.tabCount
             onCountChanged: {
-                var step = count - _lastCount
+                var step = count - _lastCount;
                 if (_lastCount >= 0 && Math.abs(step) === 1 && bar.visible) {
-                    turn.from = 0
-                    turn.to = step > 0 ? 360 : -360
-                    turn.restart()
-                    pop.restart()
+                    turn.from = 0;
+                    turn.to = step > 0 ? 360 : -360;
+                    turn.restart();
+                    pop.restart();
                 }
-                _lastCount = count
+                _lastCount = count;
             }
             Connections {
                 target: bar
-                function onPrivateTabChanged() { tabsButton._lastCount = -1 }
+                function onPrivateTabChanged() {
+                    tabsButton._lastCount = -1;
+                }
             }
             RotationAnimator {
                 id: turn
@@ -171,8 +189,20 @@ SilicaItem {
             }
             SequentialAnimation {
                 id: pop
-                NumberAnimation { target: countLabel; property: "scale"; to: 1.5; duration: 110; easing.type: Easing.OutQuad }
-                NumberAnimation { target: countLabel; property: "scale"; to: 1; duration: 260; easing.type: Easing.OutBack }
+                NumberAnimation {
+                    target: countLabel
+                    property: "scale"
+                    to: 1.5
+                    duration: 110
+                    easing.type: Easing.OutQuad
+                }
+                NumberAnimation {
+                    target: countLabel
+                    property: "scale"
+                    to: 1
+                    duration: 260
+                    easing.type: Easing.OutBack
+                }
             }
             Label {
                 id: countLabel
@@ -182,8 +212,7 @@ SilicaItem {
                 text: bar.tabCount > 99 ? "∞" : bar.tabCount
                 font.pixelSize: Theme.fontSizeExtraSmall
                 font.bold: true
-                color: bar.privateTab ? Theme.overlayBackgroundColor
-                                      : (tabsButton.highlighted ? Theme.highlightColor : Theme.primaryColor)
+                color: bar.privateTab ? Theme.overlayBackgroundColor : (tabsButton.highlighted ? Theme.highlightColor : Theme.primaryColor)
             }
         }
 
@@ -195,7 +224,11 @@ SilicaItem {
             opacity: bar.canGoBack ? 1 : 0
             enabled: bar.canGoBack
             clip: true
-            Behavior on width { NumberAnimation { duration: 150 } }
+            Behavior on width {
+                NumberAnimation {
+                    duration: 150
+                }
+            }
             icon.source: "image://theme/icon-m-back"
             onClicked: bar.view.goBack()
         }
@@ -251,8 +284,7 @@ SilicaItem {
         Item {
             id: urlArea
             objectName: "addressPill"
-            width: row.width - tabsButton.width - backButton.width - (siteButton.visible ? siteButton.width : 0)
-                   - (actionButton.visible ? actionButton.width : 0) - menuButton.width
+            width: row.width - tabsButton.width - backButton.width - (siteButton.visible ? siteButton.width : 0) - (actionButton.visible ? actionButton.width : 0) - menuButton.width
             height: parent.height
 
             MouseArea {
@@ -269,58 +301,68 @@ SilicaItem {
                 property real vy
                 property bool dragging: false
 
-                onPressed: function(mouse) {
-                    startX = mouse.x; startY = mouse.y
-                    lastX = mouse.x; lastY = mouse.y
-                    lastT = Date.now(); vx = 0; vy = 0
-                    dragging = false
+                onPressed: function (mouse) {
+                    startX = mouse.x;
+                    startY = mouse.y;
+                    lastX = mouse.x;
+                    lastY = mouse.y;
+                    lastT = Date.now();
+                    vx = 0;
+                    vy = 0;
+                    dragging = false;
                 }
-                onPositionChanged: function(mouse) {
-                    var now = Date.now()
-                    var dt = Math.max(1, now - lastT)
-                    vx = 0.7 * vx + 0.3 * (mouse.x - lastX) * 1000 / dt
-                    vy = 0.7 * vy + 0.3 * (mouse.y - lastY) * 1000 / dt
-                    lastX = mouse.x; lastY = mouse.y; lastT = now
-                    var dx = mouse.x - startX, dy = mouse.y - startY
+                onPositionChanged: function (mouse) {
+                    var now = Date.now();
+                    var dt = Math.max(1, now - lastT);
+                    vx = 0.7 * vx + 0.3 * (mouse.x - lastX) * 1000 / dt;
+                    vy = 0.7 * vy + 0.3 * (mouse.y - lastY) * 1000 / dt;
+                    lastX = mouse.x;
+                    lastY = mouse.y;
+                    lastT = now;
+                    var dx = mouse.x - startX, dy = mouse.y - startY;
                     if (!dragging && Math.abs(dx) + Math.abs(dy) > Theme.startDragDistance) {
-                        dragging = true
-                        bar.dragStarted()
+                        dragging = true;
+                        bar.dragStarted();
                     }
                     if (dragging)
-                        bar.dragMoved(dx, dy)
+                        bar.dragMoved(dx, dy);
                 }
-                onReleased: function(mouse) {
+                onReleased: function (mouse) {
                     if (dragging)
-                        bar.dragEnded(mouse.x - startX, mouse.y - startY, vx, vy)
+                        bar.dragEnded(mouse.x - startX, mouse.y - startY, vx, vy);
                     else
-                        bar.addressClicked()
-                    dragging = false
+                        bar.addressClicked();
+                    dragging = false;
                 }
                 onCanceled: {
                     if (dragging)
-                        bar.dragEnded(0, 0, 0, 0)
-                    dragging = false
+                        bar.dragEnded(0, 0, 0, 0);
+                    dragging = false;
                 }
             }
 
             Label {
                 id: siteLabel
                 objectName: "siteLabel"
-                anchors { left: parent.left; right: parent.right; leftMargin: siteButton.visible ? 0 : Theme.paddingMedium; verticalCenter: parent.verticalCenter }
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    leftMargin: siteButton.visible ? 0 : Theme.paddingMedium
+                    verticalCenter: parent.verticalCenter
+                }
                 textFormat: Text.PlainText
                 truncationMode: TruncationMode.Fade
                 font.pixelSize: Theme.fontSizeMedium
                 text: {
                     if (!bar.view || Logic.displayUrl(bar.pageUrl, "") === "")
-                        return qsTr("Search or address")
+                        return qsTr("Search or address");
                     // Reader mode: the site the article came from.
                     if (bar.tab && bar.tab.readerMode && bar.tab.url.indexOf("http") === 0)
-                        return Pacific.siteOf(bar.tab.url)
-                    var t = Logic.barText(bar.pageUrl, bar.problem ? "" : bar.view.title, bar.site)
-                    return bar.insecure ? qsTr("Not secure · %1").arg(t) : t
+                        return Pacific.siteOf(bar.tab.url);
+                    var t = Logic.barText(bar.pageUrl, bar.problem ? "" : bar.view.title, bar.site);
+                    return bar.insecure ? qsTr("Not secure · %1").arg(t) : t;
                 }
-                color: gesture.pressed ? Theme.highlightColor
-                                       : (!bar.view || Logic.displayUrl(bar.pageUrl, "") === "" ? Theme.secondaryColor : Theme.primaryColor)
+                color: gesture.pressed ? Theme.highlightColor : (!bar.view || Logic.displayUrl(bar.pageUrl, "") === "" ? Theme.secondaryColor : Theme.primaryColor)
             }
         }
 
@@ -334,9 +376,9 @@ SilicaItem {
             highlighted: down || (bar.tab !== null && bar.tab.readerMode)
             onClicked: {
                 if (bar.loading)
-                    bar.view.stop()
+                    bar.view.stop();
                 else
-                    bar.readerClicked()
+                    bar.readerClicked();
             }
         }
 

@@ -37,22 +37,25 @@ Page {
     allowedOrientations: Orientation.All
 
     function openTab(id: var, isPrivate: var): void {
-        browser.switchTo(id, isPrivate === undefined ? showPrivate : isPrivate)
-        back()
+        browser.switchTo(id, isPrivate === undefined ? showPrivate : isPrivate);
+        back();
     }
     // To the browser page, whose page grows back from the overview's size.
     function back(): void {
-        browser.returnFromTabs()
+        browser.returnFromTabs();
     }
 
     // Made by BrowserPage ahead of its push (an object the page stack hands
     // back rather than destroying when it is popped): gone once popped.
     property bool ownedByCaller: false
     property bool _wasShown: false
-    onStatusChanged: if (status === PageStatus.Active) _wasShown = true
+    onStatusChanged: if (status === PageStatus.Active)
+        _wasShown = true
     onPageContainerChanged: {
         if (ownedByCaller && _wasShown && !pageContainer)
-            Qt.callLater(function() { page.destroy() })
+            Qt.callLater(function () {
+                page.destroy();
+            });
     }
 
     // Comes in as the page shrinks away into it (BrowserPage): the cards
@@ -60,37 +63,66 @@ Page {
     Component.onCompleted: enter.start()
     ParallelAnimation {
         id: enter
-        NumberAnimation { target: tabView; property: "opacity"; from: 0.3; to: 1; duration: 180; easing.type: Easing.OutQuad }
-        NumberAnimation { target: tabView; property: "scale"; from: 1.08; to: 1; duration: 240; easing.type: Easing.OutCubic }
+        NumberAnimation {
+            target: tabView
+            property: "opacity"
+            from: 0.3
+            to: 1
+            duration: 180
+            easing.type: Easing.OutQuad
+        }
+        NumberAnimation {
+            target: tabView
+            property: "scale"
+            from: 1.08
+            to: 1
+            duration: 240
+            easing.type: Easing.OutCubic
+        }
     }
     function kindTitle(isPrivate: var): var {
-        return isPrivate ? qsTr("Private (%1)").arg(browser.privateTabs.count) : qsTr("Tabs (%1)").arg(browser.normalTabs.count)
+        return isPrivate ? qsTr("Private (%1)").arg(browser.privateTabs.count) : qsTr("Tabs (%1)").arg(browser.normalTabs.count);
     }
     function matches(title: var, url: var): var {
-        var q = search.trim().toLowerCase()
-        return q === "" || (String(title) + " " + String(url)).toLowerCase().indexOf(q) >= 0
+        var q = search.trim().toLowerCase();
+        return q === "" || (String(title) + " " + String(url)).toLowerCase().indexOf(q) >= 0;
     }
 
     ListModel {
         id: kinds
         Component.onCompleted: {
-            append({ title: page.kindTitle(false), icon: "image://theme/icon-m-tabs" })
-            append({ title: page.kindTitle(true), icon: "image://theme/icon-m-incognito" })
+            append({
+                title: page.kindTitle(false),
+                icon: "image://theme/icon-m-tabs"
+            });
+            append({
+                title: page.kindTitle(true),
+                icon: "image://theme/icon-m-incognito"
+            });
         }
     }
     Connections {
         target: page.browser.normalTabs
-        function onCountChanged() { kinds.setProperty(0, "title", page.kindTitle(false)) }
+        function onCountChanged() {
+            kinds.setProperty(0, "title", page.kindTitle(false));
+        }
     }
     Connections {
         target: page.browser.privateTabs
-        function onCountChanged() { kinds.setProperty(1, "title", page.kindTitle(true)) }
+        function onCountChanged() {
+            kinds.setProperty(1, "title", page.kindTitle(true));
+        }
     }
 
     Private.TabView {
         id: tabView
         objectName: "tabKindSwitch"
-        anchors { top: parent.top; left: parent.left; right: parent.right; bottom: toolbar.top }
+        anchors {
+            top: parent.top
+            left: parent.left
+            right: parent.right
+            bottom: toolbar.top
+        }
         currentIndex: page.showPrivate ? 1 : 0
         onCurrentIndexChanged: page.showPrivate = currentIndex === 1
         interactive: false
@@ -117,9 +149,9 @@ Page {
                 currentIndex: -1 // no list highlight bar; the tab in front is marked on its card
                 // Opens at the tab in front, not at the oldest tab.
                 Component.onCompleted: {
-                    var i = kindItem.tabs.indexOf(kindItem.tabs.activeId)
+                    var i = kindItem.tabs.indexOf(kindItem.tabs.activeId);
                     if (i > 0)
-                        positionViewAtIndex(i, ListView.Center)
+                        positionViewAtIndex(i, ListView.Center);
                 }
                 // One column of cards on a phone in portrait, more when wide.
                 readonly property int columns: Math.max(1, Math.floor(width / (Theme.itemSizeHuge * 3.2)))
@@ -137,8 +169,7 @@ Page {
                 ViewPlaceholder {
                     enabled: kindItem.tabs.count === 0
                     text: kindItem.privateKind ? qsTr("No private tabs") : qsTr("No tabs")
-                    hintText: kindItem.privateKind ? qsTr("Tap + below to open a private tab. Private tabs keep no history, cookies or cache.")
-                                                   : qsTr("Tap + below to open a tab")
+                    hintText: kindItem.privateKind ? qsTr("Tap + below to open a private tab. Private tabs keep no history, cookies or cache.") : qsTr("Tap + below to open a tab")
                 }
 
                 delegate: ListItem {
@@ -176,11 +207,11 @@ Page {
                     drag.maximumX: Theme.horizontalPageMargin
                     drag.onActiveChanged: {
                         if (drag.active)
-                            return
+                            return;
                         if (card.offset < -card.width / 3)
-                            page.browser.close(cell.tabId, kindItem.privateKind)
+                            page.browser.close(cell.tabId, kindItem.privateKind);
                         else
-                            card.x = Theme.horizontalPageMargin
+                            card.x = Theme.horizontalPageMargin;
                     }
                     // A closed tab's card fades and folds away and the cards
                     // below slide up (Silica's removal), instead of vanishing.
@@ -196,8 +227,11 @@ Page {
                                 text: qsTr("Duplicate tab")
                                 visible: cell.url !== ""
                                 onClicked: {
-                                    page.browser.open(cell.url, { newTab: true, private: kindItem.privateKind })
-                                    page.back()
+                                    page.browser.open(cell.url, {
+                                        newTab: true,
+                                        private: kindItem.privateKind
+                                    });
+                                    page.back();
                                 }
                             }
                             MenuItem {
@@ -205,9 +239,9 @@ Page {
                                 visible: kindItem.tabs.count > 1
                                 onClicked: {
                                     for (var i = kindItem.tabs.count - 1; i >= 0; --i) {
-                                        var id = kindItem.tabs.idAt(i)
+                                        var id = kindItem.tabs.idAt(i);
                                         if (id !== cell.tabId && !JSON.parse(kindItem.tabs.get(id)).pinned)
-                                            page.browser.close(id, kindItem.privateKind)
+                                            page.browser.close(id, kindItem.privateKind);
                                     }
                                 }
                             }
@@ -231,13 +265,17 @@ Page {
                         radius: Math.round(12 * Theme.pixelRatio)
                         opacity: 1 - Math.min(0.8, Math.abs(offset) / width)
                         color: Theme.rgba(Theme.primaryColor, Theme.opacityFaint)
-                        Behavior on x { enabled: !cell.drag.active; NumberAnimation { duration: 150 } }
+                        Behavior on x {
+                            enabled: !cell.drag.active
+                            NumberAnimation {
+                                duration: 150
+                            }
+                        }
 
                         Rectangle {
                             anchors.fill: parent
                             radius: parent.radius
-                            color: cell.down ? Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityLow)
-                                             : (cell.current ? Theme.rgba(Theme.highlightColor, 0.1) : "transparent")
+                            color: cell.down ? Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityLow) : (cell.current ? Theme.rgba(Theme.highlightColor, 0.1) : "transparent")
                         }
 
                         Item {
@@ -256,7 +294,10 @@ Page {
                             }
                             Row {
                                 id: marks
-                                anchors { right: closeButton.left; verticalCenter: parent.verticalCenter }
+                                anchors {
+                                    right: closeButton.left
+                                    verticalCenter: parent.verticalCenter
+                                }
                                 Icon {
                                     objectName: "pinnedMark"
                                     visible: cell.pinned
@@ -273,7 +314,13 @@ Page {
                                 }
                             }
                             Label {
-                                anchors { left: favicon.visible ? favicon.right : parent.left; leftMargin: Theme.paddingMedium; right: marks.left; rightMargin: Theme.paddingSmall; verticalCenter: parent.verticalCenter }
+                                anchors {
+                                    left: favicon.visible ? favicon.right : parent.left
+                                    leftMargin: Theme.paddingMedium
+                                    right: marks.left
+                                    rightMargin: Theme.paddingSmall
+                                    verticalCenter: parent.verticalCenter
+                                }
                                 text: cell.url === "" ? qsTr("New tab") : (cell.title !== "" ? cell.title : Logic.host(cell.url))
                                 textFormat: Text.PlainText
                                 truncationMode: TruncationMode.Fade
@@ -283,7 +330,10 @@ Page {
                             IconButton {
                                 id: closeButton
                                 objectName: "closeTabButton"
-                                anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                                anchors {
+                                    right: parent.right
+                                    verticalCenter: parent.verticalCenter
+                                }
                                 width: Theme.itemSizeSmall
                                 height: Theme.itemSizeSmall
                                 icon.source: "image://theme/icon-s-clear-opaque-cross"
@@ -320,7 +370,10 @@ Page {
                                 visible: false
                                 layer.enabled: true
                                 Rectangle {
-                                    anchors { fill: parent; topMargin: -card.radius }
+                                    anchors {
+                                        fill: parent
+                                        topMargin: -card.radius
+                                    }
                                     radius: card.radius
                                 }
                             }
@@ -345,7 +398,11 @@ Page {
     Item {
         id: toolbar
         objectName: "tabsToolbar"
-        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+        anchors {
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+        }
         height: page.toolbarHeight
         Rectangle {
             anchors.fill: parent
@@ -354,7 +411,11 @@ Page {
         }
         IconButton {
             objectName: "tabsReturn"
-            anchors { left: parent.left; leftMargin: Theme.paddingSmall; verticalCenter: parent.verticalCenter }
+            anchors {
+                left: parent.left
+                leftMargin: Theme.paddingSmall
+                verticalCenter: parent.verticalCenter
+            }
             icon.source: "image://theme/icon-m-tab-return"
             onClicked: page.back()
         }
@@ -363,13 +424,17 @@ Page {
             anchors.centerIn: parent
             icon.source: page.showPrivate ? "image://theme/icon-m-incognito-new" : "image://theme/icon-m-tab-new"
             onClicked: {
-                page.browser.newTab(page.showPrivate)
-                page.back()
+                page.browser.newTab(page.showPrivate);
+                page.back();
             }
         }
         IconButton {
             objectName: "tabsMenuButton"
-            anchors { right: parent.right; rightMargin: Theme.paddingSmall; verticalCenter: parent.verticalCenter }
+            anchors {
+                right: parent.right
+                rightMargin: Theme.paddingSmall
+                verticalCenter: parent.verticalCenter
+            }
             icon.source: "image://theme/icon-m-menu"
             onClicked: tabsMenu.open = !tabsMenu.open
         }
@@ -398,28 +463,41 @@ Page {
             MenuButton {
                 iconSource: "image://theme/icon-m-tab-new"
                 text: qsTr("New tab")
-                onClicked: { tabsMenu.hide(); page.browser.newTab(false); page.back() }
+                onClicked: {
+                    tabsMenu.hide();
+                    page.browser.newTab(false);
+                    page.back();
+                }
             }
             MenuButton {
                 iconSource: "image://theme/icon-m-incognito-new"
                 text: qsTr("New private tab")
-                onClicked: { tabsMenu.hide(); page.browser.newTab(true); page.back() }
+                onClicked: {
+                    tabsMenu.hide();
+                    page.browser.newTab(true);
+                    page.back();
+                }
             }
             MenuButton {
                 iconSource: "image://theme/icon-m-refresh"
                 text: qsTr("Reopen closed tab")
                 visible: !page.showPrivate && page.browser.normalTabs.closedCount > 0
-                onClicked: { tabsMenu.hide(); page.browser.reopenClosed(); page.back() }
+                onClicked: {
+                    tabsMenu.hide();
+                    page.browser.reopenClosed();
+                    page.back();
+                }
             }
             MenuButton {
                 iconSource: "image://theme/icon-m-cancel"
                 text: page.showPrivate ? qsTr("Close all private tabs") : qsTr("Close all tabs")
                 visible: page.model.count > 0
                 onClicked: {
-                    var priv = page.showPrivate
-                    tabsMenu.hide()
-                    Remorse.popupAction(page, priv ? qsTr("Closed all private tabs") : qsTr("Closed all tabs"),
-                                        function() { page.browser.closeAll(priv) })
+                    var priv = page.showPrivate;
+                    tabsMenu.hide();
+                    Remorse.popupAction(page, priv ? qsTr("Closed all private tabs") : qsTr("Closed all tabs"), function () {
+                        page.browser.closeAll(priv);
+                    });
                 }
             }
         }

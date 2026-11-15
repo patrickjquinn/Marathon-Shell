@@ -22,21 +22,24 @@ Window {
     readonly property string shot: "/tmp/pacific-spelling.png"
 
     function check(name, ok, detail) {
-        console.warn("spelling: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""))
+        console.warn("spelling: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""));
         if (!ok)
-            failures++
+            failures++;
     }
 
     function finish() {
-        console.warn("spelling: " + (failures ? failures + " failure(s)" : "all passed"))
-        Qt.exit(failures ? 1 : 0)
+        console.warn("spelling: " + (failures ? failures + " failure(s)" : "all passed"));
+        Qt.exit(failures ? 1 : 0);
     }
 
     function after(ms, fn) {
-        const t = Qt.createQmlObject("import QtQuick; Timer {}", root)
-        t.interval = ms
-        t.triggered.connect(function() { fn(); t.destroy() })
-        t.start()
+        const t = Qt.createQmlObject("import QtQuick; Timer {}", root);
+        t.interval = ms;
+        t.triggered.connect(function () {
+            fn();
+            t.destroy();
+        });
+        t.start();
     }
 
     width: 540
@@ -47,95 +50,102 @@ Window {
         id: view
 
         anchors.fill: parent
-        url: "data:text/html;charset=utf-8,<body style='font:24px sans-serif;margin:10px'>"
-             + "<textarea id=t style='width:500px;height:200px;font:28px sans-serif'></textarea></body>"
+        url: "data:text/html;charset=utf-8,<body style='font:24px sans-serif;margin:10px'>" + "<textarea id=t style='width:500px;height:200px;font:28px sans-serif'></textarea></body>"
 
-        onLoadingChanged: function(request) {
+        onLoadingChanged: function (request) {
             if (request.status !== LoadRequest.Succeeded)
-                return
-            root.check("spell checking on", WebEngine.spellChecking && WebEngine.spellCheckingLanguages.length > 0,
-                  WebEngine.spellCheckingLanguages.join(","))
-            root.check("dictionaries packaged", WebEngine.availableSpellCheckingLanguages.indexOf("en_GB") >= 0
-                  && WebEngine.availableSpellCheckingLanguages.indexOf("de_DE") >= 0,
-                  WebEngine.availableSpellCheckingLanguages.join(","))
-            root.check("profile mirrors engine", view.profile.spellChecking === WebEngine.spellChecking)
-            root.runCase(0)
+                return;
+            root.check("spell checking on", WebEngine.spellChecking && WebEngine.spellCheckingLanguages.length > 0, WebEngine.spellCheckingLanguages.join(","));
+            root.check("dictionaries packaged", WebEngine.availableSpellCheckingLanguages.indexOf("en_GB") >= 0 && WebEngine.availableSpellCheckingLanguages.indexOf("de_DE") >= 0, WebEngine.availableSpellCheckingLanguages.join(","));
+            root.check("profile mirrors engine", view.profile.spellChecking === WebEngine.spellChecking);
+            root.runCase(0);
         }
 
-        onContextMenuRequested: function(info) {
-            root.menu = info
+        onContextMenuRequested: function (info) {
+            root.menu = info;
         }
     }
 
     // Each case: language, text typed, the text before the misspelt word,
     // the word, the suggestion to apply. Finnish comes from Voikko.
     readonly property var cases: [
-        { lang: "en_GB", text: "This sentence has a mistaek ", before: "This sentence has a ", word: "mistaek", fix: "mistake" },
-        { lang: "fi_FI", text: "Näin on kisssa ", before: "Näin on ", word: "kisssa", fix: "kissa" },
+        {
+            lang: "en_GB",
+            text: "This sentence has a mistaek ",
+            before: "This sentence has a ",
+            word: "mistaek",
+            fix: "mistake"
+        },
+        {
+            lang: "fi_FI",
+            text: "Näin on kisssa ",
+            before: "Näin on ",
+            word: "kisssa",
+            fix: "kissa"
+        },
     ]
 
     function runCase(i) {
         if (i >= cases.length) {
-            finish()
-            return
+            finish();
+            return;
         }
-        const c = cases[i]
-        check(c.lang + " available", WebEngine.availableSpellCheckingLanguages.indexOf(c.lang) >= 0)
-        WebEngine.spellCheckingLanguages = [c.lang]
-        menu = null
-        view.runJavaScript("document.getElementById('t').value=''", function() {
-            view.agentSnapshot({}, function(snap) {
-                view.agentType(snap.elements[0].id, c.text, function() {
-                    after(800, function() { rightClick(i) })
-                })
-            })
-        })
+        const c = cases[i];
+        check(c.lang + " available", WebEngine.availableSpellCheckingLanguages.indexOf(c.lang) >= 0);
+        WebEngine.spellCheckingLanguages = [c.lang];
+        menu = null;
+        view.runJavaScript("document.getElementById('t').value=''", function () {
+            view.agentSnapshot({}, function (snap) {
+                view.agentType(snap.elements[0].id, c.text, function () {
+                    after(800, function () {
+                        rightClick(i);
+                    });
+                });
+            });
+        });
     }
 
     function rightClick(i) {
-        const c = cases[i]
+        const c = cases[i];
         if (i === 0)
-            root.contentItem.grabToImage(function(img) { img.saveToFile(root.shot) })
+            root.contentItem.grabToImage(function (img) {
+                img.saveToFile(root.shot);
+            });
         // Aim inside the word: measure the text before it in the page.
-        view.runJavaScriptInWorld(
-            "(function(b,w){var c=document.createElement('canvas').getContext('2d');c.font='28px sans-serif';"
-            + "var t=document.getElementById('t');var cs=getComputedStyle(t);"
-            + "var x=t.getBoundingClientRect().left+parseFloat(cs.paddingLeft)+parseFloat(cs.borderLeftWidth)"
-            + "+c.measureText(b).width+c.measureText(w.slice(0,3)).width;"
-            + "var y=t.getBoundingClientRect().top+parseFloat(cs.paddingTop)+parseFloat(cs.borderTopWidth)+16;"
-            + "return [x,y];})(" + JSON.stringify(c.before) + "," + JSON.stringify(c.word) + ")", "pacific", function(p) {
-                view.contextMenuAt(p[0], p[1])
-                after(800, function() { afterMenu(i) })
-            })
+        view.runJavaScriptInWorld("(function(b,w){var c=document.createElement('canvas').getContext('2d');c.font='28px sans-serif';" + "var t=document.getElementById('t');var cs=getComputedStyle(t);" + "var x=t.getBoundingClientRect().left+parseFloat(cs.paddingLeft)+parseFloat(cs.borderLeftWidth)" + "+c.measureText(b).width+c.measureText(w.slice(0,3)).width;" + "var y=t.getBoundingClientRect().top+parseFloat(cs.paddingTop)+parseFloat(cs.borderTopWidth)+16;" + "return [x,y];})(" + JSON.stringify(c.before) + "," + JSON.stringify(c.word) + ")", "pacific", function (p) {
+            view.contextMenuAt(p[0], p[1]);
+            after(800, function () {
+                afterMenu(i);
+            });
+        });
     }
 
     function afterMenu(i) {
-        const c = cases[i]
-        check(c.lang + " context menu on the word", menu !== null)
+        const c = cases[i];
+        check(c.lang + " context menu on the word", menu !== null);
         if (!menu) {
-            runCase(i + 1)
-            return
+            runCase(i + 1);
+            return;
         }
-        check(c.lang + " word marked misspelt", menu.misspelled === true)
-        const index = menu.spellingSuggestions ? menu.spellingSuggestions.indexOf(c.fix) : -1
-        check(c.lang + " suggestions offered", index >= 0,
-              menu.spellingSuggestions ? menu.spellingSuggestions.join(",") : "none")
-        const applied = index >= 0 && view.applySpellingSuggestion(index)
-        check(c.lang + " suggestion applied", applied, "index " + index)
-        after(400, function() {
-            view.runJavaScript("document.getElementById('t').value", function(v) {
-                check(c.lang + " word replaced", v.indexOf(" " + c.fix + " ") >= 0, v)
-                runCase(i + 1)
-            })
-        })
+        check(c.lang + " word marked misspelt", menu.misspelled === true);
+        const index = menu.spellingSuggestions ? menu.spellingSuggestions.indexOf(c.fix) : -1;
+        check(c.lang + " suggestions offered", index >= 0, menu.spellingSuggestions ? menu.spellingSuggestions.join(",") : "none");
+        const applied = index >= 0 && view.applySpellingSuggestion(index);
+        check(c.lang + " suggestion applied", applied, "index " + index);
+        after(400, function () {
+            view.runJavaScript("document.getElementById('t').value", function (v) {
+                check(c.lang + " word replaced", v.indexOf(" " + c.fix + " ") >= 0, v);
+                runCase(i + 1);
+            });
+        });
     }
 
     Timer {
         interval: 45000
         running: true
         onTriggered: {
-            console.warn("spelling: FAIL timeout")
-            Qt.exit(2)
+            console.warn("spelling: FAIL timeout");
+            Qt.exit(2);
         }
     }
 }

@@ -6,10 +6,16 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    enum CacheModel { DocumentViewer, WebBrowser, DocumentBrowser }
+    enum CacheModel {
+        DocumentViewer,
+        WebBrowser,
+        DocumentBrowser
+    }
     readonly property string version: "mock"
     readonly property WebProfile defaultProfile: WebProfile {}
-    readonly property WebProfile privateProfile: WebProfile { ephemeral: true }
+    readonly property WebProfile privateProfile: WebProfile {
+        ephemeral: true
+    }
     property int cacheModel: WebEngine.WebBrowser
     property var preferredLanguages: []
     property bool spellChecking: true

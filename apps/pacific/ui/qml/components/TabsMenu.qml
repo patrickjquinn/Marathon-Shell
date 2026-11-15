@@ -21,8 +21,12 @@ Item {
     readonly property bool privateKind: browser ? browser.privateMode : false
     readonly property int count: browser ? browser.tabs.count : 0
 
-    function show(): void { open = true }
-    function hide(): void { open = false }
+    function show(): void {
+        open = true;
+    }
+    function hide(): void {
+        open = false;
+    }
 
     width: parent ? parent.width : 0
     height: parent ? parent.height : 0
@@ -30,7 +34,12 @@ Item {
 
     // 1 closed, 0 open: the card's rise and the dimming.
     property real closed: open ? 0 : 1
-    Behavior on closed { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
+    Behavior on closed {
+        NumberAnimation {
+            duration: 200
+            easing.type: Easing.InOutQuad
+        }
+    }
 
     readonly property real margin: Theme.paddingMedium
     readonly property real cornerRadius: Math.round(12 * Theme.pixelRatio)
@@ -57,7 +66,9 @@ Item {
         y: menu.height - height - menu.margin + menu.closed * (height + menu.margin)
 
         // Taps inside the card stay in it.
-        MouseArea { anchors.fill: parent }
+        MouseArea {
+            anchors.fill: parent
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -76,7 +87,10 @@ Item {
             width: parent.width
             height: Theme.paddingLarge + Theme.paddingMedium
             Rectangle {
-                anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom }
+                anchors {
+                    horizontalCenter: parent.horizontalCenter
+                    bottom: parent.bottom
+                }
                 width: Theme.itemSizeLarge
                 height: Theme.paddingSmall
                 radius: height / 2
@@ -85,10 +99,12 @@ Item {
             MouseArea {
                 anchors.fill: parent
                 property real startY
-                onPressed: function(mouse) { startY = mouse.y }
-                onReleased: function(mouse) {
+                onPressed: function (mouse) {
+                    startY = mouse.y;
+                }
+                onReleased: function (mouse) {
                     if (mouse.y - startY > Theme.paddingLarge)
-                        menu.hide()
+                        menu.hide();
                 }
             }
         }
@@ -103,25 +119,31 @@ Item {
             MenuButton {
                 iconSource: "image://theme/icon-m-tab-new"
                 text: qsTr("New tab")
-                onClicked: { menu.hide(); menu.browser.newTab(false) }
+                onClicked: {
+                    menu.hide();
+                    menu.browser.newTab(false);
+                }
             }
             MenuButton {
                 iconSource: "image://theme/icon-m-incognito-new"
                 text: qsTr("New private tab")
-                onClicked: { menu.hide(); menu.browser.newTab(true) }
+                onClicked: {
+                    menu.hide();
+                    menu.browser.newTab(true);
+                }
             }
             MenuButton {
                 objectName: "closeAllTabs"
                 iconSource: "image://theme/icon-m-cancel"
                 //: %n is how many tabs close
-                text: menu.privateKind ? qsTr("Close all %n private tab(s)", "", menu.count)
-                                       : qsTr("Close all %n tab(s)", "", menu.count)
+                text: menu.privateKind ? qsTr("Close all %n private tab(s)", "", menu.count) : qsTr("Close all %n tab(s)", "", menu.count)
                 enabled: menu.count > 0
                 onClicked: {
-                    var priv = menu.privateKind
-                    menu.hide()
-                    Remorse.popupAction(menu.remorseParent, priv ? qsTr("Closed all private tabs") : qsTr("Closed all tabs"),
-                                        function() { menu.browser.closeAll(priv) })
+                    var priv = menu.privateKind;
+                    menu.hide();
+                    Remorse.popupAction(menu.remorseParent, priv ? qsTr("Closed all private tabs") : qsTr("Closed all tabs"), function () {
+                        menu.browser.closeAll(priv);
+                    });
                 }
             }
         }

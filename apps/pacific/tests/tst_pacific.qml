@@ -21,15 +21,26 @@ TestCase {
     // Each window is the panel less the status and gesture bars.
     function windows() {
         return [
-            { tag: "Zinwa Q25, 720x720", width: 720, height: 633 },
-            { tag: "phone canvas, 540x1140", width: 540, height: 1064 }
+            {
+                tag: "Zinwa Q25, 720x720",
+                width: 720,
+                height: 633
+            },
+            {
+                tag: "phone canvas, 540x1140",
+                width: 540,
+                height: 1064
+            }
         ];
     }
 
     function makeApp(data) {
         const component = Qt.createComponent(Qt.resolvedUrl("../ui/qml/shipwright-pacific.qml"));
         verify(component.status === Component.Ready, component.errorString());
-        const app = createTemporaryObject(component, testCase, { width: data.width, height: data.height });
+        const app = createTemporaryObject(component, testCase, {
+            width: data.width,
+            height: data.height
+        });
         tryVerify(() => Pacific.ready, 10000);
         // The first start's welcome page goes with back, as any pushed page.
         tryVerify(() => !app.pageStack.busy && app.pageStack.depth >= 1, 5000);
@@ -48,8 +59,7 @@ TestCase {
     function load(app, url) {
         const browser = browserPage(app).browser;
         browser.navigate(url);
-        tryVerify(() => browser.currentTab && String(browser.currentTab.webView.url) === url
-                  && !browser.currentTab.webView.loading, 5000);
+        tryVerify(() => browser.currentTab && String(browser.currentTab.webView.url) === url && !browser.currentTab.webView.loading, 5000);
     }
 
     function test_backClosesThenGoesBack_data() {
@@ -85,7 +95,9 @@ TestCase {
         verify(app.handleBack());
         verify(!browser.fullscreen);
 
-        page.push("SettingsPage.qml", { browser: browser });
+        page.push("SettingsPage.qml", {
+            browser: browser
+        });
         tryVerify(() => !app.pageStack.busy && app.pageStack.depth === 2);
         verify(app.handleBack());
         tryVerify(() => !app.pageStack.busy && app.pageStack.depth === 1);
@@ -113,8 +125,7 @@ TestCase {
         const browser = browserPage(app).browser;
         const before = browser.normalTabs.count;
         Pacific.openUrlRequested("https://shop.example/basket");
-        tryVerify(() => browser.currentTab && browser.currentTab.openedByApp
-                  && !browser.currentTab.webView.loading, 5000);
+        tryVerify(() => browser.currentTab && browser.currentTab.openedByApp && !browser.currentTab.webView.loading, 5000);
         const tabs = browser.normalTabs.count;
         verify(tabs >= before);
         compare(app.handleBack(), false);

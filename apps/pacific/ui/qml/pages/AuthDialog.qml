@@ -19,10 +19,11 @@ Dialog {
     canAccept: user.text !== ""
 
     onAccepted: {
-        _answered = true
-        request.authenticate(user.text, password.text, false)
+        _answered = true;
+        request.authenticate(user.text, password.text, false);
     }
-    onRejected: if (!_answered) request.cancel()
+    onRejected: if (!_answered)
+        request.cancel()
 
     SilicaFlickable {
         anchors.fill: parent
@@ -41,8 +42,7 @@ Dialog {
                 wrapMode: Text.Wrap
                 textFormat: Text.PlainText
                 color: Theme.highlightColor
-                text: dialog.request ? (dialog.request.retry ? qsTr("The name or password was wrong. ") : "")
-                                       + qsTr("%1 asks for a name and password (%2).").arg(dialog.request.host).arg(dialog.request.realm) : ""
+                text: dialog.request ? (dialog.request.retry ? qsTr("The name or password was wrong. ") : "") + qsTr("%1 asks for a name and password (%2).").arg(dialog.request.host).arg(dialog.request.realm) : ""
             }
             TextField {
                 id: user

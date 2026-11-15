@@ -21,7 +21,9 @@ Page {
         anchors.fill: parent
         header: Column {
             width: parent.width
-            PageHeader { title: qsTr("Search engine") }
+            PageHeader {
+                title: qsTr("Search engine")
+            }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * x
@@ -62,7 +64,9 @@ Page {
                 ContextMenu {
                     MenuItem {
                         text: qsTr("Remove")
-                        onClicked: item.remorseDelete(function() { Pacific.removeEngine(item.itemId) })
+                        onClicked: item.remorseDelete(function () {
+                            Pacific.removeEngine(item.itemId);
+                        })
                     }
                 }
             }

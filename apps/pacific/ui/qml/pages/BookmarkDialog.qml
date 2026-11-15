@@ -27,11 +27,11 @@ Dialog {
 
     onAccepted: {
         if (bookmarkId === 0 && folderMode)
-            Pacific.addFolder(titleField.text.trim(), parentFolder)
+            Pacific.addFolder(titleField.text.trim(), parentFolder);
         else if (bookmarkId === 0)
-            Pacific.addBookmark(urlField.text.trim(), titleField.text.trim(), targetFolder)
+            Pacific.addBookmark(urlField.text.trim(), titleField.text.trim(), targetFolder);
         else
-            Pacific.editBookmark(bookmarkId, titleField.text.trim(), folderMode ? "" : urlField.text.trim(), targetFolder)
+            Pacific.editBookmark(bookmarkId, titleField.text.trim(), folderMode ? "" : urlField.text.trim(), targetFolder);
     }
 
     SilicaFlickable {
@@ -43,8 +43,7 @@ Dialog {
             width: parent.width
 
             DialogHeader {
-                title: dialog.folderMode ? (dialog.bookmarkId === 0 ? qsTr("New folder") : qsTr("Edit folder"))
-                                         : (dialog.bookmarkId === 0 ? qsTr("Add bookmark") : qsTr("Edit bookmark"))
+                title: dialog.folderMode ? (dialog.bookmarkId === 0 ? qsTr("New folder") : qsTr("Edit folder")) : (dialog.bookmarkId === 0 ? qsTr("Add bookmark") : qsTr("Edit bookmark"))
             }
             TextField {
                 id: titleField
@@ -71,11 +70,13 @@ Dialog {
                 label: qsTr("Folder")
                 value: dialog.targetFolderTitle
                 onClicked: {
-                    var picker = pageStack.push(Qt.resolvedUrl("FolderPickerPage.qml"), { selected: dialog.targetFolder })
-                    picker.picked.connect(function(id, title) {
-                        dialog.targetFolder = id
-                        dialog.targetFolderTitle = title
-                    })
+                    var picker = pageStack.push(Qt.resolvedUrl("FolderPickerPage.qml"), {
+                        selected: dialog.targetFolder
+                    });
+                    picker.picked.connect(function (id, title) {
+                        dialog.targetFolder = id;
+                        dialog.targetFolderTitle = title;
+                    });
                 }
             }
         }

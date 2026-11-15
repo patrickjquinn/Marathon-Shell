@@ -22,7 +22,7 @@ ApplicationWindow {
     required property bool scriptInput
 
     function log(message) {
-        console.warn("minibrowser: " + message)
+        console.warn("minibrowser: " + message);
     }
 
     initialPage: Component {
@@ -36,36 +36,34 @@ ApplicationWindow {
 
                 anchors.top: parent.top
                 width: parent.width
-                height: parent.height - (Qt.inputMethod.visible ? Qt.inputMethod.keyboardRectangle.height : 0)
-                - toolbar.height
+                height: parent.height - (Qt.inputMethod.visible ? Qt.inputMethod.keyboardRectangle.height : 0) - toolbar.height
                 // The view follows the application state itself.
                 active: true
                 captureConsole: true
                 inputMode: app.scriptInput ? WebView.ScriptInput : WebView.NativeInput
                 url: app.startUrl
 
-                onLoadingChanged: function(request) {
-                    app.log("load " + request.status + " " + request.url + " " + request.errorString)
+                onLoadingChanged: function (request) {
+                    app.log("load " + request.status + " " + request.url + " " + request.errorString);
                 }
-                onConsoleMessage: function(level, message) {
-                    app.log("console." + level + " " + message)
+                onConsoleMessage: function (level, message) {
+                    app.log("console." + level + " " + message);
                 }
-                onWebProcessTerminated: function(reason) {
-                    app.log("web process terminated " + reason)
+                onWebProcessTerminated: function (reason) {
+                    app.log("web process terminated " + reason);
                 }
-                onEditableFocusedChanged: app.log("editable focus " + editableFocused + " purpose " + inputPurpose
-                                                  + " cursor " + cursorRectangle)
-                onPermissionRequested: function(request) {
-                    app.log("permission " + request.kind + " " + request.origin)
-                    request.allow()
+                onEditableFocusedChanged: app.log("editable focus " + editableFocused + " purpose " + inputPurpose + " cursor " + cursorRectangle)
+                onPermissionRequested: function (request) {
+                    app.log("permission " + request.kind + " " + request.origin);
+                    request.allow();
                 }
-                onSelectMenuRequested: function(options, selectedIndex) {
-                    app.log("select menu, " + options.length + " options; picking the next one")
-                    web.selectMenuOption((selectedIndex + 1) % options.length)
+                onSelectMenuRequested: function (options, selectedIndex) {
+                    app.log("select menu, " + options.length + " options; picking the next one");
+                    web.selectMenuOption((selectedIndex + 1) % options.length);
                 }
-                onInputPickerRequested: function(type, value) {
-                    app.log("picker " + type + " " + value)
-                    web.cancelInputPicker()
+                onInputPickerRequested: function (type, value) {
+                    app.log("picker " + type + " " + value);
+                    web.cancelInputPicker();
                 }
             }
 

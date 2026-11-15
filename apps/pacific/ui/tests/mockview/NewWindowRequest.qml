@@ -10,8 +10,8 @@ QtObject {
     property string frameName
     function openIn(view) {
         if (!view)
-            return false
-        view.load(url)
-        return true
+            return false;
+        view.load(url);
+        return true;
     }
 }

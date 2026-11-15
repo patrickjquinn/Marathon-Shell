@@ -27,7 +27,9 @@ Dialog {
         Column {
             id: column
             width: parent.width
-            DialogHeader { title: qsTr("Add search engine") }
+            DialogHeader {
+                title: qsTr("Add search engine")
+            }
             TextField {
                 id: name
                 width: parent.width

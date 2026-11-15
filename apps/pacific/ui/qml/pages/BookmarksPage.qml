@@ -58,11 +58,16 @@ Page {
             }
             MenuItem {
                 text: qsTr("Import bookmarks file")
-                onClicked: pageStack.push(Qt.resolvedUrl("FileChooserPage.qml"), { importBookmarks: true })
+                onClicked: pageStack.push(Qt.resolvedUrl("FileChooserPage.qml"), {
+                    importBookmarks: true
+                })
             }
             MenuItem {
                 text: qsTr("New folder")
-                onClicked: pageStack.push(Qt.resolvedUrl("BookmarkDialog.qml"), { folderMode: true, parentFolder: page.folder })
+                onClicked: pageStack.push(Qt.resolvedUrl("BookmarkDialog.qml"), {
+                    folderMode: true,
+                    parentFolder: page.folder
+                })
             }
         }
 
@@ -84,28 +89,45 @@ Page {
             contentHeight: Math.max(Theme.itemSizeMedium, rowText.height + 2 * Theme.paddingSmall)
             onClicked: {
                 if (isFolder) {
-                    pageStack.push(Qt.resolvedUrl("BookmarksPage.qml"), { browser: page.browser, folder: itemId, folderTitle: title })
+                    pageStack.push(Qt.resolvedUrl("BookmarksPage.qml"), {
+                        browser: page.browser,
+                        folder: itemId,
+                        folderTitle: title
+                    });
                 } else {
-                    page.browser.open(url, { transition: "bookmark" })
-                    pageStack.pop(pageStack.find(function(p) { return p.objectName === "browserPage" }))
+                    page.browser.open(url, {
+                        transition: "bookmark"
+                    });
+                    pageStack.pop(pageStack.find(function (p) {
+                        return p.objectName === "browserPage";
+                    }));
                 }
             }
             menu: ContextMenu {
                 MenuItem {
                     visible: !item.isFolder
                     text: qsTr("Open in new tab")
-                    onClicked: page.browser.open(item.url, { newTab: true, background: true, transition: "bookmark" })
+                    onClicked: page.browser.open(item.url, {
+                        newTab: true,
+                        background: true,
+                        transition: "bookmark"
+                    })
                 }
                 MenuItem {
                     text: qsTr("Edit")
                     onClicked: pageStack.push(Qt.resolvedUrl("BookmarkDialog.qml"), {
-                        bookmarkId: item.itemId, folderMode: item.isFolder, bookmarkTitle: item.title,
-                        bookmarkUrl: item.url, parentFolder: page.folder
+                        bookmarkId: item.itemId,
+                        folderMode: item.isFolder,
+                        bookmarkTitle: item.title,
+                        bookmarkUrl: item.url,
+                        parentFolder: page.folder
                     })
                 }
                 MenuItem {
                     text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function() { Pacific.deleteBookmark(item.itemId) })
+                    onClicked: item.remorseDelete(function () {
+                        Pacific.deleteBookmark(item.itemId);
+                    })
                 }
             }
 
@@ -118,7 +140,13 @@ Page {
             }
             Column {
                 id: rowText
-                anchors { left: icon.right; leftMargin: Theme.paddingMedium; right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                anchors {
+                    left: icon.right
+                    leftMargin: Theme.paddingMedium
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin
+                    verticalCenter: parent.verticalCenter
+                }
                 Label {
                     width: parent.width
                     text: item.title !== "" ? item.title : item.host

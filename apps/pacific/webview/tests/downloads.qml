@@ -25,14 +25,14 @@ Window {
     property var download: null
 
     function check(what, ok, detail) {
-        console.warn("downloads: " + (ok ? "PASS " : "FAIL ") + what + (detail !== undefined ? " (" + detail + ")" : ""))
+        console.warn("downloads: " + (ok ? "PASS " : "FAIL ") + what + (detail !== undefined ? " (" + detail + ")" : ""));
         if (!ok)
-            failures++
+            failures++;
     }
 
     function finish() {
-        console.warn("downloads: " + (failures === 0 ? "all passed" : failures + " failure(s)"))
-        Qt.exit(failures === 0 ? 0 : 1)
+        console.warn("downloads: " + (failures === 0 ? "all passed" : failures + " failure(s)"));
+        Qt.exit(failures === 0 ? 0 : 1);
     }
 
     width: 400
@@ -42,32 +42,30 @@ Window {
     Connections {
         target: WebEngine.defaultProfile
         function onDownloadStarted(download) {
-            root.download = download
-            download.suggestedFilenameChanged.connect(function() {
+            root.download = download;
+            download.suggestedFilenameChanged.connect(function () {
                 // The engine asks for the destination right after this: an
                 // app chooses it here, from the server's name.
-                root.check("suggested name from Content-Disposition", download.suggestedFilename === root.name,
-                           download.suggestedFilename)
-                download.destination = root.dir + "/" + download.suggestedFilename
-            })
-            download.stateChanged.connect(function() {
+                root.check("suggested name from Content-Disposition", download.suggestedFilename === root.name, download.suggestedFilename);
+                download.destination = root.dir + "/" + download.suggestedFilename;
+            });
+            download.stateChanged.connect(function () {
                 if (download.state === Download.Finished) {
-                    root.check("written to the claimed destination", download.destination === root.dir + "/" + root.name,
-                               download.destination)
-                    const xhr = new XMLHttpRequest()
-                    xhr.open("GET", "http://127.0.0.1:18090/size?name=" + encodeURIComponent(root.name))
-                    xhr.onreadystatechange = function() {
+                    root.check("written to the claimed destination", download.destination === root.dir + "/" + root.name, download.destination);
+                    const xhr = new XMLHttpRequest();
+                    xhr.open("GET", "http://127.0.0.1:18090/size?name=" + encodeURIComponent(root.name));
+                    xhr.onreadystatechange = function () {
                         if (xhr.readyState !== XMLHttpRequest.DONE)
-                            return
-                        root.check("the whole file", xhr.responseText === "10000", xhr.responseText)
-                        root.finish()
-                    }
-                    xhr.send()
+                            return;
+                        root.check("the whole file", xhr.responseText === "10000", xhr.responseText);
+                        root.finish();
+                    };
+                    xhr.send();
                 } else if (download.state === Download.Failed || download.state === Download.Cancelled) {
-                    root.check("download finishes", false, download.errorString)
-                    root.finish()
+                    root.check("download finishes", false, download.errorString);
+                    root.finish();
                 }
-            })
+            });
         }
     }
 
@@ -80,8 +78,8 @@ Window {
         interval: 20000
         running: true
         onTriggered: {
-            root.check("download finishes in 20 s", false, root.download ? root.download.state : "never started")
-            root.finish()
+            root.check("download finishes in 20 s", false, root.download ? root.download.state : "never started");
+            root.finish();
         }
     }
 }

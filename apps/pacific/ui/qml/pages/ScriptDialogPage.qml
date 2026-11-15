@@ -21,12 +21,12 @@ Dialog {
     allowedOrientations: Orientation.All
 
     onAccepted: {
-        _answered = true
-        request.accept(request.type === ScriptDialog.Prompt ? input.text : "")
+        _answered = true;
+        request.accept(request.type === ScriptDialog.Prompt ? input.text : "");
     }
     onRejected: {
         if (!_answered)
-            request.reject()
+            request.reject();
     }
 
     SilicaFlickable {

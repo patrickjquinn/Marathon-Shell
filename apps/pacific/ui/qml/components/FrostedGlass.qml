@@ -42,12 +42,10 @@ Item {
         hideSource: false
         recursive: false
         smooth: true
-        sourceRect: Qt.rect(glass.backdropX, glass.backdropY - glass.margin,
-                            glass.width, glass.height + glass.margin)
+        sourceRect: Qt.rect(glass.backdropX, glass.backdropY - glass.margin, glass.width, glass.height + glass.margin)
         // Half resolution: the blur that follows cannot tell, and it is a
         // quarter of the pixels to capture and to blur.
-        textureSize: Qt.size(Math.max(1, Math.ceil(glass.width / 2)),
-                             Math.max(1, Math.ceil((glass.height + glass.margin) / 2)))
+        textureSize: Qt.size(Math.max(1, Math.ceil(glass.width / 2)), Math.max(1, Math.ceil((glass.height + glass.margin) / 2)))
     }
 
     MultiEffect {

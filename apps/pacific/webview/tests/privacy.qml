@@ -23,9 +23,9 @@ Window {
     property var blocked: []
 
     function check(name, ok, detail) {
-        console.warn("privacy: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""))
+        console.warn("privacy: " + (ok ? "PASS " : "FAIL ") + name + (detail !== undefined ? " (" + detail + ")" : ""));
         if (!ok)
-            failures++
+            failures++;
     }
 
     width: 400
@@ -33,11 +33,25 @@ Window {
     visible: true
 
     Component.onCompleted: WebEngine.defaultProfile.compileContentFilter("privacy-test", JSON.stringify([
-        { trigger: { "url-filter": "/ads/" }, action: { type: "block" } },
-        { trigger: { "url-filter": "tracker\\.js" }, action: { type: "block" } }
-    ]), function(ok, error) {
-        root.check("filter compiled", ok, error)
-        loader.active = true
+        {
+            trigger: {
+                "url-filter": "/ads/"
+            },
+            action: {
+                type: "block"
+            }
+        },
+        {
+            trigger: {
+                "url-filter": "tracker\\.js"
+            },
+            action: {
+                type: "block"
+            }
+        }
+    ]), function (ok, error) {
+        root.check("filter compiled", ok, error);
+        loader.active = true;
     })
 
     Loader {
@@ -49,14 +63,14 @@ Window {
             id: view
 
             url: "http://127.0.0.1:18089/page"
-            onBlockedRequest: function(url) {
-                root.blocked.push(String(url))
+            onBlockedRequest: function (url) {
+                root.blocked.push(String(url));
             }
-            onLoadingChanged: function(request) {
+            onLoadingChanged: function (request) {
                 if (request.status !== LoadRequest.Succeeded)
-                    return
-                settle.view = view
-                settle.start()
+                    return;
+                settle.view = view;
+                settle.start();
             }
         }
     }
@@ -68,30 +82,30 @@ Window {
 
         interval: 1500
         onTriggered: {
-            const v = view
-            root.check("GPC on by default", v.profile.globalPrivacyControl === true)
-            root.check("blockedRequestCount", v.blockedRequestCount === 3, v.blockedRequestCount)
-            root.check("blockedRequest urls", root.blocked.length === 3
-                       && root.blocked.join(" ").indexOf("/ads/banner.png") >= 0
-                       && root.blocked.join(" ").indexOf("/tracker.js") >= 0, root.blocked.join(" "))
-            v.runJavaScript("navigator.globalPrivacyControl", function(g) {
-                root.check("navigator.globalPrivacyControl", g === true, g)
-                const xhr = new XMLHttpRequest()
-                xhr.open("GET", "http://127.0.0.1:18089/log")
-                xhr.onreadystatechange = function() {
+            const v = view;
+            root.check("GPC on by default", v.profile.globalPrivacyControl === true);
+            root.check("blockedRequestCount", v.blockedRequestCount === 3, v.blockedRequestCount);
+            root.check("blockedRequest urls", root.blocked.length === 3 && root.blocked.join(" ").indexOf("/ads/banner.png") >= 0 && root.blocked.join(" ").indexOf("/tracker.js") >= 0, root.blocked.join(" "));
+            v.runJavaScript("navigator.globalPrivacyControl", function (g) {
+                root.check("navigator.globalPrivacyControl", g === true, g);
+                const xhr = new XMLHttpRequest();
+                xhr.open("GET", "http://127.0.0.1:18089/log");
+                xhr.onreadystatechange = function () {
                     if (xhr.readyState !== XMLHttpRequest.DONE)
-                        return
-                    const seen = JSON.parse(xhr.responseText)
-                    const paths = seen.map(function(s) { return s.path })
-                    root.check("blocked requests never sent", paths.join(" ").indexOf("/ads/") < 0
-                               && paths.indexOf("/tracker.js") < 0, paths.join(" "))
-                    root.check("Sec-GPC: 1 on every request", seen.length >= 2 && seen.every(function(s) { return s.gpc === "1" }),
-                               JSON.stringify(seen))
-                    console.warn("privacy: " + (root.failures ? root.failures + " failure(s)" : "all passed"))
-                    Qt.exit(root.failures ? 1 : 0)
-                }
-                xhr.send()
-            })
+                        return;
+                    const seen = JSON.parse(xhr.responseText);
+                    const paths = seen.map(function (s) {
+                        return s.path;
+                    });
+                    root.check("blocked requests never sent", paths.join(" ").indexOf("/ads/") < 0 && paths.indexOf("/tracker.js") < 0, paths.join(" "));
+                    root.check("Sec-GPC: 1 on every request", seen.length >= 2 && seen.every(function (s) {
+                        return s.gpc === "1";
+                    }), JSON.stringify(seen));
+                    console.warn("privacy: " + (root.failures ? root.failures + " failure(s)" : "all passed"));
+                    Qt.exit(root.failures ? 1 : 0);
+                };
+                xhr.send();
+            });
         }
     }
 
@@ -99,8 +113,8 @@ Window {
         interval: 30000
         running: true
         onTriggered: {
-            console.warn("privacy: FAIL timeout")
-            Qt.exit(2)
+            console.warn("privacy: FAIL timeout");
+            Qt.exit(2);
         }
     }
 }

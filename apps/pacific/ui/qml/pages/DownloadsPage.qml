@@ -28,7 +28,9 @@ Page {
     SilicaListView {
         id: list
         anchors.fill: parent
-        header: PageHeader { title: qsTr("Downloads") }
+        header: PageHeader {
+            title: qsTr("Downloads")
+        }
         model: PacificList {
             id: downloads
             kind: "downloads"
@@ -39,7 +41,9 @@ Page {
             visible: downloads.count > 0
             MenuItem {
                 text: qsTr("Clear finished downloads")
-                onClicked: Remorse.popupAction(page, qsTr("Cleared finished downloads"), function() { Pacific.clearDownloads() })
+                onClicked: Remorse.popupAction(page, qsTr("Cleared finished downloads"), function () {
+                    Pacific.clearDownloads();
+                })
             }
         }
 
@@ -61,7 +65,8 @@ Page {
             required property string detail
             required property string host // the file's MIME type
             contentHeight: Math.max(Theme.itemSizeLarge, rows.height + 2 * Theme.paddingMedium)
-            onClicked: if (status === "finished") Qt.openUrlExternally("file://" + path)
+            onClicked: if (status === "finished")
+                Qt.openUrlExternally("file://" + path)
             menu: ContextMenu {
                 MenuItem {
                     visible: item.status === "finished"
@@ -72,27 +77,31 @@ Page {
                     visible: item.status === "finished"
                     text: qsTr("Share")
                     onClicked: {
-                        share.mimeType = item.host !== "" ? item.host : "application/octet-stream"
-                        share.resources = ["file://" + item.path]
-                        share.trigger()
+                        share.mimeType = item.host !== "" ? item.host : "application/octet-stream";
+                        share.resources = ["file://" + item.path];
+                        share.trigger();
                     }
                 }
                 MenuItem {
                     visible: item.status === "failed" || item.status === "paused" || item.status === "cancelled"
                     text: qsTr("Try again")
                     onClicked: {
-                        Pacific.removeDownload(item.itemId, true)
-                        WebEngine.defaultProfile.download(item.url)
+                        Pacific.removeDownload(item.itemId, true);
+                        WebEngine.defaultProfile.download(item.url);
                     }
                 }
                 MenuItem {
                     text: qsTr("Remove from list")
-                    onClicked: item.remorseDelete(function() { Pacific.removeDownload(item.itemId, false) })
+                    onClicked: item.remorseDelete(function () {
+                        Pacific.removeDownload(item.itemId, false);
+                    })
                 }
                 MenuItem {
                     visible: item.status === "finished"
                     text: qsTr("Delete file")
-                    onClicked: item.remorseDelete(function() { Pacific.removeDownload(item.itemId, true) })
+                    onClicked: item.remorseDelete(function () {
+                        Pacific.removeDownload(item.itemId, true);
+                    })
                 }
             }
             Item {
@@ -104,13 +113,18 @@ Page {
             Icon {
                 id: fileIcon
                 anchors.centerIn: iconSlot
-                source: item.status === "failed" ? "image://theme/icon-m-warning"
-                        : "image://theme/" + Logic.fileIcon(item.title)
+                source: item.status === "failed" ? "image://theme/icon-m-warning" : "image://theme/" + Logic.fileIcon(item.title)
                 highlighted: item.highlighted
             }
             Column {
                 id: rows
-                anchors { left: iconSlot.right; leftMargin: Theme.paddingMedium; right: parent.right; rightMargin: Theme.horizontalPageMargin; verticalCenter: parent.verticalCenter }
+                anchors {
+                    left: iconSlot.right
+                    leftMargin: Theme.paddingMedium
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin
+                    verticalCenter: parent.verticalCenter
+                }
                 spacing: Theme.paddingSmall
                 Label {
                     width: parent.width
@@ -135,21 +149,34 @@ Page {
                         SequentialAnimation on x {
                             running: item.status === "running" && item.progress < 0
                             loops: Animation.Infinite
-                            NumberAnimation { from: 0; to: rows.width * 3 / 4; duration: 900 }
-                            NumberAnimation { from: rows.width * 3 / 4; to: 0; duration: 900 }
+                            NumberAnimation {
+                                from: 0
+                                to: rows.width * 3 / 4
+                                duration: 900
+                            }
+                            NumberAnimation {
+                                from: rows.width * 3 / 4
+                                to: 0
+                                duration: 900
+                            }
                         }
                     }
                 }
                 Label {
                     width: parent.width
                     text: {
-                        var where = item.subtitle !== "" ? " · " + item.subtitle : "" // the site
+                        var where = item.subtitle !== "" ? " · " + item.subtitle : ""; // the site
                         switch (item.status) {
-                        case "finished": return item.subtitle
-                        case "failed": return qsTr("Failed: %1").arg(item.detail)
-                        case "cancelled": return qsTr("Cancelled") + where
-                        case "paused": return qsTr("Interrupted") + where
-                        default: return (item.progress >= 0 ? Math.round(item.progress * 100) + "%" : qsTr("Downloading")) + where
+                        case "finished":
+                            return item.subtitle;
+                        case "failed":
+                            return qsTr("Failed: %1").arg(item.detail);
+                        case "cancelled":
+                            return qsTr("Cancelled") + where;
+                        case "paused":
+                            return qsTr("Interrupted") + where;
+                        default:
+                            return (item.progress >= 0 ? Math.round(item.progress * 100) + "%" : qsTr("Downloading")) + where;
                         }
                     }
                     textFormat: Text.PlainText

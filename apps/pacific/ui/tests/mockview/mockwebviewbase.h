@@ -15,19 +15,18 @@
 #include <QtQml/qqmlregistration.h>
 #include <QtQuick/QQuickItem>
 
-#define MOCK_PROPERTY(type, name, setter, signal)                                                              \
-    Q_PROPERTY(type name MEMBER m_##name WRITE setter NOTIFY signal)                                           \
-public:                                                                                                      \
-    void setter(const type& v)                                                                               \
-    {                                                                                                        \
-        if (m_##name == v)                                                                                   \
-            return;                                                                                          \
-        m_##name = v;                                                                                        \
-        Q_EMIT signal();                                                                                     \
-    }                                                                                                        \
-                                                                                                             \
-private:                                                                                                     \
-    type m_##name {};
+#define MOCK_PROPERTY(type, name, setter, signal)                                                  \
+    Q_PROPERTY(type name MEMBER m_##name WRITE setter NOTIFY signal)                               \
+  public:                                                                                          \
+    void setter(const type &v) {                                                                   \
+        if (m_##name == v)                                                                         \
+            return;                                                                                \
+        m_##name = v;                                                                              \
+        Q_EMIT signal();                                                                           \
+    }                                                                                              \
+                                                                                                   \
+  private:                                                                                         \
+    type m_##name{};
 
 class MockWebViewBase : public QQuickItem {
     Q_OBJECT
@@ -53,24 +52,23 @@ class MockWebViewBase : public QQuickItem {
     MOCK_PROPERTY(bool, muted, setMuted, audioChanged)
     MOCK_PROPERTY(bool, webProcessRunning, setWebProcessRunning, webProcessRunningChanged)
     MOCK_PROPERTY(bool, created, setCreated, webViewCreated)
-    Q_PROPERTY(QObject* profile MEMBER m_profile WRITE setProfile NOTIFY profileChanged)
+    Q_PROPERTY(QObject *profile MEMBER m_profile WRITE setProfile NOTIFY profileChanged)
     // The real view's frameFitsView: a mock frame always has the view's size.
     Q_PROPERTY(bool frameFitsView MEMBER m_frameFitsView NOTIFY frameFitsViewChanged)
     // The real view's pageBlanked: a mock page has no old frames to hide.
     Q_PROPERTY(bool pageBlanked MEMBER m_pageBlanked NOTIFY pageBlankedChanged)
-public:
-    void setProfile(QObject* p)
-    {
+  public:
+    void setProfile(QObject *p) {
         if (m_profile == p)
             return;
         m_profile = p;
         Q_EMIT profileChanged();
     }
 
-private:
-    QObject* m_profile = nullptr;
-    bool m_frameFitsView = true;
-    bool m_pageBlanked = false;
+  private:
+    QObject *m_profile       = nullptr;
+    bool     m_frameFitsView = true;
+    bool     m_pageBlanked   = false;
     MOCK_PROPERTY(QString, userAgent, setUserAgent, userAgentChanged)
     MOCK_PROPERTY(bool, desktopMode, setDesktopMode, desktopModeChanged)
     MOCK_PROPERTY(qreal, zoomFactor, setZoomFactor, zoomFactorChanged)
@@ -92,21 +90,20 @@ private:
     MOCK_PROPERTY(int, findMatchCount, setFindMatchCount, findMatchCountChanged)
     MOCK_PROPERTY(int, blockedRequestCount, setBlockedRequestCount, blockedRequestCountChanged)
 
-public:
-    explicit MockWebViewBase(QQuickItem* parent = nullptr)
-        : QQuickItem(parent)
-    {
-        m_created = true;
-        m_webProcessRunning = true;
-        m_zoomFactor = 1.0;
-        m_contentScale = 1.0;
-        m_active = true;
-        m_javascriptEnabled = true;
-        m_loadImages = true;
+  public:
+    explicit MockWebViewBase(QQuickItem *parent = nullptr)
+        : QQuickItem(parent) {
+        m_created               = true;
+        m_webProcessRunning     = true;
+        m_zoomFactor            = 1.0;
+        m_contentScale          = 1.0;
+        m_active                = true;
+        m_javascriptEnabled     = true;
+        m_loadImages            = true;
         m_mediaNeedsUserGesture = true;
     }
 
-Q_SIGNALS:
+  Q_SIGNALS:
     void webViewCreated();
     void urlChanged();
     void titleChanged();
@@ -121,14 +118,15 @@ Q_SIGNALS:
     void swipeNavMoved(qreal dx);
     void swipeNavEnded(qreal dx, qreal velocity);
     void swipeNavigationChanged();
-    void historyPictureReady(const QString& key);
+    void historyPictureReady(const QString &key);
     void zoomingChanged();
     void loadProgressChanged();
     void loadingStateChanged();
-    void loadingChanged(QObject* loadRequest);
+    void loadingChanged(QObject *loadRequest);
     void backForwardChanged();
     void securityChanged();
-    void certificateError(const QUrl& url, const QString& host, int errors, const QString& certificatePem);
+    void certificateError(const QUrl &url, const QString &host, int errors,
+                          const QString &certificatePem);
     void audioChanged();
     void webProcessRunningChanged();
     void webProcessTerminated(int reason);
@@ -148,30 +146,31 @@ Q_SIGNALS:
     void scriptSelectMenusChanged();
     void captureConsoleChanged();
     void settingsChanged();
-    void newWindowRequested(QObject* request);
-    void navigationRequested(QObject* request);
+    void newWindowRequested(QObject *request);
+    void navigationRequested(QObject *request);
     void closeRequested();
-    void permissionRequested(QObject* request);
-    void downloadRequested(QObject* download);
-    void scriptDialogRequested(QObject* dialog);
-    void fileChooserRequested(QObject* request);
-    void authenticationRequested(QObject* request);
-    void notificationRequested(const QString& title, const QString& body, const QString& tag, const QUrl& origin);
+    void permissionRequested(QObject *request);
+    void downloadRequested(QObject *download);
+    void scriptDialogRequested(QObject *dialog);
+    void fileChooserRequested(QObject *request);
+    void authenticationRequested(QObject *request);
+    void notificationRequested(const QString &title, const QString &body, const QString &tag,
+                               const QUrl &origin);
     void fullscreenRequested(bool fullscreen);
     void inputMethodStateChanged();
     void selectionChanged();
-    void selectionHandlesChanged(const QPointF& start, const QPointF& end);
-    void contextMenuRequested(const QVariantMap& info);
-    void selectMenuRequested(const QVariantList& options, int selectedIndex, const QRectF& rect);
-    void inputPickerRequested(const QString& type, const QString& value, const QString& min, const QString& max,
-        const QString& step, const QRectF& rect);
+    void selectionHandlesChanged(const QPointF &start, const QPointF &end);
+    void contextMenuRequested(const QVariantMap &info);
+    void selectMenuRequested(const QVariantList &options, int selectedIndex, const QRectF &rect);
+    void inputPickerRequested(const QString &type, const QString &value, const QString &min,
+                              const QString &max, const QString &step, const QRectF &rect);
     void scrollChanged(qreal scrollY, qreal contentHeight, qreal viewportHeight);
     void pinchConsumedByPage(bool consumed);
     void findMatchCountChanged();
     void findResult(int count);
-    void consoleMessage(const QString& level, const QString& message, const QString& source);
-    void scriptMessage(const QString& name, const QVariant& message);
+    void consoleMessage(const QString &level, const QString &message, const QString &source);
+    void scriptMessage(const QString &name, const QVariant &message);
     // What the engine's content filters blocked (as the real view will add).
-    void blockedRequest(const QString& url);
+    void blockedRequest(const QString &url);
     void blockedRequestCountChanged();
 };

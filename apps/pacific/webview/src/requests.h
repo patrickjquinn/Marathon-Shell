@@ -31,24 +31,41 @@ class LoadRequest : public QObject {
     Q_PROPERTY(int errorCode READ errorCode CONSTANT)
     Q_PROPERTY(QString errorDomain READ errorDomain CONSTANT)
 
-public:
-    enum Status { Started, Redirected, Committed, Succeeded, Failed, Stopped };
+  public:
+    enum Status {
+        Started,
+        Redirected,
+        Committed,
+        Succeeded,
+        Failed,
+        Stopped
+    };
     Q_ENUM(Status)
 
     LoadRequest(QUrl url, Status status, QString errorString = {}, int errorCode = 0,
-        QString errorDomain = {}, QObject* parent = nullptr);
+                QString errorDomain = {}, QObject *parent = nullptr);
 
-    QUrl url() const { return m_url; }
-    Status status() const { return m_status; }
-    QString errorString() const { return m_errorString; }
-    int errorCode() const { return m_errorCode; }
-    QString errorDomain() const { return m_errorDomain; }
+    QUrl url() const {
+        return m_url;
+    }
+    Status status() const {
+        return m_status;
+    }
+    QString errorString() const {
+        return m_errorString;
+    }
+    int errorCode() const {
+        return m_errorCode;
+    }
+    QString errorDomain() const {
+        return m_errorDomain;
+    }
 
-private:
-    QUrl m_url;
-    Status m_status;
+  private:
+    QUrl    m_url;
+    Status  m_status;
     QString m_errorString;
-    int m_errorCode;
+    int     m_errorCode;
     QString m_errorDomain;
 };
 
@@ -60,7 +77,7 @@ class PermissionRequest : public QObject {
     Q_PROPERTY(QUrl origin READ origin CONSTANT)
     Q_PROPERTY(bool answered READ answered NOTIFY answeredChanged)
 
-public:
+  public:
     enum Kind {
         Geolocation,
         Camera,
@@ -77,23 +94,29 @@ public:
     };
     Q_ENUM(Kind)
 
-    PermissionRequest(WebKitPermissionRequest* request, QUrl origin, QObject* parent = nullptr);
+    PermissionRequest(WebKitPermissionRequest *request, QUrl origin, QObject *parent = nullptr);
     ~PermissionRequest() override;
 
-    Kind kind() const { return m_kind; }
-    QUrl origin() const { return m_origin; }
-    bool answered() const { return !m_request; }
+    Kind kind() const {
+        return m_kind;
+    }
+    QUrl origin() const {
+        return m_origin;
+    }
+    bool answered() const {
+        return !m_request;
+    }
 
     Q_INVOKABLE void allow();
     Q_INVOKABLE void deny();
 
-Q_SIGNALS:
+  Q_SIGNALS:
     void answeredChanged();
 
-private:
-    WebKitPermissionRequest* m_request;
-    Kind m_kind;
-    QUrl m_origin;
+  private:
+    WebKitPermissionRequest *m_request;
+    Kind                     m_kind;
+    QUrl                     m_origin;
 };
 
 // window.open() / target=_blank. Answer synchronously, inside the
@@ -109,22 +132,29 @@ class NewWindowRequest : public QObject {
     Q_PROPERTY(bool userInitiated READ userInitiated CONSTANT)
     Q_PROPERTY(QString frameName READ frameName CONSTANT)
 
-public:
-    NewWindowRequest(PacificWebView* opener, WebKitNavigationAction* action, QObject* parent = nullptr);
+  public:
+    NewWindowRequest(PacificWebView *opener, WebKitNavigationAction *action,
+                     QObject *parent = nullptr);
 
-    QUrl url() const { return m_url; }
-    bool userInitiated() const { return m_userInitiated; }
-    QString frameName() const { return m_frameName; }
+    QUrl url() const {
+        return m_url;
+    }
+    bool userInitiated() const {
+        return m_userInitiated;
+    }
+    QString frameName() const {
+        return m_frameName;
+    }
 
-    Q_INVOKABLE bool openIn(PacificWebView* view);
-    WebKitWebView* result() const;
+    Q_INVOKABLE bool openIn(PacificWebView *view);
+    WebKitWebView   *result() const;
 
-private:
+  private:
     QPointer<PacificWebView> m_opener;
     QPointer<PacificWebView> m_target;
-    QUrl m_url;
-    bool m_userInitiated = false;
-    QString m_frameName;
+    QUrl                     m_url;
+    bool                     m_userInitiated = false;
+    QString                  m_frameName;
 };
 
 // Main-frame navigation policy, decided synchronously in the
@@ -139,30 +169,57 @@ class NavigationRequest : public QObject {
     Q_PROPERTY(bool userInitiated READ userInitiated CONSTANT)
     Q_PROPERTY(bool redirect READ isRedirect CONSTANT)
 
-public:
-    enum NavigationType { LinkClicked, FormSubmitted, BackForward, Reload, FormResubmitted, Other };
+  public:
+    enum NavigationType {
+        LinkClicked,
+        FormSubmitted,
+        BackForward,
+        Reload,
+        FormResubmitted,
+        Other
+    };
     Q_ENUM(NavigationType)
-    enum Action { Accept, Ignore, Download };
+    enum Action {
+        Accept,
+        Ignore,
+        Download
+    };
     Q_ENUM(Action)
 
-    NavigationRequest(WebKitNavigationPolicyDecision* decision, QObject* parent = nullptr);
+    NavigationRequest(WebKitNavigationPolicyDecision *decision, QObject *parent = nullptr);
 
-    QUrl url() const { return m_url; }
-    NavigationType navigationType() const { return m_type; }
-    bool userInitiated() const { return m_userInitiated; }
-    bool isRedirect() const { return m_redirect; }
+    QUrl url() const {
+        return m_url;
+    }
+    NavigationType navigationType() const {
+        return m_type;
+    }
+    bool userInitiated() const {
+        return m_userInitiated;
+    }
+    bool isRedirect() const {
+        return m_redirect;
+    }
 
-    Q_INVOKABLE void accept() { m_action = Accept; }
-    Q_INVOKABLE void ignore() { m_action = Ignore; }
-    Q_INVOKABLE void download() { m_action = Download; }
-    Action action() const { return m_action; }
+    Q_INVOKABLE void accept() {
+        m_action = Accept;
+    }
+    Q_INVOKABLE void ignore() {
+        m_action = Ignore;
+    }
+    Q_INVOKABLE void download() {
+        m_action = Download;
+    }
+    Action action() const {
+        return m_action;
+    }
 
-private:
-    QUrl m_url;
-    NavigationType m_type = Other;
-    bool m_userInitiated = false;
-    bool m_redirect = false;
-    Action m_action = Accept;
+  private:
+    QUrl           m_url;
+    NavigationType m_type          = Other;
+    bool           m_userInitiated = false;
+    bool           m_redirect      = false;
+    Action         m_action        = Accept;
 };
 
 // alert(), confirm(), prompt(), onbeforeunload. Answer with accept() /
@@ -175,26 +232,37 @@ class ScriptDialog : public QObject {
     Q_PROPERTY(QString message READ message CONSTANT)
     Q_PROPERTY(QString defaultText READ defaultText CONSTANT)
 
-public:
-    enum Type { Alert, Confirm, Prompt, BeforeUnload };
+  public:
+    enum Type {
+        Alert,
+        Confirm,
+        Prompt,
+        BeforeUnload
+    };
     Q_ENUM(Type)
 
-    ScriptDialog(WebKitScriptDialog* dialog, QObject* parent = nullptr);
+    ScriptDialog(WebKitScriptDialog *dialog, QObject *parent = nullptr);
     ~ScriptDialog() override;
 
-    Type type() const { return m_type; }
-    QString message() const { return m_message; }
-    QString defaultText() const { return m_defaultText; }
+    Type type() const {
+        return m_type;
+    }
+    QString message() const {
+        return m_message;
+    }
+    QString defaultText() const {
+        return m_defaultText;
+    }
 
-    Q_INVOKABLE void accept(const QString& text = QString());
+    Q_INVOKABLE void accept(const QString &text = QString());
     Q_INVOKABLE void reject();
 
-private:
-    void close();
-    WebKitScriptDialog* m_dialog;
-    Type m_type;
-    QString m_message;
-    QString m_defaultText;
+  private:
+    void                close();
+    WebKitScriptDialog *m_dialog;
+    Type                m_type;
+    QString             m_message;
+    QString             m_defaultText;
 };
 
 // <input type=file>. Answer with select([paths or file: URLs]) or cancel().
@@ -206,19 +274,19 @@ class FileChooserRequest : public QObject {
     Q_PROPERTY(bool multiple READ multiple CONSTANT)
     Q_PROPERTY(QStringList selectedFiles READ selectedFiles CONSTANT)
 
-public:
-    FileChooserRequest(WebKitFileChooserRequest* request, QObject* parent = nullptr);
+  public:
+    FileChooserRequest(WebKitFileChooserRequest *request, QObject *parent = nullptr);
     ~FileChooserRequest() override;
 
-    QStringList mimeTypes() const;
-    bool multiple() const;
-    QStringList selectedFiles() const;
+    QStringList      mimeTypes() const;
+    bool             multiple() const;
+    QStringList      selectedFiles() const;
 
-    Q_INVOKABLE void select(const QStringList& files);
+    Q_INVOKABLE void select(const QStringList &files);
     Q_INVOKABLE void cancel();
 
-private:
-    WebKitFileChooserRequest* m_request;
+  private:
+    WebKitFileChooserRequest *m_request;
 };
 
 class AuthenticationRequest : public QObject {
@@ -231,21 +299,22 @@ class AuthenticationRequest : public QObject {
     Q_PROPERTY(bool proxy READ proxy CONSTANT)
     Q_PROPERTY(bool retry READ retry CONSTANT)
 
-public:
-    AuthenticationRequest(WebKitAuthenticationRequest* request, QObject* parent = nullptr);
+  public:
+    AuthenticationRequest(WebKitAuthenticationRequest *request, QObject *parent = nullptr);
     ~AuthenticationRequest() override;
 
-    QString host() const;
-    int port() const;
-    QString realm() const;
-    bool proxy() const;
-    bool retry() const;
+    QString          host() const;
+    int              port() const;
+    QString          realm() const;
+    bool             proxy() const;
+    bool             retry() const;
 
-    Q_INVOKABLE void authenticate(const QString& user, const QString& password, bool remember = false);
+    Q_INVOKABLE void authenticate(const QString &user, const QString &password,
+                                  bool remember = false);
     Q_INVOKABLE void cancel();
 
-private:
-    WebKitAuthenticationRequest* m_request;
+  private:
+    WebKitAuthenticationRequest *m_request;
 };
 
 class Download : public QObject {
@@ -262,43 +331,56 @@ class Download : public QObject {
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString errorString READ errorString NOTIFY stateChanged)
 
-public:
-    enum State { InProgress, Finished, Failed, Cancelled };
+  public:
+    enum State {
+        InProgress,
+        Finished,
+        Failed,
+        Cancelled
+    };
     Q_ENUM(State)
 
-    Download(WebKitDownload* download, QString downloadDirectory, QObject* parent = nullptr);
+    Download(WebKitDownload *download, QString downloadDirectory, QObject *parent = nullptr);
     ~Download() override;
 
-    QUrl url() const;
-    QString suggestedFilename() const { return m_suggestedFilename; }
-    QString destination() const { return m_destination; }
+    QUrl    url() const;
+    QString suggestedFilename() const {
+        return m_suggestedFilename;
+    }
+    QString destination() const {
+        return m_destination;
+    }
     // Takes effect only before WebKit asked for the destination, that is in
     // the downloadStarted / downloadRequested handler.
-    void setDestination(const QString& path);
+    void    setDestination(const QString &path);
     QString mimeType() const;
-    qreal progress() const;
-    qint64 receivedBytes() const;
-    qint64 totalBytes() const;
-    State state() const { return m_state; }
-    QString errorString() const { return m_errorString; }
-    WebKitWebView* webView() const;
+    qreal   progress() const;
+    qint64  receivedBytes() const;
+    qint64  totalBytes() const;
+    State   state() const {
+        return m_state;
+    }
+    QString errorString() const {
+        return m_errorString;
+    }
+    WebKitWebView   *webView() const;
 
     Q_INVOKABLE void cancel();
 
-Q_SIGNALS:
+  Q_SIGNALS:
     void suggestedFilenameChanged();
     void destinationChanged();
     void responseChanged();
     void progressChanged();
     void stateChanged();
 
-private:
-    bool decideDestination(const char* suggested);
-    WebKitDownload* m_download;
-    QString m_directory;
-    QString m_suggestedFilename;
-    QString m_destination;
-    bool m_destinationDecided = false;
-    State m_state = InProgress;
-    QString m_errorString;
+  private:
+    bool            decideDestination(const char *suggested);
+    WebKitDownload *m_download;
+    QString         m_directory;
+    QString         m_suggestedFilename;
+    QString         m_destination;
+    bool            m_destinationDecided = false;
+    State           m_state              = InProgress;
+    QString         m_errorString;
 };
