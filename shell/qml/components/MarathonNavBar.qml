@@ -167,7 +167,7 @@ Rectangle {
 
             interval: 67
             repeat: true
-            running: MMotion.gate(Power.isCharging && Display.screenOn && navBar.visible && indicator.visible && !navBar.pilotLit)
+            running: MMotion.gate(Power.isCharging && Display.screenOn && !Display.nightshade && navBar.visible && indicator.visible && !navBar.pilotLit)
             onRunningChanged: {
                 start = Date.now();
                 if (!running)
