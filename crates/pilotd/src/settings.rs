@@ -19,7 +19,8 @@ use serde::{Deserialize, Serialize};
     reason = "one independent switch per capability, as the settings page shows them"
 )]
 pub struct Consent {
-    /// Typed questions go to Jev and Qwen.
+    /// Typed questions may leave the phone: to Jev and Qwen in the cloud,
+    /// or, with the models on the phone, to a web search.
     pub text_qa: bool,
     /// Spoken turns' transcripts go to the cloud (the audio never does).
     pub voice_cloud: bool,

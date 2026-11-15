@@ -1355,6 +1355,25 @@ impl Pipeline {
             .clone()
     }
 
+    /// The router and the model both run on this phone: a question sent to
+    /// them goes nowhere.
+    fn models_on_phone(&self) -> bool {
+        let b = self.backends();
+        b.jev.provider() == "local" && b.llm.provider() == "local"
+    }
+
+    /// This turn may reach the network (a web search, a page): the person
+    /// said so for typed or spoken questions, and no privacy switch is on.
+    fn may_leave(&self) -> bool {
+        let s = lock(&self.settings);
+        let consent = if self.spoken.load(Ordering::Relaxed) {
+            s.consent.voice_cloud
+        } else {
+            s.consent.text_qa
+        };
+        consent && s.onboarded && !self.offline.is_offline()
+    }
+
     pub fn last(&self) -> Option<TurnResult> {
         lock(&self.last).clone()
     }
@@ -1727,13 +1746,14 @@ impl Pipeline {
         // transcript goes where a typed question would.
         // Nothing leaves the phone before the first-run choice is made
         // (the privacy policy promises it), whatever the defaults say.
+        // Models on the phone answer either way; only the web is left out.
         let (onboarded, consent) = {
             let s = lock(&self.settings);
             let c = &s.consent;
             (s.onboarded, if spoken { c.voice_cloud } else { c.text_qa })
         };
         let consent = consent && onboarded;
-        if self.offline.is_offline() || !consent {
+        if !self.models_on_phone() && (self.offline.is_offline() || !consent) {
             let why = match (consent, onboarded, spoken) {
                 (true, _, _) => "offline",
                 (false, false, _) => "not-onboarded",
@@ -2556,9 +2576,15 @@ impl Pipeline {
             format!("[{}]\n\n{redacted}", context.trim()),
         ));
         let registry = self.registry();
-        let tools = self
+        let may_leave = self.may_leave();
+        let mut tools = self
             .select_tools(&registry, scope, redacted, backends)
             .await;
+        if !may_leave {
+            if let Some(web) = registry.get(crate::web::TOOL) {
+                tools.retain(|t| t.name != web.model_name);
+            }
+        }
         log::debug!(
             "scope {:?}: {} tool(s) offered: {}",
             scope,
@@ -2586,7 +2612,7 @@ impl Pipeline {
         // Jev says the answer needs the web: search before the model
         // answers, as if it had asked. A small model is unreliable at
         // deciding to look things up and answers from memory instead.
-        if web_first {
+        if web_first && may_leave {
             if let Some(entry) = registry.get(crate::web::TOOL).filter(|e| e.available) {
                 // The question as asked, dated, so "the last final" or "the
                 // latest version" finds this year's pages.
@@ -2660,7 +2686,7 @@ impl Pipeline {
             .filter(|o| !o.context.trim().is_empty())
         {
             let page = match crate::onscreen::page_url(&o.context) {
-                Some(url) => {
+                Some(url) if may_leave => {
                     self.stage(turn, "reading", &site_of(&url));
                     let text = self.page_text(&url).await;
                     if text.is_some() {
@@ -2674,7 +2700,7 @@ impl Pipeline {
                     }
                     text
                 }
-                None => None,
+                _ => None,
             };
             steps.insert(
                 usize::from(!memory.is_empty()),

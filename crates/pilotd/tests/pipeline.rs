@@ -605,6 +605,63 @@ async fn consent_withdrawn_means_local_only() {
     assert!(text_of(&r.cards[0]).starts_with("Cloud answers are off"));
 }
 
+/// Both models on the phone (Marathon's local mode).
+fn local_daemon(base: &str) -> pilotd::daemon::Daemon {
+    let config = pilotd::config::Config::parse(&format!(
+        r#"
+        timeout_secs = 5
+        web_search_url = "{base}/v1/search"
+        [privacy]
+        source = "none"
+        [backends.standard.jev]
+        kind = "local"
+        url = "{base}/v1/embeddings"
+        [backends.standard.llm]
+        url = "{base}/v1/llm/chat/completions"
+        provider = "local"
+        allowed_regions = ["device"]
+        "#
+    ))
+    .unwrap();
+    pilotd::daemon::build(pilotd::daemon::Options {
+        config,
+        data_dir: None,
+        session: None,
+        system: None,
+        adapters: Some(common::fake_adapters(&Arc::new(Log::default()))),
+        credential: Some(pilotd::remote::Credential::None),
+        now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
+    })
+    .unwrap()
+}
+
+/// "Keep Pilot on this phone" (typed questions' consent off) keeps the web
+/// out of a turn, not the model on the phone: it still answers.
+#[tokio::test]
+async fn consent_off_keeps_the_model_on_the_phone() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/search" => panic!("no web search without consent"),
+        "/v1/embeddings" => Reply::ok(json!({"data": []})),
+        _ => Reply::stamped(chat_text("A footrace of 42.195 km."), "device"),
+    })
+    .await;
+    let d = local_daemon(&srv.base);
+    d.live.lock().unwrap().consent.text_qa = false;
+    let r = d
+        .pipeline
+        .ask("what is the latest news about the marathon", false)
+        .await;
+    assert_ne!(r.route, "no-consent");
+    assert_eq!(text_of(&r.cards[0]), "A footrace of 42.195 km.");
+    let chats = srv.seen("/v1/llm/chat/completions");
+    assert!(!chats.is_empty());
+    assert!(
+        !chats[0].body.to_string().contains("web_search"),
+        "the web tool is not offered"
+    );
+    assert!(srv.seen("/v1/search").is_empty());
+}
+
 #[tokio::test]
 async fn lighthouse_scorer_drives_the_same_routing() {
     // Scorer: intent puts 0.9 on the second label (timer), the noul says
