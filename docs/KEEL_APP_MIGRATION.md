@@ -15,7 +15,8 @@ Nemo.Configuration, tests). Fuller reference: apps/notes.
   set Accessible.role/name, activeFocusOnTab, Keys, and add a `FocusFrame { parent: root }`.
 - Manifest: delete the `"toolkit": "marathonui",` line (Keel is the default).
 - Root file: `ApplicationWindow` (Marathon.Silica) with `appId`, `initialPage`, optional `cover`.
-  The runner calls `handleBack()`; ApplicationWindow already pops pages / minimises.
+  The runner calls `handleBack()`; ApplicationWindow already pops pages / minimises. It also calls
+  `handleForward()`, and `handleFreeze()` / `handleThaw()` around a freeze, when the root has them.
 - Give the app a `cover:` (CoverBackground; ≤3 lines of state, Theme.fontSizeMedium+, CoverAction
   for the main action). See apps/notes/cover/NotesCover.qml.
 

@@ -162,6 +162,13 @@ static bool invokeRoot(QObject *root, const char *method, const char *fallback) 
     return true;
 }
 
+// The app root's handler for a lifecycle step, if it has one: before the
+// freeze it saves what a kill would lose; after the thaw it catches up.
+static void notifyRoot(QObject *root, const char *method) {
+    if (root && root->metaObject()->indexOfMethod(QByteArray(method) + "()") >= 0)
+        QMetaObject::invokeMethod(root, method, Qt::DirectConnection);
+}
+
 // A status-bar tap: the current page's outermost visible view that can
 // scroll to its top (Silica's flickables), breadth first, does.
 static void scrollToTop(QObject *root, QQuickWindow *window) {
@@ -1002,17 +1009,19 @@ int main(int argc, char *argv[]) {
     // Keel.Actions owns its name on Qt's session-bus connection.
     auto actionsReleased = std::make_shared<bool>(false);
     QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::prepareFreezeRequested,
-                     &lifecycle, [actionsReleased]() {
+                     &lifecycle, [actionsReleased, &appRoot]() {
+                         notifyRoot(appRoot, "handleFreeze");
                          const QString name = qEnvironmentVariable("KEEL_ACTIONS_APP_ID");
                          if (!name.isEmpty())
                              *actionsReleased =
                                  QDBusConnection::sessionBus().unregisterService(name);
                      });
     QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::thawed, &lifecycle,
-                     [actionsReleased]() {
+                     [actionsReleased, &appRoot]() {
                          if (*actionsReleased)
                              *actionsReleased = !QDBusConnection::sessionBus().registerService(
                                  qEnvironmentVariable("KEEL_ACTIONS_APP_ID"));
+                         notifyRoot(appRoot, "handleThaw");
                      });
     lifecycle.serve(appId);
 
