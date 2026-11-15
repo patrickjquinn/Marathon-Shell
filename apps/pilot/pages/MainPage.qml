@@ -224,6 +224,17 @@ Page {
         VerticalScrollDecorator {}
     }
 
+    // Cards scrolled under the panel fade out above it instead of being
+    // cut off at its edge.
+    OpacityRampEffect {
+        objectName: "conversationFade"
+        sourceItem: list
+        enabled: !list.atYEnd
+        direction: OpacityRamp.TopToBottom
+        slope: list.height / Theme.itemSizeMedium
+        offset: 1 - Theme.itemSizeMedium / list.height
+    }
+
     RemorsePopup {
         id: clearRemorse
     }
