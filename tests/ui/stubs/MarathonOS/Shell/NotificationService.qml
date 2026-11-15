@@ -2,6 +2,7 @@ pragma Singleton
 import QtQml.Models
 
 ListModel {
+    property int unreadCount: 0
     property var read: []
     property var clicked: []
     property var notifications: []

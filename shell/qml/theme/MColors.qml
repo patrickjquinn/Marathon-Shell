@@ -68,4 +68,13 @@ QtObject {
 
     readonly property color whiteOverlay08: Qt.rgba(1, 1, 1, 0.08)
     readonly property color whiteOverlay16: Qt.rgba(1, 1, 1, 0.16)
+
+    // Nightshade's bedside clock: no light but the glyphs, in a hue that
+    // spares night vision.
+    readonly property color nightshadeBackground: "#000000"
+    readonly property var nightshadeTints: ({
+            "red": "#ff2a14",
+            "amber": "#ffa31a",
+            "green": "#33d17a"
+        })
 }

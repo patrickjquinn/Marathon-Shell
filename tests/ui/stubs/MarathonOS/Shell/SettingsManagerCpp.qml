@@ -45,6 +45,17 @@ QtObject {
         }
     ]
     property int screenTimeout: 0
+    property bool showNotificationsOnLockScreen: true
+    property bool nightshadeEnabled: false
+    property int nightshadeFrom: 1320
+    property int nightshadeTo: 420
+    property var nightshadeItems: ["clock", "battery", "weather", "notifications"]
+    property string nightshadeTint: "red"
+    // As the Rust, whose tests cover the hours.
+    function nightshadeDue(pluggedIn, inCall, minute) {
+        const inHours = nightshadeFrom <= nightshadeTo ? minute >= nightshadeFrom && minute < nightshadeTo : minute >= nightshadeFrom || minute < nightshadeTo;
+        return nightshadeEnabled && pluggedIn && !inCall && inHours;
+    }
     property string timeZone: "Europe/Dublin"
     property bool automaticTimeZone: true
     property bool showNotificationBadges: true

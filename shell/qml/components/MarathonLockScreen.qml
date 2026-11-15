@@ -71,6 +71,8 @@ Item {
     signal phoneLaunched
     signal notificationTapped(int notifId, string appId, string title)
     signal hubRequested
+    // Idle for the screen timeout: the shell blanks the screen or shows Nightshade.
+    signal idleExpired(string reason)
 
     function roleId(name) {
         if (!NotificationService || !name)
@@ -184,7 +186,7 @@ Item {
         // — same logic as MarathonShell.idleScreenTimer. Otherwise a 0
         // interval fires every tick and blanks the lock screen immediately.
         // Locked covers the PIN pad, which hides the lock screen.
-        readonly property bool armed: (lockScreen.visible || SessionStore.isLocked) && Display.screenOn && !AlarmManagerCpp.hasActiveAlarm && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
+        readonly property bool armed: (lockScreen.visible || SessionStore.isLocked) && Display.screenOn && !Display.nightshade && !AlarmManagerCpp.hasActiveAlarm && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
 
         function rearm() {
             if (armed)
@@ -203,7 +205,7 @@ Item {
                 idleTimer.rearm();
                 return;
             }
-            Display.turnScreenOff("lock-screen idle timer (" + idleTimer.interval + "ms)");
+            lockScreen.idleExpired("lock-screen idle timer (" + idleTimer.interval + "ms)");
         }
     }
 

@@ -5,6 +5,7 @@ import QtQml
 QtObject {
     property real dim: 1
     property bool screenOn: true
+    property bool nightshade: false
     property bool lightAvailable: true
     property bool rotationAvailable: true
     property var offReasons: []

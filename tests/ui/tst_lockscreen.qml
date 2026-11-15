@@ -21,6 +21,7 @@ TestCase {
         MarathonLockScreen {
             id: lockScreen
 
+            onIdleExpired: reason => Display.turnScreenOff(reason)
             onUnlockRequested: pad.enabled = true
         }
 
@@ -101,6 +102,19 @@ TestCase {
         verify(Display.screenOn, "a ringing call keeps the screen on");
         Power.hasActiveCalls = false;
         tryVerify(() => !Display.screenOn, 1000);
+        SettingsManagerCpp.screenTimeout = 0;
+    }
+
+    // Nightshade is the idle state itself: nothing times it out.
+    function test_nightshadeHoldsTheIdleTimer() {
+        Display.offReasons = [];
+        Display.nightshade = true;
+        SettingsManagerCpp.screenTimeout = 100;
+        lockScreen.resetIdleTimer();
+        wait(300);
+        compare(Display.offReasons.length, 0);
+        Display.nightshade = false;
+        tryVerify(() => Display.offReasons.length === 1, 1000);
         SettingsManagerCpp.screenTimeout = 0;
     }
 

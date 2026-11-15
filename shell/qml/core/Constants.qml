@@ -65,6 +65,8 @@ QtObject {
     readonly property int zIndexQuickSettingsOverlay: 1300
     readonly property int zIndexNavBarApp: 1600
     readonly property int zIndexStatusBarDrag: 1700
+    // Over the bars; under calls, alarms and alerts.
+    readonly property int zIndexNightshade: 1900
     readonly property int zIndexModalOverlay: 2000
     readonly property int zIndexModal: zIndexModalOverlay
     readonly property int zIndexKeyboard: 3000

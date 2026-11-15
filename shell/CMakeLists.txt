@@ -104,6 +104,7 @@ set(QML_FILES
     qml/MarathonShell.qml
     qml/components/AppBackdropBlur.qml
     qml/components/MarathonLockScreen.qml
+    qml/components/MarathonNightshade.qml
     qml/components/MarathonAppGrid.qml
     qml/components/MarathonTaskSwitcher.qml
     qml/components/MarathonNavBar.qml

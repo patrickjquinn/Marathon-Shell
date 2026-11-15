@@ -14,8 +14,10 @@ QtObject {
     readonly property real pagerFlickVelocity: 10000
     readonly property int staggerMicro: 0
     readonly property int staggerHome: 100
+    // A suite that times a role sets it here; the rest are instant.
+    property var durations: ({})
     function durationFor(role) {
-        return 0;
+        return durations[role] || 0;
     }
     readonly property int reducedFade: 0
     function travel(px) {

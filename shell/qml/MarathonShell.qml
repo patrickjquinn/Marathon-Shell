@@ -975,7 +975,7 @@ Item {
                 return;
             }
             SessionStore.isLocked = true;
-            Display.turnScreenOff("idle timer (" + idleScreenTimer.interval + "ms)");
+            nightshade.idle("idle timer (" + idleScreenTimer.interval + "ms)");
         }
     }
 
@@ -1058,6 +1058,7 @@ Item {
         }
 
         function onKeyPressed() {
+            nightshade.leave("");
             Display.keyboardUsed();
         }
     }
@@ -1254,7 +1255,7 @@ Item {
                 Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
                 screenshotFlash.trigger();
                 ScreenshotService.captureScreen(shell);
-            } else if (Display.screenOn) {
+            } else if (Display.screenOn && !Display.nightshade) {
                 powerButtonTimer.start();
             }
         }
@@ -1265,6 +1266,8 @@ Item {
                 powerButtonTimer.stop();
                 SessionStore.lock();
                 Display.turnScreenOff("power key on " + device);
+            } else if (Display.nightshade) {
+                nightshade.leave("");
             } else if (!Display.screenOn) {
                 Display.turnScreenOn("power key on " + device);
             }
@@ -2338,6 +2341,7 @@ Item {
         z: Constants.zIndexLockScreen
         appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
         comboLength: comboEntry.combo.length
+        onIdleExpired: reason => nightshade.idle(reason)
         onUnlockRequested: {
             if (SessionStore.checkSession()) {
                 Logger.state("Shell", "locked", "unlocked");
@@ -2845,6 +2849,13 @@ Item {
                 }
             }
         }
+    }
+
+    MarathonNightshade {
+        id: nightshade
+
+        anchors.fill: parent
+        z: Constants.zIndexNightshade
     }
 
     MarathonAlarmOverlay {
