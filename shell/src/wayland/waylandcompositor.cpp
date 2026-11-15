@@ -108,6 +108,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     setAdditionalShmFormats(shmFormats);
 
     create();
+    // A client frozen by the lifecycle freezer reads nothing: its events queue
+    // here, and past libwayland's 4 KiB default it is disconnected. Buffers
+    // grow only as needed, up to KWin's 1 MiB.
+    wl_display_set_default_max_buffer_size(static_cast<wl_display *>(display()), 1 << 20);
 
     m_xdgShell = new QWaylandXdgShell(this);
 #ifdef HAVE_WAYLAND_PRIVATE
