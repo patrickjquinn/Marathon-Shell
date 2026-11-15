@@ -990,6 +990,7 @@ Page {
 
     AddressSheet {
         id: addressSheet
+        objectName: "addressSheet"
         anchors.fill: parent
         browser: page.browser
         backdrop: webArea
