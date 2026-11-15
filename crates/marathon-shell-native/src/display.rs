@@ -93,6 +93,9 @@ pub mod qobject {
         /// Blanked at the ear in a call: touches are dropped as with the screen off.
         #[qproperty(bool, proximity_blanked, cxx_name = "proximityBlanked", READ, NOTIFY)]
         #[qproperty(i32, ambient_light, cxx_name = "ambientLight", READ, NOTIFY)]
+        /// The screen is on as Nightshade's bedside clock: the backlight held
+        /// at its lowest level, auto-brightness paused.
+        #[qproperty(bool, nightshade, READ, WRITE = set_nightshade, NOTIFY)]
         type Display = super::DisplayRust;
 
         /// Every turn on or off, so the compositor re-asserts the panel's
@@ -113,6 +116,8 @@ pub mod qobject {
         fn set_night_light_from(self: Pin<&mut Display>, minutes: i32);
         #[cxx_name = "setNightLightTo"]
         fn set_night_light_to(self: Pin<&mut Display>, minutes: i32);
+        #[cxx_name = "setNightshade"]
+        fn set_nightshade(self: Pin<&mut Display>, on: bool);
 
         /// The backlight under `backlight_dir`, the iio sensors under
         /// `iio_dir`, the lowest duty the panel is visible at, and the light
@@ -209,6 +214,9 @@ pub struct DisplayRust {
     dwell: Option<(bool, Instant)>,
     manual_at: Option<Instant>,
     lessons: u64,
+    nightshade: bool,
+    /// The brightness to come back to after Nightshade.
+    day_brightness: f64,
 }
 
 impl Default for DisplayRust {
@@ -246,6 +254,8 @@ impl Default for DisplayRust {
             dwell: None,
             manual_at: None,
             lessons: 0,
+            nightshade: false,
+            day_brightness: 0.5,
         }
     }
 }
@@ -398,6 +408,10 @@ impl Display {
     }
 
     fn set_brightness(mut self: Pin<&mut Self>, brightness: f64) {
+        if self.nightshade {
+            self.as_mut().rust_mut().day_brightness = brightness;
+            return;
+        }
         let Some(panel) = &self.panel else { return };
         let shown = panel.shown(brightness);
         let dim = panel.dim(shown);
@@ -508,6 +522,7 @@ impl Display {
     fn lux(mut self: Pin<&mut Self>, lux: i32) {
         set!(self, ambient_light, ambient_light_changed, lux);
         if !self.auto_brightness
+            || self.nightshade
             || self
                 .manual_at
                 .is_some_and(|t| t.elapsed() < Duration::from_secs(5))
@@ -536,6 +551,32 @@ impl Display {
         }
         rust.dwell = None;
         self.ramp_to(target);
+    }
+
+    /// Down to the panel's lowest level without dimming the frame (or stays
+    /// dimmer), and back. A level set meanwhile is kept for the way back.
+    fn set_nightshade(mut self: Pin<&mut Self>, on: bool) {
+        if self.nightshade == on {
+            return;
+        }
+        let target = if on {
+            let day = self.brightness;
+            self.as_mut().rust_mut().day_brightness = day;
+            self.as_mut().set_keyboards_lit(false);
+            self.panel.as_ref().map_or(0.0, Panel::knee).min(day)
+        } else {
+            self.day_brightness
+        };
+        if self.screen_on {
+            self.as_mut().ramp_to(target);
+        } else if let Some(panel) = &self.panel {
+            let dim = panel.dim(target);
+            self.as_mut().rust_mut().brightness = target;
+            self.as_mut().brightness_changed();
+            self.as_mut().set_dim(dim);
+        }
+        set!(self, nightshade, nightshade_changed, on);
+        self.want_sensors();
     }
 
     /// A smoothstep over 600 ms, as the hardware levels it passes.
@@ -662,7 +703,7 @@ impl Display {
         if let Some(sensors) = &self.sensors {
             sensors
                 .try_send((
-                    self.auto_brightness && self.screen_on,
+                    self.auto_brightness && self.screen_on && !self.nightshade,
                     self.proximity_wanted,
                 ))
                 .ok();
