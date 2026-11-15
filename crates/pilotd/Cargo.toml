@@ -44,7 +44,7 @@ zbus = { version = "=6.1.0", default-features = false, features = ["default-rt",
 # The real keel-mcp server, in process over a pipe, for the MCP tests.
 keel-mcp = { path = "../keel-mcp" }
 marathon-rt = { path = "../marathon-rt", features = ["testing"] }
-rmcp = { version = "3.8.0", default-features = false, features = ["server", "transport-io"] }
+rmcp = { version = "3.9.0", default-features = false, features = ["server", "transport-io"] }
 tempfile = "3"
 
 [lints]
