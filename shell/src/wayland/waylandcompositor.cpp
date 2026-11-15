@@ -15,6 +15,7 @@
 #include "src/wayland/toplevelconfigure.h"
 #include "marathon-surface-v1-server.h"
 #include "src/components/windowtextureitem.h"
+#include "src/wayland/idleinhibit.h"
 #include "marathon-shell-native/src/device.cxxqt.h"
 #include "src/services/processtree.h"
 #include "marathon-shell-native/src/desktop.cxxqt.h"
@@ -94,8 +95,7 @@ static bool appLogsAllEnabled() {
 WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     : m_window(window)
     , m_nextSurfaceId(1)
-    , m_output(nullptr)
-    , m_hasIdleInhibitor(false) {
+    , m_output(nullptr) {
 
     const QByteArray socketNameEnv = qgetenv("MARATHON_WL_SOCKET_NAME").trimmed();
     const QByteArray socketNameBytes =
@@ -1082,10 +1082,6 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
 
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
-    connect(surface, &QWaylandSurface::inhibitsIdleChanged, this,
-            &WaylandCompositor::checkIdleInhibitors);
-    connect(surface, &QWaylandSurface::hasContentChanged, this,
-            &WaylandCompositor::checkIdleInhibitors);
 
     // Client commit meter (harmless when the 1Hz stats timer isn't running).
     connect(surface, &QWaylandSurface::redraw, this,
@@ -1782,7 +1778,6 @@ void WaylandCompositor::handleSurfaceDestroyed() {
     m_surfaceMap.remove(surfaceId);
     m_xdgSurfaceMap.remove(surfaceId);
     m_surfaces.removeAll(surface);
-    checkIdleInhibitors();
 
     emit surfacesChanged();
     emit surfaceDestroyed(surface, surfaceId);
@@ -2702,26 +2697,8 @@ void WaylandCompositor::sendKeyTo(QWaylandSurface *surface, int key,
     QTimer::singleShot(300, wait, once);
 }
 
-bool WaylandCompositor::checkIdleInhibitors() {
-    bool hasInhibitor = false;
-
-    for (auto it = m_surfaceMap.constBegin(); it != m_surfaceMap.constEnd(); ++it) {
-        QWaylandSurface *surface = it.value();
-        // The protocol only honours an inhibitor while its surface is mapped.
-        if (surface && surface->inhibitsIdle() && surface->hasContent()) {
-            qDebug() << "[WaylandCompositor] Surface" << it.key() << "inhibits idle";
-            hasInhibitor = true;
-            break;
-        }
-    }
-
-    if (hasInhibitor != m_hasIdleInhibitor) {
-        m_hasIdleInhibitor = hasInhibitor;
-        emit hasIdleInhibitingSurfaceChanged();
-        qDebug() << "[WaylandCompositor] Idle inhibitor state changed:" << hasInhibitor;
-    }
-
-    return hasInhibitor;
+QString WaylandCompositor::idleInhibitor() const {
+    return IdleInhibit::shownInhibitor(QWaylandCompositor::surfaces());
 }
 
 QString WaylandCompositor::focusedToolkit() const {

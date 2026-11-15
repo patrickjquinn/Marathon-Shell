@@ -49,6 +49,7 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/nativeclientscale.h
         src/wayland/nativeclientscale.cpp
         src/wayland/popupplacement.h
+        src/wayland/idleinhibit.h
         src/wayland/nativesurfaceitem.h
         src/wayland/nativesurfaceitem.cpp
         src/wayland/xdgactivationv1.h

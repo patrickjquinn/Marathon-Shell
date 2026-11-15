@@ -303,6 +303,39 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AN
         "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
 
+# An idle inhibitor holds the screen on only while its surface is shown
+set(_idle_inhibit_xml ${WAYLAND_PROTOCOLS_DIR}/unstable/idle-inhibit/idle-inhibit-unstable-v1.xml)
+if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AND EXISTS ${_idle_inhibit_xml})
+    set(_idle_inhibit_gen ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit)
+    file(MAKE_DIRECTORY ${_idle_inhibit_gen})
+    add_custom_command(
+        OUTPUT ${_idle_inhibit_gen}/idle-inhibit-unstable-v1-client.h
+               ${_idle_inhibit_gen}/idle-inhibit-unstable-v1.c
+        COMMAND ${WAYLAND_SCANNER} client-header ${_idle_inhibit_xml} ${_idle_inhibit_gen}/idle-inhibit-unstable-v1-client.h
+        COMMAND ${WAYLAND_SCANNER} private-code ${_idle_inhibit_xml} ${_idle_inhibit_gen}/idle-inhibit-unstable-v1.c
+        DEPENDS ${_idle_inhibit_xml})
+    add_executable(test_shell_idleinhibit
+        test_idleinhibit.cpp
+        ../../shell/src/components/windowtextureitem.cpp
+        ${_idle_inhibit_gen}/idle-inhibit-unstable-v1-client.h
+        ${_idle_inhibit_gen}/idle-inhibit-unstable-v1.c
+    )
+    qt_add_resources(test_shell_idleinhibit "test_shell_idleinhibit_shaders"
+        PREFIX "/marathon/shaders"
+        BASE "${CMAKE_SOURCE_DIR}/shell/shaders"
+        FILES
+            ${CMAKE_SOURCE_DIR}/shell/shaders/windowcorner.vert.qsb
+            ${CMAKE_SOURCE_DIR}/shell/shaders/windowcorner.frag.qsb
+    )
+    target_link_libraries(test_shell_idleinhibit
+        Qt6::Test Qt6::Quick Qt6::WaylandCompositor ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(test_shell_idleinhibit PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell ${_idle_inhibit_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    add_test(NAME Shell_IdleInhibit COMMAND test_shell_idleinhibit)
+    set_tests_properties(Shell_IdleInhibit PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+endif()
+
 # The shell's Rust half (crates/marathon-shell-native) backs classes most
 # of these tests compile; every shell test links it.
 get_property(_shell_tests DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
