@@ -26,7 +26,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-power.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service q25-lk-update q25-lk-update.service
  q25.xkb-symbols q25-keyboard-layout.env q25-deckard-keyboard.conf q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-splash-handover q25-splash-handover.service q25-splash-greetd.conf q25-splash-plymouth-quit.conf q25-splash-plymouth-quit-wait.conf q25-splash-plymouth-start.conf
- q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
+ q25-usb-recovery.nm.conf q25-wifi-mac.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules q25-geoclue.conf"
 build() {
     mkdir -p "$builddir"
@@ -135,6 +135,7 @@ package() {
     # unudhcpd serves usb0, and ttyGS0 is the recovery console when the
     # gadget has an ACM function: keep NetworkManager and ModemManager off.
     install -Dm644 "$srcdir/q25-usb-recovery.nm.conf" "$pkgdir/usr/lib/NetworkManager/conf.d/90-q25-usb-recovery.conf"
+    install -Dm644 "$srcdir/q25-wifi-mac.nm.conf" "$pkgdir/usr/lib/NetworkManager/conf.d/50-q25-wifi-mac.conf"
     install -Dm644 "$srcdir/90-q25-recovery-console.rules" "$pkgdir/usr/lib/udev/rules.d/90-q25-recovery-console.rules"
     install -Dm755 "$srcdir/q25-usb-gadget" "$pkgdir/usr/libexec/marathon/q25-usb-gadget"
     install -Dm644 "$srcdir/q25-usb-gadget.service" "$pkgdir/usr/lib/systemd/system/q25-usb-gadget.service"
@@ -257,6 +258,7 @@ c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3c
 9a49c02d4fd17978a2366e24a10bbc0e75bc7024b8d2322ff46d75db91b08c59d34dcb61627a53f9cfa4196f19b75282331b515261e7729eb444d5c0ce62b867  q25-plymouth.files
 8d414795e544c64173c649822deaf53ce86902736a29e6e184b7b36bc3e48d60b2e6cb1e2703b8b9f1407e19ac49fa92fba9a2a1448ad4d74fcb0a57f285176e  q25-plymouth-newroot.hook
 98357776e02b8aff3b585280bf9d4a3082ae8ad694ac880616ca66fec423ee2a645bf65840194e51d0345c6a60fa4c426f183a955ac0233e77c1fa476fb90499  q25-usb-recovery.nm.conf
+ee11868309da44be0ec95ea1b5acee5a1e24f01d57d4507cb2e67d147231515e2f00b956dacf7e72fc738d92eec0896028b23905895ba2e68130917f3056a5df  q25-wifi-mac.nm.conf
 95f3a7f976e410ed0eebe473a815ecad5a8cba847bbe9f065163c9bc0f4ac165550cf7feb889f80192d23493dc4ad0cd259099bbfea90c08864e216c400e8e4f  90-q25-recovery-console.rules
 20a56732a4a8fbc22b461dc35886c3cacbb02bfbb17359ea08a7ec8f464c7499a9d7c453b1cb4d0117a424ade0fbbc670b83d22cd43a3a50316b0aa48c5143f8  q25-power-supply-ignore
 28947046a89b216d125252b3b9df38367b707fcf3d872befe3066ff876b2714bdec4740147d58b7e2a493a745d7d217a6e4afa6dc3a83e53b5b1da16bccbb00f  99-q25-upower-duplicate.rules
