@@ -215,10 +215,7 @@ pub fn init(dirs: Dirs) {
 /// Queues `job` on the core thread.
 pub fn run(job: impl FnOnce(&mut Core) + Send + 'static) {
     let w = WORKER.get_or_init(|| start(Dirs::from_env()));
-    let sent =
-        w.tx.lock()
-            .map(|tx| tx.send(Box::new(job)).is_ok())
-            .unwrap_or(false);
+    let sent = w.tx.lock().is_ok_and(|tx| tx.send(Box::new(job)).is_ok());
     if !sent {
         log::warn!("the core thread is gone; a request was dropped");
     }

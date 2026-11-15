@@ -1591,8 +1591,7 @@ impl qobject::Pacific {
             let allow = !blocking
                 || c.profile
                     .site_settings(&url)
-                    .map(|s| s.blocking == Some(false))
-                    .unwrap_or(false);
+                    .is_ok_and(|s| s.blocking == Some(false));
             let cos = c
                 .blocker
                 .as_ref()

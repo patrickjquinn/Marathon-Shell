@@ -641,7 +641,7 @@ mod tests {
         .unwrap();
         p.apply(&mut t);
         let p: Patch = serde_json::from_str(r#"{"url":"","title":"","engineState":""}"#).unwrap();
-        assert!(p.apply(&mut t).is_empty());
+        assert_eq!(p.apply(&mut t), Vec::<i32>::new());
         assert_eq!(
             (t.url.as_str(), t.title.as_str(), t.engine_state.as_str()),
             ("https://news.example/a", "A", "s1")
@@ -691,7 +691,7 @@ mod tests {
             r#"{"history":[{"url":"https://x/"},{"url":"https://y/"}],"historyIndex":7}"#,
         )
         .unwrap();
-        assert!(p.apply(&mut t).is_empty());
+        assert_eq!(p.apply(&mut t), Vec::<i32>::new());
         assert_eq!(t.history_index, 1);
     }
 
