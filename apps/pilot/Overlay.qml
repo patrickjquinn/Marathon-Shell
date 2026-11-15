@@ -82,8 +82,10 @@ Item {
         Conversation.listen();
     }
 
-    // Escape puts the person back in their app.
+    // Escape, or the system back the shell sends the window as a key,
+    // puts the person back in their app.
     Keys.onEscapePressed: overlay.hide()
+    Keys.onBackPressed: overlay.hide()
 
     // The window goes once the veil has faded.
     Timer {

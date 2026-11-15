@@ -273,6 +273,11 @@ ApplicationWindow {
         transientParent: null
         color: "transparent"
         visible: false
+        // The shell closes a dialog that ignores back; Pilot itself stays.
+        onClosing: function (close) {
+            close.accepted = false;
+            overlay.hide();
+        }
 
         Overlay {
             id: overlay
