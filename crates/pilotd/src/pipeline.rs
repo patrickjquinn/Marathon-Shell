@@ -89,6 +89,11 @@ const HISTORY_TURNS: usize = 10;
 /// Answers older than the last two are cut to this many characters in
 /// the conversation sent with a question: what was said, not all of it.
 const OLD_ANSWER_CHARS: usize = 400;
+/// The phone's model reads every token of the conversation before it
+/// writes (about 34 a second on the Q25): it gets the last few exchanges,
+/// the older of them shorter.
+const LOCAL_HISTORY_TURNS: usize = 4;
+const LOCAL_OLD_ANSWER_CHARS: usize = 200;
 /// A conversation left this long is over: the next question starts afresh.
 const HISTORY_TTL: Duration = Duration::from_mins(30);
 
@@ -1638,15 +1643,22 @@ impl Pipeline {
         if h.back().is_some_and(|e| e.at.elapsed() > HISTORY_TTL) {
             h.clear();
         }
+        let (turns, old_chars) = if self.backends().llm.provider() == "local" {
+            (LOCAL_HISTORY_TURNS, LOCAL_OLD_ANSWER_CHARS)
+        } else {
+            (HISTORY_TURNS, OLD_ANSWER_CHARS)
+        };
+        let first = h.len().saturating_sub(turns);
         let recent_from = h.len().saturating_sub(2);
         h.iter()
             .enumerate()
+            .skip(first)
             .flat_map(|(i, e)| {
                 let shortened;
-                let e_answer = if i < recent_from && e.answer.chars().count() > OLD_ANSWER_CHARS {
+                let e_answer = if i < recent_from && e.answer.chars().count() > old_chars {
                     shortened = format!(
                         "{}...",
-                        e.answer.chars().take(OLD_ANSWER_CHARS).collect::<String>()
+                        e.answer.chars().take(old_chars).collect::<String>()
                     );
                     &shortened
                 } else {

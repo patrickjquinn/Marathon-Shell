@@ -662,6 +662,31 @@ async fn consent_off_keeps_the_model_on_the_phone() {
     assert!(srv.seen("/v1/search").is_empty());
 }
 
+/// The phone's model reads the whole prompt before its first word: it is
+/// sent the last four exchanges, not ten.
+#[tokio::test]
+async fn the_phone_model_gets_a_short_conversation() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/embeddings" => Reply::ok(json!({"data": []})),
+        _ => Reply::stamped(chat_text("An answer."), "device"),
+    })
+    .await;
+    let d = local_daemon(&srv.base, 5);
+    for i in 0..7 {
+        d.pipeline.ask(&format!("tell me fact {i}"), false).await;
+    }
+    let chats = srv.seen("/v1/llm/chat/completions");
+    let messages = chats.last().unwrap().body["messages"]
+        .as_array()
+        .unwrap()
+        .len();
+    assert_eq!(
+        messages,
+        1 + 4 * 2 + 1,
+        "system, four exchanges, the question"
+    );
+}
+
 /// A failed turn says why in a code as well as in words: the UI offers the
 /// model download, a retry or the consent switch from it.
 #[tokio::test]
