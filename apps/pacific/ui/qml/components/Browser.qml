@@ -460,6 +460,34 @@ Item {
     // once the server's is known (Content-Disposition): the engine tells it
     // just before it needs the destination, after the download has started.
     property var _downloads: []
+    // The runner's background tasks (manifest backgroundCapabilities), so
+    // the app is not frozen while a download runs or a page plays sound.
+    property var _tasks: ({})
+    function _hold(category: string, reason: string, on: bool): void {
+        // qmllint disable unqualified
+        if (typeof AppLifecycle === "undefined" || !AppLifecycle)
+            return
+        var handle = _tasks[category] || 0
+        if (on && handle === 0) {
+            _tasks[category] = AppLifecycle.beginBackgroundTask(category, reason)
+        } else if (!on && handle !== 0) {
+            AppLifecycle.endBackgroundTask(handle)
+            _tasks[category] = 0
+        }
+        // qmllint enable unqualified
+    }
+    function _holdForDownloads(): void {
+        _hold("download", qsTr("Downloading"),
+              _downloads.some(function(d) { return d.download.state === Download.InProgress }))
+    }
+    function audioChanged(): void {
+        var playing = false
+        for (var id in _views) {
+            if (_views[id] && _views[id].webView.audioPlaying)
+                playing = true
+        }
+        _hold("audio-playback", qsTr("Playing a page's sound"), playing)
+    }
 
     function _track(download: var, isPrivate: var): var {
         function choose() {
@@ -476,6 +504,7 @@ Item {
         var d = _downloads.slice()
         d.push({ download: download, isPrivate: isPrivate })
         _downloads = d
+        _holdForDownloads()
     }
 
     Connections {
@@ -508,6 +537,7 @@ Item {
             }
             function onStateChanged() {
                 report()
+                browser._holdForDownloads()
                 var d = modelData.download
                 if (d.state === Download.Finished)
                     Notices.show(qsTr("Downloaded %1").arg(d.suggestedFilename))

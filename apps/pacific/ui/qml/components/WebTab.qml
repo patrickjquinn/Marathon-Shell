@@ -330,7 +330,11 @@ Item {
             }
         }
         onLoadingStateChanged: tab.tabModel.update(tab.tabId, JSON.stringify({ loading: loading }))
-        onAudioPlayingChanged: tab.tabModel.update(tab.tabId, JSON.stringify({ audible: audioPlaying }))
+        onAudioPlayingChanged: {
+            tab.tabModel.update(tab.tabId, JSON.stringify({ audible: audioPlaying }))
+            if (tab.browser)
+                tab.browser.audioChanged()
+        }
 
         onLoadingChanged: function(request) {
             var u = String(request.url)

@@ -21,6 +21,7 @@
   "defaultFor": ["browser"],
   "searchKeywords": ["browser", "web", "internet", "search", "url", "bookmarks", "history", "pacific"],
   "deepLinks": {},
+  "backgroundCapabilities": ["download", "audio-playback"],
   "webEngine": "webkit",
   "environment": {
     "QSG_RHI_BACKEND": "opengl",
