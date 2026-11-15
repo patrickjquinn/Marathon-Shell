@@ -1626,7 +1626,11 @@ impl Power1 {
         let display = display::DISPLAY
             .get()
             .ok_or_else(|| fdo::Error::Failed("no display".into()))?;
-        ipc::on_gui(display, display::qobject::Display::turn_screen_on).await?;
+        let reason = format!("{reason} for {caller}");
+        ipc::on_gui(display, move |obj| {
+            obj.turn_screen_on(&QString::from(&reason));
+        })
+        .await?;
         Ok(true)
     }
 

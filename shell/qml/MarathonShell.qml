@@ -305,7 +305,7 @@ Item {
             return;
         }
         if (!Display.screenOn)
-            Display.turnScreenOn();
+            Display.turnScreenOn("assist key");
         HapticManager.medium();
         if (SessionStore.isLocked) {
             if (!SessionStore.checkSession()) {
@@ -1264,7 +1264,7 @@ Item {
                 SessionStore.lock();
                 Display.turnScreenOff("power key on " + device);
             } else if (!Display.screenOn) {
-                Display.turnScreenOn();
+                Display.turnScreenOn("power key on " + device);
             }
         }
 
@@ -3344,7 +3344,7 @@ Item {
 
         function onIncomingCall(number) {
             ringing = number;
-            Display.turnScreenOn();
+            Display.turnScreenOn("incoming call");
             AudioManagerCpp.playRingtone();
             HapticManager.vibratePattern([1000, 500]);
             if (shell.incomingCallOverlay)
@@ -3367,7 +3367,7 @@ Item {
             ringing = "";
             // The call's end may find the screen proximity-blanked at the ear.
             if (state !== "active")
-                Display.turnScreenOn();
+                Display.turnScreenOn("call " + state);
             if (shell.incomingCallOverlay) {
                 shell.incomingCallOverlay.hide();
                 if (shell.incomingCallOverlay.inCall)
@@ -3428,7 +3428,7 @@ Item {
 
     Connections {
         function onMessageReceived(sender, text, timestamp, thread) {
-            Display.turnScreenOn();
+            Display.turnScreenOn("text message");
             NotificationService.sendNotification("messages", calls.nameOf(sender), text, {
                 "icon": "message-circle",
                 "category": "message",
