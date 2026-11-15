@@ -41,6 +41,12 @@ Item {
     property var agentView: null
     // A page asked for fullscreen (video): the toolbar hides.
     property bool fullscreen: false
+    function exitFullscreen(): void {
+        var t = currentTab
+        if (t)
+            t.webView.runJavaScript("document.fullscreenElement && document.exitFullscreen()")
+        fullscreen = false
+    }
 
     // A long press on a link or image in `tab` (BrowserPage shows the menu).
     signal linkMenuRequested(var tab, var info)
@@ -347,7 +353,10 @@ Item {
             // for the link): that one is used, not left behind empty.
             var cur = browser.privateMode ? null : browser.view(browser.normalTabs.activeId)
             var blank = cur !== null && cur.newTabPage && !cur.webView.canGoBack
-            browser.open(url, { newTab: !blank, private: false })
+            var t = browser.view(browser.open(url, { newTab: !blank, private: false }))
+            // Back from its first page closes it and returns to the caller.
+            if (t)
+                t.openedByApp = true
             if (browser.pageStack)
                 browser.pageStack.pop(browser.pageStack.find(function(p) { return p.objectName === "browserPage" }), PageStackAction.Immediate)
             browser.bringToFront()

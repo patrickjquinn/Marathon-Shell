@@ -324,6 +324,38 @@ Page {
     allowedOrientations: Orientation.All
     backNavigation: false
 
+    // Back closes what is open over the page first, topmost first; true if
+    // something was.
+    function closeOverlay(): bool {
+        if (linkMenu && linkMenu.visible) {
+            linkMenu.visible = false
+            return true
+        }
+        if (pageMenu && pageMenu.open) {
+            pageMenu.hide()
+            return true
+        }
+        if (tabsMenu && tabsMenu.open) {
+            tabsMenu.hide()
+            return true
+        }
+        if (finding) {
+            if (findBar.view)
+                findBar.view.stopFind()
+            findBar.closed()
+            return true
+        }
+        if (addressSheet.shown) {
+            addressSheet.leave()
+            return true
+        }
+        if (tab && tab.pendingLogin !== null) {
+            tab.pendingLogin = null
+            return true
+        }
+        return false
+    }
+
     function push(name: var, props: var): void {
         pageStack.push(Qt.resolvedUrl(name), props || { browser: browser })
     }

@@ -46,6 +46,8 @@ Item {
     // The site settings of the page shown, as Pacific.siteSettingsLoaded gave them.
     property var siteSettings: ({})
     property bool crashed: false
+    // Opened for another app (openUrl): back from its first page closes it.
+    property bool openedByApp: false
     // A failed load to show: { url, error } (or null).
     property var loadError: null
     // HTTPS-first interstitial: { http_url, host } (or null).
