@@ -348,6 +348,14 @@ Page {
                     Pilot.refreshNow();
                 }
             }
+            Chip {
+                objectName: "sharedChip"
+                x: Theme.horizontalPageMargin
+                visible: Conversation.shared.length > 0
+                iconSource: "image://theme/icon-m-clear"
+                text: qsTr("Asking about what you shared")
+                onClicked: Conversation.shared = ""
+            }
             Row {
                 width: parent.width
                 TextField {

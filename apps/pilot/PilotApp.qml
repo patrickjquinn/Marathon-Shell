@@ -10,6 +10,7 @@ import QtQuick.Window
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Nemo.Configuration 1.0
+import Sailfish.Share 1.0
 import MarathonOS.Pilot 1.0
 import "components"
 
@@ -97,16 +98,54 @@ ApplicationWindow {
         Pilot.refreshNow();
     }
 
-    // A cold start after a kill: the draft, and the page if forward could
-    // bring it back.
+    // A cold start: the page a deep link names, else, after a kill, the
+    // page forward could bring back; and the draft.
     function restore() {
         var main = findMainPage();
         if (main && main.draft === "")
             main.draft = savedDraft.value;
         var name = savedPage.value;
         savedPage.value = "";
-        if (pageFiles[name])
+        if (!openRoute(route, PageStackAction.Immediate) && pageFiles[name])
             pageStack.push(Qt.resolvedUrl(pageFiles[name]), {}, PageStackAction.Immediate);
+    }
+
+    // The manifest's deep links, with or without a leading slash.
+    property string route: typeof MARATHON_APP_ROUTE !== "undefined" ? MARATHON_APP_ROUTE : ""
+    readonly property var routes: ({
+            settings: "settingsPage",
+            memories: "settingsPage",
+            events: "triagePage",
+            learn: "guidePage"
+        })
+    function openRoute(path, operation) {
+        var name = String(path || "").replace(/^\//, "");
+        var page = routes[name];
+        if (!page)
+            return false;
+        mainPage();
+        pageStack.push(Qt.resolvedUrl(pageFiles[page]), name === "memories" ? {
+            startAt: "memories"
+        } : {}, operation);
+        return true;
+    }
+
+    // From the share sheet: the text goes with the next question.
+    function receiveShare(resources) {
+        var text = (resources || []).map(function (r) {
+            var data = String(r.data || "");
+            var name = String(r.name || "");
+            return data === "" ? "" : name !== "" && name !== data ? name + "\n" + data : data;
+        }).filter(function (t) {
+            return t !== "";
+        }).join("\n\n");
+        if (text === "")
+            return;
+        Conversation.shared = text;
+        activate();
+        var main = mainPage();
+        if (main)
+            main.openSheet();
     }
 
     function findMainPage() {
@@ -181,6 +220,23 @@ ApplicationWindow {
         function onDepthChanged() {
             app._trackPages();
         }
+    }
+
+    Connections {
+        target: typeof NavigationRouter !== "undefined" ? NavigationRouter : null
+        ignoreUnknownSignals: true
+        function onDeepLinkRequested(appId, route, params) {
+            if (appId === app.appId) {
+                app.activate();
+                app.openRoute(route);
+            }
+        }
+    }
+
+    ShareProvider {
+        method: "text"
+        capabilities: ["text/plain", "text/x-url"]
+        onTriggered: resources => app.receiveShare(resources)
     }
 
     Connections {

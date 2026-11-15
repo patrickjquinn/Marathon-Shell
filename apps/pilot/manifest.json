@@ -9,16 +9,40 @@
   "description": "Marathon's assistant: ask, and let it act in your apps.",
   "permissions": ["camera", "storage"],
   "permissionReasons": {
-    "camera": "Takes the photo you ask Pilot about",
+    "camera": "Takes the photo you ask Pilot about, only when you press the shutter",
     "storage": "Saves the export of Pilot's records to Downloads"
   },
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Productivity"],
   "handlesUriSchemes": [],
+  "shareMethods": [
+    { "name": "text", "title": "Ask Pilot about this", "mimeTypes": ["text/plain", "text/x-url"] }
+  ],
   "defaultFor": [],
-  "searchKeywords": ["pilot", "assistant", "ask", "help"],
-  "deepLinks": {},
-  "testedOn": { "widths": [540], "inputModes": ["touch"] },
+  "searchKeywords": ["pilot", "assistant", "ask", "help", "question"],
+  "deepLinks": {
+    "settings": {
+      "title": "Pilot settings",
+      "description": "What Pilot may use, your records and the introduction",
+      "keywords": ["privacy", "consent", "export"]
+    },
+    "events": {
+      "title": "Pilot events",
+      "description": "Notifications and messages Pilot sorted for you",
+      "keywords": ["triage", "notifications"]
+    },
+    "learn": {
+      "title": "Learn Pilot",
+      "description": "What Pilot can do and how to bring it up",
+      "keywords": ["help", "guide", "tips"]
+    },
+    "memories": {
+      "title": "What Pilot remembers",
+      "description": "The facts you asked Pilot to keep, on this phone",
+      "keywords": ["memory", "remember", "forget"]
+    }
+  },
+  "testedOn": { "widths": [540, 720], "inputModes": ["touch", "keyboard"] },
   "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }

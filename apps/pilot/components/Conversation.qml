@@ -25,6 +25,9 @@ QtObject {
     property bool listening: false
     property bool transcribing: false
     property real level: 0
+    // Text another app shared ("Ask Pilot about this"): it goes with the
+    // next question.
+    property string shared: ""
     // The getting-started guide (GuideCard.qml, GuidePage.qml): the skills
     // tried, kept by pilotd ("gesture", "screen", "voice", "action",
     // "how"; "hidden" once put away). Each is marked when the person does
@@ -131,7 +134,8 @@ QtObject {
         grew();
         if (now.on_screen)
             markGuide("screen");
-        Pilot.ask(text, false);
+        Pilot.ask(shared.length > 0 ? text + "\n\n" + shared : text, false);
+        shared = "";
     }
 
     function answer(index, approved) {

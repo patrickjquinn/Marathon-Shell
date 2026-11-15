@@ -25,6 +25,8 @@ Page {
     // are sent to pilotd.
     property bool ready: false
     property var memories: []
+    // A deep link's section: "memories", or "" for the top.
+    property string startAt: ""
     // Bytes of the speech models pilot-voice downloaded (-1: unknown).
     property real voiceModelsBytes: -1
 
@@ -94,7 +96,15 @@ Page {
         ready = true;
     }
 
+    onStatusChanged: {
+        if (status !== PageStatus.Active || startAt !== "memories")
+            return;
+        flick.contentY = Math.max(0, Math.min(memoriesHeader.y, flick.contentHeight - flick.height));
+        startAt = "";
+    }
+
     SilicaFlickable {
+        id: flick
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge * 2
 
@@ -142,6 +152,7 @@ Page {
             }
 
             SectionHeader {
+                id: memoriesHeader
                 text: qsTr("What Pilot remembers")
             }
             Label {
