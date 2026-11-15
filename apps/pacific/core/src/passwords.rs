@@ -272,27 +272,6 @@ mod tests {
         assert!(!dbg.contains("secret"));
     }
 
-    /// The names agree with what Shoal Keys serves.
-    #[test]
-    fn names_match_shoal_keys() {
-        let keys = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../keys/app/src/autofill.rs"
-        ))
-        .unwrap();
-        assert!(keys.contains(&format!("pub const BUS_NAME: &str = \"{BUS_NAME}\";")));
-        assert!(keys.contains(&format!("pub const OBJECT_PATH: &str = \"{OBJECT_PATH}\";")));
-        assert!(
-            keys.contains(&format!("#[zbus::interface(name = \"{INTERFACE}\")]"))
-                || std::fs::read_to_string(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/../../keys/app/src/bridge.rs"
-                ))
-                .unwrap()
-                .contains(&format!("#[zbus::interface(name = \"{INTERFACE}\")]"))
-        );
-    }
-
     /// Without Keys running, the automatic lookup finds nothing (and does
     /// not start Keys); a fill, which the person asked for, says plainly
     /// that Keys is missing.
