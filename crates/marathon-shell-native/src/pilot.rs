@@ -46,6 +46,11 @@ pub mod qobject {
         /// Starts Pilot and its models on this machine ahead of a question.
         #[qinvokable]
         fn warm(self: &PilotClient);
+        /// The overlay closed: the app it was over is no longer the
+        /// context of questions.
+        #[qinvokable]
+        #[cxx_name = "clearOnScreen"]
+        fn clear_on_screen(self: &PilotClient);
         /// Asks Pilot `question`; `answered` follows.
         #[qinvokable]
         fn ask(self: &PilotClient, question: &QString);
@@ -73,6 +78,7 @@ trait Pilot {
     fn listen_for(&self, pid: u32) -> zbus::Result<String>;
     fn ask(&self, question: &str, spoken: bool) -> zbus::Result<String>;
     fn now(&self) -> zbus::Result<String>;
+    fn clear_on_screen(&self) -> zbus::Result<()>;
 }
 
 #[derive(Default)]
@@ -205,6 +211,19 @@ impl PilotClient {
             };
             if let Err(e) = warmed.await {
                 log::warn("pilot", format_args!("Now: {e}"));
+            }
+        });
+    }
+
+    #[allow(clippy::unused_self, reason = "an invokable")]
+    fn clear_on_screen(&self) {
+        io::spawn(async {
+            let cleared = async {
+                let pilot = PilotProxy::new(&io::session_bus().await?).await?;
+                pilot.clear_on_screen().await
+            };
+            if let Err(e) = cleared.await {
+                log::warn("pilot", format_args!("ClearOnScreen: {e}"));
             }
         });
     }

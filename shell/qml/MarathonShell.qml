@@ -2117,7 +2117,10 @@ Item {
         visible: !SessionStore.isLocked
         backdropSource: UIStore.appWindowOpen ? appWindowContainer : null
         onShown: pilotGlow.overlayShown()
-        onClosed: {
+        onClosed: appId => {
+            // Its screen context is for questions asked over that app, this time.
+            if (appId === "shoal-pilot")
+                PilotClient.clearOnScreen();
             if (count === 0 && UIStore.appWindowOpen)
                 appWindow.focusApp();
         }
