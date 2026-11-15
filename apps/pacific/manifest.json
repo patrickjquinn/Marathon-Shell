@@ -19,8 +19,17 @@
   "categories": ["Productivity"],
   "handlesUriSchemes": ["http", "https"],
   "defaultFor": ["browser"],
+  "shareMethods": [
+    { "name": "link", "title": "Open in Pacific", "mimeTypes": ["text/x-url", "text/plain"] }
+  ],
   "searchKeywords": ["browser", "web", "internet", "search", "url", "bookmarks", "history", "pacific"],
-  "deepLinks": {},
+  "deepLinks": {
+    "new-tab": { "title": "New tab", "description": "Open a new tab in Pacific", "keywords": ["tab", "open"] },
+    "private": { "title": "New private tab", "description": "Browse without keeping history", "keywords": ["incognito", "private"] },
+    "bookmarks": { "title": "Bookmarks", "description": "Pages you saved in Pacific", "keywords": ["favourites", "saved"] },
+    "history": { "title": "History", "description": "Pages you visited in Pacific", "keywords": ["visited", "recent"] },
+    "downloads": { "title": "Downloads", "description": "Files you downloaded in Pacific", "keywords": ["files"] }
+  },
   "backgroundCapabilities": ["download", "audio-playback"],
   "webEngine": "webkit",
   "environment": {
