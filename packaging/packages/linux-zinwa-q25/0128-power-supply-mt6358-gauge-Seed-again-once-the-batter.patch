@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 15 Nov 2026 12:00:00 +0000
+Subject: [PATCH] power: supply: mt6358-gauge: Seed again once the battery is
+ at rest
+
+The state of charge is seeded once, at probe. On a phone that is the
+middle of boot, when the battery typically delivers around an ampere,
+so any error in the resistance correction goes into the seed, and the
+counter carries it from then on.
+
+Take the seed again the first time the battery current is below
+100 mA, where the correction is a few millivolts, unless the seed was
+already taken there or the charger has since reported the end of
+charge. This is what the recovery state of ab8500_fg does: re-estimate
+from the voltage once the current has dropped.
+
+On the Zinwa Q25 the voltage at a light load reads within a few
+millivolts of its value at rest, so one sample below the threshold
+is enough; after a long heavy load the seed comes out a little low
+rather than high.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/power/supply/mt6358-gauge.c |   13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/power/supply/mt6358-gauge.c b/drivers/power/supply/mt6358-gauge.c
+--- a/drivers/power/supply/mt6358-gauge.c
++++ b/drivers/power/supply/mt6358-gauge.c
+@@ -4,8 +4,9 @@
+  *
+  * The gauge measures the battery current across a shunt and integrates it
+  * in a coulomb counter. The state of charge is seeded from the battery's
+- * open circuit voltage table, then tracked with the counter and re-anchored
+- * at 100% whenever the charger reports the end of charge.
++ * open circuit voltage table, taken again once the battery is at rest if the
++ * first seed was taken under load, then tracked with the counter and
++ * re-anchored at 100% whenever the charger reports the end of charge.
+  */
+ 
+ #include <linux/bits.h>
+@@ -45,6 +46,7 @@
+ #define MT6358_FG_OCV_SAMPLES		4
+ #define MT6358_FG_OCV_CELSIUS		25
+ #define MT6358_FG_IDLE_UA		50000
++#define MT6358_FG_RELAX_UA		100000
+ #define MT6358_FG_POLL_MS		(10 * MSEC_PER_SEC)
+ 
+ struct mt6358_gauge {
+@@ -58,6 +60,7 @@
+ 	struct mutex lock;
+ 	u32 shunt_uohm;
+ 	bool anchored;
++	bool relaxed;
+ 	s32 anchor_count;
+ 	int anchor_uah;
+ 	int capacity;
+@@ -196,6 +199,7 @@
+ 	gauge->anchor_uah = mult_frac(gauge->info->charge_full_design_uah,
+ 				      soc, 100);
+ 	gauge->anchored = true;
++	gauge->relaxed = abs(current_ua) < MT6358_FG_RELAX_UA;
+ 
+ 	dev_dbg(gauge->dev, "OCV %lld uV at %lld uA: %d%%\n", ocv, current_ua,
+ 		soc);
+@@ -234,7 +238,10 @@
+ 			gauge->anchor_count = sample.count;
+ 			gauge->anchor_uah = gauge->info->charge_full_design_uah;
+ 			gauge->anchored = true;
+-		} else if (!gauge->anchored) {
++			gauge->relaxed = true;
++		} else if (!gauge->anchored ||
++			   (!gauge->relaxed &&
++			    abs(sample.current_ua) < MT6358_FG_RELAX_UA)) {
+ 			ret = mt6358_gauge_seed(gauge);
+ 			if (ret)
+ 				break;
+-- 
+2.55.0
+
