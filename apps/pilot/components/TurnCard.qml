@@ -89,7 +89,7 @@ Item {
                 visible: card.kind === "confirm"
                 width: parent.width
                 truncationMode: TruncationMode.Fade
-                color: Theme.highlightColor
+                color: Theme.primaryColor
                 text: card.title
             }
             Label {
@@ -99,7 +99,7 @@ Item {
                 wrapMode: Text.Wrap
                 textFormat: Text.PlainText
                 horizontalAlignment: card.mine ? Text.AlignRight : Text.AlignLeft
-                color: card.kind === "error" ? Theme.errorColor : card.kind === "offline" ? Theme.highlightColor : Theme.primaryColor
+                color: card.kind === "error" ? Theme.errorColor : Theme.primaryColor
                 text: card.kind === "confirm" ? card.detail : card.text
             }
             Label {
@@ -108,7 +108,7 @@ Item {
                 width: parent.width
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeExtraSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("This leaves the phone")
             }
             Button {
@@ -150,7 +150,7 @@ Item {
                 width: parent.width
                 horizontalAlignment: card.mine ? Text.AlignRight : Text.AlignLeft
                 font.pixelSize: Theme.fontSizeExtraSmall
-                color: card.mine ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                color: Theme.secondaryColor
                 visible: text.length > 0
                 text: card.kind === "confirm" && card.answered ? (card.approved ? qsTr("Allowed") : qsTr("Cancelled")) + (card.stamp.length > 0 ? " · " + card.stamp : "") : card.stamp
             }

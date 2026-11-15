@@ -56,7 +56,7 @@ Glass {
         Icon {
             anchors.verticalCenter: parent.verticalCenter
             source: card.kind === "alarm" ? "image://theme/icon-m-alarm" : "image://theme/icon-m-note"
-            color: card.cancelled ? Theme.secondaryColor : Theme.highlightColor
+            color: card.cancelled ? Theme.secondaryColor : Theme.primaryColor
         }
 
         Column {
@@ -77,7 +77,7 @@ Glass {
                     anchors.baseline: parent.children[0].baseline
                     text: card.cancelled ? qsTr("Cancelled") : card.relative(card.nowMs)
                     font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.secondaryHighlightColor
+                    color: Theme.secondaryColor
                 }
             }
             Label {
@@ -88,7 +88,7 @@ Glass {
                 maximumLineCount: 2
                 truncationMode: TruncationMode.Fade
                 font.pixelSize: Theme.fontSizeMedium
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
             }
         }
 

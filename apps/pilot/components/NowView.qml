@@ -49,13 +49,13 @@ Column {
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeHuge
             font.family: Theme.fontFamilyHeading
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
         Label {
             width: parent.width
             text: now.snapshot.offline ? qsTr("%1 · Offline").arg(now.snapshot.date || "") : (now.snapshot.date || "")
             font.pixelSize: Theme.fontSizeMedium
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
         }
     }
 
@@ -111,12 +111,12 @@ Column {
                 width: Theme.iconSizeSmallPlus
                 height: width
                 source: "image://theme/icon-m-events"
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
             Label {
                 anchors.verticalCenter: parent.verticalCenter
                 text: qsTr("Needs you")
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
         }
         Repeater {
@@ -127,7 +127,7 @@ Column {
                 width: parent ? parent.width : 0
                 text: (attentionRow.modelData.app ? attentionRow.modelData.app + ": " : "") + attentionRow.modelData.title
                 truncationMode: TruncationMode.Fade
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
         }
         Chip {
@@ -147,7 +147,7 @@ Column {
         Label {
             text: qsTr("Try asking")
             font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
         }
         Grid {
             id: tiles

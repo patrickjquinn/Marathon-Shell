@@ -86,7 +86,7 @@ Item {
             text: line.words()
             truncationMode: TruncationMode.Fade
             font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
         }
     }
 }

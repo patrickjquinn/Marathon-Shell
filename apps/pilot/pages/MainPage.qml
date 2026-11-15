@@ -134,7 +134,7 @@ Page {
                 bottomPadding: Theme.paddingLarge
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.highlightColor
+                color: Theme.primaryColor
                 text: Pilot.error.length > 0 ? Pilot.error : qsTr("The privacy switch is on. Timers, alarms, reminders, media and the calendar still work.")
             }
             NowView {
@@ -310,13 +310,13 @@ Page {
                 text: page.transcribing ? qsTr("Got it…") : qsTr("Listening…")
                 font.pixelSize: Theme.fontSizeLarge
                 font.family: Theme.fontFamilyHeading
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: page.transcribing ? qsTr("Working out what you said, on this phone") : qsTr("Speak now. Pilot stops when you pause.")
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
             }
         }
     }

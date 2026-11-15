@@ -70,7 +70,7 @@ Glass {
                     width: Theme.paddingSmall
                     height: width
                     radius: width / 2
-                    color: Theme.highlightColor
+                    color: Theme.secondaryColor
                 }
                 Label {
                     id: words
@@ -81,7 +81,7 @@ Glass {
                     textFormat: Text.PlainText
                     font.pixelSize: line.bullet ? Theme.fontSizeSmall : Theme.fontSizeMedium
                     lineHeight: 1.1
-                    color: Theme.highlightColor
+                    color: Theme.primaryColor
                 }
             }
         }
@@ -143,7 +143,7 @@ Glass {
             truncationMode: TruncationMode.Fade
             text: card.provenance()
             font.pixelSize: Theme.fontSizeExtraSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
         }
         Label {
             id: howLabel
@@ -174,7 +174,7 @@ Glass {
                     width: Theme.paddingSmall
                     height: width
                     radius: width / 2
-                    color: Theme.highlightColor
+                    color: Theme.secondaryColor
                 }
                 Label {
                     id: stepText
@@ -183,7 +183,7 @@ Glass {
                     text: step.modelData.text
                     wrapMode: Text.Wrap
                     font.pixelSize: Theme.fontSizeExtraSmall
-                    color: Theme.secondaryHighlightColor
+                    color: Theme.secondaryColor
                 }
             }
         }
@@ -191,7 +191,7 @@ Glass {
             width: parent.width
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeExtraSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
             text: qsTr("Everything that left the phone is listed in Settings, under \u201cWhat left this phone\u201d.")
         }
     }
@@ -230,7 +230,7 @@ Glass {
                         verticalCenter: parent.verticalCenter
                     }
                     source: "image://theme/icon-m-right"
-                    color: Theme.highlightColor
+                    color: Theme.primaryColor
                 }
             }
         }

@@ -128,7 +128,7 @@ Page {
                 visible: text.length > 0
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.highlightColor
+                color: Theme.primaryColor
                 text: page.message
             }
 
@@ -165,7 +165,7 @@ Page {
                 visible: page.memories.length === 0
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Nothing yet. Say “remember that …” and Pilot keeps it here, on this phone.")
             }
             Repeater {
@@ -322,7 +322,7 @@ Page {
                     width: parent.width - 2 * Theme.horizontalPageMargin
                     wrapMode: Text.Wrap
                     font.pixelSize: Theme.fontSizeExtraSmall
-                    color: Theme.secondaryHighlightColor
+                    color: Theme.secondaryColor
                     text: qsTr("Downloaded voice models: %1 MB. Removing Pilot does not remove them; remove them here first. Pilot downloads one again the next time you speak to it.").arg(page.megabytes(page.voiceModelsBytes))
                 }
                 Button {
@@ -346,7 +346,7 @@ Page {
                 topPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: page.dataMessage.length > 0 ? Theme.fontSizeSmall : Theme.fontSizeExtraSmall
-                color: page.dataMessage.length > 0 ? Theme.highlightColor : Theme.secondaryHighlightColor
+                color: page.dataMessage.length > 0 ? Theme.primaryColor : Theme.secondaryColor
                 text: page.dataMessage.length > 0 ? page.dataMessage : qsTr("Export saves the log of what left this phone to Downloads. Delete removes the log and the conversation.")
             }
         }

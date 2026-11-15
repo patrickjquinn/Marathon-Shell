@@ -31,12 +31,12 @@ Glass {
             width: Theme.iconSizeSmallPlus
             height: width
             source: card.outbound ? "image://theme/icon-m-website" : "image://theme/icon-m-right"
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
         Label {
             anchors.verticalCenter: parent.verticalCenter
             text: card.answered ? (card.approved ? qsTr("Done") : qsTr("Cancelled")) : card.steps.length > 1 ? qsTr("Pilot will do this") : qsTr("Pilot wants to")
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
     }
 
@@ -64,7 +64,7 @@ Glass {
                     anchors.centerIn: parent
                     text: step.index + 1
                     font.pixelSize: Theme.fontSizeExtraSmall
-                    color: Theme.highlightColor
+                    color: Theme.primaryColor
                 }
             }
             Column {
@@ -73,7 +73,7 @@ Glass {
                     width: parent.width
                     text: step.modelData.app ? step.modelData.app + " · " + step.modelData.title : step.modelData.title
                     wrapMode: Text.Wrap
-                    color: Theme.highlightColor
+                    color: Theme.primaryColor
                 }
                 Label {
                     width: parent.width
@@ -83,7 +83,7 @@ Glass {
                     maximumLineCount: 3
                     truncationMode: TruncationMode.Fade
                     font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.secondaryHighlightColor
+                    color: Theme.secondaryColor
                 }
             }
         }
@@ -95,7 +95,7 @@ Glass {
         wrapMode: Text.Wrap
         text: card.destructive ? qsTr("This leaves your phone and can't be undone.") : qsTr("This leaves your phone.")
         font.pixelSize: Theme.fontSizeExtraSmall
-        color: Theme.secondaryHighlightColor
+        color: Theme.secondaryColor
     }
 
     Row {

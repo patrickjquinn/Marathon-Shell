@@ -279,7 +279,7 @@ Item {
                     text: Conversation.transcribing ? qsTr("Got it…") : qsTr("Listening…")
                     font.pixelSize: Theme.fontSizeLarge
                     font.family: Theme.fontFamilyHeading
-                    color: Theme.highlightColor
+                    color: Theme.primaryColor
                 }
             }
 
@@ -343,7 +343,7 @@ Item {
                             width: parent.width - Theme.iconSizeSmallPlus - 2 * Theme.itemSizeSmall - 3 * Theme.paddingSmall
                             truncationMode: TruncationMode.Fade
                             font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.highlightColor
+                            color: Theme.primaryColor
                             text: overlay.onScreen.length > 0 ? qsTr("Pilot · sees %1").arg(overlay.onScreen) : qsTr("Pilot")
                         }
                         IconButton {

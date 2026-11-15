@@ -86,7 +86,7 @@ CoverBackground {
                 text: cover.hms(cover.remaining)
                 font.pixelSize: Theme.fontSizeLarge
                 font.family: Theme.fontFamilyHeading
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -125,13 +125,13 @@ CoverBackground {
             Icon {
                 anchors.verticalCenter: parent.verticalCenter
                 source: cover.next && cover.next.kind === "alarm" ? "image://theme/icon-s-alarm" : "image://theme/icon-s-time"
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
             Label {
                 anchors.verticalCenter: parent.verticalCenter
                 text: cover.next ? Format.formatDate(new Date(cover.next.at * 1000), Formatter.TimeValue) : ""
                 font.pixelSize: Theme.fontSizeLarge
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
         }
         Label {

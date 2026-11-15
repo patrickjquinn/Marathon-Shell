@@ -86,7 +86,7 @@ Page {
                     width: parent.width
                     wrapMode: Text.Wrap
                     text: [qsTr("\u201cSummarise this\u201d"), qsTr("\u201cExplain this simply\u201d"), qsTr("\u201cReply to this\u201d"), qsTr("\u201cWhat are the key points?\u201d")].join("   ")
-                    color: Theme.highlightColor
+                    color: Theme.primaryColor
                 }
                 SectionNote {
                     text: qsTr("Pilot only looks when you open it, and only at the app on top. " + "If it reads a web page, the request is listed in “What left this phone”.")
@@ -181,13 +181,13 @@ Page {
             text: section.done ? qsTr("%1 · tried").arg(section.title) : section.title
             font.pixelSize: Theme.fontSizeLarge
             font.family: Theme.fontFamilyHeading
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
         Label {
             width: parent.width
             wrapMode: Text.Wrap
             text: section.body
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
         Column {
             id: extra
@@ -200,6 +200,6 @@ Page {
         width: parent ? parent.width : 0
         wrapMode: Text.Wrap
         font.pixelSize: Theme.fontSizeSmall
-        color: Theme.secondaryHighlightColor
+        color: Theme.secondaryColor
     }
 }

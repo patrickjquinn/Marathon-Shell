@@ -95,13 +95,13 @@ Glass {
                 text: card.label.length > 0 ? card.label : qsTr("Timer")
                 truncationMode: TruncationMode.Fade
                 font.pixelSize: Theme.fontSizeLarge
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
             Label {
                 width: parent.width
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: card.cancelled ? qsTr("Cancelled") : card.done ? qsTr("Finished") : qsTr("Ends at %1").arg(Format.formatDate(new Date(card.endsAt * 1000), Formatter.TimeValue))
             }
             Row {

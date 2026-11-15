@@ -63,7 +63,7 @@ Glass {
             wrapMode: Text.Wrap
             text: qsTr("Get to know Pilot · %1 of %2").arg(Conversation.guideDone).arg(card.lessons.length)
             font.family: Theme.fontFamilyHeading
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
         IconButton {
             id: hide
@@ -98,7 +98,7 @@ Glass {
                 Icon {
                     id: tick
                     source: "image://theme/icon-s-checkmark"
-                    color: Theme.highlightColor
+                    color: Theme.primaryColor
                     opacity: lesson.done ? 1 : 0
                 }
                 Rectangle {
@@ -128,14 +128,14 @@ Glass {
                     wrapMode: Text.Wrap
                     text: lesson.modelData.title
                     font.pixelSize: Theme.fontSizeSmall
-                    color: lesson.highlighted || !lesson.done ? Theme.highlightColor : Theme.secondaryHighlightColor
+                    color: lesson.highlighted ? Theme.highlightColor : lesson.done ? Theme.secondaryColor : Theme.primaryColor
                 }
                 Label {
                     width: parent.width
                     wrapMode: Text.Wrap
                     text: lesson.modelData.hint
                     font.pixelSize: Theme.fontSizeExtraSmall
-                    color: Theme.secondaryHighlightColor
+                    color: Theme.secondaryColor
                 }
             }
             Icon {
@@ -145,7 +145,7 @@ Glass {
                     verticalCenter: parent.verticalCenter
                 }
                 source: "image://theme/icon-m-right"
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
         }
     }
@@ -160,7 +160,7 @@ Glass {
             anchors.verticalCenter: parent.verticalCenter
             text: qsTr("Everything Pilot can do in your apps")
             font.pixelSize: Theme.fontSizeSmall
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
     }
 }

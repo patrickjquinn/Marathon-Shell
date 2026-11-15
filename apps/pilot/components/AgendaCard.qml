@@ -34,13 +34,13 @@ Glass {
             width: Theme.iconSizeSmallPlus
             height: width
             source: "image://theme/icon-m-date"
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
         Label {
             anchors.verticalCenter: parent.verticalCenter
             text: card.heading()
             font.pixelSize: Theme.fontSizeMedium
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
     }
 
@@ -50,7 +50,7 @@ Glass {
         wrapMode: Text.Wrap
         text: card.range === "tomorrow" ? qsTr("Nothing planned for tomorrow.") : card.range === "week" ? qsTr("Nothing planned this week.") : card.range === "next" ? qsTr("Nothing coming up.") : qsTr("Nothing planned for today.")
         font.pixelSize: Theme.fontSizeMedium
-        color: Theme.secondaryHighlightColor
+        color: Theme.secondaryColor
     }
 
     Repeater {
@@ -64,7 +64,7 @@ Glass {
                 width: Theme.itemSizeMedium
                 text: eventRow.modelData.all_day ? qsTr("All day") : Format.formatDate(new Date(eventRow.modelData.start * 1000), Formatter.TimeValue)
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
             Column {
                 width: parent.width - Theme.itemSizeMedium - Theme.paddingLarge
@@ -74,7 +74,7 @@ Glass {
                     wrapMode: Text.Wrap
                     maximumLineCount: 2
                     truncationMode: TruncationMode.Fade
-                    color: Theme.highlightColor
+                    color: Theme.primaryColor
                 }
                 Label {
                     width: parent.width
@@ -82,7 +82,7 @@ Glass {
                     text: eventRow.modelData.location || ""
                     truncationMode: TruncationMode.Fade
                     font.pixelSize: Theme.fontSizeExtraSmall
-                    color: Theme.secondaryHighlightColor
+                    color: Theme.secondaryColor
                 }
             }
         }

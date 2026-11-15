@@ -113,7 +113,7 @@ Page {
                         x: Theme.horizontalPageMargin
                         anchors.verticalCenter: parent.verticalCenter
                         source: skill.modelData.icon
-                        color: Theme.highlightColor
+                        color: Theme.primaryColor
                     }
                     Column {
                         id: skillText
@@ -151,7 +151,7 @@ Page {
                 wrapMode: Text.Wrap
                 bottomPadding: Theme.paddingMedium
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: page.apps.length > 0 ? qsTr("Apps tell Pilot what they can do. Pilot asks before anything marked “asks first”.") : qsTr("None of your apps offer Pilot actions yet.")
             }
             Repeater {
@@ -170,7 +170,7 @@ Page {
                         text: app.modelData.name
                         font.pixelSize: Theme.fontSizeLarge
                         font.family: Theme.fontFamilyHeading
-                        color: Theme.highlightColor
+                        color: Theme.primaryColor
                     }
                     Repeater {
                         model: app.all ? app.modelData.actions : app.modelData.actions.slice(0, 4)
@@ -183,14 +183,14 @@ Page {
                                 width: parent.width
                                 wrapMode: Text.Wrap
                                 text: action.modelData.asks ? qsTr("%1 · asks first").arg(action.modelData.title) : action.modelData.title
-                                color: Theme.highlightColor
+                                color: Theme.primaryColor
                             }
                             Label {
                                 width: parent.width
                                 wrapMode: Text.Wrap
                                 text: action.modelData.description
                                 font.pixelSize: Theme.fontSizeExtraSmall
-                                color: Theme.secondaryHighlightColor
+                                color: Theme.secondaryColor
                             }
                         }
                     }
@@ -204,7 +204,7 @@ Page {
                             anchors.verticalCenter: parent.verticalCenter
                             text: qsTr("Show all %1").arg(app.modelData.actions.length)
                             font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.highlightColor
+                            color: Theme.primaryColor
                         }
                     }
                 }

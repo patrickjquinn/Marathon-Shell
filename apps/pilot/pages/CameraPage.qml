@@ -57,7 +57,7 @@ Page {
             x: Theme.horizontalPageMargin
             width: parent.width - 2 * x
             wrapMode: Text.Wrap
-            color: Theme.highlightColor
+            color: Theme.primaryColor
             text: camera.errorString
         }
         TextField {

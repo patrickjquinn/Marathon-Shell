@@ -77,7 +77,7 @@ Dialog {
                 text: qsTr("Hi, I'm Pilot")
                 font.pixelSize: Theme.fontSizeHuge
                 font.family: Theme.fontFamilyHeading
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
             Label {
                 x: Theme.horizontalPageMargin
@@ -85,7 +85,7 @@ Dialog {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 text: Conversation.voiceAvailable ? qsTr("Your assistant on this phone: ask, talk, or let me do things in your apps.") : qsTr("Your assistant on this phone: ask, or let me do things in your apps.")
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
             }
             TextField {
                 id: nameField
@@ -156,7 +156,7 @@ Dialog {
                                 id: abilityIcon
                                 anchors.verticalCenter: parent.verticalCenter
                                 source: ability.modelData.icon
-                                color: Theme.highlightColor
+                                color: Theme.primaryColor
                             }
                             Column {
                                 width: parent.width - abilityIcon.width - Theme.paddingLarge
@@ -164,14 +164,14 @@ Dialog {
                                     width: parent.width
                                     wrapMode: Text.Wrap
                                     text: ability.modelData.say
-                                    color: Theme.highlightColor
+                                    color: Theme.primaryColor
                                 }
                                 Label {
                                     width: parent.width
                                     wrapMode: Text.Wrap
                                     text: ability.modelData.what
                                     font.pixelSize: Theme.fontSizeSmall
-                                    color: Theme.secondaryHighlightColor
+                                    color: Theme.secondaryColor
                                 }
                             }
                         }
@@ -209,7 +209,7 @@ Dialog {
                         wrapMode: Text.Wrap
                         horizontalAlignment: Text.AlignHCenter
                         text: first.gesture ? qsTr("Touch and hold the glowing bar at the bottom. A swipe up still opens your apps.") : qsTr("Install “Pilot gesture” from Reef. It adds a glowing bar you touch and hold, in any app.")
-                        color: Theme.highlightColor
+                        color: Theme.primaryColor
                     }
                     Label {
                         x: Theme.horizontalPageMargin
@@ -218,7 +218,7 @@ Dialog {
                         horizontalAlignment: Text.AlignHCenter
                         text: Conversation.voiceAvailable ? qsTr("Over an app, I can see what it shows, so you can say “this”. You can also tap the mic.") : qsTr("Over an app, I can see what it shows, so you can say “this”.")
                         font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.secondaryHighlightColor
+                        color: Theme.secondaryColor
                     }
                 }
                 VerticalScrollDecorator {}
@@ -251,14 +251,14 @@ Dialog {
                         x: Theme.horizontalPageMargin
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
-                        color: Theme.highlightColor
+                        color: Theme.primaryColor
                         text: qsTr("Timers, alarms, reminders, music and your calendar are handled on this phone.")
                     }
                     Label {
                         x: Theme.horizontalPageMargin
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
-                        color: Theme.highlightColor
+                        color: Theme.primaryColor
                         text: qsTr("Other questions are answered in the cloud, with what I remember about you when it helps. " + "Names, numbers and addresses are replaced before anything is sent.")
                     }
                     Label {
@@ -266,7 +266,7 @@ Dialog {
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
                         font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.secondaryHighlightColor
+                        color: Theme.secondaryColor
                         text: qsTr("Jev, in the US, works out what you asked from the gist alone: no names, long numbers, links " + "or anything that identifies you or this phone. Groq, also in the US, writes the answer. " + "Settings lists every request under “What left this phone”.")
                     }
                     TextSwitch {
@@ -285,7 +285,7 @@ Dialog {
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
                         font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.secondaryHighlightColor
+                        color: Theme.secondaryColor
                         text: qsTr("Camera and notification features are off until you turn them on in Settings. " + "The privacy switch takes Pilot offline at any time.")
                     }
                     // The other choice: nothing to the cloud.

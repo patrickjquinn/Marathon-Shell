@@ -55,7 +55,7 @@ BackgroundItem {
                 text: chip.monogram.toUpperCase()
                 font.pixelSize: Theme.fontSizeTiny
                 font.bold: true
-                color: Theme.highlightColor
+                color: Theme.primaryColor
             }
         }
         Icon {

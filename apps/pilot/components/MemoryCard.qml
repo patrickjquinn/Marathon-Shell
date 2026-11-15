@@ -33,14 +33,14 @@ Glass {
             width: Theme.iconSizeSmallPlus
             height: width
             source: "image://theme/icon-m-note"
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
         Label {
             anchors.verticalCenter: parent.verticalCenter
             width: card.width - 2 * (Theme.horizontalPageMargin + card.padding) - Theme.iconSizeSmallPlus - Theme.paddingMedium
             text: card.text
             wrapMode: Text.Wrap
-            color: Theme.highlightColor
+            color: Theme.primaryColor
         }
     }
 
@@ -81,6 +81,6 @@ Glass {
         wrapMode: Text.Wrap
         text: qsTr("Kept on this phone. Say “forget …” or manage it in Settings.")
         font.pixelSize: Theme.fontSizeExtraSmall
-        color: Theme.secondaryHighlightColor
+        color: Theme.secondaryColor
     }
 }

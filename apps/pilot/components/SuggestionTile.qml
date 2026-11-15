@@ -74,7 +74,7 @@ BackgroundItem {
         x: Theme.paddingLarge
         y: Theme.paddingLarge
         source: visible ? tile.source() : ""
-        color: Theme.highlightColor
+        color: Theme.primaryColor
     }
 
     Label {
