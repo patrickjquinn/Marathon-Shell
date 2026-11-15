@@ -104,7 +104,7 @@ e2fsck -fn "$DEST/$NAME.ext4"
 # shellcheck disable=SC1091,SC2154
 libcamera=$(set +u; . "$REPO/packaging/packages/libcamera/APKBUILD"; echo "$pkgver-r$pkgrel")
 shipped=$(debugfs -R "cat /usr/lib/apk/db/installed" "$DEST/$NAME.ext4" 2> /dev/null |
-    awk '/^P:libcamera$/ { p = 1; next } p && /^V:/ { print substr($0, 3); exit } /^$/ { p = 0 }')
+    awk '/^P:libcamera$/ { p = 1; next } p && /^V:/ { print substr($0, 3); p = 0 } /^$/ { p = 0 }')
 [ "$shipped" = "$libcamera" ] || { echo "the image has libcamera ${shipped:-(none)}, not Marathon's $libcamera" >&2; exit 1; }
 zstd -T0 -10 -f "$DEST/$NAME.ext4" -o "$DEST/$NAME.ext4.zst"
 FEED=zinwa-q25_marathon_edge/zinwa-q25_marathon_edge_$VERSION.ext4
