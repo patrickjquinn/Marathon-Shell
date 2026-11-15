@@ -769,6 +769,17 @@ pub async fn listen_turn(
             true,
         ));
     }
+    if !adapters.voice.available().await {
+        return pipeline.record(TurnResult::single(
+            pipeline.turn_id(),
+            "voice-error",
+            Card::Error {
+                text: VOICE_UNAVAILABLE.into(),
+                code: crate::pipeline::ErrorCode::VoiceUnavailable,
+            },
+            true,
+        ));
+    }
     // Pressing the microphone while Pilot speaks interrupts it, as it
     // would a person: the new question matters more than the old answer.
     adapters.speech.stop();

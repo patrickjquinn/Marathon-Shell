@@ -193,6 +193,10 @@ pub trait VoiceControl: Send + Sync {
         self.listen().await
     }
     async fn stop(&self) -> Result<(), AdapterError>;
+    /// Speech recognition is installed: asking would not fail at once.
+    async fn available(&self) -> bool {
+        true
+    }
 }
 
 /// `pilot-tts`: speaks a response. Fire and forget; never blocks a turn.
@@ -367,6 +371,9 @@ impl VoiceControl for Missing {
     }
     async fn stop(&self) -> Result<(), AdapterError> {
         Ok(())
+    }
+    async fn available(&self) -> bool {
+        false
     }
 }
 

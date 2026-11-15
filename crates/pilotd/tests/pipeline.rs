@@ -766,6 +766,29 @@ async fn cancel_marks_the_previous_turn_corrected() {
     assert_eq!(prev.outcome, "corrected");
 }
 
+/// Without pilot-voice the microphone fails at once with a code the UI can
+/// hide voice by: nothing is stopped, heard or asked.
+#[tokio::test]
+async fn listening_without_pilot_voice_fails_at_once() {
+    let srv = FakeHttp::start(|_: &common::Seen, _| panic!("nothing is asked")).await;
+    let log = Arc::new(Log::default());
+    let mut adapters = common::fake_adapters(&log);
+    adapters.voice = Box::new(pilotd::adapters::Missing("voice"));
+    let d = pilotd::daemon::build(pilotd::daemon::Options {
+        config: common::config(&srv.base),
+        data_dir: None,
+        session: None,
+        system: None,
+        adapters: Some(adapters),
+        credential: Some(pilotd::remote::Credential::None),
+        now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
+    })
+    .unwrap();
+    let r = pilotd::daemon::listen_turn(&d.pipeline, &d.adapters, &d.offline).await;
+    assert_eq!(r.error, Some(pilotd::pipeline::ErrorCode::VoiceUnavailable));
+    assert!(log.all().is_empty(), "{:?}", log.all());
+}
+
 #[tokio::test]
 async fn spoken_turns_use_voice_consent_and_are_spoken_back() {
     let srv = FakeHttp::start(route_server(

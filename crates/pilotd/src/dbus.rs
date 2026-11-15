@@ -29,6 +29,7 @@
 //! | `VoiceModels()` | `-> t` | Bytes of the speech models pilot-voice downloaded (`voice_models`) |
 //! | `RemoveVoiceModels()` | `-> t` | Deletes them; the bytes freed |
 //! | `Offline` | property `b` | Privacy switch engaged |
+//! | `VoiceAvailable` | property `b` | pilot-voice is installed; read it, no change signal |
 //! | `LastResponse` | property `s` | Headline of the last turn (cover) |
 //! | `EventsRequested` | property `u` | Counts `OpenEvents` calls; a running app shows its events page on change |
 //! | `SheetRequested` | property `u` | Counts `ShowSheet` calls; a running app opens its sheet on change |
@@ -849,6 +850,14 @@ impl PilotService {
             return Ok(0);
         };
         crate::voice_models::remove(&dir).map_err(|e| fdo::Error::Failed(e.to_string()))
+    }
+
+    /// Speech recognition (pilot-voice) is installed: without it the UI
+    /// hides the microphone, and `Listen` fails at once with
+    /// voice-unavailable.
+    #[zbus(property(emits_changed_signal = "false"))]
+    async fn voice_available(&self) -> bool {
+        self.adapters.voice.available().await
     }
 
     #[zbus(property)]

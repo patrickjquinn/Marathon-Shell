@@ -110,6 +110,24 @@ impl VoiceControl for SystemdVoice {
             Err(e) => Err(e.into()),
         }
     }
+
+    /// pilot-voice can be started (its D-Bus service is installed) or runs.
+    async fn available(&self) -> bool {
+        let Ok(bus) = zbus::fdo::DBusProxy::new(&self.session).await else {
+            return false;
+        };
+        if bus
+            .list_activatable_names()
+            .await
+            .is_ok_and(|names| names.iter().any(|n| n.as_str() == VOICE_BUS_NAME))
+        {
+            return true;
+        }
+        match zbus::names::BusName::try_from(VOICE_BUS_NAME) {
+            Ok(name) => bus.name_has_owner(name).await.unwrap_or(false),
+            Err(_) => false,
+        }
+    }
 }
 
 impl SystemdVoice {
