@@ -42,7 +42,6 @@ Item {
     // Set by MarathonShell.qml to appWindowContainer when an app is
     // open; null otherwise (the wallpaper renders through normally).
     property Item appBackdrop: null
-    property var compositor: null
 
     property real swipeProgress: 0
     // Finger travel that takes swipeProgress from 0 to 1.
@@ -196,18 +195,13 @@ Item {
         repeat: false
         onArmedChanged: rearm()
         Component.onCompleted: rearm()
+        // No app inhibitor holds it: nothing an app shows is visible here.
         onTriggered: {
-            if (lockScreen.compositor && lockScreen.compositor.hasIdleInhibitingSurface) {
-                Logger.info("LockScreen", "Idle inhibitor active (video playback?) - postponing screen blank");
-                idleTimer.rearm();
-                return;
-            }
             if (Power.hasActiveCalls) {
-                Logger.info("LockScreen", "Call ringing or active - postponing screen blank");
+                Logger.warn("LockScreen", "Idle blank postponed: a call is ringing or active");
                 idleTimer.rearm();
                 return;
             }
-            Logger.info("LockScreen", "Idle timeout - blanking screen");
             Display.turnScreenOff("lock-screen idle timer (" + idleTimer.interval + "ms)");
         }
     }

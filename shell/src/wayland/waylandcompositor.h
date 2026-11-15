@@ -45,8 +45,6 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
     Q_PROPERTY(QQmlListProperty<QObject> surfaces READ surfaces NOTIFY surfacesChanged)
     Q_PROPERTY(QWaylandQuickOutput *output READ output CONSTANT)
-    Q_PROPERTY(bool hasIdleInhibitingSurface READ hasIdleInhibitingSurface NOTIFY
-                   hasIdleInhibitingSurfaceChanged)
     // MARATHON_DISCARD_FRONT: let the foreground surface item release the
     // client's buffer as soon as it has composited it, instead of holding it
     // until the client's next commit. Shortens the double-buffer dependency
@@ -137,7 +135,8 @@ class WaylandCompositor : public QWaylandCompositor {
     // scene coordinates; endBackGesture cancels it unless back went out.
     Q_INVOKABLE void sendBackProgress(int surfaceId, qreal progress, const QPointF &scenePosition);
     Q_INVOKABLE void endBackGesture(int surfaceId);
-    Q_INVOKABLE bool checkIdleInhibitors();
+    // The app (or "pid N") of a shown surface inhibiting idle, else empty.
+    Q_INVOKABLE QString idleInhibitor() const;
     // A marathon_surface_v1 secure window is on screen.
     Q_INVOKABLE bool showsSecureContent() const;
     // Apps whose every window is secure (Navigation1.SetAppWindowSecure).
@@ -158,11 +157,7 @@ class WaylandCompositor : public QWaylandCompositor {
     // Frozen transitions for graceful suspend before cgroup.freeze.
     Q_INVOKABLE void sendSuspendedState(const QString &appId, bool suspended);
 
-    bool             hasIdleInhibitingSurface() const {
-        return m_hasIdleInhibitor;
-    }
-
-    bool discardFrontBuffer() const {
+    bool             discardFrontBuffer() const {
         return m_discardFrontBuffer;
     }
 
@@ -191,7 +186,6 @@ class WaylandCompositor : public QWaylandCompositor {
     void keyPressed();
     void nativeTextInputPanelRequested(bool show);
     void textInputHintsChanged();
-    void hasIdleInhibitingSurfaceChanged();
     // An honoured xdg-activation request for a mapped toplevel. launchPid is
     // the process the shell launched with the token, or -1.
     void surfaceActivated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface,
@@ -286,7 +280,6 @@ class WaylandCompositor : public QWaylandCompositor {
     QMap<int, qint64>                       m_surfaceIdToPid;
 
     int                                     m_nextSurfaceId;
-    bool                                    m_hasIdleInhibitor;
 
     // Present-pipeline (MARATHON_PRESENT_PIPELINE, default on): removes the
     // ~4-vblank app<->compositor round-trip that throttles client scroll to

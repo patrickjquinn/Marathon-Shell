@@ -961,17 +961,17 @@ Item {
         onArmedChanged: rearm()
         Component.onCompleted: rearm()
         onTriggered: {
-            if (typeof compositor !== 'undefined' && shell.compositor && shell.compositor.hasIdleInhibitingSurface) {
-                Logger.info("Shell", "Idle inhibitor active (video/call?) — postponing blank");
+            const inhibitor = shell.compositor ? shell.compositor.idleInhibitor() : "";
+            if (inhibitor) {
+                Logger.warn("Shell", "Idle blank postponed: " + inhibitor + " inhibits idle");
                 idleScreenTimer.rearm();
                 return;
             }
             if (Power.hasActiveCalls) {
-                Logger.info("Shell", "Active call — postponing blank");
+                Logger.warn("Shell", "Idle blank postponed: a call is active");
                 idleScreenTimer.rearm();
                 return;
             }
-            Logger.info("Shell", "Idle timeout (" + idleScreenTimer.interval + "ms) — blanking + auto-locking");
             SessionStore.isLocked = true;
             Display.turnScreenOff("idle timer (" + idleScreenTimer.interval + "ms)");
         }
@@ -2324,7 +2324,6 @@ Item {
 
         anchors.fill: parent
         z: Constants.zIndexLockScreen
-        compositor: shell.compositor
         appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
         comboLength: comboEntry.combo.length
         onUnlockRequested: {
