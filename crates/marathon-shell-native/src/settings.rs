@@ -261,6 +261,11 @@ pub mod qobject {
         fn sync(self: &Settings);
         #[cxx_name = "isNotificationsEnabledForApp"]
         fn is_notifications_enabled_for_app(self: &Settings, app_id: &QString) -> bool;
+        /// Whether the idle timer brings up Nightshade instead of turning the
+        /// screen off, `minute` after local midnight.
+        #[qinvokable]
+        #[cxx_name = "nightshadeDue"]
+        fn nightshade_due(self: &Settings, plugged_in: bool, in_call: bool, minute: i32) -> bool;
         /// The app's own keys, when it is uninstalled.
         #[cxx_name = "removeAppKeys"]
         fn remove_app_keys(self: Pin<&mut Settings>, app_id: &QString);
@@ -555,6 +560,42 @@ impl Settings {
     #[allow(clippy::unused_self, reason = "the property getter takes the object")]
     fn available_languages(&self) -> QList<QVariant> {
         qvariant::languages()
+    }
+
+    fn nightshade_due(&self, plugged_in: bool, in_call: bool, minute: i32) -> bool {
+        nightshade_due(
+            self.nightshade_enabled,
+            plugged_in,
+            in_call,
+            (self.nightshade_from, self.nightshade_to),
+            minute,
+        )
+    }
+}
+
+fn nightshade_due(
+    enabled: bool,
+    plugged_in: bool,
+    in_call: bool,
+    (from, to): (i32, i32),
+    minute: i32,
+) -> bool {
+    enabled && plugged_in && !in_call && within(from, to, minute)
+}
+
+/// Whether `minute` falls from `from` up to `to`, all minutes after midnight;
+/// a span past midnight runs into the next day, and one that ends where it
+/// starts is empty, as the night light's.
+fn within(from: i32, to: i32, minute: i32) -> bool {
+    let (from, to, minute) = (
+        from.rem_euclid(1440),
+        to.rem_euclid(1440),
+        minute.rem_euclid(1440),
+    );
+    if from <= to {
+        from <= minute && minute < to
+    } else {
+        minute >= from || minute < to
     }
 }
 
@@ -1509,8 +1550,47 @@ impl Settings1 {
 
 #[cfg(test)]
 mod tests {
-    use super::{migrate, sound_name, Field, Ini, SettingsRust, Value};
+    use super::{migrate, nightshade_due, sound_name, within, Field, Ini, SettingsRust, Value};
     use cxx_qt_lib::QString;
+
+    #[test]
+    fn nightshade_needs_the_switch_the_charger_and_no_call() {
+        let hours = (22 * 60, 7 * 60);
+        let night = 2 * 60;
+        for enabled in [false, true] {
+            for plugged_in in [false, true] {
+                for in_call in [false, true] {
+                    assert_eq!(
+                        nightshade_due(enabled, plugged_in, in_call, hours, night),
+                        enabled && plugged_in && !in_call,
+                        "enabled {enabled}, plugged in {plugged_in}, in a call {in_call}"
+                    );
+                }
+            }
+        }
+        assert!(!nightshade_due(true, true, false, hours, 12 * 60));
+    }
+
+    #[test]
+    fn nightshade_hours_across_midnight_run_into_the_morning() {
+        let (from, to) = (22 * 60, 7 * 60);
+        assert!(within(from, to, 22 * 60));
+        assert!(within(from, to, 23 * 60 + 59));
+        assert!(within(from, to, 0));
+        assert!(within(from, to, 6 * 60 + 59));
+        assert!(!within(from, to, 7 * 60));
+        assert!(!within(from, to, 12 * 60));
+        assert!(!within(from, to, 21 * 60 + 59));
+    }
+
+    #[test]
+    fn nightshade_hours_within_a_day_and_empty() {
+        assert!(within(60, 5 * 60, 60));
+        assert!(!within(60, 5 * 60, 5 * 60));
+        assert!(!within(60, 5 * 60, 23 * 60));
+        assert!(!within(8 * 60, 8 * 60, 8 * 60));
+        assert!(within(-120, 25 * 60, 23 * 60), "out-of-range minutes wrap");
+    }
 
     #[test]
     fn the_language_starts_unset_and_round_trips() {
