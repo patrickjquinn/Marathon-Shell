@@ -121,6 +121,8 @@ pub(crate) fn bwrap() -> Option<String> {
 struct Manifest {
     requires_qt: Vec<String>,
     chromium_flags: String,
+    webkit: bool,
+    environment: Vec<(String, String)>,
 }
 
 // Manifests don't change while the shell runs.
@@ -146,9 +148,21 @@ fn manifest(app_id: &str) -> Manifest {
                     .unwrap_or_default()
                     .trim()
                     .to_owned(),
+                webkit: json["webEngine"] == "webkit",
+                environment: serde_json::from_value::<marathon_apps::apps::App>(json)
+                    .unwrap_or_default()
+                    .allowed_environment()
+                    .map(|(k, v)| (k.to_owned(), v.to_owned()))
+                    .collect(),
             }
         })
         .clone()
+}
+
+/// The app embeds the WPE web engine, which sandboxes its web processes with
+/// bubblewrap inside the runner's.
+pub(crate) fn uses_webkit(runner: &Runner) -> bool {
+    app(runner).is_some_and(|a| manifest(&a.id).webkit)
 }
 
 pub(crate) fn uses_webengine(runner: &Runner) -> bool {
@@ -279,7 +293,15 @@ pub(crate) fn environment(runner: &Runner) -> QMap<QMapPair_QString_QVariant> {
     {
         map.insert(QString::from(name), QVariant::from(&QString::from(&value)));
     }
+    for (name, value) in app_environment(runner) {
+        map.insert(QString::from(&name), QVariant::from(&QString::from(&value)));
+    }
     map
+}
+
+/// The manifest's `environment`, the allowed names only.
+fn app_environment(runner: &Runner) -> Vec<(String, String)> {
+    app(runner).map_or_default(|a| manifest(&a.id).environment)
 }
 
 fn shared_folders() -> QStringList {
@@ -508,6 +530,9 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     ];
     for (name, value) in variables(runner).into_iter().chain(sandbox_vars) {
         args.flags(&["--setenv", name, &value]);
+    }
+    for (name, value) in app_environment(runner) {
+        args.flags(&["--setenv", &name, &value]);
     }
     args.0
 }

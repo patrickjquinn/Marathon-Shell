@@ -22,7 +22,8 @@ const TIOCLINUX: u64 = 0x541C;
 
 /// Confines the runner of `app_id`, empty for a spare. WebEngine apps keep
 /// namespaces and every path: Chromium nests its own namespace sandbox and
-/// keeps its profile in the tmpfs home. Camera apps keep namespaces:
+/// keeps its profile in the tmpfs home. `webEngine: webkit` apps also keep mount and
+/// `pivot_root` for bubblewrap. Camera apps keep namespaces:
 /// libcamera runs an IPA module it cannot verify in a user namespace.
 pub fn confine(app_id: &QString) {
     // Set only by the shell's bwrap: what the app may write.
@@ -34,15 +35,19 @@ pub fn confine(app_id: &QString) {
     let webengine = app
         .as_ref()
         .is_some_and(|a| a.requires_qt_modules.iter().any(|m| m == "webengine"));
+    // WPE WebKit starts each web process under bubblewrap, which mounts and
+    // pivots into a new root: a Landlock domain that handles files forbids
+    // that, as the mount syscalls denied below would.
+    let webkit = app.as_ref().is_some_and(|a| a.web_engine == "webkit");
     let camera = app.is_some_and(|a| a.permissions.iter().any(|p| p == "camera"));
-    match landlock(&writable, !webengine) {
+    match landlock(&writable, !webengine && !webkit) {
         Ok(status) if status.ruleset == RulesetStatus::NotEnforced => {
             log::warn("sandbox", "Landlock not enforced");
         }
         Ok(_) => {}
         Err(e) => log::warn("sandbox", format_args!("no Landlock: {e}")),
     }
-    if let Err(e) = seccomp(webengine || camera) {
+    if let Err(e) = seccomp(webengine || webkit || camera, webkit) {
         log::warn("sandbox", format_args!("no seccomp filter: {e}"));
     }
 }
@@ -81,7 +86,7 @@ fn landlock(writable: &[PathBuf], files: bool) -> Result<RestrictionStatus, Rule
     ruleset.restrict_self()
 }
 
-fn seccomp(namespaces: bool) -> seccompiler::Result<()> {
+fn seccomp(namespaces: bool, mounts: bool) -> seccompiler::Result<()> {
     let arch = TargetArch::try_from(std::env::consts::ARCH)?;
     let arg = |index, op, value| SeccompCondition::new(index, SeccompCmpArgLen::Dword, op, value);
     let mut denied: BTreeMap<i64, Vec<SeccompRule>> = [
@@ -106,6 +111,13 @@ fn seccomp(namespaces: bool) -> seccompiler::Result<()> {
     .into_iter()
     .map(|n| (n, Vec::new()))
     .collect();
+    // In the new user namespace bubblewrap makes, where they reach nothing
+    // outside it.
+    if mounts {
+        for n in [libc::SYS_mount, libc::SYS_umount2, libc::SYS_pivot_root] {
+            denied.remove(&n);
+        }
+    }
     // Typing into the controlling terminal (CVE-2017-5226, CVE-2023-28100).
     denied.insert(
         libc::SYS_ioctl,

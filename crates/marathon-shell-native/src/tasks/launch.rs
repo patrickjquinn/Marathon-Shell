@@ -689,12 +689,12 @@ impl Tasks {
             self.as_mut().show(app, &app.kind, -1);
         }
         let mut runner = self.runner(&app.id, &app.permissions, false);
-        let webengine = sandbox::uses_webengine(&runner);
+        let webengine = sandbox::uses_webengine(&runner) || sandbox::uses_webkit(&runner);
         let camera = sandbox::uses_camera(&runner);
         let mut env = sandbox::environment(&runner);
         // A spare can write every app's data: it takes only Marathon's own,
-        // and not WebEngine's, the camera's or a terminal's, whose
-        // environment or home is per app.
+        // and not a web engine app's, the camera's or a terminal's, whose
+        // confinement, environment or home is per app.
         let terminal = app.permissions.iter().any(|p| p == "terminal");
         if !sandbox::is_user_installed(&app.id) && !webengine && !camera && !terminal {
             let storage = app.permissions.iter().any(|p| p == "storage");
