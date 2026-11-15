@@ -10,9 +10,9 @@ Pilot is Marathon's assistant, built to Shipwright's Pilot spec (`docs/specs/pil
 | Path | What |
 | --- | --- |
 | `crates/pilotd/` | `pilotd`, the session service `org.shipwright.Pilot` (Rust, zbus), packaged as `shoal-pilotd`; its unit, D-Bus activation file, Marathon configuration and shell admission in `data/` |
-| `apps/pilot/` | `shoal-pilot`, the Pilot app (Keel QML in `ui/`, CXX-Qt), packaged as `shoal-pilot` |
+| `apps/pilot/` | `shoal-pilot`, the Pilot app: Keel QML hosted by marathon-app-runner, packaged as marathon-shell's `shoal-pilot` subpackage |
+| `crates/marathon-app-native/src/pilot.rs` | The app's client of pilotd, the runner's `MarathonOS.Pilot` (CXX-Qt) |
 | `crates/keel-mcp/`, `crates/keel-actions-schema/` | `keel-mcp`, the apps' Keel Actions as one MCP server (spec section 9), and the schema it validates with |
-| `tools/keel-launcher/` | The build helpers the app includes: linking Keel's SailfishApp, compiling the QML ahead of time |
 | `crates/pilotd/redaction-cases.json` | Redaction cases run by pilotd's tests |
 
 Speech (`voice/`, `piper/`), Pilot Lite, the Lipstick pieces and the RPM packaging stayed in Shipwright. On Marathon pilotd answers with the model on the phone (`[local]`: marathon-llm's llama-server, its embeddings to pick tools, marathon-websearch) unless direct mode (`[direct]`, the owner's own Groq and Jev keys) is set up; there is no relay and no licence.
@@ -29,7 +29,7 @@ cargo clippy --manifest-path crates/Cargo.toml --workspace --all-targets --locke
 
 The bus tests need `dbus-daemon` (each starts its own, marathon-rt's `testing::PrivateBus`) and are skipped without it unless `MARATHON_TEST_STRICT` is set. They use no keys and no network: Jev, the LLM endpoint and the Lighthouse scorer are a local fake HTTP server (`crates/pilotd/tests/common/mod.rs`). `spawns_the_keel_mcp_program` runs the real `keel-mcp` once `cargo build -p keel-mcp` has.
 
-The app is a Cargo workspace of its own (`apps/pilot/Cargo.toml`): it links Keel's SailfishApp (`KEEL_SAILFISHAPP_INCLUDEDIR`, `KEEL_SAILFISHAPP_LIBDIR`; see `tools/keel-launcher/link_sailfishapp.rs`). `scripts/qemu/lib/build-pilot-apk.sh` builds all three packages from this tree.
+The app is built with the other apps (`apps/CMakeLists.txt`) and its tests run with `sh apps/pilot/tests/run.sh`. `scripts/qemu/lib/build-pilot-apk.sh` builds pilotd and keel-mcp from this tree.
 
 One turn without D-Bus, against whatever the config points at:
 
@@ -188,40 +188,38 @@ Spec section 5.3, opt-in through the `triage` consent and off while the privacy 
 
 ## Camera turns (`pilotd/src/photo.rs`)
 
-Spec phase 4, opt-in through the `vision` consent. A camera question ("what am I looking at", Jev's `camera_vision` intent, or the model calling `camera.capture`) returns a `camera` card; the app opens the viewfinder (`ui/pages/CameraPage.qml`, QtMultimedia), and nothing is captured until the person presses the shutter. The app scales the photo to 1280 pixels on its long side and re-encodes it with Qt, which applies the EXIF orientation and writes no metadata (`keel_prepare_photo`, `app/cpp/launcher.cpp`), sends the bytes with `Look(question, jpeg)` and deletes both files. pilotd does not rely on that: it walks the JPEG's segments without decoding it, refuses anything that is not a JPEG, is over 1600 pixels on a side or 1.5 MB, and drops every APP0 to APP15 segment (EXIF, XMP, ICC, maker notes), every comment, and anything after the first image (where multi-picture files keep more images). The redacted question and the photo go to Qwen with no tools and thinking off (purpose `vision`).
+Spec phase 4, opt-in through the `vision` consent. A camera question ("what am I looking at", Jev's `camera_vision` intent, or the model calling `camera.capture`) returns a `camera` card; the app opens the viewfinder (`pages/CameraPage.qml`, QtMultimedia), and nothing is captured until the person presses the shutter. The app scales the photo to 1280 pixels on its long side and re-encodes it with Qt, which applies the EXIF orientation and writes no metadata (`crates/marathon-app-native/cpp/pilotphoto.cpp`), sends the bytes with `Look(question, jpeg)` and deletes both files. pilotd does not rely on that: it walks the JPEG's segments without decoding it, refuses anything that is not a JPEG, is over 1600 pixels on a side or 1.5 MB, and drops every APP0 to APP15 segment (EXIF, XMP, ICC, maker notes), every comment, and anything after the first image (where multi-picture files keep more images). The redacted question and the photo go to Qwen with no tools and thinking off (purpose `vision`).
 
 ## Threshold calibration (`pilotd --calibrate`)
 
 Spec section 5.2 asks for the thresholds to be calibrated against logged outcomes before release. `pilotd --calibrate` reads the decision log on the device and prints, per route, the turns and how many were corrected, cancelled or declined, and for the deterministic route the same by intent confidence in 0.05 bands from the current threshold. It suggests the lowest `intent_confidence` at which handler turns are corrected at most 5% of the time over at least 30 turns. It only keeps or raises the value: below the threshold turns go to Qwen, so the log has no handler outcomes there. Nothing is sent; testers share the report if they choose.
 
-## The app (`app/`, `ui/`)
+## The app
 
-`shoal-pilot` is a Keel app like Shoal Keys: a CXX-Qt executable shared object (`app/`, its own Cargo workspace) that loads `ui/` through Keel's SailfishApp view and exposes the `Pilot` singleton (`import Shipwright.Pilot 1.0`). The singleton is a thin client of `org.shipwright.Pilot1` (`app/src/client.rs`): turns run on a worker thread and come back as `turnFinished(json)`, everything else is a quick call; a watcher thread follows `Offline` and `LastResponse` and reconnects when pilotd (re)appears. The app holds no state of its own beyond the conversation on screen.
+`shoal-pilot` is a Marathon app hosted by marathon-app-runner (`PilotApp.qml`, a Marathon.Silica `ApplicationWindow`; the overlay is a second window titled `keel:dialog:pilot`). Its client of pilotd is the runner's `Pilot` singleton (`import MarathonOS.Pilot 1.0`, `crates/marathon-app-native/src/pilot.rs`), a thin client of `org.shipwright.Pilot1` (`pilot/client.rs`): turns run on a worker thread and come back as `turnFinished(json)`, everything else is a quick call; a watcher thread follows `Offline` and `LastResponse`, hands over why pilotd started the app (`TakeLaunchRequest`) as `sheetRequested`, `listenRequested` or `eventsRequested`, and reconnects when pilotd (re)appears.
 
 | File | What |
 | --- | --- |
-| `ui/pages/MainPage.qml` | The conversation and the sheet: a docked panel at the bottom edge with the text field, send and mic. Swiping up from the bottom edge opens it when it is closed. Confirmation cards show the action, mark outbound ones ("leaves this phone") and take Allow or Cancel once. An offline banner while the privacy switch is engaged; the mic is disabled then. |
-| `ui/components/NowView.qml` | The home before anything is asked (pilotd's `Now`, read on the phone): a greeting with some personality ("Hello, night owl", "Morning, Patrick" with the name set in Settings, "Patrick returns!" after days away) and the date, running timers, alarms and reminders, the next events, triage that needs the person, and four suggestion tiles (`SuggestionTile.qml`) |
-| `ui/components/TimerCard.qml`, `ClockCard.qml`, `AgendaCard.qml` | Typed cards: a timer counting down in a ring with +1 min and Cancel (`ExtendTimer`, `CancelClock`), an alarm or reminder with its time, how far off it is and Cancel, an agenda |
-| `ui/components/AnswerCard.qml` | A written answer: paragraphs and bulleted lines, the web pages it came from as chips (tap to open), where it was made and how long it took, and follow-up questions as rows |
-| `ui/components/StageLine.qml` | What Pilot is doing during a turn (`TurnProgress`): thinking, searching the web for what, reading which sites, writing |
-| `ui/components/Orb.qml` | Pilot's presence: a lit sphere in the highlight colour that breathes when idle, swells with the voice and sends out ripples while listening (pilot-voice's `Level`, passed on as `TurnProgress` stage `level`), and turns an arc while thinking. Small with a mic in the bar (tap to talk); large in the listening panel, with "Listening…" then "Got it…" while the phone recognises the words |
-| `ui/components/MemoryCard.qml` | What Pilot remembers: a fact just kept (Undo), the list (Forget on each), one just forgotten |
-| `ui/components/Glass.qml`, `Chip.qml` | The card surface and the pill used for chips |
-| `ui/components/TurnCard.qml` | The user's words, and the cards without a design of their own (clarify, confirm, camera, offline, error) |
-| `ui/cover/CoverPage.qml` | A running timer counting down in a ring; else the next alarm or reminder and the last answer; type and talk actions |
-| `ui/pages/CameraPage.qml` | The viewfinder for a camera turn (QtMultimedia, loaded only when opened): a question field and the shutter |
-| `ui/pages/OnboardingDialog.qml` | First-run opt-in (spec section 10): what stays local, what goes where, accept or "local only" |
-| `ui/pages/SettingsPage.qml` | Per-capability consent (typed and spoken questions, camera, triage, cloud speech recognition, spoken nudges), backend (standard or Lighthouse), egress log, export to `~/Downloads/pilot-export-<time>.json` (0600), delete with a remorse timer |
-| `ui/pages/EgressLogPage.qml` | Every remote call: purpose, provider, sizes, latency, result |
-| `ui/pages/TriagePage.qml` | Proactive triage results, the in-app stand-in for the Events view tab |
-| `ui/cover/CoverPage.qml` | State (offline, thinking) and the last response; cover actions: type (the sheet, keyboard up) and speak; offline, type only |
+| `pages/MainPage.qml` | The conversation and the sheet: a docked panel at the bottom edge with the text field, send and mic. Swiping up from the bottom edge opens it when it is closed. Confirmation cards show the action, mark outbound ones ("leaves this phone") and take Allow or Cancel once. An offline banner while the privacy switch is engaged; the mic is disabled then. |
+| `components/NowView.qml` | The home before anything is asked (pilotd's `Now`, read on the phone): a greeting with some personality ("Hello, night owl", "Morning, Patrick" with the name set in Settings, "Patrick returns!" after days away) and the date, running timers, alarms and reminders, the next events, triage that needs the person, and four suggestion tiles (`SuggestionTile.qml`) |
+| `components/TimerCard.qml`, `ClockCard.qml`, `AgendaCard.qml` | Typed cards: a timer counting down in a ring with +1 min and Cancel (`ExtendTimer`, `CancelClock`), an alarm or reminder with its time, how far off it is and Cancel, an agenda |
+| `components/AnswerCard.qml` | A written answer: paragraphs and bulleted lines, the web pages it came from as chips (tap to open), where it was made and how long it took, and follow-up questions as rows |
+| `components/StageLine.qml` | What Pilot is doing during a turn (`TurnProgress`): thinking, searching the web for what, reading which sites, writing |
+| `components/Orb.qml` | Pilot's presence: a lit sphere in the highlight colour that breathes when idle, swells with the voice and sends out ripples while listening (pilot-voice's `Level`, passed on as `TurnProgress` stage `level`), and turns an arc while thinking. Small with a mic in the bar (tap to talk); large in the listening panel, with "Listening…" then "Got it…" while the phone recognises the words |
+| `components/MemoryCard.qml` | What Pilot remembers: a fact just kept (Undo), the list (Forget on each), one just forgotten |
+| `components/Glass.qml`, `Chip.qml` | The card surface and the pill used for chips |
+| `components/TurnCard.qml` | The user's words, and the cards without a design of their own (clarify, confirm, camera, offline, error) |
+| `cover/CoverPage.qml` | A running timer counting down in a ring; else the next alarm or reminder and the last answer; type and talk actions |
+| `pages/CameraPage.qml` | The viewfinder for a camera turn (QtMultimedia, loaded only when opened): a question field and the shutter |
+| `pages/OnboardingDialog.qml` | First-run opt-in (spec section 10): what stays local, what goes where, accept or "local only" |
+| `pages/SettingsPage.qml` | Per-capability consent (typed and spoken questions, camera, triage, cloud speech recognition, spoken nudges), backend (standard or Lighthouse), egress log, export to `~/Downloads/pilot-export-<time>.json` (0600), delete with a remorse timer |
+| `pages/EgressLogPage.qml` | Every remote call: purpose, provider, sizes, latency, result |
+| `pages/TriagePage.qml` | Proactive triage results, the in-app stand-in for the Events view tab |
+| `cover/CoverPage.qml` | State (offline, thinking) and the last response; cover actions: type (the sheet, keyboard up) and speak; offline, type only |
 
-Sailjail: `Permissions=ShoalPilot;Downloads;Camera` (`app/packaging/shoal-pilot.desktop`). The camera is used only on the viewfinder page. The app never touches the network, microphone or audio; pilotd and its helpers do.
+Permissions (`manifest.json`): `camera` and `storage` (exports to Downloads). The camera is used only on the viewfinder page. The app never touches the network, microphone or audio; pilotd and its helpers do.
 
 **Lipstick, not the app.** Two surfaces in spec section 8.2 belong to the home screen ([`lipstick/README.md`](lipstick/README.md)). The Events view gets a Pilot widget at its top, registered in Lipstick's widget registry as Jolla's Weather widget is, so no patch is needed: "1 to act on now, 2 for today", which opens the app's events page (`EventsSummary`, `OpenEvents`, `--events`). The system-wide gesture, a longer, quicker swipe up from the bottom edge (`ShowSheet`, `--sheet`), is a two-hunk change to the home screen's `compositor.qml` that the package `shoal-pilot-gesture-patch` applies itself, with no Patchmanager. It applies only where the change fits exactly (a dry run), and is put back on removal and around home-screen updates. The app also has the edge swipe inside its own window.
-
-The app's Sailfish smoke test (`app/tests`) stayed in Shipwright.
 
 ## Speech (`voice/`)
 

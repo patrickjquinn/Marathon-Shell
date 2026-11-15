@@ -1,0 +1,24 @@
+{
+  "manifestVersion": 1,
+  "id": "shoal-pilot",
+  "name": "Pilot",
+  "version": "1.0.0",
+  "entryPoint": "PilotApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "description": "Marathon's assistant: ask, and let it act in your apps.",
+  "permissions": ["camera", "storage"],
+  "permissionReasons": {
+    "camera": "Takes the photo you ask Pilot about",
+    "storage": "Saves the export of Pilot's records to Downloads"
+  },
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "categories": ["Productivity"],
+  "handlesUriSchemes": [],
+  "defaultFor": [],
+  "searchKeywords": ["pilot", "assistant", "ask", "help"],
+  "deepLinks": {},
+  "testedOn": { "widths": [540], "inputModes": ["touch"] },
+  "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
+}

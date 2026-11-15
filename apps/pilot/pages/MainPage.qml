@@ -8,7 +8,7 @@
 
 import QtQuick
 import Sailfish.Silica 1.0
-import Shipwright.Pilot 1.0
+import MarathonOS.Pilot 1.0
 import "../components"
 
 Page {

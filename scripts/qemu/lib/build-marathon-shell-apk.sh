@@ -165,6 +165,10 @@ for SUB in browser test-app; do
     cp "/root/packages/aports/aarch64/${SUB_APK}" "/out/${SUB_APK}"
     echo "wrote /out/${SUB_APK}"
 done
+# Pilot is a runner app; its client of pilotd is in this package's runner.
+PILOT_APK="$(echo "$TARGET" | sed "s/^marathon-shell-/shoal-pilot-/")"
+cp "/root/packages/aports/aarch64/${PILOT_APK}" "/out/${PILOT_APK}"
+echo "wrote /out/${PILOT_APK}"
 CSCRIPT
 
 echo "+-- done: $MKOSI_PKG_DIR/$TARGET --+"

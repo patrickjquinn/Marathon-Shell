@@ -10,7 +10,7 @@ pragma Singleton
 
 import QtQuick
 import Sailfish.Silica 1.0
-import Shipwright.Pilot 1.0
+import MarathonOS.Pilot 1.0
 
 QtObject {
     id: conversation
@@ -25,8 +25,6 @@ QtObject {
     property bool listening: false
     property bool transcribing: false
     property real level: 0
-    // The overlay over other apps (Overlay.qml), when the app has one.
-    property Item overlay: null
     // The getting-started guide (GuideCard.qml, GuidePage.qml): the skills
     // tried, kept by pilotd ("gesture", "screen", "voice", "action",
     // "how"; "hidden" once put away). Each is marked when the person does

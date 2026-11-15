@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Builds Pilot and Reef from this repository into mkosi.packages/: keel-mcp,
-# shoal-pilotd (the daemon), shoal-pilot (the app) and shipwright-reef (the
-# store). Needs the keel-silica apks there first: the apps link Keel's
-# SailfishApp.
+# Builds Pilot's daemon and Reef from this repository into mkosi.packages/:
+# keel-mcp, shoal-pilotd (the daemon) and shipwright-reef (the store). The
+# Pilot app is marathon-shell's shoal-pilot subpackage. Reef needs the
+# keel-silica apks there first: it links Keel's SailfishApp.
 #
 # The aports' source tarball is staged from the tree, uncommitted changes
 # included, so their source= URL is never fetched here: crates/ (cargo
-# resolves the whole workspace to build one member), apps/pilot, apps/reef
-# and the build helpers in tools/keel-launcher.
+# resolves the whole workspace to build one member), apps/pilot (its README
+# goes into shoal-pilotd), apps/reef and the build helpers in
+# tools/keel-launcher.
 #
 # PILOT_SRC=<checkout> (else MARATHON_SHELL_SRC) builds that tree instead of
-# this one; PILOT_PKGS limits which of the four are built; PILOT_BUILD_DIR
+# this one; PILOT_PKGS limits which of the three are built; PILOT_BUILD_DIR
 # holds the work tree (default ~/.cache/marathon-build).
 set -euo pipefail
 
@@ -20,10 +21,10 @@ MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-$(cd "$SCRIPT_DIR/../../.." && pwd)/pa
 APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
 MKOSI_PKG_DIR="${MKOSI_PKG_DIR:-$DURANIUM_DIR/mkosi.packages}"
 PILOT_SRC="${PILOT_SRC:-${MARATHON_SHELL_SRC:-$(cd "$SCRIPT_DIR/../../.." && pwd)}}"
-PILOT_PKGS="${PILOT_PKGS:-keel-mcp shoal-pilotd shoal-pilot shipwright-reef}"
+PILOT_PKGS="${PILOT_PKGS:-keel-mcp shoal-pilotd shipwright-reef}"
 
 case " $PILOT_PKGS " in
-*" shoal-pilot "* | *" shipwright-reef "*)
+*" shipwright-reef "*)
     for dep in keel-silica keel-silica-dev; do
         ls "$MKOSI_PKG_DIR/$dep"-[0-9]*.apk >/dev/null 2>&1 || {
             echo "error: no $dep apk in $MKOSI_PKG_DIR" >&2
@@ -59,7 +60,7 @@ set -euo pipefail
 
 apk add --no-cache --quiet abuild rsync curl ca-certificates build-base 2>&1 | tail -3 || true
 case " $PILOT_PKGS " in
-*" shoal-pilot "* | *" shipwright-reef "*)
+*" shipwright-reef "*)
     newest() { ls -1v /out/"$1"-[0-9]*.apk | tail -1; }
     apk add --no-cache --quiet --allow-untrusted \
         "$(newest keel-silica)" "$(newest keel-silica-dev)" 2>&1 | tail -3
@@ -82,7 +83,7 @@ for pkg in $PILOT_PKGS; do
     apk add --no-cache --quiet $(srcdir=/; . ./APKBUILD; echo $makedepends | tr ' ' '\n' | \
         grep -vE '^keel-silica-dev$') 2>&1 | tail -3
     abuild -F checksum
-    # -d: shoal-pilot depends on shoal-pilotd, which no repository here has.
+    # -d: their dependencies are in no repository here.
     abuild -d -F
     cp "/root/packages/aports/"*"/$pkg-$ver.apk" /out/
     echo "wrote /out/$pkg-$ver.apk"

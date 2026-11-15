@@ -187,13 +187,12 @@ APORT=wpewebkit \
 build_if_missing "wpewebkit"                 'wpewebkit-[0-9]*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/wpewebkit/APKBUILD"
 APORT=libjxl0.11 NO_DEPS=1 \
 build_if_missing "libjxl0.11"                'libjxl0.11-[0-9]*.apk'          "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/libjxl0.11/APKBUILD"
-# Pilot (its daemon and app) and keel-mcp, from this tree.
+# Pilot's daemon and keel-mcp, from this tree; the app is marathon-shell's
+# shoal-pilot subpackage.
 PILOT_PKGS=keel-mcp \
 build_if_missing "keel-mcp"                  'keel-mcp-*.apk'                 "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/keel-mcp/APKBUILD"
 PILOT_PKGS=shoal-pilotd \
 build_if_missing "shoal-pilotd"              'shoal-pilotd-*.apk'             "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilotd/APKBUILD"
-PILOT_PKGS=shoal-pilot \
-build_if_missing "shoal-pilot"               'shoal-pilot-[0-9]*.apk'         "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilot/APKBUILD"
 # Reef, the store, from this tree.
 PILOT_PKGS=shipwright-reef \
 build_if_missing "shipwright-reef"           'shipwright-reef-*.apk'          "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shipwright-reef/APKBUILD"

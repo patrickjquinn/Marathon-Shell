@@ -1,10 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-// Pilot over any app: what the system-wide gesture (the gesture patch,
-// shoal/pilot/lipstick/patch) brings up. A second window of the app
-// (cpp/launcher.cpp, createOverlay), tagged CATEGORY=dialog so that
-// Lipstick shows it above the app the person is in, which stays on screen
+// Pilot over any app: what the system-wide gesture brings up. A second
+// window of the app (PilotApp.qml), titled keel:dialog:pilot so that the
+// compositor shows it above the app the person is in, which stays on screen
 // behind a soft veil. The edges glow, the field and the mic wait at the
 // bottom with the keyboard up, and what that app shows is the context
 // ("summarise this"), with one-tap questions that fit it. Answers rise
@@ -21,18 +20,15 @@ import QtQuick
 import QtQml.Models
 import Sailfish.Silica 1.0
 import Keel 1.0
-import Shipwright.Pilot 1.0
+import MarathonOS.Pilot 1.0
 import "components"
 
 Item {
     id: overlay
     objectName: "overlay"
 
-    // The overlay's window and the app's main view (QQuickViews), set by
-    // cpp/launcher.cpp once this has loaded; null in the desktop harness,
-    // where the overlay is a plain item.
+    // The overlay's window; null in tests, where the overlay is a plain item.
     property var window: null
-    property var mainView: null
 
     property bool shown: false
     // The first entry of this session in the conversation.
@@ -42,15 +38,6 @@ Item {
     readonly property bool busy: Pilot.busy || Conversation.listening
     // The main page carries on: Open Pilot.
     signal expandRequested
-
-    // Lipstick reads the category when the window is first mapped, so it
-    // is set as soon as the window is known, before the first show() (the
-    // launcher created the platform window first).
-    onWindowChanged: {
-        if (window)
-            Shell.setLipstickProperty(window, "CATEGORY", "dialog");
-    }
-    Component.onCompleted: Conversation.overlay = overlay
 
     function show() {
         Conversation.markGuide("gesture");
@@ -102,7 +89,7 @@ Item {
             overlay.window.hide()
     }
 
-    // Lipstick took the window away (an edge swipe to the home screen or
+    // The shell took the window away (an edge swipe to the home screen or
     // to another app): the overlay is done.
     Connections {
         target: overlay.window
