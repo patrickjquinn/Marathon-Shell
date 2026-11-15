@@ -8,6 +8,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Sailfish.Silica
+import Marathon.Silica 1.0
 import Shipwright.Pacific.WebView 1.0
 
 ApplicationWindow {

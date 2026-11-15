@@ -10,6 +10,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 import Sailfish.Silica 1.0 as Silica
 import Sailfish.Silica.private 1.0 as SilicaPrivate
 import Shipwright.Pacific 1.0

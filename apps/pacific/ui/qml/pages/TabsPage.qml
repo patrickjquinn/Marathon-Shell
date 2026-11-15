@@ -16,6 +16,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 import Sailfish.Silica.private 1.0 as Private
 import "../components"
 import "../js/logic.js" as Logic
