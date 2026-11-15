@@ -30,6 +30,11 @@ QtObject {
     property string shared: ""
     // Questions asked while Pilot was answering, oldest first.
     property var queued: []
+    // Settings > Accessibility > Reduce motion: the orb, the glow and the
+    // activity dots stand still.
+    // qmllint disable unqualified
+    property bool reduceMotion: typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings !== null && MarathonA11ySettings.reduceMotion === true
+    // qmllint enable unqualified
     // The getting-started guide (GuideCard.qml, GuidePage.qml): the skills
     // tried, kept by pilotd ("gesture", "screen", "voice", "action",
     // "how"; "hidden" once put away). Each is marked when the person does

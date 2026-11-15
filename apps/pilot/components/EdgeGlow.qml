@@ -30,13 +30,13 @@ Item {
     }
 
     NumberAnimation on phase {
-        running: glow.active
+        running: glow.active && !Conversation.reduceMotion
         loops: Animation.Infinite
         from: 0
         to: 1
         duration: glow.intense ? 2800 : 7000
     }
-    onActiveChanged: if (active)
+    onActiveChanged: if (active && !Conversation.reduceMotion)
         rise.restart()
     SequentialAnimation {
         id: rise

@@ -63,7 +63,7 @@ Item {
     // vsync, and Keel keeps the main window exposed in the background
     // (keelwlshell.cpp), so Pilot drew at the display's rate, in front and
     // behind other apps.
-    readonly property bool _animate: visible && Window.active
+    readonly property bool _animate: visible && Window.active && !Conversation.reduceMotion
 
     // The glow: a radial gradient from the highlight colour to nothing.
     Shape {

@@ -31,7 +31,7 @@ Item {
         // Down onto the bar, held: Pilot.
         property bool held: false
         // Only while it can be seen (see Orb.qml).
-        readonly property bool animate: visible && Window.active
+        readonly property bool animate: visible && Window.active && !Conversation.reduceMotion
         opacity: 0
         SequentialAnimation on opacity {
             loops: Animation.Infinite

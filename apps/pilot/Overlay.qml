@@ -184,6 +184,7 @@ Item {
                 }
             }
             Behavior on height {
+                enabled: !Conversation.reduceMotion
                 NumberAnimation {
                     duration: 180
                     easing.type: Easing.OutCubic

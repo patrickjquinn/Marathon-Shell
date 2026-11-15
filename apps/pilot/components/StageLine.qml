@@ -17,7 +17,7 @@ Item {
     // Only while it can be seen: shown, in the active window (see Orb.qml:
     // a running animation anywhere keeps the app drawing at the display's
     // rate).
-    readonly property bool _animate: visible && Window.active
+    readonly property bool _animate: visible && Window.active && !Conversation.reduceMotion
 
     width: parent ? parent.width : 0
     height: row.height + 2 * Theme.paddingMedium
