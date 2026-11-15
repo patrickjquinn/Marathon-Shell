@@ -526,6 +526,15 @@ impl Network {
         self.wifi_enabled_changed();
     }
 
+    // NetworkManager's WWAN switch is off only in airplane mode, and it
+    // outlives restarts and reboots, so it is the state.
+    fn apply_airplane(mut self: Pin<&mut Self>, enabled: bool) {
+        if self.airplane_mode_enabled != enabled {
+            self.as_mut().rust_mut().airplane_mode_enabled = enabled;
+            self.airplane_mode_enabled_changed();
+        }
+    }
+
     fn apply_links(mut self: Pin<&mut Self>, links: Links) {
         let connected = links.wifi.is_some();
         if self.wifi_connected != connected {
@@ -1085,6 +1094,7 @@ enum Event {
     Command(Command),
     Closed,
     WirelessEnabled(bool),
+    WwanEnabled(bool),
     ActiveChanged,
     // Adapters can appear after start: firmware loads late, USB is replugged.
     DevicesChanged,
@@ -1172,6 +1182,9 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             .queue(move |obj| obj.apply_wifi_enabled(enabled))
             .ok();
     }
+    if let Ok(wwan) = actor.nm.wwan_enabled().await {
+        actor.publish_wwan(wwan);
+    }
     actor.refresh_links().await;
     actor.refresh_saved().await;
     actor.scan().await;
@@ -1199,6 +1212,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     .queue(move |obj| obj.apply_wifi_enabled(enabled))
                     .ok();
             }
+            Event::WwanEnabled(wwan) => actor.publish_wwan(wwan),
             Event::ActiveChanged => actor.refresh_links().await,
             Event::DevicesChanged => {
                 actor.detect_hardware().await;
@@ -1545,6 +1559,10 @@ impl Actor {
         }
         self.networks = merge(aps);
         self.publish_networks();
+    }
+
+    fn publish_wwan(&self, wwan: bool) {
+        self.qt.queue(move |obj| obj.apply_airplane(!wwan)).ok();
     }
 
     fn publish_networks(&self) {
@@ -2001,6 +2019,12 @@ impl Actor {
             .await
             .then(|change| async move { change.get().await.ok().map(Event::WirelessEnabled) })
             .filter_map(|event| event);
+        let wwan = self
+            .nm
+            .receive_wwan_enabled_changed()
+            .await
+            .then(|change| async move { change.get().await.ok().map(Event::WwanEnabled) })
+            .filter_map(|event| event);
         let active = self
             .nm
             .receive_active_connections_changed()
@@ -2017,7 +2041,12 @@ impl Actor {
             .await
             .then(|change| async move { change.get().await.ok().map(Event::Connectivity) })
             .filter_map(|event| event);
-        enabled.or(active).or(devices).or(connectivity).boxed()
+        enabled
+            .or(wwan)
+            .or(active)
+            .or(devices)
+            .or(connectivity)
+            .boxed()
     }
 
     // Signals from objects that come and go: every active connection's
