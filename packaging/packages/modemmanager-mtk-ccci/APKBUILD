@@ -8,7 +8,7 @@
 # Alpine's. Keep pkgver and _commit in sync with Alpine's modemmanager.
 pkgname=modemmanager-mtk-ccci
 pkgver=1.25.95_git20261005
-pkgrel=5
+pkgrel=6
 _commit=7f0bf17ab518cd78925cf7e53cc0d5c42f88b41a
 pkgdesc="ModemManager with MediaTek CCCI (SoC modem) support"
 url="https://www.freedesktop.org/wiki/Software/ModemManager"
@@ -76,5 +76,5 @@ a819cb4eb8d21fdbf7e393cdfea05d2d71958933d43eac3d4413ae16368f7bd06e4c4c3a6218fca4
 38217ae80822774fa6dfe657672e42b20c0896261bff48f966e79b83cd4944a7473e8ce63d557aec3baaf584a84f49fe3441d2aa5a69e163e9ed8939fc61a500  0102-mtk-ccci-reuse-attach-pdn.patch
 c7cb4fd59e456b5b971b55733040323660127ba37153cb127ee80327f561669eb74ddd1480f972f53e69d5d45cd4230b603d2ed40bd55e0d874e3f483dc7f398  0103-mtk-ccci-allow-incoming-calls.patch
 edfd4c4d418a7c61f8ac52e0ba01e6fd2e58de0d55b5383fd193af0fbf6b6e54744ea51b543ad67d5c0368e97fa1f81c4c5a330920fcba581bb01507640e7a22  0104-mtk-ccci-pdn-down-events.patch
-c41fd1a2678398aae7622dee7e7c4df81ccac56c6614c494a1104fbb3b085823a771e84bf829aa6e67fc0ce01cbb798f7524c4c07ae85e6cc9c7d54504254006  0105-mtk-ccci-low-power.patch
+c74b8d1d01d26e9a6560a94a2218421e3660a2fee0b68f78150f1aa05399bc588e911aa68979da2804edab1bd678a2863333f812a15b0e279961ab8c96370d26  0105-mtk-ccci-low-power.patch
 "

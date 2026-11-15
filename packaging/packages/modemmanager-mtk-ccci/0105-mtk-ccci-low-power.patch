@@ -1,17 +1,20 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patrick Quinn <patrick.jm.quinn@gmail.com>
-Date: Sun, 15 Nov 2026 14:30:00 +0000
+Date: Sun, 15 Nov 2026 17:30:00 +0000
 Subject: [PATCH] mtk-ccci: switch the radio with +EFUN
 
 The plugin had no power control, so SetPowerState(LOW) failed as
 unsupported and a disabled modem kept its radio on in airplane mode.
-The generic +CFUN=4 does not work on this modem either: it answers
-NO CARRIER. Like MediaTek's RIL, power down with +EFUN=0, power up
-with +EFUN=1 (which also powers SIM 1), and read the state from
-+EFUN?.
+Like MediaTek's RIL, power down with +EFUN=0, power up with +EFUN=1
+(which also powers SIM 1), and read the state from +EFUN?.
+
+Both +EFUN=0 and +CFUN=4 print NO CARRIER before their final OK, and
+the generic parser took it as the reply and failed the command. A
+NO CARRIER filter on the AT ports is turned on only while an +EFUN
+runs, so calls still see NO CARRIER.
 ---
 diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
-index efb9a7d..fad8ada 100644
+index efb9a7d..749cdc3 100644
 --- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
 +++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
 @@ -23,6 +23,7 @@
@@ -22,15 +25,52 @@ index efb9a7d..fad8ada 100644
  #include "mm-broadband-modem-mtk-ccci.h"
  #include "mm-broadband-bearer-mtk-ccci.h"
  
-@@ -191,6 +192,63 @@ modem_create_bearer (MMIfaceModem        *self,
+@@ -35,6 +36,7 @@ struct _MMBroadbandModemMtkCcciPrivate {
+     GRegex *eif_ifdown_regex;
+     GRegex *eaic_regex;
+     GRegex *ecpi_regex;
++    GRegex *no_carrier_regex;
+ };
+ 
+ /*****************************************************************************/
+@@ -145,6 +147,10 @@ setup_ports (MMBroadbandModem *_self)
+             (MMPortSerialAtUnsolicitedMsgFn) ecpi_received,
+             self,
+             NULL);
++        mm_port_serial_at_add_unsolicited_msg_handler (ports[i], self->priv->no_carrier_regex,
++                                                       NULL, NULL, NULL);
++        mm_port_serial_at_enable_unsolicited_msg_handler (ports[i], self->priv->no_carrier_regex,
++                                                          FALSE);
+     }
+ }
+ 
+@@ -191,6 +197,108 @@ modem_create_bearer (MMIfaceModem        *self,
                                        task);
  }
  
 +/*****************************************************************************/
 +/* Power state (Modem interface)
 + *
-+ * This modem switches its radio with MediaTek's +EFUN (it answers +CFUN=4
-+ * with NO CARRIER). +EFUN=1 also powers SIM 1 and takes seconds. */
++ * This modem switches its radio with MediaTek's +EFUN; +EFUN=1 also powers
++ * SIM 1 and takes seconds. Both directions print NO CARRIER before their OK,
++ * which the generic parser takes as the reply, so it is filtered out while
++ * an +EFUN runs. */
++
++static void
++filter_no_carrier (MMBroadbandModemMtkCcci *self,
++                   gboolean                 filter)
++{
++    MMPortSerialAt *ports[2];
++    guint           i;
++
++    ports[0] = mm_base_modem_peek_port_primary (MM_BASE_MODEM (self));
++    ports[1] = mm_base_modem_peek_port_secondary (MM_BASE_MODEM (self));
++    for (i = 0; i < G_N_ELEMENTS (ports); i++) {
++        if (ports[i])
++            mm_port_serial_at_enable_unsolicited_msg_handler (ports[i], self->priv->no_carrier_regex,
++                                                              filter);
++    }
++}
 +
 +static MMModemPowerState
 +load_power_state_finish (MMIfaceModem  *self,
@@ -64,7 +104,34 @@ index efb9a7d..fad8ada 100644
 +                    GAsyncResult  *res,
 +                    GError       **error)
 +{
-+    return !!mm_base_modem_at_command_finish (MM_BASE_MODEM (self), res, error);
++    return g_task_propagate_boolean (G_TASK (res), error);
++}
++
++static void
++efun_ready (MMBaseModem  *self,
++            GAsyncResult *res,
++            GTask        *task)
++{
++    GError *error = NULL;
++
++    filter_no_carrier (MM_BROADBAND_MODEM_MTK_CCCI (self), FALSE);
++    if (!mm_base_modem_at_command_finish (self, res, &error))
++        g_task_return_error (task, error);
++    else
++        g_task_return_boolean (task, TRUE);
++    g_object_unref (task);
++}
++
++static void
++efun (MMIfaceModem        *self,
++      const gchar         *command,
++      GAsyncReadyCallback  callback,
++      gpointer             user_data)
++{
++    filter_no_carrier (MM_BROADBAND_MODEM_MTK_CCCI (self), TRUE);
++    mm_base_modem_at_command (MM_BASE_MODEM (self), command, 60, FALSE,
++                              (GAsyncReadyCallback) efun_ready,
++                              g_task_new (self, NULL, callback, user_data));
 +}
 +
 +static void
@@ -72,7 +139,7 @@ index efb9a7d..fad8ada 100644
 +                GAsyncReadyCallback  callback,
 +                gpointer             user_data)
 +{
-+    mm_base_modem_at_command (MM_BASE_MODEM (self), "+EFUN=1", 60, FALSE, callback, user_data);
++    efun (self, "+EFUN=1", callback, user_data);
 +}
 +
 +static void
@@ -80,13 +147,30 @@ index efb9a7d..fad8ada 100644
 +                  GAsyncReadyCallback  callback,
 +                  gpointer             user_data)
 +{
-+    mm_base_modem_at_command (MM_BASE_MODEM (self), "+EFUN=0", 60, FALSE, callback, user_data);
++    efun (self, "+EFUN=0", callback, user_data);
 +}
 +
  /*****************************************************************************/
  
  MMBroadbandModemMtkCcci *
-@@ -246,6 +304,12 @@ iface_modem_init (MMIfaceModemInterface *iface)
+@@ -225,6 +333,8 @@ mm_broadband_modem_mtk_ccci_init (MMBroadbandModemMtkCcci *self)
+                                                 G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->eaic_regex = g_regex_new ("\\r\\n\\+EAIC:\\s*(\\d+)\\s*,\\s*\"[^\"]*\"\\s*,\\s*\\d*\\s*,\\s*\\d*\\s*,\\s*(\\d+)[^\\r\\n]*\\r\\n",
+                                           G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    self->priv->no_carrier_regex = g_regex_new ("\\r\\nNO CARRIER\\r\\n",
++                                                G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->ecpi_regex = g_regex_new ("\\r\\n\\+ECPI:[^\\r\\n]*\\r\\n",
+                                           G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+ }
+@@ -237,6 +347,7 @@ finalize (GObject *object)
+     g_regex_unref (self->priv->eif_ifdown_regex);
+     g_regex_unref (self->priv->eaic_regex);
+     g_regex_unref (self->priv->ecpi_regex);
++    g_regex_unref (self->priv->no_carrier_regex);
+ 
+     G_OBJECT_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->finalize (object);
+ }
+@@ -246,6 +357,12 @@ iface_modem_init (MMIfaceModemInterface *iface)
  {
      iface->create_bearer = modem_create_bearer;
      iface->create_bearer_finish = modem_create_bearer_finish;
