@@ -1051,6 +1051,8 @@ Item {
         ignoreUnknownSignals: true
         function onUserActivity() {
             dimState.restore();
+            if (shell.showPinScreen)
+                lockScreen.resetIdleTimer();
         }
 
         function onKeyPressed() {

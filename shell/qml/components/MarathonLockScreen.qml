@@ -183,7 +183,8 @@ Item {
         // "Never" (SettingsManager.screenTimeout == 0) gates the timer off
         // — same logic as MarathonShell.idleScreenTimer. Otherwise a 0
         // interval fires every tick and blanks the lock screen immediately.
-        readonly property bool armed: lockScreen.visible && Display.screenOn && !AlarmManagerCpp.hasActiveAlarm && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
+        // Locked covers the PIN pad, which hides the lock screen.
+        readonly property bool armed: (lockScreen.visible || SessionStore.isLocked) && Display.screenOn && !AlarmManagerCpp.hasActiveAlarm && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
 
         function rearm() {
             if (armed)

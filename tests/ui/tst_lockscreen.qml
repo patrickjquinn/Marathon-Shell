@@ -40,6 +40,8 @@ TestCase {
         pad.enabled = false;
         pad.clicks = 0;
         lockScreen.swipeProgress = 0;
+        lockScreen.opacity = 1;
+        SessionStore.isLocked = false;
         Display.screenOn = true;
     }
 
@@ -99,6 +101,17 @@ TestCase {
         verify(Display.screenOn, "a ringing call keeps the screen on");
         Power.hasActiveCalls = false;
         tryVerify(() => !Display.screenOn, 1000);
+        SettingsManagerCpp.screenTimeout = 0;
+    }
+
+    // The PIN pad hides the lock screen; left there, the screen still blanks.
+    function test_thePinPadStillBlanks() {
+        Display.offReasons = [];
+        SessionStore.isLocked = true;
+        lockScreen.opacity = 0;
+        SettingsManagerCpp.screenTimeout = 100;
+        lockScreen.resetIdleTimer();
+        tryVerify(() => Display.offReasons.length === 1, 1000);
         SettingsManagerCpp.screenTimeout = 0;
     }
 
