@@ -78,6 +78,16 @@ pub mod qobject {
         #[qproperty(QString, audio_profile, cxx_name = "audioProfile", READ, WRITE = set_audio_profile, NOTIFY)]
         #[qproperty(i32, screen_timeout, cxx_name = "screenTimeout", READ, WRITE = set_screen_timeout, NOTIFY)]
         #[qproperty(bool, auto_brightness, cxx_name = "autoBrightness", READ, WRITE = set_auto_brightness, NOTIFY)]
+        /// Nightshade: on the charger within its hours, the idle timer leaves a
+        /// dim bedside clock up instead of turning the screen off.
+        #[qproperty(bool, nightshade_enabled, cxx_name = "nightshadeEnabled", READ, WRITE = set_nightshade_enabled, NOTIFY)]
+        /// Minutes after midnight.
+        #[qproperty(i32, nightshade_from, cxx_name = "nightshadeFrom", READ, WRITE = set_nightshade_from, NOTIFY)]
+        #[qproperty(i32, nightshade_to, cxx_name = "nightshadeTo", READ, WRITE = set_nightshade_to, NOTIFY)]
+        /// Of clock, battery, weather and notifications.
+        #[qproperty(QStringList, nightshade_items, cxx_name = "nightshadeItems", READ, WRITE = set_nightshade_items, NOTIFY)]
+        /// red, amber or green.
+        #[qproperty(QString, nightshade_tint, cxx_name = "nightshadeTint", READ, WRITE = set_nightshade_tint, NOTIFY)]
         #[qproperty(QString, status_bar_clock_position, cxx_name = "statusBarClockPosition", READ, WRITE = set_status_bar_clock_position, NOTIFY)]
         #[qproperty(bool, show_notifications_on_lock_screen, cxx_name = "showNotificationsOnLockScreen", READ, WRITE = set_show_notifications_on_lock_screen, NOTIFY)]
         #[qproperty(bool, filter_mobile_friendly_apps, cxx_name = "filterMobileFriendlyApps", READ, WRITE = set_filter_mobile_friendly_apps, NOTIFY)]
@@ -169,6 +179,16 @@ pub mod qobject {
         fn set_screen_timeout(self: Pin<&mut Settings>, value: i32);
         #[cxx_name = "setAutoBrightness"]
         fn set_auto_brightness(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setNightshadeEnabled"]
+        fn set_nightshade_enabled(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setNightshadeFrom"]
+        fn set_nightshade_from(self: Pin<&mut Settings>, value: i32);
+        #[cxx_name = "setNightshadeTo"]
+        fn set_nightshade_to(self: Pin<&mut Settings>, value: i32);
+        #[cxx_name = "setNightshadeItems"]
+        fn set_nightshade_items(self: Pin<&mut Settings>, value: &QStringList);
+        #[cxx_name = "setNightshadeTint"]
+        fn set_nightshade_tint(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setStatusBarClockPosition"]
         fn set_status_bar_clock_position(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setShowNotificationsOnLockScreen"]
@@ -491,6 +511,11 @@ properties! {
     audio_profile: QString = QString::from("normal"), "audio/audioProfile", "audioProfile", audio_profile_changed, on_audio_profile_changed, set_audio_profile(&QString);
     screen_timeout: i32 = 300_000, "display/screenTimeout", "screenTimeout", screen_timeout_changed, on_screen_timeout_changed, set_screen_timeout(i32);
     auto_brightness: bool = true, "display/autoBrightness", "autoBrightness", auto_brightness_changed, on_auto_brightness_changed, set_auto_brightness(bool);
+    nightshade_enabled: bool = false, "display/nightshade", "nightshadeEnabled", nightshade_enabled_changed, on_nightshade_enabled_changed, set_nightshade_enabled(bool);
+    nightshade_from: i32 = 22 * 60, "display/nightshadeFrom", "nightshadeFrom", nightshade_from_changed, on_nightshade_from_changed, set_nightshade_from(i32);
+    nightshade_to: i32 = 7 * 60, "display/nightshadeTo", "nightshadeTo", nightshade_to_changed, on_nightshade_to_changed, set_nightshade_to(i32);
+    nightshade_items: QStringList = string_list(&["clock".into(), "battery".into(), "weather".into(), "notifications".into()]), "display/nightshadeItems", "nightshadeItems", nightshade_items_changed, on_nightshade_items_changed, set_nightshade_items(&QStringList);
+    nightshade_tint: QString = QString::from("red"), "display/nightshadeTint", "nightshadeTint", nightshade_tint_changed, on_nightshade_tint_changed, set_nightshade_tint(&QString);
     status_bar_clock_position: QString = QString::from("center"), "display/statusBarClockPosition", "statusBarClockPosition", status_bar_clock_position_changed, on_status_bar_clock_position_changed, set_status_bar_clock_position(&QString) custom;
     show_notifications_on_lock_screen: bool = true, "notifications/showOnLockScreen", "showNotificationsOnLockScreen", show_notifications_on_lock_screen_changed, on_show_notifications_on_lock_screen_changed, set_show_notifications_on_lock_screen(bool);
     filter_mobile_friendly_apps: bool = true, "apps/filterMobileFriendly", "filterMobileFriendlyApps", filter_mobile_friendly_apps_changed, on_filter_mobile_friendly_apps_changed, set_filter_mobile_friendly_apps(bool);
