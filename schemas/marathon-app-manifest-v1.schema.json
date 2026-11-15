@@ -199,6 +199,25 @@
       "maxLength": 1024,
       "pattern": "^--[a-z0-9-]+(=[^\\s]+)?( --[a-z0-9-]+(=[^\\s]+)?)*$"
     },
+    "webEngine": {
+      "description": "A web engine the app embeds that sandboxes its own processes with bubblewrap: the runner keeps the namespaces and mounts that needs. webkit: WPE WebKit.",
+      "enum": ["webkit"]
+    },
+    "environment": {
+      "description": "Environment variables the shell sets for the app's runner. Only engine and Qt Quick tuning: names start with WEBKIT_, JSC_, QSG_ or QML_ and never name a path, plugin, preload or library.",
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^(WEBKIT|JSC|QSG|QML)_[A-Za-z0-9_]+$",
+        "not": { "pattern": "(PATH|PLUGIN|PRELOAD|LIBRARY)" },
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 256,
+        "pattern": "^[^\\u0000-\\u001f]*$"
+      }
+    },
     "testedOn": {
       "description": "The window widths and input modes the app's tests run it at.",
       "type": "object",

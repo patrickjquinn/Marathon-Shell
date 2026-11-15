@@ -432,6 +432,13 @@ mod tests {
     #[test]
     fn a_complete_manifest_passes() {
         assert_eq!(lint_manifest(&manifest(), THIRD_PARTY), Vec::new());
+        let webkit = with(manifest(), "/webEngine", json!("webkit"));
+        let webkit = with(
+            webkit,
+            "/environment",
+            json!({ "WEBKIT_LAYERS_TILE_SIZE": "1024", "JSC_numberOfGCMarkers": "2" }),
+        );
+        assert_eq!(lint_manifest(&webkit, THIRD_PARTY), Vec::new());
     }
 
     #[test]
@@ -464,6 +471,26 @@ mod tests {
             (
                 with(manifest(), "/chromiumFlags", json!("--enable-webgl")),
                 "",
+            ),
+            (
+                with(manifest(), "/webEngine", json!("chromium")),
+                "/webEngine",
+            ),
+            (
+                with(
+                    manifest(),
+                    "/environment",
+                    json!({ "LD_PRELOAD": "/tmp/x.so" }),
+                ),
+                "/environment",
+            ),
+            (
+                with(
+                    manifest(),
+                    "/environment",
+                    json!({ "QML_IMPORT_PATH": "/tmp" }),
+                ),
+                "/environment",
             ),
         ];
         for (value, path) in cases {

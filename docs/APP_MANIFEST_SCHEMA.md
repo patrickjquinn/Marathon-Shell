@@ -107,6 +107,8 @@ Required: `manifestVersion`, `id`, `name`, `version`, `entryPoint`, `icon`,
 | `backgroundCapabilities` | array | Categories the app may hold `AppLifecycle1.BeginBackgroundTask` for: `active-call`, `active-navigation`, `audio-playback`, `countdown-timer`, `download`, `location-tracking`, `periodic-sync`, `recording`. |
 | `requiresQtModules` | array | `webengine`: the runner loads QtWebEngine before the app starts. |
 | `chromiumFlags` | string | Space-separated Chromium switches over the device default. Needs `requiresQtModules: ["webengine"]`. |
+| `webEngine` | `webkit` | The app embeds WPE WebKit, whose web processes run in a bubblewrap sandbox of their own: the runner keeps user namespaces, mounts and every path (no Landlock file rules), as for a WebEngine app, and never comes from the pool. |
+| `environment` | object | Variable → value, set for the app's runner. Only engine and Qt Quick tuning: names start with `WEBKIT_`, `JSC_`, `QSG_` or `QML_` and contain none of `PATH`, `PLUGIN`, `PRELOAD`, `LIBRARY`; the shell drops any other (`marathon_apps::apps::environment_allowed`). |
 | `testedOn` | object | Below. |
 | `dataLifecycle` | object | Below. |
 

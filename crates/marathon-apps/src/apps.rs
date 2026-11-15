@@ -29,6 +29,12 @@ pub struct App {
     pub default_for: Vec<String>,
     pub background_capabilities: Vec<String>,
     pub requires_qt_modules: Vec<String>,
+    /// `webkit`: the app embeds the WPE web engine, which runs its web processes in
+    /// a bubblewrap sandbox of its own.
+    pub web_engine: String,
+    /// Variables for the app's runner; only [`environment_allowed`] names
+    /// are ever applied.
+    pub environment: std::collections::BTreeMap<String, String>,
     pub toolkit: String,
     /// For a copy Reef installs of an OS app: the oldest `IMAGE_VERSION`
     /// whose libraries it runs with (the image it was built against).
@@ -71,6 +77,28 @@ impl App {
     pub fn deep_links_json(&self) -> String {
         serde_json::to_string(&self.deep_links).unwrap_or_default()
     }
+
+    /// The manifest's `environment` the shell may set: allowed names, values
+    /// without control characters. An app the lint never saw gets the same.
+    pub fn allowed_environment(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.environment
+            .iter()
+            .filter(|(k, v)| environment_allowed(k) && !v.chars().any(char::is_control))
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+    }
+}
+
+/// Engine and Qt Quick tuning only (the schema's `environment` names):
+/// nothing that loads code or moves the sandbox's files.
+pub fn environment_allowed(name: &str) -> bool {
+    let tail = ["WEBKIT_", "JSC_", "QSG_", "QML_"]
+        .iter()
+        .find_map(|p| name.strip_prefix(p));
+    tail.is_some_and(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+        && name.len() <= 64
+        && !["PATH", "PLUGIN", "PRELOAD", "LIBRARY"]
+            .iter()
+            .any(|w| name.contains(w))
 }
 
 #[derive(Deserialize, Default)]
@@ -229,6 +257,32 @@ mod tests {
             min_image: min_image.into(),
             ..App::default()
         }
+    }
+
+    #[test]
+    fn applies_only_tuning_variables() {
+        let mut a = app("1.0.0", true, "");
+        for (k, v) in [
+            ("WEBKIT_LAYERS_TILE_SIZE", "512"),
+            ("JSC_numberOfGCMarkers", "2"),
+            ("QSG_RHI_BACKEND", "opengl"),
+            ("LD_PRELOAD", "/tmp/x.so"),
+            ("QML_IMPORT_PATH", "/tmp"),
+            ("GST_PLUGIN_SYSTEM_PATH", "/tmp"),
+            ("MARATHON_SANDBOX_WRITABLE", "/"),
+            ("WEBKIT_", "1"),
+            ("WEBKIT_FOO", "a\nb"),
+        ] {
+            a.environment.insert(k.into(), v.into());
+        }
+        assert_eq!(
+            a.allowed_environment().collect::<Vec<_>>(),
+            [
+                ("JSC_numberOfGCMarkers", "2"),
+                ("QSG_RHI_BACKEND", "opengl"),
+                ("WEBKIT_LAYERS_TILE_SIZE", "512"),
+            ]
+        );
     }
 
     #[test]
