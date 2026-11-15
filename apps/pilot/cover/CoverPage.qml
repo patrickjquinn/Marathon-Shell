@@ -3,20 +3,22 @@
 
 // Cover (spec section 8.2): a running timer counting down in a ring, or
 // the next alarm or reminder, or else Pilot's state and the last
-// response; with the two ways to ask as cover actions: type (the app comes up with the sheet
-// open and the keyboard up) and speak (a push-to-talk turn). Offline, only
-// typing is offered: the local skills still answer typed questions.
+// response; with the ways to ask as cover actions: type (the app comes up
+// with the sheet open and the keyboard up) and, where pilotd can listen,
+// speak (a push-to-talk turn). Offline, only typing is offered: the local
+// skills still answer typed questions.
 
 import QtQuick
 import Sailfish.Silica 1.0
 import MarathonOS.Pilot 1.0
+import "../components"
 
 CoverBackground {
     id: cover
 
     // For tests: which actions the cover offers.
-    readonly property alias onlineActions: onlineActions
-    readonly property alias offlineActions: offlineActions
+    readonly property alias talkActions: talkActions
+    readonly property alias typeActions: typeActions
 
     function bringUp() {
         __silica_applicationwindow_instance.activate();
@@ -149,9 +151,9 @@ CoverBackground {
     }
 
     CoverActionList {
-        id: onlineActions
-        objectName: "onlineActions"
-        enabled: !Pilot.offline
+        id: talkActions
+        objectName: "talkActions"
+        enabled: !Pilot.offline && Conversation.voiceAvailable
         CoverAction {
             iconSource: "image://theme/icon-cover-message"
             // The main window's showSheet(): activate, sheet up, keyboard.
@@ -171,9 +173,9 @@ CoverBackground {
     }
 
     CoverActionList {
-        id: offlineActions
-        objectName: "offlineActions"
-        enabled: Pilot.offline
+        id: typeActions
+        objectName: "typeActions"
+        enabled: Pilot.offline || !Conversation.voiceAvailable
         CoverAction {
             iconSource: "image://theme/icon-cover-message"
             // The main window's showSheet(): activate, sheet up, keyboard.

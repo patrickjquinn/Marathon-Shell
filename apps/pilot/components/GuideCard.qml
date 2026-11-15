@@ -20,7 +20,10 @@ Glass {
     signal openLesson(string step)
     signal openCapabilities
 
-    readonly property var lessons: [
+    readonly property var lessons: allLessons.filter(function (l) {
+        return Conversation.guideSteps.indexOf(l.step) >= 0;
+    })
+    readonly property var allLessons: [
         {
             step: "gesture",
             title: qsTr("Bring Pilot up from any app"),

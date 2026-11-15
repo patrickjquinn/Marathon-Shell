@@ -33,14 +33,19 @@ QtObject {
     // "how"; "hidden" once put away). Each is marked when the person does
     // it, not when they read about it.
     property var guide: []
-    readonly property var guideSteps: ["gesture", "screen", "voice", "action", "how"]
+    readonly property var guideSteps: voiceAvailable ? ["gesture", "screen", "voice", "action", "how"] : ["gesture", "screen", "action", "how"]
+    // Whether pilotd can listen (`voice` in its Settings). Speech is not
+    // built for Marathon, so until pilotd says so every voice surface stays
+    // hidden.
+    property bool voiceAvailable: false
     readonly property int guideDone: guideSteps.filter(function (g) {
         return guide.indexOf(g) >= 0;
     }).length
 
-    function loadGuide() {
+    function loadSettings() {
         var s = JSON.parse(Pilot.settings() || "{}");
         guide = s.guide || [];
+        voiceAvailable = s.voice === true;
     }
     function markGuide(step) {
         if (guide.indexOf(step) >= 0)
@@ -148,7 +153,7 @@ QtObject {
     }
 
     function listen() {
-        if (Pilot.busy)
+        if (Pilot.busy || !voiceAvailable)
             return;
         listening = true;
         markGuide("voice");
@@ -163,7 +168,7 @@ QtObject {
     }
 
     Component.onCompleted: if (Pilot.connected)
-        loadGuide()
+        loadSettings()
 
     readonly property Connections _pilot: Connections {
         target: Pilot
@@ -178,7 +183,7 @@ QtObject {
         }
         function onConnectedChanged() {
             if (Pilot.connected)
-                conversation.loadGuide();
+                conversation.loadSettings();
         }
         function onTurnProgress(json) {
             var p = JSON.parse(json);

@@ -96,6 +96,7 @@ Page {
             // 3. Speaking.
             GuideSection {
                 step: "voice"
+                visible: Conversation.voiceAvailable
                 title: qsTr("Talk to Pilot")
                 body: qsTr("Tap the orb and say what you want. Pilot stops listening when you pause. " + "Your speech is turned into text on this phone, and only the text is sent.")
                 Button {

@@ -369,7 +369,7 @@ Item {
                         TextField {
                             id: input
                             objectName: "overlayInput"
-                            width: parent.width - (sendButton.visible ? sendButton.width : 0) - mic.width - Theme.paddingSmall
+                            width: parent.width - (sendButton.visible ? sendButton.width : 0) - (mic.visible ? mic.width : 0) - Theme.paddingSmall
                             placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything") : qsTr("Ask Pilot")
                             label: qsTr("Ask Pilot")
                             enabled: !Pilot.busy
@@ -386,6 +386,7 @@ Item {
                         Orb {
                             id: mic
                             objectName: "overlayMic"
+                            visible: Conversation.voiceAvailable
                             width: Theme.itemSizeMedium
                             height: Theme.itemSizeMedium
                             anchors.verticalCenter: input.verticalCenter

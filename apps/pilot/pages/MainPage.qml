@@ -361,7 +361,7 @@ Page {
                 TextField {
                     id: input
                     objectName: "input"
-                    width: parent.width - (send.visible ? send.width : 0) - mic.width
+                    width: parent.width - (send.visible ? send.width : 0) - (mic.visible ? mic.width : 0)
                     placeholderText: qsTr("Ask Pilot")
                     label: qsTr("Ask Pilot")
                     enabled: !Pilot.busy
@@ -386,6 +386,7 @@ Page {
                 Orb {
                     id: mic
                     objectName: "micButton"
+                    visible: Conversation.voiceAvailable
                     width: Theme.itemSizeMedium
                     height: Theme.itemSizeMedium
                     anchors.verticalCenter: input.verticalCenter

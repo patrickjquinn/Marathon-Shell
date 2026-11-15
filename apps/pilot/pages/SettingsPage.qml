@@ -8,6 +8,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import MarathonOS.Pilot 1.0
+import "../components"
 
 Page {
     id: page
@@ -45,6 +46,7 @@ Page {
             description: qsTr("Your questions are sent to Jev and Groq, with personal details replaced.")
         },
         {
+            voice: true,
             name: "voice_cloud",
             label: qsTr("Spoken questions"),
             description: qsTr("Transcripts of spoken questions are handled like typed ones. Audio never leaves the phone.") + englishVoiceNote
@@ -60,6 +62,7 @@ Page {
             description: qsTr("New notifications, messages and calendar changes are sorted into Pilot events.")
         },
         {
+            voice: true,
             name: "spoken_nudges",
             label: qsTr("Spoken nudges"),
             description: qsTr("Pilot may speak when something urgent arrives.") + englishVoiceNote
@@ -92,7 +95,8 @@ Page {
     Component.onCompleted: {
         reload();
         memories = JSON.parse(Pilot.memories());
-        voiceModelsBytes = Pilot.voiceModelsBytes();
+        if (Conversation.voiceAvailable)
+            voiceModelsBytes = Pilot.voiceModelsBytes();
         ready = true;
     }
 
@@ -194,7 +198,9 @@ Page {
                 text: qsTr("Cloud use, per capability")
             }
             Repeater {
-                model: page.capabilities
+                model: page.capabilities.filter(function (c) {
+                    return !c.voice || Conversation.voiceAvailable;
+                })
                 TextSwitch {
                     id: consentSwitch
                     required property var modelData
@@ -308,7 +314,7 @@ Page {
             Column {
                 width: parent.width
                 spacing: Theme.paddingMedium
-                visible: page.voiceModelsBytes > 0
+                visible: Conversation.voiceAvailable && page.voiceModelsBytes > 0
                 topPadding: Theme.paddingLarge
                 Label {
                     objectName: "voiceModelsLabel"

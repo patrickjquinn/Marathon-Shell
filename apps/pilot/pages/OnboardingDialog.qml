@@ -47,7 +47,8 @@ Dialog {
     function decide(useCloud) {
         if (!again) {
             Pilot.setConsent("text_qa", useCloud);
-            Pilot.setConsent("voice_cloud", useCloud && spoken);
+            if (Conversation.voiceAvailable)
+                Pilot.setConsent("voice_cloud", useCloud && spoken);
         }
     }
 
@@ -83,7 +84,7 @@ Dialog {
                 width: parent.width - 2 * x
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                text: qsTr("Your assistant on this phone: ask, talk, or let me do things in your apps.")
+                text: Conversation.voiceAvailable ? qsTr("Your assistant on this phone: ask, talk, or let me do things in your apps.") : qsTr("Your assistant on this phone: ask, or let me do things in your apps.")
                 color: Theme.secondaryHighlightColor
             }
             TextField {
@@ -215,7 +216,7 @@ Dialog {
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
                         horizontalAlignment: Text.AlignHCenter
-                        text: qsTr("Over an app, I can see what it shows, so you can say “this”. You can also tap the mic.")
+                        text: Conversation.voiceAvailable ? qsTr("Over an app, I can see what it shows, so you can say “this”. You can also tap the mic.") : qsTr("Over an app, I can see what it shows, so you can say “this”.")
                         font.pixelSize: Theme.fontSizeSmall
                         color: Theme.secondaryHighlightColor
                     }
@@ -270,7 +271,7 @@ Dialog {
                     }
                     TextSwitch {
                         objectName: "spokenSwitch"
-                        visible: !first.again
+                        visible: !first.again && Conversation.voiceAvailable
                         checked: first.spoken
                         text: qsTr("Answer spoken questions too")
                         description: qsTr("Your speech is turned into text on this phone. " + "Only the text is sent, never the audio.") +
