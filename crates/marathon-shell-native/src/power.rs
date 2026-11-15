@@ -294,7 +294,7 @@ enum Command {
     WakeTimer(String, i64),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Action {
     Suspend,
     Hibernate,
@@ -1068,6 +1068,7 @@ impl Actor {
     }
 
     async fn act(&self, qt: &Qt, action: Action) {
+        log::warn("power", format_args!("{action:?} requested"));
         let (call, what) = match action {
             Action::Suspend => (self.logind.suspend(true).await, "suspend"),
             Action::Hibernate => (self.logind.hibernate(true).await, "hibernate"),
