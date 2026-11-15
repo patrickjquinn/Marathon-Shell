@@ -72,15 +72,18 @@ Item {
     function send(text) {
         if (text.trim().length === 0)
             return;
-        input.focus = false;
+        overlay.forceActiveFocus();
         Conversation.send(text);
         input.text = "";
     }
 
     function listen() {
-        input.focus = false;
+        overlay.forceActiveFocus();
         Conversation.listen();
     }
+
+    // Escape puts the person back in their app.
+    Keys.onEscapePressed: overlay.hide()
 
     // The window goes once the veil has faded.
     Timer {
@@ -374,6 +377,11 @@ Item {
                             label: qsTr("Ask Pilot")
                             EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                             EnterKey.onClicked: overlay.send(text)
+                            Keys.onUpPressed: function (event) {
+                                event.accepted = text === "" && Conversation.lastQuestion() !== "";
+                                if (event.accepted)
+                                    text = Conversation.lastQuestion();
+                            }
                         }
                         IconButton {
                             id: sendButton

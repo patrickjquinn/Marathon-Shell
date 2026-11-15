@@ -150,6 +150,15 @@ QtObject {
             Pilot.ask(question, false);
     }
 
+    // The person's latest question, for the field's Up key.
+    function lastQuestion() {
+        for (var i = model.count - 1; i >= 0; --i) {
+            if (model.get(i).who === "you")
+                return model.get(i).text;
+        }
+        return "";
+    }
+
     function askQueued() {
         if (queued.length === 0 || Pilot.busy)
             return;

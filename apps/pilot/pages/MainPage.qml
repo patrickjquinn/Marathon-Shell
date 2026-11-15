@@ -41,6 +41,20 @@ Page {
         });
     }
 
+    function focusField() {
+        sheet.open = true;
+        input.forceActiveFocus();
+    }
+
+    // Ctrl+N: a new conversation, with the time to take it back.
+    function newConversation() {
+        focusField();
+        if (model.count > 0)
+            clearRemorse.execute(qsTr("Clearing conversation"), function () {
+                Conversation.clear();
+            });
+    }
+
     // The system-wide gesture: the sheet up, ready to type.
     function openSheet() {
         sheet.open = true;
@@ -237,6 +251,7 @@ Page {
 
     RemorsePopup {
         id: clearRemorse
+        objectName: "clearRemorse"
     }
 
     // Swipe up from the bottom edge to open a closed sheet.
@@ -379,6 +394,12 @@ Page {
                     EnterKey.onClicked: {
                         page.send(text);
                         text = "";
+                    }
+                    // Up in an empty field brings back the last question.
+                    Keys.onUpPressed: function (event) {
+                        event.accepted = text === "" && Conversation.lastQuestion() !== "";
+                        if (event.accepted)
+                            text = Conversation.lastQuestion();
                     }
                 }
                 IconButton {

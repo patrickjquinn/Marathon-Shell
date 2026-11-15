@@ -239,6 +239,18 @@ ApplicationWindow {
         onTriggered: resources => app.receiveShare(resources)
     }
 
+    // Keys no page used: Ctrl+N a new conversation, Ctrl+L the field.
+    Keys.onPressed: function (event) {
+        if (event.modifiers !== Qt.ControlModifier || (event.key !== Qt.Key_N && event.key !== Qt.Key_L))
+            return;
+        event.accepted = true;
+        var main = mainPage();
+        if (main && event.key === Qt.Key_N)
+            main.newConversation();
+        else if (main)
+            main.focusField();
+    }
+
     Connections {
         target: Pilot
         function onEventsRequested() {
