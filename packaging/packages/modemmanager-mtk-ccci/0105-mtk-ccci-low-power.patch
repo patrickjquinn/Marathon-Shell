@@ -1,33 +1,78 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patrick Quinn <patrick.jm.quinn@gmail.com>
-Date: Sun, 15 Nov 2026 12:00:00 +0000
-Subject: [PATCH] mtk-ccci: support low power with +CFUN=4
+Date: Sun, 15 Nov 2026 14:30:00 +0000
+Subject: [PATCH] mtk-ccci: switch the radio with +EFUN
 
-The plugin had no power-down, so SetPowerState(LOW) failed as
-unsupported and a disabled modem kept its radio on: in airplane mode
-it stayed registered, and its unsolicited messages filled the AT
-port's queue with nothing reading it. Power down with +CFUN=4, which
-turns the radio off and leaves the SIM powered, so the generic
-power-up's +CFUN=1 on enable needs no SIM bring-up again.
+The plugin had no power control, so SetPowerState(LOW) failed as
+unsupported and a disabled modem kept its radio on in airplane mode.
+The generic +CFUN=4 does not work on this modem either: it answers
+NO CARRIER. Like MediaTek's RIL, power down with +EFUN=0, power up
+with +EFUN=1 (which also powers SIM 1), and read the state from
++EFUN?.
 ---
 diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index efb9a7d..fad8ada 100644
 --- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
 +++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
-@@ -192,6 +192,33 @@
+@@ -23,6 +23,7 @@
+ #include "mm-bearer-list.h"
+ #include "mm-iface-modem.h"
+ #include "mm-log.h"
++#include "mm-modem-helpers.h"
+ #include "mm-broadband-modem-mtk-ccci.h"
+ #include "mm-broadband-bearer-mtk-ccci.h"
+ 
+@@ -191,6 +192,63 @@ modem_create_bearer (MMIfaceModem        *self,
+                                       task);
  }
  
- /*****************************************************************************/
-+/* Powering down the modem (Modem interface)
++/*****************************************************************************/
++/* Power state (Modem interface)
 + *
-+ * Low power is the radio off with the SIM left powered (+CFUN=4), as for
-+ * airplane mode; the generic power-up's +CFUN=1 turns it back on. */
++ * This modem switches its radio with MediaTek's +EFUN (it answers +CFUN=4
++ * with NO CARRIER). +EFUN=1 also powers SIM 1 and takes seconds. */
 +
-+static gboolean
-+modem_power_down_finish (MMIfaceModem  *self,
++static MMModemPowerState
++load_power_state_finish (MMIfaceModem  *self,
 +                         GAsyncResult  *res,
 +                         GError       **error)
 +{
++    const gchar *result;
++    guint        sims;
++
++    result = mm_base_modem_at_command_finish (MM_BASE_MODEM (self), res, error);
++    if (!result)
++        return MM_MODEM_POWER_STATE_UNKNOWN;
++    if (!mm_get_uint_from_str (mm_strip_tag (result, "+EFUN:"), &sims)) {
++        g_set_error (error, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                     "couldn't parse +EFUN response: '%s'", result);
++        return MM_MODEM_POWER_STATE_UNKNOWN;
++    }
++    return sims ? MM_MODEM_POWER_STATE_ON : MM_MODEM_POWER_STATE_LOW;
++}
++
++static void
++load_power_state (MMIfaceModem        *self,
++                  GAsyncReadyCallback  callback,
++                  gpointer             user_data)
++{
++    mm_base_modem_at_command (MM_BASE_MODEM (self), "+EFUN?", 5, FALSE, callback, user_data);
++}
++
++static gboolean
++modem_power_finish (MMIfaceModem  *self,
++                    GAsyncResult  *res,
++                    GError       **error)
++{
 +    return !!mm_base_modem_at_command_finish (MM_BASE_MODEM (self), res, error);
++}
++
++static void
++modem_power_up (MMIfaceModem        *self,
++                GAsyncReadyCallback  callback,
++                gpointer             user_data)
++{
++    mm_base_modem_at_command (MM_BASE_MODEM (self), "+EFUN=1", 60, FALSE, callback, user_data);
 +}
 +
 +static void
@@ -35,24 +80,22 @@ diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mt
 +                  GAsyncReadyCallback  callback,
 +                  gpointer             user_data)
 +{
-+    mm_base_modem_at_command (MM_BASE_MODEM (self),
-+                              "+CFUN=4",
-+                              30,
-+                              FALSE,
-+                              callback,
-+                              user_data);
++    mm_base_modem_at_command (MM_BASE_MODEM (self), "+EFUN=0", 60, FALSE, callback, user_data);
 +}
 +
-+/*****************************************************************************/
+ /*****************************************************************************/
  
  MMBroadbandModemMtkCcci *
- mm_broadband_modem_mtk_ccci_new (const gchar  *device,
-@@ -246,6 +273,8 @@
+@@ -246,6 +304,12 @@ iface_modem_init (MMIfaceModemInterface *iface)
  {
      iface->create_bearer = modem_create_bearer;
      iface->create_bearer_finish = modem_create_bearer_finish;
++    iface->load_power_state = load_power_state;
++    iface->load_power_state_finish = load_power_state_finish;
++    iface->modem_power_up = modem_power_up;
++    iface->modem_power_up_finish = modem_power_finish;
 +    iface->modem_power_down = modem_power_down;
-+    iface->modem_power_down_finish = modem_power_down_finish;
++    iface->modem_power_down_finish = modem_power_finish;
  }
  
  static void
