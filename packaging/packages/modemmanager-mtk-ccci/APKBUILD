@@ -1,14 +1,14 @@
 # ModemManager with MediaTek CCCI support, for the Zinwa Q25 only: Alpine's
 # community/modemmanager at the same snapshot plus the Moto G06 (lagos)
 # postmarketOS port's 0100 (ccci_node AT ports) and 0101 (mtk-ccci plugin),
-# and Marathon's 0102 (mtk-ccci attach-PDN reuse), 0103 (incoming calls)
-# and 0104 (PDN state from +EIF events, no polling).
+# and Marathon's 0102 (mtk-ccci attach-PDN reuse), 0103 (incoming calls),
+# 0104 (PDN state from +EIF events, no polling) and 0105 (low power).
 # It provides modemmanager, so installing it (q25-modem depends on it)
 # replaces Alpine's daemon; nothing else pulls it in. libmm-glib stays
 # Alpine's. Keep pkgver and _commit in sync with Alpine's modemmanager.
 pkgname=modemmanager-mtk-ccci
 pkgver=1.25.95_git20261005
-pkgrel=3
+pkgrel=4
 _commit=7f0bf17ab518cd78925cf7e53cc0d5c42f88b41a
 pkgdesc="ModemManager with MediaTek CCCI (SoC modem) support"
 url="https://www.freedesktop.org/wiki/Software/ModemManager"
@@ -37,6 +37,7 @@ source="https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/$
 	0102-mtk-ccci-reuse-attach-pdn.patch
 	0103-mtk-ccci-allow-incoming-calls.patch
 	0104-mtk-ccci-pdn-down-events.patch
+	0105-mtk-ccci-low-power.patch
 	"
 builddir="$srcdir"/ModemManager-$_commit
 
@@ -75,4 +76,5 @@ a819cb4eb8d21fdbf7e393cdfea05d2d71958933d43eac3d4413ae16368f7bd06e4c4c3a6218fca4
 38217ae80822774fa6dfe657672e42b20c0896261bff48f966e79b83cd4944a7473e8ce63d557aec3baaf584a84f49fe3441d2aa5a69e163e9ed8939fc61a500  0102-mtk-ccci-reuse-attach-pdn.patch
 c7cb4fd59e456b5b971b55733040323660127ba37153cb127ee80327f561669eb74ddd1480f972f53e69d5d45cd4230b603d2ed40bd55e0d874e3f483dc7f398  0103-mtk-ccci-allow-incoming-calls.patch
 edfd4c4d418a7c61f8ac52e0ba01e6fd2e58de0d55b5383fd193af0fbf6b6e54744ea51b543ad67d5c0368e97fa1f81c4c5a330920fcba581bb01507640e7a22  0104-mtk-ccci-pdn-down-events.patch
+0cacb7f6d319758d017676fd5253e42399226fcd3c7fe8f7fbd0d61893ac465cb090ece41f84315239b7ee701e92d0d4027f0001cc06f13f2c754405746e6a1b  0105-mtk-ccci-low-power.patch
 "
