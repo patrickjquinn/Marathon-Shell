@@ -16,7 +16,7 @@ Pacific's own code is Apache-2.0, Marathon's licence. The web view (`webview/`) 
 | `core/` | `pacific-core`, its own Cargo workspace: profile database, frecency and suggestions, search engines, sessions, tab lifecycle, content blocking, autoconsent, HTTPS-first, reader mode, downloads, site settings, privacy, Shoal Keys client, Pilot helpers. `core/data/versions.env` pins the bundled third-party data. |
 | `app/` | `shipwright-pacific`, its own Cargo workspace and the QML plugin `Shipwright.Pacific 1.0`: the `Pacific` singleton (`bridge.rs`), the models `TabModel`, `SuggestionModel`, `PacificList` (`models.rs` declares them; `tabs.rs`, `suggestions.rs`, `lists.rs` implement them), the core thread (`worker.rs`), HTTPS for suggestions and list updates (`net.rs`), `openUrl` on D-Bus (`dbus.rs`). |
 | `ui/qml/` | The pages, components, cover and Keel Actions (`actions/PacificActions.qml`); `shipwright-pacific.qml` is the entry point. |
-| `ui/tests/` | QML tests (`run-tests.sh`) and `mockview/`, a stand-in for `Shipwright.Pacific.WebView` with the same API that draws pages from fixtures (a small C++ base for the properties whose change signals QML cannot declare, plus QML). |
+| `ui/tests/` | QML tests (`run.sh`) and `mockview/`, a stand-in for `Shipwright.Pacific.WebView` with the same API that draws pages from fixtures (a small C++ base for the properties whose change signals QML cannot declare, plus QML). |
 | `webview/` | `Shipwright.Pacific.WebView 1.0`: the Qt 6 view of WPE WebKit pages, the agent API for Pilot, pacific-minibrowser. |
 | `tests/` | The app's tests (`run.sh`): the real UI and plugin over the mock web view. |
 | `manifest.json`, `shipwright-pacific.desktop`, `shipwright-pacific`, `org.shipwright.pacific.ui.service` | The Marathon app manifest; the hidden desktop entry `mimeapps.list` names, whose command is the opener script `shipwright-pacific`; the D-Bus activation file for `openUrl`. |
@@ -139,7 +139,7 @@ cd apps/pacific/app && cargo +1.100.0 clippy --all-targets -- -D warnings && car
 cp target/debug/libshipwright_pacific.so target/cxxqt/qml_modules/Shipwright/Pacific/libShipwright_Pacific.so
 KEEL_QML=<keel build>/qml PACIFIC_PLUGIN=target/cxxqt/qml_modules apps/pacific/tests/run.sh
 # the UI's helpers and the mock web view's contract
-KEEL_QML=<keel build>/qml apps/pacific/ui/tests/run-tests.sh
+KEEL_QML=<keel build>/qml apps/pacific/ui/tests/run.sh
 # the package, with the keel-silica and wpewebkit apks in mkosi.packages/
 scripts/qemu/lib/build-pacific-apk.sh
 ```

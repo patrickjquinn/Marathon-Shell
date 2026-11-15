@@ -6,7 +6,9 @@
 # the mock web view (ui/tests/mockview), on the offscreen platform, with a
 # throwaway profile.
 #
-#   KEEL_QML=<keel qml dir> PACIFIC_PLUGIN=<dir with Shipwright/Pacific> apps/pacific/tests/run.sh
+#   KEEL_QML=<keel qml dir> [PACIFIC_PLUGIN=<dir with Shipwright/Pacific>] apps/pacific/tests/run.sh
+#
+# Without PACIFIC_PLUGIN it builds app/ (CARGO_TARGET_DIR, default app/target) first.
 #
 # PACIFIC_PLUGIN is CXX-Qt's export of the app crate's build
 # (<target>/cxxqt/qml_modules), with libshipwright_pacific.so copied in as
@@ -14,7 +16,12 @@
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 : "${KEEL_QML:?set KEEL_QML to the qml dir of a Keel build}"
-: "${PACIFIC_PLUGIN:?set PACIFIC_PLUGIN to the cxxqt/qml_modules dir of an app build}"
+if [ -z "${PACIFIC_PLUGIN:-}" ]; then
+	target=${CARGO_TARGET_DIR:-$here/../app/target}
+	CARGO_TARGET_DIR=$target cargo build --locked --manifest-path "$here/../app/Cargo.toml"
+	PACIFIC_PLUGIN=$target/cxxqt/qml_modules
+	cp "$target/debug/libshipwright_pacific.so" "$PACIFIC_PLUGIN/Shipwright/Pacific/libShipwright_Pacific.so"
+fi
 runner=${QMLTESTRUNNER:-$(qtpaths6 --query QT_INSTALL_BINS)/qmltestrunner}
 
 stage=$(mktemp -d)

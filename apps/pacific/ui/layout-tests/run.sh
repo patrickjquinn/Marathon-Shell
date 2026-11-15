@@ -8,7 +8,7 @@
 #   shoal/pacific/ui/layout-tests/run.sh [path/to/libshipwright_pacific.so]
 #
 # Needs KEEL_QML (a Keel build's qml directory) and the mock web view built
-# (tests/run-tests.sh builds it into MOCKVIEW_BUILD).
+# (tests/run.sh builds it into MOCKVIEW_BUILD).
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../../../.." && pwd)

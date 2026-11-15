@@ -43,12 +43,18 @@ if(_KEEL_SAILFISHAPP)
         "KEEL_SAILFISHAPP_INCLUDEDIR=${_KEEL_SAILFISHAPP};KEEL_SAILFISHAPP_LIBDIR=/usr/lib")
 endif()
 
+# Pacific's browser core, and its app crate (CXX-Qt, needs Qt 6)
+add_test(NAME Rust_PacificCore COMMAND cargo test --workspace --locked
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/apps/pacific/core)
+add_test(NAME Rust_PacificApp COMMAND cargo test --workspace --locked
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/apps/pacific/app)
+
 # QML suites that need Keel's Silica: set KEEL_QML to a Keel build's qml dir,
 # or install keel-silica.
 set(KEEL_QML "$ENV{KEEL_QML}" CACHE PATH "Keel build qml directory for the Silica QML tests")
 find_path(_SILICA_QMLDIR Sailfish/Silica/qmldir PATHS ${KEEL_QML} /usr/lib/qt6/qml /usr/lib64/qt6/qml NO_DEFAULT_PATH)
 if(_SILICA_QMLDIR)
-    foreach(suite marathon-silica/tests tests/ui apps/notes/tests apps/clock/tests apps/calculator/tests apps/gallery/tests apps/music/tests apps/phone/tests apps/messages/tests apps/calendar/tests apps/email/tests apps/camera/tests apps/browser/tests apps/settings/tests apps/template/tests apps/test/tests apps/maps/tests apps/pilot/tests apps/terminal/tests)
+    foreach(suite marathon-silica/tests tests/ui apps/notes/tests apps/clock/tests apps/calculator/tests apps/gallery/tests apps/music/tests apps/phone/tests apps/messages/tests apps/calendar/tests apps/email/tests apps/camera/tests apps/browser/tests apps/settings/tests apps/template/tests apps/test/tests apps/maps/tests apps/pilot/tests apps/terminal/tests apps/pacific/ui/tests apps/pacific/tests)
         string(REPLACE "/" "_" name "Qml_${suite}")
         add_test(NAME ${name} COMMAND sh ${CMAKE_SOURCE_DIR}/${suite}/run.sh)
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "KEEL_QML=${_SILICA_QMLDIR}")
