@@ -19,6 +19,72 @@ ApplicationWindow {
     // on the main page.
     readonly property alias overlay: overlay
 
+    // The pages that forward can bring back, by objectName.
+    readonly property var pageFiles: ({
+            settingsPage: "pages/SettingsPage.qml",
+            triagePage: "pages/TriagePage.qml",
+            guidePage: "pages/GuidePage.qml",
+            capabilitiesPage: "pages/CapabilitiesPage.qml",
+            egressLogPage: "pages/EgressLogPage.qml",
+            cameraPage: "pages/CameraPage.qml"
+        })
+    // The pages above the main page, and the ones taken off it (newest
+    // last), whichever way they left: back, Escape or a swipe.
+    property var shownPages: []
+    property var forwardPages: []
+    property bool _forwarding: false
+
+    function _trackPages() {
+        var shown = shownPages.slice();
+        var forward = forwardPages.slice();
+        var above = Math.max(0, pageStack.depth - 1);
+        while (shown.length > above) {
+            var name = shown.pop();
+            if (pageFiles[name])
+                forward.push(name);
+        }
+        // The stack makes a pushed page current before it counts it.
+        while (shown.length < above) {
+            shown.push(shown.length === above - 1 && pageStack.currentPage ? pageStack.currentPage.objectName : "");
+            if (!_forwarding)
+                forward = [];
+        }
+        shownPages = shown;
+        forwardPages = forward;
+    }
+
+    // The system back: the overlay, then an open menu, then the page.
+    function handleBack() {
+        if (overlay.shown) {
+            overlay.hide();
+            return true;
+        }
+        var menu = pageStack.currentPage ? _openMenu(pageStack.currentPage) : null;
+        if (menu) {
+            menu.close();
+            return true;
+        }
+        if (pageStack.depth > 1) {
+            pageStack.pop();
+            return true;
+        }
+        minimizeRequested();
+        return true;
+    }
+
+    // The system forward: the page back last took off.
+    function handleForward() {
+        if (overlay.shown || forwardPages.length === 0)
+            return false;
+        var forward = forwardPages.slice();
+        var name = forward.pop();
+        forwardPages = forward;
+        _forwarding = true;
+        pageStack.push(Qt.resolvedUrl(pageFiles[name]));
+        _forwarding = false;
+        return true;
+    }
+
     // Pilot's events entry opens the events page.
     function showEvents() {
         activate();
@@ -59,6 +125,13 @@ ApplicationWindow {
     initialPage: Qt.resolvedUrl("pages/MainPage.qml")
     cover: Qt.resolvedUrl("cover/CoverPage.qml")
     allowedOrientations: defaultAllowedOrientations
+
+    Connections {
+        target: app.pageStack
+        function onDepthChanged() {
+            app._trackPages();
+        }
+    }
 
     Connections {
         target: Pilot
