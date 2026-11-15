@@ -27,7 +27,7 @@ Glass {
         {
             step: "gesture",
             title: qsTr("Bring Pilot up from any app"),
-            hint: qsTr("Touch and hold the glowing bar at the bottom")
+            hint: qsTr("Touch and hold the bar at the bottom of the screen")
         },
         {
             step: "screen",

@@ -4,13 +4,13 @@
 // First run, as Silica does a sequence: four dialogs, each accepted with
 // the forward gesture (or the header) and backed out of with the back
 // one. Hello and what to call you; what Pilot can do; how to bring it up
-// from anywhere (the home screen's gesture, or where to get it); and what
-// goes to the cloud, with the choice (spec section 10, "Consent"). "Use
-// Pilot" turns on typed questions, and spoken ones unless switched off
-// (only the words recognised on the phone go, never audio); "Keep Pilot on
-// this phone" keeps it local. Backing out of the first leaves the choice
-// for later. Shown again from Settings ("Show the introduction"), where the
-// choices are already made and the last step returns there.
+// from anywhere (holding the bar at the bottom); and where your data is
+// (spec section 10, "Consent"). "Use Pilot" turns on typed questions, and
+// spoken ones where pilotd can listen unless switched off. Pilot answers on
+// the phone, so there is no cloud to keep it from. Backing out of the first
+// leaves the choice for later. Shown again from Settings ("Show the
+// introduction"), where the choices are already made and the last step
+// returns there.
 
 pragma ComponentBehavior: Bound
 
@@ -27,7 +27,6 @@ Dialog {
     // Shown again from Settings: the choices are already made.
     property bool again: false
     readonly property var settings: JSON.parse(Pilot.settings())
-    readonly property bool gesture: !!settings.gesture
     // The page the sequence returns to: the one under the first step.
     property Item returnTo: null
     // Answer spoken questions too (the last step's switch).
@@ -43,12 +42,13 @@ Dialog {
             Pilot.setName(name);
     }
 
-    // The choice, at the end of the sequence.
-    function decide(useCloud) {
+    // Accepted at the end of the sequence: typed questions on, and spoken
+    // ones as switched.
+    function decide() {
         if (!again) {
-            Pilot.setConsent("text_qa", useCloud);
+            Pilot.setConsent("text_qa", true);
             if (Conversation.voiceAvailable)
-                Pilot.setConsent("voice_cloud", useCloud && spoken);
+                Pilot.setConsent("voice_cloud", spoken);
         }
     }
 
@@ -208,7 +208,7 @@ Dialog {
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
                         horizontalAlignment: Text.AlignHCenter
-                        text: first.gesture ? qsTr("Touch and hold the glowing bar at the bottom. A swipe up still opens your apps.") : qsTr("Install “Pilot gesture” from Reef. It adds a glowing bar you touch and hold, in any app.")
+                        text: qsTr("Touch and hold the bar at the bottom of the screen, in any app. A swipe up still goes home.")
                         color: Theme.primaryColor
                     }
                     Label {
@@ -234,7 +234,7 @@ Dialog {
             objectName: "onboardingPrivacy"
             acceptDestination: first.returnTo
             acceptDestinationAction: PageStackAction.Pop
-            onAccepted: first.decide(true)
+            onAccepted: first.decide()
             SilicaFlickable {
                 anchors.fill: parent
                 contentHeight: privacyColumn.height + Theme.paddingLarge
@@ -259,7 +259,7 @@ Dialog {
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
                         color: Theme.primaryColor
-                        text: qsTr("Other questions are answered in the cloud, with what I remember about you when it helps. " + "Names, numbers and addresses are replaced before anything is sent.")
+                        text: qsTr("Other questions are answered on this phone too, with what I remember about you when it helps. " + "Your questions, my answers and what I remember stay here.")
                     }
                     Label {
                         x: Theme.horizontalPageMargin
@@ -267,7 +267,7 @@ Dialog {
                         wrapMode: Text.Wrap
                         font.pixelSize: Theme.fontSizeSmall
                         color: Theme.secondaryColor
-                        text: qsTr("Jev, in the US, works out what you asked from the gist alone: no names, long numbers, links " + "or anything that identifies you or this phone. Groq, also in the US, writes the answer. " + "Settings lists every request under “What left this phone”.")
+                        text: qsTr("To answer from the web I search DuckDuckGo and read the pages from this phone; " + "names, numbers and addresses are replaced first. " + "Settings lists every request under “What left this phone”.")
                     }
                     TextSwitch {
                         objectName: "spokenSwitch"
@@ -286,19 +286,7 @@ Dialog {
                         wrapMode: Text.Wrap
                         font.pixelSize: Theme.fontSizeSmall
                         color: Theme.secondaryColor
-                        text: qsTr("Camera and notification features are off until you turn them on in Settings. " + "The privacy switch takes Pilot offline at any time.")
-                    }
-                    // The other choice: nothing to the cloud.
-                    Button {
-                        objectName: "keepLocalButton"
-                        visible: !first.again
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        preferredWidth: Theme.buttonWidthLarge
-                        text: qsTr("Keep Pilot on this phone")
-                        onClicked: {
-                            first.decide(false);
-                            pageStack.pop(first.returnTo);
-                        }
+                        text: qsTr("Camera and notification features are off until you turn them on in Settings.")
                     }
                 }
                 VerticalScrollDecorator {}

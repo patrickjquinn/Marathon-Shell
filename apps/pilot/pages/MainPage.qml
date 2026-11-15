@@ -135,7 +135,7 @@ Page {
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.primaryColor
-                text: Pilot.error.length > 0 ? Pilot.error : qsTr("The privacy switch is on. Timers, alarms, reminders, media and the calendar still work.")
+                text: Pilot.error.length > 0 ? Pilot.error : qsTr("Pilot is offline. Timers, alarms, reminders, media and the calendar still work.")
             }
             NowView {
                 objectName: "nowView"

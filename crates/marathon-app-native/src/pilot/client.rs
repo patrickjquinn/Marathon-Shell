@@ -124,10 +124,6 @@ impl Client {
         self.call("SetLocale", &(name,))
     }
 
-    pub fn set_backend(&self, name: &str) -> Result<(), String> {
-        self.call("SetBackend", &(name,))
-    }
-
     pub fn egress_log(&self, limit: u32) -> Result<String, String> {
         self.call("EgressLog", &(limit,))
     }

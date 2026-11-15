@@ -20,7 +20,6 @@ Page {
 
     // The section to open at: a guide step, or "" for the top.
     property string focusStep: ""
-    readonly property var settings: JSON.parse(Pilot.settings())
 
     // Back on the main page, to try something there.
     function mainPage() {
@@ -67,7 +66,7 @@ Page {
             GuideSection {
                 step: "gesture"
                 title: qsTr("Bring Pilot up from any app")
-                body: page.settings.gesture ? qsTr("There's a glowing bar at the bottom of the screen. Touch and hold it. " + "The edges light up and Pilot opens over the app you're in. " + "A swipe up still opens your apps.") : qsTr("Install “Pilot gesture” from Reef. It adds a glowing bar at the bottom of the screen. " + "Touch and hold it to open Pilot over any app.")
+                body: qsTr("Touch and hold the bar at the bottom of the screen. " + "The edges light up and Pilot opens over the app you're in. " + "A swipe up still goes home.")
                 GestureDemo {
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
@@ -143,7 +142,7 @@ Page {
             // And: showing Pilot something, and what it remembers.
             GuideSection {
                 title: qsTr("Show Pilot something")
-                body: qsTr("Take a photo of a plant, a sign or a menu, and ask about it. " + "Pilot sends a smaller copy without its location.")
+                body: qsTr("Take a photo of a plant, a sign or a menu, and ask about it. " + "Pilot looks at a smaller copy on this phone, without its location.")
                 Button {
                     objectName: "guideCamera"
                     anchors.horizontalCenter: parent.horizontalCenter

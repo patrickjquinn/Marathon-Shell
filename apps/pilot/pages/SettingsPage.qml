@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-// Per-capability cloud consent, backend choice, the egress log, data
-// export and wipe (spec section 8.2, "Settings").
+// What Pilot may use, what it remembers, the egress log, data export and
+// wipe (spec section 8.2, "Settings"). Pilot answers on the phone, so
+// answering questions is not a choice here.
 
 import QtQuick
 import Sailfish.Silica 1.0
@@ -15,9 +16,7 @@ Page {
     objectName: "settingsPage"
 
     property var settings: ({
-            consent: {},
-            backends: [],
-            backend: "standard"
+            consent: {}
         })
     property string message: ""
     // What Export or Delete did, shown under their buttons.
@@ -41,20 +40,15 @@ Page {
 
     readonly property var capabilities: [
         {
-            name: "text_qa",
-            label: qsTr("Typed questions"),
-            description: qsTr("Your questions are sent to Jev and Groq, with personal details replaced.")
-        },
-        {
             voice: true,
             name: "voice_cloud",
             label: qsTr("Spoken questions"),
-            description: qsTr("Transcripts of spoken questions are handled like typed ones. Audio never leaves the phone.") + englishVoiceNote
+            description: qsTr("Your speech is turned into text on this phone and answered like a typed question.") + englishVoiceNote
         },
         {
             name: "vision",
             label: qsTr("Camera questions"),
-            description: qsTr("A smaller copy of your photo is sent with the question, without its location.")
+            description: qsTr("Pilot looks at a smaller copy of the photo you take, on this phone, without its location, and then deletes it.")
         },
         {
             name: "triage",
@@ -70,7 +64,7 @@ Page {
         {
             name: "history",
             label: qsTr("Conversation history"),
-            description: qsTr("Your conversations stay on this phone for 30 days, so you can ask Pilot about them later. Nothing extra is sent. Turning this off deletes them.")
+            description: qsTr("Your conversations stay on this phone for 30 days, so you can ask Pilot about them later. Turning this off deletes them.")
         }
     ]
 
@@ -195,7 +189,7 @@ Page {
             }
 
             SectionHeader {
-                text: qsTr("Cloud use, per capability")
+                text: qsTr("What Pilot may use")
             }
             Repeater {
                 model: page.capabilities.filter(function (c) {
@@ -214,32 +208,6 @@ Page {
                             return;
                         page.report(Pilot.setConsent(name, checked), "");
                     }
-                }
-            }
-
-            SectionHeader {
-                text: qsTr("Service")
-            }
-            ComboBox {
-                id: backend
-                objectName: "backendCombo"
-                label: qsTr("Service")
-                description: page.settings.backend === "lighthouse" ? qsTr("Every step stays on EU-hosted, EU-operated servers.") : qsTr("Deciding what you asked (Jev) and writing answers (Groq) both run in the United States. Lighthouse keeps every step in the EU.")
-                currentIndex: Math.max(0, page.settings.backends.indexOf(page.settings.backend))
-                menu: ContextMenu {
-                    Repeater {
-                        model: page.settings.backends
-                        MenuItem {
-                            required property string modelData
-                            text: modelData === "standard" ? qsTr("Standard (Jev and Groq, US)") : modelData === "lighthouse" ? qsTr("Lighthouse (EU only)") : modelData
-                        }
-                    }
-                }
-                onCurrentIndexChanged: {
-                    var name = page.settings.backends[currentIndex];
-                    if (!page.ready || name === undefined || name === page.settings.backend)
-                        return;
-                    page.report(Pilot.setBackend(name), "");
                 }
             }
 

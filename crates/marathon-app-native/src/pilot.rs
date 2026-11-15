@@ -46,9 +46,6 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setConsent"]
         fn set_consent(self: &Pilot, name: &QString, on: bool) -> QString;
-        #[qinvokable]
-        #[cxx_name = "setBackend"]
-        fn set_backend(self: &Pilot, name: &QString) -> QString;
         /// Stops using the app Pilot was opened over as context.
         #[qinvokable]
         #[cxx_name = "clearOnScreen"]
@@ -474,11 +471,6 @@ impl qobject::Pilot {
     pub fn set_consent(&self, name: &QString, on: bool) -> QString {
         let name = name.to_string();
         Self::status(self.with(|c| c.set_consent(&name, on)))
-    }
-
-    pub fn set_backend(&self, name: &QString) -> QString {
-        let name = name.to_string();
-        Self::status(self.with(|c| c.set_backend(&name)))
     }
 
     pub fn open_url(&self, url: &QString) {
