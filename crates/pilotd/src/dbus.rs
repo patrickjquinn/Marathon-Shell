@@ -7,7 +7,8 @@
 //! Structured values cross the bus as JSON strings, which QML parses with
 //! `JSON.parse` and which keep the interface stable while card types grow.
 //! Calls are reachable from sandboxed apps only with the `ShoalPilot`
-//! Sailjail permission (`sailjail/ShoalPilot.permission`).
+//! Sailjail permission (`sailjail/ShoalPilot.permission`); on Marathon only
+//! from the Pilot app and the shell ([`crate::callers`]).
 //!
 //! | Member | Signature | Meaning |
 //! | --- | --- | --- |
@@ -55,6 +56,7 @@ use std::sync::{Arc, Mutex};
 use zbus::object_server::SignalEmitter;
 use zbus::{fdo, interface};
 
+use crate::callers::Caller;
 use crate::pipeline::{Pipeline, TurnResult};
 use crate::settings::{Consent, SettingsFile};
 use crate::store::Store;
@@ -96,6 +98,9 @@ pub struct PilotService {
     /// `Daemon::warm`.
     pub warm: Vec<String>,
     pub http: reqwest::Client,
+    pub callers: Arc<crate::callers::Callers>,
+    /// The connection this object is served on.
+    pub session: zbus::Connection,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -126,6 +131,11 @@ fn to_json(r: &TurnResult) -> String {
 }
 
 impl PilotService {
+    async fn admit(&self, header: &zbus::message::Header<'_>) -> fdo::Result<Caller> {
+        let sender = header.sender().map(ToString::to_string);
+        self.callers.admit(&self.session, sender.as_deref()).await
+    }
+
     /// Records `sender` as the owner of the turn's confirmation cards.
     fn own_cards(&self, r: &TurnResult, sender: Option<String>) {
         let Some(sender) = sender else { return };
@@ -219,6 +229,7 @@ impl PilotService {
         #[zbus(header)] header: zbus::message::Header<'_>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         if text.chars().count() > 4000 {
             return Err(fdo::Error::InvalidArgs(
                 "text longer than 4000 characters".into(),
@@ -244,6 +255,7 @@ impl PilotService {
         #[zbus(header)] header: zbus::message::Header<'_>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let sender = header.sender().map(ToString::to_string);
         let owner = lock(&self.card_owners).get(&id).cloned();
         if owner.is_none() || owner != sender {
@@ -273,6 +285,7 @@ impl PilotService {
         #[zbus(header)] header: zbus::message::Header<'_>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let (pipeline, adapters, offline) = (
             Arc::clone(&self.pipeline),
             Arc::clone(&self.adapters),
@@ -299,6 +312,7 @@ impl PilotService {
         #[zbus(header)] header: zbus::message::Header<'_>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         if question.chars().count() > 4000 {
             return Err(fdo::Error::InvalidArgs(
                 "question longer than 4000 characters".into(),
@@ -319,7 +333,8 @@ impl PilotService {
 
     /// The home, read on the phone. The app reads it as it opens, which
     /// also starts the models loading.
-    async fn now(&self) -> String {
+    async fn now(&self, #[zbus(header)] header: zbus::message::Header<'_>) -> fdo::Result<String> {
+        self.admit(&header).await?;
         for url in self.warm.clone() {
             let http = self.http.clone();
             self.runtime.spawn(async move {
@@ -344,16 +359,22 @@ impl PilotService {
             })
             .await;
         let on_screen = self.pipeline.on_screen().map(|(_, name)| name);
-        now.ok()
+        Ok(now
+            .ok()
             .map(|mut n| {
                 n.on_screen = on_screen;
                 n
             })
             .and_then(|n| serde_json::to_string(&n).ok())
-            .unwrap_or_else(|| "{}".into())
+            .unwrap_or_else(|| "{}".into()))
     }
 
-    async fn cancel_clock(&self, cookie: u32) -> fdo::Result<bool> {
+    async fn cancel_clock(
+        &self,
+        cookie: u32,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<bool> {
+        self.admit(&header).await?;
         let adapters = Arc::clone(&self.adapters);
         self.runtime
             .spawn(async move { adapters.clock.cancel(cookie).await })
@@ -364,7 +385,13 @@ impl PilotService {
 
     /// A running timer `seconds` longer: a new timer for what was left
     /// plus `seconds`, the old one cancelled.
-    async fn extend_timer(&self, cookie: u32, seconds: u32) -> fdo::Result<String> {
+    async fn extend_timer(
+        &self,
+        cookie: u32,
+        seconds: u32,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let adapters = Arc::clone(&self.adapters);
         let card = self
             .runtime
@@ -403,7 +430,12 @@ impl PilotService {
     }
 
     /// Triaged events for the Events view, newest first.
-    fn triage(&self, limit: u32) -> fdo::Result<String> {
+    async fn triage(
+        &self,
+        limit: u32,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let rows = self
             .store
             .triage(limit)
@@ -414,8 +446,10 @@ impl PilotService {
     /// Lipstick calls this when Pilot's Events view entry is tapped.
     async fn open_events(
         &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         let events = Arc::clone(&self.events);
         self.runtime
             .spawn(async move { events.opened().await })
@@ -434,8 +468,10 @@ impl PilotService {
     /// (the app's overlay), started for it when it does not run.
     async fn show_sheet(
         &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         self.request_sheet(&emitter, false).await;
         Ok(())
     }
@@ -447,9 +483,11 @@ impl PilotService {
     async fn show_sheet_for(
         &self,
         pid: u32,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
         #[zbus(connection)] session: &zbus::Connection,
     ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let name = self.capture_for(pid, session).await;
         self.request_sheet(&emitter, false).await;
         Ok(name)
@@ -460,9 +498,11 @@ impl PilotService {
     async fn listen_for(
         &self,
         pid: u32,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
         #[zbus(connection)] session: &zbus::Connection,
     ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let name = self.capture_for(pid, session).await;
         self.request_sheet(&emitter, true).await;
         Ok(name)
@@ -477,42 +517,66 @@ impl PilotService {
     /// For the app at start: "sheet", "listen" or "events" when
     /// `ShowSheet`, `ListenFor` or `OpenEvents` started it in the last ten
     /// seconds, else empty. Taken once.
-    fn take_launch_request(&self) -> String {
-        lock(&self.launch_request)
+    async fn take_launch_request(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
+        Ok(lock(&self.launch_request)
             .take()
             .filter(|(_, at)| at.elapsed() < std::time::Duration::from_secs(10))
-            .map_or_default(|(what, _)| what)
+            .map_or_default(|(what, _)| what))
     }
 
     /// Stops using the app Pilot was opened over as context.
-    fn clear_on_screen(&self) {
+    async fn clear_on_screen(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         self.pipeline.clear_on_screen();
+        Ok(())
     }
 
     /// Opens a web address from a card (a source chip) in Pacific, or the
     /// phone's browser without it. The app is sandboxed: its own attempt
     /// (`Qt.openUrlExternally`) did nothing when a chip was tapped. Only
     /// http and https; true when handed on.
-    async fn open_url(&self, url: String, #[zbus(connection)] session: &zbus::Connection) -> bool {
+    async fn open_url(
+        &self,
+        url: String,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        #[zbus(connection)] session: &zbus::Connection,
+    ) -> fdo::Result<bool> {
+        self.admit(&header).await?;
         let Some(url) = crate::onscreen::web_url(&url) else {
-            return false;
+            return Ok(false);
         };
-        crate::onscreen::open_url(session, &url).await
+        Ok(crate::onscreen::open_url(session, &url).await)
     }
 
     /// Starts a new conversation (the app's "Clear conversation").
-    fn clear_conversation(&self) {
+    async fn clear_conversation(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         self.pipeline.clear_history();
+        Ok(())
     }
 
     /// For the Pilot widget in Lipstick's Events view.
-    fn events_summary(&self) -> String {
-        match self.events.current() {
+    async fn events_summary(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
+        Ok(match self.events.current() {
             Some((summary, titles)) => {
                 serde_json::json!({"summary": summary, "titles": titles}).to_string()
             }
             None => "{}".into(),
-        }
+        })
     }
 
     #[zbus(property)]
@@ -527,9 +591,13 @@ impl PilotService {
             .load(std::sync::atomic::Ordering::SeqCst)
     }
 
-    fn settings(&self) -> String {
+    async fn settings(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let s = lock(&self.live).clone();
-        serde_json::json!({
+        Ok(serde_json::json!({
             "consent": s.consent,
             "capabilities": Consent::NAMES,
             "backend": s.backend,
@@ -540,10 +608,16 @@ impl PilotService {
             "gesture": gesture_installed(),
             "offline": self.offline.is_offline(),
         })
-        .to_string()
+        .to_string())
     }
 
-    async fn set_consent(&self, name: String, on: bool) -> fdo::Result<()> {
+    async fn set_consent(
+        &self,
+        name: String,
+        on: bool,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         let mut known = true;
         self.save(|s| {
             known = s.consent.set(&name, on);
@@ -574,7 +648,11 @@ impl PilotService {
     /// What Pilot can do in the person's apps (their Keel Actions), for
     /// the app's "What Pilot can do": by app name, each action with its
     /// title, what it does, and whether Pilot asks before it runs.
-    fn capabilities(&self) -> String {
+    async fn capabilities(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let registry = self.pipeline.registry();
         let mut apps: std::collections::BTreeMap<String, (String, Vec<serde_json::Value>)> =
             std::collections::BTreeMap::new();
@@ -599,11 +677,15 @@ impl PilotService {
             .into_iter()
             .map(|(name, (app, actions))| serde_json::json!({"app": app, "name": name, "actions": actions}))
             .collect();
-        serde_json::Value::Array(list).to_string()
+        Ok(serde_json::Value::Array(list).to_string())
     }
 
     /// What Pilot remembers, oldest first (JSON).
-    fn memories(&self) -> fdo::Result<String> {
+    async fn memories(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let m = self
             .store
             .memories()
@@ -611,14 +693,24 @@ impl PilotService {
         Ok(serde_json::to_string(&m).unwrap_or_else(|_| "[]".into()))
     }
 
-    fn forget(&self, id: i64) -> fdo::Result<bool> {
+    async fn forget(
+        &self,
+        id: i64,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<bool> {
+        self.admit(&header).await?;
         self.store
             .forget(id)
             .map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
     /// What Pilot calls the person; empty for no name.
-    fn set_name(&self, name: String) -> fdo::Result<()> {
+    async fn set_name(
+        &self,
+        name: String,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         let name: String = name.trim().chars().take(40).collect();
         self.save(|s| s.name = name)
     }
@@ -627,8 +719,12 @@ impl PilotService {
     /// Language): the language Pilot answers in, the weather's units and
     /// the language of dates and place names. `pilotd`'s own environment
     /// until the app says.
-    #[allow(clippy::unused_self, reason = "a method of the D-Bus interface")]
-    fn set_locale(&self, name: String) -> fdo::Result<()> {
+    async fn set_locale(
+        &self,
+        name: String,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         if crate::lang::set(&name) {
             Ok(())
         } else {
@@ -638,7 +734,13 @@ impl PilotService {
 
     /// Marks a step of the app's getting-started guide done (or, with
     /// `done` false, not done); "hidden" puts the guide away.
-    fn set_guide(&self, step: String, done: bool) -> fdo::Result<()> {
+    async fn set_guide(
+        &self,
+        step: String,
+        done: bool,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         let step: String = step.trim().chars().take(24).collect();
         self.save(|s| {
             s.guide.retain(|g| *g != step);
@@ -648,14 +750,24 @@ impl PilotService {
         })
     }
 
-    fn set_backend(&self, name: String) -> fdo::Result<()> {
+    async fn set_backend(
+        &self,
+        name: String,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         let b = (self.factory)(&name)
             .ok_or_else(|| fdo::Error::InvalidArgs(format!("no backend {name}")))?;
         self.pipeline.set_backends(b);
         self.save(|s| s.backend = name)
     }
 
-    fn egress_log(&self, limit: u32) -> fdo::Result<String> {
+    async fn egress_log(
+        &self,
+        limit: u32,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let rows = self
             .store
             .egress(limit)
@@ -663,7 +775,11 @@ impl PilotService {
         Ok(serde_json::to_string(&rows).unwrap_or_else(|_| "[]".into()))
     }
 
-    fn export(&self) -> fdo::Result<String> {
+    async fn export(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<String> {
+        self.admit(&header).await?;
         let v = self
             .store
             .export()
@@ -671,7 +787,12 @@ impl PilotService {
         Ok(v.to_string())
     }
 
-    async fn wipe(&self, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> fdo::Result<()> {
+    async fn wipe(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> fdo::Result<()> {
+        self.admit(&header).await?;
         self.store
             .wipe()
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
@@ -687,19 +808,19 @@ impl PilotService {
         Ok(())
     }
 
-    #[allow(
-        clippy::unused_self,
-        reason = "a D-Bus method; the models are pilot-voice's files, not this object's"
-    )]
-    fn voice_models(&self) -> u64 {
-        crate::voice_models::dir().map_or(0, |d| crate::voice_models::bytes(&d))
+    async fn voice_models(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<u64> {
+        self.admit(&header).await?;
+        Ok(crate::voice_models::dir().map_or(0, |d| crate::voice_models::bytes(&d)))
     }
 
-    #[allow(
-        clippy::unused_self,
-        reason = "a D-Bus method; the models are pilot-voice's files, not this object's"
-    )]
-    fn remove_voice_models(&self) -> fdo::Result<u64> {
+    async fn remove_voice_models(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> fdo::Result<u64> {
+        self.admit(&header).await?;
         let Some(dir) = crate::voice_models::dir() else {
             return Ok(0);
         };
@@ -712,8 +833,15 @@ impl PilotService {
     }
 
     #[zbus(property)]
-    fn last_response(&self) -> String {
-        self.pipeline.last().map_or_default(|r| r.headline())
+    async fn last_response(
+        &self,
+        #[zbus(header)] header: Option<zbus::message::Header<'_>>,
+    ) -> fdo::Result<String> {
+        // None: the value PropertiesChanged carries.
+        if let Some(header) = header {
+            self.admit(&header).await?;
+        }
+        Ok(self.pipeline.last().map_or_default(|r| r.headline()))
     }
 
     #[zbus(signal)]

@@ -7,6 +7,7 @@
 
 pub mod adapters;
 pub mod calibrate;
+pub mod callers;
 pub mod config;
 pub mod daemon;
 pub mod dbus;

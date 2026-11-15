@@ -252,3 +252,49 @@ async fn only_the_asking_app_can_answer_its_card() {
     let _: String = p.call("Confirm", &(id.as_str(), true)).await.unwrap();
     assert!(log.all().iter().any(|l| l.starts_with("dial 112")));
 }
+
+fn denied<T: std::fmt::Debug>(r: &zbus::Result<T>) -> bool {
+    matches!(r, Err(zbus::Error::FDO(error)) if matches!(error.as_ref(), zbus::fdo::Error::AccessDenied(_)))
+}
+
+/// On Marathon a process that is neither the Pilot app nor the shell is
+/// refused: it cannot ask (and so say yes to a card of its own), read what
+/// Pilot remembers or wipe it. The shell, the process that owns
+/// `org.marathonos.Shell`, is answered.
+#[tokio::test]
+async fn on_marathon_only_pilot_and_the_shell_may_call() {
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
+    let srv =
+        FakeHttp::start(|_: &common::Seen, _| Reply::ok(jev_reply(&[("timer", 0.97)], 0.0, 0.0)))
+            .await;
+    let log = Arc::new(Log::default());
+    let mut d = common::daemon(&srv.base, &log, None);
+    d.callers = Arc::new(pilotd::callers::Callers::new(
+        pilotd::callers::Policy::Marathon,
+    ));
+    let d = Arc::new(d);
+    let server = bus.connect().await.unwrap();
+    pilotd::daemon::serve_on(&d, &server).await.unwrap();
+
+    let app = bus.connect().await.unwrap();
+    let p = pilot(&app).await;
+    let asked: zbus::Result<String> = p.call("Ask", &("set a timer for 3 minutes", false)).await;
+    assert!(denied(&asked), "{asked:?}");
+    let memories: zbus::Result<String> = p.call("Memories", &()).await;
+    assert!(denied(&memories), "{memories:?}");
+    let wiped: zbus::Result<()> = p.call("Wipe", &()).await;
+    assert!(denied(&wiped), "{wiped:?}");
+    assert!(!log.all().iter().any(|l| l.starts_with("timer")));
+
+    let shell = bus.connect().await.unwrap();
+    shell.request_name("org.marathonos.Shell").await.unwrap();
+    let json: String = pilot(&shell)
+        .await
+        .call("Ask", &("set a timer for 3 minutes", false))
+        .await
+        .unwrap();
+    let r: Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(r["cards"][0]["kind"], "timer");
+}

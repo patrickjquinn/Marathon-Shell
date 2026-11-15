@@ -18,6 +18,7 @@ name = "pilotd"
 path = "src/main.rs"
 
 [dependencies]
+async-io = "2.6.0"
 async-trait = "0.1"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 libc = "0.2"

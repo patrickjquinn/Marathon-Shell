@@ -132,6 +132,8 @@ pub struct Daemon {
     /// opens so their socket-activated servers load before the question.
     pub warm: Vec<String>,
     pub http: reqwest::Client,
+    /// Who may call the D-Bus interface: on Marathon, Pilot and the shell.
+    pub callers: Arc<crate::callers::Callers>,
 }
 
 /// The health URLs of the servers on this machine to warm: the router's
@@ -462,6 +464,13 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
         offline.clone(),
         Duration::from_secs(config.timeout_secs),
     );
+    // The shell may not own its name yet (it restarts): the file that
+    // declares pilotd to it says the same thing without a race.
+    let marathon = session.as_ref().is_some_and(|c| {
+        adapters::marathon::present(c)
+            || std::path::Path::new("/usr/share/marathon-shell/services/shoal-pilotd.service.json")
+                .exists()
+    });
     let adapters = Arc::new(
         injected.unwrap_or_else(|| sailfish_adapters(&config, session.as_ref(), system.as_ref())),
     );
@@ -520,12 +529,18 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
         adapters,
         warm,
         http,
+        callers: Arc::new(crate::callers::Callers::new(if marathon {
+            crate::callers::Policy::Marathon
+        } else {
+            crate::callers::Policy::Any
+        })),
     })
 }
 
 impl Daemon {
-    /// The D-Bus object for this daemon. Call from within the Tokio runtime.
-    pub fn service(&self) -> PilotService {
+    /// The D-Bus object for this daemon, served on `conn`. Call from within
+    /// the Tokio runtime.
+    pub fn service(&self, conn: &zbus::Connection) -> PilotService {
         PilotService {
             pipeline: Arc::clone(&self.pipeline),
             settings: Arc::clone(&self.settings),
@@ -547,6 +562,8 @@ impl Daemon {
             card_owners: Arc::default(),
             warm: self.warm.clone(),
             http: self.http.clone(),
+            callers: Arc::clone(&self.callers),
+            session: conn.clone(),
         }
     }
 
@@ -708,7 +725,7 @@ impl Daemon {
 /// Registers the service on `conn` (already owning or about to own
 /// [`BUS_NAME`]).
 pub async fn serve_on(d: &Daemon, conn: &zbus::Connection) -> zbus::Result<()> {
-    conn.object_server().at(PATH, d.service()).await?;
+    conn.object_server().at(PATH, d.service(conn)).await?;
     conn.request_name(BUS_NAME).await?;
     // A turn's stages, as TurnProgress signals.
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
