@@ -9,6 +9,7 @@ import QtQuick
 import QtQuick.Window
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Nemo.Configuration 1.0
 import MarathonOS.Pilot 1.0
 import "components"
 
@@ -18,6 +19,17 @@ ApplicationWindow {
     // Over another app: the overlay window above it. In Pilot: the sheet
     // on the main page.
     readonly property alias overlay: overlay
+
+    // What a frozen Pilot that is then killed comes back to: the question
+    // being typed and the page on top.
+    property var savedDraft: ConfigurationValue {
+        key: "/apps/shoal-pilot/draft"
+        defaultValue: ""
+    }
+    property var savedPage: ConfigurationValue {
+        key: "/apps/shoal-pilot/page"
+        defaultValue: ""
+    }
 
     // The pages that forward can bring back, by objectName.
     readonly property var pageFiles: ({
@@ -72,6 +84,37 @@ ApplicationWindow {
         return true;
     }
 
+    // The runner, before the shell freezes the app: what a kill would lose.
+    function handleFreeze() {
+        var main = findMainPage();
+        savedDraft.value = main ? main.draft : "";
+        savedPage.value = shownPages.length > 0 ? shownPages[shownPages.length - 1] : "";
+    }
+
+    // Thawed: the process lived, so nothing is restored; the home catches up.
+    function handleThaw() {
+        savedPage.value = "";
+        Pilot.refreshNow();
+    }
+
+    // A cold start after a kill: the draft, and the page if forward could
+    // bring it back.
+    function restore() {
+        var main = findMainPage();
+        if (main && main.draft === "")
+            main.draft = savedDraft.value;
+        var name = savedPage.value;
+        savedPage.value = "";
+        if (pageFiles[name])
+            pageStack.push(Qt.resolvedUrl(pageFiles[name]), {}, PageStackAction.Immediate);
+    }
+
+    function findMainPage() {
+        return pageStack.find(function (p) {
+            return p.objectName === "mainPage";
+        });
+    }
+
     // The system forward: the page back last took off.
     function handleForward() {
         if (overlay.shown || forwardPages.length === 0)
@@ -113,9 +156,7 @@ ApplicationWindow {
     }
 
     function mainPage() {
-        var main = pageStack.find(function (p) {
-            return p.objectName === "mainPage";
-        });
+        var main = findMainPage();
         if (main)
             pageStack.pop(main, PageStackAction.Immediate);
         return main;
@@ -125,6 +166,15 @@ ApplicationWindow {
     initialPage: Qt.resolvedUrl("pages/MainPage.qml")
     cover: Qt.resolvedUrl("cover/CoverPage.qml")
     allowedOrientations: defaultAllowedOrientations
+    Component.onCompleted: restore()
+
+    // Closed by the person, not killed: start at home next time.
+    Connections {
+        target: Qt.application
+        function onAboutToQuit() {
+            app.savedPage.value = "";
+        }
+    }
 
     Connections {
         target: app.pageStack

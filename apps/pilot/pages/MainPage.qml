@@ -23,6 +23,8 @@ Page {
     readonly property bool listening: Conversation.listening
     readonly property bool transcribing: Conversation.transcribing
     property bool onboardingShown: false
+    // The question being typed, kept across a kill (PilotApp.qml).
+    property alias draft: input.text
 
     function send(text) {
         Conversation.send(text);
@@ -92,11 +94,13 @@ Page {
             Pilot.refreshNow();
     }
     // Keep the home current while it is shown (an alarm that rang, the
-    // next event changing).
+    // next event changing); not in the background, where the shell
+    // freezes the app.
     Timer {
+        objectName: "nowTimer"
         interval: 60000
         repeat: true
-        running: page.model.count === 0 && page.status === PageStatus.Active
+        running: page.model.count === 0 && page.status === PageStatus.Active && Qt.application.state === Qt.ApplicationActive
         onTriggered: Pilot.refreshNow()
     }
 
