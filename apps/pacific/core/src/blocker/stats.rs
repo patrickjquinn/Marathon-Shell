@@ -241,14 +241,15 @@ mod tests {
         assert!(!b.is_settled());
         // One notice per changed tab, however many requests.
         assert_eq!(b.take_changed(), [1, 2]);
-        assert!(b.take_changed().is_empty());
+        assert_eq!(b.take_changed(), Vec::<i64>::new());
         // One write for all of them; the next waits for the interval.
         assert_eq!(b.take_writes(5_000, false), [(KIND_ADS, 301)]);
         assert!(b.is_settled());
         b.blocked(1, "https://ads.example/late.js");
-        assert!(b
-            .take_writes(5_000 + WRITE_INTERVAL_MS - 1, false)
-            .is_empty());
+        assert_eq!(
+            b.take_writes(5_000 + WRITE_INTERVAL_MS - 1, false),
+            Vec::<(&str, i64)>::new()
+        );
         assert!(!b.is_settled());
         assert_eq!(
             b.take_writes(5_000 + WRITE_INTERVAL_MS, false),
@@ -262,10 +263,10 @@ mod tests {
             b.take_writes(5_001 + WRITE_INTERVAL_MS, true),
             [(KIND_ADS, 2)]
         );
-        assert!(b.take_writes(1 << 40, true).is_empty());
+        assert_eq!(b.take_writes(1 << 40, true), Vec::<(&str, i64)>::new());
         // A closed tab is not told about.
         b.closed(1);
-        assert!(b.take_changed().is_empty());
+        assert_eq!(b.take_changed(), Vec::<i64>::new());
         assert!(b.is_settled());
     }
 

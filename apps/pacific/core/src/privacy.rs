@@ -209,7 +209,7 @@ mod tests {
         let kept = p.place("https://kept.example/").unwrap().unwrap();
         assert_eq!(kept.visit_count, 0);
         assert!(p.is_bookmarked("https://kept.example/").unwrap());
-        assert!(p.https_exceptions().unwrap().is_empty());
+        assert_eq!(p.https_exceptions().unwrap(), Vec::<String>::new());
         assert!(!d.path().join("session.lz4").exists());
     }
 }

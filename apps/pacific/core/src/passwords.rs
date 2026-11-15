@@ -280,7 +280,7 @@ mod tests {
         if let Ok(c) = KeysClient::session() {
             assert_eq!(c.logins("https://example.com/").unwrap(), Vec::new());
             match c.fill("https://example.com/", "") {
-                Err(Error::Keys(m)) => assert!(!m.is_empty()),
+                Err(Error::Keys(m)) => assert_ne!(m, ""),
                 other => panic!("{other:?}"),
             }
         }

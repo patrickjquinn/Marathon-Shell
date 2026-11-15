@@ -558,9 +558,10 @@ mod tests {
         let v = generic_rules("##.a\n##.b\n##.c\n", 250, &[]);
         assert_eq!(v.len(), 1);
         assert_eq!(v[0]["action"]["selector"], ".a, .b, .c");
-        assert!(generic(&GenericHiding::default(), &[], 250, MAX_RULES)
-            .unwrap()
-            .is_empty());
+        assert_eq!(
+            generic(&GenericHiding::default(), &[], 250, MAX_RULES).unwrap(),
+            []
+        );
     }
 
     #[test]

@@ -502,7 +502,10 @@ mod tests {
             parse_suggestions(SuggestFormat::Phrases, "sail", body, 1),
             ["sailfish os"]
         );
-        assert!(parse_suggestions(SuggestFormat::OpenSearch, "x", b"<html>", 5).is_empty());
+        assert_eq!(
+            parse_suggestions(SuggestFormat::OpenSearch, "x", b"<html>", 5),
+            Vec::<String>::new()
+        );
     }
 
     #[test]

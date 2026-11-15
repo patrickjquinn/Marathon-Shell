@@ -350,8 +350,7 @@ impl Profile {
             std::fs::rename(&part, &d.path).map_err(|e| Error::io(&d.path, e))?;
         }
         let size = std::fs::metadata(&d.path)
-            .map(|m| i64::try_from(m.len()).unwrap_or(i64::MAX))
-            .unwrap_or(d.received);
+            .map_or(d.received, |m| i64::try_from(m.len()).unwrap_or(i64::MAX));
         self.conn.execute(
             "UPDATE downloads SET state = ?2, received = ?3, total = ?3, finished = ?4, error = '' WHERE id = ?1",
             params![id, State::Finished.to_i64(), size, now_ms()],
@@ -407,9 +406,7 @@ impl Profile {
 /// offset to append at. `validator` is the ETag or Last-Modified seen when
 /// it started.
 pub fn resume_headers(d: &Download, validator: &str) -> (u64, Vec<(String, String)>) {
-    let have = std::fs::metadata(d.part_path())
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let have = std::fs::metadata(d.part_path()).map_or(0, |m| m.len());
     if have == 0 {
         return (0, Vec::new());
     }
@@ -500,7 +497,7 @@ mod tests {
         assert!(!p.download(other.id).unwrap().unwrap().part_path().exists());
         assert_eq!(p.downloads().unwrap().len(), 2);
         assert_eq!(p.clear_finished_downloads().unwrap(), 2);
-        assert!(p.downloads().unwrap().is_empty());
+        assert_eq!(p.downloads().unwrap(), []);
         // The file itself stays.
         assert!(Path::new(&done.path).exists());
     }

@@ -502,7 +502,7 @@ mod tests {
         let s = p.suggest("example.com", &[]).unwrap();
         assert_eq!(s.items[0].kind, Kind::Visit);
         assert_eq!(s.items[0].url, "https://example.com/");
-        assert!(p.suggest("  ", &[]).unwrap().items.is_empty());
+        assert_eq!(p.suggest("  ", &[]).unwrap().items, []);
         p.record_search("rust book", "duckduckgo", 5).unwrap();
         let empty = p.suggest("", &[]).unwrap();
         assert_eq!(empty.items[0].kind, Kind::RecentSearch);

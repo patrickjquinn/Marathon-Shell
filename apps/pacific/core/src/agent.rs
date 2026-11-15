@@ -440,7 +440,7 @@ mod tests {
         assert!(s.check_fill("e2").is_ok());
         let card = s.element("e3").unwrap();
         assert!(card.sensitive);
-        assert!(card.value.is_empty());
+        assert_eq!(card.value, "");
         assert!(s
             .check_fill("e3")
             .unwrap_err()

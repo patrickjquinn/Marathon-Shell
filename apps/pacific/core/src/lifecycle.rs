@@ -211,7 +211,7 @@ mod tests {
                 Decision::Discard { tab: 3 }
             ]
         );
-        assert!(decide(&tabs, 6, Pressure::None, now).is_empty());
+        assert_eq!(decide(&tabs, 6, Pressure::None, now), []);
     }
 
     #[test]
@@ -223,7 +223,7 @@ mod tests {
         tabs[2].form_dirty = true;
         tabs[3].last_active = now - 5_000; // within the grace period
         tabs[4].foreground = true;
-        assert!(decide(&tabs, 1, Pressure::None, now).is_empty());
+        assert_eq!(decide(&tabs, 1, Pressure::None, now), []);
         // Critical pressure drops the pinned one, never the others.
         assert_eq!(
             decide(&tabs, 1, Pressure::Critical, now),
@@ -236,7 +236,7 @@ mod tests {
         let now = 100 * MIN;
         let mut tabs: Vec<_> = (1..=4).map(|i| tab(i, now - (10 - i) * MIN)).collect();
         tabs[3].foreground = true;
-        assert!(decide(&tabs, 4, Pressure::None, now).is_empty());
+        assert_eq!(decide(&tabs, 4, Pressure::None, now), []);
         assert_eq!(
             decide(&tabs, 4, Pressure::Moderate, now),
             [Decision::Discard { tab: 1 }, Decision::Discard { tab: 2 }]

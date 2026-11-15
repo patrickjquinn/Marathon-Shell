@@ -186,7 +186,7 @@ mod tests {
         let mut r = FilterRecord::open(d.path());
         assert_eq!(r.pending(), ["pacific-easylist-1"]);
         r.confirm("pacific-easylist-1", true).unwrap();
-        assert!(FilterRecord::open(d.path()).pending().is_empty());
+        assert_eq!(FilterRecord::open(d.path()).pending(), Vec::<String>::new());
         // The engine later fails to load one from its store: compiled again.
         r.confirm("pacific-easylist-0", false).unwrap();
         assert_eq!(

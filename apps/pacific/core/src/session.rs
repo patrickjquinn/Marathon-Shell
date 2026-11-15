@@ -330,7 +330,7 @@ mod tests {
         assert!(loaded.recovered_from_backup);
         assert_eq!(loaded.session.tabs[0].entries[0].url, "https://one/");
         store.clear().unwrap();
-        assert!(store.load().session.tabs.is_empty());
+        assert_eq!(store.load().session.tabs, []);
     }
 
     #[test]
