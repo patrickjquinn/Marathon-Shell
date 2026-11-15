@@ -131,6 +131,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/network.cxxqt.h"
 #include "marathon-app-native/src/notifications.cxxqt.h"
 #include "marathon-app-native/src/permissions.cxxqt.h"
+#include "marathon-app-native/src/pilot.cxxqt.h"
 #include "marathon-app-native/src/power.cxxqt.h"
 #include "marathon-app-native/src/security.cxxqt.h"
 #include "marathon-app-native/src/sensors.cxxqt.h"
@@ -855,6 +856,11 @@ int main(int argc, char *argv[]) {
         });
     qmlRegisterType<marathon::platform::StorageInfo>("MarathonOS.Settings", 1, 0, "StorageInfo");
     qmlRegisterType<marathon::platform::TimeZoneList>("MarathonOS.Settings", 1, 0, "TimeZoneList");
+
+    // The Pilot app's client of pilotd, made when its QML first reads it.
+    qmlRegisterSingletonType<marathon::pilot::Pilot>(
+        "MarathonOS.Pilot", 1, 0, "Pilot",
+        [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::pilot::Pilot(); });
 
     // The Terminal app's VT engine and painter.
     qmlRegisterType<marathon::terminal::TerminalEngine>("MarathonOS.Terminal", 1, 0,

@@ -40,6 +40,7 @@ pub mod navigation;
 pub mod network;
 pub mod notifications;
 pub mod permissions;
+pub mod pilot;
 pub mod power;
 mod rt;
 pub mod runner;

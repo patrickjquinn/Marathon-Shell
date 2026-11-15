@@ -27,6 +27,8 @@ fn main() {
         .file("src/network.rs")
         .file("src/notifications.rs")
         .file("src/permissions.rs")
+        .file("src/pilot.rs")
+        .file("src/pilot/photo.rs")
         .file("src/power.rs")
         .file("src/rt.rs")
         .file("src/runner.rs")
@@ -43,5 +45,8 @@ fn main() {
         .file("src/updates.rs")
         .file("src/wallpapers.rs")
         .file("src/world_clock.rs")
+        // Pilot's photo scaling reads and writes images with Qt Gui.
+        .qt_module("Gui")
+        .cpp_file("cpp/pilotphoto.cpp")
         .build();
 }
