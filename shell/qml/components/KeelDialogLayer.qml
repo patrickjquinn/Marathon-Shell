@@ -15,6 +15,8 @@ Item {
     // What the dialogs sit over, frosted behind them; null over the home
     // screen, which gets the ambience instead.
     property Item backdropSource: null
+    // The WaylandCompositor that back and forward go through.
+    property var compositor: null
     property bool _showing: false
 
     signal shown(string appId)
@@ -30,6 +32,47 @@ Item {
         Tasks.addCapability(appId, "dialog");
     }
 
+    // The dialog in front, or null.
+    function front() {
+        if (!visible)
+            return null;
+        for (let i = dialogs.length - 1; i >= 0; --i) {
+            if (dialogs[i].visible)
+                return dialogs[i];
+        }
+        return null;
+    }
+
+    // System back with a dialog up is the dialog's, never the app's under
+    // it: a runner's window (marathon_surface_v1) takes it, and is closed
+    // if it shows no change; any other dialog is asked to close. False
+    // when no dialog shows.
+    function back() {
+        const dialog = front();
+        if (!dialog)
+            return false;
+        if (compositor && compositor.marathonSurfaces[dialog.surfaceId])
+            compositor.sendNativeBack(dialog.surfaceId, false);
+        else
+            _close(dialog);
+        return true;
+    }
+
+    function forward() {
+        const dialog = front();
+        if (!dialog)
+            return false;
+        if (compositor)
+            compositor.sendNativeForward(dialog.surfaceId, true);
+        return true;
+    }
+
+    function _close(dialog) {
+        const toplevel = dialog._toplevelFromObj(dialog.surfaceObj);
+        if (toplevel)
+            toplevel.sendClose();
+    }
+
     function _updateShowing() {
         _showing = dialogs.some(d => d.visible);
     }
@@ -43,6 +86,16 @@ Item {
             Tasks.removeCapability(dialog.appId, "dialog");
         closed(dialog.appId);
         dialog.destroy();
+    }
+
+    Connections {
+        function onNativeBackUnhandled(surfaceId) {
+            const dialog = root.dialogs.find(d => d.surfaceId === surfaceId);
+            if (dialog)
+                root._close(dialog);
+        }
+
+        target: root.compositor
     }
 
     Item {

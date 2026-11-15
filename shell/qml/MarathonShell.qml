@@ -71,6 +71,8 @@ Item {
         } else if (UIStore.quickSettingsOpen) {
             UIStore.closeQuickSettings();
             overlayClosed = true;
+        } else if (keelDialogs.back()) {
+            overlayClosed = true;
         } else if (pageView.currentIndex === 0 && pageView.closeHubOverlay()) {
             overlayClosed = true;
         }
@@ -1663,6 +1665,8 @@ Item {
             }
         }
         onSwipeRight: {
+            if (keelDialogs.forward())
+                return;
             if (UIStore.appWindowOpen) {
                 var handled = shell.systemForward();
                 if (handled)
@@ -1678,12 +1682,14 @@ Item {
             }
         }
         onBackDragged: (progress, position) => {
+            const dialog = keelDialogs.front();
             if (shell.compositor)
-                shell.compositor.sendBackProgress(appWindow.surfaceId, progress, position);
+                shell.compositor.sendBackProgress(dialog ? dialog.surfaceId : appWindow.surfaceId, progress, position);
         }
         onBackGestureEnded: {
+            const dialog = keelDialogs.front();
             if (shell.compositor)
-                shell.compositor.endBackGesture(appWindow.surfaceId);
+                shell.compositor.endBackGesture(dialog ? dialog.surfaceId : appWindow.surfaceId);
         }
         onSwipeBack: {
             Logger.info("NavBar", "Back gesture detected");
@@ -2116,6 +2122,7 @@ Item {
         z: Constants.zIndexKeelDialog
         visible: !SessionStore.isLocked
         backdropSource: UIStore.appWindowOpen ? appWindowContainer : null
+        compositor: shell.compositor
         onShown: pilotGlow.overlayShown()
         onClosed: appId => {
             // Its screen context is for questions asked over that app, this time.

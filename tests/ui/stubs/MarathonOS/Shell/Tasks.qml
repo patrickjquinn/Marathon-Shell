@@ -23,4 +23,8 @@ QtObject {
     }
     function unregisterApp(appId) {
     }
+    function addCapability(appId, capability) {
+    }
+    function removeCapability(appId, capability) {
+    }
 }
