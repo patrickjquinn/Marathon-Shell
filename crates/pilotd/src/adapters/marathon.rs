@@ -77,6 +77,11 @@ pub async fn app_for_pid(session: &zbus::Connection, pid: u32) -> Option<crate::
     })
 }
 
+/// The app the shell's launcher started process `pid` for; empty for none.
+pub async fn app_id_for_pid(session: &zbus::Connection, pid: u32) -> Result<String, AdapterError> {
+    call(session, "Navigation", "AppIdForPid", &(pid,)).await
+}
+
 /// Starts `app_id` behind the app on screen, or wakes it (thaws a frozen
 /// one) when it runs.
 pub async fn start_in_background(

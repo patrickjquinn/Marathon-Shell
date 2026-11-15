@@ -3,8 +3,9 @@
 
 //! Who may call `org.shipwright.Pilot1`. On Marathon only the Pilot app (a
 //! process in its `marathon-app-shoal-pilot` cgroup, where the shell's
-//! lifecycle puts it, as the shell's own `gate` reads it) and the shell
-//! (the process that owns `org.marathonos.Shell`) may: anything else on
+//! lifecycle puts it, as the shell's own `gate` reads it; without app
+//! cgroups, the process the shell launched for it or one below it) and the
+//! shell (the process that owns `org.marathonos.Shell`) may: anything else on
 //! the session bus could otherwise ask for a text or a call and say yes to
 //! its own card, or read the memories and logs. Elsewhere Sailjail's
 //! `ShoalPilot` permission decides, before a call reaches pilotd.
@@ -103,10 +104,42 @@ async fn identify(conn: &zbus::Connection, sender: &str) -> Option<Caller> {
         match app_of_cgroup(&cgroup) {
             Some(app) if app == PILOT_APP => return Some(Caller::Pilot),
             Some(_) => return None,
-            None => async_io::Timer::after(Duration::from_millis(250)).await,
-        };
+            None if launched_app(conn, pid).await.as_deref() == Some(PILOT_APP) => {
+                return Some(Caller::Pilot);
+            }
+            None => {
+                async_io::Timer::after(Duration::from_millis(250)).await;
+            }
+        }
     }
     None
+}
+
+/// The app the shell launched `pid` or one of its parents for (a Keel host
+/// or a sandbox runs the app below the process it started).
+async fn launched_app(conn: &zbus::Connection, pid: u32) -> Option<String> {
+    let mut cursor = Some(pid);
+    for _ in 0..8 {
+        let p = cursor.filter(|&p| p > 1)?;
+        let id = crate::adapters::marathon::app_id_for_pid(conn, p)
+            .await
+            .ok()?;
+        if !id.is_empty() {
+            return Some(id);
+        }
+        cursor = parent(&std::fs::read_to_string(format!("/proc/{p}/stat")).ok()?);
+    }
+    None
+}
+
+/// The parent in a `/proc/<pid>/stat` line (after the command in parentheses).
+fn parent(stat: &str) -> Option<u32> {
+    stat.rsplit_once(')')?
+        .1
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()
 }
 
 /// The app a `/proc/<pid>/cgroup` text puts the process in
@@ -144,5 +177,15 @@ mod tests {
             app_of_cgroup("1:name=systemd:/marathon-app-shoal-pilot\n"),
             None
         );
+    }
+
+    #[test]
+    fn the_parent_is_read_past_the_command() {
+        assert_eq!(
+            parent("4242 (shoal pilot) S 4100 4242 4242 0 -1"),
+            Some(4100)
+        );
+        assert_eq!(parent("1 (a) b) S 0 1"), Some(0));
+        assert_eq!(parent("garbage"), None);
     }
 }
