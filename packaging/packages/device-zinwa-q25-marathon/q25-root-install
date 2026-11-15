@@ -190,8 +190,9 @@ rollback() {
 
 # Per-phone state a new root lacks (scripts/q25/explain/per-phone-state.toml):
 # identity, clock and time zone, connections and pairings, the APN, the
-# modem's own NV writes, the radio switches and remote login. /home is its
-# own volume.
+# modem's own NV writes, the radio switches and remote login, and the
+# record of what happened: the journal, crash dumps and battery history.
+# /home is its own volume.
 CARRY='etc/machine-id
 etc/hostname
 etc/machine-info
@@ -207,6 +208,9 @@ var/lib/NetworkManager
 var/lib/q25-modem
 var/lib/systemd/rfkill
 var/lib/systemd/timesync
+var/log/journal
+var/lib/systemd/coredump
+var/lib/upower
 etc/systemd/system/multi-user.target.wants/sshd.service'
 
 carry() {
