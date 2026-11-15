@@ -298,3 +298,58 @@ async fn on_marathon_only_pilot_and_the_shell_may_call() {
     let r: Value = serde_json::from_str(&json).unwrap();
     assert_eq!(r["cards"][0]["kind"], "timer");
 }
+
+/// The shell's `Navigation1`: records what it was asked to start.
+struct Navigation(Arc<std::sync::Mutex<Vec<String>>>);
+
+#[zbus::interface(name = "org.marathonos.Shell.Navigation1")]
+impl Navigation {
+    #[allow(clippy::needless_pass_by_value, reason = "a D-Bus method")]
+    fn start_app_in_background(&self, app_id: String) -> bool {
+        self.0.lock().unwrap().push(app_id);
+        true
+    }
+}
+
+/// Summoned, a frozen Pilot would never see `SheetRequested`: the shell
+/// wakes it (`StartAppInBackground` thaws a running app) before the signal.
+#[tokio::test]
+async fn summoning_wakes_pilot_before_asking_for_the_sheet() {
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
+    let srv = FakeHttp::start(|_: &common::Seen, _| Reply::ok(Value::Null)).await;
+    let mut d = common::daemon(&srv.base, &Arc::new(Log::default()), None);
+    d.callers = Arc::new(pilotd::callers::Callers::new(
+        pilotd::callers::Policy::Marathon,
+    ));
+    let d = Arc::new(d);
+    let server = bus.connect().await.unwrap();
+    pilotd::daemon::serve_on(&d, &server).await.unwrap();
+
+    let started: Arc<std::sync::Mutex<Vec<String>>> = Arc::default();
+    let shell = bus.connect().await.unwrap();
+    shell
+        .object_server()
+        .at(
+            "/org/marathonos/Shell/Navigation",
+            Navigation(Arc::clone(&started)),
+        )
+        .await
+        .unwrap();
+    shell.request_name("org.marathonos.Shell").await.unwrap();
+
+    let p = pilot(&shell).await;
+    let mut requested = p.receive_property_changed::<u32>("SheetRequested").await;
+    let () = p.call("ShowSheet", &()).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while let Some(ch) = requested.next().await {
+            if ch.get().await.unwrap() == 1 {
+                return;
+            }
+        }
+    })
+    .await
+    .expect("SheetRequested changed");
+    assert_eq!(*started.lock().unwrap(), ["shoal-pilot"]);
+}

@@ -211,6 +211,7 @@ impl Default for EventsConfig {
 
 /// `[sheet]`: the system-wide bottom-edge gesture (the gesture patch
 /// in shoal/pilot/lipstick/patch) calls `ShowSheet`, which runs this.
+/// Not on Marathon, where the shell starts or wakes the app.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SheetConfig {

@@ -195,6 +195,21 @@ impl PilotService {
     async fn request_sheet(&self, emitter: &SignalEmitter<'_>, listen: bool) {
         let what = if listen { "listen" } else { "sheet" };
         *lock(&self.launch_request) = Some((what.into(), std::time::Instant::now()));
+        // A frozen app reads nothing until it is thawed: the shell wakes a
+        // running Pilot (or starts it, behind the app on screen) first.
+        let marathon = self.callers.policy == crate::callers::Policy::Marathon;
+        if marathon {
+            match crate::adapters::marathon::start_in_background(
+                &self.session,
+                crate::callers::PILOT_APP,
+            )
+            .await
+            {
+                Ok(true) => {}
+                Ok(false) => log::warn!("the shell did not start Pilot"),
+                Err(e) => log::warn!("waking Pilot: {e}"),
+            }
+        }
         if listen {
             self.listen_requested
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -207,7 +222,7 @@ impl PilotService {
         // Starting a running app again would make invoker raise its main
         // window, over the app the person was in.
         let app = self.open_sheet.iter().rev().find(|a| a.starts_with('/'));
-        if !app.is_some_and(|a| crate::onscreen::process_running(a)) {
+        if !marathon && !app.is_some_and(|a| crate::onscreen::process_running(a)) {
             spawn(&self.open_sheet, "opening the sheet");
         }
     }

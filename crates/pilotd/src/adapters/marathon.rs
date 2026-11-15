@@ -77,6 +77,15 @@ pub async fn app_for_pid(session: &zbus::Connection, pid: u32) -> Option<crate::
     })
 }
 
+/// Starts `app_id` behind the app on screen, or wakes it (thaws a frozen
+/// one) when it runs.
+pub async fn start_in_background(
+    session: &zbus::Connection,
+    app_id: &str,
+) -> Result<bool, AdapterError> {
+    call(session, "Navigation", "StartAppInBackground", &(app_id,)).await
+}
+
 /// The Android app in front (`Navigation1.GetForegroundApp`), named by the
 /// desktop entry Deckard writes for it under `data`/applications.
 pub async fn android_in_front(
