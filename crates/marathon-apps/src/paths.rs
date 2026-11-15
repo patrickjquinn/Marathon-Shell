@@ -89,3 +89,69 @@ pub fn trusted_keys() -> Vec<PathBuf> {
             .join("marathon/trusted-keys"),
     ]
 }
+
+/// Where an app kept its data before it ran in the runner's sandbox,
+/// relative to the XDG data and cache homes: Pacific ran under the Keel
+/// host with Sailjail's directory names.
+const LEGACY_DIRS: &[(&str, &str)] = &[("shipwright-pacific", "org.shipwright/pacific")];
+
+/// Moves `app_id`'s pre-sandbox data and cache under `<home>/marathon-apps/<id>`
+/// (for each of `homes`, the XDG data and cache homes), once: only while the
+/// new directory is missing or empty and the old one exists. The sandbox
+/// binds only the new one.
+pub fn adopt_legacy_dirs(app_id: &str, homes: &[&std::path::Path]) -> std::io::Result<()> {
+    let Some((_, legacy)) = LEGACY_DIRS.iter().find(|(id, _)| *id == app_id) else {
+        return Ok(());
+    };
+    for home in homes {
+        let old = home.join(legacy);
+        let new = home.join("marathon-apps").join(app_id);
+        if !old.is_dir() {
+            continue;
+        }
+        // An earlier launch may have made it empty; remove_dir leaves a full one.
+        if new.exists() && std::fs::remove_dir(&new).is_err() {
+            continue;
+        }
+        std::fs::create_dir_all(home.join("marathon-apps"))?;
+        std::fs::rename(&old, &new)?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "tests")]
+
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn adopts_pacific_once() {
+        let root = tempfile::tempdir().unwrap();
+        let (data, cache) = (root.path().join("share"), root.path().join("cache"));
+        fs::create_dir_all(data.join("org.shipwright/pacific/web")).unwrap();
+        fs::write(data.join("org.shipwright/pacific/places.db"), "db").unwrap();
+        fs::create_dir_all(cache.join("org.shipwright/pacific")).unwrap();
+        fs::create_dir_all(cache.join("marathon-apps/shipwright-pacific")).unwrap();
+        adopt_legacy_dirs("shipwright-pacific", &[data.as_path(), cache.as_path()]).unwrap();
+        let moved = data.join("marathon-apps/shipwright-pacific");
+        assert_eq!(fs::read_to_string(moved.join("places.db")).unwrap(), "db");
+        assert!(moved.join("web").is_dir());
+        assert!(!data.join("org.shipwright/pacific").exists());
+        assert!(!cache.join("org.shipwright/pacific").exists());
+        assert!(cache.join("marathon-apps/shipwright-pacific").is_dir());
+
+        // Never over data the app already has in its own directory.
+        fs::create_dir_all(data.join("org.shipwright/pacific")).unwrap();
+        fs::write(data.join("org.shipwright/pacific/places.db"), "old").unwrap();
+        adopt_legacy_dirs("shipwright-pacific", &[data.as_path(), cache.as_path()]).unwrap();
+        assert_eq!(fs::read_to_string(moved.join("places.db")).unwrap(), "db");
+        assert!(data.join("org.shipwright/pacific/places.db").exists());
+
+        // Other apps have nothing to adopt.
+        fs::create_dir_all(data.join("org.shipwright/notes")).unwrap();
+        adopt_legacy_dirs("notes", &[data.as_path()]).unwrap();
+        assert!(!data.join("marathon-apps/notes").exists());
+    }
+}

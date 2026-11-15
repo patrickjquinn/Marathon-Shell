@@ -374,6 +374,15 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     } else {
         cache.join(".spare")
     };
+    if let Some(a) = app {
+        let homes = [data_home.as_path(), cache_home.as_path()];
+        if let Err(e) = marathon_apps::paths::adopt_legacy_dirs(&a.id, &homes) {
+            crate::log::warn(
+                "sandbox",
+                format_args!("{}'s old data stays put: {e}", a.id),
+            );
+        }
+    }
     for dir in [&data, &cache_env, &config] {
         fs::create_dir_all(dir).ok();
     }
