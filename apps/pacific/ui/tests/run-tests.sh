@@ -5,7 +5,7 @@
 # Pacific's QML tests on the offscreen platform: the UI's helpers and the
 # mock web view's contract (built here with CMake).
 #
-#   KEEL_QML=/path/to/keel-build/qml shoal/pacific/ui/tests/run-tests.sh
+#   KEEL_QML=/path/to/keel-build/qml apps/pacific/ui/tests/run-tests.sh
 #
 # MOCKVIEW_BUILD: where to build the mock (default ${TMPDIR:-/tmp}/pacific-mockview).
 set -eu

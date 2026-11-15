@@ -16,7 +16,7 @@ Pacific's own code is Apache-2.0, Marathon's licence. The web view (`webview/`) 
 | `core/` | `pacific-core`, its own Cargo workspace: profile database, frecency and suggestions, search engines, sessions, tab lifecycle, content blocking, autoconsent, HTTPS-first, reader mode, downloads, site settings, privacy, Shoal Keys client, Pilot helpers. `core/data/versions.env` pins the bundled third-party data. |
 | `app/` | `shipwright-pacific`, its own Cargo workspace: the `Pacific` singleton (`bridge.rs`), the models `TabModel`, `SuggestionModel`, `PacificList` (`models.rs` declares them; `tabs.rs`, `suggestions.rs`, `lists.rs` implement them), the core thread (`worker.rs`), HTTPS for suggestions and list updates (`net.rs`), `openUrl` on D-Bus (`dbus.rs`). |
 | `ui/qml/` | The pages, components, cover and Keel Actions (`actions/PacificActions.qml`). |
-| `ui/tests/` | QML tests (`run-tests.sh`), lint (`lint.sh`, `qmllint-accepted.txt`) and `mockview/`, a stand-in for `Shipwright.Pacific.WebView` with the same API that draws pages from fixtures (a small C++ base for the properties whose change signals QML cannot declare, plus QML). |
+| `ui/tests/` | QML tests (`run-tests.sh`) and `mockview/`, a stand-in for `Shipwright.Pacific.WebView` with the same API that draws pages from fixtures (a small C++ base for the properties whose change signals QML cannot declare, plus QML). |
 | `webview/` | `Shipwright.Pacific.WebView 1.0`: the Qt 6 view of WPE WebKit pages, the agent API for Pilot, pacific-minibrowser. |
 | `icons/` | The app icon. |
 
@@ -118,25 +118,16 @@ Fixed during the reviews: the address was cut by icons; titles in the tab overvi
 
 ```
 # core
-cd shoal/pacific/core && cargo clippy --all-targets -- -D warnings && cargo test
+cd apps/pacific/core && cargo +1.100.0 clippy --all-targets -- -D warnings && cargo test
 # app (needs Qt 6 and Keel's sailfishapp; see tools/keel-launcher)
-cd shoal/pacific/app && cargo clippy --all-targets -- -D warnings && cargo test
+cd apps/pacific/app && cargo clippy --all-targets -- -D warnings && cargo test
 # QML tests and lint
-KEEL_QML=build/keel/qml shoal/pacific/ui/tests/run-tests.sh
-KEEL_BUILD=build/keel shoal/pacific/ui/tests/lint.sh
-# screenshots (real module, mock web view)
-KEEL_QML=build/keel/qml tools/screenshots/run.sh --only pacific --out /tmp/shots
-# screenshots on the real engine (a host build of webview/ and its prefix, see
-# webview/README.md "Running on the host"): local fixture sites, no internet;
-# pacific-real/checks.txt says no blocked request reached the server and the
-# article was sent with Sec-GPC: 1
-PACIFIC_ENGINE_PREFIX=<prefix> PACIFIC_ENGINE_BUILD=<webview build> KEEL_QML=build/keel/qml \
-    tools/screenshots/run.sh --only pacific-real --out /tmp/shots
-# the package (prebuild.sh first)
-tools/build/native/native.sh shoal/pacific/rpm/shipwright-pacific.spec
+KEEL_QML=<keel build>/qml apps/pacific/ui/tests/run-tests.sh
+# the package, with the keel-silica and wpewebkit apks in mkosi.packages/
+scripts/qemu/lib/build-pacific-apk.sh
 ```
 
-Real-file tests run when the data is around: `PACIFIC_EASYLIST`, `PACIFIC_RESOURCES_JSON` and `PACIFIC_AUTOCONSENT_JS` point at a list, Brave's resources and the autoconsent build (`rpm/data/` after `prebuild.sh`). `PACIFIC_OFFLINE=1` stops the app's own requests.
+Real-file tests run when the data is around: `PACIFIC_EASYLIST`, `PACIFIC_RESOURCES_JSON` and `PACIFIC_AUTOCONSENT_JS` point at a list, Brave's resources and the autoconsent build (`fetch-data.sh <dir>` fetches them). `PACIFIC_OFFLINE=1` stops the app's own requests.
 
 ### Needs the engine or the phone
 
