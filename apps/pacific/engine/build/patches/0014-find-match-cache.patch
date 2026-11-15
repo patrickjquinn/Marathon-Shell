@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Find in page highlights the matches of what was typed, not of its first
+# letter.
+#
+# CachedMatchFinder::countMatches() keyed its cache to the new search text
+# but kept the match list of the previous one, and findMatches() for the
+# same text then returned that list. The embedder counts, then searches,
+# on every keystroke (WebKitFindController), so the highlights were always
+# a keystroke stale: typing "Norway" in find on Wikipedia's Finland page
+# highlighted every "n" of the first keystroke (1001 marks; 7 matches).
+# Counting now drops the kept list.
+#
+--- a/Source/WebCore/editing/CachedMatchFinder.cpp
++++ b/Source/WebCore/editing/CachedMatchFinder.cpp
+@@ -298,6 +298,9 @@
+     });
+ 
+     m_countCache = count;
++    // Pacific (patch 0014): the keys now name this search, so matches kept
++    // for an earlier one must go: findMatches() returned them for this one.
++    m_matchCache = std::nullopt;
+     m_searchResultCacheKeys.targetString = target;
+     m_searchResultCacheKeys.limit = limit;
+     m_searchResultCacheKeys.options = matchAffectingOptions(options);

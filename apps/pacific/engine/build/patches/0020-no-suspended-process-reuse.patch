@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A new navigation never goes to the process holding a suspended page.
+#
+# Going from The Verge to OSNews and back to The Verge in one tab, the
+# address bar showed the new address and the old page stayed: the load
+# never started, Stop did not help, only another navigation did (three
+# of ten such navigations on the Jolla Phone; Wikipedia and gnu.org
+# likewise). Every stuck one had been given, by processForSite, the
+# process holding the site's suspended page (back/forward cache after a
+# process swap), which upstream reuses for speed; the request reached it
+# and no provisional load began. Every prewarmed or new process loaded.
+# Now a new navigation takes one of those: eighteen of eighteen started
+# within 300 ms. A back/forward navigation still restores its suspended
+# page in its own process (processForNavigation's target item path):
+# back to The Verge committed in 1 ms. PACIFIC_REUSE_SUSPENDED_PROCESS=1
+# restores upstream's reuse.
+#
+--- a/Source/WebKit/UIProcess/WebProcessPool.cpp
++++ b/Source/WebKit/UIProcess/WebProcessPool.cpp
+@@ -1287,7 +1287,18 @@
+         }
+ 
+         // RefPtr if we have a suspended page for the given registrable domain and use its process if we do, for performance reasons.
+-        if (RefPtr process = SuspendedPageProxy::findReusableSuspendedPageProcess(*this, site->domain(), websiteDataStore, lockdownMode, enhancedSecurity, pageConfiguration)) {
++        // Pacific (patch 0020): not for a new navigation. A load sent to the process
++        // holding a suspended page for its site never started on WPE (The Verge, then
++        // OSNews, then The Verge again: the address bar showed the new address and the
++        // old page stayed, Stop did not help); a prewarmed or new process always loads.
++        // A back/forward navigation still restores its suspended page in its own
++        // process (processForNavigation, the target item's suspended page).
++        // PACIFIC_REUSE_SUSPENDED_PROCESS=1 restores upstream's reuse.
++        static const bool reuseSuspendedProcess = [] {
++            const char* env = getenv("PACIFIC_REUSE_SUSPENDED_PROCESS");
++            return env && !strcmp(env, "1");
++        }();
++        if (RefPtr process = reuseSuspendedProcess ? SuspendedPageProxy::findReusableSuspendedPageProcess(*this, site->domain(), websiteDataStore, lockdownMode, enhancedSecurity, pageConfiguration) : nullptr) {
+             WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForSite: Using WebProcess from a SuspendedPage (process=%p, PID=%i)", process.get(), process->processID());
+             ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
+             return process.releaseNonNull();

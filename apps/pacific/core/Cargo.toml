@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+
+# pacific-core: everything in the Pacific browser that is not Qt and not the
+# web engine: the profile database (history, bookmarks, frecency, site
+# settings, downloads), address-bar suggestions, search engines, the session
+# store, the tab lifecycle policy, content blocking, HTTPS-first, reader mode,
+# cookie-banner rejection, privacy and the Shoal Keys autofill client.
+#
+# Its own Cargo workspace (like the apps): the browser's dependency tree
+# (adblock, dom_smoothie) stays out of the root lock file.
+[workspace]
+
+[package]
+name = "pacific-core"
+description = "Pacific browser core: profile store, ranking, sessions, tab lifecycle, content blocking, reader mode"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"
+license = "LicenseRef-Shipwright-Proprietary"
+publish = false
+
+[dependencies]
+# Brave's network and cosmetic filter engine (MPL-2.0, used unmodified).
+adblock = { version = "0.13.3", default-features = false, features = [
+    "full-regex-handling",
+    "resource-assembler",
+    "embedded-domain-resolver",
+    # Lists as WebKit content-blocker JSON (the web view's network filter).
+    "content-blocking",
+] }
+# Mozilla Readability port (MIT); chosen over readabilityrs for its release
+# cadence and maintenance (scratchpad validation report, section 5).
+dom_smoothie = "0.18"
+log = "0.4"
+lz4_flex = "0.13"
+# Public suffix list compiled in (registrable domains for third-party checks).
+psl = "2"
+# bundled: FTS5 is compiled in, independent of the device's libsqlite3.
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+thiserror = "2"
+url = "2"
+# Shoal Keys autofill requests on the session bus.
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"
+
+[profile.release]
+lto = true
+strip = true

@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# The display link keeps the timer as its clock on the legacy API.
+#
+# Up to 2.54.0 the legacy API's view never named a display, so the UI
+# process's display link always ran on DisplayVBlankMonitorTimer (Atlantic
+# sets its rate from WEBKIT_DISPLAY_REFRESH_RATE). 2.54.1 gives the view
+# display 1 so that the DRM vblank monitor can be tried, and ours is built
+# with USE(LIBDRM): the UI process would scan the DRM devices for a
+# primary node with a CRTC and, on a phone that has one, wait on the
+# vblanks of a panel the Android composer drives, at the rate of its
+# mode instead of the rate Pacific sets. Untested on the phones, so the
+# timer stays; PACIFIC_DRM_VBLANK=1 tries DRM first, as upstream.
+#
+# The display ID itself stays: with it, wheel-event activity asks the
+# display link for full-speed updates again (WebPageProxy::
+# updateDisplayLinkFrequency() returned early without one), and patch
+# 0011 already keeps those ticks out of the way while frames come.
+#
+--- a/Source/WebKit/UIProcess/glib/DisplayVBlankMonitor.cpp
++++ b/Source/WebKit/UIProcess/glib/DisplayVBlankMonitor.cpp
+@@ -28,6 +28,7 @@
+ 
+ #include "DisplayVBlankMonitorTimer.h"
+ #include "Logging.h"
++#include <cstdlib>
+ #include <wtf/TZoneMallocInlines.h>
+ #include <wtf/Vector.h>
+ 
+@@ -62,6 +63,19 @@ std::unique_ptr<DisplayVBlankMonitor> DisplayVBlankMonitor::create(PlatformDispl
+ #endif
+ 
+ #if USE(LIBDRM)
++#if PLATFORM(WPE)
++    // Pacific (patch 0022): the legacy API's view has display 1 since
++    // 2.54.1, which sends it here. On Sailfish the panel belongs to the
++    // Android composer; the timer (Atlantic's WEBKIT_DISPLAY_REFRESH_RATE)
++    // is the clock 2.54.0 used and Pacific was measured with.
++    // PACIFIC_DRM_VBLANK=1 tries a DRM node first, as upstream.
++    static const bool drmVBlank = [] {
++        const char* env = getenv("PACIFIC_DRM_VBLANK");
++        return env && atoi(env) == 1;
++    }();
++    if (!drmVBlank)
++        return DisplayVBlankMonitorTimer::create();
++#endif
+     if (auto monitor = DisplayVBlankMonitorDRM::create(displayID))
+         return monitor;
+     RELEASE_LOG_FAULT(DisplayLink, "Failed to create DRM vblank monitor, falling back to timer");

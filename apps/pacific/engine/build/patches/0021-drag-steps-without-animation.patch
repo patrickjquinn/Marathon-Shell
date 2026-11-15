@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A drag step scrolls the page and nothing else (WPE WebKit 2.54.1's touch
+# scrolling without its scroll animation per step).
+#
+# 2.54.1 brought upstream's asynchronous touch scrolling (bug 318938,
+# 319347@main): touch events go to the EventDispatcher thread, which
+# answers them at once where the page has no touch listener. With it,
+# ScrollingEffectsController starts a scroll animation for every
+# precise-delta wheel event of a gesture, a step of no length, so that
+# the scrolling thread keeps watching the display link while the main
+# thread is busy. Ours is kept ticking another way while a scroll is
+# live (Atlantic's independent scroll, patches 0004 and 0007, and patch
+# 0009's resampled drag at each frame). The animation replaced the
+# ScrollAnimationKinetic a finger had caught, and at the flick's end
+# processWheelEventForKineticScrolling() stopped it and dropped the caught
+# speed, so patch 0019's carry never happened. Backported to 2.54.0 on 12
+# October 2026, it also took OSNews's worst frame gap flinging from 70 to
+# 600 ms. The rest of 2.54.1's touch scrolling stays: acknowledgements no
+# longer wait for a busy main thread, which is what Atlantic's
+# WEBKIT_TOUCH_ACK_TIMEOUT_MS works around.
+#
+# PACIFIC_DRAG_STEP_ANIMATION=1 restores upstream's animation.
+#
+--- a/Source/WebCore/platform/ScrollingEffectsController.cpp
++++ b/Source/WebCore/platform/ScrollingEffectsController.cpp
+@@ -456,7 +456,16 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
+ #endif
+ 
+ #if ENABLE(COORDINATED_TOUCH_EVENTS)
+-    if (m_client.scrollAnimationEnabled() && m_inScrollGesture) {
++    // Pacific (patch 0021): not here. Our scrolling thread ticks while a
++    // scroll is live without an animation to keep it going (Atlantic's
++    // independent scroll, patches 0004, 0007 and 0009), and this animation
++    // took the place of a caught fling, so the flick's end dropped the speed
++    // patch 0019 carries. PACIFIC_DRAG_STEP_ANIMATION=1 restores upstream's.
++    static const bool dragStepAnimation = [] {
++        const char* env = getenv("PACIFIC_DRAG_STEP_ANIMATION");
++        return env && atoi(env) == 1;
++    }();
++    if (dragStepAnimation && m_client.scrollAnimationEnabled() && m_inScrollGesture) {
+         // For precise-delta wheel events, which are dispatched by touchpad or synthesized from touch events,
+         // scroll immediately with immediateScrollBy below.
+         // However, it's not enough for async scrolling while the main thread is busy.

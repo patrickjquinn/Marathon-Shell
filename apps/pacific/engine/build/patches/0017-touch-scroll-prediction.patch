@@ -1,0 +1,247 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Drags drawn where the finger will be, not where it was.
+#
+# Patch 0016's resampling shows the finger where it was a resampling
+# latency ago (16-40 ms, as reports arrive late and in bursts), and the
+# frame reaches the glass about a period after its tick: on the Jolla Phone
+# the page trailed the finger by 28-36 ms, felt as a drag that lags and a
+# fling that starts late. As iOS and Android do, the page is now drawn
+# ahead by the finger's recent velocity times that latency (plus 8 ms,
+# PACIFIC_SCROLL_PREDICT_MS), extrapolating the smooth resampled position.
+# The offset grows by at most 15% of a frame's own movement
+# (PACIFIC_SCROLL_PREDICT_RAMP), so a drag starts without a lurch; it
+# never moves the page against the finger, fades at low speed and when
+# reports stop, is dropped on a reversal and eases back while the finger
+# rests; the fling goes on from where the page is shown. PACIFIC_SCROLL_PREDICT=0 turns it off.
+#
+# 200 ms flicks at 1.4 css px/ms, the page's lag behind the finger over
+# the last frames before the lift: 33-42 ms -> 2-12 ms. Steps while
+# dragging stay as even as without it (13-22 px a frame at 90 Hz).
+#
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.h	2026-10-10 21:58:39.713516259 +0100
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.h	2026-10-11 08:49:34.801359093 +0100
+@@ -201,6 +201,21 @@
+     double m_touchIntervalMs { 8 }; // between touch reports, smoothed
+     MonotonicTime m_lastQueuedTouchAt;
+     Seconds touchScrollLatency() const;
++    // Pacific (patch 0017): the drag's recent reports (event clock, and the
++    // finger's travel since it went down), for its velocity; how far ahead
++    // of the reports the page is shown; the drag's last move, to carry a
++    // frame's correction when no report is due.
++    struct TouchSample {
++        MonotonicTime at;
++        FloatSize travelled;
++    };
++    Vector<TouchSample, 16> m_touchSamples;
++    FloatSize m_touchTravelled;
++    FloatSize m_predictedOffset;
++    std::optional<QueuedTouchScroll> m_lastTouchMove;
++    FloatSize touchScrollVelocity(MonotonicTime frameEventTime) const;
++    FloatSize touchScrollPredictionStep(const FloatSize& moved, MonotonicTime frameEventTime);
++    void forgetTouchScrollPrediction();
+     // Shipwright (patch 0007): scroll animation time, stepped by
+     // whole refresh periods.
+     MonotonicTime m_animationTime;
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp	2026-10-10 21:58:39.709665878 +0100
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp	2026-10-11 08:49:34.800577764 +0100
+@@ -774,6 +774,10 @@
+             m_touchIntervalMs = 0.9 * m_touchIntervalMs + 0.1 * interval;
+     }
+     m_lastQueuedTouchAt = event.timestamp();
++    m_touchTravelled += event.delta();
++    m_touchSamples.append({ event.timestamp(), m_touchTravelled });
++    while (m_touchSamples.size() > 16)
++        m_touchSamples.removeAt(0);
+     m_touchScrollQueue.append({ event.timestamp(), event, steps });
+     ensureIndependentTick();
+     return true;
+@@ -785,6 +789,8 @@
+     const bool dragMove = (event.phase() == PlatformWheelEventPhase::Began || event.phase() == PlatformWheelEventPhase::Changed)
+         && event.momentumPhase() == PlatformWheelEventPhase::None && event.hasPreciseScrollingDeltas();
+     m_touchScrollQueueable = dragMove && result.wasHandled && !result.steps.contains(WheelEventProcessingSteps::SynchronousScrolling);
++    if (event.phase() != PlatformWheelEventPhase::Changed)
++        forgetTouchScrollPrediction();
+     m_touchScrollAnchor = event.timestamp();
+     m_touchScrollClockOffset = MonotonicTime::now() - event.timestamp();
+     m_touchScrollPartial = { };
+@@ -796,6 +802,7 @@
+     // The reports still queued go as they came, each at its own time: the
+     // end of a drag sets the fling's velocity, which is measured from the
+     // last events' deltas and times; merged into one, it came out 5% faster.
++    forgetTouchScrollPrediction();
+     while (!m_touchScrollQueue.isEmpty()) {
+         auto queued = m_touchScrollQueue.takeFirst();
+         if (queued.isEnd) {
+@@ -813,7 +820,7 @@
+ 
+ void ThreadedScrollingTree::applyTouchScroll(std::optional<MonotonicTime> until)
+ {
+-    if (m_touchScrollQueue.isEmpty())
++    if (m_touchScrollQueue.isEmpty() && (m_predictedOffset.isZero() || !m_lastTouchMove || !until))
+         return;
+     // The finger's movement up to `until` (all of it without), as one event:
+     // each queued move covers the time since the one before it.
+@@ -832,6 +839,8 @@
+                 handleWheelEvent(latest->event.copyWithDeltaAndTimestamp(total, front.at), latest->steps);
+             auto end = m_touchScrollQueue.takeFirst();
+             m_touchScrollPartial = { };
++            // Patch 0017: the fling goes on from where the page is shown.
++            forgetTouchScrollPrediction();
+             touchScrollHandled(end.event, handleWheelEvent(end.event, end.steps));
+             return;
+         }
+@@ -851,11 +860,149 @@
+             latest = front;
+         break;
+     }
+-    if (!latest || total.isZero())
++    if (latest)
++        m_lastTouchMove = latest;
++    // Patch 0017: shown where the finger will be when the frame is.
++    if (untilEventTime)
++        total += touchScrollPredictionStep(total, *untilEventTime + touchScrollLatency());
++    if (!m_lastTouchMove || total.isZero())
+         return;
++    auto& base = latest ? *latest : *m_lastTouchMove;
+     // In the event clock, as the events the fling's velocity is measured with.
+-    auto event = latest->event.copyWithDeltaAndTimestamp(total, untilEventTime.value_or(latest->at));
+-    handleWheelEvent(event, latest->steps);
++    // A frame with only the prediction's correction (the finger resting) is
++    // dated at the finger's last move: it is not the finger moving, and a
++    // finger that rested before it lifted must not fling (patch 0018).
++    auto event = base.event.copyWithDeltaAndTimestamp(total, latest ? untilEventTime.value_or(base.at) : base.at);
++    handleWheelEvent(event, base.steps);
++}
++
++// Pacific (patch 0017): touch prediction. The resampling above shows the
++// finger where it was a resampling latency ago (16-40 ms: the reports
++// arrive late and in bursts), and the frame reaches the glass about a
++// period after its tick: on the Jolla Phone the page trailed the finger by
++// 28-36 ms, felt as a drag that lags and a fling that starts late. As
++// iOS and Android do, the page is drawn ahead, where the finger's recent
++// velocity takes it by the time the frame is shown, and only the smooth
++// resampled position is extrapolated, not the bursty reports.
++//
++// The prediction is an offset over the resampled travel. It grows by at
++// most 15% of a frame's own movement (no lurch when it starts,
++// PACIFIC_SCROLL_PREDICT_RAMP), never moves the
++// page against the finger's direction, fades out at low speed and when
++// reports stop coming, is dropped on a reversal, and eases back (a quarter
++// per frame) while the finger rests. At the lift the fling goes on from
++// where the page is shown. PACIFIC_SCROLL_PREDICT=0 turns it off;
++// PACIFIC_SCROLL_PREDICT_MS (default 8) is how far past the frame's time.
++
++static bool touchScrollPrediction()
++{
++    static const bool enabled = [] {
++        const char* env = getenv("PACIFIC_SCROLL_PREDICT");
++        return !env || strcmp(env, "0");
++    }();
++    return enabled;
++}
++
++// How much of a frame's own movement the prediction may add to it while it
++// grows: the whole of it doubled the first steps of a drag (a lurch of
++// 32-47 px against 16 on the Jolla Phone). At 15% the steps stay even and
++// the prediction is still built up by the time a 200 ms flick lifts.
++static float touchScrollPredictionRamp()
++{
++    static const float ramp = [] {
++        const char* env = getenv("PACIFIC_SCROLL_PREDICT_RAMP");
++        return std::clamp(env ? static_cast<float>(atof(env)) : 0.15f, 0.05f, 1.0f);
++    }();
++    return ramp;
++}
++
++static double touchScrollPredictionLeadMs()
++{
++    static const double lead = [] {
++        const char* env = getenv("PACIFIC_SCROLL_PREDICT_MS");
++        double ms = env ? atof(env) : 8;
++        return std::clamp(ms, 0.0, 32.0);
++    }();
++    return lead;
++}
++
++void ThreadedScrollingTree::forgetTouchScrollPrediction()
++{
++    m_touchSamples.clear();
++    m_touchTravelled = { };
++    m_predictedOffset = { };
++    m_lastTouchMove = std::nullopt;
++}
++
++// Pixels per millisecond over the last few reports (24 ms, or three
++// reports' intervals), fading when reports that should be here are not.
++FloatSize ThreadedScrollingTree::touchScrollVelocity(MonotonicTime frameEventTime) const
++{
++    if (m_touchSamples.size() < 3)
++        return { };
++    const auto& newest = m_touchSamples.last();
++    auto from = newest.at - Seconds::fromMilliseconds(std::max(24.0, 3 * m_touchIntervalMs));
++    std::optional<TouchSample> start;
++    for (size_t i = m_touchSamples.size() - 1; i > 0; --i) {
++        const auto& before = m_touchSamples[i - 1];
++        if (before.at > from)
++            continue;
++        const auto& after = m_touchSamples[i];
++        auto span = after.at - before.at;
++        double share = span > 0_s ? std::clamp((from - before.at) / span, 0.0, 1.0) : 1.0;
++        start = TouchSample { from, before.travelled + (after.travelled - before.travelled) * static_cast<float>(share) };
++        break;
++    }
++    if (!start) {
++        start = m_touchSamples.first();
++        if (newest.at - start->at < 16_ms)
++            return { };
++    }
++    double ms = (newest.at - start->at).milliseconds();
++    if (ms <= 0)
++        return { };
++    auto velocity = (newest.travelled - start->travelled) * static_cast<float>(1 / ms);
++    // Reports up to a lateness and an interval before the frame should be
++    // here; when they are not, the finger has slowed or stopped.
++    double missing = (frameEventTime - newest.at).milliseconds() - m_touchLatenessMs - m_touchIntervalMs;
++    if (missing > 0)
++        velocity = velocity * static_cast<float>(std::clamp(1 - missing / 24, 0.0, 1.0));
++    return velocity;
++}
++
++// The correction to add to this frame's movement `moved`.
++FloatSize ThreadedScrollingTree::touchScrollPredictionStep(const FloatSize& moved, MonotonicTime frameEventTime)
++{
++    if (!touchScrollPrediction() || !m_lastTouchMove)
++        return { };
++    auto velocity = touchScrollVelocity(frameEventTime);
++    // Slow drags are placed with care: not predicted (0.1 px/ms), fully
++    // from 0.4 px/ms.
++    float speed = std::hypot(velocity.width(), velocity.height());
++    float fade = std::clamp((speed - 0.1f) / 0.3f, 0.0f, 1.0f);
++    float horizonMs = std::min<float>(touchScrollLatency().milliseconds() + touchScrollPredictionLeadMs(), 48);
++    auto target = velocity * (fade * horizonMs);
++
++    auto axis = [ramp = touchScrollPredictionRamp()](float moved, float target, float offset) {
++        if (target * offset < 0)
++            target = 0; // a reversal
++        float change = target - offset;
++        if (std::abs(moved) < 0.01f) {
++            // Resting: back towards the reports, gently.
++            return std::abs(target) < std::abs(offset) ? change * 0.25f : 0.0f;
++        }
++        // Ahead by at most a share of the frame's own movement more.
++        if (change * moved > 0)
++            change = std::copysign(std::min(std::abs(change), ramp * std::abs(moved)), change);
++        // Never against the finger.
++        if ((moved + change) * moved < 0)
++            change = -moved;
++        return change;
++    };
++    FloatSize step { axis(moved.width(), target.width(), m_predictedOffset.width()),
++        axis(moved.height(), target.height(), m_predictedOffset.height()) };
++    m_predictedOffset += step;
++    return step;
+ }
+ 
+ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()

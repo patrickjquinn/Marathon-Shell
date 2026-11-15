@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+
+# shipwright-pacific: the Pacific browser executable. Loads the QML in
+# ../ui/qml and exposes `Shipwright.Pacific 1.0` (the `Pacific` singleton
+# and the TabModel, SuggestionModel and PacificList models), CXX-Qt
+# QObjects over pacific-core. The page itself is the web view module
+# `Shipwright.Pacific.WebView 1.0` (../webview, its own package).
+#
+# Standalone Cargo workspace, like the other CXX-Qt apps.
+[workspace]
+
+[package]
+name = "shipwright-pacific"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"
+license = "LicenseRef-Shipwright-Proprietary"
+publish = false
+
+# A shared object that is also executable (tools/keel-launcher/link_sailfishapp.rs).
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+keel = { path = "../../../keel/actions/rust/keel" }
+cxx = "1.0.176"
+cxx-qt = "=0.10.0"
+cxx-qt-lib = { version = "=0.10.0", features = ["qt_gui", "qt_qml"] }
+
+pacific-core = { path = "../core" }
+log = "0.4"
+# HTTPS for search suggestions and filter-list updates, over rustls with
+# ring and the platform's certificates, as in Shoal Mail.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-platform-verifier = "0.7"
+serde = { version = "1", features = ["derive"] }
+url = "2"
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time", "sync"] }
+# The openUrl service (org.shipwright.pacific.ui) on the session bus.
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+
+[dev-dependencies]
+tempfile = "3"
+keel-actions-codegen = { path = "../../../keel/actions/codegen" }
+keel-actions-schema = { path = "../../../keel/actions/schema" }
+
+[build-dependencies]
+keel-actions-codegen = { path = "../../../keel/actions/codegen" }
+cxx-qt-build = "=0.10.0"
+cc = "1"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"
+
+[profile.release]
+lto = true
+strip = true

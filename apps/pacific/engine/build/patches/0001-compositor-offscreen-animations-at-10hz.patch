@@ -1,0 +1,139 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Compositor: an animation that is off the surface is ticked at 10 Hz.
+#
+# ThreadedCompositor recomposited every frame while any layer had a running
+# animation, visible or not. Wikipedia's mobile pages carry an infinite CSS
+# "pulsating dot" on a header button: scrolled out of view, it kept an idle
+# page compositing ~95 frames a second on the Jolla Phone (measured).
+#
+# SkiaCompositingLayer notes, while it computes the transforms each paint,
+# whether a layer with a running animation touches the surface (a sizeless
+# animated container counts as visible, since its children move with it).
+# After three animation-only frames with none on the surface, the next
+# animation frame waits 100 ms; one coming into view, or any other reason to
+# composite, returns to full rate. (Damage tracking would be the general
+# answer, but needs ENABLE(WPE_PLATFORM).) PACIFIC_DEBUG_ANIMATIONS=1 logs
+# each animation frame's verdict.
+#
+--- a/Source/WebCore/platform/graphics/skia/SkiaCompositingLayer.h
++++ b/Source/WebCore/platform/graphics/skia/SkiaCompositingLayer.h
+@@ -121,6 +121,10 @@
+     // to the region the target must redraw - the target's prior owed damage combined with this frame's - and
+     // no prior damage repaints the whole target. Returns whether any animation is still running.
+     bool paint(SkCanvas&, std::optional<Damage>& frameDamage, const std::optional<Damage>& priorTargetDamage = std::nullopt, std::optional<SkColor> clearColor = std::nullopt);
++    // Whether the last paint() on this thread had a running animation on a
++    // layer that touches the surface (Shipwright: offscreen animations are
++    // composited on a slow tick, see ThreadedCompositor::paintToSkiaCanvas).
++    static bool lastPaintHadVisibleRunningAnimations();
+ 
+ private:
+     using ScopedFlush = SkiaCompositingLayerImageSetBatch::ScopedFlush;
+--- a/Source/WebCore/platform/graphics/skia/SkiaCompositingLayer.cpp
++++ b/Source/WebCore/platform/graphics/skia/SkiaCompositingLayer.cpp
+@@ -454,6 +454,16 @@
+     return state;
+ }
+ 
++// The surface the current paint() draws to, and whether a running animation
++// touches it (both per compositor thread).
++static thread_local std::optional<FloatRect> s_animationSurface;
++static thread_local bool s_visibleRunningAnimation = false;
++
++bool SkiaCompositingLayer::lastPaintHadVisibleRunningAnimations()
++{
++    return s_visibleRunningAnimation;
++}
++
+ bool SkiaCompositingLayer::computeTransformsAndAnimations(const TransformationMatrix& parentTransform, const TransformationMatrix& futureParentTransform, MonotonicTime time)
+ {
+     m_animationsState = syncAnimations(time);
+@@ -512,6 +522,12 @@
+             m_animatedBackingStoreClient->requestBackingStoreUpdateIfNeeded(m_transforms.futureCombined);
+     }
+ 
++    // An animated layer with no size of its own (a container) counts as
++    // visible: its children move with it.
++    if (hasRunningAnimations && s_animationSurface && !s_visibleRunningAnimation
++        && (m_rect.isEmpty() || m_transforms.combined.mapRect(m_rect).intersects(*s_animationSurface)))
++        s_visibleRunningAnimation = true;
++
+     if (m_mask) {
+         auto& maskParent = m_replicatedLayer ? *m_replicatedLayer : *this;
+         hasRunningAnimations |= m_mask->computeTransformsAndAnimations(maskParent.m_transforms.combined, maskParent.m_transforms.futureCombined, time);
+@@ -536,7 +552,11 @@
+ bool SkiaCompositingLayer::paint(SkCanvas& canvas, std::optional<Damage>& frameDamage, const std::optional<Damage>& priorTargetDamage, std::optional<SkColor> clearColor)
+ {
+     // Both walks below assume the animations have been applied and the transforms computed.
++    const auto surfaceSize = canvas.getBaseLayerSize();
++    s_animationSurface = FloatRect(0, 0, surfaceSize.width(), surfaceSize.height());
++    s_visibleRunningAnimation = false;
+     bool hasRunningAnimations = computeTransformsAndAnimations({ }, { }, MonotonicTime::now());
++    s_animationSurface = std::nullopt;
+ 
+ #if ENABLE(DAMAGE_TRACKING)
+     // Collect the damage in a walk of its own first, so it is complete before the walk that draws. Each
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.h
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.h
+@@ -193,6 +193,11 @@
+     } m_attributes;
+ 
+     RunLoop::Timer m_renderTimer;
++    // An animation whose frames change nothing on screen (offscreen, or
++    // infinite and invisible) is composited on this slow tick instead of
++    // every frame. Compositor thread only.
++    RunLoop::Timer m_invisibleAnimationTimer;
++    unsigned m_invisibleAnimationFrames { 0 };
+     std::unique_ptr<WebCore::TextureMapper> m_textureMapper;
+ 
+     struct {
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
+@@ -107,6 +107,9 @@
+     , m_sceneState(&sceneState)
+     , m_flipY(!m_surface->shouldPaintMirrored())
+     , m_renderTimer(m_workQueue->runLoop(), "ThreadedCompositor::RenderTimer"_s, this, &ThreadedCompositor::renderLayerTree)
++    , m_invisibleAnimationTimer(m_workQueue->runLoop(), "ThreadedCompositor::InvisibleAnimationTimer"_s, [this] {
++        requestComposition(CompositionReason::Animation);
++    })
+ {
+     ASSERT(RunLoop::isMain());
+ 
+@@ -195,6 +198,7 @@
+         if (!m_useSkia && (!m_context || !m_context->makeContextCurrent()))
+             return;
+ 
++        m_invisibleAnimationTimer.stop();
+         // Update the scene at this point ensures the layers state are correctly propagated.
+         flushCompositingState(CompositionReason::RenderingUpdate);
+ 
+@@ -580,8 +584,26 @@
+     if (auto* surface = canvas->getSurface())
+         PlatformDisplay::sharedDisplay().skiaGrContext()->flushAndSubmit(surface, GrSyncCpu::kNo);
+ 
+-    if (hasRunningAnimations)
+-        requestComposition(CompositionReason::Animation);
++    if (hasRunningAnimations) {
++        // Shipwright: a running animation recomposited every frame, even
++        // offscreen (Wikipedia's infinite "pulsating dot" in a header scrolled
++        // out of view kept an idle page at ~95 frames a second on the Jolla
++        // Phone). After three animation-only frames with no animated layer on
++        // the surface, tick at 10 Hz; an animated layer coming into view, or
++        // any other reason to composite, returns to full rate.
++        const bool invisible = reasons.containsOnly({ CompositionReason::Animation })
++            && !SkiaCompositingLayer::lastPaintHadVisibleRunningAnimations();
++        static const bool debugAnimations = getenv("PACIFIC_DEBUG_ANIMATIONS");
++        if (debugAnimations)
++            fprintf(stderr, "[pacific] animation frame: reasons=%u invisible=%d\n", reasons.toRaw(), invisible ? 1 : 0);
++        m_invisibleAnimationFrames = invisible ? m_invisibleAnimationFrames + 1 : 0;
++        if (m_invisibleAnimationFrames >= 3) {
++            if (!m_invisibleAnimationTimer.isActive())
++                m_invisibleAnimationTimer.startOneShot(100_ms);
++        } else
++            requestComposition(CompositionReason::Animation);
++    } else
++        m_invisibleAnimationFrames = 0;
+ 
+     return TargetContents::Valid;
+ }

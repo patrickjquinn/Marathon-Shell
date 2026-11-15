@@ -1,0 +1,266 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Touch scrolling resampled to the display's frames.
+#
+# A drag's moves reach the scrolling thread at the touchscreen's rate (about
+# 110-125 Hz) against the panel's 90 Hz, and each scrolled the page as it
+# came: at a steady finger a frame moved one move's distance, two, or none
+# (5.6, 11.2 or 0 CSS px on the Jolla Phone); 28% of the frames composited
+# mid-drag did not move. Chrome and Android resample touch input to the
+# frame instead.
+#
+# Once a drag's first move has scrolled on the scrolling thread (not when
+# the page needs main-thread scrolling), its later moves are queued, and each
+# display refresh (patch 0007) applies the finger's movement up to 16 ms
+# before the frame, interpolated within a move. Moves are timed by the touch
+# reports' own times, mapped to now with the smallest delay seen: the UI
+# process sends one wheel event at a time and merges those that wait, so they
+# arrive in bursts. The delay behind the frame covers that path (6 and 12 ms
+# left 6-9% of frames still, 16 ms 4-7%; PACIFIC_SCROLL_RESAMPLE_LATENCY_MS).
+# Anything that is not a drag move first flushes the queue, report by report
+# at their own times, so the end of a drag and its fling keep their measured
+# velocity. The page still gets its DOM wheel events as they come.
+#
+# Dragging at a steady 125 Hz finger on the Jolla Phone, frames that did not
+# move: OSNews 0.9% from 28%, The Verge 4.7% from 28%. Flings travel about 5%
+# further: queued moves are acknowledged at once, so fewer reach the fling's
+# velocity estimate merged. PACIFIC_SCROLL_RESAMPLE=0 turns it off.
+#
+--- a/Source/WebCore/platform/PlatformWheelEvent.h
++++ b/Source/WebCore/platform/PlatformWheelEvent.h
+@@ -121,6 +121,17 @@
+         return copy;
+     }
+ 
++    // Pacific (patch 0009): touch scrolling resampled to the display's
++    // frames applies a frame's share of a drag as one event at its time.
++    PlatformWheelEvent copyWithDeltaAndTimestamp(FloatSize delta, MonotonicTime timestamp) const
++    {
++        PlatformWheelEvent copy = *this;
++        copy.m_deltaX = delta.width();
++        copy.m_deltaY = delta.height();
++        copy.m_timestamp = timestamp;
++        return copy;
++    }
++
+     PlatformWheelEvent copyWithVelocity(FloatSize velocity) const
+     {
+         PlatformWheelEvent copy = *this;
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
+@@ -32,6 +32,7 @@
+ #include <WebCore/ScrollingStateTree.h>
+ #include <WebCore/ScrollingTree.h>
+ #include <wtf/Condition.h>
++#include <wtf/Deque.h>
+ #include <wtf/RefPtr.h>
+ #include <wtf/RunLoop.h>
+ #include <wtf/TZoneMalloc.h>
+@@ -51,6 +52,22 @@
+ 
+     WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>) override;
+ 
++    // Pacific (patch 0009): touch scrolling resampled to the display's
++    // frames. A drag's moves arrive at the touchscreen's rate (110-125 Hz)
++    // against a 90 Hz panel, so applying each as it came moved one frame by
++    // one move and the next by two, or not at all. Once a drag's first move
++    // has scrolled on this thread, its later moves are queued and each frame
++    // (displayDidRefresh) applies the finger's movement up to a little before
++    // the frame, interpolated within a move. Anything else flushes the
++    // queue first. PACIFIC_SCROLL_RESAMPLE=0 turns it off.
++    // True when the event was queued (scrolling thread).
++    bool queueTouchScroll(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>);
++    // Applies everything queued (scrolling thread).
++    void flushTouchScroll();
++    // A wheel event handled on this thread: whether the rest of its gesture
++    // may be queued (scrolling thread).
++    void touchScrollHandled(const PlatformWheelEvent&, const WheelEventHandlingResult&);
++
+     bool handleWheelEventAfterMainThread(const PlatformWheelEvent&, ScrollingNodeID, std::optional<WheelScrollGestureState>);
+     void wheelEventWasProcessedByMainThread(const PlatformWheelEvent&, std::optional<WheelScrollGestureState>);
+ 
+@@ -115,6 +132,8 @@
+     // WEBKIT_INDEPENDENT_SCROLL: scrolling-thread-owned tick. See the comment on
+     // ensureIndependentTick() in the implementation.
+     void ensureIndependentTick();
++    // Pacific (patch 0009): see queueTouchScroll().
++    void applyTouchScroll(std::optional<MonotonicTime> until);
+     void independentTickFired();
+     void waitForRenderingUpdateCompletionOrTimeout() WTF_REQUIRES_LOCK(m_treeLock);
+ 
+@@ -152,6 +171,17 @@
+     Condition m_waitingForBeganEventCondition;
+     
+     MonotonicTime m_lastDisplayDidRefreshTime;
++    // Pacific (patch 0009): a drag's moves waiting for the display's frame.
++    struct QueuedTouchScroll {
++        MonotonicTime at; // the touch report's own time (event clock)
++        PlatformWheelEvent event;
++        OptionSet<WheelEventProcessingSteps> steps;
++    };
++    Deque<QueuedTouchScroll> m_touchScrollQueue;
++    MonotonicTime m_touchScrollAnchor; // where the front event's movement starts (event clock)
++    Seconds m_touchScrollClockOffset; // smallest arrival - event time seen: event clock to now
++    FloatSize m_touchScrollPartial; // the front event's share applied already
++    bool m_touchScrollQueueable { false };
+     // Shipwright (patch 0007): scroll animation time, stepped by
+     // whole refresh periods.
+     MonotonicTime m_animationTime;
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
+@@ -38,6 +38,7 @@
+ #include "ScrollingTreeOverflowScrollProxyNode.h"
+ #include "ScrollingTreeScrollingNode.h"
+ #include <cstdlib>
++#include <algorithm>
+ #include <cmath>
+ #include <cstring>
+ #include <wtf/RunLoop.h>
+@@ -694,11 +695,123 @@
+     displayDidRefreshOnScrollingThread();
+ }
+ 
++// Pacific (patch 0009): see queueTouchScroll(). How far behind a frame the
++// finger's position is taken. A touch report reaches this thread through
++// Lipstick, Qt and the UI process (which sends one wheel event at a time
++// and merges the waiting ones), late by up to about a frame; behind that, a
++// frame nearly always falls between two reports that have both arrived, and
++// gets its share of the movement. Flinging and dragging on the Jolla Phone:
++// 6 and 12 ms left 6-9% of frames still, 16 ms 4-7%. Shorter is
++// PACIFIC_SCROLL_RESAMPLE_LATENCY_MS.
++static Seconds touchScrollResampleLatency()
++{
++    static const Seconds latency = [] {
++        if (const char* env = getenv("PACIFIC_SCROLL_RESAMPLE_LATENCY_MS")) {
++            double ms = atof(env);
++            if (ms >= 0 && ms <= 50)
++                return Seconds::fromMilliseconds(ms);
++        }
++        return 16_ms;
++    }();
++    return latency;
++}
++
++static bool touchScrollResampling()
++{
++    static const bool enabled = [] {
++        const char* env = getenv("PACIFIC_SCROLL_RESAMPLE");
++        return !env || strcmp(env, "0");
++    }();
++    return enabled;
++}
++
++bool ThreadedScrollingTree::queueTouchScroll(const PlatformWheelEvent& event, OptionSet<WheelEventProcessingSteps> steps)
++{
++    ASSERT(ScrollingThread::isCurrentThread());
++    if (!touchScrollResampling() || !m_touchScrollQueueable || !independentScrollEnabled())
++        return false;
++    if (event.phase() != PlatformWheelEventPhase::Changed || event.momentumPhase() != PlatformWheelEventPhase::None || !event.hasPreciseScrollingDeltas())
++        return false;
++    // Timed by the touch reports themselves: the UI process sends one wheel
++    // event at a time and merges those that wait, so they arrive in bursts.
++    m_touchScrollClockOffset = std::min(m_touchScrollClockOffset, MonotonicTime::now() - event.timestamp());
++    m_touchScrollQueue.append({ event.timestamp(), event, steps });
++    ensureIndependentTick();
++    return true;
++}
++
++void ThreadedScrollingTree::touchScrollHandled(const PlatformWheelEvent& event, const WheelEventHandlingResult& result)
++{
++    ASSERT(ScrollingThread::isCurrentThread());
++    const bool dragMove = (event.phase() == PlatformWheelEventPhase::Began || event.phase() == PlatformWheelEventPhase::Changed)
++        && event.momentumPhase() == PlatformWheelEventPhase::None && event.hasPreciseScrollingDeltas();
++    m_touchScrollQueueable = dragMove && result.wasHandled && !result.steps.contains(WheelEventProcessingSteps::SynchronousScrolling);
++    m_touchScrollAnchor = event.timestamp();
++    m_touchScrollClockOffset = MonotonicTime::now() - event.timestamp();
++    m_touchScrollPartial = { };
++}
++
++void ThreadedScrollingTree::flushTouchScroll()
++{
++    ASSERT(ScrollingThread::isCurrentThread());
++    // The reports still queued go as they came, each at its own time: the
++    // end of a drag sets the fling's velocity, which is measured from the
++    // last events' deltas and times; merged into one, it came out 5% faster.
++    while (!m_touchScrollQueue.isEmpty()) {
++        auto queued = m_touchScrollQueue.takeFirst();
++        auto delta = queued.event.delta() - m_touchScrollPartial;
++        m_touchScrollPartial = { };
++        m_touchScrollAnchor = queued.at;
++        if (!delta.isZero())
++            handleWheelEvent(queued.event.copyWithDeltaAndTimestamp(delta, queued.at), queued.steps);
++    }
++}
++
++void ThreadedScrollingTree::applyTouchScroll(std::optional<MonotonicTime> until)
++{
++    if (m_touchScrollQueue.isEmpty())
++        return;
++    // The finger's movement up to `until` (all of it without), as one event:
++    // each queued move covers the time since the one before it.
++    FloatSize total;
++    std::optional<QueuedTouchScroll> latest;
++    std::optional<MonotonicTime> untilEventTime;
++    if (until)
++        untilEventTime = *until - m_touchScrollClockOffset;
++    while (!m_touchScrollQueue.isEmpty()) {
++        auto& front = m_touchScrollQueue.first();
++        if (!untilEventTime || front.at <= *untilEventTime) {
++            total += front.event.delta() - m_touchScrollPartial;
++            m_touchScrollPartial = { };
++            m_touchScrollAnchor = front.at;
++            latest = m_touchScrollQueue.takeFirst();
++            continue;
++        }
++        auto span = front.at - m_touchScrollAnchor;
++        double share = span > 0_s ? std::clamp((*untilEventTime - m_touchScrollAnchor) / span, 0.0, 1.0) : 1.0;
++        auto applied = front.event.delta() * static_cast<float>(share);
++        total += applied - m_touchScrollPartial;
++        m_touchScrollPartial = applied;
++        if (!latest)
++            latest = front;
++        break;
++    }
++    if (!latest || total.isZero())
++        return;
++    // In the event clock, as the events the fling's velocity is measured with.
++    auto event = latest->event.copyWithDeltaAndTimestamp(total, untilEventTime.value_or(latest->at));
++    handleWheelEvent(event, latest->steps);
++}
++
+ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()
+ {
+     TraceScope tracingScope(ScrollingThreadDisplayDidRefreshStart, ScrollingThreadDisplayDidRefreshEnd, displayID());
+     ASSERT(ScrollingThread::isCurrentThread());
+ 
++    // Pacific (patch 0009): this frame's share of a drag, before the tree
++    // lock (handleWheelEvent takes it).
++    applyTouchScroll(MonotonicTime::now() - touchScrollResampleLatency());
++
+     Locker locker { m_treeLock };
+     
+     auto now = MonotonicTime::now();
+--- a/Source/WebKit/WebProcess/WebPage/EventDispatcher.cpp
++++ b/Source/WebKit/WebProcess/WebPage/EventDispatcher.cpp
+@@ -226,7 +226,20 @@
+                 return;
+             }
+ 
++            // Pacific (patch 0009): a drag's moves wait for the display's
++            // frame, resampled (ThreadedScrollingTree::queueTouchScroll);
++            // the page still gets its DOM wheel event now, without blocking.
++            if (scrollingTree->queueTouchScroll(platformWheelEvent, processingSteps)) {
++                if (processingSteps.contains(WheelEventProcessingSteps::NonBlockingDOMEventDispatch))
++                    dispatchWheelEventViaMainThread(pageID, wheelEvent, { WheelEventProcessingSteps::NonBlockingDOMEventDispatch }, CompletionHandler<void(bool)>([](bool) { }, CompletionHandlerCallThread::AnyThread));
++                completionHandler(true);
++                return;
++            }
++            // Anything else comes after the movement queued before it.
++            scrollingTree->flushTouchScroll();
++
+             auto result = scrollingTree->handleWheelEvent(platformWheelEvent, processingSteps);
++            scrollingTree->touchScrollHandled(platformWheelEvent, result);
+ 
+             if (result.needsMainThreadProcessing()) {
+                 if (result.steps.contains(WheelEventProcessingSteps::SynchronousScrolling)) {

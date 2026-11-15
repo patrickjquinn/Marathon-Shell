@@ -1,0 +1,10 @@
+bb496739c001880be2aa654b50207c6698162e0a45801bfeda621809031561c2  libepoxy-1.5.11-746.1.aarch64.rpm
+769ec8e92c3d5db81dda7b782cb32e9d8925a6af0375089c3483bc09628cdb4c  libwpe-1.17.0-746.1.aarch64.rpm
+cc887cdcd5a5bebf98f40a667eb383d879969e07428ad0827de909de276b978c  wpebackend-fdo-1.17.0-746.1.aarch64.rpm
+2f90da3ef5ea073d552b208f49d2f2f64bcd9cc115ee1150139e137f237aab43  wpe-sfos-compat-1.0.0-746.1.aarch64.rpm
+e80a1c5f6907beb267b753c7b85f35e0ba243b4de3d0db0e40c242e3a0b242f1  wpewebkit2-2.54.0-746.1.aarch64.rpm
+fdce1abcabf5df00637b94622372517409de239bc45545e6d8b3d3f25e7bd4ac  pacific-webkit-2.54.0-aarch64.tar.xz
+c3fbfc9303480198f2924ce5ef5e7ffa932a83724c396eb0306c0d2ee4993973  pacific-webkit-2.54.2-aarch64.tar.xz
+# The armv8.0 WebKit (PACIFIC_CPU=armv8.0 build/build.sh <workdir> tarball,
+# for shipwright-pacific-engine-armv80), PGO-trained on the Xperia 10 II.
+93cc6a3740222d353572eec8b9807a48076fb803b1c3b68883d16e445a57b051  pacific-webkit-2.54.0-aarch64-armv8.0.tar.xz

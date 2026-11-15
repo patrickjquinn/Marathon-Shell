@@ -1,0 +1,214 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Flings that stack smoothly, and a catch that is always a catch (on top of
+# patch 0018).
+#
+# Measured on the Jolla Phone from the owner's own flicks (12 October 2026):
+#
+# - A finger that caught a coasting page and lifted with a few pixels of
+#   motion (15 px/s) launched it at about 5500 px/s, to the end of the
+#   page: any same-direction lift inherited the carry. Now only a flick of
+#   at least PACIFIC_FLING_CARRY_MIN (default 0.5) of the caught speed
+#   carries.
+# - Stacking jumped: iOS's 0.000816 |v|^1.967 turned a 6000 px/s coast into
+#   a 22000 px/s carry, so the second flick of a train hit the ceiling. A
+#   flick now adds the caught speed (PACIFIC_FLING_CARRY_SHARE of it,
+#   default 1): a train of flicks built 1863, 3212, 4165, 5069 px/s of carry
+#   where it built 1568, 2695, 4644, 10752. The ceiling is 18000 px/s.
+# - And only from a page still moving at 350 px/s or more
+#   (PACIFIC_FLING_CARRY_FLOOR), as Chromium's fling boost.
+# - The UI process modelled a fling from its own flick only, so a page
+#   still coasting fast from a stacked fling was taken as stopped, and a
+#   finger landing on it was not a catch. It now adds the same carry.
+#
+--- a/Source/WebCore/platform/ScrollAnimationKinetic.cpp
++++ b/Source/WebCore/platform/ScrollAnimationKinetic.cpp
+@@ -209,8 +209,9 @@
+                 return v;
+         }
+         // Pacific (patch 0018): 25000 with iOS's carry (Atlantic's 10000
+-        // stopped repeated flicks building at all).
+-        return 25000.0;
++        // stopped repeated flicks building at all). Patch 0019: 18000 with
++        // the linear carry, about four flicks' worth.
++        return 18000.0;
+     }();
+     return value;
+ }
+@@ -383,8 +384,33 @@
+     }();
+     auto accumulateVelocity = [&](double velocity, double previousVelocity) -> double {
+         if (iosCarry) {
+-            if (previousVelocity && velocity && std::signbit(previousVelocity) == std::signbit(velocity))
+-                velocity += std::copysign(std::min(0.000816 * std::pow(std::abs(previousVelocity), 1.967), 40000.0), velocity);
++            // Pacific (patch 0019): a flick adds the speed the page had when
++            // the finger caught it (PACIFIC_FLING_CARRY_SHARE of it, default
++            // 1), so a train of flicks builds steadily towards a bound
++            // instead of jumping: iOS's 0.000816 |v|^1.967 turned a 6000 px/s
++            // coast into a 22000 px/s carry, and the second flick of a train
++            // hit the ceiling. And only a flick carries, at least
++            // PACIFIC_FLING_CARRY_MIN (default 0.5) of the caught speed: a
++            // finger that caught the page and lifted with a few pixels of
++            // motion (15 px/s) launched it at 5500 px/s to the end of the page.
++            // And only from a page still moving at PACIFIC_FLING_CARRY_FLOOR
++            // px/s (default 350, Chromium's fling boost): a page all but
++            // stopped has nothing to give.
++            static const double floor = [] {
++                const char* env = getenv("PACIFIC_FLING_CARRY_FLOOR");
++                return env ? std::clamp(atof(env), 0.0, 5000.0) : 350.0;
++            }();
++            static const double share = [] {
++                const char* env = getenv("PACIFIC_FLING_CARRY_SHARE");
++                return env ? std::clamp(atof(env), 0.0, 2.0) : 1.0;
++            }();
++            static const double minimum = [] {
++                const char* env = getenv("PACIFIC_FLING_CARRY_MIN");
++                return env ? std::clamp(atof(env), 0.0, 2.0) : 0.5;
++            }();
++            if (previousVelocity && velocity && std::signbit(previousVelocity) == std::signbit(velocity)
++                && std::abs(previousVelocity) >= floor && std::abs(velocity) >= minimum * std::abs(previousVelocity))
++                velocity += std::copysign(share * std::abs(previousVelocity), velocity);
+         } else if ((std::signbit(previousVelocity) == std::signbit(velocity))
+             && (std::abs(velocity) >= std::abs(previousVelocity * velocityAccumulationFloor))) {
+             double minVelocity = previousVelocity * velocityAccumulationFloor;
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.h
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.h
+@@ -77,6 +77,7 @@
+     // the last fling at `time` (touch clock, ms), and catching it: the touch
+     // that landed then stops the page and is not a click.
+     bool flingMovingAt(uint32_t time) const;
++    float flingSpeedAt(uint32_t time) const;
+     void catchFling(uint32_t downTime);
+ 
+ private:
+@@ -123,6 +124,15 @@
+     float m_flingSpeed { 0 };
+     uint32_t m_flingTime { 0 };
+     std::optional<uint32_t> m_caughtDownTime;
++    // Pacific (patch 0019): the fling's direction (unit vector of the last
++    // drag), the speed it was caught at, and the speed the next flick
++    // inherits (0: rested or not caught), as the WebProcess's carry.
++    float m_flingDirX { 0 };
++    float m_flingDirY { 0 };
++    float m_caughtSpeed { 0 };
++    float m_carrySpeed { 0 };
++    float m_carryDirX { 0 };
++    float m_carryDirY { 0 };
+ };
+ 
+ } // namespace WebKit
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
+@@ -29,6 +29,7 @@
+ #if USE(LIBWPE) && ENABLE(TOUCH_EVENTS)
+ 
+ #include <WebCore/Scrollbar.h>
++#include <algorithm>
+ #include <cmath>
+ #include <cstdlib>
+ #include <wtf/TZoneMallocInlines.h>
+@@ -91,20 +92,67 @@
+         m_axisMotions.removeAt(0);
+ }
+ 
+-bool TouchGestureController::flingMovingAt(uint32_t time) const
++float TouchGestureController::flingSpeedAt(uint32_t time) const
+ {
+     if (m_flingSpeed <= 0 || time < m_flingTime)
+-        return false;
++        return 0;
+     double seconds = (time - m_flingTime) / 1000.0;
+-    return m_flingSpeed * std::exp(-kineticFriction() * seconds) > flingStoppedSpeed;
++    return m_flingSpeed * std::exp(-kineticFriction() * seconds);
++}
++
++bool TouchGestureController::flingMovingAt(uint32_t time) const
++{
++    return flingSpeedAt(time) > flingStoppedSpeed;
+ }
+ 
+ void TouchGestureController::catchFling(uint32_t downTime)
+ {
++    m_caughtSpeed = flingSpeedAt(downTime);
+     m_flingSpeed = 0;
+     m_caughtDownTime = downTime;
+ }
+ 
++// Pacific (patch 0019): the WebProcess's carry (ScrollAnimationKinetic),
++// so the model knows how fast a train of flicks really runs: modelled on
++// the flick alone, a page still coasting fast from the third flick was
++// taken as stopped, and the finger that landed on it long-pressed (text
++// selection) instead of catching it. Same environment variables.
++static double carryShare()
++{
++    static const double share = [] {
++        const char* env = getenv("PACIFIC_FLING_CARRY_SHARE");
++        return env ? std::clamp(atof(env), 0.0, 2.0) : 1.0;
++    }();
++    return share;
++}
++
++static double carryMinimum()
++{
++    static const double minimum = [] {
++        const char* env = getenv("PACIFIC_FLING_CARRY_MIN");
++        return env ? std::clamp(atof(env), 0.0, 2.0) : 0.5;
++    }();
++    return minimum;
++}
++
++static double carryFloor()
++{
++    static const double floor = [] {
++        const char* env = getenv("PACIFIC_FLING_CARRY_FLOOR");
++        return env ? std::clamp(atof(env), 0.0, 5000.0) : 350.0;
++    }();
++    return floor / 1000; // px/ms
++}
++
++static uint32_t carryPause()
++{
++    static const uint32_t ms = [] {
++        const char* env = getenv("PACIFIC_FLING_CARRY_PAUSE_MS");
++        return static_cast<uint32_t>(env ? std::clamp(atof(env), 0.0, 1000.0) : 100);
++    }();
++    return ms;
++}
++
+ TouchGestureController::EventVariant TouchGestureController::handleEvent(const struct wpe_input_touch_event_raw* touchPoint)
+ {
+     // Pacific (patch 0015): a gesture is one finger's. The controller took
+@@ -208,6 +256,12 @@
+             // Over threshold, bump the gestured event and directly fall through to handling it.
+             m_gesturedEvent = GesturedEvent::Axis;
+             m_axisMotions.clear();
++            // A drag that starts within the carry pause of the catch inherits
++            // the caught speed, as in the WebProcess.
++            m_carrySpeed = m_caughtDownTime && touchPoint->time - *m_caughtDownTime <= carryPause() ? m_caughtSpeed : 0;
++            m_carryDirX = m_flingDirX;
++            m_carryDirY = m_flingDirY;
++            m_caughtSpeed = 0;
+             m_caughtDownTime = std::nullopt;
+             [[fallthrough]];
+         }
+@@ -337,9 +391,18 @@
+                     dy += motion.dy;
+                 }
+                 uint32_t span = from && touchPoint->time > *from ? touchPoint->time - *from : 0;
+-                m_flingSpeed = span ? std::hypot(static_cast<float>(dx), static_cast<float>(dy)) / span : 0;
++                float distance = std::hypot(static_cast<float>(dx), static_cast<float>(dy));
++                m_flingSpeed = span ? distance / span : 0;
+                 m_flingTime = touchPoint->time;
+                 m_axisMotions.clear();
++                if (distance > 0) {
++                    m_flingDirX = dx / distance;
++                    m_flingDirY = dy / distance;
++                }
++                if (m_carrySpeed > 0 && m_carrySpeed >= carryFloor() && m_flingSpeed >= carryMinimum() * m_carrySpeed
++                    && m_flingDirX * m_carryDirX + m_flingDirY * m_carryDirY > 0)
++                    m_flingSpeed += carryShare() * m_carrySpeed;
++                m_carrySpeed = 0;
+             }
+ 
+             AxisEvent generatedEvent;

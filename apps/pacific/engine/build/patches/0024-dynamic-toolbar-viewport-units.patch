@@ -1,0 +1,176 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Viewport units as Safari's with its dynamic toolbar (on top of patch
+# 0012's obscured content insets).
+#
+# Measured on the Jolla Phone: a view 882 CSS px tall with Pacific's
+# floating toolbar (65 px) set as the bottom obscured inset had vh, svh,
+# lvh and dvh all 817, the view less the insets in force. So every
+# height: 100vh hero or section stopped at the toolbar's top edge and left
+# a band when the toolbar slid away. Safari: the large viewport and vh are
+# the view with the toolbar retracted, the small one with it shown, the
+# dynamic one whatever is shown now.
+#
+# On WPE, for the main frame of a page that has had obscured insets:
+#   svh  the view less the insets last set that were not all zero (Pacific
+#        clears them while the toolbar is away, so the insets in force
+#        would make svh jump with it), kept by Page;
+#   lvh  the whole view;
+#   vh   lvh (Safari's choice);
+#   dvh  the view less the insets in force.
+# Widths go the same way (Pacific sets only a bottom inset). Explicit
+# overrides (setSizeForCSS*ViewportUnits, the Mac's unobscured sizes) still
+# win. Insets in view pixels, at the view scale with fixed layout, as in
+# patch 0012. The layout viewport, the initial containing block and
+# position: fixed elements keep patch 0012's behaviour: they stay above
+# the toolbar. A change of insets already re-resolves viewport units
+# (LocalFrameView::obscuredContentInsetsDidChange()).
+#
+--- a/Source/WebCore/page/LocalFrameView.cpp
++++ b/Source/WebCore/page/LocalFrameView.cpp
+@@ -7030,6 +7030,13 @@ FloatSize LocalFrameView::sizeForCSSDefaultViewportUnits() const
+     if (m_shouldUseDynamicViewportUnitsAsDefault)
+         return sizeForCSSDynamicViewportUnits();
+ 
++#if PLATFORM(WPE)
++    // Pacific (patch 0024): vh is lvh, as in Safari.
++    if (!m_defaultViewportSizeOverride) {
++        if (auto size = viewportUnitsSizeLeavingOut({ }))
++            return *size;
++    }
++#endif
+     return calculateSizeForCSSViewportUnitsOverride(m_defaultViewportSizeOverride);
+ }
+ 
+@@ -7071,6 +7078,15 @@ void LocalFrameView::setOverrideSizeForCSSSmallViewportUnits(OverrideViewportSiz
+ 
+ FloatSize LocalFrameView::sizeForCSSSmallViewportUnits() const
+ {
++#if PLATFORM(WPE)
++    // Pacific (patch 0024): the view with the embedder's controls shown.
++    if (!m_smallViewportSizeOverride) {
++        if (RefPtr page = m_frame->page()) {
++            if (auto size = viewportUnitsSizeLeavingOut(page->obscuredContentInsetsWhenShown()))
++                return *size;
++        }
++    }
++#endif
+     return calculateSizeForCSSViewportUnitsOverride(m_smallViewportSizeOverride);
+ }
+ 
+@@ -7112,9 +7128,49 @@ void LocalFrameView::setOverrideSizeForCSSLargeViewportUnits(OverrideViewportSiz
+ 
+ FloatSize LocalFrameView::sizeForCSSLargeViewportUnits() const
+ {
++#if PLATFORM(WPE)
++    // Pacific (patch 0024): the whole view, the controls retracted.
++    if (!m_largeViewportSizeOverride) {
++        if (auto size = viewportUnitsSizeLeavingOut({ }))
++            return *size;
++    }
++#endif
+     return calculateSizeForCSSViewportUnitsOverride(m_largeViewportSizeOverride);
+ }
+ 
++#if PLATFORM(WPE)
++// Pacific (patch 0024): viewport units as Safari's with its dynamic
++// toolbar, from the obscured content insets the embedder sets
++// (wpe_sfos_set_obscured_content_insets, patch 0012). Without, every unit
++// was the view less the insets in force: 100vh stopped at the toolbar
++// line, and left a band when the toolbar slid away. The size of the view
++// leaving out the given insets, in the units the upstream code returns,
++// or nothing (upstream's sizes) for a subframe or a page that has never
++// had insets.
++std::optional<FloatSize> LocalFrameView::viewportUnitsSizeLeavingOut(const FloatBoxExtent& obscuredInsets) const
++{
++    if (!m_frame->isMainFrame())
++        return std::nullopt;
++    RefPtr page = m_frame->page();
++    if (!page || page->obscuredContentInsetsWhenShown().isZero())
++        return std::nullopt;
++
++    auto size = calculateSizeForCSSViewportUnitsOverride(std::nullopt);
++    float scale = 1;
++    if (useFixedLayout()) {
++        // The fixed layout size is the whole view; the insets are view
++        // pixels, document pixels at the view scale (as in patch 0012).
++        scale = page->viewScaleFactor() > 0 ? page->viewScaleFactor() : 1;
++    } else {
++        // The visible content rect leaves out the insets in force.
++        auto current = page->obscuredContentInsets();
++        size.expand(current.left() + current.right(), current.top() + current.bottom());
++    }
++    size.expand(-(obscuredInsets.left() + obscuredInsets.right()) / scale, -(obscuredInsets.top() + obscuredInsets.bottom()) / scale);
++    return size.expandedTo({ });
++}
++#endif
++
+ FloatSize LocalFrameView::calculateSizeForCSSViewportUnitsOverride(std::optional<OverrideViewportSize> override) const
+ {
+     OverrideViewportSize viewportSize;
+@@ -7147,6 +7203,15 @@ FloatSize LocalFrameView::sizeForCSSDynamicViewportUnits() const
+     if (m_layoutViewportOverrideRect)
+         return m_layoutViewportOverrideRect->size();
+ 
++#if PLATFORM(WPE)
++    // Pacific (patch 0024): the view less the insets in force (with fixed
++    // layout, upstream's is the whole view).
++    if (RefPtr page = m_frame->page()) {
++        if (auto size = viewportUnitsSizeLeavingOut(page->obscuredContentInsets()))
++            return *size;
++    }
++#endif
++
+     if (useFixedLayout())
+         return fixedLayoutSize();
+ 
+--- a/Source/WebCore/page/LocalFrameView.h
++++ b/Source/WebCore/page/LocalFrameView.h
+@@ -967,6 +967,9 @@ private:
+     void didLayout(SingleThreadWeakPtr<RenderElement> layoutRoot, bool canDeferUpdateLayerPositions);
+ 
+     FloatSize calculateSizeForCSSViewportUnitsOverride(std::optional<OverrideViewportSize>) const;
++#if PLATFORM(WPE)
++    std::optional<FloatSize> viewportUnitsSizeLeavingOut(const FloatBoxExtent& obscuredInsets) const;
++#endif
+ 
+     void overrideWidthForCSSDefaultViewportUnits(float);
+     void resetOverriddenWidthForCSSDefaultViewportUnits();
+--- a/Source/WebCore/page/Page.cpp
++++ b/Source/WebCore/page/Page.cpp
+@@ -1976,6 +1976,10 @@ void Page::setObscuredContentInsets(const FloatBoxExtent& obscuredContentInsets)
+         return;
+ 
+     m_obscuredContentInsets = obscuredContentInsets;
++#if PLATFORM(WPE)
++    if (!obscuredContentInsets.isZero())
++        m_obscuredContentInsetsWhenShown = obscuredContentInsets;
++#endif
+     RefPtr localMainFrame = this->localMainFrame();
+     if (RefPtr view = localMainFrame ? localMainFrame->view() : nullptr)
+         view->obscuredContentInsetsDidChange(obscuredContentInsets);
+--- a/Source/WebCore/page/Page.h
++++ b/Source/WebCore/page/Page.h
+@@ -678,6 +678,11 @@ public:
+ 
+     const FloatBoxExtent& obscuredContentInsets() const LIFETIME_BOUND { return m_obscuredContentInsets; }
+     WEBCORE_EXPORT void setObscuredContentInsets(const FloatBoxExtent&);
++#if PLATFORM(WPE)
++    // Pacific (patch 0024): the obscured content insets last set that were
++    // not all zero, the embedder's controls when shown (small viewport units).
++    const FloatBoxExtent& obscuredContentInsetsWhenShown() const LIFETIME_BOUND { return m_obscuredContentInsetsWhenShown; }
++#endif
+ 
+ #if HAVE(NSREFRESHCONTROLLER)
+     bool hasRefreshController() const { return m_hasRefreshController; }
+@@ -1555,6 +1560,9 @@ private:
+     float m_viewScaleFactor { 1 };
+ 
+     FloatBoxExtent m_obscuredContentInsets;
++#if PLATFORM(WPE)
++    FloatBoxExtent m_obscuredContentInsetsWhenShown;
++#endif
+     FloatBoxExtent m_contentInsets;
+     FloatBoxExtent m_unobscuredSafeAreaInsets;
+     FloatBoxExtent m_fullscreenInsets;

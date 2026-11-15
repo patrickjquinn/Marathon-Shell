@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A finger that catches a fling drags the page at once (on top of patch
+# 0018).
+#
+# The catch stopped the page on touch-down, but the drag that followed
+# still began as any touch's did: each move went to the page and back
+# before the gesture controller saw it, and the drag began only past the
+# 8 dp slop. On OSNews, in a train of flicks, the caught page stood still
+# under a moving finger for 25-35 ms (two or three frames not drawn) and
+# then jumped 16 CSS px. A touch that caught a fling cannot be a click, so:
+#
+# - its gesture is recognized in the UI process from touch-down, as the
+#   touch-ack timeout's are (Chromium likewise treats touch listeners as
+#   passive during a fling): the page still gets the touches but cannot
+#   cancel the scroll. PACIFIC_CATCH_WAITS_FOR_PAGE=1 restores the replies.
+# - its drag begins at a quarter of the slop (2 dp, PACIFIC_CATCH_SLOP_PX):
+#   past a resting finger's tremor, and the page follows the finger from
+#   where it stopped.
+#
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
+@@ -247,8 +247,22 @@ TouchGestureController::EventVariant TouchGestureController::handleEvent(const s
+                 }
+                 return WebCore::Scrollbar::pixelsPerLineStep();
+             }();
+-            bool overThreshold = std::abs(deltaX) >= slop
+-                || std::abs(deltaY) >= slop
++            // Pacific (patch 0032): a touch that caught a fling cannot be a
++            // click, so its drag begins at a quarter of the slop (2 dp): past
++            // a resting finger's tremor, not past the first move. The page
++            // then follows the finger from where it stopped, as on iOS.
++            // PACIFIC_CATCH_SLOP_PX sets it.
++            static const int catchSlop = [] {
++                if (const char* env = getenv("PACIFIC_CATCH_SLOP_PX")) {
++                    int px = atoi(env);
++                    if (px >= 1 && px <= 200)
++                        return px;
++                }
++                return std::max(1, slop / 4);
++            }();
++            const int threshold = m_caughtDownTime && *m_caughtDownTime == m_start.time ? catchSlop : slop;
++            bool overThreshold = std::abs(deltaX) >= threshold
++                || std::abs(deltaY) >= threshold
+                 || deltaTime >= scrollCaptureThreshold;
+             if (!overThreshold)
+                 break;
+--- a/Source/WebKit/UIProcess/API/wpe/WPEWebViewLegacy.cpp
++++ b/Source/WebKit/UIProcess/API/wpe/WPEWebViewLegacy.cpp
+@@ -268,6 +268,20 @@ ViewLegacy::ViewLegacy(struct wpe_view_backend* backend, const API::PageConfigur
+                         page.handleNativeWheelEvent(WebKit::NativeWebWheelEvent(&stop.base, page.deviceScaleFactor(),
+                             WebWheelEvent::Phase::MayBegin, WebWheelEvent::Phase::None));
+ #endif
++                        // Pacific (patch 0032): and the drag that follows a
++                        // catch is recognized here, without the page's
++                        // replies (as Chromium treats touch listeners as
++                        // passive during a fling): the page still gets the
++                        // touches, but cannot cancel the scroll. Each move
++                        // waited for its reply before the drag began, so the
++                        // caught page stood still under a moving finger for
++                        // 25-35 ms and then jumped 16 CSS px.
++                        // PACIFIC_CATCH_WAITS_FOR_PAGE=1: the replies again.
++                        static const bool catchWaitsForPage = !!getenv("PACIFIC_CATCH_WAITS_FOR_PAGE");
++                        if (!catchWaitsForPage) {
++                            view.m_touchSequenceHandledLocally = true;
++                            view.m_locallyHandledTouchGenerations.add(view.m_touchSequenceGeneration);
++                        }
+                     }
+                 } else if (touchAckTimeoutMs && !view.m_touchSequenceHandledLocally
+                     && touchGestureController.gesturedEvent() != TouchGestureController::GesturedEvent::Axis

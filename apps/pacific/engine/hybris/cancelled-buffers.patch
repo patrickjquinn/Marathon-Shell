@@ -1,0 +1,35 @@
+--- a/hybris/egl/platforms/wayland/wayland_window.cpp
++++ b/hybris/egl/platforms/wayland/wayland_window.cpp
+@@ -176,9 +176,13 @@
+     }
+ 
+     WaylandNativeWindowBuffer *wnb = NULL;
+-    if (!queue.empty()) {
++    /* Pacific: skip buffers cancelled after they were queued. */
++    while (!queue.empty()) {
+         wnb = queue.front();
+         queue.pop_front();
++        if (wnb->busy == 1)
++            break;
++        wnb = NULL;
+     }
+ 
+     if (wnb) {
+--- a/hybris/platforms/wayland/wayland_window_common.cpp
++++ b/hybris/platforms/wayland/wayland_window_common.cpp
+@@ -339,6 +339,15 @@
+     }
+     assert(it != m_bufList.end());
+ 
++    /* Pacific: a cancelled buffer leaves the queue it was dequeued into, or
++     * the next finishSwap() takes it (busy 0) and aborts. */
++    for (std::deque<WaylandNativeWindowBuffer *>::iterator q = queue.begin(); q != queue.end();) {
++        if (*q == wnb)
++            q = queue.erase(q);
++        else
++            ++q;
++    }
++
+     wnb->busy = 0;
+     ++m_freeBufs;
+     HYBRIS_TRACE_COUNTER("wayland-platform", "m_freeBufs", "%i", m_freeBufs);

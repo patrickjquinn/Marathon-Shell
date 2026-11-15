@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A finger tap never presses the scrollbar.
+#
+# WPE turns a tap into a synthesized mouse move, press and release
+# (SyntheticClickType::OneFingerTap). EventHandler hit-tests those like a
+# real mouse, so a tap that lands within the overlay scrollbar's track
+# becomes a track press: the page jumps towards that point, and the press and
+# release go to the scrollbar instead of the page, so the click never fires.
+# The track is 21 CSS px wide at the stock scale (63 at Atlantic's
+# WEBKIT_SCROLLBAR_SCALE=3), and close buttons sit there: on the Jolla Phone
+# The Verge's terms-of-use notice could not be dismissed. A touch drag
+# scrolls the page anyway, so taps skip the scrollbar; a mouse still uses it.
+#
+--- a/Source/WebCore/page/EventHandler.cpp
++++ b/Source/WebCore/page/EventHandler.cpp
+@@ -2086,7 +2086,9 @@
+     m_mousePressNode = mouseEvent.targetNode();
+     protect(frame->document())->setFocusNavigationStartingNode(protect(mouseEvent.targetNode()).get());
+ 
+-    RefPtr scrollbar = scrollbarForMouseEvent(mouseEvent, protect(frame->view()));
++    // A finger tap is never a scrollbar press: the overlay bar only shows
++    // where the page is, and dragging the page scrolls it.
++    RefPtr scrollbar = platformMouseEvent.syntheticClickType() == SyntheticClickType::OneFingerTap ? nullptr : scrollbarForMouseEvent(mouseEvent, protect(frame->view()));
+     updateLastScrollbarUnderMouse(scrollbar.get(), SetOrClearLastScrollbar::Set);
+     bool passedToScrollbar = scrollbar && passMousePressEventToScrollbar(mouseEvent, scrollbar.get());
+ 
+@@ -2403,7 +2405,7 @@
+             m_offsetFromResizeCorner.setWidth(m_resizeLayer->offsetFromResizeCorner(localPoint).width());
+         }
+     } else {
+-        RefPtr scrollbar = mouseEvent.scrollbar();
++        RefPtr scrollbar = platformMouseEvent.syntheticClickType() == SyntheticClickType::OneFingerTap ? nullptr : mouseEvent.scrollbar();
+         updateLastScrollbarUnderMouse(scrollbar.get(), m_mousePressed ? SetOrClearLastScrollbar::Clear : SetOrClearLastScrollbar::Set);
+ 
+         // On iOS, our scrollbars are managed by UIKit.

@@ -1,0 +1,180 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Tiles are created ahead of a fling, as far as it will go before they are
+# needed (replaces Atlantic's directional coverage and speed ladder for the
+# page's backing stores).
+#
+# WebKit creates a layer's tiles one ring at a time around the visible
+# rect's centre: each rendering update adds the missing tiles nearest to it,
+# behind and to the sides as much as ahead. During a fast fling on OSNews the
+# main thread ran 26 rendering updates a second (each held back until the
+# previous update's tiles were painted), so a ring per update (one 512 px row
+# each way) kept up with about 5300 CSS px/s; faster flings ran onto
+# unpainted tiles: 6-12% of the frames while coasting had more than 5% of the
+# screen unpainted, some all of it.
+#
+# The backing store now tracks how fast its visible rect moves. While it
+# moves faster than about half a screen a second:
+# - the cover rect reaches 200 ms of travel ahead (between half a screen and
+#   four), a quarter of a screen behind and nothing to the sides; the keep
+#   rect also holds a screen behind, so a flick back finds its tiles;
+# - distance is counted in rows ahead of the leading edge (tiles behind come
+#   last), and a pass creates every tile the page will cross in about two
+#   updates (60 ms of travel), not one ring.
+# At rest WebKit's cover and order are unchanged.
+# PACIFIC_TILE_VELOCITY_COVER=0 keeps WebKit's cover while moving.
+#
+--- a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.cpp
++++ b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.cpp
+@@ -912,6 +912,18 @@ void CoordinatedBackingStoreProxy::createOrDestroyTiles(const IntRect& unscaledV
+         if (!contentsRectChanged && visibleRect.height() == m_visibleRect.height()) {
+             int dy = visibleRect.y() - m_visibleRect.y();
+             if (dy) {
++                // Pacific (patch 0035): the visible rect's velocity, from the
++                // main thread's successive visible rects (their own times),
++                // smoothed over about two updates and reset on a reversal.
++                auto sampleTime = MonotonicTime::now();
++                double sampleSeconds = (sampleTime - m_lastVisibleSampleTime).seconds();
++                if (sampleSeconds > 0.001 && sampleSeconds < 0.25) {
++                    float velocity = dy / sampleSeconds;
++                    m_scrollVelocityY = m_scrollVelocityY * velocity > 0 ? 0.5f * m_scrollVelocityY + 0.5f * velocity : velocity;
++                } else
++                    m_scrollVelocityY = 0;
++                m_lastVisibleSampleTime = sampleTime;
++                m_lastVisibleMoveTime = sampleTime;
+                 // Record motion process-wide, not on this proxy: see
+                 // noteScrollMotion(). Any layer observing movement means the page
+                 // is moving, which is the fact the cost trigger actually needs.
+@@ -1056,17 +1068,38 @@ void CoordinatedBackingStoreProxy::createOrDestroyTiles(const IntRect& unscaledV
+     // Which position is considered the closest depends on the tileDistance function.
+     double shortestDistance = std::numeric_limits<double>::infinity();
+     IntPoint visibleCenterPosition = tilePositionForPoint(m_visibleRect.center());
++    // Pacific (patch 0035): while the page moves, distance is rows ahead of
++    // the visible rect's leading edge (tiles behind it come last), and each
++    // pass creates every tile within the rows the page will cross before the
++    // next pass, not one ring around the centre: at 26 rendering updates a
++    // second during a fast fling on OSNews, a ring (one 512 px row each way)
++    // per update kept up with about 5300 CSS px/s, and faster flings ran onto
++    // unpainted tiles (up to the whole screen).
++    const float velocity = scrollVelocityY();
++    const bool moving = velocity != 0;
++    const int tileHeight = std::max(1, m_tileSize.height());
+     auto tileDistance = [&] (const IntPoint& tilePosition) -> double {
+-        if (m_visibleRect.intersects(tileRectForPosition(tilePosition)))
++        auto tileRect = tileRectForPosition(tilePosition);
++        if (m_visibleRect.intersects(tileRect))
+             return 0;
+ 
++        if (moving) {
++            int ahead = velocity > 0 ? tileRect.y() - m_visibleRect.maxY() : m_visibleRect.y() - tileRect.maxY();
++            if (ahead >= 0)
++                return 1 + ahead / tileHeight;
++            return 1000 + (-ahead) / tileHeight;
++        }
++
+         return std::max(std::abs(visibleCenterPosition.y() - tilePosition.y()), std::abs(visibleCenterPosition.x() - tilePosition.x()));
+     };
++    // The rows a pass may reach past the nearest missing one: what the page
++    // crosses in about two updates at its speed.
++    const double allowance = moving ? std::ceil(std::abs(velocity) * 0.06 / tileHeight) : 0;
+ 
+     // Cover areas (in tiles) with minimum distance from the visible rect. If the visible rect is
+     // not covered already it will be covered first in one go, due to the distance being 0 for tiles
+     // inside the visible rect.
+-    Vector<IntPoint> tilePositionsToCreate;
++    Vector<std::pair<IntPoint, double>> candidates;
+     unsigned requiredTileCount = 0;
+     forEachTilePositionInRect(m_coverRect, [&](IntPoint&& position) {
+         if (m_tiles.contains(position))
+@@ -1074,15 +1107,14 @@ void CoordinatedBackingStoreProxy::createOrDestroyTiles(const IntRect& unscaledV
+ 
+         ++requiredTileCount;
+         double distance = tileDistance(position);
+-        if (distance > shortestDistance)
+-            return;
+-
+-        if (distance < shortestDistance) {
+-            tilePositionsToCreate.clear();
+-            shortestDistance = distance;
+-        }
+-        tilePositionsToCreate.append(position);
++        shortestDistance = std::min(shortestDistance, distance);
++        candidates.append({ WTF::move(position), distance });
+     });
++    Vector<IntPoint> tilePositionsToCreate;
++    for (auto& [position, distance] : candidates) {
++        if (distance <= shortestDistance + allowance)
++            tilePositionsToCreate.append(position);
++    }
+ 
+     if (requiredTileCount) {
+         requiredTileCount -= tilePositionsToCreate.size();
+@@ -1218,11 +1250,51 @@ void CoordinatedBackingStoreProxy::adjustForContentsRect(IntRect& rect) const
+     rect.intersect(bounds);
+ }
+ 
++// Pacific (patch 0035): PACIFIC_TILE_VELOCITY_COVER=0 keeps WebKit's cover
++// rect around the viewport while the page moves.
++static bool velocityCoverEnabled()
++{
++    static const bool enabled = [] {
++        const char* env = getenv("PACIFIC_TILE_VELOCITY_COVER");
++        return !env || strcmp(env, "0");
++    }();
++    return enabled;
++}
++
++float CoordinatedBackingStoreProxy::scrollVelocityY() const
++{
++    if (!velocityCoverEnabled() || MonotonicTime::now() - m_lastVisibleMoveTime > 150_ms)
++        return 0;
++    // Slower than this (about half a screen a second), the page is read, not
++    // flung: the cover stays around it.
++    return std::abs(m_scrollVelocityY) < 1000 ? 0 : m_scrollVelocityY;
++}
++
+ std::pair<IntRect, IntRect> CoordinatedBackingStoreProxy::computeCoverAndKeepRect() const
+ {
+     IntRect coverRect = m_visibleRect;
+     IntRect keepRect = m_visibleRect;
+ 
++    // Pacific (patch 0035): while the page moves, the cover reaches where it
++    // will be shown: 200 ms of travel ahead (between half a screen and four),
++    // a quarter of a screen behind and nothing to the sides. The keep rect
++    // also holds a screen behind, so a flick back finds its tiles.
++    if (float velocity = scrollVelocityY(); velocity && m_coverAreaMultiplier > 1) {
++        int height = m_visibleRect.height();
++        int ahead = std::clamp(static_cast<int>(std::abs(velocity) * 0.2f), height / 2, height * 4);
++        int behind = height / 4;
++        coverRect.setY(velocity > 0 ? m_visibleRect.y() - behind : m_visibleRect.y() - ahead);
++        coverRect.setHeight(height + ahead + behind);
++        coverRect.intersect(m_contentsRect);
++        keepRect = coverRect;
++        keepRect.unite(velocity > 0 ? IntRect(m_visibleRect.x(), m_visibleRect.y() - height, m_visibleRect.width(), height)
++            : IntRect(m_visibleRect.x(), m_visibleRect.maxY(), m_visibleRect.width(), height));
++        keepRect.inflateX(m_tileSize.width() / 2);
++        keepRect.inflateY(m_tileSize.height() / 2);
++        keepRect.intersect(m_contentsRect);
++        return { WTF::move(coverRect), WTF::move(keepRect) };
++    }
++
+     // If we cover more that the actual viewport we can be smart about which tiles we choose to render.
+     if (m_coverAreaMultiplier > 1) {
+         if (directionalCoverageEnabled()) {
+--- a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.h
++++ b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.h
+@@ -186,6 +186,13 @@ private:
+     float m_costLowResScale { 1.0f };
+     unsigned m_underBudgetPasses { 0 };
+     bool m_pendingTileCreation { false };
++    // Pacific (patch 0035): how fast the visible rect moves vertically
++    // (device px per second, smoothed; 0 once it has rested 150 ms), for a
++    // cover rect that reaches ahead of a fling instead of around it.
++    float scrollVelocityY() const;
++    float m_scrollVelocityY { 0 };
++    MonotonicTime m_lastVisibleSampleTime;
++    MonotonicTime m_lastVisibleMoveTime;
+     IntRect m_contentsRect;
+     IntRect m_visibleRect;
+     IntRect m_coverRect;

@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# The engine's own C (launcher, boost, shims): the repository's checks, less
+# two that do not apply to C on glibc:
+#   bugprone-reserved-identifier  flags _GNU_SOURCE, the feature macro these
+#                                 files must define for asprintf, RTLD_NEXT,
+#                                 SOCK_CLOEXEC
+#   clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+#                                 asks for C11 Annex K (snprintf_s, ...),
+#                                 which glibc does not provide
+# Vendored code here (hybris/libhybris) is not ours to restyle and is not
+# linted.
+InheritParentConfig: true
+Checks: >
+  -bugprone-reserved-identifier,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling

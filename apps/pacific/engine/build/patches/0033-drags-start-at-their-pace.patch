@@ -1,0 +1,232 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A drag starts at its pace, without a lurch and a stall (on top of patches
+# 0009, 0016, 0017 and 0032).
+#
+# Every drag began with an uneven pair of frames. From rest on OSNews, the
+# first frame moved 10-15 CSS px and the next 1-3; after a catch, 2 px and
+# then nothing. Two causes:
+#
+# - The first move carried the whole slop: the gesture controller sent the
+#   finger's movement since touch-down once it passed 8 dp. It now sends
+#   the movement past the slop (as Android does), so the page starts from
+#   where the finger crossed it. PACIFIC_TOUCH_SLOP_SUBTRACT=0 restores it.
+#   And the gesture begins with the first move that has a length: the
+#   scrolling tree latches a gesture only to a Began that scrolls, and a
+#   Began of no length (the finger exactly at the slop, or a 200 ms rest)
+#   left the drag unlatched, its moves out of the history the lift's fling
+#   is taken from: the page followed the drag and stopped dead at the
+#   lift (with the slop subtracted, a quarter of quick re-flicks on
+#   OSNews). A lift before any move closes the gesture without a fling.
+# - The first move (Began) is shown at once, the next ones a resampling
+#   wait (16-40 ms) behind their time, so the frames in that wait had
+#   nothing new to show. The moves after the first are now shown on a
+#   clock that starts at the first move at 0.4 of real time and speeds up
+#   evenly, reaching real time just as it falls the wait behind
+#   (PACIFIC_SCROLL_START_RAMP, 0 for the wait from the start): the drag
+#   eases into its pace instead of stopping. A fixed half speed was tried
+#   first; its hand-over to full speed was a lurch of its own.
+#   Touch prediction is timed by the frame itself, not by that clock.
+#
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
+@@ -746,6 +746,25 @@ static bool touchScrollResampling()
+     return enabled;
+ }
+ 
++// Pacific (patch 0033): a drag's first move (Began) is shown at once, but
++// its next ones only a resampling wait (16-40 ms) behind their time: the
++// frames in that wait had nothing new to show, and the page stood still for
++// one or two frames right after it started to move. Now the clock the moves
++// are shown by starts at the first move, at this share of real time, and
++// speeds up evenly to real time just as it falls the wait behind: the frames
++// show the moves already here, and the drag eases into its pace. (At a fixed
++// half speed the hand-over to full speed was itself a lurch: frames of 2.4
++// CSS px, then 9.2.) PACIFIC_SCROLL_START_RAMP (default 0.4; 0: the wait
++// from the start).
++static double touchScrollStartRamp()
++{
++    static const double rate = [] {
++        const char* env = getenv("PACIFIC_SCROLL_START_RAMP");
++        return env ? std::clamp(atof(env), 0.0, 0.9) : 0.4;
++    }();
++    return rate;
++}
++
+ bool ThreadedScrollingTree::queueTouchScroll(const PlatformWheelEvent& event, OptionSet<WheelEventProcessingSteps> steps)
+ {
+     ASSERT(ScrollingThread::isCurrentThread());
+@@ -794,6 +813,14 @@ void ThreadedScrollingTree::touchScrollHandled(const PlatformWheelEvent& event,
+     m_touchScrollAnchor = event.timestamp();
+     m_touchScrollClockOffset = MonotonicTime::now() - event.timestamp();
+     m_touchScrollPartial = { };
++    // Patch 0033: a drag's first move is shown at once; its next ones follow
++    // it on a clock that slows into the resampling's wait.
++    m_touchScrollRampFrame = std::nullopt;
++    if (m_touchScrollQueueable && event.phase() == PlatformWheelEventPhase::Began && touchScrollStartRamp() > 0) {
++        m_touchScrollRampFrame = MonotonicTime::now();
++        m_touchScrollRampAt = event.timestamp();
++        m_touchScrollRampSpeed = touchScrollStartRamp();
++    }
+ }
+ 
+ void ThreadedScrollingTree::flushTouchScroll()
+@@ -829,7 +856,7 @@ static bool touchScrollPredictionEasesBack()
+     return easesBack;
+ }
+ 
+-void ThreadedScrollingTree::applyTouchScroll(std::optional<MonotonicTime> until)
++void ThreadedScrollingTree::applyTouchScroll(std::optional<MonotonicTime> until, std::optional<MonotonicTime> frame)
+ {
+     // Patch 0029: with nothing queued, only easing the prediction back moved
+     // the page, and it no longer does (touchScrollPredictionStep).
+@@ -876,8 +903,10 @@ void ThreadedScrollingTree::applyTouchScroll(std::optional<MonotonicTime> until)
+     if (latest)
+         m_lastTouchMove = latest;
+     // Patch 0017: shown where the finger will be when the frame is.
++    // (Patch 0033: at the frame's own time, also while a drag's start runs
++    // the resampling on a slowed clock.)
+     if (untilEventTime)
+-        total += touchScrollPredictionStep(total, *untilEventTime + touchScrollLatency());
++        total += touchScrollPredictionStep(total, frame ? *frame - m_touchScrollClockOffset : *untilEventTime + touchScrollLatency());
+     if (!m_lastTouchMove || total.isZero())
+         return;
+     auto& base = latest ? *latest : *m_lastTouchMove;
+@@ -1064,8 +1093,34 @@ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()
+     // follows the compositor's uneven frame callbacks (8-14 ms apart on the
+     // Jolla Phone), a steady drag moved 5.6 px in one frame and 11 in the
+     // next.
+-    if (advances)
+-        applyTouchScroll((framePacedScroll ? animationTime : now) - touchScrollLatency());
++    if (advances) {
++        auto frameTime = framePacedScroll ? animationTime : now;
++        auto until = frameTime - touchScrollLatency();
++        // Patch 0033: at a drag's start, the slowed clock while it is ahead.
++        // It runs in the reports' own time from the first move's (the clock
++        // offset falls as reports come in less late than that one did), and
++        // its speed rises each frame so that, rising evenly, it reaches real
++        // time as the clock falls the wait behind; the gap is measured anew
++        // each frame, as the wait and the offset change.
++        if (m_touchScrollRampFrame) {
++            auto delayed = until - m_touchScrollClockOffset;
++            auto elapsed = frameTime - *m_touchScrollRampFrame;
++            auto gap = m_touchScrollRampAt - delayed;
++            if (elapsed > 0_s && gap > 0_s) {
++                double speed = m_touchScrollRampSpeed;
++                speed += (1 - speed) * (1 - speed) / (2 * gap.seconds()) * elapsed.seconds();
++                // Below real time, so the gap always closes.
++                m_touchScrollRampSpeed = std::min(speed, 0.97);
++                m_touchScrollRampAt += elapsed * m_touchScrollRampSpeed;
++                m_touchScrollRampFrame = frameTime;
++            }
++            if (m_touchScrollRampAt > delayed)
++                until = m_touchScrollRampAt + m_touchScrollClockOffset;
++            else
++                m_touchScrollRampFrame = std::nullopt;
++        }
++        applyTouchScroll(until, frameTime);
++    }
+ 
+     Locker locker { m_treeLock };
+     m_lastDisplayDidRefreshTime = now;
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
+@@ -152,7 +152,7 @@ private:
+     // ensureIndependentTick() in the implementation.
+     void ensureIndependentTick();
+     // Pacific (patch 0009): see queueTouchScroll().
+-    void applyTouchScroll(std::optional<MonotonicTime> until);
++    void applyTouchScroll(std::optional<MonotonicTime> until, std::optional<MonotonicTime> frame = std::nullopt);
+     void independentTickFired();
+     void waitForRenderingUpdateCompletionOrTimeout() WTF_REQUIRES_LOCK(m_treeLock);
+ 
+@@ -213,6 +213,12 @@ private:
+     double m_touchIntervalMs { 8 }; // between touch reports, smoothed
+     MonotonicTime m_lastQueuedTouchAt;
+     Seconds touchScrollLatency() const;
++    // Patch 0033: while a drag's start is shown on the slowed clock, the
++    // frame it last moved at, its time (event clock) and its speed (a share
++    // of real time).
++    std::optional<MonotonicTime> m_touchScrollRampFrame;
++    MonotonicTime m_touchScrollRampAt;
++    double m_touchScrollRampSpeed { 0 };
+     // Pacific (patch 0017): the drag's recent reports (event clock, and the
+     // finger's travel since it went down), for its velocity; how far ahead
+     // of the reports the page is shown; the drag's last move, to carry a
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
+@@ -32,6 +32,7 @@
+ #include <algorithm>
+ #include <cmath>
+ #include <cstdlib>
++#include <cstring>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebKit {
+@@ -277,6 +278,20 @@ TouchGestureController::EventVariant TouchGestureController::handleEvent(const s
+             m_carryDirY = m_flingDirY;
+             m_caughtSpeed = 0;
+             m_caughtDownTime = std::nullopt;
++            // Pacific (patch 0033): the drag starts where the finger crossed
++            // the slop, as Android's: the first step is the movement past
++            // it. It was all of it, the slop and more (10-15 CSS px from
++            // rest on the Jolla Phone) in one frame, and the next frames
++            // moved 1-3. PACIFIC_TOUCH_SLOP_SUBTRACT=0: the whole movement.
++            static const bool slopSubtracted = [] {
++                const char* env = getenv("PACIFIC_TOUCH_SLOP_SUBTRACT");
++                return !env || strcmp(env, "0");
++            }();
++            if (int reach = std::max(std::abs(deltaX), std::abs(deltaY)); slopSubtracted && reach > 0) {
++                float atSlop = std::min(1.0f, static_cast<float>(threshold) / reach);
++                m_offset.x = m_start.x + static_cast<int32_t>(std::lround(deltaX * atSlop));
++                m_offset.y = m_start.y + static_cast<int32_t>(std::lround(deltaY * atSlop));
++            }
+             [[fallthrough]];
+         }
+         case GesturedEvent::Axis:
+@@ -315,6 +330,18 @@ TouchGestureController::EventVariant TouchGestureController::handleEvent(const s
+ 
+             generatedEvent.event.x_axis = (m_xAxisLockBroken || yOffset < axisLockActivationThreshold) ?  -(m_offset.x - touchPoint->x) : 0;
+             generatedEvent.event.y_axis = (m_yAxisLockBroken || xOffset < axisLockActivationThreshold) ?  -(m_offset.y - touchPoint->y) : 0;
++            // Pacific (patch 0033): the gesture begins with a move. The
++            // scrolling tree latches a gesture only to a Began that scrolls
++            // (ScrollingTreeLatchingController::nodeDidHandleEvent), so a
++            // Began of no length (the finger exactly at the slop, the slop
++            // subtracted, or a 200 ms rest) left the whole drag unlatched:
++            // the page followed it, but the moves never reached the
++            // controller the lift's fling was taken from, and it flung at
++            // nothing (a quarter of quick re-flicks on OSNews).
++            if (generatedEvent.phase == WebWheelEvent::Phase::Began && !generatedEvent.event.x_axis && !generatedEvent.event.y_axis) {
++                m_axisGestureStarted = false;
++                return NoEvent { };
++            }
+ #else
+             generatedEvent.event = {
+                 wpe_input_axis_event_type_motion,
+@@ -390,6 +417,25 @@ TouchGestureController::EventVariant TouchGestureController::handleEvent(const s
+         case GesturedEvent::Axis:
+         {
+             m_gesturedEvent = GesturedEvent::None;
++            if (!m_axisGestureStarted) {
++                // Patch 0033: no move began the gesture, so nothing flings;
++                // a MayBegin (a catch) is closed, as a tap on a fling's is.
++                m_axisMotions.clear();
++                m_carrySpeed = 0;
++                m_offset.x = m_offset.y = 0;
++                AxisEvent cancelled;
++                cancelled.phase = WebWheelEvent::Phase::Cancelled;
++#if WPE_CHECK_VERSION(1, 5, 0)
++                cancelled.event.base = {
++                    static_cast<enum wpe_input_axis_event_type>(wpe_input_axis_event_type_mask_2d | wpe_input_axis_event_type_motion_smooth),
++                    touchPoint->time, m_start.x, m_start.y, 0, 0, 0
++                };
++                cancelled.event.x_axis = cancelled.event.y_axis = 0;
++#else
++                cancelled.event = { wpe_input_axis_event_type_motion, touchPoint->time, m_start.x, m_start.y, 0, 0, 0 };
++#endif
++                return cancelled;
++            }
+             {
+                 // The finger's speed as it lifted, over its last 50 ms.
+                 int32_t dx = 0, dy = 0;

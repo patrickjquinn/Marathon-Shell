@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# CPU and GPU clock floors while a Pacific page is touched or scrolled
+# (pacific-boostd.c). Started by pacific-boost.socket; exits when idle.
+[Unit]
+Description=Pacific touch and scroll clock boost
+Requires=pacific-boost.socket
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+ExecStart=/usr/libexec/pacific/pacific-boostd
+# However it ended, a crash or SIGKILL included: the clocks as before.
+ExecStopPost=/usr/libexec/pacific/pacific-boostd --restore
+Restart=on-failure
+RestartSec=2
+# Only the clock knobs (Android's system user owns them: root needs
+# CAP_DAC_OVERRIDE), its baseline under /run, and reading which program sent
+# a request (/proc/<pid>/exe of the person's process: CAP_SYS_PTRACE).
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SYS_PTRACE
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=no
+RuntimeDirectory=pacific-boost
+RuntimeDirectoryPreserve=yes
+ReadWritePaths=/sys/devices/system/cpu /run/pacific-boost
+ReadWritePaths=-/sys/kernel/ged
+RestrictAddressFamilies=AF_UNIX

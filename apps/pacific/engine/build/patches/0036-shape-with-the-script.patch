@@ -1,0 +1,169 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Text is shaped with its script, without libharfbuzz-icu.
+#
+# WebKit maps each text run's ICU script to HarfBuzz's with
+# hb_icu_script_to_script() from libharfbuzz-icu, which Sailfish OS does not
+# install on the phone. The engine carried Atlantic's stand-in library
+# (compat/libharfbuzz-icu.so.0), which returns HB_SCRIPT_UNKNOWN for every
+# script: Arabic, Hebrew, Indic and Thai runs were shaped without their
+# script (no joining or reordering features chosen for it), and an RTL
+# locale's default writing direction came out as Default. WebKit now does
+# what harfbuzz-icu does, hb_script_from_string() on the script's ISO 15924
+# code (HarfBuzzICUScript.h), and no longer links libharfbuzz-icu.
+#
+--- a/Source/WebCore/platform/FreeType.cmake
++++ b/Source/WebCore/platform/FreeType.cmake
+@@ -35,5 +35,4 @@ list(APPEND WebCore_LIBRARIES
+     Fontconfig::Fontconfig
+     Freetype::Freetype
+     HarfBuzz::HarfBuzz
+-    HarfBuzz::ICU
+ )
+--- a/Source/WebCore/platform/Skia.cmake
++++ b/Source/WebCore/platform/Skia.cmake
+@@ -37,6 +37,5 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+ 
+ list(APPEND WebCore_LIBRARIES
+     HarfBuzz::HarfBuzz
+-    HarfBuzz::ICU
+     Skia::Skia
+ )
+--- a/Source/WebCore/platform/graphics/harfbuzz/ComplexTextControllerHarfBuzz.cpp
++++ b/Source/WebCore/platform/graphics/harfbuzz/ComplexTextControllerHarfBuzz.cpp
+@@ -30,11 +30,11 @@
+ #include "FontCascadeInlines.h"
+ #include "FontFeatureValues.h"
+ #include "FontTaggedSettings.h"
++#include "HarfBuzzICUScript.h"
+ #include "HbUniquePtr.h"
+ #include "SurrogatePairAwareTextIterator.h"
+ #include "TextFlags.h"
+ #include <hb-ft.h>
+-#include <hb-icu.h>
+ #include <hb-ot.h>
+ 
+ #if ENABLE(VARIATION_FONTS)
+@@ -374,7 +374,7 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const
+         auto& run = runList[m_run->rtl() ? runCount - i - 1 : i];
+ 
+         if (fontPlatformData.orientation() != FontOrientation::Vertical)
+-            hb_buffer_set_script(buffer.get(), hb_icu_script_to_script(run.script));
++            hb_buffer_set_script(buffer.get(), harfBuzzScriptFromICU(run.script));
+         if (!m_mayUseNaturalWritingDirection || m_run->directionalOverride())
+             hb_buffer_set_direction(buffer.get(), m_run->rtl() ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
+         else {
+--- a/Source/WebCore/platform/graphics/skia/ComplexTextControllerSkia.cpp
++++ b/Source/WebCore/platform/graphics/skia/ComplexTextControllerSkia.cpp
+@@ -28,11 +28,11 @@
+ #include "FontCascadeInlines.h"
+ #include "FontFeatureValues.h"
+ #include "FontTaggedSettings.h"
++#include "HarfBuzzICUScript.h"
+ #include "HbUniquePtr.h"
+ #include "SurrogatePairAwareTextIterator.h"
+ #include "TextFlags.h"
+ #include "TextRun.h"
+-#include <hb-icu.h>
+ #include <hb-ot.h>
+ #include <hb.h>
+ 
+@@ -223,12 +223,12 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const
+         hb_buffer_set_cluster_level(buffer.get(), HB_BUFFER_CLUSTER_LEVEL_CHARACTERS);
+         hb_buffer_set_language(buffer.get(), language);
+ 
+-        hb_buffer_set_script(buffer.get(), hb_icu_script_to_script(run.script));
++        hb_buffer_set_script(buffer.get(), harfBuzzScriptFromICU(run.script));
+ 
+         if (!m_mayUseNaturalWritingDirection || m_run->directionalOverride())
+             hb_buffer_set_direction(buffer.get(), m_run->rtl() ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
+         else
+-            hb_buffer_set_direction(buffer.get(), hb_script_get_horizontal_direction(hb_icu_script_to_script(run.script)));
++            hb_buffer_set_direction(buffer.get(), hb_script_get_horizontal_direction(harfBuzzScriptFromICU(run.script)));
+ 
+         hb_buffer_add_utf16(buffer.get(), reinterpret_cast<const uint16_t*>(characters.data()), characters.size(), run.startIndex, run.endIndex - run.startIndex);
+ 
+new file mode 100644
+--- /dev/null
++++ b/Source/WebCore/platform/text/HarfBuzzICUScript.h
+@@ -0,0 +1,47 @@
++/*
++ * Copyright (C) 2026 Patrick Quinn
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#pragma once
++
++#if USE(HARFBUZZ)
++
++#include <hb.h>
++#include <unicode/uscript.h>
++
++namespace WebCore {
++
++// HarfBuzz's script for an ICU script code, by its ISO 15924 code, as
++// harfbuzz-icu's hb_icu_script_to_script() computes it, without linking
++// libharfbuzz-icu (which Sailfish OS does not install on the phone).
++inline hb_script_t harfBuzzScriptFromICU(UScriptCode script)
++{
++    if (script == USCRIPT_INVALID_CODE)
++        return HB_SCRIPT_INVALID;
++    return hb_script_from_string(uscript_getShortName(script), -1);
++}
++
++} // namespace WebCore
++
++#endif // USE(HARFBUZZ)
+--- a/Source/WebCore/platform/text/LocaleICU.cpp
++++ b/Source/WebCore/platform/text/LocaleICU.cpp
+@@ -44,8 +44,7 @@
+ #include <wtf/unicode/icu/ICUHelpers.h>
+ 
+ #if USE(HARFBUZZ)
+-#include <hb-icu.h>
+-#include <hb.h>
++#include "HarfBuzzICUScript.h"
+ #endif
+ 
+ namespace WebCore {
+@@ -78,7 +77,7 @@ Locale::WritingDirection LocaleICU::defaultWritingDirection() const
+ {
+ #if USE(HARFBUZZ)
+     UScriptCode icuScript = localeToScriptCode(m_locale.span());
+-    hb_script_t script = hb_icu_script_to_script(icuScript);
++    hb_script_t script = harfBuzzScriptFromICU(icuScript);
+ 
+     switch (hb_script_get_horizontal_direction(script)) {
+     case HB_DIRECTION_LTR:
+--- a/Source/cmake/OptionsWPE.cmake
++++ b/Source/cmake/OptionsWPE.cmake
+@@ -10,7 +10,7 @@ list(APPEND WEBKIT_UNSAFE_BUFFER_WARNING_FLAGS -Wno-unsafe-buffer-usage-in-forma
+ 
+ # Update Source/WTF/wtf/Platform.h to match required GLib versions.
+ find_package(GLib 2.70.0 REQUIRED COMPONENTS GioUnix Thread Module)
+-find_package(HarfBuzz 2.7.4 REQUIRED COMPONENTS ICU)
++find_package(HarfBuzz 2.7.4 REQUIRED)
+ find_package(ICU 70.1 REQUIRED COMPONENTS data i18n uc)
+ if (ICU_FOUND)
+     foreach(_icu_component data i18n uc)

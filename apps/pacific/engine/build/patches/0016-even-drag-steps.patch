@@ -1,0 +1,206 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Even steps while dragging, and no lurch when the finger lifts.
+#
+# Three things on top of patch 0009's touch resampling, measured on the
+# Jolla Phone with steady 125 Hz drags and 200 ms flings:
+#
+# - The finger lifting waited for nothing: the moves still queued and the
+#   fling's first step landed in one frame, a jump of about three steps on
+#   every fling (97, 183, 55 px). The end now waits in the queue behind the
+#   moves, which keep being shown frame by frame.
+# - Two clocks ticked between frames: the frame's tick (patches 0007, 0011)
+#   and the independent timer the touch queue keeps alive. Each advanced the
+#   animations by a whole period, so a frame sometimes moved two steps and
+#   the next none. While frames come, only a frame's tick moves things on,
+#   and drags are resampled at that frame's time on the display's grid, as
+#   animations are (the compositor's frame callbacks come 8-14 ms apart).
+# - Touch reports arrive late and in bursts (up to 12 ms of varying delay
+#   before Pacific's UI thread alone), so a fixed 16 ms behind the frame
+#   often had only whole reports to show: 0, 5.6, 11.2 or 16.8 px a frame.
+#   The wait now follows the lateness seen lately plus one report interval
+#   (16-40 ms; PACIFIC_SCROLL_RESAMPLE_ADAPTIVE=0 keeps it fixed).
+#
+# Steady drag, step ratio spread: OSNews 0.63 -> 0.31, The Verge 0.78 ->
+# 0.42. 200 ms flings: 0.42 -> 0.20. Touch-down to first movement is
+# unchanged (42 ms median); while dragging the page trails the finger by
+# the adaptive wait.
+#
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
+@@ -716,6 +716,27 @@
+     return latency;
+ }
+ 
++// Pacific (patch 0016): the wait adapts to how late the reports actually
++// arrive. Touches reach Pacific's UI thread with up to 12 ms of varying delay
++// (Lipstick, Wayland, Qt's event loop) and more on the way here, so a fixed
++// 16 ms often had only whole reports to show: a steady drag moved 0, 5.6,
++// 11.2 or 16.8 px a frame (whole reports). Waiting for the lateness seen
++// lately, plus a margin, gives every frame its share; 32 ms made those steps
++// 6-7.7 px. Never below the fixed latency, never above 40 ms.
++Seconds ThreadedScrollingTree::touchScrollLatency() const
++{
++    static const bool adaptive = [] {
++        const char* env = getenv("PACIFIC_SCROLL_RESAMPLE_ADAPTIVE");
++        return !env || strcmp(env, "0");
++    }();
++    auto base = touchScrollResampleLatency();
++    if (!adaptive)
++        return base;
++    // The report after the frame's time must be here too: lateness plus a
++    // report's interval, plus a little.
++    return std::clamp(Seconds::fromMilliseconds(m_touchLatenessMs + m_touchIntervalMs + 2), base, 40_ms);
++}
++
+ static bool touchScrollResampling()
+ {
+     static const bool enabled = [] {
+@@ -730,11 +751,29 @@
+     ASSERT(ScrollingThread::isCurrentThread());
+     if (!touchScrollResampling() || !m_touchScrollQueueable || !independentScrollEnabled())
+         return false;
++    // Pacific (patch 0016): the finger lifting waits behind the moves still
++    // queued, so they keep being shown frame by frame and the fling starts
++    // from where the finger was. Flushed at once, they and the fling's first
++    // step landed in one frame: a lurch of three steps on every fling.
++    if (event.phase() == PlatformWheelEventPhase::Ended && event.momentumPhase() == PlatformWheelEventPhase::None
++        && !m_touchScrollQueue.isEmpty()) {
++        m_touchScrollQueue.append({ event.timestamp(), event, steps, true });
++        ensureIndependentTick();
++        return true;
++    }
+     if (event.phase() != PlatformWheelEventPhase::Changed || event.momentumPhase() != PlatformWheelEventPhase::None || !event.hasPreciseScrollingDeltas())
+         return false;
+     // Timed by the touch reports themselves: the UI process sends one wheel
+     // event at a time and merges those that wait, so they arrive in bursts.
+     m_touchScrollClockOffset = std::min(m_touchScrollClockOffset, MonotonicTime::now() - event.timestamp());
++    double lateness = ((MonotonicTime::now() - event.timestamp()) - m_touchScrollClockOffset).milliseconds();
++    m_touchLatenessMs = std::max(lateness, m_touchLatenessMs * 0.97);
++    if (m_lastQueuedTouchAt) {
++        double interval = (event.timestamp() - m_lastQueuedTouchAt).milliseconds();
++        if (interval > 1 && interval < 50)
++            m_touchIntervalMs = 0.9 * m_touchIntervalMs + 0.1 * interval;
++    }
++    m_lastQueuedTouchAt = event.timestamp();
+     m_touchScrollQueue.append({ event.timestamp(), event, steps });
+     ensureIndependentTick();
+     return true;
+@@ -759,6 +798,11 @@
+     // last events' deltas and times; merged into one, it came out 5% faster.
+     while (!m_touchScrollQueue.isEmpty()) {
+         auto queued = m_touchScrollQueue.takeFirst();
++        if (queued.isEnd) {
++            m_touchScrollPartial = { };
++            touchScrollHandled(queued.event, handleWheelEvent(queued.event, queued.steps));
++            continue;
++        }
+         auto delta = queued.event.delta() - m_touchScrollPartial;
+         m_touchScrollPartial = { };
+         m_touchScrollAnchor = queued.at;
+@@ -780,6 +824,17 @@
+         untilEventTime = *until - m_touchScrollClockOffset;
+     while (!m_touchScrollQueue.isEmpty()) {
+         auto& front = m_touchScrollQueue.first();
++        if (front.isEnd) {
++            if (untilEventTime && front.at > *untilEventTime)
++                break;
++            // The movement before the end, then the end (the fling).
++            if (latest && !total.isZero())
++                handleWheelEvent(latest->event.copyWithDeltaAndTimestamp(total, front.at), latest->steps);
++            auto end = m_touchScrollQueue.takeFirst();
++            m_touchScrollPartial = { };
++            touchScrollHandled(end.event, handleWheelEvent(end.event, end.steps));
++            return;
++        }
+         if (!untilEventTime || front.at <= *untilEventTime) {
+             total += front.event.delta() - m_touchScrollPartial;
+             m_touchScrollPartial = { };
+@@ -808,14 +863,14 @@
+     TraceScope tracingScope(ScrollingThreadDisplayDidRefreshStart, ScrollingThreadDisplayDidRefreshEnd, displayID());
+     ASSERT(ScrollingThread::isCurrentThread());
+ 
+-    // Pacific (patch 0009): this frame's share of a drag, before the tree
+-    // lock (handleWheelEvent takes it).
+-    applyTouchScroll(MonotonicTime::now() - touchScrollResampleLatency());
+-
+-    Locker locker { m_treeLock };
+-    
+     auto now = MonotonicTime::now();
+-    m_lastDisplayDidRefreshTime = now;
++    // Pacific (patch 0016): while frames come, only a frame's tick moves
++    // things on. Other ticks (the independent timer the touch queue keeps
++    // alive) ran between frames too, and each advanced the animations by a
++    // whole period: a frame moved two steps and the next none.
++    auto sinceFrameTick = now.secondsSinceEpoch() - Seconds(m_lastFrameTick.load());
++    bool framesFlowing = sinceFrameTick < independentTickInterval() * 1.5;
++    bool advances = m_inFrameTick || !framesFlowing;
+     // Shipwright (patch 0007): a frame is shown on the display's grid, not
+     // when its tick happens to run, so each tick advances the animation by
+     // whole refresh periods: one, or as many as passed after a missed frame.
+@@ -827,7 +882,9 @@
+         const char* env = getenv("PACIFIC_FRAME_PACED_SCROLL");
+         return !env || strcmp(env, "0");
+     }();
+-    if (framePacedScroll && m_animationTime && now - m_animationTime < 100_ms) {
++    if (framePacedScroll && !advances && m_animationTime)
++        animationTime = m_animationTime;
++    else if (framePacedScroll && m_animationTime && now - m_animationTime < 100_ms) {
+         auto period = independentTickInterval();
+         double periods = std::max(1.0, std::round((now - m_animationTime) / period));
+         animationTime = std::clamp(m_animationTime + period * periods, now - period, now + period / 2);
+@@ -835,6 +892,18 @@
+             animationTime = m_animationTime;
+     }
+     m_animationTime = animationTime;
++
++    // Pacific (patch 0009): this frame's share of a drag, before the tree
++    // lock (handleWheelEvent takes it). Patch 0016: at the frame's time on
++    // the display's grid, as the animations: at the tick's own time, which
++    // follows the compositor's uneven frame callbacks (8-14 ms apart on the
++    // Jolla Phone), a steady drag moved 5.6 px in one frame and 11 in the
++    // next.
++    if (advances)
++        applyTouchScroll((framePacedScroll ? animationTime : now) - touchScrollLatency());
++
++    Locker locker { m_treeLock };
++    m_lastDisplayDidRefreshTime = now;
+     serviceScrollAnimations(animationTime);
+ 
+     // Independent scrolling: commit the latest scroll offsets into the compositor
+@@ -866,7 +935,9 @@
+     if (!hasRecentActivity())
+         return;
+     ScrollingThread::dispatch([protectedThis = Ref { *this }]() {
++        protectedThis->m_inFrameTick = true;
+         protectedThis->displayDidRefreshOnScrollingThread();
++        protectedThis->m_inFrameTick = false;
+     });
+ }
+ 
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
+@@ -183,6 +183,7 @@
+         MonotonicTime at; // the touch report's own time (event clock)
+         PlatformWheelEvent event;
+         OptionSet<WheelEventProcessingSteps> steps;
++        bool isEnd { false }; // patch 0016: the drag's end, after its moves
+     };
+     Deque<QueuedTouchScroll> m_touchScrollQueue;
+     MonotonicTime m_touchScrollAnchor; // where the front event's movement starts (event clock)
+@@ -192,6 +193,14 @@
+     // Pacific (patch 0011): when frameDidComplete() last ticked (seconds of
+     // MonotonicTime; written on the compositor thread).
+     std::atomic<double> m_lastFrameTick { 0 };
++    // Patch 0016: the tick running now is a frame's (frameDidComplete).
++    bool m_inFrameTick { false };
++    // Patch 0016: how late touch reports arrive (ms past the earliest any
++    // has), a slowly decaying maximum; the resampling waits that long.
++    double m_touchLatenessMs { 0 };
++    double m_touchIntervalMs { 8 }; // between touch reports, smoothed
++    MonotonicTime m_lastQueuedTouchAt;
++    Seconds touchScrollLatency() const;
+     // Shipwright (patch 0007): scroll animation time, stepped by
+     // whole refresh periods.
+     MonotonicTime m_animationTime;

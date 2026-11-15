@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# The engine builder: Fedora 44's clang 22, lld, compiler-rt (the profile
+# runtime) and BOLT, with what WebKit's build runs (perl, python, ruby,
+# gperf, unifdef). The target libraries come from the Sailfish sysroot.
+FROM registry.fedoraproject.org/fedora:44
+RUN dnf -y install --setopt=install_weak_deps=False clang llvm lld compiler-rt llvm-bolt cmake ninja-build ccache perl perl-FindBin perl-English perl-JSON-PP perl-File-Copy-Recursive python3 ruby rubygem-json gperf unifdef patch xz tar git which file findutils diffutils pkgconf-pkg-config glib2-devel gettext && dnf clean all

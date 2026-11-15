@@ -1,0 +1,177 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A pinch does not scroll the page: gestures are one finger's.
+#
+# WPE's touch gesture controller (scrolling, taps) followed each touch
+# event's first listed point, whatever the event was about, and took every
+# finger's events as one finger's. A pinch scrolled the page by the jumps
+# between the fingers, and a finger lifting ended that scroll with a fling;
+# a second finger's touch-down even reached the controller as the first
+# finger moving. Now the controller follows the point each event is about
+# (NativeWebTouchEvent's fallback point is the event's own id), a second
+# finger ends any scroll in progress without a fling (Phase::Cancelled
+# starts no kinetic animation), and nothing is gestured until every finger
+# is up. The page still gets every touch, and the embedder pinches. The
+# controller keeps count of the fingers through touches the page handled.
+# Measured on the Jolla Phone: a pinch that started as a one-finger drag
+# kept scrolling the page 14 px back after the second finger; now it stops
+# with the second finger.
+#
+--- a/Source/WebKit/Shared/libwpe/NativeWebTouchEventLibWPE.cpp
++++ b/Source/WebKit/Shared/libwpe/NativeWebTouchEventLibWPE.cpp
+@@ -36,7 +36,18 @@
+     : WebTouchEvent(WebEventFactory::createWebTouchEvent(event, deviceScaleFactor))
+     , m_fallbackTouchPoint { wpe_input_touch_event_type_null, 0, 0, 0, 0 }
+ {
+-    for (auto& point : unsafeMakeSpan(event->touchpoints, event->touchpoints_length)) {
++    // Pacific (patch 0015): the point the event is about (its id), which
++    // the gesture controller follows. The first listed point stood for every
++    // event, so a second finger's touch-down reached the controller as the
++    // first finger moving, and a pinch scrolled the page.
++    auto points = unsafeMakeSpan(event->touchpoints, event->touchpoints_length);
++    for (auto& point : points) {
++        if (point.type != wpe_input_touch_event_type_null && point.id == event->id) {
++            m_fallbackTouchPoint = point;
++            return;
++        }
++    }
++    for (auto& point : points) {
+         if (point.type != wpe_input_touch_event_type_null) {
+             m_fallbackTouchPoint = point;
+             break;
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.cpp
+@@ -44,8 +44,77 @@
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(TouchGestureController);
+ 
++void TouchGestureController::trackFinger(const struct wpe_input_touch_event_raw* touchPoint)
++{
++    if (touchPoint->type == wpe_input_touch_event_type_down && !m_fingers.contains(touchPoint->id)) {
++        if (m_fingers.isEmpty())
++            m_primaryId = touchPoint->id;
++        m_fingers.append(touchPoint->id);
++    } else if (touchPoint->type == wpe_input_touch_event_type_up) {
++        m_fingers.removeFirst(touchPoint->id);
++        if (m_fingers.isEmpty())
++            m_multiTouch = false;
++    }
++}
++
+ TouchGestureController::EventVariant TouchGestureController::handleEvent(const struct wpe_input_touch_event_raw* touchPoint)
+ {
++    // Pacific (patch 0015): a gesture is one finger's. The controller took
++    // every finger's events as that one's, so a pinch scrolled the page by
++    // the jumps between the fingers, and a finger lifting ended the "scroll"
++    // with a fling. A second finger now ends any scroll without a fling
++    // (Cancelled: no kinetic animation) and nothing is gestured until every
++    // finger is up; the embedder pinches, the page still gets the touches.
++    switch (touchPoint->type) {
++    case wpe_input_touch_event_type_down:
++        if (m_fingers.isEmpty()) {
++            m_fingers.append(touchPoint->id);
++            m_primaryId = touchPoint->id;
++            m_multiTouch = false;
++            break;
++        }
++        if (!m_fingers.contains(touchPoint->id))
++            m_fingers.append(touchPoint->id);
++        if (touchPoint->id == m_primaryId || m_multiTouch)
++            return NoEvent { };
++        m_multiTouch = true;
++        if (m_gesturedEvent == GesturedEvent::Axis) {
++            m_gesturedEvent = GesturedEvent::None;
++            AxisEvent cancelled;
++            cancelled.phase = WebWheelEvent::Phase::Cancelled;
++#if WPE_CHECK_VERSION(1, 5, 0)
++            cancelled.event.base = {
++                static_cast<enum wpe_input_axis_event_type>(wpe_input_axis_event_type_mask_2d | wpe_input_axis_event_type_motion_smooth),
++                touchPoint->time, m_start.x, m_start.y,
++                0, 0, 0
++            };
++            cancelled.event.x_axis = cancelled.event.y_axis = 0;
++#else
++            cancelled.event = { wpe_input_axis_event_type_motion, touchPoint->time, m_start.x, m_start.y, 0, 0, 0 };
++#endif
++            return cancelled;
++        }
++        m_gesturedEvent = GesturedEvent::None;
++        return NoEvent { };
++    case wpe_input_touch_event_type_motion:
++        if (m_multiTouch || touchPoint->id != m_primaryId)
++            return NoEvent { };
++        break;
++    case wpe_input_touch_event_type_up:
++        m_fingers.removeFirst(touchPoint->id);
++        if (m_multiTouch) {
++            if (m_fingers.isEmpty())
++                m_multiTouch = false;
++            return NoEvent { };
++        }
++        if (touchPoint->id != m_primaryId)
++            return NoEvent { };
++        m_fingers.clear();
++        break;
++    default:
++        break;
++    }
++
+     switch (touchPoint->type) {
+     case wpe_input_touch_event_type_down:
+         // Start of the touch interaction, first possible event is a mouse click.
+--- a/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.h
++++ b/Source/WebKit/UIProcess/API/libwpe/TouchGestureController.h
+@@ -30,6 +30,7 @@
+ #include "WebWheelEvent.h"
+ #include <wpe/wpe.h>
+ #include <wtf/TZoneMalloc.h>
++#include <wtf/Vector.h>
+ 
+ namespace WebKit {
+ 
+@@ -68,6 +69,9 @@
+ 
+     GesturedEvent gesturedEvent() const { return m_gesturedEvent; }
+     EventVariant handleEvent(const struct wpe_input_touch_event_raw*);
++    // Pacific (patch 0015): a touch the page handled itself (no gesture),
++    // so the controller still knows which fingers are down.
++    void trackFinger(const struct wpe_input_touch_event_raw*);
+ 
+ private:
+     GesturedEvent m_gesturedEvent { GesturedEvent::None };
+@@ -91,6 +95,13 @@
+     // without it every event hit-tests independently and a flick splits across nodes,
+     // killing the kinetic fling. See webkit-touch-gesture-began-phase.patch.
+     bool m_axisGestureStarted { false };
++
++    // Pacific (patch 0015): the fingers down, the one that started the
++    // gesture, and whether a second has come (the gesture is then over
++    // until every finger is up).
++    Vector<int32_t, 4> m_fingers;
++    int32_t m_primaryId { -1 };
++    bool m_multiTouch { false };
+ };
+ 
+ } // namespace WebKit
+--- a/Source/WebKit/UIProcess/API/wpe/PageClientImpl.cpp
++++ b/Source/WebKit/UIProcess/API/wpe/PageClientImpl.cpp
+@@ -259,6 +259,18 @@
+ #endif
+ 
+     if (wasEventHandled) {
++#if USE(LIBWPE)
++        // Pacific (patch 0015): the gesture controller keeps count of the
++        // fingers, also through touches the page handled.
++        bool legacyView = true;
++#if ENABLE(WPE_PLATFORM)
++        legacyView = !m_view.wpeView();
++#endif
++        if (legacyView && !touchEventHandledLocally && touchEvent.isNativeWebTouchEvent()) {
++            if (auto* point = static_cast<const NativeWebTouchEvent&>(touchEvent).nativeFallbackTouchPoint(); point && point->type != wpe_input_touch_event_type_null)
++                static_cast<WKWPE::ViewLegacy&>(m_view).touchGestureController().trackFinger(point);
++        }
++#endif
+ #if ENABLE(WPE_PLATFORM)
+         // If the touch event was handled, we must interrupt any gesture detection sequence ongoing so that gestures
+         // are not detected by engine itself.

@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+#
+# Pacific started ahead of use, as the Sailfish Browser keeps a prestarted
+# instance: loaded, with no window and no page (PACIFIC_PRESTART=1,
+# Browser.waiting; in the environment because Sailjail starts only the
+# desktop file's command line, `shipwright-pacific [URL...]`),
+# so opening it shows the window at once instead of starting the engine,
+# Qt and the interface first (0.7 s for the stock browser's first frame
+# against Pacific's 1.35 s from cold on the Jolla Phone). Started with the
+# session and again after Pacific is closed; D-Bus activation of
+# org.shipwright.pacific.ui (the launcher's tap, links from other apps)
+# starts it too. Only once Pacific has run (its profile exists): the
+# sandbox asks whether it may start the first time, and that question must
+# come from a tap, not at boot. Under memory pressure it goes before apps
+# in use.
+[Unit]
+Description=Pacific, ready to open
+Requires=dbus.socket lipstick.service
+After=dbus.socket lipstick.service
+ConditionPathExists=%h/.local/share/org.shipwright/pacific/places.db
+
+[Service]
+Type=dbus
+BusName=org.shipwright.pacific.ui
+Environment=PACIFIC_PRESTART=1
+ExecStart=/usr/bin/sailjail -p shipwright-pacific.desktop /usr/bin/shipwright-pacific
+Restart=always
+RestartSec=3
+OOMScoreAdjust=300
+
+[Install]
+WantedBy=post-user-session.target

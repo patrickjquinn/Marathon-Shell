@@ -1,0 +1,89 @@
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
+// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+
+// Every page and dialog of Pacific at Normal and Gigantic text size on the
+// Jolla Phone's screen, inside the real shipwright-pacific (its Rust
+// backend, a scratch profile) with the mock web view instead of the engine
+// (layout-tests/run.sh fills in @UI_DIR@ and @AUDIT@). History, bookmarks
+// and searches are seeded through the real backend first.
+import QtQuick
+import Shipwright.Pacific 1.0
+
+QtObject {
+    id: h
+
+    property var app: null
+    property var audit: null
+    property int ticks: 0
+
+    property Timer timer: Timer {
+        interval: 50
+        repeat: true
+        running: true
+        onTriggered: h.tick()
+    }
+
+    function seed() {
+        var visits = [
+            ["https://en.wikipedia.org/wiki/Sailfish_OS", "Sailfish OS - Wikipedia, the free encyclopedia, with a very long page title"],
+            ["https://forum.sailfishos.org/t/beta-reef-an-app-store-for-sailfish-os-and-keel-silica-apps-on-qt-6/34763", "[BETA] Reef, an app store for Sailfish OS, and Keel: Silica apps on Qt 6"],
+            ["https://www.osnews.com/", "OSnews"],
+            ["https://news.ycombinator.com/item?id=1", "Hacker News"]]
+        for (var i = 0; i < visits.length; ++i)
+            Pacific.recordVisit(visits[i][0], visits[i][1], "link", false)
+        Pacific.addFolder("Reading list for the long weekend away", 0)
+        Pacific.addBookmark("https://www.gutenberg.org/ebooks/1342", "Pride and Prejudice by Jane Austen | Project Gutenberg", 0)
+        Pacific.recordSearch("sailfish os open repositories and how to add them", "", false)
+    }
+
+    function tick() {
+        if (++ticks > 6000) {
+            console.log("LAYOUT FAIL: timed out")
+            Qt.exit(1)
+            return
+        }
+        if (!app) {
+            var c = Qt.createComponent("@UI_DIR@/shipwright-pacific.qml")
+            if (c.status !== Component.Ready) {
+                console.log("LAYOUT FAIL: UI did not compile: " + c.errorString())
+                Qt.exit(1)
+                return
+            }
+            seed()
+            app = c.createObject(null)
+            return
+        }
+        if (!audit) {
+            if (app.pageStack.depth < 1 || app.pageStack.busy)
+                return
+            var b = app.pageStack.currentPage.browser
+            var a = Qt.createComponent("@AUDIT@")
+            audit = a.createObject(h)
+            var page = function(f) { return "@UI_DIR@/pages/" + f }
+            var cases = [
+                ["SettingsPage.qml", { browser: b }], ["PrivacyPage.qml", { browser: b }],
+                ["HistoryPage.qml", { browser: b }], ["BookmarksPage.qml", { browser: b }],
+                ["DownloadsPage.qml", { browser: b }], ["TabsPage.qml", { browser: b }],
+                ["AddressPage.qml", { browser: b, initialText: "sailfish" }], ["FirstRunPage.qml", { browser: b }],
+                ["AboutPage.qml", {}], ["SearchEnginesPage.qml", {}], ["FilterListsPage.qml", {}],
+                ["SpellingPage.qml", {}], ["SitesPage.qml", { kind: "cookies" }],
+                ["AddEngineDialog.qml", {}], ["ClearDataDialog.qml", {}],
+                ["BookmarkDialog.qml", { bookmarkTitle: "Pride and Prejudice by Jane Austen | Project Gutenberg",
+                                         bookmarkUrl: "https://www.gutenberg.org/ebooks/1342" }],
+                ["FolderPickerPage.qml", {}],
+                ["SitePromptDialog.qml", { site: "maps.example.com", question: "Allow maps.example.com to use your location?",
+                                           detail: "It asks every time you open a map; Pacific remembers your answer for this site.",
+                                           acceptText: "Allow", cancelText: "Deny", rememberVisible: true }]]
+            var sizes = ["normal", "gigantic"]
+            for (var i = 0; i < cases.length; ++i)
+                for (var s = 0; s < sizes.length; ++s)
+                    audit.enqueue(app, page(cases[i][0]), cases[i][1], sizes[s])
+            return
+        }
+        if (audit.step())
+            return
+        timer.running = false
+        console.log(audit.problems === 0 ? "LAYOUT PASS" : "LAYOUT FAIL: " + audit.problems + " problem(s)")
+        Qt.exit(audit.problems === 0 ? 0 : 1)
+    }
+}
