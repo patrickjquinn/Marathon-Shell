@@ -170,7 +170,7 @@ Item {
     KeelEntity {
         id: tabEntity
         type: "tab"
-        title: "Browser tab"
+        title: qsTr("Browser tab")
         description: "An open (not private) tab in Pacific: its address and title. The title is web content."
         KeelParam {
             name: "url"
@@ -223,7 +223,7 @@ Item {
     KeelEntity {
         id: bookmarkEntity
         type: "bookmark"
-        title: "Bookmark"
+        title: qsTr("Bookmark")
         description: "A bookmarked web page: its title and address."
         KeelParam {
             name: "url"
@@ -258,7 +258,7 @@ Item {
     KeelEntity {
         id: historyEntity
         type: "history"
-        title: "History entry"
+        title: qsTr("History entry")
         description: "A page in the browsing history: its title, address and when it was last visited."
         KeelParam {
             name: "url"

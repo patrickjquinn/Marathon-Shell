@@ -42,7 +42,7 @@ Dialog {
                 id: address
                 width: parent.width
                 label: qsTr("Results address, %s for the search words")
-                placeholderText: "https://example.com/search?q=%s"
+                placeholderText: "https://example.com/search?q=%s" // i18n: literal
                 inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: keyword.forceActiveFocus()

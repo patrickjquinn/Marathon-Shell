@@ -69,7 +69,7 @@ Dialog {
                 width: parent.width
                 visible: dialog.type === "color"
                 label: qsTr("Colour, as #rrggbb")
-                placeholderText: "#rrggbb"
+                placeholderText: "#rrggbb" // i18n: literal
                 text: dialog.value
                 EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                 EnterKey.onClicked: dialog.accept()

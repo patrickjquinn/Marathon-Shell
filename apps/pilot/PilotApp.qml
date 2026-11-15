@@ -269,7 +269,7 @@ ApplicationWindow {
     Window {
         id: overlayWindow
         objectName: "overlayWindow"
-        title: "keel:dialog:pilot"
+        title: "keel:dialog:pilot" // i18n: not user-facing
         transientParent: null
         color: "transparent"
         visible: false

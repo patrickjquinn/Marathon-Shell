@@ -85,7 +85,7 @@ Window {
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideMiddle
             color: "white"
-            text: (web.secure ? "\u{1F512} " : "") + web.url
+            text: (web.secure ? "\u{1F512} " : "") + web.url // i18n: literal
         }
     }
 
