@@ -375,7 +375,6 @@ Page {
                     width: parent.width - (send.visible ? send.width : 0) - (mic.visible ? mic.width : 0)
                     placeholderText: qsTr("Ask Pilot")
                     label: qsTr("Ask Pilot")
-                    enabled: !Pilot.busy
                     EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                     EnterKey.onClicked: {
                         page.send(text);
@@ -387,10 +386,10 @@ Page {
                     objectName: "sendButton"
                     visible: input.text.trim().length > 0
                     icon.source: "image://theme/icon-m-send"
-                    enabled: !Pilot.busy
                     onClicked: {
                         page.send(input.text);
                         input.text = "";
+                        input.forceActiveFocus();
                     }
                 }
                 // Tap to talk.

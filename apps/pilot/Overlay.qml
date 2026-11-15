@@ -372,7 +372,6 @@ Item {
                             width: parent.width - (sendButton.visible ? sendButton.width : 0) - (mic.visible ? mic.width : 0) - Theme.paddingSmall
                             placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything") : qsTr("Ask Pilot")
                             label: qsTr("Ask Pilot")
-                            enabled: !Pilot.busy
                             EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                             EnterKey.onClicked: overlay.send(text)
                         }
@@ -380,7 +379,6 @@ Item {
                             id: sendButton
                             visible: input.text.trim().length > 0
                             icon.source: "image://theme/icon-m-send"
-                            enabled: !Pilot.busy
                             onClicked: overlay.send(input.text)
                         }
                         Orb {

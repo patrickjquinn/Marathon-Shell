@@ -28,6 +28,8 @@ QtObject {
     // Text another app shared ("Ask Pilot about this"): it goes with the
     // next question.
     property string shared: ""
+    // Questions asked while Pilot was answering, oldest first.
+    property var queued: []
     // The getting-started guide (GuideCard.qml, GuidePage.qml): the skills
     // tried, kept by pilotd ("gesture", "screen", "voice", "action",
     // "how"; "hidden" once put away). Each is marked when the person does
@@ -127,9 +129,10 @@ QtObject {
         Pilot.refreshNow();
     }
 
+    // Asked while Pilot is still answering, a question waits its turn.
     function send(text) {
         text = text.trim();
-        if (text.length === 0 || Pilot.busy)
+        if (text.length === 0)
             return;
         model.append(entry({
             who: "you",
@@ -139,8 +142,20 @@ QtObject {
         grew();
         if (now.on_screen)
             markGuide("screen");
-        Pilot.ask(shared.length > 0 ? text + "\n\n" + shared : text, false);
+        var question = shared.length > 0 ? text + "\n\n" + shared : text;
         shared = "";
+        if (Pilot.busy)
+            queued = queued.concat([question]);
+        else
+            Pilot.ask(question, false);
+    }
+
+    function askQueued() {
+        if (queued.length === 0 || Pilot.busy)
+            return;
+        var next = queued[0];
+        queued = queued.slice(1);
+        Pilot.ask(next, false);
     }
 
     function answer(index, approved) {
@@ -163,6 +178,7 @@ QtObject {
     // A new conversation: on screen, and as context for Pilot's next answer.
     function clear() {
         model.clear();
+        queued = [];
         Pilot.clearConversation();
         Pilot.refreshNow();
     }
@@ -174,9 +190,11 @@ QtObject {
         target: Pilot
         function onTurnFinished(json) {
             conversation.addCards(JSON.parse(json));
+            conversation.askQueued();
         }
         function onWiped() {
             conversation.model.clear();
+            conversation.queued = [];
         }
         function onNowChanged(json) {
             conversation.now = JSON.parse(json);
