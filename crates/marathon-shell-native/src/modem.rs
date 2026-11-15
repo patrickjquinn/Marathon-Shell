@@ -902,16 +902,22 @@ struct Snapshot {
     current: u32,
     nm_device: Option<OwnedObjectPath>,
     nm_state: u32,
+    power: u32,
+    /// Low power was asked for this modem object.
+    radio_off: bool,
 }
 
 // ModemManager's MM_MODEM_MODE_CS: calls, not a choice of data mode.
 const CIRCUIT_SWITCHED: u32 = 1;
+const MODEM_DISABLED: i32 = 3;
+const POWER_LOW: u32 = 2;
 
 impl Snapshot {
     fn set(&mut self, name: &str, value: &Value<'_>) {
         let owned = || value.try_to_owned().ok();
         match name {
             "State" => self.state = value.downcast_ref().unwrap_or(self.state),
+            "PowerState" => self.power = value.downcast_ref().unwrap_or(self.power),
             "Sim" => {
                 self.sim = owned()
                     .and_then(|v| OwnedObjectPath::try_from(v).ok())
@@ -1100,6 +1106,7 @@ const NM: &str = "org.freedesktop.NetworkManager";
 trait ManagedModem {
     fn enable(&self, enable: bool) -> zbus::Result<()>;
     fn set_current_modes(&self, modes: &(u32, u32)) -> zbus::Result<()>;
+    fn set_power_state(&self, state: u32) -> zbus::Result<()>;
 }
 
 type Qt = cxx_qt::CxxQtThread<Modem>;
@@ -1117,6 +1124,8 @@ enum Event {
     CallChanged(String, Option<u32>),
     NmDevices,
     NmState(OwnedObjectPath, u32),
+    /// `NetworkManager`'s WWAN switch, off in airplane mode.
+    Wwan(bool),
 }
 
 #[allow(
@@ -1160,8 +1169,15 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     let mut state = Snapshot::default();
     let mut modem_events: Option<stream::Boxed<Event>> = None;
     let mut call_inhibit: Option<zbus::OwnedFd> = None;
+    let mut wwan = match NmProxy::new(&bus).await {
+        Ok(nm) => nm.wwan_enabled().await.unwrap_or(true),
+        Err(_) => true,
+    };
     let mut daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
     loop {
+        if !wwan {
+            radio_off(&bus, &mut state);
+        }
         let event = match &mut modem_events {
             Some(own) => future::or(shared.next(), own.next()).await,
             None => shared.next().await,
@@ -1198,6 +1214,12 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             }
             Some(Event::NmDevices) => follow_nm(&bus, &mut state).await,
             Some(Event::NmState(path, nm_state)) => state.nm_changed(&path, nm_state),
+            Some(Event::Wwan(on)) => {
+                wwan = on;
+                if on {
+                    state.radio_off = false;
+                }
+            }
             Some(Event::Changed(changed)) => {
                 let sim = state.sim.clone();
                 for (name, value) in &changed {
@@ -1314,14 +1336,21 @@ async fn discover(
     true
 }
 
-// NetworkManager's devices coming and going, and each one's state.
+// NetworkManager's devices coming and going, each one's state, and its
+// WWAN switch.
 async fn nm_events(bus: &zbus::Connection) -> stream::Boxed<Event> {
     let mut events = stream::empty().boxed();
     if let Ok(nm) = NmProxy::new(bus).await {
+        let wwan = nm
+            .receive_wwan_enabled_changed()
+            .await
+            .then(|change| async move { change.get().await.ok().map(Event::Wwan) })
+            .filter_map(|event| event);
         events = nm
             .receive_devices_changed()
             .await
             .map(|_| Event::NmDevices)
+            .or(wwan)
             .boxed();
     }
     let states = MatchRule::builder()
@@ -1340,6 +1369,35 @@ async fn nm_events(bus: &zbus::Connection) -> stream::Boxed<Event> {
         events = events.or(states).boxed();
     }
     events
+}
+
+// With WWAN switched off (airplane mode) NetworkManager only disables the
+// modem, and ModemManager leaves a disabled modem's radio on. Its enable
+// when WWAN is back powers the radio up again.
+fn radio_off(bus: &zbus::Connection, state: &mut Snapshot) {
+    if state.radio_off || state.state != MODEM_DISABLED || state.power == POWER_LOW {
+        return;
+    }
+    let Some(path) = state.path.clone() else {
+        return;
+    };
+    state.radio_off = true;
+    let bus = bus.clone();
+    // Off the actor: the modem takes seconds to answer.
+    io::spawn(async move {
+        let low = async {
+            ManagedModemProxy::builder(&bus)
+                .path(path)
+                .build()
+                .await?
+                .set_power_state(POWER_LOW)
+                .await
+        };
+        match low.await {
+            Ok(()) => log::warn("modem", "radio off: WWAN is switched off"),
+            Err(e) => log::warn("modem", format_args!("radio off: {e}")),
+        }
+    });
 }
 
 // NetworkManager's device for the modem, whose udi is the modem's path.
@@ -1869,6 +1927,17 @@ mod tests {
         assert!(data(40));
         assert!(data(100));
         assert!(!data(110));
+    }
+
+    #[test]
+    fn the_modem_state_and_power_state_are_read() {
+        let mut state = Snapshot::default();
+        state.set("State", &Value::from(3_i32));
+        state.set("PowerState", &Value::from(2_u32));
+        assert_eq!((state.state, state.power), (3, 2));
+        assert!(!state.view(true).enabled);
+        state.set("State", &Value::from(6_i32));
+        assert!(state.view(true).enabled);
     }
 
     #[test]
