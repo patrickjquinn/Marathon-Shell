@@ -20,7 +20,7 @@ as_user() { runuser -u "$user" -- "$@"; }
 
 # Deckard shares the same folder with Android, so an Android app can attach it.
 # shellcheck disable=SC2016 # expanded by the user's shell
-docs=$(as_user sh -c '. "$HOME/.config/user-dirs.dirs" 2>/dev/null; echo "${XDG_DOCUMENTS_DIR:-$HOME/Documents}"')
+docs=$(as_user sh -c 'f=$HOME/.config/user-dirs.dirs; [ -r "$f" ] && . "$f"; echo "${XDG_DOCUMENTS_DIR:-$HOME/Documents}"')
 docs=$(echo "$docs" | sed "s#\$HOME#$home#")
 as_user mkdir -p "$docs" || fail "can't make $docs"
 dest=$docs/marathon-bug-report-$(date +%Y%m%d-%H%M%S).txt
