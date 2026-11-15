@@ -184,9 +184,8 @@ validator accepts only `flatpak` and `android`.
 
 **Closed and system pieces.**
 
-- **Pacific** is an apk in `/usr` today (`packaging/vendor/shipwright.lock`).
-  It moves to Reef once Shipwright's sync produces a signed `.marathon`
-  bundle for it. Its WebKit engine (`wpewebkit`) stays in the image.
+- **Pacific** is an apk in `/usr` today, built from `apps/pacific`. Its
+  WebKit engine (`wpewebkit`) stays in the image.
 - **Pilot's** app can move the same way. `pilotd` is a system service: it
   stays in the image until user services can run from the home directory.
 - **Reef and Deckard** update with the OS.

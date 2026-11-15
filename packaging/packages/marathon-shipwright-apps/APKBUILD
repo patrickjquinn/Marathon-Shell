@@ -1,7 +1,6 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
-# Marathon's closed app from Shipwright: Pacific. It is published prebuilt
-# (packaging/vendor/shipwright.lock); with it in the repository apk installs
-# this alongside the UI, and without it an image builds and runs without it.
+# Pacific, the browser that came from Shipwright (apps/pacific), installed
+# alongside the UI.
 pkgname=marathon-shipwright-apps
 pkgver=1.0.0
 pkgrel=1

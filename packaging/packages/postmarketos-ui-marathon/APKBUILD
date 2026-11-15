@@ -16,9 +16,8 @@ url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="Apache-2.0"
 
-# Pacific is closed; marathon-shipwright-apps brings it in when the image
-# has it (packaging/vendor/shipwright.lock). Pilot and Reef, the store,
-# are part of the UI.
+# marathon-shipwright-apps brings in Pacific, the browser. Pilot and Reef,
+# the store, are part of the UI.
 # Everything the shell needs to function as the system UI. Compositor +
 # session manager + low-level services that the shell consumes via D-Bus.
 depends="

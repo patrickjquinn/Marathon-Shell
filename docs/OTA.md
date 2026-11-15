@@ -271,7 +271,7 @@ verification failed").
 | | Updated by | Apps |
 |---|---|---|
 | system | the OS image (this document) | shell, the on-screen keyboard, Settings, Phone, Messages, Contacts, Camera, Clock, Reef, Deckard |
-| Reef | Reef, from its signed catalogue | Pacific and Shipwright's other closed apps (`packaging/vendor/shipwright.lock`), Pilot, Maps, Music, Notes, Calendar, Mail, Gallery, and the other apps |
+| Reef | Reef, from its signed catalogue | Pacific, Pilot, Maps, Music, Notes, Calendar, Mail, Gallery, and the other apps |
 
 Every image keeps shipping the Reef-updated apps. Today an OS update is still
 the only way any of them changes. The plan for Reef to update the apps the
