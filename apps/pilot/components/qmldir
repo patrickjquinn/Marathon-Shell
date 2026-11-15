@@ -11,6 +11,7 @@ GestureDemo 1.0 GestureDemo.qml
 Glass 1.0 Glass.qml
 GuideCard 1.0 GuideCard.qml
 MemoryCard 1.0 MemoryCard.qml
+ModelCard 1.0 ModelCard.qml
 NowView 1.0 NowView.qml
 Orb 1.0 Orb.qml
 PlanCard 1.0 PlanCard.qml

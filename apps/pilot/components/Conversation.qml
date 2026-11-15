@@ -42,10 +42,9 @@ QtObject {
     // it, not when they read about it.
     property var guide: []
     readonly property var guideSteps: voiceAvailable ? ["gesture", "screen", "voice", "action", "how"] : ["gesture", "screen", "action", "how"]
-    // Whether pilotd can listen (`voice` in its Settings). Speech is not
-    // built for Marathon, so until pilotd says so every voice surface stays
-    // hidden.
-    property bool voiceAvailable: false
+    // Whether pilotd can listen (its VoiceAvailable): every voice surface
+    // stays hidden without it.
+    readonly property bool voiceAvailable: Pilot.voiceAvailable
     readonly property int guideDone: guideSteps.filter(function (g) {
         return guide.indexOf(g) >= 0;
     }).length
@@ -53,7 +52,6 @@ QtObject {
     function loadSettings() {
         var s = JSON.parse(Pilot.settings() || "{}");
         guide = s.guide || [];
-        voiceAvailable = s.voice === true;
     }
     function markGuide(step) {
         if (guide.indexOf(step) >= 0)

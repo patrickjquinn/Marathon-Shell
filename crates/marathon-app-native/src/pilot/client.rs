@@ -1,4 +1,3 @@
-
 //! The app's side of `org.shipwright.Pilot1` (crates/pilotd/src/dbus.rs, the
 //! interface table). Each call runs on the caller's thread, which
 //! for turns is a worker (see `super`). Structured values stay JSON
@@ -31,6 +30,8 @@ pub enum Change {
     SheetRequested,
     /// The shell's assistant key asked for the sheet, listening (`ListenFor`).
     ListenRequested,
+    /// The models on the phone (`ModelState` JSON).
+    ModelState(String),
 }
 
 fn err(e: &zbus::Error) -> String {
@@ -163,6 +164,28 @@ impl Client {
         self.call("Listen", &())
     }
 
+    /// Whether pilot-voice is installed; false from a pilotd that does not
+    /// say.
+    pub fn voice_available(&self) -> bool {
+        self.proxy()
+            .and_then(|p| zbus::block_on(p.get_property("VoiceAvailable")).map_err(|e| err(&e)))
+            .unwrap_or(false)
+    }
+
+    /// The models on the phone (`ModelState` JSON); `{}` from a pilotd that
+    /// does not say.
+    pub fn model_state(&self) -> String {
+        self.proxy()
+            .and_then(|p| zbus::block_on(p.get_property("ModelState")).map_err(|e| err(&e)))
+            .unwrap_or_else(|_| "{}".into())
+    }
+
+    /// Starts downloading the models, on mobile data too when
+    /// `allow_metered`; the state after.
+    pub fn download_models(&self, allow_metered: bool) -> Result<String, String> {
+        self.call("DownloadModels", &(allow_metered,))
+    }
+
     pub fn offline(&self) -> Result<bool, String> {
         zbus::block_on(self.proxy()?.get_property("Offline")).map_err(|e| err(&e))
     }
@@ -236,6 +259,9 @@ impl Client {
                     "EventsRequested" => Some(Change::EventsRequested),
                     "SheetRequested" => Some(Change::SheetRequested),
                     "ListenRequested" => Some(Change::ListenRequested),
+                    "ModelState" => <&str>::try_from(value)
+                        .ok()
+                        .map(|s| Change::ModelState(s.to_owned())),
                     _ => None,
                 };
                 if let Some(c) = change {

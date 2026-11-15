@@ -133,6 +133,7 @@ Page {
 
         header: Column {
             width: list.width
+            bottomPadding: list.count > 0 ? Theme.paddingMedium : 0
             // In a conversation: a plain header. Before one: the home.
             PageHeader {
                 visible: list.count > 0
@@ -151,6 +152,8 @@ Page {
                 color: Theme.primaryColor
                 text: Pilot.error.length > 0 ? Pilot.error : qsTr("Pilot is offline. Timers, alarms, reminders, media and the calendar still work.")
             }
+            // The model on the phone, until it is ready.
+            ModelCard {}
             NowView {
                 objectName: "nowView"
                 visible: list.count === 0

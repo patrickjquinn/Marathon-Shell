@@ -25,6 +25,8 @@ pub mod qobject {
         #[qproperty(bool, busy, READ, NOTIFY)]
         #[qproperty(QString, last_response, cxx_name = "lastResponse", READ, NOTIFY)]
         #[qproperty(QString, error, READ, NOTIFY)]
+        #[qproperty(bool, voice_available, cxx_name = "voiceAvailable", READ, NOTIFY)]
+        #[qproperty(QString, model_state, cxx_name = "modelState", READ, NOTIFY)]
         type Pilot = super::PilotRust;
 
         /// A typed (or transcribed) turn; the result arrives as
@@ -106,6 +108,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "removeVoiceModels"]
         fn remove_voice_models(self: &Pilot) -> QString;
+        /// Downloads the models on the phone, on mobile data too when
+        /// `allowMetered`; `modelState` follows.
+        #[qinvokable]
+        #[cxx_name = "downloadModels"]
+        fn download_models(self: Pin<&mut Pilot>, allow_metered: bool);
         /// Proactive triage results, JSON array.
         #[qinvokable]
         fn triage(self: &Pilot) -> QString;
@@ -182,12 +189,18 @@ use marathon_rt::log;
 use client::{Change, Client};
 
 #[derive(Default)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "each is a QML property of its own, not a state"
+)]
 pub struct PilotRust {
     connected: bool,
     offline: bool,
     busy: bool,
     last_response: QString,
     error: QString,
+    voice_available: bool,
+    model_state: QString,
     client: Option<Arc<Client>>,
 }
 
@@ -209,6 +222,7 @@ fn app_locale() -> Option<String> {
 fn err_json(msg: &str) -> QString {
     q(&serde_json::json!({ "error": msg }).to_string())
 }
+
 
 impl cxx_qt::Initialize for qobject::Pilot {
     fn initialize(self: Pin<&mut Self>) {
@@ -282,6 +296,11 @@ fn watch_pilotd(client: &Arc<Client>, thread: &cxx_qt::CxxQtThread<qobject::Pilo
             .and_then(|off| client.last_response().map(|last| (off, last)));
         let ok = initial.is_ok();
         let mut request = String::new();
+        let (voice, models) = if ok {
+            (client.voice_available(), client.model_state())
+        } else {
+            (false, String::new())
+        };
         if ok {
             // pilotd answers in the app's language. An older pilotd
             // without SetLocale keeps its own.
@@ -301,6 +320,8 @@ fn watch_pilotd(client: &Arc<Client>, thread: &cxx_qt::CxxQtThread<qobject::Pilo
                         set!(o, offline, offline_changed, off);
                         set!(o, last_response, last_response_changed, q(&last));
                         set!(o, error, error_changed, QString::default());
+                        set!(o, voice_available, voice_available_changed, voice);
+                        set!(o, model_state, model_state_changed, q(&models));
                     }
                     Err(e) => {
                         set!(o, connected, connected_changed, false);
@@ -337,6 +358,7 @@ fn watch_pilotd(client: &Arc<Client>, thread: &cxx_qt::CxxQtThread<qobject::Pilo
                     Change::EventsRequested => o.as_mut().events_requested(),
                     Change::SheetRequested => o.as_mut().sheet_requested(),
                     Change::ListenRequested => o.as_mut().listen_requested(),
+                    Change::ModelState(s) => set!(o, model_state, model_state_changed, q(&s)),
                 })
                 .is_ok()
         });
@@ -414,6 +436,16 @@ impl qobject::Pilot {
         if let Err(e) = spawned {
             log::warn("pilot", format_args!("no worker: {e}"));
         }
+    }
+
+    pub fn download_models(self: Pin<&mut Self>, allow_metered: bool) {
+        self.background(
+            move |client| client.download_models(allow_metered),
+            |mut o, r| match r {
+                Ok(json) => set!(o, model_state, model_state_changed, q(&json)),
+                Err(e) => log::warn("pilot", format_args!("DownloadModels: {e}")),
+            },
+        );
     }
 
     pub fn refresh_now(self: Pin<&mut Self>) {

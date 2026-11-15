@@ -261,6 +261,7 @@ Dialog {
                         color: Theme.primaryColor
                         text: qsTr("Other questions are answered on this phone too, with what I remember about you when it helps. " + "Your questions, my answers and what I remember stay here.")
                     }
+                    ModelCard {}
                     Label {
                         x: Theme.horizontalPageMargin
                         width: parent.width - 2 * x
