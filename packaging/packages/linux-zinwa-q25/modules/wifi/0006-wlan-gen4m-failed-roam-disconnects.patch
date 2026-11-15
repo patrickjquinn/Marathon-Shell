@@ -1,0 +1,35 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wlan: gen4m: Report a failed roam as a disconnection
+
+When the driver loses the AP while connected (beacon timeout) it tries to
+join another BSS itself. If that join fails it reports the failure with
+cfg80211_connect_result(), as for a connect the host asked for. cfg80211
+then drops the SSID but stays connected, so every later connect gets
+-EALREADY, and the disconnect wpa_supplicant sends to clear it never
+reaches the driver: Wi-Fi cannot reconnect until the module is reloaded.
+
+Report the failure with cfg80211_disconnected() when cfg80211 holds a
+connection.
+
+---
+--- a/wlan_drv_gen4m_6789/os/linux/gl_kal.c
++++ b/wlan_drv_gen4m_6789/os/linux/gl_kal.c
+@@ -2119,7 +2119,17 @@
+ 			COPY_MAC_ADDR(arBssid,
+ 				prConnSettings->aucBSSID);
+ 		}
+-		if (prBssDesc && prBssDesc->u2JoinStatus
++		if (prDevHandler->ieee80211_ptr->connected) {
++			/* The join that failed was a roam: the link is gone.
++			 * A connect result would leave cfg80211 connected and
++			 * refusing every later connect with -EALREADY.
++			 */
++			DBGLOG(INIT, WARN,
++			       "JOIN Failure while connected: disconnect\n");
++			cfg80211_disconnected(prDevHandler,
++				WLAN_REASON_UNSPECIFIED, NULL, 0, TRUE,
++				GFP_KERNEL);
++		} else if (prBssDesc && prBssDesc->u2JoinStatus
+ 		    && prBssDesc->u2JoinStatus != STATUS_CODE_AUTH_TIMEOUT
+ 		    && prBssDesc->u2JoinStatus != STATUS_CODE_ASSOC_TIMEOUT)
+ 			cfg80211_connect_result(prDevHandler,
