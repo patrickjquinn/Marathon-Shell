@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Typing an address or a search, over the page (BrowserPage): the page
 // stays in view behind frosted glass, and the toolbar rises into the field

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Every page and dialog of Pacific at Normal and Gigantic text size on the
 // Jolla Phone's screen, inside the real shipwright-pacific (its Rust

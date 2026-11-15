@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 
 # pacific-core: everything in the Pacific browser that is not Qt and not the
 # web engine: the profile database (history, bookmarks, frecency, site
@@ -17,7 +17,7 @@ description = "Pacific browser core: profile store, ranking, sessions, tab lifec
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.87"
-license = "LicenseRef-Shipwright-Proprietary"
+license = "Apache-2.0"
 publish = false
 
 [dependencies]

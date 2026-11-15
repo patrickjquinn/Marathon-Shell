@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // A site's icon: its cached favicon on a rounded plate, or, until there is
 // one, its initial on a colour of its own (a hue from the host, so a site

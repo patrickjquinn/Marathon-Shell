@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 #
 # Starts Pacific when another app asks it to open a link, or the launcher
 # opens it, and it is not running (src/dbus.rs), through Sailjail as the

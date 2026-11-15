@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The app's own HTTPS requests: search suggestions and filter-list
 //! updates. reqwest over rustls (ring) with the platform's certificates,

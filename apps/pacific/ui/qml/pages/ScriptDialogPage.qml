@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // A page's alert, confirm, prompt or "leave this page?" dialog. The page
 // is named, so a dialog cannot pretend to come from Pacific.

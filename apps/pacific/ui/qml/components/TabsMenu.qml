@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The tab button's menu (press and hold it), as Safari's: a card at the
 // bottom left, over the button, rising over the dimmed page, with a new

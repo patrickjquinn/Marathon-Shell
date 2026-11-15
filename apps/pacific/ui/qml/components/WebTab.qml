@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // One tab: a web view and everything that happens to its page. A delegate
 // of a TabModel (BrowserPage's Repeaters); it keeps the model row up to

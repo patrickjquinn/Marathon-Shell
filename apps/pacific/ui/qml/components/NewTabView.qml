@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The new-tab page: the most visited sites as icons, the recent
 // searches, the newest bookmarks and a privacy report. When it is short it

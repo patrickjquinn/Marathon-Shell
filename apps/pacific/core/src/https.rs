@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! HTTPS-first: every `http://` navigation is tried over `https://`
 //! first. If the secure load fails (certificate or connection error, or no

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The mock web view keeps the real module's contract (webview/README.md):
 // loadingChanged(LoadRequest) with its statuses, the `loading` property

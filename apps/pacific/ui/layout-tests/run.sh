@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 #
 # Pacific's layout audit (layout.qml.in) in the real binary with the mock
 # web view, on the Jolla Phone's screen, in a scratch profile.

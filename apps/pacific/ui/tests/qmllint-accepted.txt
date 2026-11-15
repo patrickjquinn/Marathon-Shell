@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 #
 # qmllint (Qt 6.11) findings in Pacific's UI left as they are on purpose,
 # in the format and with the reason codes of tools/lint/qmllint-accepted-6.11.txt

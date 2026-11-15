@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! What protection did: per page (the shield in the address bar) and per
 //! day (the privacy dashboard in Settings). Counts only; no URLs are kept

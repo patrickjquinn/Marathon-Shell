@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! pacific-core: the Pacific browser without Qt and without the web
 //! engine. See `shoal/pacific/README.md` for the whole picture.

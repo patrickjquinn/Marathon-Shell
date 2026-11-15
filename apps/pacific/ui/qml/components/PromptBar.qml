@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // A note above the toolbar that does not block the page, on the browser's
 // glass: a login form could be filled from Shoal Keys, Pilot is browsing.

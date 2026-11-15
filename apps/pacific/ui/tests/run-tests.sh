@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 #
 # Pacific's QML tests on the offscreen platform: the UI's helpers and the
 # mock web view's contract (built here with CMake).

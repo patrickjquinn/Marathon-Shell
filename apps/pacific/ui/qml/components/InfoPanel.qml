@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // A full-area message over a tab's page: the HTTPS-first interstitial, a
 // certificate problem, a page that failed to load, a crashed page.

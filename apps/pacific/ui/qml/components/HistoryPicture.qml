@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The page a swipe back or forward leads to (BrowserPage): the picture the
 // web view kept of it when it was left (WebView.captureHistoryPicture, an

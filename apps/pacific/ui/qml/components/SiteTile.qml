@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // A site on the new-tab page: a letter tile and the site's name. Icons
 // are not fetched from the network by the UI (that would bypass the

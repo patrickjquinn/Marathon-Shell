@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 
 # shipwright-pacific: the Pacific browser executable. Loads the QML in
 # ../ui/qml and exposes `Shipwright.Pacific 1.0` (the `Pacific` singleton
@@ -15,7 +15,7 @@ name = "shipwright-pacific"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.87"
-license = "LicenseRef-Shipwright-Proprietary"
+license = "Apache-2.0"
 publish = false
 
 # A shared object that is also executable (tools/keel-launcher/link_sailfishapp.rs).

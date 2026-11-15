@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! `TabModel`: the open tabs of one kind (normal or private) as a QML list
 //! model. The UI creates one of each; a `Repeater` over each creates the

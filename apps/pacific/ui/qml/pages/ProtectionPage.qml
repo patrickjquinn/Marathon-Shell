@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The site of the page in front: its connection; its shields (ad and tracker
 // blocking and cookie-banner answers, one switch, for a site that breaks);

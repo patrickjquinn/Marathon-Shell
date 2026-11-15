@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The profile database: one SQLite file (`places.db`, WAL) holding history,
 //! bookmarks, adaptive input history, site settings, downloads, search

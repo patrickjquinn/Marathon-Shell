@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 #
 # Pacific, the web browser, on Keel. /usr/bin/shipwright-pacific is the app
 # binary (Sailjail starts only ELF programs); it re-execs itself through the

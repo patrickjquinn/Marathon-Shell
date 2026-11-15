@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The session: open tabs with their back/forward stacks and scroll
 //! positions, and recently closed tabs, so the browser comes back as it

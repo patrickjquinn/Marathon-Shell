@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The page menu, as the Sailfish Browser's pop-up menu: a card with rounded
 // corners at the bottom right, under the menu button, rising over the

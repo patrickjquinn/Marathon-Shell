@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Content blocking on Brave's `adblock` crate (MPL-2.0, used unmodified):
 //! network rules, cosmetic (element hiding) rules and scriptlets, from

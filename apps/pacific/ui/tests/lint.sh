@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 #
 # QML lint for Pacific's UI, with the repository's tools (tools/lint):
 # qmllint against Keel, the app's CXX-Qt module and the mock web view, with

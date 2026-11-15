@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Mock of Shipwright.Pacific.WebView's WebView (shoal/pacific/webview,
 // README "QML API"): the same properties, methods and signals, with pages

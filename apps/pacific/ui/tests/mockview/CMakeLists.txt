@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 #
 # A stand-in for Shipwright.Pacific.WebView (shoal/pacific/webview) with
 # the same QML API: pages are drawn from fixtures, not loaded. For the UI's

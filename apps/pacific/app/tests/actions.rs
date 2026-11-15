@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Pacific's Keel Actions declarations (ui/qml/actions/PacificActions.qml)
 //! through Keel's own generator and Reef's review rules, plus Pacific's

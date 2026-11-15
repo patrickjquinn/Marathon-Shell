@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The open tabs, as in the Sailfish Browser's tab view: Silica's tab bar
 // switches between normal and private tabs (each with its count), and each

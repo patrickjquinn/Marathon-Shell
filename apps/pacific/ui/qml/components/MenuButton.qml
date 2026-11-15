@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // A row of the page menu, as the Sailfish Browser's menu rows: an icon in
 // a fixed column, the label, and for an option that is on or off a Silica

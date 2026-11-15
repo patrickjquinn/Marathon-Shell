@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! `org.shipwright.pacific.ui`: how other apps and Lipstick open links in
 //! Pacific, the way sailfish-browser serves `org.sailfishos.browser.ui`.

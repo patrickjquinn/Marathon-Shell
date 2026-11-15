@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The `Pacific` QML singleton (`import Shipwright.Pacific 1.0`): the
 //! browser's services for the QML UI.

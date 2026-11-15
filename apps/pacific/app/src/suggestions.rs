@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! `SuggestionModel`: the address bar's suggestions for `text`
 //! (`pacific_core::suggest`). Local results come from the core thread; the

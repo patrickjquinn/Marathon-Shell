@@ -1,6 +1,6 @@
 <!--
 SPDX-FileCopyrightText: 2026 Patrick Quinn
-SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+SPDX-License-Identifier: Apache-2.0
 -->
 
 # Pacific
@@ -41,7 +41,7 @@ tools/build/native/native.sh shoal/pacific/engine/rpm/shipwright-pacific-engine.
 
 ## Browser: core, app and UI
 
-The browser itself: `core/` (Rust, no Qt), `app/` (the CXX-Qt executable and the `Shipwright.Pacific 1.0` module), `ui/` (Silica QML on Keel) and `rpm/` (the `shipwright-pacific` package). All first-party, `LicenseRef-Shipwright-Proprietary`; the bundled third-party data keeps its licences (below).
+The browser itself: `core/` (Rust, no Qt), `app/` (the CXX-Qt executable and the `Shipwright.Pacific 1.0` module), `ui/` (Silica QML on Keel) and `rpm/` (the `shipwright-pacific` package). All first-party, `Apache-2.0`; the bundled third-party data keeps its licences (below).
 
 | Path | What |
 | --- | --- |
