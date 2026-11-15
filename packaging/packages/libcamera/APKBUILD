@@ -4,11 +4,12 @@
 # and the docs, and with the patches the Zinwa Q25's MediaTek camera needs
 # (software ISP for its 14-bit unpacked RAW, the simple pipeline on
 # mtk-seninf); each is written for upstream.
-# 9999 as postmarketOS's own fork (99990.7.2) has it: apk takes the higher.
+# 99999 so it outranks postmarketOS's own fork (99990.<version>), which
+# otherwise takes the same version and wins.
 pkgname=libcamera
 _pkgver=0.8.0
-pkgver=9999$_pkgver
-pkgrel=1
+pkgver=99999$_pkgver
+pkgrel=0
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
