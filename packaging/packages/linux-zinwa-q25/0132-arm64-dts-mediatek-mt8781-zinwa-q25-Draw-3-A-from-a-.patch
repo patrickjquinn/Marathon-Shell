@@ -1,0 +1,31 @@
+From 8ffc868e0ca7f2923f7c108b470d3a6f4211442d Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 16 Nov 2026 20:33:42 +0000
+Subject: [PATCH 132/132] arm64: dts: mediatek: mt8781-zinwa-q25: Draw 3 A from
+ a charger
+
+The charger node left the input current limit at the BQ25601's default,
+2.4 A. The Q25's own firmware draws 3 A from a charger (its
+ac_charger_input_current), with the same 4.6 V input voltage limit,
+which keeps a weaker charger from being pulled down.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 844c19b..10fa7b3 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1038,6 +1038,7 @@
+ 		reg = <0x6b>;
+ 		interrupts-extended = <&pio 37 IRQ_TYPE_EDGE_FALLING>;
+ 		input-voltage-limit-microvolt = <4600000>;
++		input-current-limit-microamp = <3000000>;
+ 		monitored-battery = <&battery>;
+ 	};
+ };
+-- 
+2.55.0
+

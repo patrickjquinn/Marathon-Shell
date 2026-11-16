@@ -1,0 +1,40 @@
+From 7d36198bf7367e2726c31994ccf9e78fb75a72e3 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 16 Nov 2026 20:33:06 +0000
+Subject: [PATCH 130/132] power: supply: bq256xx: Charge at the battery's
+ constant charge current
+
+The driver reads the battery's constant-charge-current-max-microamp,
+takes it as the most the charge current may be set to, and then
+programs the chip's default fast charge current anyway: a BQ25601 with
+a battery rated for 3 A charges at 2.04 A until userspace raises it.
+
+Program the battery's value instead. Without battery information that
+value is the chip's default, as before.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/power/supply/bq256xx_charger.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/power/supply/bq256xx_charger.c b/drivers/power/supply/bq256xx_charger.c
+index 98540b1..736cb7f 100644
+--- a/drivers/power/supply/bq256xx_charger.c
++++ b/drivers/power/supply/bq256xx_charger.c
+@@ -1639,8 +1639,12 @@ static int bq256xx_hw_init(struct bq256xx_device *bq)
+ 	if (ret)
+ 		return ret;
+ 
++	/*
++	 * Charge at the battery's own constant charge current: the chip's
++	 * default is what bat_info holds when the battery says nothing.
++	 */
+ 	ret = bq->chip_info->bq256xx_set_ichg(bq,
+-				bq->chip_info->bq256xx_def_ichg);
++				bat_info->constant_charge_current_max_ua);
+ 	if (ret)
+ 		return ret;
+ 
+-- 
+2.55.0
+

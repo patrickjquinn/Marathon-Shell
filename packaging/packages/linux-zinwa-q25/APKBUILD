@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=48
+pkgrel=49
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -190,6 +190,9 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0127-arm64-dts-mediatek-mt8781-zinwa-q25-Use-the-measured.patch
 	0128-power-supply-mt6358-gauge-Seed-again-once-the-batter.patch
 	0129-power-supply-mt6358-gauge-Follow-the-voltage-down-ne.patch
+	0130-power-supply-bq256xx-Charge-at-the-battery-s-constan.patch
+	0131-power-supply-bq256xx-Restore-the-input-current-limit.patch
+	0132-arm64-dts-mediatek-mt8781-zinwa-q25-Draw-3-A-from-a-.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -406,6 +409,9 @@ f394ab16e759c83ea4449ea897b88cc1ecf451f0d83347eb37d50e5a92dd5fcf5a11722da1f35ec5
 e8deb4628461a7b967b96defc76f0a5d8584ab2ced69f7ff1939dcc8de8279b9c691aa1086f2819d2377435eaf24c69af4af6df5b02d649511db077de90441ea  0127-arm64-dts-mediatek-mt8781-zinwa-q25-Use-the-measured.patch
 0d7e1db7b6f9080bae6688eff2f56b7d065402525e3fde47d39cc0db1b23d8e7b6dc1bfe840328f68654aa2390e10b2f71b78fc01bde207c5a5827bd90d277b2  0128-power-supply-mt6358-gauge-Seed-again-once-the-batter.patch
 e135c9b202af8728506a53af79f0033c553027f99108f93edee09581c12994d7f1e16b6fdd379332dcd64d166696d2e4ca4f8ed5a575c2d2d294b28939f8e2f9  0129-power-supply-mt6358-gauge-Follow-the-voltage-down-ne.patch
+838e38a48ddda61ff485e49c9862496c83058703ab35615de76cdab79550d8df8e0ec58d40216b51df0ec4a00cfc25747b5eed59114fd955a9376408083c61c6  0130-power-supply-bq256xx-Charge-at-the-battery-s-constan.patch
+0a170fe0df490213a80a1f6862f659d4153ab9cbbcf56f6a8460c1a092e0f67008b2067458461388ae80c0417584155bb63261cd2185739814f94b352c18be42  0131-power-supply-bq256xx-Restore-the-input-current-limit.patch
+abb95138f83fbdbe4479142b356b91e8b20a8faa9c8e23d12455b9d4960576def578ee896081f73258eb63a6e9da93bc591ee1785f4f0028af1f0818a885f87e  0132-arm64-dts-mediatek-mt8781-zinwa-q25-Draw-3-A-from-a-.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

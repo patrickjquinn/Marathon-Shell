@@ -1,0 +1,81 @@
+From 32150af3186239a9d37bab0b06e5f2116fbd176b Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 16 Nov 2026 20:33:42 +0000
+Subject: [PATCH 131/132] power: supply: bq256xx: Restore the input current
+ limit after input detection
+
+After each plug-in the BQ2560x's input source detection programs the
+input current limit for what it found, overwriting the limit the driver
+set at probe: 500 mA for an adapter it does not recognise, which is
+what most USB-C chargers are, since they advertise their current on CC
+rather than shorting D+ and D-. A charger then charges at USB 2.0's
+host-port current.
+
+When detection finds an adapter (a DCP, or an unknown or non-standard
+one), program the configured input-current-limit-microamp again. VINDPM
+still reduces the input current of a source that cannot supply it. A
+host port (SDP, CDP) keeps the limit detection chose.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/power/supply/bq256xx_charger.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/drivers/power/supply/bq256xx_charger.c b/drivers/power/supply/bq256xx_charger.c
+index 736cb7f..69d948c 100644
+--- a/drivers/power/supply/bq256xx_charger.c
++++ b/drivers/power/supply/bq256xx_charger.c
+@@ -121,6 +121,8 @@
+ #define BQ256XX_VBUS_STAT_USB_CDP	BIT(6)
+ #define BQ256XX_VBUS_STAT_USB_DCP	(BIT(6) | BIT(5))
+ #define BQ256XX_VBUS_STAT_USB_OTG	(BIT(7) | BIT(6) | BIT(5))
++#define BQ256XX_VBUS_STAT_UNKNOWN	(BIT(7) | BIT(5))
++#define BQ256XX_VBUS_STAT_NONSTD	(BIT(7) | BIT(6))
+ 
+ #define BQ256XX_CHRG_STAT_MASK		GENMASK(4, 3)
+ #define BQ256XX_CHRG_STAT_NOT_CHRGING	0
+@@ -1180,10 +1182,19 @@ static bool bq256xx_state_changed(struct bq256xx_device *bq,
+ 	return memcmp(&old_state, new_state, sizeof(struct bq256xx_state)) != 0;
+ }
+ 
++/* A charger rather than a USB host port: DCP, unknown or non-standard. */
++static bool bq256xx_is_adapter(u8 vbus_stat)
++{
++	return vbus_stat == BQ256XX_VBUS_STAT_USB_DCP ||
++	       vbus_stat == BQ256XX_VBUS_STAT_UNKNOWN ||
++	       vbus_stat == BQ256XX_VBUS_STAT_NONSTD;
++}
++
+ static irqreturn_t bq256xx_irq_handler_thread(int irq, void *private)
+ {
+ 	struct bq256xx_device *bq = private;
+ 	struct bq256xx_state state;
++	bool detected;
+ 	int ret;
+ 
+ 	ret = bq256xx_get_state(bq, &state);
+@@ -1194,9 +1205,21 @@ static irqreturn_t bq256xx_irq_handler_thread(int irq, void *private)
+ 		goto irq_out;
+ 
+ 	mutex_lock(&bq->lock);
++	detected = state.vbus_stat != bq->state.vbus_stat &&
++		   bq256xx_is_adapter(state.vbus_stat);
+ 	bq->state = state;
+ 	mutex_unlock(&bq->lock);
+ 
++	/*
++	 * Input detection sets the chip's own input current limit for what it
++	 * found: 500 mA for an adapter it does not recognise, which is most
++	 * USB-C chargers. An adapter gets the configured limit back; VINDPM
++	 * still backs off from one that cannot supply it. A host port keeps
++	 * what detection chose.
++	 */
++	if (detected)
++		bq->chip_info->bq256xx_set_iindpm(bq, bq->init_data.iindpm);
++
+ 	power_supply_changed(bq->charger);
+ 
+ irq_out:
+-- 
+2.55.0
+
