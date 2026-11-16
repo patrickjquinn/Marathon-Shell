@@ -231,9 +231,15 @@ QtObject {
             return;
         }
         // Finishes the file; stopping the camera alone would cut it off unsaved.
-        if (videoRecorder.recording)
+        const recording = videoRecorder.recording;
+        if (recording)
             controller.stopRecording();
-        controller.stop();
+        // Out of sight the camera is dropped, so its devices close; a recording
+        // still being written keeps it.
+        if (cameraState === Camera.UnloadedState && !recording)
+            controller.release();
+        else
+            controller.stop();
         imageCapture._pending = false;
         if (cameraState === Camera.LoadedState) {
             controller.discover();

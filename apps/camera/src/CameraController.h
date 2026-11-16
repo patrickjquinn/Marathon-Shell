@@ -82,6 +82,9 @@ class CameraController : public QObject {
     Q_INVOKABLE void discover();
     Q_INVOKABLE void start();
     Q_INVOKABLE void stop();
+    // Stops and drops the camera so libcamera closes its devices; start()
+    // makes it again.
+    Q_INVOKABLE void release();
     // Paths come from Captures (crates/marathon-app-native/src/camera.rs).
     // rotation: clockwise degrees that stand the photo upright.
     Q_INVOKABLE void capturePhoto(const QString &path, int rotation);

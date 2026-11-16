@@ -149,6 +149,15 @@ void CameraController::stop() {
     }
 }
 
+void CameraController::release() {
+    if (!m_camera)
+        return;
+    stop();
+    m_captureSession->setCamera(nullptr);
+    delete m_camera;
+    m_camera = nullptr;
+}
+
 void CameraController::capturePhoto(const QString &path, int rotation) {
     if (!m_imageCapture || !m_camera || !m_camera->isActive() || m_stillFrames > 0) {
         m_errorMessage = "Camera not ready";
