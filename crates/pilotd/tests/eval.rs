@@ -285,6 +285,8 @@ fn relay(
                 if let Some(o) = body.as_object_mut() {
                     o.remove("store");
                     o.remove("user");
+                    // Recorded whole: the relay reads one reply, not a stream.
+                    o.remove("stream");
                 }
                 let (url, key, region) = models.llm();
                 dump(up.lock().unwrap().llm_calls, &body);

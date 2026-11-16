@@ -21,7 +21,7 @@ use serde_json::{json, Value};
 
 use crate::intents::{self, Missing, Slots, When};
 use crate::jev::{DecideRequest, JevClient, Question};
-use crate::llm::{ChatRequest, Effort, LlmClient, Message, Role};
+use crate::llm::{ChatRequest, Effort, LlmClient, Message, Role, TextSink};
 use crate::localtime::LocalNow;
 use crate::mcp::{self, McpClient, McpTools};
 use crate::privacy::Offline;
@@ -732,6 +732,19 @@ fn stray_call(text: &str, registry: &Registry) -> Option<crate::llm::ToolCall> {
     })
 }
 
+/// A streamed answer up to its follow-up line, which may be half written
+/// ("FOLL").
+fn answer_so_far(text: &str) -> &str {
+    let cut = text.find("FOLLOWUPS").unwrap_or(text.len());
+    let text = &text[..cut];
+    let last = text.rfind('\n').map_or(0, |i| i + 1);
+    let tail = text[last..].trim();
+    if !tail.is_empty() && "FOLLOWUPS".starts_with(tail) {
+        return text[..last].trim_end();
+    }
+    text.trim_end()
+}
+
 /// Splits Qwen's "FOLLOWUPS: a | b | c" last line off an answer; a small
 /// model also writes it "Follow-ups:" or "Follow ups:".
 pub fn split_followups(text: &str) -> (String, Vec<String>) {
@@ -851,6 +864,8 @@ pub struct Pipeline {
     spoken: AtomicBool,
     /// Where a turn's stages go (`TurnProgress` on D-Bus), when set.
     progress: Mutex<Option<tokio::sync::mpsc::UnboundedSender<String>>>,
+    /// The person stopped the turn in flight (Stop).
+    pub stop: tokio::sync::Notify,
 }
 
 pub struct PipelineParts {
@@ -1058,6 +1073,7 @@ impl Pipeline {
             last_domains: Mutex::new(None),
             spoken: AtomicBool::new(false),
             progress: Mutex::new(None),
+            stop: tokio::sync::Notify::new(),
         }
     }
 
@@ -1187,6 +1203,21 @@ impl Pipeline {
     /// Sends each turn's stages to `tx` as JSON `{"turn", "stage",
     /// "detail"}`: thinking, searching (the query), reading (the sites),
     /// writing.
+    /// The answer as the model on the phone writes it, for the app to show
+    /// as it comes: without the follow-up line, placeholders read as what
+    /// they stand for. The finished card replaces it.
+    fn answer_stream(&self, turn: &str, map: &PlaceholderMap) -> Option<TextSink> {
+        let tx = lock(&self.progress).clone()?;
+        let (turn, map) = (turn.to_owned(), map.clone());
+        Some(TextSink(Arc::new(move |text: &str| {
+            let shown = map.restore(answer_so_far(text));
+            if !shown.is_empty() {
+                tx.send(json!({"turn": turn, "stage": "partial", "detail": shown}).to_string())
+                    .ok();
+            }
+        })))
+    }
+
     pub fn set_progress(&self, tx: tokio::sync::mpsc::UnboundedSender<String>) {
         *lock(&self.progress) = Some(tx);
     }
@@ -1265,19 +1296,28 @@ impl Pipeline {
             log::debug!("warming the router: {e}");
         }
         // The model on the phone reads the system prompt now, not with the
-        // first question: every turn's prompt starts with it.
+        // first question: every turn's prompt starts with it. The tools are
+        // part of it (chat templates put them in the system block), so they
+        // go too, as a turn offers them: 2,700 of 3,000 tokens on the Q25.
         if backends.llm.provider() == "local" {
+            let mut tools = registry.defs(None);
+            if !self.may_leave() {
+                if let Some(web) = registry.get(crate::web::TOOL) {
+                    tools.retain(|t| t.name != web.model_name);
+                }
+            }
             let req = ChatRequest {
                 messages: vec![
                     Message::text(Role::System, self.system_prompt()),
                     Message::text(Role::User, "."),
                 ],
-                tools: Vec::new(),
+                tools,
                 json_mode: false,
                 effort: Effort::Off,
                 purpose: "warm".into(),
                 require: false,
                 max_tokens: Some(1),
+                stream: None,
             };
             if let Err(e) = backends.llm.chat(&req).await {
                 log::debug!("warming the model: {e}");
@@ -1442,6 +1482,23 @@ impl Pipeline {
 
     pub fn turn_id(&self) -> String {
         self.new_turn_id()
+    }
+
+    /// What a stopped turn leaves: a line saying so, as the last response.
+    pub fn stopped(&self) -> TurnResult {
+        self.finish(TurnResult {
+            turn: self.new_turn_id(),
+            route: "stopped".into(),
+            cards: vec![Card::Response {
+                text: "Stopped.".into(),
+                source: "handler".into(),
+            }],
+            spoken: false,
+            transcript: None,
+            via: String::new(),
+            ms: 0,
+            error: None,
+        })
     }
 
     fn finish(&self, mut result: TurnResult) -> TurnResult {
@@ -2840,6 +2897,7 @@ impl Pipeline {
                 },
                 require: round == 0 && ground,
                 max_tokens: None,
+                stream: self.answer_stream(turn, &map),
             };
             self.stage(
                 turn,
@@ -3370,6 +3428,7 @@ impl Pipeline {
             purpose: "vision".into(),
             require: false,
             max_tokens: None,
+            stream: None,
         };
         let card = match self.backends().llm.chat(&req).await {
             Ok(r) => {
@@ -3771,6 +3830,18 @@ fn domain_question(registry: &Registry, domains: &[String]) -> Question {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod answer_tests {
     use super::*;
+
+    #[test]
+    fn a_streamed_answer_stops_before_its_follow_ups() {
+        assert_eq!(answer_so_far("It is sunny."), "It is sunny.");
+        assert_eq!(
+            answer_so_far("It is sunny.\nFOLLOWUPS: Wind? | Rain?"),
+            "It is sunny."
+        );
+        assert_eq!(answer_so_far("It is sunny.\nFOLL"), "It is sunny.");
+        assert_eq!(answer_so_far("It is sunny.\nFor"), "It is sunny.\nFor");
+        assert_eq!(answer_so_far("FOLLOWUPS: a | b"), "");
+    }
 
     struct Nothing;
 

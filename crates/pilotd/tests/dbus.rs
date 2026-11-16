@@ -353,3 +353,46 @@ async fn summoning_wakes_pilot_before_asking_for_the_sheet() {
     .expect("SheetRequested changed");
     assert_eq!(*started.lock().unwrap(), ["shoal-pilot"]);
 }
+
+#[tokio::test]
+async fn stop_ends_the_turn_in_flight() {
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
+    // A model that takes half a minute to answer.
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.0)),
+        _ => Reply {
+            delay: Duration::from_secs(30),
+            ..Reply::us(chat_text("Too late."))
+        },
+    })
+    .await;
+    let log = Arc::new(Log::default());
+    let d = Arc::new(common::daemon(&srv.base, &log, None));
+    let server = bus.connect().await.unwrap();
+    pilotd::daemon::serve_on(&d, &server).await.unwrap();
+    let client = bus.connect().await.unwrap();
+    let p = pilot(&client).await;
+    let () = p.call("SetConsent", &("text_qa", true)).await.unwrap();
+
+    let asking = p.clone();
+    let asked = tokio::spawn(async move {
+        let started = std::time::Instant::now();
+        let json: String = asking
+            .call("Ask", &("why is the sky blue?", false))
+            .await
+            .unwrap();
+        (json, started.elapsed())
+    });
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    let () = p.call("Stop", &()).await.unwrap();
+    let (json, took) = tokio::time::timeout(Duration::from_secs(5), asked)
+        .await
+        .expect("Ask came back")
+        .unwrap();
+    let r: Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(r["route"], "stopped", "{r}");
+    assert_eq!(r["cards"][0]["text"], "Stopped.");
+    assert!(took < Duration::from_secs(5), "{took:?}");
+}
