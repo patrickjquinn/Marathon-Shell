@@ -2172,6 +2172,29 @@ impl Pipeline {
         }
     }
 
+    /// Stage one alone, for measuring the router: the intent and the
+    /// domains in order of likelihood, as a turn would ask them.
+    pub async fn route(&self, text: &str) -> Option<(String, Vec<(String, f64)>)> {
+        self.refresh_tools().await;
+        let registry = self.registry();
+        let mut questions = question_set();
+        let domains = domain_options(&registry);
+        if domains.len() > 1 {
+            questions.insert("domain".into(), domain_question(&registry, &domains));
+        }
+        let req = DecideRequest {
+            state: json!({"utterance": text, "local_time": ""}),
+            questions,
+        };
+        let answers = self.backends().jev.decide(&req, "decide").await.ok()?;
+        let intent = Decision::from_answers(&answers)?.intent;
+        let domains = match answers.get("domain") {
+            Some(crate::jev::Answer::Choice { distribution, .. }) => distribution.clone(),
+            _ => Vec::new(),
+        };
+        Some((intent, domains))
+    }
+
     fn log_decision(&self, turn: &str, d: &Decision, route: &Route) {
         let rec = store::Decision {
             turn: turn.to_owned(),
