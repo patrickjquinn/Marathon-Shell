@@ -332,39 +332,58 @@ impl LocalJev {
         options: &[String],
         descriptions: &[String],
     ) -> Result<Answer, RemoteError> {
-        let passages: Vec<String> = options
+        // An option described in lines is each line on its own, scored by
+        // its best: an app's every action, not one blur of all of them.
+        let lines: Vec<Vec<String>> = options
             .iter()
             .enumerate()
             .map(|(i, o)| {
                 let d = descriptions.get(i).map_or("", String::as_str);
-                format!("passage: {} {d}", o.replace(['.', '_'], " "))
-                    .chars()
-                    .take(1500)
-                    .collect()
+                let name = o.replace(['.', '_'], " ");
+                d.lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .map(|l| format!("passage: {name} {l}").chars().take(1500).collect())
+                    .collect::<Vec<String>>()
             })
+            .map(|v: Vec<String>| if v.is_empty() { vec![String::new()] } else { v })
             .collect();
+        let passages: Vec<String> = lines.iter().flatten().cloned().collect();
         let missing: Vec<String> = {
             let cache = self
                 .cache
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            passages
+            let mut m: Vec<String> = passages
                 .iter()
-                .filter(|p| !cache.contains_key(*p))
+                .filter(|p| !p.is_empty() && !cache.contains_key(*p))
                 .cloned()
-                .collect()
+                .collect();
+            m.sort();
+            m.dedup();
+            m
         };
-        let mut texts = vec![format!("query: {utterance}")];
-        texts.extend(missing.iter().cloned());
-        let mut vectors = self.embed("decide", &texts).await?.into_iter();
-        let query = vectors.next().unwrap_or_default();
+        // The query, then the new passages a few dozen at a time (the
+        // first turn after a start has every app's actions to embed).
+        let query = self
+            .embed("decide", &[format!("query: {utterance}")])
+            .await?
+            .into_iter()
+            .next()
+            .unwrap_or_default();
+        let mut fresh = Vec::with_capacity(missing.len());
+        for chunk in missing.chunks(32) {
+            fresh.extend(
+                chunk
+                    .iter()
+                    .cloned()
+                    .zip(self.embed("decide", chunk).await?),
+            );
+        }
         let mut cache = self
             .cache
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        for (p, v) in missing.into_iter().zip(vectors) {
-            cache.insert(p, v);
-        }
+        cache.extend(fresh);
         let cosine = |a: &[f32], b: &[f32]| {
             let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
             let norm = |v: &[f32]| {
@@ -379,10 +398,16 @@ impl LocalJev {
         // e5's similarities sit close together: sharpened, and the words
         // the request shares with an option added (hybrid retrieval).
         let words = lexical(utterance, options, descriptions);
-        let scores: Vec<f64> = passages
+        let scores: Vec<f64> = lines
             .iter()
             .zip(words)
-            .map(|(p, w)| cache.get(p).map_or(0.0, |v| cosine(&query, v)) / 0.02 + w)
+            .map(|(ps, w)| {
+                ps.iter()
+                    .map(|p| cache.get(p).map_or(0.0, |v| cosine(&query, v)))
+                    .fold(0.0, f64::max)
+                    / 0.02
+                    + w
+            })
             .collect();
         Ok(distribution(options, &scores))
     }

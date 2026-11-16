@@ -1998,7 +1998,11 @@ impl Pipeline {
             }
             _ => (None, None, None),
         };
-        let mut insist = sure.as_ref().is_some_and(|d| d.contains('.'));
+        // An app as stage one's first choice, sure or not: an answer without
+        // its tools goes back once. On the phone the router is seldom sure
+        // among its apps, and "what did I note about the cabin?" got "I do
+        // not have access to your notes" with the search tool offered.
+        let mut insist = top.as_deref().is_some_and(|d| d.contains('.'));
         // Weather comes from its own tool even when the router is unsure.
         let weather = top.as_deref() == Some("weather");
         // A short follow-up ("and tomorrow?", "what about Cork?") is about
@@ -3864,33 +3868,46 @@ fn domain_question(registry: &Registry, domains: &[String]) -> Question {
     // bookmarks and background browsing), so "open ... in the browser" and
     // "what tabs do I have open" were never routed to it, and the model,
     // without its tools, answered them from nothing.
+    // One line per action, its title and what it does: the phone's router
+    // scores a domain by its best line, so "open bbc.co.uk" meets "Open a
+    // web address in Pacific" rather than a list of titles.
     let describe = |d: &String| {
         let titles: Vec<String> = registry
             .entries()
             .filter(|e| e.available && &e.spec.domain == d)
             .take(DOMAIN_TITLES)
-            .map(|e| e.spec.title.clone())
+            .map(|e| {
+                format!(
+                    "{}: {}",
+                    e.spec.title,
+                    first_sentence(&e.spec.description).trim_end_matches('.')
+                )
+            })
             .collect();
         let app = if d.contains('.') {
             match (
                 crate::onscreen::app_name(d),
                 crate::onscreen::app_comment(d),
             ) {
-                (Some(name), Some(comment)) => format!("The app {name} ({comment}). "),
-                (Some(name), None) => format!("The app {name}. "),
+                (Some(name), Some(comment)) => format!("The app {name}: {comment}.\n"),
+                (Some(name), None) => format!("The app {name}.\n"),
                 _ => String::new(),
             }
         } else {
             String::new()
         };
-        format!("{app}Does: {}.", titles.join(", "))
+        format!("{app}{}.", titles.join(".\n"))
     };
     let mut options = domains.to_vec();
     let mut descriptions: Vec<String> = domains.iter().map(describe).collect();
     options.push(GENERAL.into());
     descriptions.push(
-        "Nothing on the phone: a question answered from knowledge (facts, explanations, \
-         maths, advice, conversation), not by an app or a device action."
+        "Nothing on the phone: a question answered from knowledge, not by an app or a \
+         device action.\n\
+         A fact about the world: who, what or where; a capital, a date, a definition.\n\
+         An explanation: why or how something happens or works.\n\
+         Advice, a recipe or a recommendation: how to do or make something.\n\
+         Conversation: thanks, a greeting, a joke, how are you."
             .into(),
     );
     Question::Choice {
