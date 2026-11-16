@@ -210,7 +210,10 @@ pub fn model_safe(name: &str) -> String {
 }
 
 /// A tool's input schema as the model is given it: `$ref`s inlined and
-/// `$defs` gone, without `pattern`, `format` and `x-` keys. Providers check
+/// `$defs` gone, without `pattern`, `format` and `x-` keys, and without
+/// length, range and item limits or `additionalProperties`, which the
+/// phone's model rereads every turn (a sixth of its tool tokens) and
+/// pilotd checks anyway. Providers check
 /// the model's arguments against the schema themselves (Groq answers a
 /// near miss with `tool_use_failed` and the turn is lost); pilotd checks
 /// them against the full schema and gives the model one correction, so a
@@ -238,15 +241,34 @@ pub fn model_schema(schema: &Value) -> Value {
                     .map(str::to_owned);
                 let mut out = serde_json::Map::new();
                 for (k, val) in o {
-                    if k == "$defs"
-                        || k == "$ref"
-                        || k == "pattern"
-                        || k == "format"
-                        || k.starts_with("x-")
+                    if matches!(
+                        k.as_str(),
+                        "$defs"
+                            | "$ref"
+                            | "pattern"
+                            | "format"
+                            | "minLength"
+                            | "maxLength"
+                            | "minimum"
+                            | "maximum"
+                            | "minItems"
+                            | "maxItems"
+                            | "additionalProperties"
+                    ) || k.starts_with("x-")
                     {
                         continue;
                     }
-                    out.insert(k.clone(), walk(val, defs, depth));
+                    // A parameter's own name is kept, whatever it is called.
+                    let walked = match (k.as_str(), val) {
+                        ("properties", Value::Object(props)) => Value::Object(
+                            props
+                                .iter()
+                                .map(|(name, p)| (name.clone(), walk(p, defs, depth)))
+                                .collect(),
+                        ),
+                        _ => walk(val, defs, depth),
+                    };
+                    out.insert(k.clone(), walked);
                 }
                 if let Some(e) = entity {
                     let said = format!(
@@ -500,7 +522,15 @@ mod tests {
         assert!(m.get("$defs").is_none());
         let app = &m["properties"]["app"];
         assert_eq!(app["type"], "string");
-        assert_eq!(app["maxLength"], 287);
+        assert!(app.get("maxLength").is_none() && m.get("additionalProperties").is_none());
+        // Parameters keep their names, even ones that are schema keywords.
+        let named = model_schema(&serde_json::json!({"type": "object", "properties": {
+            "format": {"type": "string", "maxLength": 9}, "maximum": {"type": "integer"}}}));
+        assert_eq!(
+            named["properties"]["format"],
+            serde_json::json!({"type": "string"})
+        );
+        assert_eq!(named["properties"]["maximum"]["type"], "integer");
         assert!(
             app.get("pattern").is_none()
                 && app.get("format").is_none()
