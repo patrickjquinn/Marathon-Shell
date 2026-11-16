@@ -60,8 +60,11 @@ set -euo pipefail
 
 apk add --no-cache --quiet abuild rsync curl ca-certificates git bash build-base 2>&1 | tail -3 || true
 newest() { ls -1v /out/"$1"-[0-9]*.apk | tail -1; }
+# wpewebkit links libjxl 0.11, which edge has moved past; the image
+# carries it as libjxl0.11.
 apk add --no-cache --quiet --allow-untrusted \
     "$(newest keel-silica)" "$(newest keel-silica-dev)" \
+    $(ls /out/libjxl0.11-[0-9]*.apk 2>/dev/null | tail -1) \
     "$(newest wpewebkit)" "$(newest wpewebkit-dev)" 2>&1 | tail -3
 
 mkdir -p /root/.abuild
