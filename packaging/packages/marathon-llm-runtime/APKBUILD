@@ -1,0 +1,59 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# Pilot's llama-server: llama.cpp 0.8.0 with smolmaxxing's patch (pruned LM
+# head, Arm kernels, fused DeltaNet), for Qwen3.5 with a head cut for Pilot
+# (head-ids-pilot.txt, tools/bench/pilot/pilot_head.py). Beside Alpine's
+# llama-server, which stays the fallback: marathon-llm's run picks this one
+# when the phone has dot-product instructions and the RAM for it. gguf_recut
+# cuts the downloaded model's head on the phone.
+pkgname=marathon-llm-runtime
+_llamacommit=8642541b255bfb5dc39cd351a178be09013a55d6
+_smolcommit=79f860e92289d8480fff6f0e640cf33856783813
+pkgver=0.8.0
+pkgrel=0
+pkgdesc="Pilot's llama.cpp server for its on-device model"
+url="https://github.com/hyperionaidev/smolmaxxing"
+arch="aarch64"
+license="MIT"
+makedepends="cmake samurai linux-headers"
+install_if="marathon-llm"
+source="llama.cpp-$_llamacommit.tar.gz::https://github.com/ggml-org/llama.cpp/archive/$_llamacommit.tar.gz
+	smolmaxxing-tvbox.patch
+	gguf_recut.c
+	head-ids-pilot.txt
+	LICENSE.smolmaxxing
+	"
+builddir="$srcdir/llama.cpp-$_llamacommit"
+options="!check"
+
+build() {
+	# The Arm baseline every phone with dot-product instructions has
+	# (Cortex-A55/A76 and later); run checks for them before using it.
+	# llama-graph.cpp calls std::nth_element without <algorithm>, which
+	# GCC 16's headers no longer bring in on their own.
+	export CXXFLAGS="$CXXFLAGS -include algorithm"
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DGGML_NATIVE=OFF \
+		-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16 \
+		-DGGML_OPENMP=OFF \
+		-DLLAMA_OPENSSL=OFF \
+		-DLLAMA_BUILD_TESTS=OFF
+	cmake --build build --target llama-server
+	${CC:-gcc} $CFLAGS -O2 -o gguf_recut "$srcdir"/gguf_recut.c $LDFLAGS
+}
+
+package() {
+	install -Dm755 build/bin/llama-server "$pkgdir"/usr/libexec/marathon-llm/llama-server-pilot
+	install -Dm755 gguf_recut "$pkgdir"/usr/libexec/marathon-llm/gguf_recut
+	install -Dm644 "$srcdir"/head-ids-pilot.txt "$pkgdir"/usr/share/marathon-llm/head-ids-pilot.txt
+	install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.llama.cpp
+	install -Dm644 "$srcdir"/LICENSE.smolmaxxing "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.smolmaxxing
+}
+sha512sums="
+e6797a3c4c41ea74e70868438b37764c94c93b85ac23bcb18b91efc8748255d672c1a7d9baf561a1f6f97e00b66d8c0c3f5354508658c72549973ead181b5bd0  llama.cpp-8642541b255bfb5dc39cd351a178be09013a55d6.tar.gz
+2d5ffd6a460df1740efcb4c4b36cdc8074b93be371fdcb06fe325401d05a9b2c26c06b4b1ee585c7f9ab58a44736cf78db8fb897f08bd5813042079ffacd7665  smolmaxxing-tvbox.patch
+5cbc7a715380e9699cf222362210787b92685185dbe8a6ce292742d077668ec7f18db201f69d4895787763e47a4d49abc5b3e51c1337b93e3e9c290dc05fafa7  gguf_recut.c
+e815ac43b1bb1ba1df60953a00bf0d1808deb9386456b47abc62e63cd4ade0677fbca1256ad4862c80b75b24b58363583ba5ea7d010c3041dc7eba52f6cb38bd  head-ids-pilot.txt
+7c4d4e2d6bd6dd64f5e9502ef4eafd86a8c3fb11abc8fcdc34816af6de09dfbe1a18aa55ca76ea633825ee900c8cac527af4ddd4ff179b751732fb90d7e8ecfb  LICENSE.smolmaxxing
+"

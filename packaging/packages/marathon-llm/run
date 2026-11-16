@@ -1,14 +1,19 @@
 #!/bin/sh
 # Pilot's on-device models, each llama-server on a private port behind a
 # socket-activated proxy that exits when idle (marathon-llm*.socket):
-#   run chat    Qwen3 for tool calls and writing: 1.7B with 8 GB of RAM or
-#               more, else 0.6B (Apache-2.0, bartowski's llama.cpp quants).
-#               Q4_0, which llama.cpp repacks for Arm's dot-product kernels:
-#               on the CM5 twice Q4_K_M's prompt speed.
+#   run chat    the model for tool calls and writing. With 8 GB of RAM,
+#               dot-product instructions and marathon-llm-runtime: Qwen3.5
+#               2B (Apache-2.0) as smolmaxxing quantized it, its LM head cut
+#               to the 66,560 tokens Pilot uses (head-ids-pilot.txt), on that
+#               package's llama-server. On the Q25 it passed 61 of Pilot's 72
+#               evaluation tasks to Qwen3 1.7B's 52, at twice the speed
+#               (12.5 tokens/s writing, 10 s a typical turn). Otherwise, or
+#               with a file named legacy in the model directory: Qwen3 1.7B,
+#               else 0.6B under 8 GB (bartowski's Q4_0 quants), on Alpine's
+#               llama-server.
 #               Flash attention off: on the Q25's CPU it made each token 2.8x
 #               slower with Pilot's 2K-token prompt (llama-bench, tg32 @ d2048).
-#               A plain transformer, so the prompt cache holds across turns
-#               (llama.cpp cannot reuse Qwen3.5's hybrid state).
+#               Prompts are read on every core, written on four.
 #   run embed   multilingual-e5-small (MIT), which picks the tools
 #   run wait P  until the server on port P answers
 #   run models  the files this phone needs, "PATH BYTES" a line
@@ -22,15 +27,30 @@ DIR="${XDG_DATA_HOME:-$HOME/.local/share}/marathon-llm"
 EMBED=multilingual-e5-small-xlmr-q8_0.gguf
 EMBED_BYTES=132440608
 
+PILOT_SERVER=/usr/libexec/marathon-llm/llama-server-pilot
+
 chat_model() {
-	if [ "$(awk '/^MemTotal/ { print $2 }' /proc/meminfo)" -ge 7500000 ]; then
+	big=$([ "$(awk '/^MemTotal/ { print $2 }' /proc/meminfo)" -ge 7500000 ] && echo 1 || true)
+	if [ -n "$big" ] && [ -x "$PILOT_SERVER" ] && [ ! -e "$DIR/legacy" ] &&
+		grep -q asimddp /proc/cpuinfo; then
+		model=Qwen3.5-2B-pilot.gguf family=Qwen3.5-
+		sha=b910dda6c2668737a8fb540e64eaf666e70eaf352b9ccbeda24709bbce1d30d6
+		bytes=1182571840
+		url=https://huggingface.co/hyperionaidev/Qwen3.5-2B-tvbox-GGUF/resolve/main/w-q4k-h65p8.gguf
+		url_sha=631a27ae8926d3fd18cdc7f0276700edd784406a4c6218b5e6e664a4cf54fd11
+		server=$PILOT_SERVER
+		return
+	fi
+	if [ -n "$big" ]; then
 		size=1.7B sha=c470091d31c4ada174ee5c2547daa020e930593cbca5ca8ca385ce8ff59a2fdf
 		bytes=1231813024
 	else
 		size=0.6B sha=4b78d8e3c61976cebb78ef5affe19d0eca75b1b47ec66f613a5a3245484758d5
 		bytes=469671328
 	fi
-	model=Qwen_Qwen3-$size-Q4_0.gguf
+	model=Qwen_Qwen3-$size-Q4_0.gguf family=Qwen_Qwen3-
+	url=https://huggingface.co/bartowski/Qwen_Qwen3-$size-GGUF/resolve/main/$model
+	url_sha=$sha server=llama-server
 }
 
 fetch() { # file url sha256
@@ -50,6 +70,29 @@ fetch() { # file url sha256
 	mv "$DIR/$1.part" "$DIR/$1"
 }
 
+# fetch, for a model whose head is cut here: downloaded to file.part (so
+# its progress shows), cut to Pilot's head, and checked again.
+fetch_cut() { # file url url_sha256 sha256
+	[ -f "$DIR/$1" ] && [ "$(sha256sum "$DIR/$1" | cut -d' ' -f1)" = "$4" ] && return
+	rm -f "$DIR/$1"
+	mkdir -p "$DIR"
+	wget -q -c -O "$DIR/$1.part" "$2"
+	[ "$(sha256sum "$DIR/$1.part" | cut -d' ' -f1)" = "$3" ] || {
+		rm -f "$DIR/$1.part"
+		echo "marathon-llm: $1's download failed its checksum" >&2
+		exit 1
+	}
+	/usr/libexec/marathon-llm/gguf_recut "$DIR/$1.part" "$DIR/$1.cut" \
+		/usr/share/marathon-llm/head-ids-pilot.txt >/dev/null
+	rm -f "$DIR/$1.part"
+	[ "$(sha256sum "$DIR/$1.cut" | cut -d' ' -f1)" = "$4" ] || {
+		rm -f "$DIR/$1.cut"
+		echo "marathon-llm: $1 failed its checksum once cut" >&2
+		exit 1
+	}
+	mv "$DIR/$1.cut" "$DIR/$1"
+}
+
 need() { # file
 	[ -f "$DIR/$1" ] || {
 		echo "marathon-llm: $1 is not downloaded (run download)" >&2
@@ -61,9 +104,13 @@ case "${1:-}" in
 chat)
 	chat_model
 	need "$model"
-	exec llama-server --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
-		--jinja --reasoning off --threads 4 --ctx-size 8192 --parallel 1 --flash-attn off \
-		--cache-reuse 256 --no-webui
+	# Qwen3.5's hybrid state is kept by context checkpoints, not by
+	# --cache-reuse, which it does not support.
+	reuse=$([ "$server" = llama-server ] && echo "--cache-reuse 256" || true)
+	# shellcheck disable=SC2086
+	exec "$server" --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
+		--jinja --reasoning off --threads 4 --threads-batch "$(nproc)" --ctx-size 8192 \
+		--parallel 1 --flash-attn off $reuse --no-webui
 	;;
 embed)
 	need "$EMBED"
@@ -78,8 +125,14 @@ models)
 	;;
 download)
 	chat_model
-	fetch "$model" "https://huggingface.co/bartowski/Qwen_Qwen3-$size-GGUF/resolve/main/$model" "$sha"
-	for old in "$DIR"/Qwen_Qwen3-*.gguf; do
+	if [ "$server" = "$PILOT_SERVER" ]; then
+		fetch_cut "$model" "$url" "$url_sha" "$sha"
+	else
+		fetch "$model" "$url" "$sha"
+	fi
+	# Other sizes of the same model go; the other model stays, for the
+	# fallback (legacy) to start at once.
+	for old in "$DIR/$family"*.gguf; do
 		[ "$old" = "$DIR/$model" ] || rm -f "$old"
 	done
 	# convert-e5.py's conversion, with the model's own XLM-R vocabulary: the

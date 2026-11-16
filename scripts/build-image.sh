@@ -198,6 +198,10 @@ PILOT_PKGS=shipwright-reef \
 build_if_missing "shipwright-reef"           'shipwright-reef-*.apk'          "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shipwright-reef/APKBUILD"
 APORT=marathon-llm NO_DEPS=1 \
 build_if_missing "marathon-llm"              'marathon-llm-*.apk'             "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-llm/APKBUILD"
+# Pilot's llama.cpp (smolmaxxing's patch), installed with marathon-llm on
+# aarch64.
+APORT=marathon-llm-runtime NO_DEPS=1 \
+build_if_missing "marathon-llm-runtime"      'marathon-llm-runtime-*.apk'     "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-llm-runtime/APKBUILD"
 # Pacific, the browser, from this tree.
 build_if_missing "pacific"                   'pacific-*.apk'                  "$LIB/build-pacific-apk.sh"                   "$APORTS_DIR/pacific/APKBUILD"
 APORT=marathon-shipwright-apps NO_DEPS=1 \
