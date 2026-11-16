@@ -750,6 +750,21 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     registry.defs(Some(&own))
 }
 
+/// A description's first sentence.
+fn first_sentence(text: &str) -> &str {
+    text.find(". ").map_or(text, |i| &text[..=i])
+}
+
+/// No data: null, or an empty object or array.
+fn is_empty(v: &Value) -> bool {
+    match v {
+        Value::Null => true,
+        Value::Object(o) => o.is_empty(),
+        Value::Array(a) => a.is_empty(),
+        _ => false,
+    }
+}
+
 /// A streamed answer up to its follow-up line, which may be half written
 /// ("FOLL").
 fn answer_so_far(text: &str) -> &str {
@@ -2874,6 +2889,9 @@ impl Pipeline {
         let app_chosen =
             insist && scope.is_some_and(|d| d.iter().any(|x| x != "web" && x != "keel"));
         let mut used_domains: Vec<String> = Vec::new();
+        // Each call made this turn: the phone's model repeated "show
+        // Music" four times instead of playing anything.
+        let mut made: Vec<String> = Vec::new();
         let mut nudged = false;
         let mut empty_retried = false;
         for round in 0..self.max_rounds {
@@ -3226,6 +3244,16 @@ impl Pipeline {
                 if !used_domains.contains(&entry.spec.domain) {
                     used_domains.push(entry.spec.domain.clone());
                 }
+                let key = format!("{} {real}", entry.spec.name);
+                if made.contains(&key) {
+                    messages.push(Message::tool_result(
+                        &call.id,
+                        json!({"ok": false, "error": "Already done this turn. Do the next step, or answer."})
+                            .to_string(),
+                    ));
+                    continue;
+                }
+                made.push(key);
                 let ran = entry.run(&real).await;
                 // A change that may have happened is not handed back for
                 // another try: the person checks first.
@@ -3271,7 +3299,13 @@ impl Pipeline {
                         if single && entry.spec.read_only && out.answers {
                             lookup = Some(out.summary.clone());
                         }
-                        json!({"ok": true, "summary": out.summary, "data": out.data})
+                        if out.summary == "Done." && is_empty(&out.data) {
+                            // "Done." after "show Music" read as the whole
+                            // request done: "I've started playing Radiohead".
+                            json!({"ok": true, "done": first_sentence(&entry.spec.description), "note": "Only this was done."})
+                        } else {
+                            json!({"ok": true, "summary": out.summary, "data": out.data})
+                        }
                     }
                     Err(e) => json!({"ok": false, "error": e.to_string()}),
                 };
