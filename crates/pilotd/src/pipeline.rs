@@ -2245,7 +2245,7 @@ impl Pipeline {
         let registry = self.registry();
         let entry = registry.get(crate::memory::TOOL)?;
         // "We moved to Cork" takes the place of "I live in Galway".
-        let mut args = serde_json::json!({"fact": fact, "asked": false});
+        let mut args = serde_json::json!({"fact": fact, "said": "mentioned"});
         if let Some(kind) = intents::fact_kind(&fact) {
             if let Some(old) = known
                 .iter()
@@ -2489,7 +2489,7 @@ impl Pipeline {
              their words, without judging it, softening it or asking if they are sure. Their \
              yes on the card, or their own send, is the check.\n\
              - Memory: when the person mentions a lasting fact about themselves in passing (diet, \
-             family, home, work, a routine), offer to keep it with memory.remember, asked false; \
+             family, home, work, a routine), offer to keep it with memory.remember, said mentioned; \
              once, and never for passing details. For something said in an earlier conversation \
              (\"the recipe you gave me last week\"), use memory.search.\n\
              - A request with several parts (\"check X and note Y\") is done in full: every part, \
@@ -2527,6 +2527,8 @@ impl Pipeline {
              - Use a tool for anything on the phone or the person's own data (calendar, \
              contacts, messages, timers, settings, apps). Never say you did something without \
              the tool call that did it.\n\
+             - In tool arguments, copy names, numbers, addresses and times exactly from the \
+             person's words; if one the tool needs is missing, ask for it in one short question.\n\
              - News, prices, scores and other facts that change: use the web results you are \
              given, name the site, and say so if they do not answer it.\n\
              - Details like <CONTACT_1> or <PHONE_1> are placeholders: use them exactly.\n\
