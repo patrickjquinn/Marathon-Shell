@@ -3,6 +3,8 @@
 //! sandboxed or not, uses them unseen. A thread blocks on the events; nothing
 //! polls. Holders are named by app id where the gate knows them, else by
 //! process; one the shell may not look into (root's call audio) still counts.
+//! The camera's holders are all the user's, so /proc alone answers for it:
+//! inotify merges back-to-back closes, which left its count stuck above zero.
 //! PipeWire holds the microphone for its clients: marathon-audiod names them.
 
 use std::collections::HashMap;
@@ -179,7 +181,7 @@ fn see(nodes: &[(Kind, PathBuf)], open: &HashMap<PathBuf, u32>) -> Seen {
             .any(|(k, p)| *k == kind && open.get(p).copied().unwrap_or(0) > 0)
     };
     Seen {
-        camera: !camera_users.is_empty() || counted(Kind::Camera),
+        camera: !camera_users.is_empty(),
         microphone: !microphone_users.is_empty() || counted(Kind::Microphone),
         camera_users,
         microphone_users,
@@ -297,5 +299,24 @@ impl cxx_qt::Initialize for Privacy {
                 }
             })
             .ok();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_stale_camera_count_does_not_light_the_dot_but_a_microphone_one_does() {
+        let camera = PathBuf::from("/nonexistent/video0");
+        let microphone = PathBuf::from("/nonexistent/pcmC0D0c");
+        let nodes = [
+            (Kind::Camera, camera.clone()),
+            (Kind::Microphone, microphone.clone()),
+        ];
+        let open = HashMap::from([(camera, 1), (microphone, 1)]);
+        let seen = see(&nodes, &open);
+        assert!(!seen.camera);
+        assert!(seen.microphone);
     }
 }
