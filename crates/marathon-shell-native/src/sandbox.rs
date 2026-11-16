@@ -461,6 +461,12 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     for socket in ["bus", "pipewire-0", "pulse/native"] {
         args.bind("--ro-bind-try", &format!("{runtime}/{socket}"));
     }
+    // WebKit's own bubblewrap binds the accessibility bus's directory for its
+    // D-Bus proxy and gives up without it; an empty one lets it start without
+    // handing the app the real bus.
+    if uses_webkit(runner) {
+        args.flags(&["--dir", &format!("{runtime}/at-spi")]);
+    }
     if var("MARATHON_STARTUP_TIMING").is_some_and(|v| v.parse::<i32>().is_ok_and(|n| n != 0)) {
         let log = format!("{runtime}/marathon-startup.log");
         fs::OpenOptions::new()
