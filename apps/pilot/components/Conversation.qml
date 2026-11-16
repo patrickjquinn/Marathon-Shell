@@ -21,6 +21,8 @@ QtObject {
     property var now: ({})
     property string stage: "thinking"
     property string stageDetail: ""
+    // The answer so far, while the model on the phone writes it.
+    property string partial: ""
     // A spoken turn: listening (the microphone is open), then the words
     // being recognised; `level` is the voice, 0 to 1.
     property bool listening: false
@@ -228,6 +230,7 @@ QtObject {
     readonly property Connections _pilot: Connections {
         target: Pilot
         function onTurnFinished(json) {
+            conversation.partial = "";
             conversation.addCards(JSON.parse(json));
             conversation.askQueued();
         }
@@ -260,6 +263,14 @@ QtObject {
             }
             conversation.listening = false;
             conversation.transcribing = false;
+            if (p.stage === "partial") {
+                conversation.stage = "writing";
+                conversation.partial = p.detail || "";
+                return;
+            }
+            // A tool round follows what was written so far: it was not
+            // the answer.
+            conversation.partial = "";
             conversation.stage = p.stage;
             conversation.stageDetail = p.detail || "";
         }

@@ -190,6 +190,7 @@ Page {
                 running: visible
                 stage: Conversation.stage
                 detail: Conversation.stageDetail
+                partial: Conversation.partial
             }
         }
         // Keep the newest card in view: a new card is laid out after it is
@@ -390,7 +391,7 @@ Page {
                 TextField {
                     id: input
                     objectName: "input"
-                    width: parent.width - (send.visible ? send.width : 0) - (mic.visible ? mic.width : 0)
+                    width: parent.width - (send.visible ? send.width : 0) - (stop.visible ? stop.width : 0) - (mic.visible ? mic.width : 0)
                     placeholderText: qsTr("Ask Pilot")
                     label: qsTr("Ask Pilot")
                     EnterKey.iconSource: "image://theme/icon-m-enter-accept"
@@ -416,6 +417,15 @@ Page {
                         input.text = "";
                         input.forceActiveFocus();
                     }
+                }
+                // While Pilot works: stop it, and the field stays to type
+                // the next question.
+                StopButton {
+                    id: stop
+                    objectName: "stopButton"
+                    visible: Pilot.busy && !page.listening
+                    anchors.verticalCenter: input.verticalCenter
+                    onClicked: Pilot.stop()
                 }
                 // Tap to talk.
                 Orb {

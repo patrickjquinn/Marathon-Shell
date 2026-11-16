@@ -59,6 +59,9 @@ pub mod qobject {
         #[cxx_name = "openUrl"]
         fn open_url(self: &Pilot, url: &QString);
         /// Starts a new conversation: earlier questions stop being context.
+        /// Stops the turn in flight; it finishes as "Stopped.".
+        #[qinvokable]
+        fn stop(self: &Pilot);
         #[qinvokable]
         #[cxx_name = "clearConversation"]
         fn clear_conversation(self: &Pilot);
@@ -517,6 +520,10 @@ impl qobject::Pilot {
     pub fn open_url(&self, url: &QString) {
         let url = url.to_string();
         self.with(|c| c.open_url(&url)).ok();
+    }
+
+    pub fn stop(&self) {
+        self.with(Client::stop).ok();
     }
 
     pub fn clear_conversation(&self) {
