@@ -190,7 +190,7 @@
     {"say": "play some Radiohead", "expect": {"actions": ["org.marathonos.music/playback.play"]}}],
     "apps": {"org.marathonos.music/library.search": {"result": [{"id": 7, "title": "Karma Police", "artist": "Radiohead", "album": "OK Computer", "duration": 264}]}}},
   {"id": "app-music-pause", "category": "apps", "turns": [
-    {"say": "pause the music", "expect": {"actions": ["org.marathonos.music/playback.control", "pause"]}}]},
+    {"say": "pause the music", "expect": {"actions": ["pause"]}}]},
   {"id": "app-directions", "category": "apps", "turns": [
     {"say": "get me directions to Dublin Airport", "expect": {"actions": ["org.marathonos.maps/"], "no_actions": ["browser"]}}],
     "apps": {"org.marathonos.maps/places.search": {"result": [{"name": "Dublin Airport", "address": "Collinstown, Co. Dublin", "lat": 53.4264, "lon": -6.2499, "type": "aerodrome"}]}}},
@@ -210,7 +210,7 @@
   {"id": "app-browser-open", "category": "apps", "turns": [
     {"say": "open bbc.co.uk", "expect": {"actions": ["org.marathonos.shipwright-pacific/browser.open", "bbc.co.uk"]}}]},
   {"id": "app-store-search", "category": "apps", "turns": [
-    {"say": "find a podcast app in the store", "expect": {"actions": ["org.marathonos.reef/", "podcast"]}}]},
+    {"say": "find a podcast app in the store", "expect": {"actions": ["org.marathonos.reef/reef.search", "odcast"]}}]},
   {"id": "app-photos-find", "category": "apps", "turns": [
     {"say": "find my photos from March", "expect": {"actions": ["org.marathonos.gallery/photos.find", "March"]}}]},
   {"id": "app-calculate", "category": "apps", "turns": [

@@ -1017,3 +1017,74 @@ async fn eval() {
         serde_json::to_string_pretty(&record).unwrap(),
     );
 }
+
+/// The router alone (`PILOT_EVAL_ROUTER=1`, with `PILOT_EVAL_LOCAL` and
+/// `PILOT_EVAL_APPS`): stage one's domain for each request in
+/// `eval/routes.json`, right when it is one of `ok`.
+#[tokio::test]
+async fn router() {
+    #[derive(Deserialize)]
+    struct Route {
+        say: String,
+        ok: Vec<String>,
+    }
+    if std::env::var_os("PILOT_EVAL_ROUTER").is_none() {
+        return;
+    }
+    let routes: Vec<Route> = serde_json::from_str(include_str!("eval/routes.json")).unwrap();
+    let models = models();
+    let task: Task =
+        serde_json::from_value(json!({"id": "router", "category": "router", "turns": []})).unwrap();
+    let web = Arc::new(Mutex::new(Vec::new()));
+    let up = Arc::new(Mutex::new(Upstream::default()));
+    let srv = FakeHttp::start(relay(models.clone(), web, up)).await;
+    let log = Arc::new(Log::default());
+    let d = pilotd::daemon::build(pilotd::daemon::Options {
+        config: eval_config(&srv.base, &models),
+        data_dir: None,
+        session: None,
+        system: None,
+        adapters: Some(common::fake_adapters(&log)),
+        credential: Some(pilotd::remote::Credential::None),
+        now: pilotd::localtime::now,
+    })
+    .unwrap();
+    if let Some(dir) = std::env::var_os("PILOT_EVAL_APPS") {
+        d.pipeline
+            .attach_mcp(apps(PathBuf::from(dir), &log, &task).await)
+            .await;
+    }
+    let short = |d: &str| d.trim_start_matches("org.marathonos.").to_owned();
+    let (mut first, mut three) = (0, 0);
+    for r in &routes {
+        let Some((intent, ranked)) = d.pipeline.route(&r.say).await else {
+            println!("??   {}: no answer", r.say);
+            continue;
+        };
+        let top: Vec<&(String, f64)> = ranked.iter().take(3).collect();
+        let hit1 = top.first().is_some_and(|(o, _)| r.ok.contains(o));
+        let hit3 = top.iter().any(|(o, _)| r.ok.contains(o));
+        first += usize::from(hit1);
+        three += usize::from(hit3);
+        println!(
+            "{} {:<58} [{intent}] {}",
+            if hit1 {
+                "ok  "
+            } else if hit3 {
+                "top3"
+            } else {
+                "MISS"
+            },
+            r.say,
+            top.iter()
+                .map(|(o, p)| format!("{} {p:.2}", short(o)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    println!(
+        "\nrouter: {first}/{} first, {three}/{} in the top three",
+        routes.len(),
+        routes.len()
+    );
+}
