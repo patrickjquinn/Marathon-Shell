@@ -507,7 +507,28 @@ impl JevClient for LocalJev {
             .get("utterance")
             .and_then(Value::as_str)
             .unwrap_or_default();
-        let parsed = crate::intents::local_intent(utterance).map(|(intent, _)| intent);
+        let mut parsed = crate::intents::local_intent(utterance).map(|(intent, _)| intent);
+        // The words found a handler; the meaning may say another thing was
+        // asked ("put the dentist in my calendar" is not a calendar query).
+        if let (
+            Some(intent),
+            Some(Question::Choice {
+                options,
+                descriptions,
+                ..
+            }),
+        ) = (parsed, req.questions.get("intent"))
+        {
+            if let Ok(Answer::Choice { distribution, .. }) =
+                self.rank_by_meaning(utterance, options, descriptions).await
+            {
+                let top = distribution.first().map(|(o, _)| o.as_str());
+                if top.is_some_and(|t| t != intent && t != "open_ended") {
+                    log::debug!("words said {intent}, meaning {top:?}: to the model");
+                    parsed = None;
+                }
+            }
+        }
         let (intent, confidence, generation) = match parsed {
             Some(intent) => (intent, 1.0, 0.0),
             None => ("open_ended", 0.5, 1.0),
