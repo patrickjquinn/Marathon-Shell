@@ -104,31 +104,43 @@ fn installed_apps() -> &'static std::collections::HashMap<String, App> {
     static APPS: OnceLock<std::collections::HashMap<String, App>> = OnceLock::new();
     APPS.get_or_init(|| {
         let mut m = std::collections::HashMap::new();
-        if let Ok(entries) = std::fs::read_dir("/usr/share/applications") {
-            for e in entries.flatten() {
-                if let Some((_, app)) = std::fs::read_to_string(e.path())
-                    .ok()
-                    .as_deref()
-                    .and_then(parse_desktop)
-                {
-                    m.insert(app.id.clone(), app);
-                }
-            }
-        }
-        // Marathon's apps serve their actions as org.marathonos.<id>.
-        if let Ok(entries) = std::fs::read_dir("/usr/share/marathon-apps") {
-            for e in entries.flatten() {
-                if let Some(app) = std::fs::read(e.path().join("manifest.json"))
-                    .ok()
-                    .as_deref()
-                    .and_then(parse_manifest)
-                {
-                    m.entry(app.id.clone()).or_insert(app);
-                }
-            }
+        // The XDG data directories, as the desktop entry spec searches them.
+        let dirs = std::env::var("XDG_DATA_DIRS")
+            .ok()
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "/usr/local/share:/usr/share".into());
+        for dir in dirs.split(':').map(Path::new) {
+            installed_in(dir, &mut m);
         }
         m
     })
+}
+
+/// The apps one XDG data directory holds; an earlier directory's apps win.
+fn installed_in(dir: &Path, m: &mut std::collections::HashMap<String, App>) {
+    if let Ok(entries) = std::fs::read_dir(dir.join("applications")) {
+        for e in entries.flatten() {
+            if let Some((_, app)) = std::fs::read_to_string(e.path())
+                .ok()
+                .as_deref()
+                .and_then(parse_desktop)
+            {
+                m.entry(app.id.clone()).or_insert(app);
+            }
+        }
+    }
+    // Marathon's apps serve their actions as org.marathonos.<id>.
+    if let Ok(entries) = std::fs::read_dir(dir.join("marathon-apps")) {
+        for e in entries.flatten() {
+            if let Some(app) = std::fs::read(e.path().join("manifest.json"))
+                .ok()
+                .as_deref()
+                .and_then(parse_manifest)
+            {
+                m.entry(app.id.clone()).or_insert(app);
+            }
+        }
+    }
 }
 
 /// What an installed app is for, from its desktop entry ("Browse the web").
