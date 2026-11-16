@@ -47,6 +47,9 @@ QtObject {
     function stop() {
         active = false;
     }
+    function release() {
+        active = false;
+    }
     function capturePhoto(path, rotation) {
         photos = photos.concat([path]);
         photoExposed();
