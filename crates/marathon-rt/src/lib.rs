@@ -42,14 +42,15 @@ pub fn readable_secret(len: usize) -> String {
 
 /// The calling thread under `SCHED_RR | SCHED_RESET_ON_FORK` at `priority`,
 /// or `SCHED_OTHER` for 0 (`docs/RT_SCHEDULING.md`); `pthread_setschedparam`'s
-/// error number on failure.
+/// error number on failure. The flag stays on the way down: an unprivileged
+/// thread may not clear it, so dropping it failed with EPERM.
 #[must_use = "real-time scheduling failures must be handled"]
 pub fn set_thread_priority(priority: i32) -> Result<(), i32> {
     let policy = if priority > 0 {
-        libc::SCHED_RR | libc::SCHED_RESET_ON_FORK
+        libc::SCHED_RR
     } else {
         libc::SCHED_OTHER
-    };
+    } | libc::SCHED_RESET_ON_FORK;
     // SAFETY: sched_param is plain integers (musl pads it with private
     // fields), so all zeroes is a valid value.
     let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
