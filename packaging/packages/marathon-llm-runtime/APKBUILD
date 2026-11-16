@@ -9,12 +9,12 @@ pkgname=marathon-llm-runtime
 _llamacommit=8642541b255bfb5dc39cd351a178be09013a55d6
 _smolcommit=79f860e92289d8480fff6f0e640cf33856783813
 pkgver=0.8.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Pilot's llama.cpp server for its on-device model"
 url="https://github.com/hyperionaidev/smolmaxxing"
 arch="aarch64"
 license="MIT"
-makedepends="cmake samurai linux-headers"
+makedepends="clang cmake samurai linux-headers"
 install_if="marathon-llm"
 source="llama.cpp-$_llamacommit.tar.gz::https://github.com/ggml-org/llama.cpp/archive/$_llamacommit.tar.gz
 	smolmaxxing-tvbox.patch
@@ -31,6 +31,10 @@ build() {
 	# llama-graph.cpp calls std::nth_element without <algorithm>, which
 	# GCC 16's headers no longer bring in on their own.
 	export CXXFLAGS="$CXXFLAGS -include algorithm"
+	# Clang, tuned for the Cortex-A55, as smolmaxxing builds it (zig cc):
+	# with GCC 16 the Q25 read prompts at 29.5 tokens/s instead of 48.8.
+	export CC=clang CXX=clang++
+	export CFLAGS="$CFLAGS -mtune=cortex-a55" CXXFLAGS="$CXXFLAGS -mtune=cortex-a55"
 	cmake -B build -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_SHARED_LIBS=OFF \
