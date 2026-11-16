@@ -482,7 +482,7 @@ impl Config {
                 }
                 // Also next to the binary, for packaging:
                 // target/[<triple>/]<profile>/keel-actions/<app-id>/.
-                if let Some(profile) = out_dir.ancestors().nth(3) {
+                if let Some(profile) = profile_dir(&out_dir) {
                     let packaged = profile.join("keel-actions").join(&output.app.app_id);
                     if let Err(e) = write(&output.artefacts, &packaged) {
                         println!(
@@ -496,6 +496,15 @@ impl Config {
             Err(failed) => panic!("{failed}"),
         }
     }
+}
+
+/// The `<profile>` directory holding `build/`, whichever layout cargo uses:
+/// `build/<pkg>-<hash>/out` (to 1.99) or `build/<pkg>/<hash>/out` (1.100).
+fn profile_dir(out_dir: &Path) -> Option<&Path> {
+    out_dir
+        .ancestors()
+        .find(|p| p.file_name().is_some_and(|n| n == "build"))
+        .and_then(Path::parent)
 }
 
 /// Writes artefacts into `dir`; returns the names that changed.
@@ -654,4 +663,25 @@ pub fn missing_sailjail_line(desktop: &Desktop, exec: &str) -> Option<String> {
     let wanted = format!("{exec} --keel-actions");
     (desktop.get("X-Sailjail", "ExecDBus") != Some(wanted.as_str()))
         .then(|| format!("ExecDBus={wanted}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::profile_dir;
+    use std::path::Path;
+
+    #[test]
+    fn the_profile_is_found_in_both_cargo_layouts() {
+        for out in [
+            "/w/target/release/build/reef-0123abcd/out",
+            "/w/target/release/build/reef/0123abcd/out",
+            "/w/target/aarch64-alpine-linux-musl/release/build/reef/0123abcd/out",
+        ] {
+            assert_eq!(
+                profile_dir(Path::new(out)).map(|p| p.ends_with("release")),
+                Some(true),
+                "{out}"
+            );
+        }
+    }
 }
