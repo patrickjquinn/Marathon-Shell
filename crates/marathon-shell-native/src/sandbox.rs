@@ -181,6 +181,23 @@ pub(crate) fn uses_camera(runner: &Runner) -> bool {
 
 /// What libcamera opens: the media graph's nodes, and udmabuf for the
 /// software ISP's output.
+/// The card nodes of the device that owns `render`.
+fn primary_nodes(render: &str) -> Vec<String> {
+    let Some(name) = Path::new(render).file_name() else {
+        return Vec::new();
+    };
+    let dir = Path::new("/sys/class/drm").join(name).join("device/drm");
+    let Ok(entries) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with("card"))
+        .map(|n| format!("/dev/dri/{n}"))
+        .collect()
+}
+
 fn camera_nodes() -> Vec<String> {
     let Ok(entries) = fs::read_dir("/dev") else {
         return Vec::new();
@@ -416,6 +433,12 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     args.flags(&["--proc", "/proc", "--dev", "/dev"]);
     // The render node only: card nodes belong to the shell, which is DRM master.
     args.bind("--dev-bind-try", &render);
+    // WebKit finds its GPU by the device's card node; nodev, so it cannot be opened.
+    if uses_webkit(runner) {
+        for card in primary_nodes(&render) {
+            args.bind("--ro-bind-try", &card);
+        }
+    }
     if uses_camera(runner) {
         for node in camera_nodes() {
             args.bind("--dev-bind-try", &node);
