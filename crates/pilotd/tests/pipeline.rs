@@ -486,11 +486,11 @@ async fn flight_mode_needs_a_card_wifi_does_not() {
         |i| match i {
             0 => Reply::us(chat_tool(
                 "device_toggle",
-                r#"{"target": "wifi", "on": false}"#,
+                r#"{"target": "wifi", "state": "off"}"#,
             )),
             1 => Reply::us(chat_tool(
                 "device_toggle",
-                r#"{"target": "flight_mode", "on": true}"#,
+                r#"{"target": "flight_mode", "state": "on"}"#,
             )),
             _ => Reply::us(chat_text("ok")),
         },
