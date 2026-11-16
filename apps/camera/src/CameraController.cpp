@@ -48,12 +48,25 @@ CameraController::~CameraController() {
 
 // Loading the multimedia backend and enumerating cameras are slow, so they wait for start().
 void CameraController::initialize() {
+    if (!m_captureSession)
+        createSession();
     if (m_discovered)
         return;
 
     QElapsedTimer clock;
     clock.start();
 
+    m_cameras    = QMediaDevices::videoInputs();
+    m_discovered = true;
+    qWarning() << "[CameraController] Found" << m_cameras.size() << "cameras in" << clock.elapsed()
+               << "ms";
+
+    emit cameraCountChanged();
+    emit currentCameraIndexChanged();
+    emit readyChanged();
+}
+
+void CameraController::createSession() {
     m_captureSession = new QMediaCaptureSession(this);
     m_imageCapture   = new QImageCapture(this);
     m_mediaRecorder  = new QMediaRecorder(this);
@@ -73,15 +86,6 @@ void CameraController::initialize() {
             &CameraController::onRecorderStateChanged);
     connect(m_mediaRecorder, &QMediaRecorder::errorOccurred, this,
             &CameraController::onRecorderError);
-
-    m_cameras    = QMediaDevices::videoInputs();
-    m_discovered = true;
-    qWarning() << "[CameraController] Found" << m_cameras.size() << "cameras in" << clock.elapsed()
-               << "ms";
-
-    emit cameraCountChanged();
-    emit currentCameraIndexChanged();
-    emit readyChanged();
 }
 
 void CameraController::setupCamera(int index) {
@@ -153,9 +157,18 @@ void CameraController::release() {
     if (!m_camera)
         return;
     stop();
-    m_captureSession->setCamera(nullptr);
+    // GStreamer's sink and the video sink keep the last frame, and libcamera's
+    // buffers keep the camera and its devices: the whole session goes.
     delete m_camera;
-    m_camera = nullptr;
+    delete m_captureSession;
+    delete m_imageCapture;
+    delete m_mediaRecorder;
+    m_camera         = nullptr;
+    m_captureSession = nullptr;
+    m_imageCapture   = nullptr;
+    m_mediaRecorder  = nullptr;
+    if (m_videoSink)
+        m_videoSink->setVideoFrame(QVideoFrame());
 }
 
 void CameraController::capturePhoto(const QString &path, int rotation) {
