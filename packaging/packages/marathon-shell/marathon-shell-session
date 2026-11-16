@@ -360,14 +360,15 @@ fi
 # advertises the render device through zwp_linux_dmabuf_v1 v4 main_device
 # feedback AND imports the app's dmabuf buffers to EGLImages. Mesa >= 26.1
 # on etnaviv needs that v4 feedback to discover renderD128; without it every
-# app degrades to llvmpipe (software). Stock Qt only ships a v3 dmabuf plugin
-# (no feedback), so it can't be used.
+# app degrades to llvmpipe (software). Up to 6.11 stock Qt shipped only a v3
+# dmabuf plugin (no feedback); 6.12's linux-dmabuf-v1 plugin is untried here,
+# so ours keeps its own key and file name beside it.
 #
 # Do NOT add "wayland-egl" to this SERVER list: Qt's wayland-egl server
 # integration segfaults in createBufferFor() on etnaviv because Mesa's EGL
 # has no eglQueryWaylandBufferWL, and it crash-loops the compositor the
 # instant an app commits its first buffer. (Validated live on L5 2026-07-06.)
-export QT_WAYLAND_HARDWARE_INTEGRATION="linux-dmabuf-v1"
+export QT_WAYLAND_HARDWARE_INTEGRATION="marathon-linux-dmabuf-v1"
 
 # The APP CLIENTS (which inherit this env) use the stock wayland-egl CLIENT
 # integration — Mesa allocates via EGL and shares through zwp_linux_dmabuf_v1
