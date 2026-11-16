@@ -4,4 +4,4 @@ Requires=marathon-llm-chat.service
 After=marathon-llm-chat.service
 
 [Service]
-ExecStart=/usr/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:8090
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --exit-idle-time=1h 127.0.0.1:8090
