@@ -155,9 +155,20 @@ static void applyMainPriorityForActive(bool active) {
 static bool invokeRoot(QObject *root, const char *method, const char *fallback) {
     if (!root)
         return false;
-    QVariant ret;
-    if (QMetaObject::invokeMethod(root, method, Qt::DirectConnection, Q_RETURN_ARG(QVariant, ret)))
-        return ret.toBool();
+    // A typed QML handler (`function handleBack(): bool`) returns bool, an
+    // untyped one QVariant; Qt refuses a call that asks for the other.
+    const int index = root->metaObject()->indexOfMethod(QByteArray(method) + "()");
+    if (index >= 0) {
+        const QMetaMethod handler = root->metaObject()->method(index);
+        if (handler.returnMetaType() == QMetaType::fromType<bool>()) {
+            bool handled = false;
+            return handler.invoke(root, Qt::DirectConnection, Q_RETURN_ARG(bool, handled)) &&
+                handled;
+        }
+        QVariant ret;
+        return handler.invoke(root, Qt::DirectConnection, Q_RETURN_ARG(QVariant, ret)) &&
+            ret.toBool();
+    }
     QMetaObject::invokeMethod(root, fallback, Qt::DirectConnection);
     return true;
 }
