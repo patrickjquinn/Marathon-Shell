@@ -732,6 +732,24 @@ fn stray_call(text: &str, registry: &Registry) -> Option<crate::llm::ToolCall> {
     })
 }
 
+/// The tools a turn with no domain picked offers. A model in the cloud gets
+/// them all. The phone's gets Pilot's own (no app's: with the phone's apps
+/// they were 119 tools, 14,000 tokens, past its 8,192-token context); an
+/// app's tools come when the router picks that app.
+fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> {
+    if !local {
+        return registry.defs(None);
+    }
+    let mut own: Vec<String> = registry
+        .entries()
+        .map(|e| e.spec.domain.clone())
+        .filter(|d| !d.contains('.'))
+        .collect();
+    own.sort();
+    own.dedup();
+    registry.defs(Some(&own))
+}
+
 /// A streamed answer up to its follow-up line, which may be half written
 /// ("FOLL").
 fn answer_so_far(text: &str) -> &str {
@@ -1300,7 +1318,7 @@ impl Pipeline {
         // part of it (chat templates put them in the system block), so they
         // go too, as a turn offers them: 2,700 of 3,000 tokens on the Q25.
         if backends.llm.provider() == "local" {
-            let mut tools = registry.defs(None);
+            let mut tools = unscoped_tools(&registry, true);
             if !self.may_leave() {
                 if let Some(web) = registry.get(crate::web::TOOL) {
                     tools.retain(|t| t.name != web.model_name);
@@ -3295,7 +3313,7 @@ impl Pipeline {
         backends: &Backends,
     ) -> Vec<crate::llm::ToolDef> {
         let Some(domains) = scope else {
-            return registry.defs(None);
+            return unscoped_tools(registry, backends.llm.provider() == "local");
         };
         let mut chosen: Vec<String> = domains.to_vec();
         let in_scope: Vec<&Entry> = registry
@@ -3870,6 +3888,23 @@ mod answer_tests {
             );
         }
         assert!(stray_call("It is sunny.\nFOLLOWUPS: Rain? | Wind?", &registry).is_none());
+    }
+
+    #[test]
+    fn the_phone_offers_no_app_tools_until_an_app_is_picked() {
+        let mut registry = Registry::new();
+        registry.add(crate::weather::spec(), true, std::sync::Arc::new(Nothing));
+        let mut app = crate::weather::spec();
+        app.name = "notes.create".into();
+        app.domain = "org.example.notes".into();
+        registry.add(app, true, std::sync::Arc::new(Nothing));
+        let names = |defs: Vec<crate::llm::ToolDef>| -> Vec<String> {
+            defs.into_iter().map(|d| d.name).collect()
+        };
+        assert_eq!(names(unscoped_tools(&registry, false)).len(), 2);
+        let local = names(unscoped_tools(&registry, true));
+        assert_eq!(local.len(), 1);
+        assert!(!local[0].contains("notes"));
     }
 
     #[test]
