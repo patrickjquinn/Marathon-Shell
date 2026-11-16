@@ -161,6 +161,16 @@ enum Models {
     },
 }
 
+impl Models {
+    /// The chat model's URL, its key and the region its replies are stamped.
+    fn llm(&self) -> (&str, &str, &'static str) {
+        match self {
+            Models::Cloud { groq, .. } => (GROQ_URL, groq.as_str(), "us"),
+            Models::Local { llm, .. } => (llm.as_str(), "", "device"),
+        }
+    }
+}
+
 fn models() -> Models {
     if std::env::var_os("PILOT_EVAL_LOCAL").is_none() {
         let (jev, groq) = keys().expect("Jev and Groq keys (pilot-keys.env)");
@@ -235,6 +245,16 @@ async fn post(url: &str, key: &str, body: &Value) -> (u16, Value) {
     (502, Value::Null)
 }
 
+/// `PILOT_EVAL_DUMP=dir` keeps each request the model is sent, numbered.
+fn dump(n: u32, body: &Value) {
+    if let Some(dir) = std::env::var_os("PILOT_EVAL_DUMP") {
+        let _ = std::fs::write(
+            std::path::Path::new(&dir).join(format!("request-{n}.json")),
+            body.to_string(),
+        );
+    }
+}
+
 /// The relay's place: forwards to the real upstreams, records what the
 /// model did, answers web searches from the task's fixtures.
 fn relay(
@@ -266,10 +286,8 @@ fn relay(
                     o.remove("store");
                     o.remove("user");
                 }
-                let (url, key, region) = match &models {
-                    Models::Cloud { groq, .. } => (GROQ_URL, groq.as_str(), "us"),
-                    Models::Local { llm, .. } => (llm.as_str(), "", "device"),
-                };
+                let (url, key, region) = models.llm();
+                dump(up.lock().unwrap().llm_calls, &body);
                 let (s, v) = tokio::task::block_in_place(|| rt.block_on(post(url, key, &body)));
                 let mut u = up.lock().unwrap();
                 u.llm_calls += 1;
