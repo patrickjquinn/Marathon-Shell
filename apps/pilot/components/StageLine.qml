@@ -4,6 +4,8 @@
 // What Pilot is doing while it works: thinking, searching the web for
 // what, reading which sites, writing. Three dots breathe beside it, so a
 // three-second web answer reads as work in progress rather than a stall.
+// Once the model on the phone starts writing, the answer itself shows here
+// as it comes (`partial`), and its finished card takes its place.
 
 import QtQuick
 import Sailfish.Silica 1.0
@@ -13,6 +15,7 @@ Item {
 
     property string stage: "thinking"
     property string detail: ""
+    property string partial: ""
     property bool running: true
     // Only while it can be seen: shown, in the active window (see Orb.qml:
     // a running animation anywhere keeps the app drawing at the display's
@@ -20,7 +23,7 @@ Item {
     readonly property bool _animate: visible && Window.active && !Conversation.reduceMotion
 
     width: parent ? parent.width : 0
-    height: row.height + 2 * Theme.paddingMedium
+    height: (partial.length > 0 ? answer.height + Theme.paddingSmall : 0) + row.height + 2 * Theme.paddingMedium
 
     function words() {
         switch (stage) {
@@ -35,10 +38,26 @@ Item {
         }
     }
 
+    Label {
+        id: answer
+        objectName: "stagePartial"
+        x: Theme.horizontalPageMargin + Theme.paddingLarge
+        y: Theme.paddingMedium
+        width: parent.width - 2 * x
+        visible: line.partial.length > 0
+        height: visible ? implicitHeight : 0
+        text: line.partial
+        wrapMode: Text.Wrap
+        textFormat: Text.PlainText
+        font.pixelSize: Theme.fontSizeMedium
+        lineHeight: 1.1
+        color: Theme.primaryColor
+    }
+
     Row {
         id: row
         x: Theme.horizontalPageMargin + Theme.paddingLarge
-        y: Theme.paddingMedium
+        y: Theme.paddingMedium + (answer.visible ? answer.height + Theme.paddingSmall : 0)
         width: parent.width - 2 * x
         spacing: Theme.paddingMedium
 
@@ -83,7 +102,7 @@ Item {
             objectName: "stageText"
             width: parent.width - dots.width - Theme.paddingMedium
             anchors.verticalCenter: parent.verticalCenter
-            text: line.words()
+            text: line.partial.length > 0 ? "" : line.words()
             truncationMode: TruncationMode.Fade
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryColor

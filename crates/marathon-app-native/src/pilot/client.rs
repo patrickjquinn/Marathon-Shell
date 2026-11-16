@@ -124,6 +124,10 @@ impl Client {
         self.call("OpenUrl", &(url,))
     }
 
+    pub fn stop(&self) -> Result<(), String> {
+        self.call("Stop", &())
+    }
+
     pub fn clear_conversation(&self) -> Result<(), String> {
         self.call("ClearConversation", &())
     }

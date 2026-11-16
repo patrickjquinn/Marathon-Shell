@@ -19,3 +19,4 @@ StageLine 1.0 StageLine.qml
 SuggestionTile 1.0 SuggestionTile.qml
 TimerCard 1.0 TimerCard.qml
 TurnCard 1.0 TurnCard.qml
+StopButton 1.0 StopButton.qml

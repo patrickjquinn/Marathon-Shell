@@ -263,6 +263,7 @@ Item {
                 running: visible
                 stage: Conversation.stage
                 detail: Conversation.stageDetail
+                partial: Conversation.partial
             }
 
             // While the microphone is open: the orb, and what is happening.
@@ -374,7 +375,7 @@ Item {
                         TextField {
                             id: input
                             objectName: "overlayInput"
-                            width: parent.width - (sendButton.visible ? sendButton.width : 0) - (mic.visible ? mic.width : 0) - Theme.paddingSmall
+                            width: parent.width - (sendButton.visible ? sendButton.width : 0) - (stopButton.visible ? stopButton.width : 0) - (mic.visible ? mic.width : 0) - Theme.paddingSmall
                             placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything") : qsTr("Ask Pilot")
                             label: qsTr("Ask Pilot")
                             EnterKey.iconSource: "image://theme/icon-m-enter-accept"
@@ -392,6 +393,13 @@ Item {
                             visible: input.text.trim().length > 0
                             icon.source: "image://theme/icon-m-send"
                             onClicked: overlay.send(input.text)
+                        }
+                        StopButton {
+                            id: stopButton
+                            objectName: "overlayStop"
+                            visible: Pilot.busy && !Conversation.listening
+                            anchors.verticalCenter: input.verticalCenter
+                            onClicked: Pilot.stop()
                         }
                         Orb {
                             id: mic
