@@ -600,15 +600,18 @@ fn meta_flag(r: &Value, name: &str) -> bool {
 /// Adds every usable MCP tool to `registry`. `keel__plan.validate` is for
 /// pilotd's own precheck, not for the model.
 pub fn register(registry: &mut Registry, tools: &[Value], exec: &Arc<McpTools>) -> usize {
-    let mut n = 0;
-    for t in tools {
-        if t.get("name").and_then(Value::as_str) == Some(PLAN_VALIDATE) {
-            continue;
-        }
-        if let Some(s) = spec(t) {
-            registry.add(s, true, Arc::<McpTools>::clone(exec));
-            n += 1;
-        }
+    let mut specs: Vec<ToolSpec> = tools
+        .iter()
+        .filter(|t| t.get("name").and_then(Value::as_str) != Some(PLAN_VALIDATE))
+        .filter_map(spec)
+        .collect();
+    // Each app's "show the app" after its actions: listed first, a small
+    // model called it for "play some Radiohead" and "what's 17 times 23"
+    // and stopped there.
+    specs.sort_by_key(|s| s.name.ends_with("/app.show"));
+    let n = specs.len();
+    for s in specs {
+        registry.add(s, true, Arc::<McpTools>::clone(exec));
     }
     n
 }
