@@ -39,6 +39,11 @@
 //! fixed per task (`web`), so a run is repeatable apart from the models
 //! and the live weather. Each run is written to `target/pilot-eval/` and
 //! compared with the previous one.
+//!
+//! `PILOT_EVAL_APPS=<dir>` adds a phone's apps: their manifests (a copy of
+//! its `/usr/share/keel/actions`) served by keel-mcp, each action recorded
+//! as `app <app>/<action> <arguments>` and answered with the task's
+//! `apps` result for it, or the least its output schema allows.
 
 #![allow(
     clippy::unwrap_used,
@@ -53,11 +58,16 @@ mod common;
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use common::{FakeHttp, Log, Reply, Seen};
+use keel_mcp::backend::{Backend, BoxFuture, CallResult};
+use keel_mcp::catalogue::{load, scan, Catalogue};
+use keel_mcp::KeelMcp;
 use pilotd::pipeline::{Card, TurnResult};
+use rmcp::ServiceExt as _;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -79,6 +89,118 @@ struct Task {
     /// Earlier conversations, kept on the phone: [question, answer] pairs.
     #[serde(default)]
     history: Vec<(String, String)>,
+    /// What an app action returns, by `<app>/<action>` (`PILOT_EVAL_APPS`).
+    #[serde(default)]
+    apps: BTreeMap<String, Value>,
+}
+
+/// The phone's apps (`PILOT_EVAL_APPS`): every action recorded.
+struct Apps {
+    log: Arc<Log>,
+    /// Output schemas, by `<app>/<action>`.
+    outputs: BTreeMap<String, Value>,
+    canned: BTreeMap<String, Value>,
+}
+
+/// The least value `schema` accepts: required properties only.
+fn least(schema: &Value) -> Value {
+    if let Some(first) = schema["enum"].as_array().and_then(|e| e.first()) {
+        return first.clone();
+    }
+    match schema["type"].as_str() {
+        Some("object") => {
+            let mut out = serde_json::Map::new();
+            for r in schema["required"].as_array().into_iter().flatten() {
+                let r = r.as_str().unwrap_or_default();
+                out.insert(r.to_owned(), least(&schema["properties"][r]));
+            }
+            Value::Object(out)
+        }
+        Some("array") => json!([]),
+        Some("string") => match schema["format"].as_str() {
+            Some("date-time") => json!("2026-11-16T12:00:00Z"),
+            Some("date") => json!("2026-11-16"),
+            _ => json!("ok"),
+        },
+        Some("integer" | "number") => schema.get("minimum").cloned().unwrap_or_else(|| json!(1)),
+        Some("boolean") => json!(true),
+        _ => Value::Null,
+    }
+}
+
+impl Backend for Apps {
+    fn running_manifests(&self) -> BoxFuture<'_, Vec<Value>> {
+        Box::pin(async { Vec::new() })
+    }
+    fn invoke<'a>(
+        &'a self,
+        app: &'a str,
+        action: &'a str,
+        args: &'a Value,
+        _u: bool,
+        _t: Duration,
+    ) -> BoxFuture<'a, CallResult> {
+        Box::pin(async move {
+            let key = format!("{app}/{action}");
+            self.log.push(format!("app {key} {args}"));
+            Ok(self
+                .canned
+                .get(&key)
+                .cloned()
+                .or_else(|| self.outputs.get(&key).map(least))
+                .unwrap_or(Value::Null))
+        })
+    }
+    fn get_entity<'a>(&'a self, _: &'a str, _: &'a str, _: &'a str) -> BoxFuture<'a, CallResult> {
+        Box::pin(async { Ok(Value::Null) })
+    }
+    fn find_entities<'a>(
+        &'a self,
+        _: &'a str,
+        _: &'a str,
+        _: &'a str,
+        _: u32,
+    ) -> BoxFuture<'a, CallResult> {
+        Box::pin(async { Ok(json!({"items": []})) })
+    }
+    fn get_context<'a>(&'a self, _: &'a str) -> BoxFuture<'a, CallResult> {
+        Box::pin(async { Ok(Value::Null) })
+    }
+}
+
+/// keel-mcp serving `dir`'s manifests, connected to pilotd's client.
+async fn apps(dir: PathBuf, log: &Arc<Log>, task: &Task) -> Arc<pilotd::mcp::McpClient> {
+    let manifests = load(&scan(&[dir]));
+    let mut outputs = BTreeMap::new();
+    for m in &manifests {
+        for t in m["tools"].as_array().into_iter().flatten() {
+            if let (Some(name), Some(out)) = (t["name"].as_str(), t.get("outputSchema")) {
+                outputs.insert(name.to_owned(), out.clone());
+            }
+        }
+    }
+    let backend = Apps {
+        log: Arc::clone(log),
+        outputs,
+        canned: task.apps.clone(),
+    };
+    let server = KeelMcp::new(Arc::new(backend), false);
+    server.set_catalogue(Catalogue::build(manifests, Vec::new()));
+    let (client_end, server_end) = tokio::io::duplex(1 << 16);
+    tokio::spawn(async move {
+        let (r, w) = tokio::io::split(server_end);
+        if let Ok(running) = server.serve((r, w)).await {
+            let _ = running.waiting().await;
+        }
+    });
+    let (r, w) = tokio::io::split(client_end);
+    let client = Arc::new(pilotd::mcp::McpClient::new(
+        Box::new(r),
+        Box::new(w),
+        Duration::from_secs(10),
+    ));
+    client.initialize().await.unwrap();
+    client
 }
 
 #[derive(Debug, Deserialize)]
@@ -519,6 +641,11 @@ async fn run_task(task: &Task, models: &Models) -> Outcome {
         let mut live = d.live.lock().unwrap();
         live.consent.voice_cloud = true;
     }
+    if let Some(dir) = std::env::var_os("PILOT_EVAL_APPS") {
+        d.pipeline
+            .attach_mcp(apps(PathBuf::from(dir), &log, task).await)
+            .await;
+    }
     for m in &task.memories {
         let _ = d.store.remember(m);
     }
@@ -717,6 +844,8 @@ async fn eval() {
     let tasks: Vec<&Task> = tasks
         .iter()
         .filter(|t| only.is_empty() || only.contains(&t.category))
+        // The apps' tasks need the apps.
+        .filter(|t| t.category != "apps" || std::env::var_os("PILOT_EVAL_APPS").is_some())
         .filter(|t| id.as_ref().is_none_or(|i| t.id.starts_with(i.as_str())))
         .collect();
     let mut outcomes = Vec::new();

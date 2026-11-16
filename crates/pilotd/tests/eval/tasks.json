@@ -185,5 +185,38 @@
   {"id": "multi-weather-then-note", "category": "multi", "turns": [
     {"say": "check the weather and make a note of tomorrow's high temperature", "expect": {"tools": ["weather.forecast"], "actions": ["note"]}}]},
   {"id": "multi-calendar-text", "category": "multi", "turns": [
-    {"say": "what's my first meeting today? then text Anna the time of it", "approve": true, "expect": {"actions": ["calendar", "+358401234567"]}}]}
+    {"say": "what's my first meeting today? then text Anna the time of it", "approve": true, "expect": {"actions": ["calendar", "+358401234567"]}}]},
+  {"id": "app-music-play", "category": "apps", "turns": [
+    {"say": "play some Radiohead", "expect": {"actions": ["org.marathonos.music/playback.play"]}}],
+    "apps": {"org.marathonos.music/library.search": {"result": [{"id": 7, "title": "Karma Police", "artist": "Radiohead", "album": "OK Computer", "duration": 264}]}}},
+  {"id": "app-music-pause", "category": "apps", "turns": [
+    {"say": "pause the music", "expect": {"actions": ["org.marathonos.music/playback.control", "pause"]}}]},
+  {"id": "app-directions", "category": "apps", "turns": [
+    {"say": "get me directions to Dublin Airport", "expect": {"actions": ["org.marathonos.maps/"], "no_actions": ["browser"]}}],
+    "apps": {"org.marathonos.maps/places.search": {"result": [{"name": "Dublin Airport", "address": "Collinstown, Co. Dublin", "lat": 53.4264, "lon": -6.2499, "type": "aerodrome"}]}}},
+  {"id": "app-open-camera", "category": "apps", "turns": [
+    {"say": "open the camera", "expect": {"actions": ["camera"]}}]},
+  {"id": "app-open-settings", "category": "apps", "turns": [
+    {"say": "open settings", "expect": {"actions": ["settings"]}}]},
+  {"id": "app-notes-search", "category": "apps", "turns": [
+    {"say": "what did I note about the cabin?", "expect": {"actions": ["org.marathonos.notes/notes.search"], "answer_any": ["fridge"]}}],
+    "apps": {"org.marathonos.notes/notes.search": {"result": [{"id": 3, "title": "Cabin", "body": "The wifi password at the cabin is on the fridge.", "modified": "2026-11-10T09:12:00Z"}]}}},
+  {"id": "app-mail-search", "category": "apps", "turns": [
+    {"say": "any emails from Anna?", "expect": {"actions": ["org.marathonos.email/mail.search"], "answer_any": ["friday", "thursday"]}}],
+    "apps": {"org.marathonos.email/mail.search": {"result": [{"id": "m42", "from": "Anna Virtanen <anna@example.com>", "subject": "Moving Thursday's meeting to Friday?", "preview": "Hi! Could we do Friday at 10 instead?", "received": "2026-11-16T08:05:00Z", "unread": true}]}}},
+  {"id": "app-messages-read", "category": "apps", "turns": [
+    {"say": "what was Anna's last text?", "expect": {"actions": ["org.marathonos.messages/messages.read"], "answer_any": ["pizza"]}}],
+    "apps": {"org.marathonos.messages/messages.read": {"result": [{"text": "Are we still on for pizza at 7?", "outgoing": false, "time": "2026-11-16T17:40:00Z"}]}}},
+  {"id": "app-browser-open", "category": "apps", "turns": [
+    {"say": "open bbc.co.uk", "expect": {"actions": ["org.marathonos.shipwright-pacific/browser.open", "bbc.co.uk"]}}]},
+  {"id": "app-store-search", "category": "apps", "turns": [
+    {"say": "find a podcast app in the store", "expect": {"actions": ["org.marathonos.reef/", "podcast"]}}]},
+  {"id": "app-photos-find", "category": "apps", "turns": [
+    {"say": "find my photos from March", "expect": {"actions": ["org.marathonos.gallery/photos.find", "March"]}}]},
+  {"id": "app-calculate", "category": "apps", "turns": [
+    {"say": "what's 17.5% of 2340?", "expect": {"answer_any": ["409.5"]}}]},
+  {"id": "app-calendar-add", "category": "apps", "turns": [
+    {"say": "put the dentist in my calendar for Friday at 3pm", "expect": {"actions": ["entist"]}}]},
+  {"id": "app-chat-no-tools", "category": "apps", "turns": [
+    {"say": "why is the sky blue?", "expect": {"no_action": true, "answer_any": ["scatter"]}}]}
 ]
