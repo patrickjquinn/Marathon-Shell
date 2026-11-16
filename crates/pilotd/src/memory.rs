@@ -43,20 +43,21 @@ pub fn spec() -> ToolSpec {
         title: "Remember".into(),
         description: "Keep a lasting fact about the person or their life (family, diet, routines, \
                       preferences, where they live), in the first person and their words (\"my baby \
-                      naps from 1 to 3\"). asked: true when they asked you to remember it; false when \
-                      they only mentioned it, and then the person is asked first. Nothing passing \
-                      (today's plans, one question). replaces: the number of a remembered fact this \
-                      one changes."
+                      naps from 1 to 3\"). Nothing passing (today's plans, one question). replaces: the \
+                      number of a remembered fact this one changes."
             .into(),
         input: Validator::new(json!({"type": "object", "properties": {
             "fact": {"type": "string", "minLength": 3, "maxLength": 300},
-            "asked": {"type": "boolean"},
+            "said": {"enum": ["asked to remember", "mentioned"],
+                "description": "asked to remember: the person asked you to keep it. mentioned: they only said it in passing, and are asked first."},
             "replaces": {"type": "integer", "minimum": 1}},
-            "required": ["fact", "asked"], "additionalProperties": false}))
+            "required": ["fact", "said"], "additionalProperties": false}))
         .expect("static schema"),
         output: None,
         // Kept without asking only when the person asked for it.
-        confirm: Confirm::When(|a| a.get("asked").and_then(Value::as_bool) != Some(true)),
+        confirm: Confirm::When(|a| {
+            a.get("said").and_then(Value::as_str) != Some("asked to remember")
+        }),
         read_only: false,
         destructive: false,
         open_world: false,

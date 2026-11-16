@@ -214,7 +214,17 @@ impl OpenAiClient {
         } else {
             body["temperature"] = json!(0.7);
             body["top_p"] = json!(0.8);
-            body["presence_penalty"] = json!(1.5);
+            // llama-server counts the prompt's last 64 tokens (the person's
+            // words) in its penalties: with tools offered, a penalty pushes
+            // the model off the number or address it has to copy.
+            if self.provider != "local" || req.tools.is_empty() {
+                body["presence_penalty"] = json!(1.5);
+            }
+        }
+        if self.provider == "local" {
+            // The rest of the model card's sampling, not llama-server's own.
+            body["top_k"] = json!(20);
+            body["min_p"] = json!(0.0);
         }
         if !req.tools.is_empty() {
             // The tools stay the same across a turn's rounds: chat templates
