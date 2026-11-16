@@ -226,11 +226,12 @@ pub fn specs() -> Vec<(ToolSpec, bool)> {
             spec(
                 "device.toggle",
                 "Device setting",
-                "Turn Wi-Fi, Bluetooth, mobile data or flight mode on or off.",
+                "Turn Wi-Fi, Bluetooth, mobile data or flight mode on or off. Putting the phone in flight (airplane) mode is flight_mode on.",
                 &json!({"type": "object", "properties": {
                     "target": {"enum": ["wifi", "bluetooth", "mobile_data", "flight_mode"]},
-                    "on": {"type": "boolean"}},
-                    "required": ["target", "on"], "additionalProperties": false}),
+                    "state": {"enum": ["on", "off"],
+                        "description": "The state the named setting itself is left in. For flight_mode, on puts the phone in flight mode (its radios go off); off takes it out."}},
+                    "required": ["target", "state"], "additionalProperties": false}),
                 Confirm::When(|a| a.get("target").and_then(Value::as_str) == Some("flight_mode")),
                 false,
                 false,
@@ -688,7 +689,7 @@ impl ToolExecutor for SystemTools {
                 let target = arg(args, "target")
                     .and_then(Toggle::parse)
                     .ok_or_else(|| ToolError::Failed("target".into()))?;
-                let on = args.get("on").and_then(Value::as_bool).unwrap_or(false);
+                let on = arg(args, "state") == Some("on");
                 a.toggles.set(target, on).await?;
                 let name = match target {
                     Toggle::Wifi => "Wi-Fi",
@@ -719,7 +720,7 @@ pub fn card_detail(tool: &str, args: &Value) -> String {
         "device.toggle" => format!(
             "Turn {} {}",
             s("target").replace('_', " "),
-            if args.get("on").and_then(Value::as_bool) == Some(true) {
+            if arg(args, "state") == Some("on") {
                 "on"
             } else {
                 "off"
@@ -779,11 +780,11 @@ mod tests {
         assert!(needs("calendar.add", json!({})));
         assert!(needs(
             "device.toggle",
-            json!({"target": "flight_mode", "on": true})
+            json!({"target": "flight_mode", "state": "on"})
         ));
         assert!(!needs(
             "device.toggle",
-            json!({"target": "wifi", "on": true})
+            json!({"target": "wifi", "state": "on"})
         ));
         assert!(!needs("timer.set", json!({})));
         assert!(!needs("calendar.query", json!({})));
