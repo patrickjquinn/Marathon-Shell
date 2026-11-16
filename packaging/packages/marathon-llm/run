@@ -5,6 +5,8 @@
 #               more, else 0.6B (Apache-2.0, bartowski's llama.cpp quants).
 #               Q4_0, which llama.cpp repacks for Arm's dot-product kernels:
 #               on the CM5 twice Q4_K_M's prompt speed.
+#               Flash attention off: on the Q25's CPU it made each token 2.8x
+#               slower with Pilot's 2K-token prompt (llama-bench, tg32 @ d2048).
 #               A plain transformer, so the prompt cache holds across turns
 #               (llama.cpp cannot reuse Qwen3.5's hybrid state).
 #   run embed   multilingual-e5-small (MIT), which picks the tools
@@ -60,7 +62,7 @@ chat)
 	chat_model
 	need "$model"
 	exec llama-server --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
-		--jinja --reasoning off --threads 4 --ctx-size 8192 --parallel 1 --flash-attn on \
+		--jinja --reasoning off --threads 4 --ctx-size 8192 --parallel 1 --flash-attn off \
 		--cache-reuse 256 --no-webui
 	;;
 embed)
