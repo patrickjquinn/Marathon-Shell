@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "notes",
   "name": "Notes",
+  "description": "Write notes and find what you noted",
   "version": "1.0.0",
   "entryPoint": "NotesApp.qml",
   "icon": "assets/icon.svg",

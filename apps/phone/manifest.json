@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "phone",
   "name": "Phone",
+  "description": "Make calls, and see recent calls and contacts",
   "version": "1.0.0",
   "entryPoint": "PhoneApp.qml",
   "icon": "assets/icon.svg",

@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "terminal",
   "name": "Terminal",
+  "description": "A command-line shell",
   "version": "1.0.0",
   "entryPoint": "TerminalApp.qml",
   "icon": "assets/icon.svg",

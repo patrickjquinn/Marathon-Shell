@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "gallery",
   "name": "Gallery",
+  "description": "Your photos and videos",
   "version": "1.0.0",
   "entryPoint": "GalleryApp.qml",
   "icon": "assets/icon.svg",

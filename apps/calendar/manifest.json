@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "calendar",
   "name": "Calendar",
+  "description": "Your events and appointments: see what's on and add new ones",
   "version": "1.0.0",
   "entryPoint": "CalendarApp.qml",
   "icon": "assets/icon.svg",

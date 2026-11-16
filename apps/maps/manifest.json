@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "maps",
   "name": "Maps",
+  "description": "Find places and get directions",
   "version": "1.0.0",
   "entryPoint": "MapsApp.qml",
   "icon": "assets/icon.svg",

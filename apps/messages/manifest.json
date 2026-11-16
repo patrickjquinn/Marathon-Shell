@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "messages",
   "name": "Messages",
+  "description": "Text messages: read conversations and send texts",
   "version": "1.0.0",
   "entryPoint": "MessagesApp.qml",
   "icon": "assets/icon.svg",

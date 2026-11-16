@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "email",
   "name": "Mail",
+  "description": "Read, search and write email",
   "version": "1.0.0",
   "entryPoint": "EmailApp.qml",
   "icon": "assets/icon.svg",

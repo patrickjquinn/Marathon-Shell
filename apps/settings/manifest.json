@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "settings",
   "name": "Settings",
+  "description": "The phone's settings: Wi-Fi, Bluetooth, display, sound and more",
   "version": "1.0.0",
   "entryPoint": "SettingsApp.qml",
   "icon": "assets/icon.svg",

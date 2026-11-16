@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "calculator",
   "name": "Calculator",
+  "description": "Work out sums, percentages and other calculations",
   "version": "1.0.0",
   "entryPoint": "CalculatorApp.qml",
   "icon": "assets/icon.svg",

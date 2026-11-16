@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "clock",
   "name": "Clock",
+  "description": "Alarms, timers, a stopwatch and world clocks",
   "version": "1.0.0",
   "entryPoint": "ClockApp.qml",
   "icon": "assets/icon.svg",

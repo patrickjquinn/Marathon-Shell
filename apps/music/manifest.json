@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "music",
   "name": "Music",
+  "description": "Play and control the music on your phone",
   "version": "1.0.0",
   "entryPoint": "MusicApp.qml",
   "icon": "assets/icon.svg",

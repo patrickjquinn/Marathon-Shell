@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "camera",
   "name": "Camera",
+  "description": "Take photos and videos",
   "version": "1.0.0",
   "entryPoint": "CameraApp.qml",
   "icon": "assets/icon.svg",
