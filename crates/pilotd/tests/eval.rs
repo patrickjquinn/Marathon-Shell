@@ -21,6 +21,19 @@
 //! to the run. `PILOT_EVAL_JUDGE=groq` grades them here with the model
 //! instead. The printed summary counts only the rule checks until then.
 //!
+//! `PILOT_EVAL_LOCAL=1` runs the same tasks against a phone's own models
+//! (Pilot 2.1's baseline and bake-off): the router on its embeddings and
+//! the turns on its llama-server, tunnelled here, e.g.
+//!
+//! ```text
+//! ssh -N -L 18088:127.0.0.1:8088 -L 18087:127.0.0.1:8087 root@phone &
+//! PILOT_EVAL=1 PILOT_EVAL_LOCAL=1 cargo test -p shoal-pilotd --test eval -- --nocapture
+//! ```
+//!
+//! (`PILOT_EVAL_LLM_URL`, `PILOT_EVAL_EMBED_URL` and `PILOT_EVAL_MODEL`
+//! point it elsewhere.) llama-server's own timings are added up per task:
+//! prompt and generated tokens, and the milliseconds spent on each.
+//!
 //! Keys come from `~/.config/shipwright/pilot-keys.env` (as the relay's live
 //! test reads them). Tasks are in `tests/eval/tasks.json`; web results are
 //! fixed per task (`web`), so a run is repeatable apart from the models
@@ -117,6 +130,54 @@ struct Upstream {
     /// Per model call: the tools offered, and what came back when no words
     /// and no tool call did.
     notes: Vec<String>,
+    /// llama-server's timings, added up: prompt and generated tokens, and
+    /// the milliseconds for each.
+    prompt_tokens: u64,
+    prompt_ms: f64,
+    predicted_tokens: u64,
+    predicted_ms: f64,
+}
+
+impl Upstream {
+    fn add_timings(&mut self, timings: &Value) {
+        self.prompt_tokens += timings["prompt_n"].as_u64().unwrap_or(0);
+        self.prompt_ms += timings["prompt_ms"].as_f64().unwrap_or(0.0);
+        self.predicted_tokens += timings["predicted_n"].as_u64().unwrap_or(0);
+        self.predicted_ms += timings["predicted_ms"].as_f64().unwrap_or(0.0);
+    }
+}
+
+/// Where the models are: Jev and Groq, or a phone's own.
+#[derive(Clone)]
+enum Models {
+    Cloud {
+        jev: String,
+        groq: String,
+    },
+    Local {
+        llm: String,
+        embed: String,
+        model: String,
+    },
+}
+
+fn models() -> Models {
+    if std::env::var_os("PILOT_EVAL_LOCAL").is_none() {
+        let (jev, groq) = keys().expect("Jev and Groq keys (pilot-keys.env)");
+        return Models::Cloud { jev, groq };
+    }
+    let var = |name: &str, default: &str| std::env::var(name).unwrap_or_else(|_| default.into());
+    Models::Local {
+        llm: var(
+            "PILOT_EVAL_LLM_URL",
+            "http://127.0.0.1:18088/v1/chat/completions",
+        ),
+        embed: var(
+            "PILOT_EVAL_EMBED_URL",
+            "http://127.0.0.1:18087/v1/embeddings",
+        ),
+        model: var("PILOT_EVAL_MODEL", "qwen3"),
+    }
 }
 
 fn keys() -> Option<(String, String)> {
@@ -177,7 +238,7 @@ async fn post(url: &str, key: &str, body: &Value) -> (u16, Value) {
 /// The relay's place: forwards to the real upstreams, records what the
 /// model did, answers web searches from the task's fixtures.
 fn relay(
-    keys: (String, String),
+    models: Models,
     web: Arc<Mutex<Vec<Value>>>,
     up: Arc<Mutex<Upstream>>,
 ) -> impl Fn(&Seen, usize) -> Reply + Send + Sync + 'static {
@@ -186,8 +247,14 @@ fn relay(
         match req.path.as_str() {
             "/v1/jev" => {
                 up.lock().unwrap().jev_calls += 1;
+                let Models::Cloud { jev, .. } = &models else {
+                    return Reply {
+                        status: 404,
+                        ..Reply::ok(json!({}))
+                    };
+                };
                 let (s, v) =
-                    tokio::task::block_in_place(|| rt.block_on(post(JEV_URL, &keys.0, &req.body)));
+                    tokio::task::block_in_place(|| rt.block_on(post(JEV_URL, jev, &req.body)));
                 Reply {
                     status: s,
                     ..Reply::ok(v)
@@ -199,10 +266,14 @@ fn relay(
                     o.remove("store");
                     o.remove("user");
                 }
-                let (s, v) =
-                    tokio::task::block_in_place(|| rt.block_on(post(GROQ_URL, &keys.1, &body)));
+                let (url, key, region) = match &models {
+                    Models::Cloud { groq, .. } => (GROQ_URL, groq.as_str(), "us"),
+                    Models::Local { llm, .. } => (llm.as_str(), "", "device"),
+                };
+                let (s, v) = tokio::task::block_in_place(|| rt.block_on(post(url, key, &body)));
                 let mut u = up.lock().unwrap();
                 u.llm_calls += 1;
+                u.add_timings(&v["timings"]);
                 let offered: Vec<&str> = body["tools"]
                     .as_array()
                     .into_iter()
@@ -254,7 +325,7 @@ fn relay(
                 };
                 Reply {
                     status,
-                    ..Reply::us(v)
+                    ..Reply::stamped(v, region)
                 }
             }
             "/v1/search" => {
@@ -275,7 +346,28 @@ fn relay(
     }
 }
 
-fn eval_config(base: &str) -> pilotd::config::Config {
+fn eval_config(base: &str, models: &Models) -> pilotd::config::Config {
+    if let Models::Local { embed, model, .. } = models {
+        // As local mode sets the phone up: the router on its embeddings,
+        // the model on its llama-server (through the relay, which times it).
+        return pilotd::config::Config::parse(&format!(
+            r#"
+            timeout_secs = 300
+            web_search_url = "{base}/v1/search"
+            [privacy]
+            source = "none"
+            [backends.standard.jev]
+            kind = "local"
+            url = "{embed}"
+            [backends.standard.llm]
+            url = "{base}/v1/llm/chat/completions"
+            model = "{model}"
+            provider = "local"
+            allowed_regions = ["device"]
+            "#
+        ))
+        .unwrap();
+    }
     pilotd::config::Config::parse(&format!(
         r#"
         timeout_secs = 60
@@ -372,6 +464,9 @@ struct Outcome {
     llm_calls: u32,
     tool_calls: usize,
     tokens: u64,
+    /// llama-server's prompt and generated tokens and their milliseconds.
+    prompt: (u64, f64),
+    predicted: (u64, f64),
     transcript: String,
     /// Rubric items left for the judge agent: (turn, rubric, transcript so far).
     judgments: Vec<(usize, String, String)>,
@@ -385,13 +480,13 @@ fn groq_judge() -> bool {
 }
 
 #[allow(clippy::too_many_lines, reason = "one task, start to finish")]
-async fn run_task(task: &Task, keys: &(String, String)) -> Outcome {
+async fn run_task(task: &Task, models: &Models) -> Outcome {
     let web = Arc::new(Mutex::new(task.web.clone()));
     let up = Arc::new(Mutex::new(Upstream::default()));
-    let srv = FakeHttp::start(relay(keys.clone(), web, Arc::clone(&up))).await;
+    let srv = FakeHttp::start(relay(models.clone(), web, Arc::clone(&up))).await;
     let log = Arc::new(Log::default());
     let d = pilotd::daemon::build(pilotd::daemon::Options {
-        config: eval_config(&srv.base),
+        config: eval_config(&srv.base, models),
         data_dir: None,
         session: None,
         system: None,
@@ -540,13 +635,14 @@ async fn run_task(task: &Task, keys: &(String, String)) -> Outcome {
             }
         }
         if let Some(rubric) = &e.judge {
-            if groq_judge() {
-                let (ok, why) = judge(&keys.1, rubric, &transcript).await;
-                if !ok {
-                    failures.push(format!("{tag}: judge: {why}"));
+            match models {
+                Models::Cloud { groq, .. } if groq_judge() => {
+                    let (ok, why) = judge(groq, rubric, &transcript).await;
+                    if !ok {
+                        failures.push(format!("{tag}: judge: {why}"));
+                    }
                 }
-            } else {
-                judgments.push((n + 1, rubric.clone(), transcript.clone()));
+                _ => judgments.push((n + 1, rubric.clone(), transcript.clone())),
             }
         }
         transcript.push_str(&diag);
@@ -561,6 +657,8 @@ async fn run_task(task: &Task, keys: &(String, String)) -> Outcome {
         llm_calls: u.llm_calls,
         tool_calls: u.tool_calls.len(),
         tokens: u.tokens,
+        prompt: (u.prompt_tokens, u.prompt_ms),
+        predicted: (u.predicted_tokens, u.predicted_ms),
         transcript,
         judgments,
     }
@@ -591,7 +689,7 @@ async fn eval() {
     if std::env::var_os("PILOT_EVAL").is_none() {
         return;
     }
-    let keys = keys().expect("Jev and Groq keys (pilot-keys.env)");
+    let models = models();
     let tasks: Vec<Task> = serde_json::from_str(include_str!("eval/tasks.json")).unwrap();
     let only: Vec<String> = std::env::var("PILOT_EVAL_ONLY")
         .map_or_default(|s| s.split(',').map(str::to_owned).collect());
@@ -614,7 +712,7 @@ async fn eval() {
         .flat_map(|t| std::iter::repeat_n(*t, repeat))
         .collect();
     for t in runs {
-        let o = run_task(t, &keys).await;
+        let o = run_task(t, &models).await;
         println!(
             "{} {:<28} {:>6} ms {}",
             if o.pass { "pass" } else { "FAIL" },
@@ -666,6 +764,29 @@ async fn eval() {
         outcomes.iter().map(|o| o.tool_calls).sum::<usize>() as f64 / turns as f64,
         outcomes.iter().map(|o| o.tokens).sum::<u64>()
     );
+    // On a phone's models: where the model's time went.
+    let (pn, pms) = outcomes
+        .iter()
+        .fold((0, 0.0), |a, o| (a.0 + o.prompt.0, a.1 + o.prompt.1));
+    let (gn, gms) = outcomes
+        .iter()
+        .fold((0, 0.0), |a, o| (a.0 + o.predicted.0, a.1 + o.predicted.1));
+    if pn + gn > 0 {
+        let rate = |n: u64, ms: f64| {
+            if ms > 0.0 {
+                n as f64 * 1000.0 / ms
+            } else {
+                0.0
+            }
+        };
+        println!(
+            "model time: prompt {pn} tokens in {:.1} s ({:.1}/s), generated {gn} in {:.1} s ({:.1}/s)",
+            pms / 1000.0,
+            rate(pn, pms),
+            gms / 1000.0,
+            rate(gn, gms)
+        );
+    }
     // Kept, and compared with the last run.
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/pilot-eval");
     let _ = std::fs::create_dir_all(&dir);
@@ -701,10 +822,16 @@ async fn eval() {
         .map_or(0, |d| d.as_secs());
     let record = json!({
         "at": stamp,
+        "models": match &models {
+            Models::Cloud { .. } => json!("cloud"),
+            Models::Local { llm, embed, model } => json!({"llm": llm, "embed": embed, "model": model}),
+        },
         "tasks": outcomes.iter().map(|o| json!({
             "id": o.id, "category": o.category, "pass": o.pass, "failures": o.failures,
             "ms": o.ms, "llm_calls": o.llm_calls, "tool_calls": o.tool_calls,
             "tokens": o.tokens, "transcript": o.transcript,
+            "prompt_tokens": o.prompt.0, "prompt_ms": o.prompt.1,
+            "predicted_tokens": o.predicted.0, "predicted_ms": o.predicted.1,
             "judgments": o.judgments.iter().map(|(t, r, x)| json!({"turn": t, "rubric": r, "transcript": x})).collect::<Vec<_>>(),
         })).collect::<Vec<_>>(),
     });
