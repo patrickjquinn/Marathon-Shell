@@ -7,7 +7,7 @@
 # ~/.local/share/marathon-llm when the person asks Pilot to (run download).
 pkgname=marathon-llm
 pkgver=0.1.0
-pkgrel=6
+pkgrel=7
 pkgdesc="On-device language model server for Pilot"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="noarch"
@@ -38,7 +38,7 @@ package() {
 }
 
 sha512sums="
-8224596dd504eae047cb5072d583f8da720726678f64c8f5f53e1d4e64dfd6488f87a963f7fa937ab093e9c1825e5e3d13961cdff0f88b04abd3fc009a2e105c  run
+c72664f0d26056e3d085a5df925fb6b008ecf0c34f20fcceb6d3fcaa9a15d8719ef18a0bf578fa563894a07ae360c957b64fb330d73c0cc887f59abdde51d383  run
 404aee60a551380e716f71fb85ab4ad55316afded2e8b7a0d2620fbd9c5411f2b59b5c1e5b24a6dfbd0cf8780f60b8524ffd643162bbdcd64b2b4dff2dc7c7e7  marathon-llm-chat.socket
 7e7ee00bc380fe693a0d10717a103ba411f80a3e1dda642f165cf7c195218bae0317ec8c7b1ef989c21f7d6fc7c4aaadcb2bb1fbe2532fd53d02bcaf263fb43c  marathon-llm-chat-proxy.service
 1009f7b30ea8a431fd36f7c8ea7d8d4b8d3972afe5ed116bc7873764b801617ba2973b07fec28998238baab055f55a2963f696f19747025b156dfbe6cfe285b1  marathon-llm-chat.service

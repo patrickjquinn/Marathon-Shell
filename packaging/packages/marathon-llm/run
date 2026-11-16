@@ -32,7 +32,12 @@ chat_model() {
 }
 
 fetch() { # file url sha256
-	[ -f "$DIR/$1" ] && return
+	if [ -f "$DIR/$1" ]; then
+		# A file already here counts only with the same checksum.
+		[ "$(sha256sum "$DIR/$1" | cut -d' ' -f1)" = "$3" ] && return
+		echo "marathon-llm: $1 failed its checksum; fetching it again" >&2
+		rm -f "$DIR/$1"
+	fi
 	mkdir -p "$DIR"
 	wget -q -c -O "$DIR/$1.part" "$2"
 	[ "$(sha256sum "$DIR/$1.part" | cut -d' ' -f1)" = "$3" ] || {
