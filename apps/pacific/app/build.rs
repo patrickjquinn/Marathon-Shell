@@ -26,6 +26,14 @@ fn main() {
     let builder = unsafe {
         builder.cc_builder(|cc| {
             cc.flag_if_supported("-Wno-sfinae-incomplete");
+            // Qt finds a dynamic plugin through these two C functions, but a
+            // Rust cdylib exports only Rust's symbols: compile them under
+            // other names and re-export them from src/plugin_entry.rs.
+            cc.define("qt_plugin_instance", Some("pacific_qt_plugin_instance"));
+            cc.define(
+                "qt_plugin_query_metadata_v2",
+                Some("pacific_qt_plugin_query_metadata_v2"),
+            );
         })
     };
     builder.build();

@@ -13,6 +13,7 @@ pub mod launcher_entry;
 pub mod lists;
 pub mod models;
 pub mod net;
+pub mod plugin_entry;
 pub mod suggestions;
 pub mod tabs;
 pub mod time;
