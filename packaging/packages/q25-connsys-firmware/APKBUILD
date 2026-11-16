@@ -4,8 +4,8 @@
 # before building (packaging/packages/q25-connsys-firmware/.gitignore).
 pkgname=q25-connsys-firmware
 pkgver=20261030
-pkgrel=1
-pkgdesc="Q25 Wi-Fi/Bluetooth/FM CONNSYS firmware from the stock vendor partition"
+pkgrel=0
+pkgdesc="Q25 Wi-Fi/Bluetooth CONNSYS firmware from the stock vendor partition"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="noarch"
 license="custom:proprietary"
@@ -13,9 +13,7 @@ options="!check !strip !tracedeps"
 source="WIFI_RAM_CODE_soc2_2_1d_1.bin WIFI_RAM_CODE_soc2_2_1e_1.bin
  soc2_2_ram_mcu_1d_1_hdr.bin soc2_2_ram_mcu_1e_1_hdr.bin
  soc2_2_ram_wifi_1d_1_hdr.bin soc2_2_ram_wifi_1e_1_hdr.bin
- soc2_2_ram_bt_1d_1_hdr.bin soc2_2_ram_bt_1e_1_hdr.bin WMT_SOC.cfg
- mt6631_fm_v1_patch.bin mt6631_fm_v1_coeff.bin mt6635_fm_v1_patch.bin mt6635_fm_v1_coeff.bin
- fm_cust.cfg"
+ soc2_2_ram_bt_1d_1_hdr.bin soc2_2_ram_bt_1e_1_hdr.bin WMT_SOC.cfg"
 package() {
     local f
     for f in $source; do
@@ -32,9 +30,4 @@ a53b707cbc426a0af913bae9377472fdf9f08037e1ae774930d3492ac4a585b4ac2062398aa6f5f3
 8ce0ed46ba2be1c464273a5e8b7ba09dd2eb7c582c0d546b92f7c569f9eaff670d4d7dc94950a492cb64e6c3a8eab8a51073aba6b2ad888387e46ab30a5d22bc  soc2_2_ram_bt_1d_1_hdr.bin
 5b476b36a316d8a354231a38bb29ec547aaf591459890b981a3be8325a207f5a901c8894dbe8abed843bcb050a113edb93ddbd38604563f332e9638ed7467e80  soc2_2_ram_bt_1e_1_hdr.bin
 b5298e78ba3d9ffa67c83d0959bf40d37e1331185f8a48fe6a230fee30d55ef90d641e5cba354002a91c99707a26db7ad14f9a86ec8656295c159f7a50a4a5c3  WMT_SOC.cfg
-11efe49264a329a83fe8b1b86842b9fca808d83178a0abc944b8e88ec1d0f5f2437dcf1539275dd97c2da91af882d7b5316c169caa6ec8adfde3e8a737077aeb  mt6631_fm_v1_patch.bin
-3810cbf39b79c2209866320066df282eff1aef25abfd59edb63d1731b8fbb79447fd6f41e31dc5b9dfd345864503247198eac864e7aab306b64ccba552e3aeda  mt6631_fm_v1_coeff.bin
-11efe49264a329a83fe8b1b86842b9fca808d83178a0abc944b8e88ec1d0f5f2437dcf1539275dd97c2da91af882d7b5316c169caa6ec8adfde3e8a737077aeb  mt6635_fm_v1_patch.bin
-3810cbf39b79c2209866320066df282eff1aef25abfd59edb63d1731b8fbb79447fd6f41e31dc5b9dfd345864503247198eac864e7aab306b64ccba552e3aeda  mt6635_fm_v1_coeff.bin
-5aa88c17e3cc188cf8f8ab2cba199c9e4584802546b6c0b57da9a70b4a6ca95cb4470c663b1188a82353b25bb8a145d5c9980838ce25e1d260bc962453d17469  fm_cust.cfg
 "
