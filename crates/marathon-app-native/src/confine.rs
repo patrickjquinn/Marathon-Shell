@@ -149,7 +149,7 @@ fn seccomp(namespaces: bool, mounts: bool) -> seccompiler::Result<()> {
     }
     // ENOSYS, as if the kernel lacked them, so callers fall back; seccomp
     // cannot read clone3's flags.
-    let missing: BTreeMap<i64, Vec<SeccompRule>> = [
+    let mut missing: BTreeMap<i64, Vec<SeccompRule>> = [
         libc::SYS_clone3,
         libc::SYS_open_tree,
         libc::SYS_move_mount,
@@ -163,6 +163,11 @@ fn seccomp(namespaces: bool, mounts: bool) -> seccompiler::Result<()> {
     .into_iter()
     .map(|n| (n, Vec::new()))
     .collect();
+    // bubblewrap makes its read-only binds with mount_setattr and does not
+    // fall back from ENOSYS.
+    if mounts {
+        missing.remove(&libc::SYS_mount_setattr);
+    }
     for (rules, errno) in [(denied, libc::EPERM), (missing, libc::ENOSYS)] {
         let program: BpfProgram = SeccompFilter::new(
             rules,
