@@ -127,6 +127,44 @@ async fn connect_marking(app: Arc<Notes>, untrusted: &[&str]) -> Arc<pilotd::mcp
     client
 }
 
+/// The notes app, sent a change it never answers.
+#[derive(Default)]
+struct Silent(Mutex<Vec<String>>);
+
+impl Backend for Silent {
+    fn running_manifests(&self) -> BoxFuture<'_, Vec<Value>> {
+        Box::pin(async { Vec::new() })
+    }
+    fn invoke<'a>(
+        &'a self,
+        _app: &'a str,
+        action: &'a str,
+        _args: &'a Value,
+        _u: bool,
+        _t: Duration,
+    ) -> BoxFuture<'a, CallResult> {
+        Box::pin(async move {
+            self.0.lock().unwrap().push(action.to_owned());
+            std::future::pending().await
+        })
+    }
+    fn get_entity<'a>(&'a self, _: &'a str, _: &'a str, _: &'a str) -> BoxFuture<'a, CallResult> {
+        Box::pin(async { Ok(Value::Null) })
+    }
+    fn find_entities<'a>(
+        &'a self,
+        _: &'a str,
+        _: &'a str,
+        _: &'a str,
+        _: u32,
+    ) -> BoxFuture<'a, CallResult> {
+        Box::pin(async { Ok(json!({"items": []})) })
+    }
+    fn get_context<'a>(&'a self, _: &'a str) -> BoxFuture<'a, CallResult> {
+        Box::pin(async { Ok(Value::Null) })
+    }
+}
+
 /// Jev: picks the notes app as the domain, and `pick` among its actions.
 fn jev(req: &common::Seen, pick: &str) -> Reply {
     let q = &req.body["questions"];
@@ -314,19 +352,28 @@ async fn a_plan_is_checked_whole_and_confirmed_once() {
         .ask("make a draft note then delete it", false)
         .await;
     let Card::Confirm {
-        id, detail, tool, ..
+        id,
+        detail,
+        tool,
+        steps,
+        ..
     } = &r.cards[0]
     else {
         panic!("{r:?}")
     };
     assert_eq!(tool, "keel/plan.run");
     assert_eq!(detail, "1. notes.create; 2. notes.delete (needs your yes)");
+    // Each step shows what it will be given, from Keel's `arguments`.
+    assert!(steps[0].detail.contains("draft"), "{steps:?}");
     assert!(
         app.0.lock().unwrap().is_empty(),
         "nothing runs before the yes"
     );
     let done = d.pipeline.confirm(id, true).await;
     assert!(matches!(done.cards[0], Card::Response { .. }), "{done:?}");
+    // A yes is used once.
+    let again = d.pipeline.confirm(id, true).await;
+    assert!(matches!(again.cards[0], Card::Error { .. }), "{again:?}");
     let calls = app.0.lock().unwrap().clone();
     assert_eq!(calls.len(), 2);
     assert_eq!(
@@ -793,4 +840,47 @@ async fn the_screen_goes_only_with_questions_about_it() {
     assert!(asked.last().unwrap().body["questions"]
         .get("about_screen")
         .is_none());
+}
+
+#[tokio::test]
+async fn a_change_that_may_have_happened_is_not_tried_again() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => jev(req, "org.example.notes/notes.create"),
+        _ => Reply::us(chat_tool(
+            "org_example_notes_notes_create",
+            r#"{"body": "milk", "title": "Milk"}"#,
+        )),
+    })
+    .await;
+    let app = Arc::new(Silent::default());
+    let server = KeelMcp::new(Arc::clone(&app) as Arc<dyn Backend>, false);
+    server.set_catalogue(Catalogue::build(load(&scan(&[golden()])), Vec::new()));
+    let (client_end, server_end) = tokio::io::duplex(1 << 16);
+    tokio::spawn(async move {
+        let (r, w) = tokio::io::split(server_end);
+        if let Ok(running) = server.serve((r, w)).await {
+            let _ = running.waiting().await;
+        }
+    });
+    let (r, w) = tokio::io::split(client_end);
+    let client = Arc::new(pilotd::mcp::McpClient::new(
+        Box::new(r),
+        Box::new(w),
+        Duration::from_millis(500),
+    ));
+    client.initialize().await.unwrap();
+    let d = common::daemon(&srv.base, &Arc::new(Log::default()), None);
+    d.pipeline.attach_mcp(client).await;
+
+    let r = d.pipeline.ask("make a note saying milk", false).await;
+    let Some(Card::Error { text, .. }) = r.cards.last() else {
+        panic!("{r:?}")
+    };
+    assert!(text.contains("couldn't tell"), "{text}");
+    assert_eq!(app.0.lock().unwrap().len(), 1, "sent once, never again");
+    assert_eq!(
+        srv.seen("/v1/llm/chat/completions").len(),
+        1,
+        "the model is not asked to try again"
+    );
 }

@@ -121,6 +121,9 @@ pub enum ToolError {
     /// The call cannot run as given; the message goes back to the model.
     #[error("{0}")]
     Invalid(String),
+    /// Sent, and no answer came back: it may have run.
+    #[error("{0}")]
+    Uncertain(String),
 }
 
 impl From<crate::adapters::AdapterError> for ToolError {

@@ -509,7 +509,10 @@ impl ToolExecutor for McpTools {
             .client
             .call_tool(&exposed(tool), args, user_meta(tool == PLAN_RUN_CANONICAL))
             .await
-            .map_err(|e| ToolError::Failed(e.to_string()))?;
+            .map_err(|e| match e {
+                McpError::Rpc { .. } => ToolError::Failed(e.to_string()),
+                McpError::Timeout | McpError::Transport(_) => ToolError::Uncertain(e.to_string()),
+            })?;
         output_of(&r)
     }
 }

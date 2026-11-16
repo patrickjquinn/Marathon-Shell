@@ -803,6 +803,10 @@ struct PendingCall {
     tool: String,
     args: Value,
     at: Instant,
+    /// The tool as the card showed it ([`spec_fingerprint`]).
+    fingerprint: String,
+    /// The card's detail: a plan's steps that needed the yes.
+    shown: String,
 }
 
 struct Clarifying {
@@ -3145,6 +3149,20 @@ impl Pipeline {
                     used_domains.push(entry.spec.domain.clone());
                 }
                 let ran = entry.run(&real).await;
+                // A change that may have happened is not handed back for
+                // another try: the person checks first.
+                if let Err(e @ ToolError::Uncertain(_)) = &ran {
+                    if !entry.spec.read_only {
+                        self.outcome(turn, "uncertain");
+                        let mut cards = std::mem::take(&mut private_cards);
+                        cards.append(&mut action_cards);
+                        cards.push(Card::Error {
+                            text: tool_error_text(&entry.spec.title, e),
+                            code: ErrorCode::Internal,
+                        });
+                        return cards;
+                    }
+                }
                 if let Ok(out) = &ran {
                     tool_data.push_str(&out.data.to_string());
                     tool_data.push('\n');
@@ -3450,7 +3468,10 @@ impl Pipeline {
                             |s| s.title.clone(),
                         ),
                         app: app_of(tool),
-                        detail: args_line_named(step.get("args").unwrap_or(&Value::Null), names),
+                        detail: args_line_named(
+                            step.get("arguments").unwrap_or(&Value::Null),
+                            names,
+                        ),
                         needs_yes: spec.is_some_and(|s| {
                             s.destructive
                                 || s.open_world
@@ -3460,10 +3481,11 @@ impl Pipeline {
                 })
                 .collect()
         };
+        let shown = detail.unwrap_or(one);
         let card = Card::Confirm {
             id: id.clone(),
             title: entry.spec.title.clone(),
-            detail: detail.unwrap_or(one),
+            detail: shown.clone(),
             tool: entry.spec.name.clone(),
             destructive: entry.spec.destructive,
             outbound: entry.spec.open_world,
@@ -3478,6 +3500,8 @@ impl Pipeline {
                 tool: entry.spec.name.clone(),
                 args,
                 at: Instant::now(),
+                fingerprint: spec_fingerprint(&entry.spec),
+                shown,
             },
         );
         card
@@ -3528,12 +3552,20 @@ impl Pipeline {
                 }],
             ));
         };
-        // Re-validate: the registry may have changed since the card.
-        if !entry.spec.input.is_valid(&p.args) {
+        // The yes was for what the card showed: the tool as it was then,
+        // and a plan whose steps need no yes beyond it.
+        let changed = spec_fingerprint(&entry.spec) != p.fingerprint
+            || match entry.precheck(&p.args).await {
+                Ok(Precheck::Proceed) => false,
+                Ok(Precheck::Confirm(steps)) => steps != p.shown,
+                Err(_) => true,
+            };
+        if changed || !entry.spec.input.is_valid(&p.args) {
+            self.outcome(&p.turn, "failed");
             return self.finish(mk(
                 p.turn,
                 vec![Card::Error {
-                    text: "That action is no longer valid.".into(),
+                    text: "That action changed since you saw it. Ask Pilot again.".into(),
                     code: ErrorCode::Internal,
                 }],
             ));
@@ -3547,7 +3579,8 @@ impl Pipeline {
                 }
             }
             Err(e) => {
-                self.outcome(&p.turn, "failed");
+                let uncertain = matches!(e, ToolError::Uncertain(_));
+                self.outcome(&p.turn, if uncertain { "uncertain" } else { "failed" });
                 Card::Error {
                     text: tool_error_text(&entry.spec.title, &e),
                     code: ErrorCode::Internal,
@@ -3562,11 +3595,28 @@ impl Pipeline {
     }
 }
 
+/// What a yes is given to: the tool's name, its risk and the arguments it
+/// takes.
+fn spec_fingerprint(spec: &crate::tools::ToolSpec) -> String {
+    format!(
+        "{}|{}|{}|{}|{:?}|{}",
+        spec.name,
+        spec.read_only,
+        spec.destructive,
+        spec.open_world,
+        spec.confirm,
+        spec.input.schema()
+    )
+}
+
 fn tool_error_text(title: &str, e: &ToolError) -> String {
     match e {
         ToolError::Unavailable(m) => format!("{title}: {m}."),
         ToolError::Failed(m) | ToolError::BadOutput(m) | ToolError::Invalid(m) => {
             format!("{title} failed: {m}")
+        }
+        ToolError::Uncertain(_) => {
+            format!("Pilot couldn't tell whether {title} went through. Check before asking again.")
         }
     }
 }
