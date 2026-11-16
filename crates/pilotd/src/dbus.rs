@@ -14,6 +14,7 @@
 //! | --- | --- | --- |
 //! | `Ask(text, spoken)` | `sb -> s` | One turn; returns the `TurnResult` JSON |
 //! | `Confirm(id, approved)` | `sb -> s` | Answer a confirmation card |
+//! | `Stop()` | | Ends the turn in flight; its `Ask` returns "Stopped." |
 //! | `Listen()` | `-> s` | A push-to-talk turn through pilot-voice |
 //! | `Look(question, jpeg)` | `say -> s` | A camera turn: the photo the person took |
 //! | `Triage(limit)` | `u -> s` | Triaged events, newest first, 0 = all |
@@ -263,11 +264,20 @@ impl PilotService {
             ));
         }
         let pipeline = Arc::clone(&self.pipeline);
-        let r = self
+        // Stop ends the turn where it is: the model's request goes with it,
+        // and a model on the phone stops writing when its stream closes.
+        let stopped = self.pipeline.stop.notified();
+        let turn = self
             .runtime
-            .spawn(async move { pipeline.ask(&text, spoken).await })
-            .await
-            .map_err(|e| fdo::Error::Failed(format!("turn aborted: {e}")))?;
+            .spawn(async move { pipeline.ask(&text, spoken).await });
+        let abort = turn.abort_handle();
+        let r = tokio::select! {
+            r = turn => r.map_err(|e| fdo::Error::Failed(format!("turn aborted: {e}")))?,
+            () = stopped => {
+                abort.abort();
+                self.pipeline.stopped()
+            }
+        };
         self.own_cards(&r, header.sender().map(ToString::to_string));
         let json = to_json(&r);
         Self::turn_finished(&emitter, &json).await.ok();
@@ -356,6 +366,13 @@ impl PilotService {
         Self::turn_finished(&emitter, &json).await.ok();
         self.last_response_changed(&emitter).await.ok();
         Ok(json)
+    }
+
+    /// Stops the turn in flight, if any: its `Ask` returns "Stopped.".
+    async fn stop(&self, #[zbus(header)] header: zbus::message::Header<'_>) -> fdo::Result<()> {
+        self.admit(&header).await?;
+        self.pipeline.stop.notify_waiters();
+        Ok(())
     }
 
     /// The home, read on the phone. The app reads it as it opens, which

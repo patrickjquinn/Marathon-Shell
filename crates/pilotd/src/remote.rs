@@ -206,6 +206,114 @@ impl Remote {
         }
     }
 
+    /// As [`Remote::post_json`], for a reply streamed as server-sent events
+    /// (a model on this phone writing): `on_data` gets each event's data as
+    /// it arrives, and the reply's headers come back. A server that answers
+    /// with plain JSON instead has it returned whole.
+    pub async fn post_stream(
+        &self,
+        provider: &str,
+        purpose: &str,
+        url: &str,
+        body: &Value,
+        mut on_data: impl FnMut(&str) + Send,
+    ) -> Result<(HeaderMap, Option<Value>), RemoteError> {
+        if self.offline.is_offline() {
+            return Err(RemoteError::Offline);
+        }
+        let direct = self.direct(provider, url, body)?;
+        let body = direct.as_ref().map_or(body, |(_, out)| &out.body);
+        let bytes = serde_json::to_vec(body).map_err(|e| RemoteError::Decode {
+            provider: provider.to_owned(),
+            message: e.to_string(),
+        })?;
+        let bytes_out = bytes.len() as u64;
+        let started = Instant::now();
+        let log = |result: String, bytes_in: u64| {
+            self.egress.record(EgressEntry {
+                ts_ms: now_ms(),
+                provider: provider.to_owned(),
+                purpose: purpose.to_owned(),
+                bytes_out,
+                bytes_in,
+                latency_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                result,
+            });
+        };
+        let mut req = self
+            .client
+            .post(url)
+            .timeout(self.timeout)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(bytes);
+        if let Some(k) = direct.as_ref().and_then(|(_, out)| out.key.as_ref()) {
+            req = req.bearer_auth(k);
+        }
+        let llm = direct.as_ref().filter(|(_, out)| out.llm).map(|(d, _)| d);
+        let sent = async {
+            let mut resp = req.send().await.map_err(|e| transport(provider, e))?;
+            let status = resp.status();
+            let mut headers = resp.headers().clone();
+            if let Some(d) = llm {
+                d.stamp(&mut headers);
+            }
+            let mut bytes_in = 0u64;
+            let events = headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|v| v.starts_with("text/event-stream"));
+            let mut whole = None;
+            if status.is_success() && !events {
+                let raw = resp.bytes().await.map_err(|e| transport(provider, e))?;
+                bytes_in = raw.len() as u64;
+                whole = Some(serde_json::from_slice::<Value>(&raw).map_err(|e| {
+                    RemoteError::Decode {
+                        provider: provider.to_owned(),
+                        message: e.to_string(),
+                    }
+                })?);
+            } else if status.is_success() {
+                let mut pending: Vec<u8> = Vec::new();
+                while let Some(chunk) = resp.chunk().await.map_err(|e| transport(provider, e))? {
+                    bytes_in += chunk.len() as u64;
+                    pending.extend_from_slice(&chunk);
+                    while let Some(end) = pending.iter().position(|b| *b == b'\n') {
+                        let line: Vec<u8> = pending.drain(..=end).collect();
+                        let line = String::from_utf8_lossy(&line);
+                        if let Some(data) = line.trim().strip_prefix("data:") {
+                            let data = data.trim();
+                            if data != "[DONE]" {
+                                on_data(data);
+                            }
+                        }
+                    }
+                }
+            }
+            Ok::<_, RemoteError>((status, headers, bytes_in, whole))
+        };
+        let outcome = tokio::select! {
+            r = sent => r,
+            () = self.offline.engaged() => Err(RemoteError::Offline),
+        };
+        let (status, headers, bytes_in, whole) = match outcome {
+            Ok(x) => x,
+            Err(e) => {
+                log(e.result_label(), 0);
+                return Err(e);
+            }
+        };
+        if !status.is_success() {
+            let e = RemoteError::Status {
+                provider: provider.to_owned(),
+                status: status.as_u16(),
+            };
+            log(e.result_label(), bytes_in);
+            return Err(e);
+        }
+        log("ok".into(), bytes_in);
+        Ok((headers, whole))
+    }
+
     /// GETs a public JSON API (no relay credential): logged whatever the
     /// outcome, dropped while offline, abandoned if the privacy switch
     /// engages, as [`Remote::post_json`].

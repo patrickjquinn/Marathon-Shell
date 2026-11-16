@@ -121,6 +121,23 @@ pub enum Effort {
     Medium,
 }
 
+/// Is handed the reply's text so far while a model on this phone writes
+/// it, so the person reads the answer as it comes.
+#[derive(Clone)]
+pub struct TextSink(pub std::sync::Arc<dyn Fn(&str) + Send + Sync>);
+
+impl std::fmt::Debug for TextSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TextSink")
+    }
+}
+
+impl PartialEq for TextSink {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChatRequest {
     pub messages: Vec<Message>,
@@ -133,6 +150,8 @@ pub struct ChatRequest {
     pub require: bool,
     /// Fewer tokens than the client's own limit.
     pub max_tokens: Option<u32>,
+    /// Streams the reply into this, from a model on this phone.
+    pub stream: Option<TextSink>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -168,6 +187,68 @@ impl Default for EffortValues {
             low: Some("low".into()),
             medium: Some("medium".into()),
         }
+    }
+}
+
+/// A streamed chat completion put back together: the text, the tool calls'
+/// names and arguments by index, and why it stopped.
+#[derive(Default)]
+struct StreamedReply {
+    content: String,
+    calls: Vec<(String, String, String)>,
+    finish: Option<String>,
+}
+
+impl StreamedReply {
+    /// One event's data; true when the text grew.
+    fn add(&mut self, data: &str) -> bool {
+        let Ok(v) = serde_json::from_str::<Value>(data) else {
+            return false;
+        };
+        let choice = &v["choices"][0];
+        if let Some(f) = choice["finish_reason"].as_str() {
+            self.finish = Some(f.to_owned());
+        }
+        let delta = &choice["delta"];
+        for c in delta["tool_calls"].as_array().into_iter().flatten() {
+            let i = usize::try_from(c["index"].as_u64().unwrap_or(0)).unwrap_or(0);
+            if self.calls.len() <= i {
+                self.calls.resize(i + 1, Default::default());
+            }
+            let call = &mut self.calls[i];
+            if let Some(id) = c["id"].as_str() {
+                id.clone_into(&mut call.0);
+            }
+            if let Some(n) = c["function"]["name"].as_str() {
+                call.1.push_str(n);
+            }
+            if let Some(a) = c["function"]["arguments"].as_str() {
+                call.2.push_str(a);
+            }
+        }
+        match delta["content"].as_str() {
+            Some(t) if !t.is_empty() => {
+                self.content.push_str(t);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The reply as a non-streamed completion reads, for `parse_choice`.
+    fn into_reply(self) -> Value {
+        let calls: Vec<Value> = self
+            .calls
+            .into_iter()
+            .map(|(id, name, args)| {
+                json!({"id": id, "type": "function", "function": {"name": name, "arguments": args}})
+            })
+            .collect();
+        let mut message = json!({"role": "assistant", "content": self.content});
+        if !calls.is_empty() {
+            message["tool_calls"] = Value::Array(calls);
+        }
+        json!({"choices": [{"message": message, "finish_reason": self.finish}]})
     }
 }
 
@@ -338,11 +419,30 @@ pub fn parse_choice(
 #[async_trait]
 impl LlmClient for OpenAiClient {
     async fn chat(&self, req: &ChatRequest) -> Result<ChatResponse, RemoteError> {
-        let body = self.body(req);
-        let reply = self
-            .remote
-            .post_json(&self.provider, &req.purpose, &self.url, &body)
-            .await?;
+        let mut body = self.body(req);
+        let reply = match req.stream.as_ref().filter(|_| self.provider == "local") {
+            Some(sink) => {
+                body["stream"] = json!(true);
+                let mut acc = StreamedReply::default();
+                let (headers, whole) = self
+                    .remote
+                    .post_stream(&self.provider, &req.purpose, &self.url, &body, |data| {
+                        if acc.add(data) {
+                            (sink.0)(&acc.content);
+                        }
+                    })
+                    .await?;
+                crate::remote::Reply {
+                    headers,
+                    body: whole.unwrap_or_else(|| acc.into_reply()),
+                }
+            }
+            None => {
+                self.remote
+                    .post_json(&self.provider, &req.purpose, &self.url, &body)
+                    .await?
+            }
+        };
         let region = match self.check_region(&reply.headers) {
             Ok(r) => r,
             Err(e) => {
@@ -373,6 +473,26 @@ impl LlmClient for OpenAiClient {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_streamed_reply_reads_as_a_whole_one() {
+        let mut r = StreamedReply::default();
+        assert!(r.add(r#"{"choices":[{"delta":{"content":"It is "}}]}"#));
+        assert!(r.add(r#"{"choices":[{"delta":{"content":"sunny."}}]}"#));
+        assert!(!r.add(
+            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"timer_set","arguments":"{\"sec"}}]}}]}"#
+        ));
+        r.add(r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"onds\": 60}"}}]}}]}"#);
+        r.add(r#"{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}"#);
+        assert!(!r.add("not json"));
+        assert_eq!(r.content, "It is sunny.");
+        let (content, calls, finish) = parse_choice("local", &r.into_reply()).unwrap();
+        assert_eq!(content.as_deref(), Some("It is sunny."));
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "timer_set");
+        assert_eq!(calls[0].arguments, r#"{"seconds": 60}"#);
+        assert_eq!(finish, "tool_calls");
+    }
 
     #[test]
     fn parses_tool_calls_with_string_or_object_arguments() {
