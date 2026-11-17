@@ -772,11 +772,6 @@ fn local_examples() -> Vec<Message> {
     ]
 }
 
-/// The phone's model's whole job when the router is unsure what was asked.
-const CLASSIFY_PROMPT: &str = "Choose what the person's message asks Pilot, the phone's \
-     assistant, to do. Judge by what they ask for, not by words inside what they want written \
-     down, sent or answered. A question to answer is open_ended.";
-
 /// The phone's model's whole job when the router is sure of an action.
 const NARROW_PROMPT: &str = "You are Pilot, on the person's phone. Call the tool for their \
      request, with names, numbers, times and words copied exactly from what they said. To \
@@ -1494,52 +1489,6 @@ impl Pipeline {
     /// [`ON_SCREEN_TTL`]: (app id, name).
     /// Fills the router's cache of option embeddings ahead of the first
     /// question, which otherwise embedded every option first (0.9 s).
-    /// What the request asks, as the phone's model names it: one of
-    /// [`intents::INTENTS`], chosen through a tool that allows only them.
-    /// `None` when it does not answer.
-    async fn classify(&self, text: &str, backends: &Backends) -> Option<String> {
-        let kinds: Vec<String> = INTENT_DESCRIPTIONS
-            .iter()
-            .map(|(name, what)| format!("{name}: {what}"))
-            .collect();
-        let tool = crate::llm::ToolDef {
-            name: "choose".into(),
-            description: format!(
-                "What the person asks Pilot to do, one of:\n{}",
-                kinds.join("\n")
-            ),
-            parameters: json!({
-                "type": "object",
-                "properties": {"kind": {"type": "string", "enum": intents::INTENTS}},
-                "required": ["kind"],
-            }),
-        };
-        let req = ChatRequest {
-            messages: vec![
-                Message::text(Role::System, CLASSIFY_PROMPT),
-                Message::text(Role::User, text),
-            ],
-            tools: vec![tool],
-            json_mode: false,
-            effort: Effort::Off,
-            purpose: "classify".into(),
-            require: true,
-            // The longest label's call is ~22 tokens.
-            max_tokens: Some(32),
-            stream: None,
-        };
-        let resp = backends.llm.chat(&req).await.ok()?;
-        let Some(call) = resp.tool_calls.first() else {
-            log::debug!("no intent named: {:?}", resp.content);
-            return None;
-        };
-        let args: Value = serde_json::from_str(&call.arguments).ok()?;
-        args["kind"]
-            .as_str()
-            .filter(|k| intents::INTENTS.contains(k))
-            .map(str::to_owned)
-    }
-
     pub async fn warm(&self) {
         if self.warming.swap(true, Ordering::SeqCst) {
             return;
@@ -1608,9 +1557,6 @@ impl Pipeline {
                     warmed = false;
                 }
             }
-            // And the question that names an unsure request's intent (read
-            // only: "." names nothing).
-            self.classify(".", &backends).await;
             if warmed {
                 self.warm_read.store(true, Ordering::SeqCst);
                 *lock(&self.last_model_use) = Some(Instant::now());
@@ -2211,7 +2157,7 @@ impl Pipeline {
             }
         };
         *lock(&self.memory_pick) = rank_memory.then(|| memory_pick(&answers, &facts));
-        let Some(mut decision) = Decision::from_answers(&answers) else {
+        let Some(decision) = Decision::from_answers(&answers) else {
             return mk(
                 "error",
                 vec![Card::Error {
@@ -2221,25 +2167,6 @@ impl Pipeline {
                 }],
             );
         };
-        // An action by meaning, but unsure, on the phone: the phone's model
-        // names what was asked, one label from a list (its only job, from a
-        // prompt that never changes). "Make a note to call the plumber" was
-        // "call" at 0.29 by meaning, then a failed reminder. Not for a
-        // question: the model answers it instead of naming it (2 s lost).
-        if backends.llm.provider() == "local"
-            && intents::local_intent(text).is_none()
-            && decision.intent != "open_ended"
-            && decision.confidence < SURE_FROM
-        {
-            if let Some(kind) = self.classify(&redacted.text, &backends).await {
-                log::debug!("intent {kind} by the model");
-                let question = kind == "open_ended";
-                decision.top_two = vec![(kind.clone(), SURE_FROM)];
-                decision.intent = kind;
-                decision.confidence = SURE_FROM;
-                decision.needs_generation = if question { 1.0 } else { 0.0 };
-            }
-        }
         let parsed = intents::DETERMINISTIC.contains(&decision.intent.as_str())
             && intents::slots_for(&decision.intent, text).is_ok();
         let open_day_part = intents::open_day_part(text);
