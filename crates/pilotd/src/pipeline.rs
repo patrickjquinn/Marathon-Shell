@@ -748,6 +748,30 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     registry.defs(Some(&own))
 }
 
+/// Two answered questions before every conversation with the phone's
+/// model: LFM2.5, offered Pilot's tools, answered "What is the capital of
+/// Japan" with "I don't have access to a tool that can look up general
+/// facts", system prompt notwithstanding. Shown how, it answers. They never
+/// change, so the server keeps them read with the system prompt.
+fn local_examples() -> Vec<Message> {
+    vec![
+        Message::text(Role::User, "What is the capital of Australia?"),
+        Message::text(
+            Role::Assistant,
+            "Canberra.\nFOLLOWUPS: What is the largest city in Australia? | When did Canberra \
+             become the capital?",
+        ),
+        Message::text(Role::User, "Why do we have seasons?"),
+        Message::text(
+            Role::Assistant,
+            "Because Earth's axis is tilted: through the year each half of the planet leans \
+             toward the sun, getting more direct sunlight and longer days, then away from it.\n\
+             FOLLOWUPS: Why is it summer in Australia in December? | Do other planets have \
+             seasons?",
+        ),
+    ]
+}
+
 /// Web results the phone's model reads, and the most of each extract:
 /// five whole extracts were 2,300 tokens, 55 s of reading on the phone
 /// before a word, and the turn ran out of time.
@@ -1461,11 +1485,11 @@ impl Pipeline {
                     tools.retain(|t| t.name != web.model_name);
                 }
             }
+            let mut messages = vec![Message::text(Role::System, self.system_prompt())];
+            messages.extend(local_examples());
+            messages.push(Message::text(Role::User, "."));
             let req = ChatRequest {
-                messages: vec![
-                    Message::text(Role::System, self.system_prompt()),
-                    Message::text(Role::User, "."),
-                ],
+                messages,
                 tools,
                 json_mode: false,
                 effort: Effort::Off,
@@ -2908,6 +2932,9 @@ impl Pipeline {
             system.push_str(SPOKEN_NOTE);
         }
         let mut messages = vec![Message::text(Role::System, system)];
+        if backends.llm.provider() == "local" {
+            messages.extend(local_examples());
+        }
         let earlier = self.history_messages(&mut map);
         // Details from the person's own words and conversation: what the
         // "Replaced ... before sending" line counts (not what web pages held).
