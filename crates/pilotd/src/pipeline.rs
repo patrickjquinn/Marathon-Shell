@@ -746,6 +746,31 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     registry.defs(Some(&own))
 }
 
+/// Web results the phone's model reads, and the most of each extract:
+/// five whole extracts were 2,300 tokens, 55 s of reading on the phone
+/// before a word, and the turn ran out of time.
+const PHONE_WEB_RESULTS: usize = 4;
+const PHONE_WEB_CHARS: usize = 400;
+
+/// `web.search` data for the phone's model: the first results, each
+/// extract cut at a word near [`PHONE_WEB_CHARS`].
+fn web_for_phone(data: &Value) -> Value {
+    let mut v = data.clone();
+    if let Some(items) = v.get_mut("results").and_then(Value::as_array_mut) {
+        items.truncate(PHONE_WEB_RESULTS);
+        for item in items.iter_mut() {
+            if let Some(Value::String(e)) = item.get_mut("extract") {
+                if e.chars().count() > PHONE_WEB_CHARS {
+                    let cut: String = e.chars().take(PHONE_WEB_CHARS).collect();
+                    let cut = cut.rsplit_once(' ').map_or(cut.as_str(), |(head, _)| head);
+                    *e = format!("{cut}…");
+                }
+            }
+        }
+    }
+    v
+}
+
 /// How long the phone's model stays loaded after its last use
 /// (marathon-llm's proxy lets it go after an hour), with a margin.
 const MODEL_KEPT: Duration = Duration::from_mins(50);
@@ -3093,8 +3118,13 @@ impl Pipeline {
                             tool_call_id: None,
                             images: Vec::new(),
                         });
+                        let data = if backends.llm.provider() == "local" {
+                            web_for_phone(&out.data)
+                        } else {
+                            out.data.clone()
+                        };
                         let reply = json!({"ok": true, "summary": out.summary,
-                            "untrusted_content": out.data, "note": UNTRUSTED_NOTE});
+                            "untrusted_content": data, "note": UNTRUSTED_NOTE});
                         let text = self.redactor.redact_with(&reply.to_string(), &mut map);
                         messages.push(Message::tool_result(&id, text));
                         tainted = true;
@@ -3567,7 +3597,14 @@ impl Pipeline {
                             found.extend(sources_of(&out.data));
                             self.stage(turn, "reading", &sites_line(&found));
                         }
-                        json!({"ok": true, "summary": out.summary, "untrusted_content": out.data, "note": UNTRUSTED_NOTE})
+                        let data = if entry.spec.name == crate::web::TOOL
+                            && backends.llm.provider() == "local"
+                        {
+                            web_for_phone(&out.data)
+                        } else {
+                            out.data
+                        };
+                        json!({"ok": true, "summary": out.summary, "untrusted_content": data, "note": UNTRUSTED_NOTE})
                     }
                     Ok(out) => {
                         if let Some(c) =
@@ -4140,6 +4177,20 @@ fn domain_question(registry: &Registry, domains: &[String]) -> Question {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod answer_tests {
     use super::*;
+
+    #[test]
+    fn the_phone_reads_a_few_short_web_extracts() {
+        let long = "word ".repeat(200);
+        let data = json!({"query": "q", "results": (0..6)
+            .map(|i| json!({"title": format!("t{i}"), "url": "https://a.example", "extract": long}))
+            .collect::<Vec<_>>()});
+        let v = web_for_phone(&data);
+        let r = v["results"].as_array().unwrap();
+        assert_eq!(r.len(), PHONE_WEB_RESULTS);
+        let e = r[0]["extract"].as_str().unwrap();
+        assert!(e.chars().count() <= PHONE_WEB_CHARS + 1 && e.ends_with("word…"));
+        assert_eq!(v["query"], "q");
+    }
 
     #[test]
     fn a_turn_gets_the_ranked_facts_and_the_latest() {
