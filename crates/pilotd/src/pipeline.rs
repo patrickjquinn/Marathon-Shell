@@ -2978,7 +2978,12 @@ impl Pipeline {
             ));
         }
         messages.extend(earlier);
-        let context = self.turn_context(hints) + &memory;
+        let mut context = self.turn_context(hints) + &memory;
+        // Without tools nothing on the phone can be done: said, so a request
+        // taken for a question is not answered "I've set a reminder".
+        if plain {
+            context.push_str(" Nothing on the phone is done in this reply.");
+        }
         messages.push(Message::text(
             Role::User,
             format!("[{}]\n\n{redacted}", context.trim()),
