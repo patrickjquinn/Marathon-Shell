@@ -746,6 +746,10 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     registry.defs(Some(&own))
 }
 
+/// How long the phone's model stays loaded after its last use
+/// (marathon-llm's proxy lets it go after an hour), with a margin.
+const MODEL_KEPT: Duration = Duration::from_mins(50);
+
 /// Stage one's confidence in an app from which an answer without its
 /// tools goes back to the model once.
 const INSIST_FROM: f64 = 0.4;
@@ -998,6 +1002,9 @@ pub struct Pipeline {
     last_turn: Mutex<Option<Instant>>,
     /// [`Pipeline::warm_routes`] is running (each opening of Pilot starts it).
     reading_routes: AtomicBool,
+    /// When the phone's model last answered: within [`MODEL_KEPT`] it is
+    /// still loaded with what it read.
+    last_model_use: Mutex<Option<Instant>>,
     /// The routes the phone's model has read ([`route_tools`]), by app
     /// ("" for Pilot's own): a turn on one reads only its own words.
     read_routes: Mutex<std::collections::HashSet<String>>,
@@ -1216,6 +1223,7 @@ impl Pipeline {
             turns_in_flight: std::sync::atomic::AtomicUsize::new(0),
             last_turn: Mutex::new(None),
             reading_routes: AtomicBool::new(false),
+            last_model_use: Mutex::new(None),
             read_routes: Mutex::new(std::collections::HashSet::new()),
             memory_pick: Mutex::new(None),
         }
@@ -1443,7 +1451,12 @@ impl Pipeline {
         // first question: every turn's prompt starts with it. The tools are
         // part of it (chat templates put them in the system block), so they
         // go too, as a turn offers them: 2,700 of 3,000 tokens on the Q25.
-        if backends.llm.provider() == "local" {
+        // Read already and the model still loaded: nothing to do. Asked
+        // again after a turn it read 516 tokens again (16.5 s), in front of
+        // the next question.
+        let still_read = lock(&self.read_routes).contains("")
+            && lock(&self.last_model_use).is_some_and(|t| t.elapsed() < MODEL_KEPT);
+        if backends.llm.provider() == "local" && !still_read {
             let mut tools = unscoped_tools(&registry, true);
             if !self.may_leave() {
                 if let Some(web) = registry.get(crate::web::TOOL) {
@@ -1466,6 +1479,7 @@ impl Pipeline {
             match backends.llm.chat(&req).await {
                 Ok(_) => {
                     lock(&self.read_routes).insert(String::new());
+                    *lock(&self.last_model_use) = Some(Instant::now());
                 }
                 Err(e) => log::debug!("warming the model: {e}"),
             }
@@ -3223,6 +3237,7 @@ impl Pipeline {
                     return vec![error_card(&e)];
                 }
             };
+            *lock(&self.last_model_use) = Some(Instant::now());
             if resp.tool_calls.is_empty() {
                 let text = strip_reasoning(resp.content.as_deref().unwrap_or(""));
                 if let Some(call) = stray_call(&text, &registry) {
