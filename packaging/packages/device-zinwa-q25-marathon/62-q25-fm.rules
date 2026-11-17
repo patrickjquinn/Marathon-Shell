@@ -1,0 +1,2 @@
+# The FM receiver, for marathon-radiod in the user's session.
+SUBSYSTEM=="fm", KERNEL=="fm", GROUP="audio", MODE="0660"

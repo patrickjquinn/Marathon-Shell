@@ -230,6 +230,13 @@ def music(a):
     a.add(f'<path d="{disc(9.5)}" fill="{{C}}"/><path d="{disc(2.4)}" fill="{{E}}"/>')
 
 
+def radio(a):
+    # A broadcast: the mast's waves spreading either side of it.
+    a.fill("D")
+    a.add(f'<path d="{disc(5)}" fill="{{C}}"/>')
+    a.add(line(arc(13, -40, 40) + arc(13, 140, 220) + arc(21, -40, 40) + arc(21, 140, 220), "C", 4))
+
+
 def camera(a):
     # The aperture: six blades in turn round the opening.
     R0, ri = ROUND - OBJ, 9.0
@@ -350,6 +357,7 @@ ICONS = {
     "browser": ("Browser: a globe", 234.0, PLACES, browser),
     "store": ("Store: a bag", 266.0, PLACES, store),
     "music": ("Music: a sound", 320.0, MEDIA, music),
+    "radio": ("Radio: a broadcast", 311.0, MEDIA, radio),
     "camera": ("Camera: an aperture", 338.0, MEDIA, camera),
     "gallery": ("Gallery: a picture", 302.0, MEDIA, gallery),
     "maps": ("Maps: a pin", 250.0, PLACES, maps),

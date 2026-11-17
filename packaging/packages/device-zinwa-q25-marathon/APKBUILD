@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=64
+pkgrel=65
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -10,7 +10,7 @@ options="!check"
 depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-render
  q25-kernel-modules>=7.0.0-r40 q25-connsys-firmware wpa_supplicant wpa_supplicant-systemd bluez-btmgmt alsa-ucm-conf
  upower-q25 q25-modem q25-gnss-firmware marathon-gnssd libcamera>=999990.8.0 libcamera-gstreamer
- cryptsetup e2fsprogs plymouth marathon-plymouth-theme nftables"
+ cryptsetup e2fsprogs plymouth marathon-plymouth-theme nftables alsa-utils"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
 # The private generic-G99 trial overlay also owned this same generated profile.
@@ -27,7 +27,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25.xkb-symbols q25-keyboard-layout.env q25-deckard-keyboard.conf q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-splash-handover q25-splash-handover.service q25-splash-greetd.conf q25-splash-plymouth-quit.conf q25-splash-plymouth-quit-wait.conf q25-splash-plymouth-start.conf
  q25-usb-recovery.nm.conf q25-wifi-mac.nm.conf 90-q25-recovery-console.rules
- q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules q25-geoclue.conf"
+ q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf q25-fm.service 62-q25-fm.rules deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules q25-geoclue.conf"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -107,6 +107,8 @@ package() {
     install -Dm644 "$srcdir/90-q25-battery-model.conf" "$pkgdir/etc/UPower/UPower.conf.d/90-q25-battery-model.conf"
     install -Dm644 "$srcdir/q25-geoclue.conf" "$pkgdir/etc/geoclue/conf.d/91-q25.conf"
     install -Dm644 "$srcdir/61-q25-charge-voltage.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-charge-voltage.rules"
+    install -Dm644 "$srcdir/62-q25-fm.rules" "$pkgdir/usr/lib/udev/rules.d/62-q25-fm.rules"
+    install -Dm644 "$srcdir/q25-fm.service" "$pkgdir/usr/lib/systemd/system/q25-fm.service"
 
     # The IMU is mounted rotated 180 degrees about Z.
     install -Dm644 "$srcdir/61-q25-sensor-local.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-sensor-local.rules"
@@ -191,7 +193,7 @@ package() {
 
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
     install -Dm644 "$srcdir/q25-zram-swap.service" "$pkgdir/usr/lib/systemd/system/q25-zram-swap.service"
-    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-root-arm q25-zram-swap; do
+    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-fm q25-root-arm q25-zram-swap; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
     done
     install -d "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
@@ -278,4 +280,6 @@ c3db79e24e64af63d8e4d5fbdb19d5dc747a73cb7b248c800379c2ed612f6a62fca00cda4d7e3694
 325686863ac8c5ea51c90afd308ebf0c1ca0dff50e1bd542c7959bbb61dbdb906c36625a1c20f84783bd6f5705903ea5e5522e0357eba133df475b8809f52ec3  q25-splash-plymouth-quit.conf
 c92a9422c1a2307be62d18c41d91b5e884c26e44c589387f834d64dc0d1c9fb7bc878e8deb616cbdc4bb3b0f19a94a6cb8ff06e4c2d2855be2f38ba39ca5f3a3  q25-splash-plymouth-quit-wait.conf
 67c79f7cb55b382310c1215dc6390384f3c46fb3ac604bec8753f1bdd7fab91a257804099e4d005dd5d90496d3b335b904af45f33718698442d3e1c74e4eb98b  q25-splash-plymouth-start.conf
+acdce9d8b409c906916a42a0ccff920ccf9fdf540cb85b1ef07dad00ab215af9a3e5fa082f159f7e615dc16d58567ad36d66b1157f3e244dc475c4e1076f8d49  q25-fm.service
+a0274eb69aac3b98778294fda0d31b0ca4ae5a8292e6dde5467ca664bc6794daece12f7549221343d44d8a98e5417e4d09bd6ed63c29c6182a7674ebf793a240  62-q25-fm.rules
 "
