@@ -13,6 +13,10 @@
 //! | Notes | `com.jolla.notes`, `/`, `com.jolla.notes` | `importNoteFile([url])`: a vNote's `file://` URL (a bare path is ignored), added as a new note |
 //! | Settings | `com.jolla.settings`, `/com/jolla/settings/ui`, `com.jolla.settings.ui` | `showPage(path)` |
 //! | Messages | `org.sailfishos.Messages`, `/` | `startSMS(as numbers, s body)`; not D-Bus activatable, so started first by its `sms:` link |
+//!
+//! Marathon's own Notes and Mail, where they are on the phone, take the note
+//! and the e-mail instead: their Keel actions `notes.create` and
+//! `mail.compose` (`org.shipwright.Keel.Actions.Invoke`).
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -114,6 +118,43 @@ pub struct JollaApps {
     pub session: zbus::Connection,
 }
 
+const MARATHON_NOTES: &str = "org.marathonos.notes";
+const MARATHON_MAIL: &str = "org.marathonos.email";
+
+impl JollaApps {
+    /// The app can be started on the session bus by its name.
+    async fn activatable(&self, name: &str) -> bool {
+        let Ok(proxy) = zbus::fdo::DBusProxy::new(&self.session).await else {
+            return false;
+        };
+        proxy
+            .list_activatable_names()
+            .await
+            .is_ok_and(|names| names.iter().any(|n| n.as_str() == name))
+    }
+
+    /// One of the app's Keel actions, as the person asked for it.
+    async fn keel_invoke(
+        &self,
+        app: &str,
+        action: &str,
+        args: &serde_json::Value,
+    ) -> Result<(), AdapterError> {
+        let mut options = std::collections::HashMap::new();
+        options.insert("userInitiated", zbus::Variant::from(true));
+        self.session
+            .call_method(
+                Some(app),
+                "/org/shipwright/Keel/Actions",
+                Some("org.shipwright.Keel.Actions"),
+                "Invoke",
+                &(action, args.to_string(), options),
+            )
+            .await?;
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl StockApps for JollaApps {
     async fn compose_email(
@@ -126,6 +167,15 @@ impl StockApps for JollaApps {
             PathBuf::from(h)
                 .join(".local/share/system/privileged/Accounts/libaccounts-glib/accounts.db")
         });
+        if self.activatable(MARATHON_MAIL).await {
+            self.keel_invoke(
+                MARATHON_MAIL,
+                "mail.compose",
+                &serde_json::json!({"to": to, "subject": subject, "body": body}),
+            )
+            .await?;
+            return Ok(true);
+        }
         let ready = accounts.is_some_and(|p| email_account(&p));
         self.session
             .call_method(
@@ -140,6 +190,15 @@ impl StockApps for JollaApps {
     }
 
     async fn new_note(&self, text: &str) -> Result<(), AdapterError> {
+        if self.activatable(MARATHON_NOTES).await {
+            return self
+                .keel_invoke(
+                    MARATHON_NOTES,
+                    "notes.create",
+                    &serde_json::json!({"body": text}),
+                )
+                .await;
+        }
         // Notes is sandboxed with the person's own folders (UserDirs): the
         // note goes through Downloads, and is removed once imported.
         let dir = std::env::var_os("HOME")
