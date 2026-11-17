@@ -29,7 +29,6 @@ multi-user.target. wait_for_ssh polls.
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
 import time
 from pathlib import Path

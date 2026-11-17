@@ -16,7 +16,6 @@ Usage: check-test-reachability.py [source root]
 Exit: 0 all reached, 1 something unreached, 2 could not run.
 """
 
-import fnmatch
 import re
 import sys
 import tomllib
@@ -49,7 +48,7 @@ def lex(text):
             i += 1
             continue
         i = m.end()
-        args, depth, tok = [], 0, None
+        args, depth = [], 0
         while i < n:
             c = text[i]
             if c == '"':

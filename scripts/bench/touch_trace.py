@@ -11,7 +11,6 @@ Runs on the device as root, stdlib only.
       A uinput device with the recorded ranges and properties sends the same
       events at the recorded spacing (scaled by 1/speed).
 """
-import array
 import fcntl
 import json
 import os

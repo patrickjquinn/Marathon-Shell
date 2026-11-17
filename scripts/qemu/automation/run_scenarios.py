@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
-import shutil
 import signal
 import subprocess
 import sys
@@ -252,7 +251,7 @@ def main():
         elif proc is not None:
             print(f"\n==> keeping QEMU alive (pid {proc.pid}, ssh :{SSH_PORT})")
         else:
-            print(f"\n==> --no-launch: QEMU left as we found it")
+            print("\n==> --no-launch: QEMU left as we found it")
 
 
 if __name__ == "__main__":

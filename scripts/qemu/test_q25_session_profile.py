@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Q25 session policy must survive greetd's empty PAM environment."""
 import json
-import os
 from pathlib import Path
-import re
 import subprocess
 import sys
 import tempfile

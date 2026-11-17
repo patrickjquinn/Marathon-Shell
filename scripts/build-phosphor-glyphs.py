@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate shell/qml/ui/PhosphorGlyphs.js from the Phosphor Light CSS.
+r"""Regenerate shell/qml/ui/PhosphorGlyphs.js from the Phosphor Light CSS.
 
 Usage:
   ./scripts/build-phosphor-glyphs.py <path/to/phosphor-light/style.css>
@@ -16,7 +16,7 @@ The map exposes:
     a code-wide rename.
 """
 
-import json, re, sys
+import re, sys
 from pathlib import Path
 
 # Lucide → Phosphor name overrides. Keys are names used in Marathon QML

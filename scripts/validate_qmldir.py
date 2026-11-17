@@ -9,7 +9,6 @@ def validate_qmldir(qmldir_path):
     with open(qmldir_path, 'r') as f:
         lines = f.readlines()
         
-    has_module = False
     errors = []
     
     for i, line in enumerate(lines):
@@ -21,7 +20,6 @@ def validate_qmldir(qmldir_path):
         
         # Check for valid keywords
         if parts[0] == "module":
-            has_module = True
             continue
         elif parts[0] == "plugin":
             continue
