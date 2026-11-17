@@ -380,6 +380,10 @@ Item {
                             height: Math.min(implicitHeight, Screen.height / 4)
                             placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything") : qsTr("Ask Pilot")
                             labelVisible: false
+                            // Enter sends and its key also gave a new line: an empty field
+                            // with the cursor on its second. Only blank, it is empty.
+                            onTextChanged: if (text.length > 0 && text.trim() === "")
+                                text = ""
                             EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                             EnterKey.onClicked: overlay.send(text)
                             // Enter sends; Shift+Enter is a new line.
