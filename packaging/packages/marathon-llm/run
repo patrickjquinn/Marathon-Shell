@@ -29,7 +29,12 @@ EMBED_BYTES=132440608
 
 PILOT_SERVER=/usr/libexec/marathon-llm/llama-server-pilot
 
+# Each model samples as its card says; Pilot sends no sampling to the
+# model on the phone. Qwen's, without reasoning: 0.7 / 0.8 / top-k 20.
+QWEN_SAMPLING="--temp 0.7 --top-p 0.8 --top-k 20 --min-p 0"
+
 chat_model() {
+	sampling=$QWEN_SAMPLING
 	big=$([ "$(awk '/^MemTotal/ { print $2 }' /proc/meminfo)" -ge 7500000 ] && echo 1 || true)
 	if [ -n "$big" ] && [ -x "$PILOT_SERVER" ] && [ ! -e "$DIR/legacy" ] &&
 		grep -q asimddp /proc/cpuinfo; then
@@ -110,7 +115,7 @@ chat)
 	# shellcheck disable=SC2086
 	exec "$server" --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
 		--jinja --reasoning off --threads 4 --threads-batch "$(nproc)" --ctx-size 8192 \
-		--parallel 1 --flash-attn off $reuse --no-webui
+		--parallel 1 --flash-attn off $sampling $reuse --no-webui
 	;;
 embed)
 	need "$EMBED"
