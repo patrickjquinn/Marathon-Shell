@@ -1551,18 +1551,24 @@ impl Pipeline {
                     tools.retain(|t| t.name != web.model_name);
                 }
             }
-            let mut messages = vec![Message::text(Role::System, self.system_prompt())];
-            messages.extend(local_examples());
-            messages.push(Message::text(Role::User, "."));
+            let ask = |system: String| {
+                let mut m = vec![Message::text(Role::System, system)];
+                m.extend(local_examples());
+                m.push(Message::text(Role::User, "."));
+                m
+            };
             // The prompt without tools (a question answered from knowledge)
             // and the one with them, each in its own server slot. In this
             // order: the server puts a prompt in the slot most like it, and
             // the plain one read second would land on, and evict, the one
             // with the tools.
             let mut warmed = true;
-            for tools in [Vec::new(), tools] {
+            for (messages, tools) in [
+                (ask(Self::plain_system_prompt()), Vec::new()),
+                (ask(self.system_prompt()), tools),
+            ] {
                 let req = ChatRequest {
-                    messages: messages.clone(),
+                    messages,
                     tools,
                     json_mode: false,
                     effort: Effort::Off,
@@ -2943,6 +2949,31 @@ impl Pipeline {
              - After an answer (not an action), add a last line: FOLLOWUPS: two short questions \
              the person might ask next, separated by |.",
         );
+        p.push_str(&Self::place_and_language());
+        p
+    }
+
+    /// The phone's model's whole job when it answers from what it knows:
+    /// no word of tools. With Pilot's rules (tools for the phone, the web
+    /// for facts that change) it answered "How hot is the surface of the
+    /// sun" with "I'm sorry, but I don't have access to a tool", tools or
+    /// none.
+    fn plain_system_prompt() -> String {
+        let mut p = String::from(
+            "You are Pilot, the assistant on the person's phone. Answer their question from \
+             what you know, in one to three plain sentences, the answer first, no Markdown, in \
+             the language of their latest message. Give the answer itself; if you are not sure, \
+             give your best answer and say it is approximate.\n\
+             After the answer, add a last line: FOLLOWUPS: two short questions the person might \
+             ask next, separated by |.",
+        );
+        p.push_str(&Self::place_and_language());
+        p
+    }
+
+    /// The phone's time zone and language, for the prompts above.
+    fn place_and_language() -> String {
+        let mut p = String::new();
         if let Some(z) = crate::localtime::zone_name() {
             write!(
                 p,
@@ -3032,6 +3063,13 @@ impl Pipeline {
             // speech): only the meaning gives it away.
             system.push_str(SPOKEN_NOTE);
         }
+        let full_system = Message::text(Role::System, system.clone());
+        if plain {
+            system = Self::plain_system_prompt();
+            if self.spoken.load(Ordering::Relaxed) {
+                system.push_str(SPOKEN_NOTE);
+            }
+        }
         let mut messages = vec![Message::text(Role::System, system)];
         if backends.llm.provider() == "local" {
             messages.extend(local_examples());
@@ -3067,10 +3105,10 @@ impl Pipeline {
                 tools.retain(|t| t.name != web.model_name);
             }
         }
-        let mut escape: Option<(Message, Vec<crate::llm::ToolDef>)> = None;
+        let mut escape: Option<(Message, Message, Vec<crate::llm::ToolDef>)> = None;
         let mut held: Option<String> = None;
         if plain {
-            escape = Some((ask_full, std::mem::take(&mut tools)));
+            escape = Some((full_system, ask_full, std::mem::take(&mut tools)));
         }
         log::debug!(
             "scope {:?}: {} tool(s) offered: {}",
@@ -3372,7 +3410,7 @@ impl Pipeline {
                     .as_deref()
                     .is_some_and(|c| c.lines().any(|l| l.trim() == ACTION_WORD))
             {
-                if let Some((ask, t)) = escape.take() {
+                if let Some((full, ask, t)) = escape.take() {
                     log::debug!("something to do: the tools");
                     // What it answered before the word, kept: it added ACTION
                     // to "The moon is about 384,400 km away", then, with the
@@ -3387,6 +3425,7 @@ impl Pipeline {
                     held = Some(said.join("\n").trim().to_owned()).filter(|a| !a.is_empty());
                     messages.pop();
                     messages.push(ask);
+                    messages[0] = full;
                     tools = t;
                     continue;
                 }
