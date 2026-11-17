@@ -14,7 +14,7 @@
 set -uo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$PROJECT_ROOT"
+cd "$PROJECT_ROOT" || exit 1
 
 BUILD_DIR="${BUILD_DIR:-build}"
 COMPDB="$BUILD_DIR/compile_commands.json"

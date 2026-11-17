@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 # Gate 5: the bridge's footprint and wakeups, idle and with media sessions
 # and Keel providers active. The release-gate record for the Rust bridge.
 # G_VIDEO    F-Droid video player for a second media session, installed

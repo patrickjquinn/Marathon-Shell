@@ -35,5 +35,6 @@ cd /work/aports/marathon-shell
 ( cd pkg && tar -c .PKGINFO .post-install .SIGN.* usr 2>/dev/null | abuild-tar --hash | gzip -c ) > /work/marathon-shell-1.0.0-r124.apk.body 2>/dev/null
 # Actually simpler: use the standard apk format which is gzipped tar
 cd /work/pkg
+# shellcheck disable=SC2046 # file lists split on purpose
 tar --format=ustar -c .PKGINFO .post-install $(find usr -type f 2>/dev/null) $(find usr -type l 2>/dev/null) 2>/dev/null | gzip -9 > /work/marathon-shell-1.0.0-r124.apk
 ls -la /work/*.apk

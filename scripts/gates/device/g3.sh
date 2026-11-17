@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 # Gate 3: whether Android tasks keep rendering and committing while they are
 # only covers in the task switcher, or hidden behind the home grid.
 # G_APPS      5 static Android packages to open (installed launchables)

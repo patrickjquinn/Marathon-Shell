@@ -37,7 +37,7 @@ launch() {
     "$PROJECT_DIR/build/shell/marathon-shell-bin" -geometry 720x720 \
         > /tmp/marathon-shell-cm5.log 2>&1 &
     SHELL_PID=$!
-    for i in $(seq 1 30); do
+    for _ in $(seq 1 30); do
         sleep 0.4
         kill -0 $SHELL_PID 2>/dev/null || { echo "shell died early"; tail -20 /tmp/marathon-shell-cm5.log; exit 1; }
         WID=$(xdotool search --name "Marathon" 2>/dev/null | tail -1 || true)

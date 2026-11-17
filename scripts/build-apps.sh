@@ -20,7 +20,7 @@ echo ""
 # Clean install directory before building
 echo " Cleaning install directory..."
 if [ -d "$INSTALL_DIR" ]; then
-    rm -rf "$INSTALL_DIR"/*
+    rm -rf "${INSTALL_DIR:?}"/*
     echo " Cleaned existing apps from $INSTALL_DIR"
 else
     echo "Install directory doesn't exist, will be created"

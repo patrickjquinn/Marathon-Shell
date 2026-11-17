@@ -40,13 +40,13 @@ fi
 # Purism fork.
 echo "    patching cstdint includes (GCC 15 compatibility)"
 patched=0
-for f in $(find mfgtools/libuuu mfgtools/uuu -name '*.h' -o -name '*.cpp'); do
+while IFS= read -r f; do
     if grep -lq 'uint[0-9]*_t\|int[0-9]*_t' "$f" 2>/dev/null \
         && ! grep -q '#include <cstdint>' "$f" 2>/dev/null; then
         sed -i '1i #include <cstdint>' "$f"
         patched=$((patched + 1))
     fi
-done
+done < <(find mfgtools/libuuu mfgtools/uuu -name '*.h' -o -name '*.cpp')
 echo "    patched $patched files"
 
 mkdir -p mfgtools-build

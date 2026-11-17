@@ -1,4 +1,5 @@
 #!/bin/busybox ash
+# shellcheck shell=busybox
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 state=/run/marathon-kernel-diag
 mountpoint=/kernel-diag
@@ -13,7 +14,7 @@ case "$1" in
   # This timer starts before udev, unlike the original /hooks guard.
   ( sleep 180; echo 'marathon-kernel-diag: early guard expired; rebooting to stock' >/dev/kmsg; reboot -f ) &
   echo $! >"$state/guard"
-  for attempt in $(seq 1 40); do test -b /dev/mmcblk0p3 && break; sleep 0.1; done
+  for _ in $(seq 1 40); do test -b /dev/mmcblk0p3 && break; sleep 0.1; done
   if mount -t vfat -o rw,sync,noatime /dev/mmcblk0p3 "$mountpoint"; then
    touch "$state/mounted"
    echo '=== uclamp diagnostic boot ===' >>"$mountpoint/uclamp-diagnostic-stages.log"

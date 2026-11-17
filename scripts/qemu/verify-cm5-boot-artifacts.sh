@@ -9,6 +9,7 @@
 set -euo pipefail
 
 CACHE="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output/hackberrypi-cm5_marathon_edge"
+# shellcheck disable=SC2010 # ls -t gives mtime order
 IMG="${1:-$(ls -1t "$CACHE"/hackberrypi-cm5_marathon_edge_*.raw 2>/dev/null | grep -E "/hackberrypi-cm5_marathon_edge_[0-9]+\.raw$" | head -1)}"
 
 [ -n "$IMG" ] && [ -f "$IMG" ] || { echo "error: no .raw image found in $CACHE" >&2; exit 1; }
@@ -66,10 +67,8 @@ FAIL=0
 
 check_esp_file() {
     local path=$1 minsize=${2:-1}
-    local actual
-    actual=$(mdir -i "$ESP_FILE" "::$path" 2>/dev/null | awk '/files/ {next} NF>=4 && $NF !~ /<DIR>/ {print $(NF-1); exit}')
     if mdir -i "$ESP_FILE" "::$path" >/dev/null 2>&1; then
-        # mdir lists the entry; size is the second-to-last column. Use mtype + wc as belt-and-suspenders.
+        # mdir lists the entry; mtype + wc gives the size.
         local size
         size=$(mtype -i "$ESP_FILE" "::$path" 2>/dev/null | wc -c)
         if [ "$size" -ge "$minsize" ]; then

@@ -93,11 +93,11 @@ snapshot() {
 }
 
 # Parse a snapshot into shell variables for delta math.
-# Sets: T (ms), CHARGE (uAh), V (uV), I (uA),
+# Sets: T (ms), CHARGE (uAh), V (uV),
 #       S0T S0U S1T S1U ... (us / counts)
 parse_snapshot() {
     set -- $1
-    T=$1; CHARGE=$2; V=$3; I=$4
+    T=$1; CHARGE=$2; V=$3
     shift 4
     local idx=0
     while [ $# -ge 2 ]; do
@@ -117,7 +117,8 @@ run_scenario() {
     echo "==> Scenario: $label  ($DURATION s)"
     eval "$setup"
 
-    local start=$(snapshot)
+    local start
+    start=$(snapshot)
     if [ "$mode" = "suspend" ]; then
         # rtcwake -m mem -s N suspends the kernel for N seconds, then resumes.
         # The ssh socket dies; reconnect after.
@@ -129,7 +130,8 @@ run_scenario() {
     else
         sleep "$DURATION"
     fi
-    local end=$(snapshot)
+    local end
+    end=$(snapshot)
 
     eval "$teardown"
 
@@ -138,39 +140,47 @@ run_scenario() {
     local T0=$T CH0=$CHARGE
     local S=()
     for i in $(seq 0 $((NSTATES - 1))); do
-        S+=( $(eval echo \$S${i}T) )
+        S+=( "$(eval echo \$S${i}T)" )
     done
 
     parse_snapshot "$end"
     local T1=$T CH1=$CHARGE V1=$V
 
     local dt_ms=$((T1 - T0))
-    local dt_s=$(awk -v x=$dt_ms 'BEGIN{printf "%.1f", x/1000}')
+    local dt_s
+    dt_s=$(awk -v x=$dt_ms 'BEGIN{printf "%.1f", x/1000}')
     local dch_uAh=$((CH0 - CH1))             # discharge = positive
     # Avg current (mA) = (dCharge_uAh / dt_s) * 3600 / 1000 = dch * 3.6 / dt_s
-    local avg_mA=$(awk -v dch=$dch_uAh -v t=$dt_s 'BEGIN{
+    local avg_mA
+    avg_mA=$(awk -v dch=$dch_uAh -v t=$dt_s 'BEGIN{
         if (t>0) printf "%.1f", dch * 3.6 / t; else print "?"
     }')
-    local avg_V=$(awk -v v=$V1 'BEGIN{printf "%.2f", v/1000000}')
-    local avg_mW=$(awk -v ma=$avg_mA -v v=$avg_V 'BEGIN{printf "%.0f", ma * v}')
+    local avg_V
+    avg_V=$(awk -v v=$V1 'BEGIN{printf "%.2f", v/1000000}')
+    local avg_mW
+    avg_mW=$(awk -v ma=$avg_mA -v v=$avg_V 'BEGIN{printf "%.0f", ma * v}')
 
     # State residency %.
     local residency=""
     local tot_us=0
     for i in $(seq 0 $((NSTATES - 1))); do
         local before=${S[$i]}
-        local after=$(eval echo \$S${i}T)
+        local after
+        after=$(eval echo \$S${i}T)
         local d=$((after - before))
         tot_us=$((tot_us + d))
     done
     for i in $(seq 0 $((NSTATES - 1))); do
         local before=${S[$i]}
-        local after=$(eval echo \$S${i}T)
+        local after
+        after=$(eval echo \$S${i}T)
         local d=$((after - before))
-        local pct=$(awk -v x=$d -v t=$tot_us 'BEGIN{
+        local pct
+        pct=$(awk -v x=$d -v t=$tot_us 'BEGIN{
             if (t>0) printf "%.1f", 100.0*x/t; else print "?"
         }')
-        local name=$(echo "$STATE_NAMES" | awk -F: -v idx=$((i+1)) 'NR==idx{print $2}')
+        local name
+        name=$(echo "$STATE_NAMES" | awk -F: -v idx=$((i+1)) 'NR==idx{print $2}')
         residency="$residency  $name=${pct}%"
     done
 

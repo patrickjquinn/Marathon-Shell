@@ -48,7 +48,7 @@ run_or_check() {
     if [ "$CHECK_ONLY" -eq 1 ]; then
         echo "    (would run) $*"
     else
-        eval "$@"
+        eval "$*"
     fi
 }
 

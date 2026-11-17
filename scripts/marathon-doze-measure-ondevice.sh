@@ -90,10 +90,10 @@ run_scenario() {
     eval "$teardown"
 
     # Parse: ts ch v i total s0 s1 ...
-    set -- $start; T0=$1; CH0=$2; V0=$3; I0=$4; TOT0=$5
-    shift 5; S0=$@
-    set -- $end;   T1=$1; CH1=$2; V1=$3; I1=$4; TOT1=$5
-    shift 5; S1=$@
+    set -- $start; T0=$1; CH0=$2; TOT0=$5
+    shift 5; S0=$*
+    set -- $end;   T1=$1; CH1=$2; V1=$3; TOT1=$5
+    shift 5; S1=$*
 
     dt_ms=$(( T1 - T0 ))
     dt_s=$(awk -v x=$dt_ms 'BEGIN{printf "%.1f", x/1000}')
@@ -106,14 +106,13 @@ run_scenario() {
 
     # Residency across all CPUs.
     tot_d=$(( TOT1 - TOT0 ))
-    j=0
-    set -- $S0; s0_arr="$@"
-    set -- $S1; s1_arr="$@"
+    set -- $S0; s0_arr="$*"
+    set -- $S1; s1_arr="$*"
     resid=""
     set -- $s0_arr
-    a=$@
+    a=$*
     set -- $s1_arr
-    b=$@
+    b=$*
     # awk it
     resid=$(awk -v a="$a" -v b="$b" -v total="$tot_d" '
         BEGIN {
