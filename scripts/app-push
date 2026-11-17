@@ -1,0 +1,62 @@
+#!/bin/sh
+# app-push APP: puts an app's QML, scripts, assets and baked shaders on a
+# development phone and starts it, so a change shows in seconds instead of
+# after a package build. marathon-app-runner loads an app's entry QML from
+# the app's directory when it is there, ahead of the compiled module.
+#
+#   scripts/app-push radio              push apps/radio and (re)start it
+#   scripts/app-push --restore radio    remove the pushed files: the
+#                                       installed build runs again
+#
+# MARATHON_DEVICE is the phone as ssh reaches it (default root@172.16.42.1,
+# the USB network); it needs a writable root, as development images have.
+# MARATHON_SSH_OPTS adds ssh options.
+# shellcheck disable=SC2029 # the paths and ids are meant to expand here
+set -eu
+
+device=${MARATHON_DEVICE:-root@172.16.42.1}
+# shellcheck disable=SC2086 # options, one per word
+ssh() { command ssh ${MARATHON_SSH_OPTS:-} "$@"; }
+restore=0
+if [ "${1:-}" = "--restore" ]; then
+	restore=1
+	shift
+fi
+app=${1:?usage: app-push [--restore] APP}
+repo=$(cd "$(dirname "$0")/.." && pwd)
+dir="$repo/apps/$app"
+[ -f "$dir/manifest.json" ] || { echo "app-push: no apps/$app/manifest.json" >&2; exit 2; }
+id=$(sed -n 's/^ *"id": *"\([^"]*\)".*/\1/p' "$dir/manifest.json" | head -n 1)
+dest="/usr/share/marathon-apps/$id"
+list="$dest/.app-push"
+
+# The app as its user's shell sees it: close it (the shell answers for it),
+# then launch it again.
+shell_call() {
+	ssh "$device" "su user -s /bin/sh -c 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus busctl --user call org.marathonos.Shell /org/marathonos/Shell/Navigation org.marathonos.Shell.Navigation1 $1 s $id'" >/dev/null 2>&1
+}
+
+restart() {
+	if ! shell_call CloseApp; then
+		# An older shell without CloseApp: end the app's runner.
+		ssh "$device" "for p in \$(grep -l 'marathon-app-$id' /proc/[0-9]*/cgroup 2>/dev/null | cut -d/ -f3); do kill \$p; done" || true
+	fi
+	sleep 1
+	shell_call LaunchApp || { echo "app-push: the shell would not launch $id" >&2; exit 1; }
+}
+
+if [ "$restore" = 1 ]; then
+	ssh "$device" "[ -f $list ] && (cd $dest && xargs rm -f < .app-push && rm -f .app-push); find $dest -type d -empty -delete 2>/dev/null; true"
+	restart
+	echo "app-push: $id runs its installed build again"
+	exit 0
+fi
+
+cd "$dir"
+files=$(find . -type f \( -name '*.qml' -o -name '*.js' -o -name '*.mjs' -o -name 'manifest.json' -o -path './assets/*' -o -path './shaders/*.qsb' -o -path './resources/*' \) \
+	-not -path './tests/*' -not -path './tools/*' | sed 's|^\./||' | sort)
+# shellcheck disable=SC2086 # one file per word
+tar --owner=0 --group=0 -cf - $files | ssh "$device" "mkdir -p $dest && tar -xf - -C $dest --no-same-owner --no-overwrite-dir && printf '%s\n' $(echo "$files" | tr '\n' ' ') > $list"
+echo "app-push: $(echo "$files" | wc -l) files to $device:$dest"
+restart
+echo "app-push: $id started"
