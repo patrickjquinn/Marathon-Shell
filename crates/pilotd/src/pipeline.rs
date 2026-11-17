@@ -893,9 +893,13 @@ fn is_empty(v: &Value) -> bool {
 /// A streamed answer up to its follow-up line, which may be half written
 /// ("FOLL").
 fn answer_so_far(text: &str) -> &str {
-    // The word that asks for the tools is not an answer to show.
+    // The word that asks for the tools is not an answer to show, nor what
+    // the model wrote before it.
+    if text.lines().any(|l| l.trim() == ACTION_WORD) {
+        return "";
+    }
     let start = text.trim_start();
-    if !start.is_empty() && (start.starts_with(ACTION_WORD) || ACTION_WORD.starts_with(start)) {
+    if !start.is_empty() && ACTION_WORD.starts_with(start) {
         return "";
     }
     let cut = followup_marker(text).map_or(text.len(), |(start, _)| start);
@@ -3359,11 +3363,13 @@ impl Pipeline {
                     .collect::<Vec<_>>()
                     .join(", ")
             );
+            // On a line of its own: it wrote "The capital of Japan is
+            // Tokyo.\nACTION" for a note (the last answer, then the word).
             if resp.tool_calls.is_empty()
                 && resp
                     .content
                     .as_deref()
-                    .is_some_and(|c| c.trim_start().starts_with(ACTION_WORD))
+                    .is_some_and(|c| c.lines().any(|l| l.trim() == ACTION_WORD))
             {
                 if let Some((ask, t)) = escape.take() {
                     log::debug!("something to do: the tools");
@@ -4337,6 +4343,7 @@ mod answer_tests {
         assert_eq!(answer_so_far("ACT"), "");
         assert_eq!(answer_so_far("ACTION"), "");
         assert_eq!(answer_so_far("A rainbow forms"), "A rainbow forms");
+        assert_eq!(answer_so_far("The capital is Tokyo.\nACTION"), "");
         assert_eq!(answer_so_far("FOLLOWUPS: a | b"), "");
         assert_eq!(
             answer_so_far("It is sunny.\nFOLUPS: Wind? | Rain?"),
