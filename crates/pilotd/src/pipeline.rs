@@ -736,10 +736,12 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     if !local {
         return registry.defs(None);
     }
+    // Not plans: they chain apps' tools, which a turn on Pilot's own does
+    // not have (900 characters the phone's model read for nothing).
     let mut own: Vec<String> = registry
         .entries()
         .map(|e| e.spec.domain.clone())
-        .filter(|d| !d.contains('.'))
+        .filter(|d| !d.contains('.') && d != "keel")
         .collect();
     own.sort();
     own.dedup();
@@ -778,6 +780,9 @@ const MODEL_KEPT: Duration = Duration::from_mins(50);
 /// Stage one's confidence in an app from which an answer without its
 /// tools goes back to the model once.
 const INSIST_FROM: f64 = 0.4;
+
+/// The router's confidence in an area from which it is sure of it.
+const SURE_FROM: f64 = 0.6;
 
 /// This many remembered facts or fewer all go in; more are ranked.
 const MEMORY_ALL: usize = 8;
@@ -2097,7 +2102,7 @@ impl Pipeline {
                 distribution,
                 confidence,
             }) => {
-                let take = if wide || *confidence < 0.6 {
+                let take = if wide || *confidence < SURE_FROM {
                     2 + usize::from(wide)
                 } else {
                     1
@@ -2108,9 +2113,18 @@ impl Pipeline {
                     .map(|(o, _)| o.clone())
                     .collect();
                 let top = d.first().cloned();
-                let sure = top.clone().filter(|o| *confidence >= 0.6 && o != GENERAL);
+                let sure = top
+                    .clone()
+                    .filter(|o| *confidence >= SURE_FROM && o != GENERAL);
                 log::debug!("stage one: {top:?} at {confidence:.2}");
                 d.retain(|o| o != GENERAL);
+                // The phone's model takes an app's tools in place of its own
+                // only when the router is sure: "longest river in Europe"
+                // (Pacific, 0.45) re-read the whole prompt for the browser's
+                // tools (80 s) and failed switching tabs.
+                if !wide && *confidence < SURE_FROM {
+                    d.retain(|o| !o.contains('.'));
+                }
                 // ... and every system area: the phone's own tools are few,
                 // and a missed one made the model invent a calendar entry.
                 if wide {
@@ -2130,9 +2144,10 @@ impl Pipeline {
         // offered; "How far is the moon from Earth" (Pacific, 0.24) had its
         // answer sent back and lost.
         let mut insist = top.as_deref().is_some_and(|d| d.contains('.'))
-            && answers.get("domain").is_some_and(
-                |a| matches!(a, crate::jev::Answer::Choice { confidence, .. } if *confidence >= INSIST_FROM),
-            );
+            && answers.get("domain").is_some_and(|a| {
+                matches!(a, crate::jev::Answer::Choice { confidence, .. }
+                    if *confidence >= if wide { INSIST_FROM } else { SURE_FROM })
+            });
         // Weather comes from its own tool even when the router is unsure.
         let weather = top.as_deref() == Some("weather");
         // A short follow-up ("and tomorrow?", "what about Cork?") is about

@@ -13,6 +13,9 @@
 #               Flash attention off: on the Q25's CPU it made each token 2.8x
 #               slower with Pilot's 2K-token prompt (llama-bench, tg32 @ d2048).
 #               Prompts are read on every core, written on four.
+#               Read 512 tokens a batch: Pilot shows how far it has read
+#               after each (return_progress), and the CPU computes 512 at a
+#               time anyway.
 #   run embed   multilingual-e5-small (MIT), which picks the tools
 #   run wait P  until the server on port P answers
 #   run models  the files this phone needs, "PATH BYTES" a line
@@ -116,7 +119,7 @@ chat)
 	# shellcheck disable=SC2086
 	exec "$server" --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
 		--jinja --reasoning off --threads 4 --threads-batch "$(nproc)" --ctx-size 8192 \
-		--parallel 1 --flash-attn off $sampling $reuse --no-webui
+		--parallel 1 --batch-size 512 --flash-attn off $sampling $reuse --no-webui
 	;;
 embed)
 	need "$EMBED"
