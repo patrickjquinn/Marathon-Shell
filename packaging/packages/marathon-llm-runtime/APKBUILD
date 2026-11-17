@@ -4,12 +4,14 @@
 # (head-ids-pilot.txt, tools/bench/pilot/pilot_head.py). Beside Alpine's
 # llama-server, which stays the fallback: marathon-llm's run picks this one
 # when the phone has dot-product instructions and the RAM for it. gguf_recut
-# cuts the downloaded model's head on the phone.
+# cuts the downloaded model's head on the phone. chatml-message-spans.patch
+# marks user messages in LFM2.5's prompts, so the server keeps the model's
+# state where a new question starts (a hybrid model cannot roll back).
 pkgname=marathon-llm-runtime
 _llamacommit=8642541b255bfb5dc39cd351a178be09013a55d6
 _smolcommit=79f860e92289d8480fff6f0e640cf33856783813
 pkgver=0.8.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Pilot's llama.cpp server for its on-device model"
 url="https://github.com/hyperionaidev/smolmaxxing"
 arch="aarch64"
@@ -18,6 +20,7 @@ makedepends="clang cmake samurai linux-headers"
 install_if="marathon-llm"
 source="llama.cpp-$_llamacommit.tar.gz::https://github.com/ggml-org/llama.cpp/archive/$_llamacommit.tar.gz
 	smolmaxxing-tvbox.patch
+	chatml-message-spans.patch
 	gguf_recut.c
 	head-ids-pilot.txt
 	LICENSE.smolmaxxing
@@ -57,6 +60,7 @@ package() {
 sha512sums="
 e6797a3c4c41ea74e70868438b37764c94c93b85ac23bcb18b91efc8748255d672c1a7d9baf561a1f6f97e00b66d8c0c3f5354508658c72549973ead181b5bd0  llama.cpp-8642541b255bfb5dc39cd351a178be09013a55d6.tar.gz
 2d5ffd6a460df1740efcb4c4b36cdc8074b93be371fdcb06fe325401d05a9b2c26c06b4b1ee585c7f9ab58a44736cf78db8fb897f08bd5813042079ffacd7665  smolmaxxing-tvbox.patch
+b796528cd30df4de35c3401be4c692b268f7eda815a4c2f28bb445a5650dc9c94c6dcf4faca534faa4375163e0bfbfe23b85c9055242dd4b4d63d4a38a0d6c6b  chatml-message-spans.patch
 5cbc7a715380e9699cf222362210787b92685185dbe8a6ce292742d077668ec7f18db201f69d4895787763e47a4d49abc5b3e51c1337b93e3e9c290dc05fafa7  gguf_recut.c
 e815ac43b1bb1ba1df60953a00bf0d1808deb9386456b47abc62e63cd4ade0677fbca1256ad4862c80b75b24b58363583ba5ea7d010c3041dc7eba52f6cb38bd  head-ids-pilot.txt
 7c4d4e2d6bd6dd64f5e9502ef4eafd86a8c3fb11abc8fcdc34816af6de09dfbe1a18aa55ca76ea633825ee900c8cac527af4ddd4ff179b751732fb90d7e8ecfb  LICENSE.smolmaxxing

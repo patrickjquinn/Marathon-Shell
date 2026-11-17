@@ -1,0 +1,17 @@
+--- a/common/chat.cpp
++++ b/common/chat.cpp
+@@ -1889,6 +1889,14 @@
+     parser_params.parser            = std::move(applied.parser);
+ 
+     delimiters = std::move(applied.message_delimiters);
++    // The specialized handlers (LFM2, LFM2.5) set no message delimiters, so
++    // a hybrid model is never checkpointed at the last user message and a
++    // new turn rolls back ~n_ubatch tokens further. ChatML's markers: a
++    // template without them never matches.
++    if (delimiters.delimiters.empty()) {
++        delimiters.add(COMMON_CHAT_ROLE_USER, "<|im_start|>user");
++        delimiters.add(COMMON_CHAT_ROLE_ASSISTANT, "<|im_start|>assistant");
++    }
+ 
+     if (vocab) {
+         common_params_sampling resolved;
