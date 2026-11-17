@@ -397,6 +397,10 @@ Page {
                     height: Math.min(implicitHeight, page.height / 4)
                     placeholderText: qsTr("Ask Pilot")
                     labelVisible: false
+                    // Enter sends and its key also gave a new line: an empty field
+                    // with the cursor on its second. Only blank, it is empty.
+                    onTextChanged: if (text.length > 0 && text.trim() === "")
+                        text = ""
                     EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                     EnterKey.onClicked: {
                         page.send(text);
