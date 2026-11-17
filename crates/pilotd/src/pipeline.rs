@@ -1524,7 +1524,7 @@ impl Pipeline {
             effort: Effort::Off,
             purpose: "classify".into(),
             require: true,
-            max_tokens: Some(30),
+            max_tokens: Some(20),
             stream: None,
         };
         let resp = backends.llm.chat(&req).await.ok()?;
@@ -1604,8 +1604,9 @@ impl Pipeline {
                     warmed = false;
                 }
             }
-            // And the question that names an unsure request's intent.
-            warmed &= self.classify(".", &backends).await.is_some();
+            // And the question that names an unsure request's intent (read
+            // only: "." names nothing).
+            self.classify(".", &backends).await;
             if warmed {
                 self.warm_read.store(true, Ordering::SeqCst);
                 *lock(&self.last_model_use) = Some(Instant::now());
@@ -2216,12 +2217,14 @@ impl Pipeline {
                 }],
             );
         };
-        // Unsure by meaning on the phone: the phone's model names what was
-        // asked, one label from a list (its only job, from a prompt that
-        // never changes). "Make a note to call the plumber" was "call" at
-        // 0.29 by meaning, then a failed reminder.
+        // An action by meaning, but unsure, on the phone: the phone's model
+        // names what was asked, one label from a list (its only job, from a
+        // prompt that never changes). "Make a note to call the plumber" was
+        // "call" at 0.29 by meaning, then a failed reminder. Not for a
+        // question: the model answers it instead of naming it (2 s lost).
         if backends.llm.provider() == "local"
             && intents::local_intent(text).is_none()
+            && decision.intent != "open_ended"
             && decision.confidence < SURE_FROM
         {
             if let Some(kind) = self.classify(&redacted.text, &backends).await {
