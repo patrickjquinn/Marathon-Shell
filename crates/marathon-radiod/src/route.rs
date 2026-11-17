@@ -1,40 +1,50 @@
-//! The FM receiver's audio to the phone's output, as the stock HAL routes
-//! it: the A-die's I2S into the AFE (`CONNSYS_I2S`), through HW gain 1 to
-//! the DAC (`ADDA_DL`), all inside the AFE ("hostless"). The path runs
-//! while the `Hostless_FM` PCM is open both ways, so silence is played into
-//! it and its capture read into nothing for as long as the radio plays.
+//! The FM receiver's audio as a PipeWire stream: the A-die's I2S into the
+//! AFE's UL2 capture (`CONNSYS_I2S` -> UL2), read from the `Capture_2` PCM
+//! and played with the Music role, so `WirePlumber` picks the output, volume
+//! and Bluetooth as it does for any player.
 
 use std::io;
 use std::process::{Child, Command, Stdio};
 
-const SWITCHES: &[&str] = &[
-    "HW_GAIN1_IN_CH1 CONNSYS_I2S_CH1",
-    "HW_GAIN1_IN_CH2 CONNSYS_I2S_CH2",
-    "ADDA_DL_CH1 GAIN1_OUT_CH1",
-    "ADDA_DL_CH2 GAIN1_OUT_CH2",
-];
+const SWITCHES: &[&str] = &["UL2_CH1 CONNSYS_I2S_CH1", "UL2_CH2 CONNSYS_I2S_CH2"];
 
 pub struct Route {
-    play: Child,
     capture: Child,
+    play: Child,
 }
 
-/// `hw:<card>,<device>` of the `Hostless_FM` PCM, from /proc/asound/pcm
-/// (`00-08: Hostless_FM ...`).
-fn hostless_fm() -> io::Result<String> {
-    let pcms = std::fs::read_to_string("/proc/asound/pcm")?;
-    pcms.lines()
-        .find(|l| l.contains("Hostless_FM"))
-        .and_then(|l| l.split(':').next())
-        .and_then(|id| id.split_once('-'))
-        .and_then(|(card, dev)| Some(format!("hw:{},{}", card.parse::<u32>().ok()?, dev.parse::<u32>().ok()?)))
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no Hostless_FM PCM"))
+/// `hw:<card>,<device>` of the PCM named `name` in /proc/asound/pcm
+/// (`00-04: Capture_2 (*) :  : capture 1`).
+fn pcm(name: &str) -> io::Result<String> {
+    find_pcm(&std::fs::read_to_string("/proc/asound/pcm")?, name)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no {name} PCM")))
+}
+
+fn find_pcm(pcms: &str, name: &str) -> Option<String> {
+    let line = pcms.lines().find(|l| {
+        l.split(':')
+            .nth(1)
+            .is_some_and(|n| n.trim().trim_end_matches("(*)").trim() == name)
+    })?;
+    let (card, dev) = line.split(':').next()?.split_once('-')?;
+    Some(format!(
+        "hw:{},{}",
+        card.parse::<u32>().ok()?,
+        dev.parse::<u32>().ok()?
+    ))
 }
 
 fn switch(on: bool) -> io::Result<()> {
     for name in SWITCHES {
         let status = Command::new("amixer")
-            .args(["-q", "-c", "0", "cset", &format!("name={name}"), if on { "on" } else { "off" }])
+            .args([
+                "-q",
+                "-c",
+                "0",
+                "cset",
+                &format!("name={name}"),
+                if on { "on" } else { "off" },
+            ])
             .status()?;
         if !status.success() && on {
             return Err(io::Error::other(format!("amixer: {name}")));
@@ -43,39 +53,74 @@ fn switch(on: bool) -> io::Result<()> {
     Ok(())
 }
 
-fn hold(tool: &str, device: &str, file: &str) -> io::Result<Child> {
-    Command::new(tool)
-        .args(["-q", "-D", device, "-t", "raw", "-f", "S16_LE", "-r", "48000", "-c", "2", file])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::inherit())
-        .spawn()
+fn stop(child: &mut Child) {
+    child.kill().ok();
+    child.wait().ok();
 }
 
 impl Route {
     pub fn start() -> io::Result<Self> {
-        let device = hostless_fm()?;
+        let device = pcm("Capture_2")?;
         switch(true)?;
-        let play = hold("aplay", &device, "/dev/zero")?;
-        let capture = match hold("arecord", &device, "/dev/null") {
-            Ok(c) => c,
-            Err(e) => {
-                let mut play = play;
-                play.kill().ok();
-                play.wait().ok();
-                return Err(e);
-            }
+        let mut capture = Command::new("arecord")
+            .args([
+                "-q", "-D", &device, "-t", "raw", "-f", "S16_LE", "-r", "48000", "-c", "2",
+            ])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .spawn()?;
+        let Some(audio) = capture.stdout.take() else {
+            stop(&mut capture);
+            return Err(io::Error::other("arecord gave no output"));
         };
-        Ok(Self { play, capture })
+        let play = Command::new("pw-cat")
+            .args([
+                "--playback",
+                "--raw",
+                "--format",
+                "s16",
+                "--rate",
+                "48000",
+                "--channels",
+                "2",
+                "--media-role",
+                "Music",
+                "-P",
+                r#"{ "application.name": "Radio", "application.icon-name": "radio", "node.name": "radio", "node.description": "Radio", "media.name": "FM radio" }"#,
+                "-",
+            ])
+            .stdin(audio)
+            .stdout(Stdio::null())
+            .spawn();
+        match play {
+            Ok(play) => Ok(Self { capture, play }),
+            Err(e) => {
+                stop(&mut capture);
+                switch(false).ok();
+                Err(e)
+            }
+        }
     }
 }
 
 impl Drop for Route {
     fn drop(&mut self) {
-        for child in [&mut self.play, &mut self.capture] {
-            child.kill().ok();
-            child.wait().ok();
-        }
+        stop(&mut self.capture);
+        stop(&mut self.play);
         switch(false).ok();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_pcm;
+
+    #[test]
+    fn finds_a_pcm_by_its_name_on_the_q25() {
+        let pcms = "00-01: Capture_1 (*) :  : capture 1\n\
+                    00-04: Capture_2 (*) :  : capture 1\n\
+                    00-05: Hostless_Speech (*) :  : playback 1 : capture 1\n";
+        assert_eq!(find_pcm(pcms, "Capture_2").as_deref(), Some("hw:0,4"));
+        assert_eq!(find_pcm(pcms, "Capture"), None);
     }
 }

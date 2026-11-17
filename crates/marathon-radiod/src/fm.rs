@@ -139,7 +139,11 @@ fn around(freq: u16, up: bool) -> impl Iterator<Item = u16> {
     let count = (HIGHEST - LOWEST) / STEP + 1;
     let at = freq.clamp(LOWEST, HIGHEST).saturating_sub(LOWEST) / STEP;
     (1..count).map(move |i| {
-        let k = if up { (at + i) % count } else { (at + count - i) % count };
+        let k = if up {
+            (at + i) % count
+        } else {
+            (at + count - i) % count
+        };
         LOWEST + k * STEP
     })
 }
