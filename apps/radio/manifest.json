@@ -3,13 +3,37 @@
   "id": "radio",
   "name": "Radio",
   "version": "1.0.0",
-  "description": "Listen to FM radio, with wired headphones as the aerial",
+  "description": "The world's radio on a globe, and FM from your headphones",
   "icon": "assets/icon.svg",
   "entryPoint": "RadioApp.qml",
-  "categories": ["Entertainment"],
+  "categories": [
+    "Entertainment"
+  ],
   "author": "Marathon OS",
-  "permissions": [],
-  "searchKeywords": ["radio", "fm", "tuner", "station"],
-  "testedOn": { "widths": [720], "inputModes": ["touch", "keyboard"] },
-  "dataLifecycle": { "appData": "remove", "cache": "remove" }
+  "permissions": [
+    "network"
+  ],
+  "searchKeywords": [
+    "radio",
+    "fm",
+    "station",
+    "tuner",
+    "music",
+    "news",
+    "world",
+    "stream"
+  ],
+  "testedOn": {
+    "widths": [
+      720
+    ],
+    "inputModes": [
+      "touch",
+      "keyboard"
+    ]
+  },
+  "dataLifecycle": {
+    "appData": "remove",
+    "cache": "remove"
+  }
 }
