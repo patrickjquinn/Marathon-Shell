@@ -122,6 +122,19 @@ Item {
         }));
     }
 
+    // Woken from saved state a moment ago and not loaded yet, when another
+    // tab takes the front (Pacific started for a link): it stops, and loads
+    // when it is shown again.
+    function unwake(): void {
+        if (!_waking)
+            return;
+        _waking = false;
+        view.stop();
+        tabModel.update(tabId, JSON.stringify({
+            live: false
+        }));
+    }
+
     // Lets the web view go to save memory. The tab keeps its address,
     // title, scroll position and the engine's session state (in the tab
     // model, and so in the session file a crash restore reads), and its
