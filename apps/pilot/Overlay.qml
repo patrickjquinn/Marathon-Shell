@@ -372,14 +372,22 @@ Item {
 
                     Row {
                         width: parent.width
-                        TextField {
+                        // Grows with the question, then scrolls; no label band.
+                        TextArea {
                             id: input
                             objectName: "overlayInput"
                             width: parent.width - (sendButton.visible ? sendButton.width : 0) - (stopButton.visible ? stopButton.width : 0) - (mic.visible ? mic.width : 0) - Theme.paddingSmall
+                            height: Math.min(implicitHeight, Screen.height / 4)
                             placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything") : qsTr("Ask Pilot")
-                            label: qsTr("Ask Pilot")
+                            labelVisible: false
                             EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                             EnterKey.onClicked: overlay.send(text)
+                            // Enter sends; Shift+Enter is a new line.
+                            Keys.onReturnPressed: function (event) {
+                                event.accepted = !(event.modifiers & Qt.ShiftModifier);
+                                if (event.accepted)
+                                    overlay.send(text);
+                            }
                             Keys.onUpPressed: function (event) {
                                 event.accepted = text === "" && Conversation.lastQuestion() !== "";
                                 if (event.accepted)
@@ -391,6 +399,7 @@ Item {
                             objectName: "overlaySend"
                             Accessible.name: qsTr("Send")
                             visible: input.text.trim().length > 0
+                            anchors.bottom: input.bottom
                             icon.source: "image://theme/icon-m-send"
                             onClicked: overlay.send(input.text)
                         }
@@ -398,7 +407,7 @@ Item {
                             id: stopButton
                             objectName: "overlayStop"
                             visible: Pilot.busy && !Conversation.listening
-                            anchors.verticalCenter: input.verticalCenter
+                            anchors.bottom: input.bottom
                             onClicked: Pilot.stop()
                         }
                         Orb {
@@ -407,7 +416,7 @@ Item {
                             visible: Conversation.voiceAvailable
                             width: Theme.itemSizeMedium
                             height: Theme.itemSizeMedium
-                            anchors.verticalCenter: input.verticalCenter
+                            anchors.bottom: input.bottom
                             enabled: !Pilot.offline
                             glyph: true
                             mode: Conversation.listening && !Conversation.transcribing ? "listening" : Pilot.busy ? "thinking" : "idle"
