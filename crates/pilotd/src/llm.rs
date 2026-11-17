@@ -282,33 +282,28 @@ impl OpenAiClient {
         if let Some(e) = effort {
             body["reasoning_effort"] = Value::String(e.clone());
         }
-        // Without reasoning, Qwen3.8's model card: 0.7 / 0.8 and a presence
-        // penalty against repetition. With it, 0.6 and 0.95, not the card's
-        // 1.0: measured on Pilot's evaluation (3 runs of 72 tasks), 1.0
-        // passed 203 of 216 against 212 for 0.6, worst on short tool turns.
-        // The reasoning stays out of the reply text.
+        // The model on the phone samples as marathon-llm starts it, from its
+        // model card: its sampling belongs to the model, not to Pilot, and
+        // Qwen's (0.7, top-k 20) made LFM2.5 ramble on for hundreds of tokens.
+        // In the cloud, without reasoning, Qwen3.8's model card: 0.7 / 0.8
+        // and a presence penalty against repetition. With it, 0.6 and 0.95,
+        // not the card's 1.0: measured on Pilot's evaluation (3 runs of 72
+        // tasks), 1.0 passed 203 of 216 against 212 for 0.6, worst on short
+        // tool turns. The reasoning stays out of the reply text.
         let thinking = !matches!(req.effort, Effort::Off);
-        if thinking {
-            body["temperature"] = json!(0.6);
-            body["top_p"] = json!(0.95);
-            // Groq's field; vLLM (Lighthouse) separates reasoning itself.
-            if self.provider == "groq" {
-                body["reasoning_format"] = json!("hidden");
-            }
-        } else {
-            body["temperature"] = json!(0.7);
-            body["top_p"] = json!(0.8);
-            // llama-server counts the prompt's last 64 tokens (the person's
-            // words) in its penalties: with tools offered, a penalty pushes
-            // the model off the number or address it has to copy.
-            if self.provider != "local" || req.tools.is_empty() {
+        if self.provider != "local" {
+            if thinking {
+                body["temperature"] = json!(0.6);
+                body["top_p"] = json!(0.95);
+                // Groq's field; vLLM (Lighthouse) separates reasoning itself.
+                if self.provider == "groq" {
+                    body["reasoning_format"] = json!("hidden");
+                }
+            } else {
+                body["temperature"] = json!(0.7);
+                body["top_p"] = json!(0.8);
                 body["presence_penalty"] = json!(1.5);
             }
-        }
-        if self.provider == "local" {
-            // The rest of the model card's sampling, not llama-server's own.
-            body["top_k"] = json!(20);
-            body["min_p"] = json!(0.0);
         }
         if !req.tools.is_empty() {
             // The tools stay the same across a turn's rounds: chat templates
