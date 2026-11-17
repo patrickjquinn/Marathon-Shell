@@ -746,6 +746,10 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     registry.defs(Some(&own))
 }
 
+/// Stage one's confidence in an app from which an answer without its
+/// tools goes back to the model once.
+const INSIST_FROM: f64 = 0.4;
+
 /// Routes are read ahead only this long after the last turn began.
 const ROUTES_IDLE: Duration = Duration::from_secs(60);
 
@@ -2214,11 +2218,15 @@ impl Pipeline {
             }
             _ => (None, None, None),
         };
-        // An app as stage one's first choice, sure or not: an answer without
-        // its tools goes back once. On the phone the router is seldom sure
-        // among its apps, and "what did I note about the cabin?" got "I do
-        // not have access to your notes" with the search tool offered.
-        let mut insist = top.as_deref().is_some_and(|d| d.contains('.'));
+        // An app as stage one's likely choice: an answer without its tools
+        // goes back once. "what did I note about the cabin?" (notes, 0.42)
+        // got "I do not have access to your notes" with the search tool
+        // offered; "How far is the moon from Earth" (Pacific, 0.24) had its
+        // answer sent back and lost.
+        let mut insist = top.as_deref().is_some_and(|d| d.contains('.'))
+            && answers.get("domain").is_some_and(
+                |a| matches!(a, crate::jev::Answer::Choice { confidence, .. } if *confidence >= INSIST_FROM),
+            );
         // Weather comes from its own tool even when the router is unsure.
         let weather = top.as_deref() == Some("weather");
         // A short follow-up ("and tomorrow?", "what about Cork?") is about
@@ -3198,8 +3206,14 @@ impl Pipeline {
             // Groq's tool_use_failed): one more try, as the model often
             // gets it right the second time.
             let first = backends.llm.chat(&req).await;
+            // The phone's model: a connection kept from a streamed reply may
+            // have been closed by then (the next round failed in 1 ms), and
+            // asking again is safe.
             let answered = match first {
                 Err(RemoteError::Status { status: 422, .. }) => backends.llm.chat(&req).await,
+                Err(RemoteError::Transport { ref provider, .. }) if provider == "local" => {
+                    backends.llm.chat(&req).await
+                }
                 other => other,
             };
             let mut resp = match answered {
