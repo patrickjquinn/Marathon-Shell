@@ -182,9 +182,6 @@ pub fn shape(target: &Target<'_>, body: &Value, cap: u64) -> Result<Value, Strin
         }
         Target::Llm(_) => {
             let obj = v.as_object_mut().ok_or("not a JSON object")?;
-            if obj.get("stream").and_then(Value::as_bool) == Some(true) {
-                return Err("streaming is not supported".into());
-            }
             let asked = obj
                 .get("max_completion_tokens")
                 .or_else(|| obj.get("max_tokens"))
@@ -279,7 +276,11 @@ mod tests {
                 && out.get("store").is_none()
                 && out.get("user").is_none()
         );
-        assert!(shape(&Target::Llm(&llm), &json!({"stream": true}), 1).is_err());
+        // Streamed, as Pilot asks the phone's own model.
+        assert_eq!(
+            shape(&Target::Llm(&llm), &json!({"stream": true}), 1).unwrap()["stream"],
+            true
+        );
         assert_eq!(shape(&Target::Other, &req, 1).unwrap(), req);
     }
 
