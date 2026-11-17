@@ -3068,6 +3068,7 @@ impl Pipeline {
             }
         }
         let mut escape: Option<(Message, Vec<crate::llm::ToolDef>)> = None;
+        let mut held: Option<String> = None;
         if plain {
             escape = Some((ask_full, std::mem::take(&mut tools)));
         }
@@ -3373,6 +3374,17 @@ impl Pipeline {
             {
                 if let Some((ask, t)) = escape.take() {
                     log::debug!("something to do: the tools");
+                    // What it answered before the word, kept: it added ACTION
+                    // to "The moon is about 384,400 km away", then, with the
+                    // tools, apologised that it had none for that.
+                    let said: Vec<&str> = resp
+                        .content
+                        .as_deref()
+                        .unwrap_or("")
+                        .lines()
+                        .filter(|l| l.trim() != ACTION_WORD)
+                        .collect();
+                    held = Some(said.join("\n").trim().to_owned()).filter(|a| !a.is_empty());
                     messages.pop();
                     messages.push(ask);
                     tools = t;
@@ -3380,6 +3392,13 @@ impl Pipeline {
                 }
             }
             escape = None;
+            // The tools did nothing: the answer it gave without them stands.
+            if let Some(answer) = held.take() {
+                if resp.tool_calls.is_empty() {
+                    log::debug!("no tool after ACTION: the answer before it");
+                    resp.content = Some(answer);
+                }
+            }
             if resp.tool_calls.is_empty() {
                 if let Some((m, t)) = wide.take() {
                     log::debug!("not that action: the whole prompt");
