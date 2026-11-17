@@ -175,6 +175,19 @@ SND_SOC_DAILINK_DEFS(pcm2,
 	DAILINK_COMP_ARRAY(COMP_CPU("PCM 2")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+/* FM radio: the A-die's I2S into the AFE, through HW gain 1 to the DAC. */
+SND_SOC_DAILINK_DEFS(hostless_fm,
+	DAILINK_COMP_ARRAY(COMP_CPU("Hostless FM DAI")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(connsys_i2s,
+	DAILINK_COMP_ARRAY(COMP_CPU("CONNSYS_I2S")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(hw_gain1,
+	DAILINK_COMP_ARRAY(COMP_CPU("HW Gain 1")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(adda,
 	DAILINK_COMP_ARRAY(COMP_CPU("ADDA")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("mt6358-sound", "mt6358-snd-codec-aif1")),
@@ -242,6 +255,28 @@ static struct snd_soc_dai_link q25_links[] = {
 		.no_pcm = 1,
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(pcm2),
+	},
+	/* Last, so the PCM numbers above stay what UCM and PipeWire use. */
+	{
+		.name = "Hostless_FM",
+		.stream_name = "Hostless_FM",
+		.trigger = { SND_SOC_DPCM_TRIGGER_PRE, SND_SOC_DPCM_TRIGGER_PRE },
+		.dynamic = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(hostless_fm),
+	},
+	{
+		.name = "CONNSYS_I2S",
+		.no_pcm = 1,
+		.capture_only = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(connsys_i2s),
+	},
+	{
+		.name = "HW Gain 1",
+		.no_pcm = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(hw_gain1),
 	},
 };
 
