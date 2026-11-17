@@ -123,6 +123,9 @@ pub enum Effort {
 
 /// Is handed the reply's text so far while a model on this phone writes
 /// it, so the person reads the answer as it comes.
+/// The most a reply from the model on the phone may write (~300 words).
+const PHONE_MAX_TOKENS: u32 = 400;
+
 /// The longest a prompt read ahead (`purpose` "warm") may take.
 const READ_AHEAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 
@@ -269,10 +272,19 @@ pub struct OpenAiClient {
 
 impl OpenAiClient {
     fn body(&self, req: &ChatRequest) -> Value {
+        // The model on the phone writes ~13 tokens a second: a reply that
+        // runs on is cut at a phone's length, not left for a minute or more
+        // (LFM2.5 wrote 1,024 tokens of markdown, 80 s, and a turn's rounds
+        // made it 250 s).
+        let cap = if self.provider == "local" {
+            self.max_completion_tokens.min(PHONE_MAX_TOKENS)
+        } else {
+            self.max_completion_tokens
+        };
         let mut body = json!({
             "model": self.model,
             "messages": req.messages.iter().map(Message::to_json).collect::<Vec<_>>(),
-            "max_completion_tokens": self.max_completion_tokens,
+            "max_completion_tokens": cap,
         });
         let effort = match req.effort {
             Effort::Off => &self.effort.off,
