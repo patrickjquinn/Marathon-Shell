@@ -779,11 +779,8 @@ const UNSURE_BELOW: f64 = 0.4;
 const ACTION_WORD: &str = "ACTION";
 
 /// Said to the phone's model without tools.
-// It added the word to answers ("about 384,400 kilometers.\nACTION") when
-// told only when to write it.
-const PLAIN_NOTE: &str = " Nothing on the phone is done in this reply. If they ask for \
-     something to be done on the phone rather than a question answered, your whole reply is the \
-     one word ACTION. Otherwise answer, and never write that word.";
+const PLAIN_NOTE: &str = " Nothing on the phone is done in this reply: if they ask for \
+     something to be done on the phone, reply with only the word ACTION.";
 
 /// The phone's model's whole job when the router is sure of an action.
 const NARROW_PROMPT: &str = "You are Pilot, on the person's phone. Call the tool for their \
