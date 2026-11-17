@@ -56,6 +56,23 @@ impl RemoteError {
     }
 }
 
+/// Each whole `data:` line in `pending` to `on_data`, but `[DONE]`.
+fn drain_events(pending: &mut Vec<u8>, on_data: &mut impl FnMut(&str)) {
+    while let Some(end) = pending.iter().position(|b| *b == b'\n') {
+        let line: Vec<u8> = pending.drain(..=end).collect();
+        let line = String::from_utf8_lossy(&line);
+        if let Some(data) = line.trim().strip_prefix("data:") {
+            let data = data.trim();
+            if data != "[DONE]" {
+                on_data(data);
+            }
+        }
+    }
+}
+
+/// The longest a streamed reply may take, stalls apart.
+const STREAM_MAX: Duration = Duration::from_mins(10);
+
 /// Where the bearer token comes from.
 #[derive(Debug, Clone)]
 pub enum Credential {
@@ -249,18 +266,29 @@ impl Remote {
                 result,
             });
         };
+        // A stream is limited by its stalls, not its length: a long answer
+        // still arriving is not cut off. The timeout is the longest wait
+        // for the reply's start (the model reading the prompt) and between
+        // its pieces.
         let mut req = self
             .client
             .post(url)
-            .timeout(self.timeout)
+            .timeout(STREAM_MAX)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .body(bytes);
         if let Some(k) = direct.as_ref().and_then(|(_, out)| out.key.as_ref()) {
             req = req.bearer_auth(k);
         }
         let llm = direct.as_ref().filter(|(_, out)| out.llm).map(|(d, _)| d);
+        let stall = self.timeout;
+        let stalled = || RemoteError::Timeout {
+            provider: provider.to_owned(),
+        };
         let sent = async {
-            let mut resp = req.send().await.map_err(|e| transport(provider, e))?;
+            let mut resp = tokio::time::timeout(stall, req.send())
+                .await
+                .map_err(|_elapsed| stalled())?
+                .map_err(|e| transport(provider, e))?;
             let status = resp.status();
             let mut headers = resp.headers().clone();
             if let Some(d) = llm {
@@ -283,19 +311,14 @@ impl Remote {
                 })?);
             } else if status.is_success() {
                 let mut pending: Vec<u8> = Vec::new();
-                while let Some(chunk) = resp.chunk().await.map_err(|e| transport(provider, e))? {
+                while let Some(chunk) = tokio::time::timeout(stall, resp.chunk())
+                    .await
+                    .map_err(|_elapsed| stalled())?
+                    .map_err(|e| transport(provider, e))?
+                {
                     bytes_in += chunk.len() as u64;
                     pending.extend_from_slice(&chunk);
-                    while let Some(end) = pending.iter().position(|b| *b == b'\n') {
-                        let line: Vec<u8> = pending.drain(..=end).collect();
-                        let line = String::from_utf8_lossy(&line);
-                        if let Some(data) = line.trim().strip_prefix("data:") {
-                            let data = data.trim();
-                            if data != "[DONE]" {
-                                on_data(data);
-                            }
-                        }
-                    }
+                    drain_events(&mut pending, &mut on_data);
                 }
             }
             Ok::<_, RemoteError>((status, headers, bytes_in, whole))
