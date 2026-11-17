@@ -1,2 +1,5 @@
 # Needs upower-q25: stock UPower does not read UPOWER_IGNORE.
-ACTION!="remove", SUBSYSTEM=="power_supply", KERNEL=="bq256xx-battery", ATTR{type}=="Battery", TEST=="/sys/class/power_supply/mt6358-battery", ENV{UPOWER_IGNORE}="1"
+# The charger's battery object is a duplicate of the MT6358 gauge, with no
+# charge level: UPower averaged it in (49% for a full battery). Not
+# conditional on the gauge being there already: it can probe after.
+ACTION!="remove", SUBSYSTEM=="power_supply", KERNEL=="bq256xx-battery", ATTR{type}=="Battery", ENV{UPOWER_IGNORE}="1"
