@@ -35,10 +35,6 @@ use crate::tools::{Entry, Precheck, Registry, ToolError};
 
 /// How often the MCP catalogue is listed again (apps come and go).
 const MCP_REFRESH: Duration = Duration::from_secs(15);
-/// More tools than this in a domain: Jev picks the three likeliest
-/// actions (stage two), so the model sees a handful of tools, not an
-/// app's whole catalogue.
-const STAGE_TWO_ABOVE: usize = 6;
 
 struct McpLink {
     tools: Arc<McpTools>,
@@ -750,6 +746,17 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     registry.defs(Some(&own))
 }
 
+/// A route on the phone: Pilot's own tools, then every tool of the app
+/// stage one put first, if any. Always the same list for the same app, so
+/// its prompt can be read ahead ([`Pipeline::warm_routes`]) and reused.
+fn route_tools(registry: &Registry, app: Option<&String>) -> Vec<crate::llm::ToolDef> {
+    let mut tools = unscoped_tools(registry, true);
+    if let Some(app) = app {
+        tools.extend(registry.defs(Some(std::slice::from_ref(app))));
+    }
+    tools
+}
+
 /// A description's first sentence.
 fn first_sentence(text: &str) -> &str {
     text.find(". ").map_or(text, |i| &text[..=i])
@@ -936,6 +943,8 @@ pub struct Pipeline {
     progress: Mutex<Option<tokio::sync::mpsc::UnboundedSender<String>>>,
     /// The person stopped the turn in flight (Stop).
     pub stop: tokio::sync::Notify,
+    /// A turn began: reading routes ahead gives way.
+    turn_started: tokio::sync::Notify,
 }
 
 pub struct PipelineParts {
@@ -1144,6 +1153,7 @@ impl Pipeline {
             spoken: AtomicBool::new(false),
             progress: Mutex::new(None),
             stop: tokio::sync::Notify::new(),
+            turn_started: tokio::sync::Notify::new(),
         }
     }
 
@@ -1395,6 +1405,59 @@ impl Pipeline {
         }
     }
 
+    /// Reads each app's route ([`route_tools`]) ahead on the phone, one at
+    /// a time, so a turn routed to an app finds its prompt read: the server
+    /// keeps what it read (its prompt cache) and a turn then reads only its
+    /// own words. A turn that begins takes over: the request in flight is
+    /// dropped, which stops the server reading it.
+    pub async fn warm_routes(&self) {
+        let backends = self.backends();
+        if backends.llm.provider() != "local" {
+            return;
+        }
+        let registry = self.registry();
+        let apps: Vec<String> = domain_options(&registry)
+            .into_iter()
+            .filter(|d| d.contains('.'))
+            .collect();
+        let web = (!self.may_leave())
+            .then(|| registry.get(crate::web::TOOL).map(|e| e.model_name.clone()))
+            .flatten();
+        for app in &apps {
+            let mut tools = route_tools(&registry, Some(app));
+            if let Some(web) = &web {
+                tools.retain(|t| &t.name != web);
+            }
+            let req = ChatRequest {
+                messages: vec![
+                    Message::text(Role::System, self.system_prompt()),
+                    Message::text(Role::User, "."),
+                ],
+                tools,
+                json_mode: false,
+                effort: Effort::Off,
+                purpose: "warm".into(),
+                require: false,
+                max_tokens: Some(1),
+                stream: None,
+            };
+            let started = Instant::now();
+            tokio::select! {
+                r = backends.llm.chat(&req) => {
+                    if let Err(e) = r {
+                        log::debug!("reading {app}'s route ahead: {e}");
+                        return;
+                    }
+                    log::debug!("{app}'s route read ahead in {} ms", started.elapsed().as_millis());
+                }
+                () = self.turn_started.notified() => {
+                    log::debug!("reading routes ahead stopped for a turn");
+                    return;
+                }
+            }
+        }
+    }
+
     pub fn on_screen(&self) -> Option<(String, String)> {
         self.on_screen_now().map(|o| (o.app, o.name))
     }
@@ -1582,6 +1645,7 @@ impl Pipeline {
 
     /// Handles one typed or transcribed utterance.
     pub async fn ask(&self, text: &str, spoken: bool) -> TurnResult {
+        self.turn_started.notify_waiters();
         let turn = self.new_turn_id();
         let text = text.trim();
         let started = Instant::now();
@@ -1950,6 +2014,7 @@ impl Pipeline {
         if let Some(o) = &on_screen {
             questions.insert(SCREEN_QUESTION.into(), screen_question(&o.name));
         }
+        let backends = self.backends();
         let req = DecideRequest {
             state: json!({
                 "utterance": crate::redact::for_jev(&redacted.text, &self.own_name()),
@@ -1957,7 +2022,6 @@ impl Pipeline {
             }),
             questions,
         };
-        let backends = self.backends();
         let answers = match backends.jev.decide(&req, "decide").await {
             Ok(a) => a,
             Err(RemoteError::Offline) => return self.local_only(turn, text, "offline").await,
@@ -2795,9 +2859,7 @@ impl Pipeline {
         ));
         let registry = self.registry();
         let may_leave = self.may_leave();
-        let mut tools = self
-            .select_tools(&registry, scope, redacted, backends)
-            .await;
+        let mut tools = Self::select_tools(&registry, scope, backends);
         if !may_leave {
             if let Some(web) = registry.get(crate::web::TOOL) {
                 tools.retain(|t| t.name != web.model_name);
@@ -3401,74 +3463,24 @@ impl Pipeline {
     }
 
     /// The tools offered to the model: all of them without a domain
-    /// answer; else the chosen domains' (spec section 9.5), and when a
-    /// domain has many, stage two: Jev picks the three likeliest actions.
-    async fn select_tools(
-        &self,
+    /// answer; else the chosen domains' (spec section 9.5). On the phone, a
+    /// route ([`route_tools`]): the same list for the same app every time.
+    fn select_tools(
         registry: &Registry,
         scope: Option<&[String]>,
-        redacted: &str,
         backends: &Backends,
     ) -> Vec<crate::llm::ToolDef> {
         let local = backends.llm.provider() == "local";
         let Some(domains) = scope else {
             return unscoped_tools(registry, local);
         };
-        // The phone's model reuses the prompt the warm-up read only while
-        // the tools are the same, and Qwen3.5's template puts them first: a
-        // subset made "What is the capital of Australia" read 1,050 tokens
-        // again, 20 s. A turn on Pilot's own areas offers the warm-up's list.
-        if local && domains.iter().all(|d| !d.contains('.')) {
-            return unscoped_tools(registry, true);
+        // The phone's model reuses a prompt it read only while the tools are
+        // the same, and Qwen3.5's template puts them first: a subset made
+        // "What is the capital of Australia" read 1,050 tokens again, 20 s.
+        if local {
+            return route_tools(registry, domains.iter().find(|d| d.contains('.')));
         }
         let mut chosen: Vec<String> = domains.to_vec();
-        let in_scope: Vec<&Entry> = registry
-            .entries()
-            .filter(|e| e.available && chosen.contains(&e.spec.domain))
-            .collect();
-        // Stage two keeps a slow model on the phone to a few tools; a model
-        // in the cloud reads them all in less time than stage two takes,
-        // and stage two dropped the weather tool from "Wie wird das Wetter
-        // morgen?".
-        if backends.llm.provider() == "local"
-            && in_scope.len() > STAGE_TWO_ABOVE
-            && in_scope.len() <= crate::jev::MAX_CHOICE_OPTIONS
-        {
-            let mut q = std::collections::BTreeMap::new();
-            q.insert(
-                "action".to_owned(),
-                Question::Choice {
-                    options: in_scope.iter().map(|e| e.spec.name.clone()).collect(),
-                    criteria: "Which action does what `utterance` asks?".into(),
-                    descriptions: in_scope
-                        .iter()
-                        .map(|e| e.spec.description.clone())
-                        .collect(),
-                },
-            );
-            let req = DecideRequest {
-                state: json!({"utterance": crate::redact::for_jev(redacted, &self.own_name())}),
-                questions: q,
-            };
-            if let Ok(a) = backends.jev.decide(&req, "decide-action").await {
-                if let Some(crate::jev::Answer::Choice { distribution, .. }) = a.get("action") {
-                    let keep: Vec<String> = distribution
-                        .iter()
-                        .take(3)
-                        .map(|(o, _)| o.clone())
-                        .collect();
-                    return registry
-                        .entries()
-                        .filter(|e| {
-                            e.available
-                                && (keep.contains(&e.spec.name)
-                                    || e.spec.name == mcp::PLAN_RUN_CANONICAL)
-                        })
-                        .map(|e| registry.def(e))
-                        .collect();
-                }
-            }
-        }
         // Plans cross apps: offered whenever an app's tools are.
         if chosen.iter().any(|d| d.contains('.')) {
             chosen.push("keel".into());
