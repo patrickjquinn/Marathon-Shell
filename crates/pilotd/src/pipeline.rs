@@ -1488,22 +1488,31 @@ impl Pipeline {
             let mut messages = vec![Message::text(Role::System, self.system_prompt())];
             messages.extend(local_examples());
             messages.push(Message::text(Role::User, "."));
-            let req = ChatRequest {
-                messages,
-                tools,
-                json_mode: false,
-                effort: Effort::Off,
-                purpose: "warm".into(),
-                require: false,
-                max_tokens: Some(1),
-                stream: None,
-            };
-            match backends.llm.chat(&req).await {
-                Ok(_) => {
-                    self.warm_read.store(true, Ordering::SeqCst);
-                    *lock(&self.last_model_use) = Some(Instant::now());
+            // The prompt without tools (a question answered from knowledge)
+            // and the one with them, each in its own server slot. In this
+            // order: the server puts a prompt in the slot most like it, and
+            // the plain one read second would land on, and evict, the one
+            // with the tools.
+            let mut warmed = true;
+            for tools in [Vec::new(), tools] {
+                let req = ChatRequest {
+                    messages: messages.clone(),
+                    tools,
+                    json_mode: false,
+                    effort: Effort::Off,
+                    purpose: "warm".into(),
+                    require: false,
+                    max_tokens: Some(1),
+                    stream: None,
+                };
+                if let Err(e) = backends.llm.chat(&req).await {
+                    log::debug!("warming the model: {e}");
+                    warmed = false;
                 }
-                Err(e) => log::debug!("warming the model: {e}"),
+            }
+            if warmed {
+                self.warm_read.store(true, Ordering::SeqCst);
+                *lock(&self.last_model_use) = Some(Instant::now());
             }
         }
     }
@@ -2191,7 +2200,9 @@ impl Pipeline {
         // what the last turn used tools for: they are offered again, and an
         // answer without them goes back once (the model made tomorrow's
         // weather up from today's answer).
-        let scope = match self.followup_domains(text) {
+        let followup = self.followup_domains(text);
+        let after_tools = followup.is_some();
+        let scope = match followup {
             Some(prev) => {
                 let mut s = scope.unwrap_or_default();
                 for d in prev {
@@ -2249,6 +2260,21 @@ impl Pipeline {
                     answers.get("needs_web"),
                     Some(crate::jev::Answer::Noul { p }) if *p >= self.thresholds.web_first
                 ));
+        // A question to answer from knowledge goes to the phone's model with
+        // no tools: offered Pilot's tools, LFM2.5 opened every such answer
+        // with "I don't have a tool that can look up...", examples and system
+        // prompt notwithstanding. Only when the router says so on every
+        // count: an open question, to be answered in words, not from the
+        // web, about no app or area it is sure of, not after a tool turn.
+        let plain = backends.llm.provider() == "local"
+            && decision.intent == "open_ended"
+            && decision.needs_generation >= 0.5
+            && !web_first
+            && !weather
+            && sure.is_none()
+            && screen.is_none()
+            && !after_tools
+            && !intents::needs_model(text);
         match route {
             Route::Handler { intent } if intents::DETERMINISTIC.contains(&intent.as_str()) => {
                 match intents::slots_for(&intent, text) {
@@ -2271,6 +2297,7 @@ impl Pipeline {
                                 insist,
                                 sure.is_some(),
                                 screen.as_ref(),
+                                false,
                             )
                             .await,
                         )
@@ -2301,6 +2328,7 @@ impl Pipeline {
                         insist,
                         sure.is_some(),
                         screen.as_ref(),
+                        plain,
                     )
                     .await,
                 )
@@ -2324,6 +2352,7 @@ impl Pipeline {
                     insist,
                     sure.is_some(),
                     screen.as_ref(),
+                    plain,
                 )
                 .await,
             ),
@@ -2340,6 +2369,7 @@ impl Pipeline {
                     insist,
                     sure.is_some(),
                     screen.as_ref(),
+                    plain,
                 )
                 .await,
             ),
@@ -2876,6 +2906,7 @@ impl Pipeline {
     #[allow(
         clippy::too_many_lines,
         clippy::too_many_arguments,
+        clippy::fn_params_excessive_bools,
         reason = "the tool loop reads best as one sequence"
     )]
     async fn qwen(
@@ -2890,6 +2921,7 @@ impl Pipeline {
         insist: bool,
         ground: bool,
         screen: Option<&OnScreen>,
+        plain: bool,
     ) -> Vec<Card> {
         let deep = [
             "work this out",
@@ -2953,7 +2985,11 @@ impl Pipeline {
         ));
         let registry = self.registry();
         let may_leave = self.may_leave();
-        let mut tools = Self::select_tools(&registry, scope, backends);
+        let mut tools = if plain {
+            Vec::new()
+        } else {
+            Self::select_tools(&registry, scope, backends)
+        };
         if !may_leave {
             if let Some(web) = registry.get(crate::web::TOOL) {
                 tools.retain(|t| t.name != web.model_name);
