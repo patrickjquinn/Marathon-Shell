@@ -38,6 +38,8 @@ build() {
 	# with GCC 16 the Q25 read prompts at 29.5 tokens/s instead of 48.8.
 	export CC=clang CXX=clang++
 	export CFLAGS="$CFLAGS -mtune=cortex-a55" CXXFLAGS="$CXXFLAGS -mtune=cortex-a55"
+	# No web UI (run passes --no-webui): its prebuilt download is "latest",
+	# whose files stopped matching what this commit checks for.
 	cmake -B build -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_SHARED_LIBS=OFF \
@@ -45,7 +47,8 @@ build() {
 		-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16 \
 		-DGGML_OPENMP=OFF \
 		-DLLAMA_OPENSSL=OFF \
-		-DLLAMA_BUILD_TESTS=OFF
+		-DLLAMA_BUILD_TESTS=OFF \
+		-DLLAMA_USE_PREBUILT_UI=OFF
 	cmake --build build --target llama-server
 	${CC:-gcc} $CFLAGS -O2 -o gguf_recut "$srcdir"/gguf_recut.c $LDFLAGS
 }
