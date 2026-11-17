@@ -99,11 +99,19 @@ def playing(seconds=30):
     return False
 
 
+def screen_on():
+    # The CRTC, as power-audit.py reads it; the backlight where debugfs is absent.
+    out = remote("cat /sys/kernel/debug/dri/*/state 2>/dev/null"
+                 " || cat /sys/class/backlight/*/bl_power", check=False)
+    if "active=" in out:
+        return "\tactive=1" in out
+    return not out.split() or "0" in out.split()
+
+
 def main(argv):
     seconds = next((float(a) for a in argv if not a.startswith("-")), 60.0)
     playback = "--playback" in argv
-    screen = remote("cat /sys/class/backlight/*/bl_power 2>/dev/null").split()
-    if not screen or "0" in screen:
+    if screen_on():
         sys.exit("power-regression: turn the screen off first")
     radio("Stop")
     time.sleep(5)

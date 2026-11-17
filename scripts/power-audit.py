@@ -92,6 +92,11 @@ def log_lines(start, end):
 
 
 def screen():
+    # The CRTC is the truth: the shell's idle timer switches it off and
+    # leaves the backlight's bl_power at 0. debugfs is root-only.
+    states = [read(p) for p in glob.glob("/sys/kernel/debug/dri/*/state")]
+    if any(states):
+        return "on" if any("\tactive=1" in s for s in states) else "off"
     powers = [read(p).strip() for p in glob.glob("/sys/class/backlight/*/bl_power")]
     return "off" if powers and all(p not in ("", "0") for p in powers) else "on"
 
