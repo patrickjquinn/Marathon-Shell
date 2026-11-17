@@ -4,10 +4,12 @@
 //! An app's Keel actions manifest (`keel-actions.json`) from the actions
 //! its QML or Rust declares, so Pilot and other assistants can use them.
 //!
+//! From `crates/`:
+//!
 //! ```text
 //! cargo run -q -p keel-actions-codegen --bin keel-actions -- \
-//!     --qml apps/radio/RadioActions.qml --app-id org.marathonos.radio \
-//!     --out apps/radio/keel-actions.json
+//!     --qml ../apps/radio/RadioActions.qml --app-id org.marathonos.radio \
+//!     --out ../apps/radio/keel-actions.json
 //! ```
 //!
 //! `--check` compares instead of writing, and fails when the file is stale.

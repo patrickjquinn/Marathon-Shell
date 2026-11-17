@@ -47,6 +47,8 @@ restart() {
 
 if [ "$restore" = 1 ]; then
 	ssh "$device" "[ -f $list ] && (cd $dest && xargs rm -f < .app-push && rm -f .app-push); find $dest -type d -empty -delete 2>/dev/null; true"
+	actions=/usr/share/keel/actions/org.marathonos.$id.json
+	ssh "$device" "[ -f $actions.app-push ] && mv $actions.app-push $actions; true"
 	restart
 	echo "app-push: $id runs its installed build again"
 	exit 0
@@ -58,5 +60,12 @@ files=$(find . -type f \( -name '*.qml' -o -name '*.js' -o -name '*.mjs' -o -nam
 # shellcheck disable=SC2086 # one file per word
 tar --owner=0 --group=0 -cf - $files | ssh "$device" "mkdir -p $dest && tar -xf - -C $dest --no-same-owner --no-overwrite-dir && printf '%s\n' $(echo "$files" | tr '\n' ' ') > $list"
 echo "app-push: $(echo "$files" | wc -l) files to $device:$dest"
+# Its Keel actions (Pilot's way in), as the package installs them; the
+# runner offers them only when they are there as it starts.
+if [ -f keel-actions.json ]; then
+	actions=/usr/share/keel/actions/org.marathonos.$id.json
+	activation=/usr/share/dbus-1/services/org.marathonos.$id.service
+	ssh "$device" "[ -f $actions ] && [ ! -f $actions.app-push ] && cp $actions $actions.app-push; cat > $actions; [ -f $activation ] || printf '[D-BUS Service]\nName=org.marathonos.$id\nExec=/usr/libexec/marathon-activate $id\nSystemdService=marathon-activate@$id.service\n' > $activation" < keel-actions.json
+fi
 restart
 echo "app-push: $id started"

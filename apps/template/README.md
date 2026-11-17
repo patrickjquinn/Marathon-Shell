@@ -6,12 +6,15 @@ a pulley menu, a list with a context menu, persisted state, a cover and tests. I
 
 ## Start a new app
 
-1. `cp -r apps/template apps/myapp`
-2. `manifest.json`: set `id`, `name`, `description`, `permissions`; add `assets/icon.svg`.
-3. Rename `TemplateApp.qml` (and the `entryPoint`), set `appId`, and change the
-   `/apps/template/...` configuration keys.
-4. `CMakeLists.txt`: set `APP_NAME` and the `MarathonApp.<Name>` URI.
-5. Add `add_subdirectory(myapp)` to `apps/CMakeLists.txt`.
+```sh
+scripts/new-app myapp "My App"
+```
+
+copies this directory to `apps/myapp`, renames the files, ids and settings keys, and adds it
+to `apps/CMakeLists.txt`. Then fill in `manifest.json` (description, permissions), add an
+icon, and try it on a development phone with `scripts/app-push myapp`.
+
+docs/APP_DEVELOPMENT.md is the full guide.
 
 ## Layout
 

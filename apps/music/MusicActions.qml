@@ -2,10 +2,11 @@ import QtQuick
 import Keel.Actions 1.0
 import "Library.js" as Library
 
-// keel-actions.json is actions.json from Shipwright's
-//   keel actions --qml MusicActions.qml \
-//       --app-id org.marathonos.music --exec /usr/bin/marathon-app-runner --out <dir>
-// regenerate it after changing a declaration.
+// keel-actions.json is generated from these declarations; after changing
+// one, run (in crates/)
+//   cargo run -q -p keel-actions-codegen --bin keel-actions -- \
+//       --qml ../apps/music/MusicActions.qml --app-id org.marathonos.music \
+//       --out ../apps/music/keel-actions.json
 Item {
     id: root
 
