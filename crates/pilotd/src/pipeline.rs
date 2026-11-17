@@ -768,28 +768,65 @@ fn is_empty(v: &Value) -> bool {
 /// A streamed answer up to its follow-up line, which may be half written
 /// ("FOLL").
 fn answer_so_far(text: &str) -> &str {
-    let cut = text.find("FOLLOWUPS").unwrap_or(text.len());
+    let cut = followup_marker(text).map_or(text.len(), |(start, _)| start);
     let text = &text[..cut];
     let last = text.rfind('\n').map_or(0, |i| i + 1);
-    let tail = text[last..].trim();
-    if !tail.is_empty() && "FOLLOWUPS".starts_with(tail) {
+    let tail = text[last..].trim().to_ascii_lowercase();
+    let partial = tail.len() <= 12
+        && tail
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == '-' || c == ' ')
+        && (tail.starts_with("fol") || "fol".starts_with(tail.as_str()));
+    if !tail.is_empty() && partial {
         return text[..last].trim_end();
     }
     text.trim_end()
 }
 
+/// Where the last follow-up label is, and where its text starts: the
+/// model writes it "FOLLOWUPS:", "Follow-ups:", "Follow ups:" and
+/// "FOLUPS:", so a word that is "fol", then l, o and w, then "up" or
+/// "ups", and a colon.
+fn followup_marker(text: &str) -> Option<(usize, usize)> {
+    let lower = text.to_ascii_lowercase();
+    let mut found = None;
+    for (i, _) in lower.match_indices("fol") {
+        if lower[..i]
+            .chars()
+            .next_back()
+            .is_some_and(char::is_alphanumeric)
+        {
+            continue;
+        }
+        let rest = &lower[i..];
+        let Some((colon, _)) = rest.char_indices().take(14).find(|&(_, c)| c == ':') else {
+            continue;
+        };
+        let head = &rest[..colon];
+        if !head
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == '-' || c == ' ')
+        {
+            continue;
+        }
+        let letters: String = head.chars().filter(char::is_ascii_alphabetic).collect();
+        let core = letters
+            .strip_suffix("ups")
+            .or_else(|| letters.strip_suffix("up"));
+        if core.is_some_and(|m| m.starts_with("fol") && m[3..].chars().all(|c| "low".contains(c))) {
+            found = Some((i, i + colon + 1));
+        }
+    }
+    found
+}
+
 /// Splits Qwen's "FOLLOWUPS: a | b | c" last line off an answer; a small
 /// model also writes it "Follow-ups:" or "Follow ups:".
 pub fn split_followups(text: &str) -> (String, Vec<String>) {
-    let lower = text.to_ascii_lowercase();
-    let Some((i, label)) = ["followups:", "follow-ups:", "follow ups:"]
-        .into_iter()
-        .filter_map(|label| Some((lower.rfind(label)?, label)))
-        .max()
-    else {
+    let Some((i, after)) = followup_marker(text) else {
         return (text.trim().to_owned(), Vec::new());
     };
-    let follow = text[i + label.len()..]
+    let follow = text[after..]
         .split(['|', '\n'])
         .map(|f| {
             f.trim()
@@ -3933,6 +3970,28 @@ mod answer_tests {
         assert_eq!(answer_so_far("It is sunny.\nFOLL"), "It is sunny.");
         assert_eq!(answer_so_far("It is sunny.\nFor"), "It is sunny.\nFor");
         assert_eq!(answer_so_far("FOLLOWUPS: a | b"), "");
+        assert_eq!(
+            answer_so_far("It is sunny.\nFOLUPS: Wind? | Rain?"),
+            "It is sunny."
+        );
+        assert_eq!(answer_so_far("It is sunny.\nFOLU"), "It is sunny.");
+    }
+
+    #[test]
+    fn follow_ups_as_the_model_spells_them() {
+        for label in [
+            "FOLLOWUPS:",
+            "Follow-ups:",
+            "Follow ups:",
+            "FOLUPS:",
+            "FOLLOWUP:",
+        ] {
+            let (text, f) = split_followups(&format!("It is sunny.\n{label} Wind? | Rain?"));
+            assert_eq!((text.as_str(), f.len()), ("It is sunny.", 2), "{label}");
+        }
+        for not in ["Folding up: the map.", "Scaffolding up: soon", "fold: up"] {
+            assert!(split_followups(not).1.is_empty(), "{not}");
+        }
     }
 
     struct Nothing;
