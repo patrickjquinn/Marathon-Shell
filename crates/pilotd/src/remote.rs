@@ -98,6 +98,15 @@ impl Remote {
         }
     }
 
+    /// The same client with another per-request timeout.
+    #[must_use]
+    pub fn with_timeout(&self, timeout: Duration) -> Remote {
+        Remote {
+            timeout,
+            ..self.clone()
+        }
+    }
+
     /// Direct mode's shaped request and key for `url`.
     fn direct(
         &self,

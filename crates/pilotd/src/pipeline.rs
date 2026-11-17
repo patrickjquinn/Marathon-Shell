@@ -967,6 +967,9 @@ pub struct Pipeline {
     pub stop: tokio::sync::Notify,
     /// A turn began: reading routes ahead gives way.
     turn_started: tokio::sync::Notify,
+    /// The routes the phone's model has read ([`route_tools`]), by app
+    /// ("" for Pilot's own): a turn on one reads only its own words.
+    read_routes: Mutex<std::collections::HashSet<String>>,
     /// The remembered facts this turn is about, by id, when the router
     /// on the phone ranked them; else all of them go in (the latest 30).
     memory_pick: Mutex<Option<Vec<i64>>>,
@@ -1179,6 +1182,7 @@ impl Pipeline {
             progress: Mutex::new(None),
             stop: tokio::sync::Notify::new(),
             turn_started: tokio::sync::Notify::new(),
+            read_routes: Mutex::new(std::collections::HashSet::new()),
             memory_pick: Mutex::new(None),
         }
     }
@@ -1425,8 +1429,11 @@ impl Pipeline {
                 max_tokens: Some(1),
                 stream: None,
             };
-            if let Err(e) = backends.llm.chat(&req).await {
-                log::debug!("warming the model: {e}");
+            match backends.llm.chat(&req).await {
+                Ok(_) => {
+                    lock(&self.read_routes).insert(String::new());
+                }
+                Err(e) => log::debug!("warming the model: {e}"),
             }
         }
     }
@@ -1450,6 +1457,9 @@ impl Pipeline {
             .then(|| registry.get(crate::web::TOOL).map(|e| e.model_name.clone()))
             .flatten();
         for app in &apps {
+            if lock(&self.read_routes).contains(app) {
+                continue;
+            }
             let mut tools = route_tools(&registry, Some(app));
             if let Some(web) = &web {
                 tools.retain(|t| &t.name != web);
@@ -1475,6 +1485,7 @@ impl Pipeline {
                         return;
                     }
                     log::debug!("{app}'s route read ahead in {} ms", started.elapsed().as_millis());
+                    lock(&self.read_routes).insert(app.clone());
                 }
                 () = self.turn_started.notified() => {
                     log::debug!("reading routes ahead stopped for a turn");
@@ -2911,7 +2922,8 @@ impl Pipeline {
         ));
         let registry = self.registry();
         let may_leave = self.may_leave();
-        let mut tools = Self::select_tools(&registry, scope, backends);
+        let routes_read = lock(&self.read_routes).clone();
+        let mut tools = Self::select_tools(&registry, scope, backends, &routes_read);
         if !may_leave {
             if let Some(web) = registry.get(crate::web::TOOL) {
                 tools.retain(|t| t.name != web.model_name);
@@ -3521,6 +3533,7 @@ impl Pipeline {
         registry: &Registry,
         scope: Option<&[String]>,
         backends: &Backends,
+        read: &std::collections::HashSet<String>,
     ) -> Vec<crate::llm::ToolDef> {
         let local = backends.llm.provider() == "local";
         let Some(domains) = scope else {
@@ -3530,7 +3543,14 @@ impl Pipeline {
         // the same, and Qwen3.5's template puts them first: a subset made
         // "What is the capital of Australia" read 1,050 tokens again, 20 s.
         if local {
-            return route_tools(registry, domains.iter().find(|d| d.contains('.')));
+            let app = domains.iter().find(|d| d.contains('.'));
+            // Not read yet, an app's route is minutes of reading (Pacific's
+            // is 5,900 tokens): the app's own tools, read in seconds, until
+            // warm_routes has read it.
+            if let Some(app) = app.filter(|a| !read.contains(*a)) {
+                return registry.defs(Some(&[app.clone(), "keel".into()]));
+            }
+            return route_tools(registry, app);
         }
         let mut chosen: Vec<String> = domains.to_vec();
         // Plans cross apps: offered whenever an app's tools are.
