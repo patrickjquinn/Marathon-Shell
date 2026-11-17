@@ -264,6 +264,8 @@ Item {
                 stage: Conversation.stage
                 detail: Conversation.stageDetail
                 partial: Conversation.partial
+                read: Conversation.read
+                readLeft: Conversation.readLeft
             }
 
             // While the microphone is open: the orb, and what is happening.

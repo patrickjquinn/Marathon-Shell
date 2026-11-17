@@ -129,8 +129,14 @@ const PHONE_MAX_TOKENS: u32 = 400;
 /// The longest a prompt read ahead (`purpose` "warm") may take.
 const READ_AHEAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 
+/// Where a streamed reply goes: its text so far, and how much of the
+/// prompt the model has read (the share, and the milliseconds left at the
+/// rate so far) before it writes.
 #[derive(Clone)]
-pub struct TextSink(pub std::sync::Arc<dyn Fn(&str) + Send + Sync>);
+pub struct TextSink(
+    pub std::sync::Arc<dyn Fn(&str) + Send + Sync>,
+    pub std::sync::Arc<dyn Fn(f64, u64) + Send + Sync>,
+);
 
 impl std::fmt::Debug for TextSink {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -203,6 +209,8 @@ struct StreamedReply {
     content: String,
     calls: Vec<(String, String, String)>,
     finish: Option<String>,
+    /// The last prompt progress not yet passed on: share read, ms left.
+    read: Option<(f64, u64)>,
 }
 
 impl StreamedReply {
@@ -211,6 +219,33 @@ impl StreamedReply {
         let Ok(v) = serde_json::from_str::<Value>(data) else {
             return false;
         };
+        // llama-server's `return_progress`: tokens to read past the cache,
+        // and how many of them it has read in how long.
+        let p = &v["prompt_progress"];
+        if let (Some(total), Some(cache), Some(done), Some(ms)) = (
+            p["total"].as_u64(),
+            p["cache"].as_u64(),
+            p["processed"].as_u64(),
+            p["time_ms"].as_f64(),
+        ) {
+            let new = total.saturating_sub(cache);
+            let read = done.saturating_sub(cache).min(new);
+            #[allow(
+                clippy::cast_precision_loss,
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "token counts and milliseconds, far below 2^52"
+            )]
+            let progress = if new == 0 || read == 0 {
+                (if new == 0 { 1.0 } else { 0.0 }, 0)
+            } else {
+                (
+                    read as f64 / new as f64,
+                    (ms * (new - read) as f64 / read as f64) as u64,
+                )
+            };
+            self.read = Some(progress);
+        }
         let choice = &v["choices"][0];
         if let Some(f) = choice["finish_reason"].as_str() {
             self.finish = Some(f.to_owned());
@@ -433,12 +468,16 @@ impl LlmClient for OpenAiClient {
         let reply = match req.stream.as_ref().filter(|_| self.provider == "local") {
             Some(sink) => {
                 body["stream"] = json!(true);
+                body["return_progress"] = json!(true);
                 let mut acc = StreamedReply::default();
                 let (headers, whole) = self
                     .remote
                     .post_stream(&self.provider, &req.purpose, &self.url, &body, |data| {
                         if acc.add(data) {
                             (sink.0)(&acc.content);
+                        }
+                        if let Some((share, left)) = acc.read.take() {
+                            (sink.1)(share, left);
                         }
                     })
                     .await?;
@@ -503,6 +542,12 @@ mod tests {
         r.add(r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"onds\": 60}"}}]}}]}"#);
         r.add(r#"{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}"#);
         assert!(!r.add("not json"));
+        // 1,000 tokens past a 200-token cache, 250 read in 2.5 s: a quarter,
+        // 7.5 s left.
+        assert!(!r.add(
+            r#"{"choices":[],"prompt_progress":{"total":1200,"cache":200,"processed":450,"time_ms":2500}}"#
+        ));
+        assert_eq!(r.read.take(), Some((0.25, 7500)));
         assert_eq!(r.content, "It is sunny.");
         let (content, calls, finish) = parse_choice("local", &r.into_reply()).unwrap();
         assert_eq!(content.as_deref(), Some("It is sunny."));

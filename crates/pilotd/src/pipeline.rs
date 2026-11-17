@@ -1346,13 +1346,26 @@ impl Pipeline {
     fn answer_stream(&self, turn: &str, map: &PlaceholderMap) -> Option<TextSink> {
         let tx = lock(&self.progress).clone()?;
         let (turn, map) = (turn.to_owned(), map.clone());
-        Some(TextSink(Arc::new(move |text: &str| {
-            let shown = map.restore(answer_so_far(text));
-            if !shown.is_empty() {
-                tx.send(json!({"turn": turn, "stage": "partial", "detail": shown}).to_string())
+        let (read_tx, read_turn) = (tx.clone(), turn.clone());
+        Some(TextSink(
+            Arc::new(move |text: &str| {
+                let shown = map.restore(answer_so_far(text));
+                if !shown.is_empty() {
+                    tx.send(json!({"turn": turn, "stage": "partial", "detail": shown}).to_string())
+                        .ok();
+                }
+            }),
+            // "share ms-left": the app fills a line to it, then on at the
+            // rate so far.
+            Arc::new(move |share: f64, left: u64| {
+                read_tx
+                    .send(
+                        json!({"turn": read_turn, "stage": "read", "detail": format!("{share:.3} {left}")})
+                            .to_string(),
+                    )
                     .ok();
-            }
-        })))
+            }),
+        ))
     }
 
     pub fn set_progress(&self, tx: tokio::sync::mpsc::UnboundedSender<String>) {
@@ -3427,8 +3440,16 @@ impl Pipeline {
                         .spec
                         .name
                         .split_once('/')
-                        .and_then(|(app, _)| crate::onscreen::app_name(app))
-                        .unwrap_or_else(|| "Pilot".into());
+                        .and_then(|(app, _)| crate::onscreen::app_name(app));
+                    self.stage(
+                        turn,
+                        "acting",
+                        &app.as_ref().map_or_else(
+                            || entry.spec.title.clone(),
+                            |a| format!("{a} \u{b7} {}", entry.spec.title),
+                        ),
+                    );
+                    let app = app.unwrap_or_else(|| "Pilot".into());
                     steps.push(how("app", format!("{app} \u{b7} {}", entry.spec.title)));
                 }
                 if !used_domains.contains(&entry.spec.domain) {

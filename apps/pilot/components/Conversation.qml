@@ -23,6 +23,11 @@ QtObject {
     property string stageDetail: ""
     // The answer so far, while the model on the phone writes it.
     property string partial: ""
+    // How much of the request the model on the phone has read before it
+    // writes (0 to 1; -1 when it is not reading), and the milliseconds
+    // left at its rate so far.
+    property real read: -1
+    property real readLeft: 0
     // A spoken turn: listening (the microphone is open), then the words
     // being recognised; `level` is the voice, 0 to 1.
     property bool listening: false
@@ -144,6 +149,7 @@ QtObject {
         }
         stage = "thinking";
         stageDetail = "";
+        read = -1;
         grew();
         Pilot.refreshNow();
     }
@@ -263,6 +269,13 @@ QtObject {
             }
             conversation.listening = false;
             conversation.transcribing = false;
+            if (p.stage === "read") {
+                var r = (p.detail || "").split(" ");
+                conversation.readLeft = parseFloat(r[1]) || 0;
+                conversation.read = parseFloat(r[0]) || 0;
+                return;
+            }
+            conversation.read = -1;
             if (p.stage === "partial") {
                 conversation.stage = "writing";
                 conversation.partial = p.detail || "";

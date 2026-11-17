@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // What Pilot is doing while it works: thinking, searching the web for
-// what, reading which sites, writing. Three dots breathe beside it, so a
-// three-second web answer reads as work in progress rather than a stall.
+// what, reading which sites, using which app, writing. Three dots breathe
+// beside it, so a three-second web answer reads as work in progress rather
+// than a stall. While the model on the phone reads the request, a line
+// under it fills as far as it has read, and on at its rate.
 // Once the model on the phone starts writing, the answer itself shows here
 // as it comes (`partial`), and its finished card takes its place.
 
@@ -16,6 +18,8 @@ Item {
     property string stage: "thinking"
     property string detail: ""
     property string partial: ""
+    property real read: -1
+    property real readLeft: 0
     property bool running: true
     // Only while it can be seen: shown, in the active window (see Orb.qml:
     // a running animation anywhere keeps the app drawing at the display's
@@ -25,6 +29,28 @@ Item {
     width: parent ? parent.width : 0
     height: (partial.length > 0 ? answer.height + Theme.paddingSmall : 0) + row.height + 2 * Theme.paddingMedium
 
+    // The line's fill: the share read, then on towards the end over the
+    // time left, until the next report sets it right.
+    property real _shown: 0
+    onReadChanged: {
+        fill.stop();
+        if (read < 0) {
+            _shown = 0;
+            return;
+        }
+        _shown = Math.max(_shown, read);
+        if (!_animate || read >= 1)
+            return;
+        fill.to = read + (1 - read) * 0.9;
+        fill.duration = Math.max(1, readLeft * 0.9);
+        fill.start();
+    }
+    NumberAnimation {
+        id: fill
+        target: line
+        property: "_shown"
+    }
+
     function words() {
         switch (stage) {
         case "searching":
@@ -33,6 +59,8 @@ Item {
             return detail.length > 0 ? qsTr("Reading %1").arg(detail) : qsTr("Reading");
         case "writing":
             return qsTr("Writing the answer");
+        case "acting":
+            return detail.length > 0 ? detail : qsTr("Working on it");
         default:
             return qsTr("Thinking");
         }
@@ -106,6 +134,23 @@ Item {
             truncationMode: TruncationMode.Fade
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryColor
+        }
+    }
+
+    Rectangle {
+        objectName: "stageRead"
+        x: row.x
+        y: row.y + row.height + Theme.paddingSmall
+        width: row.width
+        height: Math.max(2, Theme.paddingSmall / 2)
+        radius: height / 2
+        visible: line.read >= 0 && line.partial.length === 0
+        color: Theme.rgba(Theme.highlightColor, 0.2)
+        Rectangle {
+            width: parent.width * Math.min(1, line._shown)
+            height: parent.height
+            radius: parent.radius
+            color: Theme.highlightColor
         }
     }
 }
