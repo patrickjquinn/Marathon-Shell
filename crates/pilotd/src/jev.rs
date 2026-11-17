@@ -455,21 +455,38 @@ fn lexical(utterance: &str, options: &[String], descriptions: &[String]) -> Vec<
         .collect();
     #[allow(clippy::cast_precision_loss, reason = "a handful of options")]
     let n = texts.len().max(1) as f64;
+    // How rare each asked word is among the options (one no option has
+    // counts as rarest).
+    let weight = |w: &String| {
+        #[allow(clippy::cast_precision_loss, reason = "a handful of options")]
+        let with = texts.iter().filter(|x| x.contains(w)).count().max(1) as f64;
+        (n / with).ln() + 1.0
+    };
+    let all: f64 = asked.iter().map(weight).sum();
+    // The share of the request an option's words cover, at most
+    // LEXICAL_MOST: a tie-breaker. Summed as it was, one rare shared word
+    // outweighed meaning: an app's 24 action lines share stray words with
+    // anything ("How do rainbows form" went to Pacific's forms at 0.92).
     texts
         .iter()
         .map(|t| {
+            if all <= 0.0 {
+                return 0.0;
+            }
             asked
                 .iter()
                 .filter(|w| t.contains(w))
-                .map(|w| {
-                    #[allow(clippy::cast_precision_loss, reason = "a handful of options")]
-                    let with = texts.iter().filter(|x| x.contains(w)).count() as f64;
-                    (n / with).ln() + 1.0
-                })
-                .sum()
+                .map(weight)
+                .sum::<f64>()
+                / all
+                * LEXICAL_MOST
         })
         .collect()
 }
+
+/// The most the words a request shares with an option add to its score
+/// (meaning scores are cosine / 0.02).
+const LEXICAL_MOST: f64 = 2.0;
 
 /// Options most likely first, from scores (softmax).
 fn distribution(options: &[String], scores: &[f64]) -> Answer {
@@ -769,6 +786,20 @@ impl JevClient for ScoreJev {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic, reason = "tests")]
 mod tests {
+
+    #[test]
+    fn one_stray_shared_word_is_a_tie_breaker() {
+        let options = ["general".to_owned(), "pacific".to_owned()];
+        let descriptions = [
+            "A question answered from knowledge.\nAn explanation: why or how something happens."
+                .to_owned(),
+            "Send a form on a page.\nFill in a field on a page.".to_owned(),
+        ];
+        let w = lexical("How do rainbows form", &options, &descriptions);
+        assert!(w[1] <= LEXICAL_MOST / 2.0, "{w:?}");
+        assert!(w.iter().all(|x| *x <= LEXICAL_MOST), "{w:?}");
+    }
+
     use super::*;
 
     fn req() -> DecideRequest {
