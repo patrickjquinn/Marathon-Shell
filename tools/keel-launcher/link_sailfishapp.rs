@@ -16,8 +16,8 @@
 //    ~/.cache/keel-dev/keel-build (with an rpath), then
 //    `pkg-config keel-sailfishapp` (shipwright-keel-sailfishapp-devel);
 // 4. otherwise the library is compiled from this repository's
-//    keel/sailfishapp/src (sailfishapp.cpp, keellauncher.cpp) and
-//    keel/qt5compat/src/qt5source.cpp into the build-script output
+//    keel-silica/sailfishapp/src (sailfishapp.cpp, keellauncher.cpp) and
+//    keel-silica/qt5compat/src/qt5source.cpp into the build-script output
 //    directory, with the compiler cc would use for the target (the Sailfish
 //    SDK cross compiler under tools/build/sdk/cxxqt-sailfish.sh) and the Qt
 //    that qmake reports. Host builds get an rpath to it. In a cross build it
@@ -74,11 +74,11 @@ fn sailfishapp_qmake_query(key: &str) -> String {
 /// Compiles libkeel-sailfishapp.so.1 from the repository's source into
 /// `$OUT_DIR/keel-sailfishapp`; returns (include dir, library dir).
 fn sailfishapp_from_source(repo: &Path, cross: bool) -> (PathBuf, PathBuf) {
-    let src = repo.join("keel/sailfishapp");
+    let src = repo.join("keel-silica/sailfishapp");
     let include = src.join("include");
-    // The Qt 5 source rewrite (keel/qt5compat/src) is part of the library,
-    // as keel/sailfishapp/CMakeLists.txt links it in.
-    let qt5source = repo.join("keel/qt5compat/src");
+    // The Qt 5 source rewrite (keel-silica/qt5compat/src) is part of the library,
+    // as keel-silica/sailfishapp/CMakeLists.txt links it in.
+    let qt5source = repo.join("keel-silica/qt5compat/src");
     let sources = [
         src.join("src/sailfishapp.cpp"),
         src.join("src/keellauncher.cpp"),
