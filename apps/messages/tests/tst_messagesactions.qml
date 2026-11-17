@@ -147,9 +147,9 @@ TestCase {
         });
         verify(call.succeeded, call.errorMessage);
         compare(app.routed, [["compose", JSON.stringify({
-                        number: "+15551234567",
-                        body: "On my way"
-                    })]]);
+                    number: "+15551234567",
+                    body: "On my way"
+                })]]);
         compare(Sms.sent, []);
         compare(KeelActions.invoke("messages.compose", {
             to: "Alice"
