@@ -13,6 +13,13 @@ TestCase {
         property var conversations: Sms.conversations
         property var pinnedIds: []
         property var archivedIds: []
+        // messages.compose's routes: [name, params JSON].
+        property var routed: []
+        function activate() {
+        }
+        function openRoute(name, paramsJson) {
+            routed = routed.concat([[name, paramsJson]]);
+        }
         function conversationFor(number, name) {
             return conversations.find(c => Logic.sameNumber(c.contactNumber, number)) || {
                 id: Sms.generateConversationId(number)
@@ -66,6 +73,7 @@ TestCase {
                 }
             ]
         });
+        app.routed = [];
         app.pinnedIds = ["b"];
         app.archivedIds = ["c"];
         Telephony.hasModem = true;
@@ -130,6 +138,22 @@ TestCase {
             number: "+3531234567"
         });
         compare(call.result.result, []);
+    }
+
+    function test_composeOpensADraft() {
+        const call = KeelActions.invoke("messages.compose", {
+            to: "+1 555 123-4567",
+            text: "On my way"
+        });
+        verify(call.succeeded, call.errorMessage);
+        compare(app.routed, [["compose", JSON.stringify({
+                        number: "+15551234567",
+                        body: "On my way"
+                    })]]);
+        compare(Sms.sent, []);
+        compare(KeelActions.invoke("messages.compose", {
+            to: "Alice"
+        }).errorCode, "InvalidArguments");
     }
 
     function test_sendAnswersWhenSent() {

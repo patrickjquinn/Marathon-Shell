@@ -162,6 +162,40 @@ Item {
     }
 
     KeelAction {
+        name: "messages.compose"
+        title: qsTr("Write text message")
+        description: "Open a text message (SMS) to a phone number in Marathon Messages with the text written in, for the person to check and send."
+        notDestructiveBecause: "it only opens a draft; nothing leaves the phone until the person sends it"
+        parameters: [
+            KeelParam {
+                name: "to"
+                type: "string"
+                required: true
+                maxLength: 64
+                description: "Phone number to write to"
+            },
+            KeelParam {
+                name: "text"
+                type: "string"
+                maxLength: 2000
+                description: "The message"
+            }
+        ]
+        onInvoked: (args, call) => {
+            if (!Logic.isPhoneNumber(args.to)) {
+                call.fail("InvalidArguments", "Not a phone number");
+                return;
+            }
+            root.app.activate();
+            root.app.openRoute("compose", JSON.stringify({
+                number: Logic.normaliseNumber(args.to),
+                body: args.text || ""
+            }));
+            call.reply();
+        }
+    }
+
+    KeelAction {
         name: "messages.send"
         title: qsTr("Send text message")
         description: "Send a text message (SMS) from Marathon Messages to a phone number. Answers once the network has taken the message, with when it was sent."
