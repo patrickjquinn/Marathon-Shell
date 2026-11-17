@@ -53,6 +53,14 @@ fn switch(on: bool) -> io::Result<()> {
     Ok(())
 }
 
+/// Whether wired headphones are in: the FM tuner's aerial.
+pub fn headset() -> bool {
+    Command::new("amixer")
+        .args(["-c", "0", "cget", "iface=CARD,name=Headphones Jack"])
+        .output()
+        .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains(": values=on"))
+}
+
 fn stop(child: &mut Child) {
     child.kill().ok();
     child.wait().ok();
@@ -73,25 +81,7 @@ impl Route {
             stop(&mut capture);
             return Err(io::Error::other("arecord gave no output"));
         };
-        let play = Command::new("pw-cat")
-            .args([
-                "--playback",
-                "--raw",
-                "--format",
-                "s16",
-                "--rate",
-                "48000",
-                "--channels",
-                "2",
-                "--media-role",
-                "Music",
-                "-P",
-                r#"{ "application.name": "Radio", "application.icon-name": "radio", "node.name": "radio", "node.description": "Radio", "media.name": "FM radio" }"#,
-                "-",
-            ])
-            .stdin(audio)
-            .stdout(Stdio::null())
-            .spawn();
+        let play = crate::stream::player(Stdio::from(audio));
         match play {
             Ok(play) => Ok(Self { capture, play }),
             Err(e) => {

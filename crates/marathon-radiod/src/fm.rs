@@ -33,6 +33,46 @@ pub const HIGHEST: u16 = 10800;
 
 pub struct Fm(File);
 
+/// What the station sends over RDS: its identity code, its name (eight
+/// characters, as on a car radio) and its text ("Now playing ...").
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Rds {
+    pub pi: u16,
+    pub ps: String,
+    pub rt: String,
+}
+
+/// `struct rds_t` (`fm_rds.h`) on arm64: 688 bytes; the PI code at 24, the
+/// four PS buffers at 248 (the fourth is the settled name), the four
+/// radio text buffers at 290 with the text's length 258 bytes after.
+const RDS_LEN: usize = 688;
+const RDS_PI: usize = 24;
+const RDS_PS: usize = 248 + 3 * 8;
+const RDS_RT: usize = 290 + 3 * 64;
+const RDS_RT_LEN: usize = 290 + 258;
+
+fn text(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes)
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The station data in a `struct rds_t`, or None when it has none yet.
+pub fn parse_rds(b: &[u8]) -> Option<Rds> {
+    if b.len() < RDS_LEN {
+        return None;
+    }
+    let pi = u16::from_le_bytes([b[RDS_PI], b[RDS_PI + 1]]);
+    let ps = text(&b[RDS_PS..RDS_PS + 8]);
+    let rt_len = usize::from(b[RDS_RT_LEN]).min(64);
+    let rt = text(&b[RDS_RT..RDS_RT + rt_len]);
+    (pi != 0 || !ps.is_empty()).then_some(Rds { pi, ps, rt })
+}
+
 impl Fm {
     pub fn open() -> io::Result<Self> {
         OpenOptions::new()
@@ -116,6 +156,14 @@ impl Fm {
         self.tune(next)
     }
 
+    /// The RDS data received since the last call; None when nothing new.
+    pub fn rds(&self) -> Option<Rds> {
+        use std::io::Read;
+        let mut b = [0u8; RDS_LEN];
+        let n = (&self.0).read(&mut b).ok()?;
+        parse_rds(&b[..n])
+    }
+
     pub fn rssi(&self) -> io::Result<i32> {
         let mut r = [0u8; 4];
         self.ioctl(GETRSSI, &mut r)?;
@@ -158,6 +206,22 @@ mod tests {
         assert_eq!(around(8750, false).next(), Some(10800));
         assert_eq!(around(9800, true).next(), Some(9810));
         assert_eq!(around(9800, true).count(), 205);
+    }
+
+    #[test]
+    fn rds_gives_the_settled_name_and_the_text() {
+        let mut b = [0u8; RDS_LEN];
+        b[RDS_PI..RDS_PI + 2].copy_from_slice(&0x2434u16.to_le_bytes());
+        b[RDS_PS..RDS_PS + 8].copy_from_slice(b"  NOVA  ");
+        let rt = b"Radio Nova, Three Rock";
+        b[RDS_RT..RDS_RT + rt.len()].copy_from_slice(rt);
+        b[RDS_RT_LEN] = u8::try_from(rt.len()).unwrap_or(0);
+        let r = parse_rds(&b).unwrap_or_default();
+        assert_eq!(
+            (r.pi, r.ps.as_str(), r.rt.as_str()),
+            (0x2434, "NOVA", "Radio Nova, Three Rock")
+        );
+        assert_eq!(parse_rds(&b[..10]), None);
     }
 
     #[test]
