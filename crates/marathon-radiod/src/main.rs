@@ -521,6 +521,8 @@ impl Radio {
 struct Core {
     radio: Shared<Radio>,
     bus: Connection,
+    /// Wakes the RDS reader when FM starts; it sleeps otherwise.
+    fm_started: async_channel::Sender<()>,
 }
 
 impl Core {
@@ -535,7 +537,13 @@ impl Core {
     }
 
     async fn changed(&self) {
-        let (state, sounding) = self.radio.with(|r| (r.state(), r.status.sounding())).await;
+        let (state, sounding, on_fm) = self
+            .radio
+            .with(|r| (r.state(), r.status.sounding(), r.tuner().is_some()))
+            .await;
+        if on_fm {
+            self.fm_started.try_send(()).ok();
+        }
         if let Ok(emitter) = SignalEmitter::new(&self.bus, PATH) {
             Service::state_changed(&emitter, state).await.ok();
         }
@@ -831,8 +839,13 @@ async fn stream_events(core: Core, events: async_channel::Receiver<(u64, Event)>
 
 /// FM's RDS while it plays: the station's name for the band, its text as
 /// what is playing.
-async fn rds(core: Core) {
+async fn rds(core: Core, fm_started: async_channel::Receiver<()>) {
     loop {
+        // Asleep until FM plays; then a read a second while it does.
+        let on_fm = core.radio.with(|r| r.tuner().is_some()).await;
+        if !on_fm && fm_started.recv().await.is_err() {
+            return;
+        }
         Timer::after(Duration::from_secs(1)).await;
         let changed = core
             .radio
@@ -1018,9 +1031,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         events: tx,
     };
     let bus = io::session_bus().await?;
+    let (fm_started, fm_wakes) = async_channel::bounded(1);
     let core = Core {
         radio: Shared::new(radio),
         bus: bus.clone(),
+        fm_started,
     };
     bus.object_server().at(PATH, Service(core.clone())).await?;
     bus.object_server().at(MPRIS_PATH, Root).await?;
@@ -1029,7 +1044,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     bus.request_name(BUS_NAME).await?;
     io::spawn(stream_events(core.clone(), rx));
-    io::spawn(rds(core.clone()));
+    io::spawn(rds(core.clone(), fm_wakes));
     io::spawn(load_catalogue(core.clone()));
     io::spawn(stop_on_calls(core));
     future::pending().await

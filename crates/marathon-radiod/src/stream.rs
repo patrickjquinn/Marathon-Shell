@@ -123,7 +123,9 @@ fn from_playlist(text: &str) -> Option<String> {
 fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
         .timeout_connect(Some(Duration::from_secs(10)))
-        .timeout_recv_body(Some(Duration::from_secs(20)))
+        // Only until the answer starts: a live stream's body never ends,
+        // and ureq's body timeout is for all of it.
+        .timeout_recv_response(Some(Duration::from_secs(15)))
         .user_agent("MarathonRadio/1.0")
         .build()
         .new_agent()
@@ -149,7 +151,14 @@ impl Stream {
             let mut last = String::new();
             while !s.load(Ordering::SeqCst) && tried < TRIES {
                 tried += 1;
-                match play_once(&url, hls, &s, &c, &events) {
+                let began = std::time::Instant::now();
+                let played = play_once(&url, hls, &s, &c, &events);
+                // A connection that played a while and dropped is a station
+                // to go back to, not a failed attempt.
+                if began.elapsed() > Duration::from_secs(30) {
+                    tried = 1;
+                }
+                match played {
                     Ok(Some(next)) => {
                         url = next;
                         tried -= 1;
