@@ -524,7 +524,7 @@ fn needs_web(utterance: &str) -> bool {
 #[async_trait]
 impl JevClient for LocalJev {
     async fn decide(&self, req: &DecideRequest, purpose: &str) -> Result<Answers, RemoteError> {
-        if purpose != "decide" && purpose != "decide-action" {
+        if purpose != "decide" {
             return Err(RemoteError::Offline);
         }
         let utterance = req

@@ -400,6 +400,7 @@ impl PilotService {
                 models.set_loading(true);
                 pipeline.warm().await;
                 models.set_loading(false);
+                pipeline.warm_routes().await;
             });
         }
         let adapters = Arc::clone(&self.adapters);
