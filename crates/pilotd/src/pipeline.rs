@@ -779,27 +779,6 @@ const MODEL_KEPT: Duration = Duration::from_mins(50);
 /// tools goes back to the model once.
 const INSIST_FROM: f64 = 0.4;
 
-/// Routes are read ahead only this long after the last turn began.
-const ROUTES_IDLE: Duration = Duration::from_secs(60);
-
-/// A turn in progress, for [`Pipeline::idle`]; it ends when dropped.
-struct TurnInFlight<'a>(&'a Pipeline);
-
-impl<'a> TurnInFlight<'a> {
-    fn begin(pipeline: &'a Pipeline) -> Self {
-        pipeline.turns_in_flight.fetch_add(1, Ordering::SeqCst);
-        *lock(&pipeline.last_turn) = Some(Instant::now());
-        pipeline.turn_started.notify_waiters();
-        TurnInFlight(pipeline)
-    }
-}
-
-impl Drop for TurnInFlight<'_> {
-    fn drop(&mut self) {
-        self.0.turns_in_flight.fetch_sub(1, Ordering::SeqCst);
-    }
-}
-
 /// This many remembered facts or fewer all go in; more are ranked.
 const MEMORY_ALL: usize = 8;
 /// The best-ranked facts a turn gets, besides the latest.
@@ -820,17 +799,6 @@ fn memory_pick(answers: &crate::jev::Answers, facts: &[crate::store::Memory]) ->
     };
     ids.extend(facts.iter().rev().take(MEMORY_LATEST).map(|m| m.id));
     ids
-}
-
-/// A route on the phone: Pilot's own tools, then every tool of the app
-/// stage one put first, if any. Always the same list for the same app, so
-/// its prompt can be read ahead ([`Pipeline::warm_routes`]) and reused.
-fn route_tools(registry: &Registry, app: Option<&String>) -> Vec<crate::llm::ToolDef> {
-    let mut tools = unscoped_tools(registry, true);
-    if let Some(app) = app {
-        tools.extend(registry.defs(Some(std::slice::from_ref(app))));
-    }
-    tools
 }
 
 /// A description's first sentence.
@@ -1019,20 +987,11 @@ pub struct Pipeline {
     progress: Mutex<Option<tokio::sync::mpsc::UnboundedSender<String>>>,
     /// The person stopped the turn in flight (Stop).
     pub stop: tokio::sync::Notify,
-    /// A turn began: reading routes ahead gives way.
-    turn_started: tokio::sync::Notify,
-    /// Turns in progress, and when the last began: routes are read ahead
-    /// only while Pilot is idle.
-    turns_in_flight: std::sync::atomic::AtomicUsize,
-    last_turn: Mutex<Option<Instant>>,
-    /// [`Pipeline::warm_routes`] is running (each opening of Pilot starts it).
-    reading_routes: AtomicBool,
     /// When the phone's model last answered: within [`MODEL_KEPT`] it is
     /// still loaded with what it read.
     last_model_use: Mutex<Option<Instant>>,
-    /// The routes the phone's model has read ([`route_tools`]), by app
-    /// ("" for Pilot's own): a turn on one reads only its own words.
-    read_routes: Mutex<std::collections::HashSet<String>>,
+    /// The phone's model has read the warm-up's prompt (Pilot's own tools).
+    warm_read: AtomicBool,
     /// The remembered facts this turn is about, by id, when the router
     /// on the phone ranked them; else all of them go in (the latest 30).
     memory_pick: Mutex<Option<Vec<i64>>>,
@@ -1244,12 +1203,8 @@ impl Pipeline {
             spoken: AtomicBool::new(false),
             progress: Mutex::new(None),
             stop: tokio::sync::Notify::new(),
-            turn_started: tokio::sync::Notify::new(),
-            turns_in_flight: std::sync::atomic::AtomicUsize::new(0),
-            last_turn: Mutex::new(None),
-            reading_routes: AtomicBool::new(false),
             last_model_use: Mutex::new(None),
-            read_routes: Mutex::new(std::collections::HashSet::new()),
+            warm_read: AtomicBool::new(false),
             memory_pick: Mutex::new(None),
         }
     }
@@ -1479,7 +1434,7 @@ impl Pipeline {
         // Read already and the model still loaded: nothing to do. Asked
         // again after a turn it read 516 tokens again (16.5 s), in front of
         // the next question.
-        let still_read = lock(&self.read_routes).contains("")
+        let still_read = self.warm_read.load(Ordering::SeqCst)
             && lock(&self.last_model_use).is_some_and(|t| t.elapsed() < MODEL_KEPT);
         if backends.llm.provider() == "local" && !still_read {
             let mut tools = unscoped_tools(&registry, true);
@@ -1503,98 +1458,11 @@ impl Pipeline {
             };
             match backends.llm.chat(&req).await {
                 Ok(_) => {
-                    lock(&self.read_routes).insert(String::new());
+                    self.warm_read.store(true, Ordering::SeqCst);
                     *lock(&self.last_model_use) = Some(Instant::now());
                 }
                 Err(e) => log::debug!("warming the model: {e}"),
             }
-        }
-    }
-
-    /// Reads each app's route ([`route_tools`]) ahead on the phone, one at
-    /// a time, so a turn routed to an app finds its prompt read: the server
-    /// keeps what it read (its prompt cache) and a turn then reads only its
-    /// own words. Only while Pilot is idle ([`ROUTES_IDLE`] after the last
-    /// turn): opening Pilot is when a question comes, and a route read then
-    /// (3,689 tokens, 78 s on the phone) kept the question waiting. A turn
-    /// that begins drops the request in flight, which stops the server
-    /// reading it; that route is read later.
-    pub async fn warm_routes(&self) {
-        let backends = self.backends();
-        if backends.llm.provider() != "local" || self.reading_routes.swap(true, Ordering::SeqCst) {
-            return;
-        }
-        self.read_routes_ahead(&backends).await;
-        self.reading_routes.store(false, Ordering::SeqCst);
-    }
-
-    async fn read_routes_ahead(&self, backends: &Backends) {
-        let registry = self.registry();
-        let mut apps: std::collections::VecDeque<String> = domain_options(&registry)
-            .into_iter()
-            .filter(|d| d.contains('.'))
-            .collect();
-        let web = (!self.may_leave())
-            .then(|| registry.get(crate::web::TOOL).map(|e| e.model_name.clone()))
-            .flatten();
-        while let Some(app) = apps.pop_front() {
-            if lock(&self.read_routes).contains(&app) {
-                continue;
-            }
-            self.until_idle().await;
-            let mut tools = route_tools(&registry, Some(&app));
-            if let Some(web) = &web {
-                tools.retain(|t| &t.name != web);
-            }
-            let req = ChatRequest {
-                messages: vec![
-                    Message::text(Role::System, self.system_prompt()),
-                    Message::text(Role::User, "."),
-                ],
-                tools,
-                json_mode: false,
-                effort: Effort::Off,
-                purpose: "warm".into(),
-                require: false,
-                max_tokens: Some(1),
-                stream: None,
-            };
-            // Listening before the last idle check, so a turn that begins
-            // between them still interrupts.
-            let interrupted = self.turn_started.notified();
-            tokio::pin!(interrupted);
-            interrupted.as_mut().enable();
-            if !self.idle() {
-                apps.push_front(app);
-                continue;
-            }
-            let started = Instant::now();
-            tokio::select! {
-                r = backends.llm.chat(&req) => {
-                    if let Err(e) = r {
-                        log::debug!("reading {app}'s route ahead: {e}");
-                        return;
-                    }
-                    log::debug!("{app}'s route read ahead in {} ms", started.elapsed().as_millis());
-                    lock(&self.read_routes).insert(app);
-                }
-                () = &mut interrupted => {
-                    log::debug!("reading {app}'s route ahead stopped for a turn");
-                    apps.push_front(app);
-                }
-            }
-        }
-    }
-
-    /// No turn in progress, and none begun for [`ROUTES_IDLE`].
-    fn idle(&self) -> bool {
-        self.turns_in_flight.load(Ordering::SeqCst) == 0
-            && lock(&self.last_turn).is_none_or(|t| t.elapsed() >= ROUTES_IDLE)
-    }
-
-    async fn until_idle(&self) {
-        while !self.idle() {
-            tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
 
@@ -1785,7 +1653,6 @@ impl Pipeline {
 
     /// Handles one typed or transcribed utterance.
     pub async fn ask(&self, text: &str, spoken: bool) -> TurnResult {
-        let _turn = TurnInFlight::begin(self);
         let turn = self.new_turn_id();
         let text = text.trim();
         let started = Instant::now();
@@ -3029,8 +2896,7 @@ impl Pipeline {
         ));
         let registry = self.registry();
         let may_leave = self.may_leave();
-        let routes_read = lock(&self.read_routes).clone();
-        let mut tools = Self::select_tools(&registry, scope, backends, &routes_read);
+        let mut tools = Self::select_tools(&registry, scope, backends);
         if !may_leave {
             if let Some(web) = registry.get(crate::web::TOOL) {
                 tools.retain(|t| t.name != web.model_name);
@@ -3653,13 +3519,12 @@ impl Pipeline {
     }
 
     /// The tools offered to the model: all of them without a domain
-    /// answer; else the chosen domains' (spec section 9.5). On the phone, a
-    /// route ([`route_tools`]): the same list for the same app every time.
+    /// answer; else the chosen domains' (spec section 9.5). On the phone, the
+    /// same list for the same request area every time, so it stays read.
     fn select_tools(
         registry: &Registry,
         scope: Option<&[String]>,
         backends: &Backends,
-        read: &std::collections::HashSet<String>,
     ) -> Vec<crate::llm::ToolDef> {
         let local = backends.llm.provider() == "local";
         let Some(domains) = scope else {
@@ -3669,14 +3534,15 @@ impl Pipeline {
         // the same, and Qwen3.5's template puts them first: a subset made
         // "What is the capital of Australia" read 1,050 tokens again, 20 s.
         if local {
-            let app = domains.iter().find(|d| d.contains('.'));
-            // Not read yet, an app's route is minutes of reading (Pacific's
-            // is 5,900 tokens): the app's own tools, read in seconds, until
-            // warm_routes has read it.
-            if let Some(app) = app.filter(|a| !read.contains(*a)) {
+            // An app's own tools and plans: the same list for the same app,
+            // so the server keeps it read after its first turn. With Pilot's
+            // own tools too it was minutes of reading (Pacific's, 5,879
+            // tokens), and reading it ahead held up the questions asked
+            // meanwhile (one request at a time on the phone).
+            if let Some(app) = domains.iter().find(|d| d.contains('.')) {
                 return registry.defs(Some(&[app.clone(), "keel".into()]));
             }
-            return route_tools(registry, app);
+            return unscoped_tools(registry, true);
         }
         let mut chosen: Vec<String> = domains.to_vec();
         // Plans cross apps: offered whenever an app's tools are.
