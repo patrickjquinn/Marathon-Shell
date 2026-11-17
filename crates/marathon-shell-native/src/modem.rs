@@ -7,7 +7,10 @@
 use crate::i18n::fl;
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+/// The least time between two modem views for the UI.
+const VIEW_GAP: Duration = Duration::from_millis(250);
 
 use async_channel::{Receiver, Sender};
 use cxx_qt::{CxxQtType, Threading};
@@ -1174,13 +1177,38 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         Err(_) => true,
     };
     let mut daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
+    // The UI hears the modem at most every VIEW_GAP: a modem in trouble
+    // flips its registration many times a second, and each view re-renders
+    // the status bar. A change held back goes out when the gap ends.
+    let mut shown: Option<Instant> = None;
+    let mut view_held = false;
     loop {
         if !wwan {
             radio_off(&bus, &mut state);
         }
-        let event = match &mut modem_events {
-            Some(own) => future::or(shared.next(), own.next()).await,
-            None => shared.next().await,
+        let next = async {
+            match &mut modem_events {
+                Some(own) => future::or(shared.next(), own.next()).await,
+                None => shared.next().await,
+            }
+        };
+        let since = |shown: Option<Instant>| shown.map_or(VIEW_GAP, |t| t.elapsed());
+        let event = if view_held {
+            let wait = VIEW_GAP.saturating_sub(since(shown));
+            future::or(async { Some(next.await) }, async {
+                async_io::Timer::after(wait).await;
+                None
+            })
+            .await
+        } else {
+            Some(next.await)
+        };
+        let Some(event) = event else {
+            let view = state.view(daemon);
+            qt.queue(move |obj| obj.apply(&view)).ok();
+            shown = Some(Instant::now());
+            view_held = false;
+            continue;
         };
         match event {
             None | Some(Event::Closed) => return,
@@ -1241,7 +1269,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     if props.contains_key("Direction") {
                         break;
                     }
-                    async_io::Timer::after(std::time::Duration::from_millis(100)).await;
+                    async_io::Timer::after(Duration::from_millis(100)).await;
                     props = properties(&bus, &path, CALL).await;
                 }
                 let get = |key: &str| props.get(key).and_then(mm_enum);
@@ -1265,8 +1293,14 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 qt.queue(move |obj| obj.call_changed(&path, state)).ok();
             }
         }
+        if since(shown) < VIEW_GAP {
+            view_held = true;
+            continue;
+        }
         let view = state.view(daemon);
         qt.queue(move |obj| obj.apply(&view)).ok();
+        shown = Some(Instant::now());
+        view_held = false;
     }
 }
 
