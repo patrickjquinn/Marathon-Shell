@@ -746,6 +746,27 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     registry.defs(Some(&own))
 }
 
+/// Routes are read ahead only this long after the last turn began.
+const ROUTES_IDLE: Duration = Duration::from_secs(60);
+
+/// A turn in progress, for [`Pipeline::idle`]; it ends when dropped.
+struct TurnInFlight<'a>(&'a Pipeline);
+
+impl<'a> TurnInFlight<'a> {
+    fn begin(pipeline: &'a Pipeline) -> Self {
+        pipeline.turns_in_flight.fetch_add(1, Ordering::SeqCst);
+        *lock(&pipeline.last_turn) = Some(Instant::now());
+        pipeline.turn_started.notify_waiters();
+        TurnInFlight(pipeline)
+    }
+}
+
+impl Drop for TurnInFlight<'_> {
+    fn drop(&mut self) {
+        self.0.turns_in_flight.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 /// This many remembered facts or fewer all go in; more are ranked.
 const MEMORY_ALL: usize = 8;
 /// The best-ranked facts a turn gets, besides the latest.
@@ -967,6 +988,12 @@ pub struct Pipeline {
     pub stop: tokio::sync::Notify,
     /// A turn began: reading routes ahead gives way.
     turn_started: tokio::sync::Notify,
+    /// Turns in progress, and when the last began: routes are read ahead
+    /// only while Pilot is idle.
+    turns_in_flight: std::sync::atomic::AtomicUsize,
+    last_turn: Mutex<Option<Instant>>,
+    /// [`Pipeline::warm_routes`] is running (each opening of Pilot starts it).
+    reading_routes: AtomicBool,
     /// The routes the phone's model has read ([`route_tools`]), by app
     /// ("" for Pilot's own): a turn on one reads only its own words.
     read_routes: Mutex<std::collections::HashSet<String>>,
@@ -1182,6 +1209,9 @@ impl Pipeline {
             progress: Mutex::new(None),
             stop: tokio::sync::Notify::new(),
             turn_started: tokio::sync::Notify::new(),
+            turns_in_flight: std::sync::atomic::AtomicUsize::new(0),
+            last_turn: Mutex::new(None),
+            reading_routes: AtomicBool::new(false),
             read_routes: Mutex::new(std::collections::HashSet::new()),
             memory_pick: Mutex::new(None),
         }
@@ -1441,26 +1471,35 @@ impl Pipeline {
     /// Reads each app's route ([`route_tools`]) ahead on the phone, one at
     /// a time, so a turn routed to an app finds its prompt read: the server
     /// keeps what it read (its prompt cache) and a turn then reads only its
-    /// own words. A turn that begins takes over: the request in flight is
-    /// dropped, which stops the server reading it.
+    /// own words. Only while Pilot is idle ([`ROUTES_IDLE`] after the last
+    /// turn): opening Pilot is when a question comes, and a route read then
+    /// (3,689 tokens, 78 s on the phone) kept the question waiting. A turn
+    /// that begins drops the request in flight, which stops the server
+    /// reading it; that route is read later.
     pub async fn warm_routes(&self) {
         let backends = self.backends();
-        if backends.llm.provider() != "local" {
+        if backends.llm.provider() != "local" || self.reading_routes.swap(true, Ordering::SeqCst) {
             return;
         }
+        self.read_routes_ahead(&backends).await;
+        self.reading_routes.store(false, Ordering::SeqCst);
+    }
+
+    async fn read_routes_ahead(&self, backends: &Backends) {
         let registry = self.registry();
-        let apps: Vec<String> = domain_options(&registry)
+        let mut apps: std::collections::VecDeque<String> = domain_options(&registry)
             .into_iter()
             .filter(|d| d.contains('.'))
             .collect();
         let web = (!self.may_leave())
             .then(|| registry.get(crate::web::TOOL).map(|e| e.model_name.clone()))
             .flatten();
-        for app in &apps {
-            if lock(&self.read_routes).contains(app) {
+        while let Some(app) = apps.pop_front() {
+            if lock(&self.read_routes).contains(&app) {
                 continue;
             }
-            let mut tools = route_tools(&registry, Some(app));
+            self.until_idle().await;
+            let mut tools = route_tools(&registry, Some(&app));
             if let Some(web) = &web {
                 tools.retain(|t| &t.name != web);
             }
@@ -1477,6 +1516,15 @@ impl Pipeline {
                 max_tokens: Some(1),
                 stream: None,
             };
+            // Listening before the last idle check, so a turn that begins
+            // between them still interrupts.
+            let interrupted = self.turn_started.notified();
+            tokio::pin!(interrupted);
+            interrupted.as_mut().enable();
+            if !self.idle() {
+                apps.push_front(app);
+                continue;
+            }
             let started = Instant::now();
             tokio::select! {
                 r = backends.llm.chat(&req) => {
@@ -1485,13 +1533,25 @@ impl Pipeline {
                         return;
                     }
                     log::debug!("{app}'s route read ahead in {} ms", started.elapsed().as_millis());
-                    lock(&self.read_routes).insert(app.clone());
+                    lock(&self.read_routes).insert(app);
                 }
-                () = self.turn_started.notified() => {
-                    log::debug!("reading routes ahead stopped for a turn");
-                    return;
+                () = &mut interrupted => {
+                    log::debug!("reading {app}'s route ahead stopped for a turn");
+                    apps.push_front(app);
                 }
             }
+        }
+    }
+
+    /// No turn in progress, and none begun for [`ROUTES_IDLE`].
+    fn idle(&self) -> bool {
+        self.turns_in_flight.load(Ordering::SeqCst) == 0
+            && lock(&self.last_turn).is_none_or(|t| t.elapsed() >= ROUTES_IDLE)
+    }
+
+    async fn until_idle(&self) {
+        while !self.idle() {
+            tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
 
@@ -1682,7 +1742,7 @@ impl Pipeline {
 
     /// Handles one typed or transcribed utterance.
     pub async fn ask(&self, text: &str, spoken: bool) -> TurnResult {
-        self.turn_started.notify_waiters();
+        let _turn = TurnInFlight::begin(self);
         let turn = self.new_turn_id();
         let text = text.trim();
         let started = Instant::now();
