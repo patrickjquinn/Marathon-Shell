@@ -372,6 +372,10 @@ Item {
             // for the link): that one is used, not left behind empty.
             var cur = browser.privateMode ? null : browser.view(browser.normalTabs.activeId);
             var blank = cur !== null && cur.newTabPage && !cur.webView.canGoBack;
+            // Started for this link, the restored tab in front began loading
+            // too (osnews.com loaded twice); it waits until it is shown.
+            if (cur !== null && !blank)
+                cur.unwake();
             var t = browser.view(browser.open(url, {
                 newTab: !blank,
                 private: false
