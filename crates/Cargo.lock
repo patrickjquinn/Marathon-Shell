@@ -3466,6 +3466,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-radiod"
+version = "0.1.0"
+dependencies = [
+ "async-io",
+ "futures-lite",
+ "libc",
+ "marathon-rt",
+ "zbus 6.1.0",
+]
+
+[[package]]
 name = "marathon-rt"
 version = "0.1.0"
 dependencies = [

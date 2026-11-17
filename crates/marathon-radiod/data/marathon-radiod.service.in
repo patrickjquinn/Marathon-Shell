@@ -1,0 +1,10 @@
+[Unit]
+Description=Marathon FM radio
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.marathonos.Radio
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-radiod
+Restart=on-failure
+RestartSec=5

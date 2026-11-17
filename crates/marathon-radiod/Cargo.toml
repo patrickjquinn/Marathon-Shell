@@ -1,0 +1,16 @@
+[package]
+name = "marathon-radiod"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-io = "2.6.0"
+futures-lite = "2.6.1"
+libc = "0.2.191"
+marathon-rt = { path = "../marathon-rt" }
+zbus = { version = "=6.1.0", default-features = false, features = ["default-rt", "service"] }
+
+[lints]
+workspace = true

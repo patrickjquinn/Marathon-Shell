@@ -295,6 +295,7 @@ endfunction()
 marathon_daemon(marathon-davd org.marathonos.Dav)
 marathon_daemon(marathon-maild org.marathonos.Mail)
 marathon_daemon(marathon-medialibd org.marathonos.MediaLibrary)
+marathon_daemon(marathon-radiod org.marathonos.Radio)
 marathon_daemon(marathon-telephonyd org.marathonos.Telephony)
 # Mail's IDLE push runs from login, not only once the app opens.
 install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/user/graphical-session.target.wants\")

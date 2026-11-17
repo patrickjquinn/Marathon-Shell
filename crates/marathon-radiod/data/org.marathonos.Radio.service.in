@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.marathonos.Radio
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/marathon-radiod
+SystemdService=marathon-radiod.service
