@@ -118,15 +118,18 @@ chat)
 	# A checkpoint at every user message: the pilot server's model is a
 	# hybrid, which goes back only to one, and the next question leaves
 	# the last prompt at its own message.
+	# Two slots on the pilot server, 8,192 tokens each: one keeps Pilot's
+	# prompt with its tools read, the other the one without (a question
+	# answered from knowledge), so neither is read again for the other.
 	if [ "$server" = llama-server ]; then
-		reuse="--cache-reuse 256"
+		reuse="--cache-reuse 256 --ctx-size 8192 --parallel 1"
 	else
-		reuse="--checkpoint-min-step 0"
+		reuse="--checkpoint-min-step 0 --ctx-size 16384 --parallel 2"
 	fi
 	# shellcheck disable=SC2086
 	exec "$server" --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
-		--jinja --reasoning off --threads 4 --threads-batch "$(nproc)" --ctx-size 8192 \
-		--parallel 1 --batch-size 512 --flash-attn off $sampling $reuse --no-webui
+		--jinja --reasoning off --threads 4 --threads-batch "$(nproc)" \
+		--batch-size 512 --flash-attn off $sampling $reuse --no-webui
 	;;
 embed)
 	need "$EMBED"
