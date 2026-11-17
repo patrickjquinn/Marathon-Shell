@@ -388,16 +388,27 @@ Page {
             }
             Row {
                 width: parent.width
-                TextField {
+                // Grows with the question, then scrolls. No label: its band
+                // under the line left the field high in the bar.
+                TextArea {
                     id: input
                     objectName: "input"
                     width: parent.width - (send.visible ? send.width : 0) - (stop.visible ? stop.width : 0) - (mic.visible ? mic.width : 0)
+                    height: Math.min(implicitHeight, page.height / 4)
                     placeholderText: qsTr("Ask Pilot")
-                    label: qsTr("Ask Pilot")
+                    labelVisible: false
                     EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                     EnterKey.onClicked: {
                         page.send(text);
                         text = "";
+                    }
+                    // Enter sends; Shift+Enter is a new line.
+                    Keys.onReturnPressed: function (event) {
+                        event.accepted = !(event.modifiers & Qt.ShiftModifier);
+                        if (event.accepted) {
+                            page.send(text);
+                            text = "";
+                        }
                     }
                     // Up in an empty field brings back the last question.
                     Keys.onUpPressed: function (event) {
@@ -411,6 +422,7 @@ Page {
                     objectName: "sendButton"
                     Accessible.name: qsTr("Send")
                     visible: input.text.trim().length > 0
+                    anchors.bottom: input.bottom
                     icon.source: "image://theme/icon-m-send"
                     onClicked: {
                         page.send(input.text);
@@ -424,7 +436,7 @@ Page {
                     id: stop
                     objectName: "stopButton"
                     visible: Pilot.busy && !page.listening
-                    anchors.verticalCenter: input.verticalCenter
+                    anchors.bottom: input.bottom
                     onClicked: Pilot.stop()
                 }
                 // Tap to talk.
@@ -434,7 +446,7 @@ Page {
                     visible: Conversation.voiceAvailable
                     width: Theme.itemSizeMedium
                     height: Theme.itemSizeMedium
-                    anchors.verticalCenter: input.verticalCenter
+                    anchors.bottom: input.bottom
                     enabled: !Pilot.offline
                     glyph: true
                     mode: page.listening && !page.transcribing ? "listening" : Pilot.busy ? "thinking" : "idle"
