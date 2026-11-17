@@ -778,6 +778,14 @@ const UNSURE_BELOW: f64 = 0.4;
 /// What the phone's model answers, without tools, for something to do.
 const ACTION_WORD: &str = "ACTION";
 
+/// Whether a line of a plain answer asks for the tools: the word alone, or
+/// leading the line ("ACTION Play Radio Nova").
+fn asks_for_tools(line: &str) -> bool {
+    line.trim()
+        .strip_prefix(ACTION_WORD)
+        .is_some_and(|rest| rest.chars().next().is_none_or(|c| !c.is_alphanumeric()))
+}
+
 /// Said to the phone's model without tools.
 const PLAIN_NOTE: &str = " Nothing on the phone is done in this reply: if they ask for \
      something to be done on the phone, reply with only the word ACTION.";
@@ -895,7 +903,7 @@ fn is_empty(v: &Value) -> bool {
 fn answer_so_far(text: &str) -> &str {
     // The word that asks for the tools is not an answer to show, nor what
     // the model wrote before it.
-    if text.lines().any(|l| l.trim() == ACTION_WORD) {
+    if text.lines().any(asks_for_tools) {
         return "";
     }
     let start = text.trim_start();
@@ -2373,6 +2381,7 @@ impl Pipeline {
                                 sure.is_some(),
                                 screen.as_ref(),
                                 false,
+                                top.as_deref().filter(|d| d.contains('.')),
                             )
                             .await,
                         )
@@ -2404,6 +2413,7 @@ impl Pipeline {
                         sure.is_some(),
                         screen.as_ref(),
                         plain,
+                        top.as_deref().filter(|d| d.contains('.')),
                     )
                     .await,
                 )
@@ -2428,6 +2438,7 @@ impl Pipeline {
                     sure.is_some(),
                     screen.as_ref(),
                     plain,
+                    top.as_deref().filter(|d| d.contains('.')),
                 )
                 .await,
             ),
@@ -2445,6 +2456,7 @@ impl Pipeline {
                     sure.is_some(),
                     screen.as_ref(),
                     plain,
+                    top.as_deref().filter(|d| d.contains('.')),
                 )
                 .await,
             ),
@@ -3022,6 +3034,7 @@ impl Pipeline {
         ground: bool,
         screen: Option<&OnScreen>,
         plain: bool,
+        escape_app: Option<&str>,
     ) -> Vec<Card> {
         let deep = [
             "work this out",
@@ -3108,7 +3121,18 @@ impl Pipeline {
         let mut escape: Option<(Message, Message, Vec<crate::llm::ToolDef>)> = None;
         let mut held: Option<String> = None;
         if plain {
-            escape = Some((full_system, ask_full, std::mem::take(&mut tools)));
+            // The model says there is something to do: then the app stage
+            // one took it for, unsure, is offered too ("Play Radio Nova",
+            // Radio at 0.28, had only messaging's tools).
+            let mut wanted = std::mem::take(&mut tools);
+            if let Some(app) = escape_app {
+                for def in registry.defs(Some(&[app.to_owned(), "keel".into()])) {
+                    if !wanted.iter().any(|t| t.name == def.name) {
+                        wanted.push(def);
+                    }
+                }
+            }
+            escape = Some((full_system, ask_full, wanted));
         }
         log::debug!(
             "scope {:?}: {} tool(s) offered: {}",
@@ -3408,7 +3432,7 @@ impl Pipeline {
                 && resp
                     .content
                     .as_deref()
-                    .is_some_and(|c| c.lines().any(|l| l.trim() == ACTION_WORD))
+                    .is_some_and(|c| c.lines().any(asks_for_tools))
             {
                 if let Some((full, ask, t)) = escape.take() {
                     log::debug!("something to do: the tools");
@@ -3420,7 +3444,7 @@ impl Pipeline {
                         .as_deref()
                         .unwrap_or("")
                         .lines()
-                        .filter(|l| l.trim() != ACTION_WORD)
+                        .filter(|l| !asks_for_tools(l))
                         .collect();
                     held = Some(said.join("\n").trim().to_owned()).filter(|a| !a.is_empty());
                     messages.pop();
@@ -4386,6 +4410,16 @@ mod answer_tests {
         );
         let ids = memory_pick(&crate::jev::Answers(out), &facts);
         assert_eq!(ids, vec![3, 7, 1, 9, 4, 12, 11]);
+    }
+
+    #[test]
+    fn the_word_asks_for_tools_alone_or_leading_a_line() {
+        assert!(asks_for_tools("ACTION"));
+        assert!(asks_for_tools("  ACTION Play Radio Nova  "));
+        assert!(asks_for_tools("ACTION: play it"));
+        assert!(!asks_for_tools("ACTIONS speak louder"));
+        assert!(!asks_for_tools("The ACTION film"));
+        assert_eq!(answer_so_far("ACTION Play Radio Nova"), "");
     }
 
     #[test]
