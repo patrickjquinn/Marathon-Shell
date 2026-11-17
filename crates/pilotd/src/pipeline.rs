@@ -772,6 +772,41 @@ fn local_examples() -> Vec<Message> {
     ]
 }
 
+/// The phone's model's whole job when the router is sure of an action.
+const NARROW_PROMPT: &str = "You are Pilot, on the person's phone. Call the tool for their \
+     request, with names, numbers, times and words copied exactly from what they said. To \
+     reach a person by name, look them up first. If the request is for something else, reply \
+     with one word: no.";
+
+/// The tools for an action the router is sure of; empty: none of its own.
+fn intent_tools(intent: &str) -> Vec<&'static str> {
+    match intent {
+        "note" => vec!["notes.create"],
+        "settings_page" => vec!["settings.open"],
+        "device_toggle" => vec!["device.toggle"],
+        "message" => vec!["contacts.lookup", "messages.draft"],
+        "email" => vec!["contacts.lookup", "email.draft"],
+        "call" => vec!["contacts.lookup", "call.dial"],
+        _ => Vec::new(),
+    }
+}
+
+/// What the person reads when an action on the phone is done, without the
+/// model: the tool's summary where it is written for them, words for them
+/// where it is written for the model. `None`: the model says it.
+fn confirmation(tool: &str, summary: &str) -> Option<String> {
+    match tool {
+        "notes.create" | "settings.open" | "device.toggle" | "call.dial" | "alarm.set"
+        | "timer.set" | "reminder.create" => Some(summary.to_owned()),
+        "messages.draft" => Some("Your message is open in Messages, ready to send.".into()),
+        "email.draft" if summary.starts_with("No draft") => Some(
+            "There is no e-mail account on the phone yet: Email is open so you can add one.".into(),
+        ),
+        "email.draft" => Some("Your e-mail is open in Email, ready to check and send.".into()),
+        _ => None,
+    }
+}
+
 /// Web results the phone's model reads, and the most of each extract:
 /// five whole extracts were 2,300 tokens, 55 s of reading on the phone
 /// before a word, and the turn ran out of time.
@@ -1021,6 +1056,9 @@ pub struct Pipeline {
     last_model_use: Mutex<Option<Instant>>,
     /// The phone's model has read the warm-up's prompt (Pilot's own tools).
     warm_read: AtomicBool,
+    /// A warm-up is running: another (Pilot opened again, pilotd started)
+    /// waits for nothing and does not run beside it, halving both.
+    warming: AtomicBool,
     /// The remembered facts this turn is about, by id, when the router
     /// on the phone ranked them; else all of them go in (the latest 30).
     memory_pick: Mutex<Option<Vec<i64>>>,
@@ -1234,6 +1272,7 @@ impl Pipeline {
             stop: tokio::sync::Notify::new(),
             last_model_use: Mutex::new(None),
             warm_read: AtomicBool::new(false),
+            warming: AtomicBool::new(false),
             memory_pick: Mutex::new(None),
         }
     }
@@ -1451,6 +1490,14 @@ impl Pipeline {
     /// Fills the router's cache of option embeddings ahead of the first
     /// question, which otherwise embedded every option first (0.9 s).
     pub async fn warm(&self) {
+        if self.warming.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        self.warm_once().await;
+        self.warming.store(false, Ordering::SeqCst);
+    }
+
+    async fn warm_once(&self) {
         let backends = self.backends();
         if backends.jev.provider() != "local" {
             return;
@@ -3010,6 +3057,39 @@ impl Pipeline {
                 .collect::<Vec<_>>()
                 .join(", ")
         );
+        // An action the router is sure of: the phone's model only fills in
+        // its tool (and looks a person up), from a short prompt, and the
+        // action's confirmation ends the turn. Not called: the turn goes
+        // on as before, with everything.
+        let mut wide: Option<(Vec<Message>, Vec<crate::llm::ToolDef>)> = None;
+        if backends.llm.provider() == "local"
+            && !plain
+            && !web_first
+            && screen.is_none()
+            && !intents::needs_model(redacted)
+        {
+            if let [(intent, p)] = hints {
+                let names = intent_tools(intent);
+                let narrow: Vec<crate::llm::ToolDef> = names
+                    .iter()
+                    .filter_map(|n| registry.get(n).filter(|e| e.available))
+                    .filter_map(|e| tools.iter().find(|t| t.name == e.model_name).cloned())
+                    .collect();
+                if *p >= SURE_FROM && !names.is_empty() && narrow.len() == names.len() {
+                    let ask = messages.last().cloned();
+                    if let Some(ask) = ask {
+                        log::debug!("{intent}: the model fills in {}", names.join(", "));
+                        wide = Some((
+                            std::mem::replace(
+                                &mut messages,
+                                vec![Message::text(Role::System, NARROW_PROMPT), ask],
+                            ),
+                            std::mem::replace(&mut tools, narrow),
+                        ));
+                    }
+                }
+            }
+        }
         let mut rejected_once = false;
         // What the tools returned this turn, as the phone saw it: where a
         // recipient may come from besides the person's own words.
@@ -3199,7 +3279,12 @@ impl Pipeline {
                 },
                 require: round == 0 && ground,
                 max_tokens: None,
-                stream: self.answer_stream(turn, &map),
+                // A narrow round's words are not the answer.
+                stream: if wide.is_some() {
+                    None
+                } else {
+                    self.answer_stream(turn, &map)
+                },
             };
             self.stage(
                 turn,
@@ -3254,6 +3339,14 @@ impl Pipeline {
                     .collect::<Vec<_>>()
                     .join(", ")
             );
+            if resp.tool_calls.is_empty() {
+                if let Some((m, t)) = wide.take() {
+                    log::debug!("not that action: the whole prompt");
+                    messages = m;
+                    tools = t;
+                    continue;
+                }
+            }
             let acted = steps
                 .iter()
                 .any(|s| matches!(s.kind.as_str(), "app" | "web" | "screen"));
@@ -3586,6 +3679,14 @@ impl Pipeline {
                         }
                         if single && entry.spec.read_only && out.answers {
                             lookup = Some(out.summary.clone());
+                        }
+                        // The phone's model asked again only to say it was
+                        // done (five seconds on the Q25): the action's own
+                        // confirmation ends the turn, unless more was asked.
+                        if single && !entry.spec.read_only && !intents::needs_model(redacted) {
+                            if let Some(text) = confirmation(&entry.spec.name, &out.summary) {
+                                lookup = Some(text);
+                            }
                         }
                         if out.summary == "Done." && is_empty(&out.data) {
                             // "Done." after "show Music" read as the whole

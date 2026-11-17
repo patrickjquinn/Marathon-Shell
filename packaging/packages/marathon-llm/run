@@ -118,13 +118,17 @@ chat)
 	# A checkpoint at every user message: the pilot server's model is a
 	# hybrid, which goes back only to one, and the next question leaves
 	# the last prompt at its own message.
-	# Two slots on the pilot server, 8,192 tokens each: one keeps Pilot's
-	# prompt with its tools read, the other the one without (a question
-	# answered from knowledge), so neither is read again for the other.
+	# Four slots on the pilot server, 8,192 tokens each (~100 MB of cache
+	# each for LFM2.5): Pilot's prompt with its tools, the one without (a
+	# question answered from knowledge) and the short ones for a single
+	# action, each kept read instead of evicting another.
+	# A prompt goes to a slot only if half of it is already there: at
+	# llama-server's 0.1 the one with tools (0.102 like the other) took
+	# the plain one's slot.
 	if [ "$server" = llama-server ]; then
 		reuse="--cache-reuse 256 --ctx-size 8192 --parallel 1"
 	else
-		reuse="--checkpoint-min-step 0 --ctx-size 16384 --parallel 2"
+		reuse="--checkpoint-min-step 0 --ctx-size 32768 --parallel 4 --slot-prompt-similarity 0.5"
 	fi
 	# shellcheck disable=SC2086
 	exec "$server" --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
