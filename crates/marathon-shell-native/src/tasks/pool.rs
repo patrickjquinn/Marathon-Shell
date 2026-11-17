@@ -18,8 +18,14 @@ use crate::{io, log, sandbox};
 /// A spare alive this long had finished starting and was warm.
 const HEALTHY: Duration = Duration::from_secs(30);
 /// A replacement waits for the adopted app to finish starting: a spare
-/// spends seconds of CPU loading Qt and Mesa.
+/// spends seconds of CPU loading Qt and Mesa. Its window mapping is that
+/// finish, and the refill starts then ([`REFILL_SETTLE`] after); this is
+/// for a window that never maps.
 const REFILL_DELAY: Duration = Duration::from_secs(8);
+/// After an app's window maps: its first frames are drawn. On the Q25 a
+/// spare then warms in 0.7 s, where the fixed 8 s left an app of the same
+/// kind launched in that time to start cold.
+const REFILL_SETTLE: Duration = Duration::from_millis(500);
 const RECENT: usize = 5;
 
 struct Spare {
@@ -88,6 +94,17 @@ impl Tasks {
         } else {
             storage > plain
         }]
+    }
+
+    /// A window mapped: an empty spare slot is refilled shortly.
+    pub(super) fn refill_after_map(&self) {
+        let empty = self
+            .wanted_spares()
+            .iter()
+            .any(|s| self.pool.spares[slot(*s)].is_none());
+        if empty {
+            refill_later(self.qt_thread(), REFILL_SETTLE);
+        }
     }
 
     pub(super) fn refill_spares(mut self: Pin<&mut Self>) {
