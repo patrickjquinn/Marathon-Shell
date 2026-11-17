@@ -156,8 +156,6 @@ def main() -> int:
             now = time.monotonic()
             if now - last_print > 1.0 or written == image_size:
                 pct = 100 * written / image_size
-                rate = written / max(1, now - last_print) if last_print else 0
-                # Keep last_print accurate for next rate calc.
                 last_print = now
                 print(f"    {human(written)} / {human(image_size)}  ({pct:.1f}%)", flush=True)
         os.fsync(dst.fileno())

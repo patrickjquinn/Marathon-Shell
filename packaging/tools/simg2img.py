@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import os
 import struct
-import sys
 
 
 SPARSE_HEADER_MAGIC = 0xED26FF3A

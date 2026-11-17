@@ -21,7 +21,6 @@ import fcntl
 import json
 import os
 import re
-import statistics
 import struct
 import time
 

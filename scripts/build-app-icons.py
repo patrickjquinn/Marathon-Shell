@@ -217,7 +217,7 @@ def browser(a):
 def store(a):
     # The shelf: one app of each kind, each its category's shape.
     a.fill("D")
-    k, w = 15.0 / S, 15.0
+    k = 15.0 / S
     for (x, y), corners in zip(((26, 26), (45, 26), (26, 45), (45, 45)), (COMMS, MEDIA, TIME, TOOLS)):
         a.add(f'<path d="{base(*corners)}" transform="translate({x} {y}) scale({k:.5f})" fill="{{C}}"/>')
 

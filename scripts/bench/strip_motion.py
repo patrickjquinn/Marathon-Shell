@@ -19,7 +19,6 @@ difference.
 import argparse
 import json
 import statistics
-import sys
 
 
 def profiles(data, w, h, horizontal):

@@ -32,8 +32,6 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
-sys.path.insert(0, str(HERE))
-import analyse  # noqa: E402
 
 DEVICE_GATES = ("probe", "g1", "g2", "g3", "g4", "g5")
 

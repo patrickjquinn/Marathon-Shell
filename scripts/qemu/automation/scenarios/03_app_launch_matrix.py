@@ -168,7 +168,6 @@ def run(drv: QemuDriver, since: str) -> int:
         return 0
 
     wake_display(drv)
-    pre_cores = coredumps_since(drv, since)
 
     # An app "launched" if the screen stopped being the home screen.
     # That is the assertion this scenario actually cares about, and
@@ -182,7 +181,7 @@ def run(drv: QemuDriver, since: str) -> int:
 
     for appid in APPS:
         print(f"\n  ==> {appid}")
-        before = drv.ssh(f"date -u +'%Y-%m-%d %H:%M:%S UTC'")[1].strip()
+        before = drv.ssh("date -u +'%Y-%m-%d %H:%M:%S UTC'")[1].strip()
         wake_display(drv)
         reset_runners(drv)
 
@@ -231,7 +230,7 @@ def run(drv: QemuDriver, since: str) -> int:
             print(f"     FAIL  {cores} coredump(s) during {appid} launch")
             fails += 1
         else:
-            print(f"     OK    surface up, no crashes")
+            print("     OK    surface up, no crashes")
 
         # Hard-stop the runners so the next iteration starts from a known
         # state. The nav-pill swipe only *backgrounds* via UIStore.closeApp

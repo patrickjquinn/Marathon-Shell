@@ -32,7 +32,6 @@ from pathlib import Path
 import os
 import sys
 import time
-import subprocess
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from qemu_driver import QemuDriver  # noqa: E402
@@ -138,11 +137,6 @@ def frame_delta(drv: QemuDriver, a: str, b: str) -> float:
         return 1.0
     d = np.abs(xa - xb).max(axis=-1)
     return float((d > 12).sum() / d.size)
-    for line in out.splitlines():
-        line = line.strip()
-        if line.isdigit():
-            return int(line)
-    return None
 
 
 def pixel_change_fraction(drv: QemuDriver, before: str, after: str) -> float:
@@ -309,7 +303,7 @@ def run(drv: QemuDriver, since: str) -> int:
         print(f"  ==> {app_id}")
 
         if recipe is None:
-            print(f"     SKIP  no recipe (QEMU-specific gap; see comment)")
+            print("     SKIP  no recipe (QEMU-specific gap; see comment)")
             continue
 
         # Wake + unlock per app, not once per scenario. Scenario 06
@@ -326,7 +320,7 @@ def run(drv: QemuDriver, since: str) -> int:
         reset_runners(drv)
 
         if not busctl_launch(drv, app_id):
-            print(f"     FAIL  busctl LaunchApp returned !true")
+            print("     FAIL  busctl LaunchApp returned !true")
             fails += 1
             continue
 
@@ -398,7 +392,7 @@ def run(drv: QemuDriver, since: str) -> int:
         # pool adoption reuses the spare's pid, so there is no stable
         # per-app pid to track.
         if len(runner_pids(drv)) < len(runners_after_launch):
-            print(f"     FAIL  an app-runner died during interaction")
+            print("     FAIL  an app-runner died during interaction")
             fails += 1
 
     return fails
