@@ -746,6 +746,28 @@ fn unscoped_tools(registry: &Registry, local: bool) -> Vec<crate::llm::ToolDef> 
     registry.defs(Some(&own))
 }
 
+/// This many remembered facts or fewer all go in; more are ranked.
+const MEMORY_ALL: usize = 8;
+/// The best-ranked facts a turn gets, besides the latest.
+const MEMORY_PICK: usize = 5;
+/// The latest facts a turn always gets ("my car is the blue one" just now).
+const MEMORY_LATEST: usize = 2;
+const MEMORY_QUESTION: &str = "memory";
+
+/// The facts a turn gets: the router's best few and the latest, by id.
+fn memory_pick(answers: &crate::jev::Answers, facts: &[crate::store::Memory]) -> Vec<i64> {
+    let mut ids: Vec<i64> = match answers.get(MEMORY_QUESTION) {
+        Some(crate::jev::Answer::Choice { distribution, .. }) => distribution
+            .iter()
+            .take(MEMORY_PICK)
+            .filter_map(|(o, _)| o.parse().ok())
+            .collect(),
+        _ => Vec::new(),
+    };
+    ids.extend(facts.iter().rev().take(MEMORY_LATEST).map(|m| m.id));
+    ids
+}
+
 /// A route on the phone: Pilot's own tools, then every tool of the app
 /// stage one put first, if any. Always the same list for the same app, so
 /// its prompt can be read ahead ([`Pipeline::warm_routes`]) and reused.
@@ -945,6 +967,9 @@ pub struct Pipeline {
     pub stop: tokio::sync::Notify,
     /// A turn began: reading routes ahead gives way.
     turn_started: tokio::sync::Notify,
+    /// The remembered facts this turn is about, by id, when the router
+    /// on the phone ranked them; else all of them go in (the latest 30).
+    memory_pick: Mutex<Option<Vec<i64>>>,
 }
 
 pub struct PipelineParts {
@@ -1154,6 +1179,7 @@ impl Pipeline {
             progress: Mutex::new(None),
             stop: tokio::sync::Notify::new(),
             turn_started: tokio::sync::Notify::new(),
+            memory_pick: Mutex::new(None),
         }
     }
 
@@ -2015,6 +2041,23 @@ impl Pipeline {
             questions.insert(SCREEN_QUESTION.into(), screen_question(&o.name));
         }
         let backends = self.backends();
+        // Many remembered facts: the router on the phone ranks them by
+        // meaning in the same request, and the prompt gets the few this
+        // turn is about (30 facts were 600 tokens, ~10 s on the phone). A
+        // router in the cloud is not sent them.
+        let facts = self.store.memories().unwrap_or_default();
+        let rank_memory = backends.jev.provider() == "local" && facts.len() > MEMORY_ALL;
+        if rank_memory {
+            let recent = &facts[facts.len().saturating_sub(crate::jev::MAX_CHOICE_OPTIONS)..];
+            questions.insert(
+                MEMORY_QUESTION.into(),
+                Question::Choice {
+                    options: recent.iter().map(|m| m.id.to_string()).collect(),
+                    criteria: "Which remembered fact is about what `utterance` asks?".into(),
+                    descriptions: recent.iter().map(|m| m.fact.clone()).collect(),
+                },
+            );
+        }
         let req = DecideRequest {
             state: json!({
                 "utterance": crate::redact::for_jev(&redacted.text, &self.own_name()),
@@ -2034,6 +2077,7 @@ impl Pipeline {
                 return mk("error", vec![error_card(&e)]);
             }
         };
+        *lock(&self.memory_pick) = rank_memory.then(|| memory_pick(&answers, &facts));
         let Some(decision) = Decision::from_answers(&answers) else {
             return mk(
                 "error",
@@ -2581,13 +2625,21 @@ impl Pipeline {
         if facts.is_empty() {
             return String::new();
         }
-        let lines: Vec<String> = facts
-            .iter()
-            .rev()
-            .take(30)
-            .rev()
-            .map(|m| format!("- [{}] {}", m.id, m.fact))
-            .collect();
+        let pick = lock(&self.memory_pick).clone();
+        let lines: Vec<String> = match pick {
+            Some(ids) => facts
+                .iter()
+                .filter(|m| ids.contains(&m.id))
+                .map(|m| format!("- [{}] {}", m.id, m.fact))
+                .collect(),
+            None => facts
+                .iter()
+                .rev()
+                .take(30)
+                .rev()
+                .map(|m| format!("- [{}] {}", m.id, m.fact))
+                .collect(),
+        };
         let note = format!(
             "\n\nWhat the person asked you to remember, in their words, numbered (use it when it \
              helps; do not bring it up otherwise; a new fact that changes one of these replaces \
@@ -3979,6 +4031,30 @@ fn domain_question(registry: &Registry, domains: &[String]) -> Question {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod answer_tests {
     use super::*;
+
+    #[test]
+    fn a_turn_gets_the_ranked_facts_and_the_latest() {
+        let facts: Vec<crate::store::Memory> = (1..=12)
+            .map(|id| crate::store::Memory {
+                id,
+                ts_ms: id,
+                fact: format!("fact {id}"),
+            })
+            .collect();
+        let mut out = std::collections::BTreeMap::new();
+        out.insert(
+            MEMORY_QUESTION.to_owned(),
+            crate::jev::Answer::Choice {
+                distribution: [3, 7, 1, 9, 4, 5, 6]
+                    .iter()
+                    .map(|i| (i.to_string(), 0.1))
+                    .collect(),
+                confidence: 0.1,
+            },
+        );
+        let ids = memory_pick(&crate::jev::Answers(out), &facts);
+        assert_eq!(ids, vec![3, 7, 1, 9, 4, 12, 11]);
+    }
 
     #[test]
     fn a_streamed_answer_stops_before_its_follow_ups() {
