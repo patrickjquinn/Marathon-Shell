@@ -123,6 +123,9 @@ pub enum Effort {
 
 /// Is handed the reply's text so far while a model on this phone writes
 /// it, so the person reads the answer as it comes.
+/// The longest a prompt read ahead (`purpose` "warm") may take.
+const READ_AHEAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
+
 #[derive(Clone)]
 pub struct TextSink(pub std::sync::Arc<dyn Fn(&str) + Send + Sync>);
 
@@ -436,6 +439,14 @@ impl LlmClient for OpenAiClient {
                     headers,
                     body: whole.unwrap_or_else(|| acc.into_reply()),
                 }
+            }
+            // Reading a route ahead takes as long as it takes: a 5,900-token
+            // route is ~2 minutes on the phone, past a turn's timeout.
+            None if req.purpose == "warm" => {
+                self.remote
+                    .with_timeout(READ_AHEAD_TIMEOUT)
+                    .post_json(&self.provider, &req.purpose, &self.url, &body)
+                    .await?
             }
             None => {
                 self.remote
