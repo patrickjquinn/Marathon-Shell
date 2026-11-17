@@ -2,12 +2,11 @@
 # Pilot's on-device models, each llama-server on a private port behind a
 # socket-activated proxy that exits when idle (marathon-llm*.socket):
 #   run chat    the model for tool calls and writing. With 8 GB of RAM,
-#               dot-product instructions and marathon-llm-runtime: Qwen3.5
-#               2B (Apache-2.0) as smolmaxxing quantized it, its LM head cut
-#               to the 66,560 tokens Pilot uses (head-ids-pilot.txt), on that
-#               package's llama-server. On the Q25 it passed 61 of Pilot's 72
-#               evaluation tasks to Qwen3 1.7B's 52, at twice the speed
-#               (12.5 tokens/s writing, 10 s a typical turn). Otherwise, or
+#               dot-product instructions and marathon-llm-runtime: LFM2.5
+#               1.2B Instruct (LFM Open License 1.0), Liquid's
+#               quantization-aware Q4_0, on that package's llama-server. On
+#               the Q25 it reads prompts at 95 tokens/s and writes at 17.7,
+#               against Qwen3.5 2B's 50 and 12.5. Otherwise, or
 #               with a file named legacy in the model directory: Qwen3 1.7B,
 #               else 0.6B under 8 GB (bartowski's Q4_0 quants), on Alpine's
 #               llama-server.
@@ -38,12 +37,14 @@ chat_model() {
 	big=$([ "$(awk '/^MemTotal/ { print $2 }' /proc/meminfo)" -ge 7500000 ] && echo 1 || true)
 	if [ -n "$big" ] && [ -x "$PILOT_SERVER" ] && [ ! -e "$DIR/legacy" ] &&
 		grep -q asimddp /proc/cpuinfo; then
-		model=Qwen3.5-2B-pilot.gguf family=Qwen3.5-
-		sha=b910dda6c2668737a8fb540e64eaf666e70eaf352b9ccbeda24709bbce1d30d6
-		bytes=1182571840
-		url=https://huggingface.co/hyperionaidev/Qwen3.5-2B-tvbox-GGUF/resolve/main/w-q4k-h65p8.gguf
-		url_sha=631a27ae8926d3fd18cdc7f0276700edd784406a4c6218b5e6e664a4cf54fd11
+		model=LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf family=LFM2.5-
+		sha=bb741ebb106d543e9de114b843a3d3d73d51c74b5801e69da2abde821a0cb3e1
+		bytes=695755488
+		url=https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/8ed288026e23958ad9dfa92d53ed773a8eee7125/$model
+		url_sha=$sha
 		server=$PILOT_SERVER
+		# The model card's.
+		sampling="--temp 0.1 --top-k 50 --repeat-penalty 1.05"
 		return
 	fi
 	if [ -n "$big" ]; then
@@ -130,14 +131,14 @@ models)
 	;;
 download)
 	chat_model
-	if [ "$server" = "$PILOT_SERVER" ]; then
+	if [ "$url_sha" != "$sha" ]; then
 		fetch_cut "$model" "$url" "$url_sha" "$sha"
 	else
 		fetch "$model" "$url" "$sha"
 	fi
-	# Other sizes of the same model go; the other model stays, for the
-	# fallback (legacy) to start at once.
-	for old in "$DIR/$family"*.gguf; do
+	# Other sizes of the same model go, and Qwen3.5 2B, which LFM2.5
+	# replaced; Qwen3 stays, for the fallback (legacy) to start at once.
+	for old in "$DIR/$family"*.gguf "$DIR"/Qwen3.5-*.gguf; do
 		[ "$old" = "$DIR/$model" ] || rm -f "$old"
 	done
 	# convert-e5.py's conversion, with the model's own XLM-R vocabulary: the

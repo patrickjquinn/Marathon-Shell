@@ -5,7 +5,9 @@ Documentation=https://github.com/ggml-org/llama.cpp/tree/master/tools/server
 StopWhenUnneeded=yes
 # Not downloaded yet (pilotd's DownloadModels): skipped, not failed, so a
 # question gets a refused connection at once and no start limit is hit.
-ConditionPathExistsGlob=%h/.local/share/marathon-llm/Qwen_Qwen3-*-Q4_0.gguf
+# Any chat model run chat may pick (run models).
+ConditionPathExistsGlob=|%h/.local/share/marathon-llm/Qwen_Qwen3-*-Q4_0.gguf
+ConditionPathExistsGlob=|%h/.local/share/marathon-llm/LFM2.5-*.gguf
 
 [Service]
 ExecStart=/usr/libexec/marathon-llm/run chat
