@@ -319,6 +319,19 @@ code (`SOURCES`) and daemons are not pushed: those need a package build. The she
 app the phone has never had needs an installed build, or a shell restart
 after the first push, before app-push can launch it.
 
+### Power
+
+A backgrounded app is frozen, but its daemon and anything it plays keep
+running. With the screen off, `scripts/power-audit.py` shows what used the
+CPU and woke it:
+
+```sh
+ssh root@172.16.42.1 python3 - 60 < scripts/power-audit.py
+```
+
+`scripts/power-regression` checks the system's budgets with the screen off:
+idle, and with `--playback` an internet and an FM station (to a silent sink).
+
 ## Tests
 
 Each app has a qmltestrunner suite in `tests/`:
@@ -364,3 +377,5 @@ Shell scripts pass `shellcheck`.
 - [ ] Qt 6 `qmlformat` changes nothing; `check-silica-imports.sh` passes.
 - [ ] Tried on a phone from every way in: home grid, search, Pilot,
       notifications, the cover.
+- [ ] In the background with the screen off, `power-audit.py` shows no
+      process of yours waking the phone.
