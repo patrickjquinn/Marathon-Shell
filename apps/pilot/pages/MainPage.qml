@@ -191,6 +191,8 @@ Page {
                 stage: Conversation.stage
                 detail: Conversation.stageDetail
                 partial: Conversation.partial
+                read: Conversation.read
+                readLeft: Conversation.readLeft
             }
         }
         // Keep the newest card in view: a new card is laid out after it is
