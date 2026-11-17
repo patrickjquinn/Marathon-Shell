@@ -550,36 +550,47 @@ impl JevClient for LocalJev {
             .and_then(Value::as_str)
             .unwrap_or_default();
         let mut parsed = crate::intents::local_intent(utterance).map(|(intent, _)| intent);
-        // The words found a handler; the meaning may say another thing was
-        // asked ("put the dentist in my calendar" is not a calendar query).
-        if let (
-            Some(intent),
+        // What was asked, by meaning: every intent, not only the ones with
+        // a handler. Without it everything else was "open_ended", and "Make
+        // a note to buy milk and eggs" went to the model as a question.
+        let meaning = match req.questions.get("intent") {
             Some(Question::Choice {
                 options,
                 descriptions,
                 ..
-            }),
-        ) = (parsed, req.questions.get("intent"))
-        {
-            if let Ok(Answer::Choice { distribution, .. }) =
-                self.rank_by_meaning(utterance, options, descriptions).await
-            {
-                let top = distribution.first().map(|(o, _)| o.as_str());
-                if top.is_some_and(|t| t != intent && t != "open_ended") {
-                    log::debug!("words said {intent}, meaning {top:?}: to the model");
-                    parsed = None;
-                }
+            }) => match self.rank_by_meaning(utterance, options, descriptions).await {
+                Ok(Answer::Choice { distribution, .. }) => distribution.first().cloned(),
+                _ => None,
+            },
+            _ => None,
+        };
+        // The words found a handler; the meaning may say another thing was
+        // asked ("put the dentist in my calendar" is not a calendar query).
+        if let (Some(intent), Some((top, _))) = (parsed, &meaning) {
+            if top != intent && top != "open_ended" {
+                log::debug!("words said {intent}, meaning {top}: to the model");
+                parsed = None;
             }
         }
-        let (intent, confidence, generation) = match parsed {
-            Some(intent) => (intent, 1.0, 0.0),
-            None => ("open_ended", 0.5, 1.0),
+        let (intent, confidence, generation) = match (parsed, &meaning) {
+            (Some(intent), _) => (intent.to_owned(), 1.0, 0.0),
+            // Not one with a handler (the words decide those) nor the
+            // camera: they act without the model.
+            (None, Some((top, p)))
+                if top != "open_ended"
+                    && top != "camera_vision"
+                    && !crate::intents::DETERMINISTIC.contains(&top.as_str()) =>
+            {
+                (top.clone(), *p, 0.0)
+            }
+            _ => ("open_ended".to_owned(), 0.5, 1.0),
         };
+        log::debug!("intent {intent} at {confidence:.2}");
         let mut out = BTreeMap::new();
         for (name, q) in &req.questions {
             let answer = match (name.as_str(), q) {
                 ("intent", _) => Answer::Choice {
-                    distribution: vec![(intent.to_owned(), confidence)],
+                    distribution: vec![(intent.clone(), confidence)],
                     confidence,
                 },
                 ("needs_generation", _) => Answer::Noul { p: generation },
