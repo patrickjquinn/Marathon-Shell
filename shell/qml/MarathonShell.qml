@@ -2600,9 +2600,19 @@ Item {
             onTriggered: chargingOverlay.armed = true
         }
         Connections {
+            // A charger wakes the screen for its moment, as on iOS and
+            // Android; the lock screen's idle timer puts it back to sleep.
+            // Not during a call (the phone may be at an ear), and nothing on
+            // unplugging.
             function onIsPluggedInChanged() {
-                if (chargingOverlay.armed && Display.screenOn && Power.batteryLevel >= 0)
-                    chargingOverlay.show(Power.isPluggedIn, Power.batteryLevel);
+                if (!chargingOverlay.armed || !Power.isPluggedIn || Power.batteryLevel < 0)
+                    return;
+                if (!Display.screenOn) {
+                    if (Power.hasActiveCalls)
+                        return;
+                    Display.turnScreenOn("charger");
+                }
+                chargingOverlay.show(true, Power.batteryLevel);
             }
 
             target: Power
