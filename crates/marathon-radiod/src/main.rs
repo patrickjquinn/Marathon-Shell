@@ -195,8 +195,15 @@ impl Radio {
         if let Some(khz) = station.id.strip_prefix(FM_PREFIX) {
             return fm_id(khz);
         }
-        let (lat, lon) = self.home?;
-        if !station.located() || catalogue::km(lat, lon, station.lat, station.lon) > LOCAL_KM {
+        // Local: near home, or, with no location in the directory, from the
+        // phone's country ("Radio Nova 100" has none).
+        let local = if station.located() {
+            let (lat, lon) = self.home?;
+            catalogue::km(lat, lon, station.lat, station.lon) <= LOCAL_KM
+        } else {
+            !self.country.is_empty() && station.cc.eq_ignore_ascii_case(&self.country)
+        };
+        if !local {
             return None;
         }
         let on_band = |f: u16| self.band.stations.contains(&f);
