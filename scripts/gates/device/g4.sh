@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 # Gate 4: frame pacing and GUI-thread stalls of a Hub edge peek, alone and
 # while an Android app cold-launches.
 # G_LAUNCH  Android package cold-launched under the peek (com.android.settings)

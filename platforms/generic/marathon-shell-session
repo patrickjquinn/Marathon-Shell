@@ -11,7 +11,7 @@ export XDG_SESSION_DESKTOP=marathon
 export XDG_CURRENT_DESKTOP=marathon
 
 # Marathon-specific paths
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 # Default prefix from install location (…/bin -> …)
 export MARATHON_PREFIX="${MARATHON_PREFIX:-$(dirname -- "$SCRIPT_DIR")}"
 export MARATHON_APPS_DIR=~/.local/share/marathon-apps
@@ -56,7 +56,7 @@ export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
 
 # D-Bus session
 if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    eval $(dbus-launch --sh-syntax --exit-with-session)
+    eval "$(dbus-launch --sh-syntax --exit-with-session)"
 fi
 
 # ===== PERFORMANCE OPTIMIZATIONS =====

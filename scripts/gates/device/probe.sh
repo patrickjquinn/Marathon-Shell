@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 # Read-only facts behind every gate. Writes nothing on the phone outside the
 # run's own temporary directory.
 

@@ -42,6 +42,7 @@ GUEST_HEIGHT="${MARATHON_QEMU_HEIGHT:-1440}"
 
 # The freshly baked image, or $MARATHON_QEMU_IMAGE: an OTA test keeps
 # booting the disk it updated while newer images are built beside it.
+# shellcheck disable=SC2010 # ls -t gives mtime order
 IMG="${MARATHON_QEMU_IMAGE:-$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
         | grep -E '/qemu-aarch64_marathon_edge_[0-9]+\.raw$' | head -1)}"
 [ -z "$IMG" ] && { echo "no raw image found in $OUT_BASE" >&2; exit 1; }
@@ -63,6 +64,7 @@ if sfdisk -d "$IMG" 2>/dev/null | grep -qi 'type=B0E01050-EE5F-4390-949A-9101B17
     EFI_VARS="${IMG%.raw}.efivars.qcow2"
     [ -f "$EFI_VARS" ] || cp /usr/share/edk2/aarch64/QEMU_EFI-qemuvars-pflash.qcow2 "$EFI_VARS"
     echo "==> A/B image: UEFI boot, EFI variables in $EFI_VARS"
+    # shellcheck disable=SC2054 # commas are qemu option syntax
     BOOT_ARGS=(-drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/aarch64/QEMU_EFI-pflash.qcow2
                -drive if=pflash,format=qcow2,file="$EFI_VARS")
     DISK_DEVICE="virtio-blk-pci,drive=hd0,bootindex=1"
@@ -96,7 +98,7 @@ resize_gtk_window_to_guest_aspect() {
     local qemu_pid="$1"
     command -v xdotool >/dev/null 2>&1 || return 0
     [ -n "${DISPLAY:-}" ] || return 0
-    local win="" geom w h target_h target_w
+    local win="" geom h target_h target_w
     # `|| true` on every probe: this starts before QEMU is exec'd, so early
     # searches exit non-zero, and under `set -eo pipefail` that would kill
     # this subshell on the first iteration.
@@ -110,7 +112,7 @@ resize_gtk_window_to_guest_aspect() {
         sleep 0.5
     done
     [ -n "$win" ] || return 0
-    read -r w h <<<"$(xdotool getdisplaygeometry 2>/dev/null || true)"
+    read -r _ h <<<"$(xdotool getdisplaygeometry 2>/dev/null || true)"
     [ -n "${h:-}" ] || return 0
     # Leave room for the titlebar and panel, then derive the width from the
     # guest's own aspect so the phone is not stretched.

@@ -88,6 +88,7 @@ done
 
 # Auto-detect from build output if not supplied.
 if [ -z "$ROOTFS" ]; then
+    # shellcheck disable=SC2010 # ls -t gives mtime order
     ROOTFS=$(ls -1t "$OUT_DIR"/oneplus-enchilada_marathon_edge_*.raw 2>/dev/null \
         | grep -E "/oneplus-enchilada_marathon_edge_[0-9]+\.raw$" | head -1 || true)
 fi

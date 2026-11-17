@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 [ "${1:-}" = --restore ] || { echo "usage: sh restore-stock-kernel.sh --restore" >&2; exit 2; }
-boot=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+boot=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 test -f "$boot/config.txt.stock-before-uclamp-default"
 cp "$boot/config.txt.stock-before-uclamp-default" "$boot/config.txt.restore-new"
 sync

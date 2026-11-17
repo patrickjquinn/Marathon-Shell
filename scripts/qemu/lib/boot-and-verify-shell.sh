@@ -15,6 +15,7 @@ SCREEN_PNG=/tmp/marathon-shell-screen.png
 
 cd "$DURANIUM_DIR"
 
+# shellcheck disable=SC2010 # ls -t gives mtime order
 IMG="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
          | grep -E '/qemu-aarch64_marathon_edge_[0-9]+\.raw$' | head -1)"
 [ -z "$IMG" ] && { echo "no raw image found in $OUT_BASE" >&2; exit 1; }

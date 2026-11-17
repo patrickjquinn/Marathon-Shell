@@ -25,6 +25,7 @@
 set -euo pipefail
 
 CACHE="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output/hackberrypi-cm5_marathon_edge"
+# shellcheck disable=SC2010 # ls -t gives mtime order
 DEFAULT_IMG_RAW=$(ls -1t "$CACHE"/hackberrypi-cm5_marathon_edge_*.raw 2>/dev/null \
     | grep -E "/hackberrypi-cm5_marathon_edge_[0-9]+\.raw$" | head -1 || true)
 DEFAULT_IMG_XZ=$(ls -1t "$CACHE"/hackberrypi-cm5_marathon_edge_*.raw.zst \

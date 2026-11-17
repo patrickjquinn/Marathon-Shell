@@ -9,7 +9,7 @@ maintainer="Arnav Singh <me@arnavion.dev>"
 pkgname=u-boot-pinephone-marathon
 pkgver=2023.01
 _tfaver=2.14.0
-pkgrel=1
+pkgrel=2
 pkgdesc="U-Boot bootloader for the PINE64 PinePhone (Marathon: TF-A 2.14.0 + PSCI fix)"
 url="https://source.denx.de/u-boot"
 arch="aarch64"
@@ -81,7 +81,7 @@ package() {
 
 sha512sums="
 c25aae1b0d2f677d295587c6d318f23d52bc3a79e968bed9093645943a9840c56b1f6f44e5649d236e76e3dc85f0473c1da4a5205c02dcf437bca820acaf6fb8  u-boot-v2023.01.tar.gz
-8dc0a8847ed26d91d3acc9b7b9dd300f95a68049207b09c3cfca1ec485f6f976aa65e0d101a4b46ecc4e85e943cbdec35e81ab0da07b1d5d0b68b4b10858b44b  update-u-boot
+4379164b775c622f61ef9886a9b4950df118651a4f91948085e1858ac470d44fe35bedbec218d850b4b97fcd2af1f60eb4d40b48cc5f26dbb1739be28d170eee  update-u-boot
 0a05291f5d544854b6e27c7c3290878c55382c50e0374c880d457e7c21425eaec23fd67047fd7e629dba3fa060aa041dec5880e7edc9e52dea897fb93af5d2aa  0001-common-expose-DRAM-clock-speed.patch
 9b9a5bd2cb5c04715a5bb2d34bfc06e63817dba7ec40fa2b09000a0827590623e85ed5877d6b6bb39f2bb917e5e9d8e1379e3df9128e3304be06abc487c68df2  0002-disable-bootdelay.patch
 016ef30dbbb1021dad4f58eeda3f5a5e89ff3a76dbc69e8e4cf6a3fc3983aef998cfe1087abb4b21bb2f859bd5cffe26c1da42d13f1c3d2e3c053c399f38720b  0003-libfdt.i_shipped-use-SWIG_AppendOutput.patch

@@ -78,6 +78,7 @@ while true; do
         # A line is a new app cgroup; a timeout rechecks the shell; end of
         # file means inotifyd stopped (marathon-apps went away), so start over.
         rc=0
+        # shellcheck disable=SC3045 # busybox ash has read -t
         read -r -t "$CHECK_INTERVAL" _ <&3 || rc=$?
         if [ "$rc" -eq 0 ]; then
             chown_cpu_files

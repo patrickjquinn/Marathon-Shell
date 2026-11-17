@@ -56,18 +56,18 @@ echo -e "${GREEN}=== Step 1: Backing up existing configuration ===${NC}"
 
 # Backup LightDM config
 if [ -f /etc/lightdm/lightdm.conf ]; then
-    sudo cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup.$(date +%Y%m%d_%H%M%S)
+    sudo cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup."$(date +%Y%m%d_%H%M%S)"
     echo "Backed up /etc/lightdm/lightdm.conf"
 fi
 
 # Backup existing marathon session files if they exist
 if [ -f /usr/local/bin/marathon-shell-session ]; then
-    sudo cp /usr/local/bin/marathon-shell-session /usr/local/bin/marathon-shell-session.backup.$(date +%Y%m%d_%H%M%S)
+    sudo cp /usr/local/bin/marathon-shell-session /usr/local/bin/marathon-shell-session.backup."$(date +%Y%m%d_%H%M%S)"
     echo "Backed up /usr/local/bin/marathon-shell-session"
 fi
 
 if [ -f /usr/share/wayland-sessions/marathon.desktop ]; then
-    sudo cp /usr/share/wayland-sessions/marathon.desktop /usr/share/wayland-sessions/marathon.desktop.backup.$(date +%Y%m%d_%H%M%S)
+    sudo cp /usr/share/wayland-sessions/marathon.desktop /usr/share/wayland-sessions/marathon.desktop.backup."$(date +%Y%m%d_%H%M%S)"
     echo "Backed up /usr/share/wayland-sessions/marathon.desktop"
 fi
 

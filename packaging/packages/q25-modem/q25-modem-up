@@ -15,7 +15,7 @@ X=/usr/libexec/q25-modem
 OWNER=/sys/devices/platform/soc/soc:md1-owner/command
 log() { printf '[q25-modem] %s\n' "$*"; }
 wait_boot() {
-	for i in $(seq ${1:-120}); do
+	for _ in $(seq ${1:-120}); do
 		grep -q "md1:4" /sys/kernel/ccci/boot 2>/dev/null && { log "md1:4 (READY)"; return 0; }
 		sleep 0.5
 	done
@@ -61,11 +61,11 @@ down)
 	# mdinit exit stops MD1 (ECCCI runtime-PM put); then drop ECCCI's probe-time
 	# reference so genpd powers MD1 off through the owner.
 	systemctl stop q25-ccci-mdinit q25-ccci-fsd q25-ccci-rpcd 2>/dev/null || true
-	for i in $(seq 40); do
+	for _ in $(seq 40); do
 		grep -q "md1:4" /sys/kernel/ccci/boot 2>/dev/null || break
 		sleep 0.25
 	done
-	for i in $(seq 20); do echo release > $OWNER 2>/dev/null && break; sleep 0.5; done
+	for _ in $(seq 20); do echo release > $OWNER 2>/dev/null && break; sleep 0.5; done
 	echo report > $OWNER
 	dmesg | grep -E "q25-md1-owner" | tail -2
 	;;

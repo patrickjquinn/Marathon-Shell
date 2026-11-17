@@ -43,8 +43,6 @@ echo "==> 4. wayland compositor socket"
 SHELL_PID=$(pgrep -f marathon-shell-bin | head -1)
 SOCKS=$(ls -1 /run/user/1000/wayland-* /run/user/0/wayland-* 2>/dev/null | head -3)
 if [ -n "$SHELL_PID" ]; then
-    LISTEN=$(find /proc/$SHELL_PID/net/unix -maxdepth 0 -readable -prune 2>/dev/null; \
-             awk '/wayland/' /proc/$SHELL_PID/net/unix 2>/dev/null | head -3)
     PROC_SOCKS=$(ls -1 /proc/$SHELL_PID/fd 2>/dev/null \
                  | while read fd; do ls -l /proc/$SHELL_PID/fd/$fd 2>/dev/null; done \
                  | grep -E "wayland|/run/user" | head -5)

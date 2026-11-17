@@ -17,6 +17,7 @@ cd "$DURANIUM_DIR"
 # Only the master bootable image — `<id>_<date>.raw` with no extra
 # suffix. mkosi also emits .esp.raw / .usr-arm64*.raw / verity
 # partitions; those aren't bootable on their own.
+# shellcheck disable=SC2010 # ls -t gives mtime order
 IMG="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
          | grep -E '/qemu-aarch64_marathon_edge_[0-9]+\.raw$' | head -1)"
 [ -z "$IMG" ] && { echo "no raw image found in $OUT_BASE" >&2; exit 1; }

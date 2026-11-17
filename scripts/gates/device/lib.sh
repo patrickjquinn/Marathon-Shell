@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 # Device side of the proof-gate harness, for busybox ash as root. The host
 # streams this file followed by one gate script over ssh; results are written
 # under a private directory and leave as a tar on the original stdout.

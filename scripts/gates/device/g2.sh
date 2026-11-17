@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 # Gate 2: what hidden Android apps cost, on the home grid and screen off.
 # G_APPS        Android packages to open and hide (the launchable ones)
 # G_EXTRA       F-Droid apps installed for the run when fewer than 8 are

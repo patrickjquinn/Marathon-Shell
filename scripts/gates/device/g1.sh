@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 # Gate 1: keyboard round trips and frame pacing, idle and under load: an
 # F-Droid install, Android notification bursts with 1024 px pictures, and a
 # session client's notifications carrying 1024 px image-data.

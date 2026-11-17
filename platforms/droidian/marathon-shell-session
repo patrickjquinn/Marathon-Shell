@@ -15,7 +15,7 @@ export XDG_SESSION_DESKTOP=marathon
 export XDG_CURRENT_DESKTOP=marathon
 
 # Marathon-specific paths
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 export MARATHON_PREFIX="${MARATHON_PREFIX:-$(dirname -- "$SCRIPT_DIR")}"
 export MARATHON_APPS_DIR=${MARATHON_APPS_DIR:-/usr/share/marathon-apps}
 export MARATHON_DATA_DIR=${MARATHON_DATA_DIR:-/usr/share/marathon-shell}
@@ -64,7 +64,7 @@ fi
 # We wait briefly for the Android hwcomposer service to be ready
 HWCOMPOSER_TIMEOUT=${HWCOMPOSER_TIMEOUT:-30}
 hwc_ready=0
-for i in $(seq 1 $HWCOMPOSER_TIMEOUT); do
+for _ in $(seq 1 $HWCOMPOSER_TIMEOUT); do
     if getprop init.svc.vendor.hwcomposer-2-3 2>/dev/null | grep -q running; then
         hwc_ready=1
         break
@@ -77,7 +77,7 @@ fi
 
 # D-Bus session
 if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    eval $(dbus-launch --sh-syntax --exit-with-session)
+    eval "$(dbus-launch --sh-syntax --exit-with-session)"
 fi
 
 # ===== Performance Optimizations =====

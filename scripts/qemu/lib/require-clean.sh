@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Sourced by the build helpers that `git archive` a local checkout. The
 # archive is the commit, so edits not committed would be left out unseen.
 require_clean() {
