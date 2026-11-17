@@ -115,7 +115,14 @@ chat)
 	need "$model"
 	# Qwen3.5's hybrid state is kept by context checkpoints, not by
 	# --cache-reuse, which it does not support.
-	reuse=$([ "$server" = llama-server ] && echo "--cache-reuse 256" || true)
+	# A checkpoint at every user message: the pilot server's model is a
+	# hybrid, which goes back only to one, and the next question leaves
+	# the last prompt at its own message.
+	if [ "$server" = llama-server ]; then
+		reuse="--cache-reuse 256"
+	else
+		reuse="--checkpoint-min-step 0"
+	fi
 	# shellcheck disable=SC2086
 	exec "$server" --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
 		--jinja --reasoning off --threads 4 --threads-batch "$(nproc)" --ctx-size 8192 \
