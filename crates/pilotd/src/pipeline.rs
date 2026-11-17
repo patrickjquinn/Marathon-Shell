@@ -3410,9 +3410,17 @@ impl Pipeline {
         redacted: &str,
         backends: &Backends,
     ) -> Vec<crate::llm::ToolDef> {
+        let local = backends.llm.provider() == "local";
         let Some(domains) = scope else {
-            return unscoped_tools(registry, backends.llm.provider() == "local");
+            return unscoped_tools(registry, local);
         };
+        // The phone's model reuses the prompt the warm-up read only while
+        // the tools are the same, and Qwen3.5's template puts them first: a
+        // subset made "What is the capital of Australia" read 1,050 tokens
+        // again, 20 s. A turn on Pilot's own areas offers the warm-up's list.
+        if local && domains.iter().all(|d| !d.contains('.')) {
+            return unscoped_tools(registry, true);
+        }
         let mut chosen: Vec<String> = domains.to_vec();
         let in_scope: Vec<&Entry> = registry
             .entries()
