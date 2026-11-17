@@ -1524,11 +1524,15 @@ impl Pipeline {
             effort: Effort::Off,
             purpose: "classify".into(),
             require: true,
-            max_tokens: Some(20),
+            // The longest label's call is ~22 tokens.
+            max_tokens: Some(32),
             stream: None,
         };
         let resp = backends.llm.chat(&req).await.ok()?;
-        let call = resp.tool_calls.first()?;
+        let Some(call) = resp.tool_calls.first() else {
+            log::debug!("no intent named: {:?}", resp.content);
+            return None;
+        };
         let args: Value = serde_json::from_str(&call.arguments).ok()?;
         args["kind"]
             .as_str()
@@ -3752,7 +3756,7 @@ impl Pipeline {
                         // The phone's model asked again only to say it was
                         // done (five seconds on the Q25): the action's own
                         // confirmation ends the turn, unless more was asked.
-                        if single && !entry.spec.read_only && !intents::needs_model(redacted) {
+                        if single && !intents::needs_model(redacted) {
                             if let Some(text) = confirmation(&entry.spec.name, &out.summary) {
                                 lookup = Some(text);
                             }
