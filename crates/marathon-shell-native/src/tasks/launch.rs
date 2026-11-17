@@ -1059,6 +1059,7 @@ impl Tasks {
         surface_id: i32,
         recent_input: bool,
     ) -> bool {
+        self.refill_after_map();
         let (sandboxed, title) = (sandbox_app_id.to_string(), title.to_string());
         let xdg = if sandboxed.is_empty() {
             xdg_app_id.to_string()
