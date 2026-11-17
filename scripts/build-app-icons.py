@@ -231,10 +231,25 @@ def music(a):
 
 
 def radio(a):
-    # A broadcast: the mast's waves spreading either side of it.
+    # The world's radio: a dot-matrix globe, its day side lit, one place on
+    # it broadcasting, its waves clear of the other dots.
     a.fill("D")
-    a.add(f'<path d="{disc(5)}" fill="{{C}}"/>')
-    a.add(line(arc(13, -40, 40) + arc(13, 140, 220) + arc(21, -40, 40) + arc(21, 140, 220), "C", 4))
+    a.plane(disc(30, (27, 25)), "L")
+    tilt, spin, R = math.radians(22), math.radians(-18), 23.5
+    st = (48.0, 39.0)
+    dots = []
+    for lat in range(-60, 75, 20):
+        n = max(1, round(16 * math.cos(math.radians(lat))))
+        for k in range(n):
+            la, lo = math.radians(lat), 2 * math.pi * k / n + spin
+            x, y, z = math.cos(la) * math.sin(lo), math.sin(la), math.cos(la) * math.cos(lo)
+            y, z = y * math.cos(tilt) - z * math.sin(tilt), y * math.sin(tilt) + z * math.cos(tilt)
+            cx, cy = C0 + R * x, C0 - R * y
+            if z > 0.2 and math.hypot(cx - st[0], cy - st[1]) > 8 and not (cx > st[0] and cy < st[1] + 2):
+                dots.append(f'<circle cx="{cx:.2f}" cy="{cy:.2f}" r="{1.0 + 1.0 * z:.2f}" fill="{{C}}"/>')
+    a.clip("".join(dots))
+    a.add(f'<circle cx="{st[0]}" cy="{st[1]}" r="4.2" fill="{{C}}"/>')
+    a.clip(line(arc(10, -85, -5, st), "C", 3.2) + line(arc(17.5, -85, -5, st), "C", 3.2))
 
 
 def camera(a):
@@ -357,7 +372,7 @@ ICONS = {
     "browser": ("Browser: a globe", 234.0, PLACES, browser),
     "store": ("Store: a bag", 266.0, PLACES, store),
     "music": ("Music: a sound", 320.0, MEDIA, music),
-    "radio": ("Radio: a broadcast", 311.0, MEDIA, radio),
+    "radio": ("Radio: the world broadcasting", 311.0, MEDIA, radio),
     "camera": ("Camera: an aperture", 338.0, MEDIA, camera),
     "gallery": ("Gallery: a picture", 302.0, MEDIA, gallery),
     "maps": ("Maps: a pin", 250.0, PLACES, maps),
