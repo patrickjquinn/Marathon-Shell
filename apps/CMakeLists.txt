@@ -90,6 +90,11 @@ function(add_marathon_app APP_NAME)
   set(APP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
   set(INSTALL_DIR "${MARATHON_APPS_DIR}/${APP_NAME}")
 
+  # Baked shaders (shaders/*.qsb, from scripts/bake-shaders) go into the
+  # module, where the app's QML finds them by relative URL.
+  file(GLOB _app_shaders RELATIVE "${APP_DIR}" CONFIGURE_DEPENDS "${APP_DIR}/shaders/*.qsb")
+  list(APPEND ARG_RESOURCES ${_app_shaders})
+
   # QTP0001/QTP0004 are Qt 6.5+ only - guard for Droidian (Qt 6.4.2)
   if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
     qt_policy(SET QTP0001 NEW)
