@@ -1,6 +1,8 @@
 //! MediaTek's FM receiver (`fmradio_drv`, MT6631/MT6635 A-die) through its
 //! character device `/dev/fm`. The ioctls are the driver's `fm_ioctl.h`; it
-//! declares every argument as a pointer, so each request encodes 8 bytes.
+//! declares most arguments as pointers, so those requests encode 8 bytes.
+//! The driver has no seek or scan: as MediaTek's HAL does, each channel is
+//! probed with a soft-mute tune, whose answer says whether it is a station.
 //! Frequencies are in 10 kHz (9800 is 98.0 MHz).
 
 use std::fs::{File, OpenOptions};
@@ -9,23 +11,23 @@ use std::os::fd::AsRawFd;
 
 const MAGIC: u64 = 0xF5;
 
-const fn iowr(nr: u64) -> u64 {
-    (3 << 30) | (8 << 16) | (MAGIC << 8) | nr
+const fn iowr(nr: u64, size: u64) -> u64 {
+    (3 << 30) | (size << 16) | (MAGIC << 8) | nr
 }
 
-const POWERUP: u64 = iowr(0);
-const POWERDOWN: u64 = iowr(1);
-const TUNE: u64 = iowr(2);
-const SEEK: u64 = iowr(3);
-const GETRSSI: u64 = iowr(7);
-const SCAN: u64 = iowr(8);
-const GETMONOSTEREO: u64 = iowr(13);
+const POWERUP: u64 = iowr(0, 8);
+const POWERDOWN: u64 = iowr(1, 8);
+const TUNE: u64 = iowr(2, 8);
+const GETRSSI: u64 = iowr(7, 8);
+const GETMONOSTEREO: u64 = iowr(13, 8);
+const PRE_SEARCH: u64 = iowr(45, 4);
+const RESTORE_SEARCH: u64 = iowr(46, 4);
+const SOFT_MUTE_TUNE: u64 = iowr(63, 8);
 
 /// US/Europe, 87.5 to 108 MHz.
 const BAND_UE: u8 = 1;
 const SPACE_100K: u8 = 1;
-/// The driver's default seek threshold.
-const SEEK_THRESHOLD: u8 = 4;
+const STEP: u16 = 10;
 pub const LOWEST: u16 = 8750;
 pub const HIGHEST: u16 = 10800;
 
@@ -72,12 +74,46 @@ impl Fm {
         Ok(u16::from_le_bytes([p[6], p[7]]))
     }
 
-    /// The next station up or down from `freq`: `fm_seek_parm`.
+    /// Whether `freq` is a station: `fm_softmute_tune_t` (rssi, freq, valid).
+    fn probe(&self, freq: u16) -> io::Result<bool> {
+        let mut p = [0u8; 12];
+        p[4..6].copy_from_slice(&freq.to_le_bytes());
+        self.ioctl(SOFT_MUTE_TUNE, &mut p)?;
+        Ok(i32::from_le_bytes([p[8], p[9], p[10], p[11]]) != 0)
+    }
+
+    /// Probes `channels` between the driver's search setup and its undoing.
+    fn search(&self, channels: impl Iterator<Item = u16>, all: bool) -> io::Result<Vec<u16>> {
+        self.ioctl(PRE_SEARCH, &mut [0u8; 4])?;
+        let mut found = Vec::new();
+        let mut probed = Ok(());
+        for freq in channels {
+            match self.probe(freq) {
+                Ok(true) => {
+                    found.push(freq);
+                    if !all {
+                        break;
+                    }
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    probed = Err(e);
+                    break;
+                }
+            }
+        }
+        self.ioctl(RESTORE_SEARCH, &mut [0u8; 4])?;
+        probed.map(|()| found)
+    }
+
+    /// The next station up or down from `freq`, round the band; tunes to it.
     pub fn seek(&self, freq: u16, up: bool) -> io::Result<u16> {
-        let f = freq.to_le_bytes();
-        let mut p = [0, BAND_UE, SPACE_100K, 0, u8::from(!up), SEEK_THRESHOLD, f[0], f[1]];
-        self.ioctl(SEEK, &mut p)?;
-        Ok(u16::from_le_bytes([p[6], p[7]]))
+        let next = self
+            .search(around(freq, up), false)?
+            .first()
+            .copied()
+            .unwrap_or(freq);
+        self.tune(next)
     }
 
     pub fn rssi(&self) -> io::Result<i32> {
@@ -92,35 +128,20 @@ impl Fm {
         Ok(u16::from_le_bytes(s) == 1)
     }
 
-    /// The stations a band scan finds, from `fm_scan_parm`'s bitmap of
-    /// 100 kHz channels from the bottom of the band.
+    /// The band's stations.
     pub fn scan(&self) -> io::Result<Vec<u16>> {
-        // err, band, space, hilo, freq, ScanTBL[26], ScanTBLSize
-        let mut p = [0u8; 60];
-        p[1] = BAND_UE;
-        p[2] = SPACE_100K;
-        p[58..60].copy_from_slice(&26u16.to_le_bytes());
-        self.ioctl(SCAN, &mut p)?;
-        Ok(stations(&p[6..58]))
+        self.search((LOWEST..=HIGHEST).step_by(STEP.into()), true)
     }
 }
 
-/// Frequencies of the set bits of a scan table (26 little-endian words).
-pub fn stations(table: &[u8]) -> Vec<u16> {
-    let mut found = Vec::new();
-    for (w, word) in table.as_chunks::<2>().0.iter().enumerate() {
-        let bits = u16::from_le_bytes(*word);
-        for b in 0..16u16 {
-            if bits & (1 << b) != 0 {
-                let channel = u16::try_from(w).unwrap_or(0) * 16 + b;
-                let freq = LOWEST + channel * 10;
-                if freq <= HIGHEST {
-                    found.push(freq);
-                }
-            }
-        }
-    }
-    found
+/// Every channel after `freq` going up or down, wrapping round the band.
+fn around(freq: u16, up: bool) -> impl Iterator<Item = u16> {
+    let count = (HIGHEST - LOWEST) / STEP + 1;
+    let at = freq.clamp(LOWEST, HIGHEST).saturating_sub(LOWEST) / STEP;
+    (1..count).map(move |i| {
+        let k = if up { (at + i) % count } else { (at + count - i) % count };
+        LOWEST + k * STEP
+    })
 }
 
 #[cfg(test)]
@@ -128,17 +149,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn scan_bits_are_100_khz_channels_from_87_5() {
-        let mut table = [0u8; 52];
-        table[0] = 0b1; // channel 0: 87.5
-        table[2] = 0b100; // channel 18: 89.3
-        assert_eq!(stations(&table), vec![8750, 8930]);
+    fn seeking_wraps_round_the_band() {
+        assert_eq!(around(10800, true).next(), Some(8750));
+        assert_eq!(around(8750, false).next(), Some(10800));
+        assert_eq!(around(9800, true).next(), Some(9810));
+        assert_eq!(around(9800, true).count(), 205);
     }
 
     #[test]
     fn requests_match_the_driver() {
-        // _IOWR(0xf5, 0, struct fm_tune_parm *) on a 64-bit kernel.
+        // _IOWR(0xf5, 0, struct fm_tune_parm *) and _IOWR(0xf5, 45, int32_t).
         assert_eq!(POWERUP, 0xC008_F500);
-        assert_eq!(SCAN, 0xC008_F508);
+        assert_eq!(PRE_SEARCH, 0xC004_F52D);
+        assert_eq!(SOFT_MUTE_TUNE, 0xC008_F53F);
     }
 }
