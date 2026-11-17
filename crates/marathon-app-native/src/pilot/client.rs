@@ -12,7 +12,9 @@ pub const PATH: &str = "/org/shipwright/Pilot";
 pub const INTERFACE: &str = "org.shipwright.Pilot1";
 
 /// A turn can include several model rounds; D-Bus' default 25 s is short.
-const TURN_TIMEOUT: Duration = Duration::from_secs(120);
+/// On the phone a long answer streams for minutes, and pilotd ends a turn
+/// that stalls; Stop ends it sooner.
+const TURN_TIMEOUT: Duration = Duration::from_mins(10);
 
 #[derive(Clone)]
 pub struct Client {
@@ -51,11 +53,17 @@ impl Failure {
 }
 
 fn failure(e: &zbus::Error) -> Failure {
-    let code = match e {
-        zbus::Error::InputOutput(io) if io.kind() == std::io::ErrorKind::TimedOut => "timeout",
-        _ => "internal",
-    };
-    Failure { code, text: err(e) }
+    match e {
+        // Shown on the card: not "I/O error: timed out".
+        zbus::Error::InputOutput(io) if io.kind() == std::io::ErrorKind::TimedOut => Failure {
+            code: "timeout",
+            text: "Pilot took too long to answer.".into(),
+        },
+        _ => Failure {
+            code: "internal",
+            text: err(e),
+        },
+    }
 }
 
 fn err(e: &zbus::Error) -> String {
