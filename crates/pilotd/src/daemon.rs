@@ -281,7 +281,11 @@ fn marathon_adapters(cfg: &Config, session: &zbus::Connection) -> Adapters {
         notifier: Box::new(adapters::FdoNotifier {
             session: session.clone(),
         }),
-        stock: Box::new(Missing("the phone's apps")),
+        // Marathon's Notes, Mail, Messages and Settings, through their Keel
+        // actions (stock.rs).
+        stock: Box::new(adapters::stock::JollaApps {
+            session: session.clone(),
+        }),
     }
 }
 
