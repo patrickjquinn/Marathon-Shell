@@ -157,10 +157,30 @@ struct Seen {
     microphone_users: Vec<String>,
 }
 
+/// Whether `pid` is the FM radio's capture: its tuner's audio comes in
+/// through a capture PCM, and is no microphone.
+fn tuner(pid: u32) -> bool {
+    let parent = fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|stat| {
+            stat.rsplit(')')
+                .next()?
+                .split_whitespace()
+                .nth(1)?
+                .parse::<u32>()
+                .ok()
+        });
+    parent
+        .and_then(|p| fs::read_link(format!("/proc/{p}/exe")).ok())
+        .is_some_and(|exe| exe.ends_with("marathon-radiod"))
+}
+
 /// The state from the open counts and the holders /proc shows.
 fn see(nodes: &[(Kind, PathBuf)], open: &HashMap<PathBuf, u32>) -> Seen {
     let paths: Vec<&Path> = nodes.iter().map(|(_, p)| p.as_path()).collect();
-    let held = holders(&paths);
+    let (radio, held): (Vec<_>, Vec<_>) = holders(&paths)
+        .into_iter()
+        .partition(|(pid, _)| tuner(*pid));
     let kind_of = |path: &Path| nodes.iter().find(|(_, p)| p == path).map(|(k, _)| *k);
     let users = |kind: Kind| {
         let mut names: Vec<String> = held
@@ -178,6 +198,7 @@ fn see(nodes: &[(Kind, PathBuf)], open: &HashMap<PathBuf, u32>) -> Seen {
     let counted = |kind: Kind| {
         nodes
             .iter()
+            .filter(|(_, p)| !radio.iter().any(|(_, r)| r == p))
             .any(|(k, p)| *k == kind && open.get(p).copied().unwrap_or(0) > 0)
     };
     Seen {
