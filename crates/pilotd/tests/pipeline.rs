@@ -663,7 +663,7 @@ async fn consent_off_keeps_the_model_on_the_phone() {
 }
 
 /// The phone's model reads the whole prompt before its first word: it is
-/// sent the last four exchanges, not ten.
+/// sent the last four exchanges, not ten (after its two fixed examples).
 #[tokio::test]
 async fn the_phone_model_gets_a_short_conversation() {
     let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
@@ -682,8 +682,8 @@ async fn the_phone_model_gets_a_short_conversation() {
         .len();
     assert_eq!(
         messages,
-        1 + 4 * 2 + 1,
-        "system, four exchanges, the question"
+        1 + 2 * 2 + 4 * 2 + 1,
+        "system, two examples, four exchanges, the question"
     );
 }
 
