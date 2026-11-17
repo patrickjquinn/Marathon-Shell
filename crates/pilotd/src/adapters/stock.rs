@@ -14,9 +14,10 @@
 //! | Settings | `com.jolla.settings`, `/com/jolla/settings/ui`, `com.jolla.settings.ui` | `showPage(path)` |
 //! | Messages | `org.sailfishos.Messages`, `/` | `startSMS(as numbers, s body)`; not D-Bus activatable, so started first by its `sms:` link |
 //!
-//! Marathon's own Notes and Mail, where they are on the phone, take the note
-//! and the e-mail instead: their Keel actions `notes.create` and
-//! `mail.compose` (`org.shipwright.Keel.Actions.Invoke`).
+//! Marathon's own Notes, Mail, Messages and Settings, where they are on the
+//! phone, take the work instead, through their Keel actions
+//! (`org.shipwright.Keel.Actions.Invoke`): `notes.create`, `mail.compose`,
+//! `messages.compose` and `app.show` with a page.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -72,6 +73,25 @@ pub const SETTINGS_PAGES: &[(&str, &str)] = &[
     ("wifi", "system_settings/connectivity/wlan"),
 ];
 
+/// Marathon Settings' page (its `app.show` page) for a Sailfish Settings
+/// path; pages it does not have are left out.
+const MARATHON_SETTINGS_PAGES: &[(&str, &str)] = &[
+    ("system_settings/info/about_device", "about"),
+    ("system_settings/system/battery", "battery"),
+    ("system_settings/connectivity/bluetooth", "bluetooth"),
+    ("system_settings/system/date_time", "datetime"),
+    ("system_settings/system/developer_mode", "developer"),
+    ("system_settings/security/device_lock", "security"),
+    ("system_settings/look_and_feel/display", "display"),
+    ("system_settings/look_and_feel/lockscreen", "security"),
+    ("system_settings/connectivity/mobile", "cellular"),
+    ("system_settings/look_and_feel/sounds", "sound"),
+    ("system_settings/system/storage", "storage"),
+    ("system_settings/system/text_input", "keyboard"),
+    ("system_settings/system/sailfishos", "updates"),
+    ("system_settings/connectivity/wlan", "wifi"),
+];
+
 /// The Settings path for a page name.
 pub fn settings_path(page: &str) -> Option<&'static str> {
     SETTINGS_PAGES
@@ -120,6 +140,8 @@ pub struct JollaApps {
 
 const MARATHON_NOTES: &str = "org.marathonos.notes";
 const MARATHON_MAIL: &str = "org.marathonos.email";
+const MARATHON_MESSAGES: &str = "org.marathonos.messages";
+const MARATHON_SETTINGS: &str = "org.marathonos.settings";
 
 impl JollaApps {
     /// The app can be started on the session bus by its name.
@@ -232,6 +254,15 @@ impl StockApps for JollaApps {
     }
 
     async fn compose_sms(&self, number: &str, body: &str) -> Result<(), AdapterError> {
+        if self.activatable(MARATHON_MESSAGES).await {
+            return self
+                .keel_invoke(
+                    MARATHON_MESSAGES,
+                    "messages.compose",
+                    &serde_json::json!({"to": number, "text": body}),
+                )
+                .await;
+        }
         let owned = |s: &zbus::Connection| {
             let s = s.clone();
             async move {
@@ -282,6 +313,20 @@ impl StockApps for JollaApps {
     }
 
     async fn open_settings(&self, path: &str) -> Result<(), AdapterError> {
+        if self.activatable(MARATHON_SETTINGS).await {
+            let page = MARATHON_SETTINGS_PAGES
+                .iter()
+                .find(|(p, _)| *p == path)
+                .map(|(_, page)| *page)
+                .ok_or_else(|| AdapterError::Failed("Settings has no such page".into()))?;
+            return self
+                .keel_invoke(
+                    MARATHON_SETTINGS,
+                    "app.show",
+                    &serde_json::json!({"page": page}),
+                )
+                .await;
+        }
         self.session
             .call_method(
                 Some("com.jolla.settings"),
@@ -299,6 +344,13 @@ impl StockApps for JollaApps {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn marathon_settings_pages_are_pilots() {
+        for (path, _) in MARATHON_SETTINGS_PAGES {
+            assert!(SETTINGS_PAGES.iter().any(|(_, p)| p == path), "{path}");
+        }
+    }
 
     #[test]
     fn a_note_keeps_its_lines_as_notes_reads_them() {
