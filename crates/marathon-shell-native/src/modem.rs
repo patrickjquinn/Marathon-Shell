@@ -11,6 +11,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// The least time between two modem views for the UI.
 const VIEW_GAP: Duration = Duration::from_millis(250);
+/// The least time between two starts of mobile data on registration.
+const DATA_RETRY_GAP: Duration = Duration::from_secs(60);
 
 use async_channel::{Receiver, Sender};
 use cxx_qt::{CxxQtType, Threading};
@@ -1182,6 +1184,8 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     // the status bar. A change held back goes out when the gap ends.
     let mut shown: Option<Instant> = None;
     let mut view_held = false;
+    let mut was_registered = false;
+    let mut data_tried: Option<Instant> = None;
     loop {
         if !wwan {
             radio_off(&bus, &mut state);
@@ -1293,6 +1297,18 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 qt.queue(move |obj| obj.call_changed(&path, state)).ok();
             }
         }
+        let registered = matches!(state.registration, 1 | 5);
+        if registered && !was_registered && wwan {
+            // NetworkManager gives up after a few tries; a new registration
+            // is a new chance. At most once a minute, for a modem that flaps.
+            if data_tried.is_none_or(|t| t.elapsed() >= DATA_RETRY_GAP) {
+                data_tried = Some(Instant::now());
+                if let Err(e) = data_on_register(&bus, &state).await {
+                    log::warn("modem", format_args!("mobile data on registration: {e}"));
+                }
+            }
+        }
+        was_registered = registered;
         if since(shown) < VIEW_GAP {
             view_held = true;
             continue;
@@ -1734,6 +1750,34 @@ async fn mobile_data(
     nm.deactivate_connection(&active).await
 }
 
+/// Brings mobile data up on the modem that just registered, unless it is up
+/// already or was switched off.
+async fn data_on_register(bus: &zbus::Connection, state: &Snapshot) -> zbus::Result<()> {
+    let Some(device) = state.nm_device.clone() else {
+        return Ok(());
+    };
+    if (40..=100).contains(&state.nm_state) {
+        return Ok(());
+    }
+    let Some((path, settings)) = gsm_profile(bus).await else {
+        return Ok(());
+    };
+    let wanted = settings
+        .get("connection")
+        .and_then(|c| c.get("autoconnect"))
+        .and_then(|v| bool::try_from(v).ok())
+        .unwrap_or(true);
+    if !wanted {
+        return Ok(());
+    }
+    let none = zbus::ObjectPath::from_static_str_unchecked("/");
+    NmProxy::new(bus)
+        .await?
+        .activate_connection(&path, &device, &none)
+        .await
+        .map(drop)
+}
+
 type SavedSettings = HashMap<String, HashMap<String, OwnedValue>>;
 
 async fn save_profile(
@@ -1821,7 +1865,11 @@ pub(crate) async fn gsm_profile(
 // Mobile data starts on, as on Android: with no gsm profile yet, save one
 // for NetworkManager to bring up once the modem registers.
 async fn default_data_on(bus: &zbus::Connection) -> zbus::Result<()> {
-    if gsm_profile(bus).await.is_some() {
+    if let Some((path, mut settings)) = gsm_profile(bus).await {
+        let connection = settings.entry("connection".to_owned()).or_default();
+        if connection.remove("autoconnect-retries").is_some() {
+            save_profile(bus, &path, &settings).await?;
+        }
         return Ok(());
     }
     let uuid = new_uuid();
@@ -1843,8 +1891,6 @@ fn gsm_settings(uuid: &str, roaming: bool) -> Settings<'_> {
                 ("uuid", Value::from(uuid)),
                 ("id", Value::from("Mobile data")),
                 ("autoconnect", Value::from(true)),
-                // Retry until the modem registers, however long that takes.
-                ("autoconnect-retries", Value::from(0_i32)),
             ]),
         ),
         ("gsm", HashMap::from([("home-only", Value::from(!roaming))])),
@@ -1856,8 +1902,9 @@ fn gsm_settings(uuid: &str, roaming: bool) -> Settings<'_> {
 fn set_data(settings: &mut SavedSettings, on: bool, roaming: bool) {
     let connection = settings.entry("connection".to_owned()).or_default();
     connection.insert("autoconnect".to_owned(), OwnedValue::from(on));
+    // Endless retries dial a modem that fails at once many times a second.
+    connection.remove("autoconnect-retries");
     if on {
-        connection.insert("autoconnect-retries".to_owned(), OwnedValue::from(0_i32));
         settings
             .entry("gsm".to_owned())
             .or_default()
