@@ -2881,6 +2881,25 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         if (type == QEvent::KeyPress)
             emit keyPressed();
 
+        // Qt 6.12's compositor keyboard sets the modifiers it sends an app
+        // to the key event's own when they differ, and a key typed with the
+        // Q25's Alt (ISO_Level3_Shift, Mod5) comes without it: apps typed
+        // "w" for Alt+W, not "1", while the shell's own fields were right.
+        // With the level-3 shift held, a key's event says so.
+        if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
+            const auto *keyEvent = static_cast<QKeyEvent *>(event);
+            if (keyEvent->key() == Qt::Key_AltGr) {
+                m_level3Held = type == QEvent::KeyPress;
+            } else if (m_level3Held && !(keyEvent->modifiers() & Qt::GroupSwitchModifier)) {
+                QKeyEvent level3(type, keyEvent->key(),
+                                 keyEvent->modifiers() | Qt::GroupSwitchModifier,
+                                 keyEvent->nativeScanCode(), keyEvent->nativeVirtualKey(),
+                                 keyEvent->nativeModifiers(), keyEvent->text(),
+                                 keyEvent->isAutoRepeat(), keyEvent->count(), keyEvent->device());
+                QCoreApplication::sendEvent(watched, &level3);
+                return true;
+            }
+        }
         if ((type == QEvent::KeyPress || type == QEvent::KeyRelease) &&
             static_cast<QKeyEvent *>(event)->nativeScanCode() == KeyRouting::SelectScanCode) {
             const auto *select = static_cast<QKeyEvent *>(event);

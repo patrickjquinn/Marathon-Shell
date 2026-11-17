@@ -328,6 +328,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QElapsedTimer           m_lastUserInput;
     QElapsedTimer           m_activityEmitted;
     bool                    m_superShortcut = false;
+    bool                    m_level3Held    = false;
     QElapsedTimer           m_keyboardFocusSince;
     QStringList             m_secureApps;
     QTimer                  m_hiddenFrameTimer;
