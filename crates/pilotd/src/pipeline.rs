@@ -772,6 +772,16 @@ fn local_examples() -> Vec<Message> {
     ]
 }
 
+/// Below this confidence in an intent the router is unsure what was asked.
+const UNSURE_BELOW: f64 = 0.4;
+
+/// What the phone's model answers, without tools, for something to do.
+const ACTION_WORD: &str = "ACTION";
+
+/// Said to the phone's model without tools.
+const PLAIN_NOTE: &str = " Nothing on the phone is done in this reply: if they ask for \
+     something to be done on the phone, reply with only the word ACTION.";
+
 /// The phone's model's whole job when the router is sure of an action.
 const NARROW_PROMPT: &str = "You are Pilot, on the person's phone. Call the tool for their \
      request, with names, numbers, times and words copied exactly from what they said. To \
@@ -883,6 +893,11 @@ fn is_empty(v: &Value) -> bool {
 /// A streamed answer up to its follow-up line, which may be half written
 /// ("FOLL").
 fn answer_so_far(text: &str) -> &str {
+    // The word that asks for the tools is not an answer to show.
+    let start = text.trim_start();
+    if !start.is_empty() && (start.starts_with(ACTION_WORD) || ACTION_WORD.starts_with(start)) {
+        return "";
+    }
     let cut = followup_marker(text).map_or(text.len(), |(start, _)| start);
     let text = &text[..cut];
     let last = text.rfind('\n').map_or(0, |i| i + 1);
@@ -2313,9 +2328,12 @@ impl Pipeline {
         // prompt notwithstanding. Only when the router says so on every
         // count: an open question, to be answered in words, not from the
         // web, about no app or area it is sure of, not after a tool turn.
+        // Unsure what was asked ("What is the capital of Japan" was weather at
+        // 0.26 by meaning) counts too: the model, without tools, says ACTION
+        // when it is something to do on the phone, and gets them.
         let plain = backends.llm.provider() == "local"
-            && decision.intent == "open_ended"
-            && decision.needs_generation >= 0.5
+            && ((decision.intent == "open_ended" && decision.needs_generation >= 0.5)
+                || decision.confidence < UNSURE_BELOW)
             && !web_first
             && !weather
             && sure.is_none()
@@ -3026,10 +3044,12 @@ impl Pipeline {
         }
         messages.extend(earlier);
         let mut context = self.turn_context(hints) + &memory;
+        let ask_full = Message::text(Role::User, format!("[{}]\n\n{redacted}", context.trim()));
         // Without tools nothing on the phone can be done: said, so a request
-        // taken for a question is not answered "I've set a reminder".
+        // taken for a question is not answered "I've set a reminder", and
+        // the model says ACTION instead, to be given the tools.
         if plain {
-            context.push_str(" Nothing on the phone is done in this reply.");
+            context.push_str(PLAIN_NOTE);
         }
         messages.push(Message::text(
             Role::User,
@@ -3037,15 +3057,15 @@ impl Pipeline {
         ));
         let registry = self.registry();
         let may_leave = self.may_leave();
-        let mut tools = if plain {
-            Vec::new()
-        } else {
-            Self::select_tools(&registry, scope, backends)
-        };
+        let mut tools = Self::select_tools(&registry, scope, backends);
         if !may_leave {
             if let Some(web) = registry.get(crate::web::TOOL) {
                 tools.retain(|t| t.name != web.model_name);
             }
+        }
+        let mut escape: Option<(Message, Vec<crate::llm::ToolDef>)> = None;
+        if plain {
+            escape = Some((ask_full, std::mem::take(&mut tools)));
         }
         log::debug!(
             "scope {:?}: {} tool(s) offered: {}",
@@ -3339,6 +3359,21 @@ impl Pipeline {
                     .collect::<Vec<_>>()
                     .join(", ")
             );
+            if resp.tool_calls.is_empty()
+                && resp
+                    .content
+                    .as_deref()
+                    .is_some_and(|c| c.trim_start().starts_with(ACTION_WORD))
+            {
+                if let Some((ask, t)) = escape.take() {
+                    log::debug!("something to do: the tools");
+                    messages.pop();
+                    messages.push(ask);
+                    tools = t;
+                    continue;
+                }
+            }
+            escape = None;
             if resp.tool_calls.is_empty() {
                 if let Some((m, t)) = wide.take() {
                     log::debug!("not that action: the whole prompt");
@@ -4298,6 +4333,10 @@ mod answer_tests {
         );
         assert_eq!(answer_so_far("It is sunny.\nFOLL"), "It is sunny.");
         assert_eq!(answer_so_far("It is sunny.\nFor"), "It is sunny.\nFor");
+        // The word that asks for the tools never shows; an answer does.
+        assert_eq!(answer_so_far("ACT"), "");
+        assert_eq!(answer_so_far("ACTION"), "");
+        assert_eq!(answer_so_far("A rainbow forms"), "A rainbow forms");
         assert_eq!(answer_so_far("FOLLOWUPS: a | b"), "");
         assert_eq!(
             answer_so_far("It is sunny.\nFOLUPS: Wind? | Rain?"),
