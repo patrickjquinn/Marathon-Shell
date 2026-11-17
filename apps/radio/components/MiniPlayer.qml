@@ -1,5 +1,6 @@
 import QtQuick
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
 // What is on, along the foot of a page: the station, what it is playing,
 // and play or stop. A tap opens Now playing.

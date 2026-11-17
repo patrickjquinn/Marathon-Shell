@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
 // A station in a list: its logo, name and what it is (FM 100.3, or the
 // stream's codec and rate, and its genres), marked when it is playing.
