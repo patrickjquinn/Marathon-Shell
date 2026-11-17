@@ -3,51 +3,56 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import "../components"
 
-// The station on and what it is playing; play or stop, and the next one.
+// The station on and what it is playing, above the cover's actions: play
+// or stop, and the next one.
 CoverBackground {
     id: cover
 
     property var radio
     readonly property var _station: radio.station
+    // The cover's actions take its foot.
+    readonly property real _top: height - Theme.itemSizeSmall
 
     StationArt {
         id: art
 
         visible: cover._station !== null
-        anchors.horizontalCenter: parent.horizontalCenter
+        x: Theme.paddingLarge
         y: Theme.paddingLarge
-        width: parent.width * 0.42
+        width: Math.min(cover.width * 0.38, cover._top - Theme.paddingLarge * 2)
         height: width
         station: cover._station
     }
 
     Column {
         anchors {
-            top: art.visible ? art.bottom : parent.top
-            topMargin: Theme.paddingMedium
-            left: parent.left
+            left: art.visible ? art.right : parent.left
             leftMargin: Theme.paddingLarge
             right: parent.right
             rightMargin: Theme.paddingLarge
+            verticalCenter: art.visible ? art.verticalCenter : undefined
+            top: art.visible ? undefined : parent.top
+            topMargin: Theme.paddingLarge
         }
+        spacing: Theme.paddingSmall
 
         Label {
             width: parent.width
-            horizontalAlignment: Text.AlignHCenter
             text: cover._station ? cover._station.name : qsTr("Radio")
             color: Theme.highlightColor
-            truncationMode: TruncationMode.Fade
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            truncationMode: TruncationMode.Elide
         }
-
         Label {
             width: parent.width
-            horizontalAlignment: Text.AlignHCenter
+            visible: text !== ""
             text: cover.radio.title || (cover.radio.onFm ? qsTr("FM %1").arg(cover.radio.megahertz(cover.radio.frequency)) : "")
             font.pixelSize: Theme.fontSizeExtraSmall
             color: Theme.secondaryColor
             wrapMode: Text.Wrap
             maximumLineCount: 2
-            truncationMode: TruncationMode.Fade
+            truncationMode: TruncationMode.Elide
         }
     }
 
@@ -58,7 +63,6 @@ CoverBackground {
             iconSource: cover.radio.playing ? "image://theme/icon-cover-pause" : "image://theme/icon-cover-play"
             onTriggered: cover.radio.toggle()
         }
-
         CoverAction {
             iconSource: "image://theme/icon-cover-next-song"
             onTriggered: cover.radio.next()

@@ -73,7 +73,15 @@ pub fn stream_title(block: &[u8]) -> Option<String> {
 }
 
 /// "Artist - Title" as (artist, title); a title alone when there is no dash.
+/// A leading "Now playing:" (RDS text often has one) is not the artist.
 pub fn split(title: &str) -> (Option<String>, String) {
+    let lead = "now playing";
+    let title = match title.get(..lead.len()) {
+        Some(head) if head.eq_ignore_ascii_case(lead) => {
+            title[lead.len()..].trim_start_matches([':', ' ', '-'])
+        }
+        _ => title,
+    };
     match title.split_once(" - ") {
         Some((artist, song)) if !artist.trim().is_empty() && !song.trim().is_empty() => {
             (Some(artist.trim().to_owned()), song.trim().to_owned())
@@ -119,5 +127,9 @@ mod tests {
         );
         assert_eq!(split("News at nine"), (None, "News at nine".into()));
         assert_eq!(split(" - "), (None, "-".into()));
+        assert_eq!(
+            split("Now playing: Queen - Radio Ga Ga"),
+            (Some("Queen".into()), "Radio Ga Ga".into())
+        );
     }
 }

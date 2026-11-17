@@ -19,7 +19,9 @@ Item {
     property int selected: -1
     readonly property bool moving: drag.active || pinch.active || coast.running || snap.running
 
-    signal settled
+    // `byHand`: the person turned it (a turn, a flick, a pinch), rather
+    // than a flight the app asked for.
+    signal settled(bool byHand)
 
     readonly property real _degPerPx: 180 / (Math.PI * radius)
     // Lattice spacing: finer as the globe grows, so dots stay dots.
@@ -27,6 +29,7 @@ Item {
     property real _vlat: 0
     property real _vlon: 0
     property real _zoomFrom: 1
+    property bool _byHand: false
 
     function _wrap(lon) {
         return ((lon + 540) % 360) - 180;
@@ -77,7 +80,8 @@ Item {
         }
         lon = _wrap(lon);
         selected = i;
-        settled();
+        settled(_byHand);
+        _byHand = false;
     }
 
     onPlacesChanged: placeMap.requestPaint()
@@ -170,6 +174,7 @@ Item {
                 coast.stop();
                 snap.stop();
                 globe.selected = -1;
+                globe._byHand = true;
                 last = centroid.position;
                 return;
             }
@@ -195,6 +200,7 @@ Item {
             if (active) {
                 coast.stop();
                 snap.stop();
+                globe._byHand = true;
                 globe._zoomFrom = globe.zoom;
             } else {
                 globe._rest();
@@ -270,7 +276,8 @@ Item {
             globe.lon = globe._wrap(globe.lon);
             const i = globe.nearest();
             globe.selected = i;
-            globe.settled();
+            globe.settled(globe._byHand);
+            globe._byHand = false;
         }
     }
 }

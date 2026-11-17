@@ -14,6 +14,7 @@ mod home;
 mod icy;
 mod library;
 mod matching;
+mod mpris;
 mod route;
 mod stream;
 
@@ -35,6 +36,7 @@ use zbus::{OwnedVariant as OwnedValue, Variant};
 use catalogue::{Catalogue, Station};
 use fm::{Fm, Rds};
 use library::Library;
+use mpris::{Player, Root};
 use route::Route;
 use stream::{Event, Stream, Tx};
 
@@ -220,12 +222,17 @@ impl Radio {
 
     /// The internet station that is FM station `freq`, if any.
     fn online_for(&self, freq: u16) -> Option<Station> {
-        let (lat, lon) = self.home?;
-        let catalogue = self.catalogue.as_ref()?;
-        catalogue
-            .near(lat, lon, LOCAL_KM)
-            .into_iter()
-            .find(|s| self.fm_for(s) == Some(freq))
+        let near = match (self.home, self.catalogue.as_ref()) {
+            (Some((lat, lon)), Some(c)) => c.near(lat, lon, LOCAL_KM),
+            _ => Vec::new(),
+        };
+        // Then those without a location the person has come across
+        // (searched, kept, played): "Radio Nova 100" for NOVA.
+        let lib = &self.library;
+        near.into_iter()
+            .chain(self.seen.values())
+            .chain(lib.favourites.iter().chain(&lib.recents))
+            .find(|s| !s.id.starts_with(FM_PREFIX) && self.fm_for(s) == Some(freq))
             .cloned()
     }
 
@@ -286,10 +293,20 @@ impl Radio {
 
     /// Stations for the app, local FM first.
     fn list(&mut self, stations: Vec<Station>) -> Vec<Dict> {
-        let mut with_fm: Vec<(bool, Station)> = stations
-            .into_iter()
-            .map(|s| (self.fm_for(&s).is_some(), s))
-            .collect();
+        // One entry per FM station: a station's several streams (AAC, MP3)
+        // all match its frequency.
+        let mut on_air = Vec::new();
+        let mut with_fm: Vec<(bool, Station)> = Vec::new();
+        for s in stations {
+            match self.fm_for(&s) {
+                Some(f) if on_air.contains(&f) => {}
+                Some(f) => {
+                    on_air.push(f);
+                    with_fm.push((true, s));
+                }
+                None => with_fm.push((false, s)),
+            }
+        }
         with_fm.sort_by_key(|(fm, _)| !*fm);
         with_fm
             .into_iter()
@@ -779,162 +796,6 @@ impl Service {
 
     #[zbus(signal)]
     async fn state_changed(emitter: &SignalEmitter<'_>, state: Dict) -> zbus::Result<()>;
-}
-
-struct Root;
-
-#[allow(
-    clippy::unused_self,
-    reason = "MPRIS properties a radio answers the same way"
-)]
-#[interface(name = "org.mpris.MediaPlayer2")]
-impl Root {
-    fn raise(&self) {}
-
-    fn quit(&self) {}
-
-    #[zbus(property)]
-    fn can_quit(&self) -> bool {
-        false
-    }
-
-    #[zbus(property)]
-    fn can_raise(&self) -> bool {
-        false
-    }
-
-    #[zbus(property)]
-    fn has_track_list(&self) -> bool {
-        false
-    }
-
-    #[zbus(property)]
-    fn identity(&self) -> &'static str {
-        "Radio"
-    }
-
-    #[zbus(property)]
-    fn desktop_entry(&self) -> &'static str {
-        "radio"
-    }
-
-    #[zbus(property)]
-    fn supported_uri_schemes(&self) -> Vec<String> {
-        Vec::new()
-    }
-
-    #[zbus(property)]
-    fn supported_mime_types(&self) -> Vec<String> {
-        Vec::new()
-    }
-}
-
-struct Player(Core);
-
-#[allow(
-    clippy::unused_self,
-    reason = "MPRIS properties a radio answers the same way"
-)]
-#[interface(name = "org.mpris.MediaPlayer2.Player")]
-impl Player {
-    async fn play(&self) -> fdo::Result<()> {
-        self.0.act(Radio::resume).await
-    }
-
-    async fn pause(&self) -> fdo::Result<()> {
-        self.stop().await
-    }
-
-    async fn stop(&self) -> fdo::Result<()> {
-        self.0
-            .act(|r| {
-                r.stop();
-                Ok(())
-            })
-            .await
-    }
-
-    async fn play_pause(&self) -> fdo::Result<()> {
-        self.0
-            .act(|r| {
-                if r.status.sounding() {
-                    r.stop();
-                    Ok(())
-                } else {
-                    r.resume()
-                }
-            })
-            .await
-    }
-
-    async fn next(&self) -> fdo::Result<()> {
-        self.0.act(|r| r.step(true)).await
-    }
-
-    async fn previous(&self) -> fdo::Result<()> {
-        self.0.act(|r| r.step(false)).await
-    }
-
-    #[zbus(property)]
-    async fn playback_status(&self) -> String {
-        let sounding = self.0.radio.with(|r| r.status.sounding()).await;
-        if sounding { "Playing" } else { "Stopped" }.to_owned()
-    }
-
-    #[zbus(property)]
-    async fn metadata(&self) -> Dict {
-        self.0.radio.with(|r| r.metadata()).await
-    }
-
-    #[zbus(property)]
-    fn can_go_next(&self) -> bool {
-        true
-    }
-
-    #[zbus(property)]
-    fn can_go_previous(&self) -> bool {
-        true
-    }
-
-    #[zbus(property)]
-    fn can_play(&self) -> bool {
-        true
-    }
-
-    #[zbus(property)]
-    fn can_pause(&self) -> bool {
-        true
-    }
-
-    #[zbus(property)]
-    fn can_seek(&self) -> bool {
-        false
-    }
-
-    #[zbus(property)]
-    fn can_control(&self) -> bool {
-        true
-    }
-
-    #[zbus(property)]
-    fn position(&self) -> i64 {
-        0
-    }
-
-    #[zbus(property)]
-    fn rate(&self) -> f64 {
-        1.0
-    }
-
-    #[zbus(property)]
-    fn minimum_rate(&self) -> f64 {
-        1.0
-    }
-
-    #[zbus(property)]
-    fn maximum_rate(&self) -> f64 {
-        1.0
-    }
 }
 
 /// An internet stream's news: playing, a new title, or given up.

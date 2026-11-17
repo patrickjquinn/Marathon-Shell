@@ -33,6 +33,15 @@ Page {
             globe.flyTo(h[0], h[1], 1.5);
     }
 
+    // Where to open: the station on, if it has a place, else home.
+    function goStart() {
+        const s = radio.station;
+        if (radio.playing && s && s.lat !== undefined)
+            globe.flyTo(s.lat, s.lon, 1.5);
+        else
+            goHome();
+    }
+
     backNavigation: false
     showNavigationIndicator: false
 
@@ -40,7 +49,7 @@ Page {
         target: page.radio
         function onPlacesLoaded() {
             if (globe.selected < 0)
-                page.goHome();
+                page.goStart();
         }
     }
 
@@ -66,7 +75,7 @@ Page {
                 lon = h[1];
             }
         }
-        onSettled: {
+        onSettled: byHand => {
             if (selected < 0 || selected === page._loadedPlace)
                 return;
             page._loadedPlace = selected;
@@ -76,8 +85,9 @@ Page {
                     return;
                 page.stations = list;
                 Qt.callLater(strip.positionViewAtBeginning);
-                // A dial turned while listening: the place's first station.
-                if (page.radio.playing && list.length > 0 && !list.some(s => page.radio.station && s.id === page.radio.station.id))
+                // A dial turned by hand while listening: the place's first
+                // station. Opening the app or flying somewhere does not.
+                if (byHand && page.radio.playing && list.length > 0 && !list.some(s => page.radio.station && s.id === page.radio.station.id))
                     page.radio.play(list[0], list);
             });
         }
