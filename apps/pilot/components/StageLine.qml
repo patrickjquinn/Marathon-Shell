@@ -29,8 +29,10 @@ Item {
     width: parent ? parent.width : 0
     height: (partial.length > 0 ? answer.height + Theme.paddingSmall : 0) + row.height + 2 * Theme.paddingMedium
 
-    // The line's fill: the share read, then on towards the end over the
-    // time left, until the next report sets it right.
+    // The line's fill: the share read, then on towards the end, easing out
+    // over the time left so it slows rather than stops, until the next
+    // report sets it right. The first report (nothing read yet) has no time
+    // left to go by.
     property real _shown: 0
     onReadChanged: {
         fill.stop();
@@ -39,16 +41,17 @@ Item {
             return;
         }
         _shown = Math.max(_shown, read);
-        if (!_animate || read >= 1)
+        if (!_animate || read >= 1 || readLeft <= 0)
             return;
-        fill.to = read + (1 - read) * 0.9;
-        fill.duration = Math.max(1, readLeft * 0.9);
+        fill.to = Math.max(_shown, read + (1 - read) * 0.97);
+        fill.duration = readLeft * 1.5;
         fill.start();
     }
     NumberAnimation {
         id: fill
         target: line
         property: "_shown"
+        easing.type: Easing.OutCubic
     }
 
     function words() {
