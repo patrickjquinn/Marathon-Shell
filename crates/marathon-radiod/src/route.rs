@@ -1,15 +1,22 @@
 //! The FM receiver's audio as a PipeWire stream: the A-die's I2S into the
-//! AFE's UL2 capture (`CONNSYS_I2S` -> UL2), read from the `Capture_2` PCM
-//! and played with the Music role, so `WirePlumber` picks the output, volume
-//! and Bluetooth as it does for any player.
+//! AFE's UL2 capture (`CONNSYS_I2S` -> UL2), the `Capture_2` PCM, made a
+//! PipeWire source and looped into a stream with the Music role, so
+//! `WirePlumber` picks the output, volume and Bluetooth as it does for any
+//! player. PipeWire reads the PCM in its own graph: a pipe from arecord
+//! underran every half second.
 
-use std::io;
-use std::process::{Child, Command, Stdio};
+use std::io::{self, Write};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::time::{Duration, Instant};
 
 const SWITCHES: &[&str] = &["UL2_CH1 CONNSYS_I2S_CH1", "UL2_CH2 CONNSYS_I2S_CH2"];
+/// The tuner's PipeWire source; the PCM opens only while `SWITCHES` are on.
+const NODE: &str = "radio_fm_tuner";
 
 pub struct Route {
-    capture: Child,
+    /// pw-cli holding the tuner's source: it goes when pw-cli does.
+    tuner: Child,
+    _commands: ChildStdin,
     play: Child,
 }
 
@@ -66,26 +73,89 @@ fn stop(child: &mut Child) {
     child.wait().ok();
 }
 
+fn node_exists() -> bool {
+    Command::new("pw-cli")
+        .args(["ls", "Node"])
+        .stderr(Stdio::null())
+        .output()
+        .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains(&format!("\"{NODE}\"")))
+}
+
+/// The PCM as a PipeWire source, held by an interactive pw-cli.
+fn tuner(device: &str) -> io::Result<(Child, ChildStdin)> {
+    let mut cli = Command::new("pw-cli")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+    let Some(mut commands) = cli.stdin.take() else {
+        stop(&mut cli);
+        return Err(io::Error::other("pw-cli took no commands"));
+    };
+    let created = writeln!(
+        commands,
+        "create-node adapter {{ factory.name=api.alsa.pcm.source node.name={NODE} \
+         node.description=\"FM tuner\" media.class=Audio/Source \
+         api.alsa.path=\"{device}\" priority.session=0 priority.driver=0 }}"
+    );
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while created.is_ok() && !node_exists() {
+        if Instant::now() > deadline {
+            stop(&mut cli);
+            return Err(io::Error::other(
+                "the FM tuner's PipeWire source did not appear",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    if let Err(e) = created {
+        stop(&mut cli);
+        return Err(e);
+    }
+    Ok((cli, commands))
+}
+
+/// The tuner looped into the Radio stream; never another source, should
+/// the tuner's go.
+fn loopback(sink: Option<&str>) -> io::Result<Child> {
+    let target = sink.map_or_else(String::new, |s| format!(" target.object=\"{s}\""));
+    Command::new("pw-loopback")
+        .arg(format!(
+            "--capture-props={{ target.object={NODE} node.dont-fallback=true \
+             node.dont-reconnect=true node.passive=true node.name=radio_fm_in }}"
+        ))
+        .arg(format!(
+            "--playback-props={{ media.role=Music node.name=radio application.name=Radio \
+             application.icon-name=radio node.description=Radio media.name=Radio{target} }}"
+        ))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+}
+
 impl Route {
     pub fn start() -> io::Result<Self> {
         let device = pcm("Capture_2")?;
         switch(true)?;
-        let mut capture = Command::new("arecord")
-            .args([
-                "-q", "-D", &device, "-t", "raw", "-f", "S16_LE", "-r", "48000", "-c", "2",
-            ])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .spawn()?;
-        let Some(audio) = capture.stdout.take() else {
-            stop(&mut capture);
-            return Err(io::Error::other("arecord gave no output"));
-        };
-        let play = crate::stream::player(Stdio::from(audio));
-        match play {
-            Ok(play) => Ok(Self { capture, play }),
+        let (mut tuner, commands) = match tuner(&device) {
+            Ok(t) => t,
             Err(e) => {
-                stop(&mut capture);
+                switch(false).ok();
+                return Err(e);
+            }
+        };
+        let sink = std::env::var("MARATHON_RADIO_SINK")
+            .ok()
+            .filter(|s| !s.is_empty());
+        match loopback(sink.as_deref()) {
+            Ok(play) => Ok(Self {
+                tuner,
+                _commands: commands,
+                play,
+            }),
+            Err(e) => {
+                stop(&mut tuner);
                 switch(false).ok();
                 Err(e)
             }
@@ -95,8 +165,8 @@ impl Route {
 
 impl Drop for Route {
     fn drop(&mut self) {
-        stop(&mut self.capture);
         stop(&mut self.play);
+        stop(&mut self.tuner);
         switch(false).ok();
     }
 }

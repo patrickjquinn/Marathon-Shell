@@ -42,7 +42,7 @@ const TRIES: u32 = 3;
 
 /// pw-cat playing raw 48 kHz stereo from `input` as the Music role, to
 /// the default output or, for testing, `MARATHON_RADIO_SINK`.
-pub fn player(input: Stdio) -> io::Result<Child> {
+fn player(input: Stdio) -> io::Result<Child> {
     let mut pw = Command::new("pw-cat");
     if let Some(sink) = std::env::var_os("MARATHON_RADIO_SINK").filter(|s| !s.is_empty()) {
         pw.arg("--target").arg(sink);
