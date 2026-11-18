@@ -68,6 +68,11 @@ MouseArea {
 
         Image {
             anchors.centerIn: parent
+            // At its own size the icon filled the highlight circle edge to edge.
+            width: Theme.iconSizeSmallPlus
+            height: Theme.iconSizeSmallPlus
+            sourceSize.width: width
+            sourceSize.height: height
             source: menuItem.icon != "" ? (menuItem.pressed ? menuItem.icon + "?" + highlightColor : menuItem.icon + "?" + Theme.lightPrimaryColor) : ""
         }
     }
