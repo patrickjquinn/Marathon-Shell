@@ -47,6 +47,8 @@ class CameraController : public QObject {
                    photoResolutionChanged)
 
     Q_PROPERTY(bool isRecording READ isRecording NOTIFY recordingChanged)
+    // The camera runs in a photo's format, whose frames are not the viewfinder's.
+    Q_PROPERTY(bool takingStill READ takingStill NOTIFY takingStillChanged)
     // The camera has a focus motor (a lens-focus link in the device tree).
     Q_PROPERTY(bool focusSupported READ focusSupported NOTIFY currentCameraIndexChanged)
     Q_PROPERTY(FocusState focusState READ focusState NOTIFY focusStateChanged)
@@ -82,6 +84,7 @@ class CameraController : public QObject {
     void         setPhotoResolution(const QSize &size);
 
     bool         isRecording() const;
+    bool         takingStill() const;
 
     // Enumerates the cameras without starting one.
     Q_INVOKABLE void discover();
@@ -122,6 +125,7 @@ class CameraController : public QObject {
     void photoResolutionsChanged();
     void photoResolutionChanged();
     void recordingChanged();
+    void takingStillChanged();
     void errorOccurred(const QString &message);
     void photoExposed();
     void photoSaved(const QString &url);
@@ -178,9 +182,6 @@ class CameraController : public QObject {
     std::pair<QString, int> m_still;
     QCameraFormat           m_viewfinderFormat;
     std::atomic<int>        m_stillFrames{0};
-    // A photo's frames come here, not to the viewfinder: shown, the
-    // 12-megapixel frames jumped the viewfinder's shape and stuttered it.
-    QVideoSink              m_stillSink;
     // From the shutter to the photo's frame.
     QElapsedTimer           m_photoClock;
 

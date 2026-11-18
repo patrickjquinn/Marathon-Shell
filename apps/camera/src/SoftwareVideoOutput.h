@@ -6,6 +6,7 @@
 #include <QSGSimpleTextureNode>
 #include <QVideoFrame>
 #include <QVideoSink>
+#include <atomic>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 // The frame as an image: RGB frames copied, others converted through the GPU.
@@ -17,6 +18,8 @@ class SoftwareVideoOutput : public QQuickItem {
 
     Q_PROPERTY(QObject *videoSink READ videoSink CONSTANT)
     Q_PROPERTY(int fillMode READ fillMode WRITE setFillMode NOTIFY fillModeChanged)
+    // Holds the last frame, and skips converting new ones.
+    Q_PROPERTY(bool frozen READ frozen WRITE setFrozen NOTIFY frozenChanged)
 
   public:
     enum FillMode : quint8 {
@@ -33,12 +36,15 @@ class SoftwareVideoOutput : public QQuickItem {
 
     int      fillMode() const;
     void     setFillMode(int mode);
+    bool     frozen() const;
+    void     setFrozen(bool frozen);
 
   protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;
 
   signals:
     void fillModeChanged();
+    void frozenChanged();
 
   private slots:
     void onVideoFrameChanged(const QVideoFrame &frame);
@@ -49,4 +55,5 @@ class SoftwareVideoOutput : public QQuickItem {
     mutable QMutex m_frameMutex;
     FillMode       m_fillMode     = PreserveAspectFit;
     bool           m_frameUpdated = false;
+    std::atomic<bool> m_frozen{false};
 };

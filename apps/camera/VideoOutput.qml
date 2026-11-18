@@ -31,5 +31,8 @@ Item {
         height: root._rotation % 180 === 0 ? root.height : root.width
         rotation: root._rotation
         fillMode: SoftwareVideoOutput.PreserveAspectFit
+        // A photo's frames are larger and slow: shown, they jumped the
+        // viewfinder's shape and stuttered it.
+        frozen: root.source !== null && root.source.controller.takingStill
     }
 }

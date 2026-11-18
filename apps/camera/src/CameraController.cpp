@@ -51,15 +51,6 @@ CameraController::CameraController(QObject *parent)
         m_focusPoll.stop();
         setFocusState(state == 2 ? FocusLocked : FocusUnlocked);
     });
-    connect(
-        &m_stillSink, &QVideoSink::videoFrameChanged, this,
-        [this](const QVideoFrame &frame) {
-            ++m_frames;
-            if (m_stillFrames > 0 && m_stillFrames.fetch_sub(1) == 1)
-                QMetaObject::invokeMethod(
-                    this, [this, frame] { takeStill(frame); }, Qt::QueuedConnection);
-        },
-        Qt::DirectConnection);
     LibcameraSource::watch();
 }
 
@@ -210,8 +201,7 @@ void CameraController::capturePhoto(const QString &path, int rotation) {
         m_still            = {path, rotation};
         m_viewfinderFormat = m_camera->cameraFormat();
         m_stillFrames      = kStillSettleFrames;
-        // The viewfinder keeps its last frame while the photo's format runs.
-        m_captureSession->setVideoOutput(&m_stillSink);
+        emit takingStillChanged();
         m_camera->stop();
         m_camera->setCameraFormat(still);
         m_camera->start();
@@ -297,7 +287,13 @@ void CameraController::setVideoSink(QObject *sink) {
     if (m_videoSink)
         connect(
             m_videoSink, &QVideoSink::videoFrameChanged, this,
-            [this](const QVideoFrame &) { ++m_frames; }, Qt::DirectConnection);
+            [this](const QVideoFrame &frame) {
+                ++m_frames;
+                if (m_stillFrames > 0 && m_stillFrames.fetch_sub(1) == 1)
+                    QMetaObject::invokeMethod(
+                        this, [this, frame] { takeStill(frame); }, Qt::QueuedConnection);
+            },
+            Qt::DirectConnection);
     if (m_captureSession)
         m_captureSession->setVideoOutput(m_videoSink);
     emit videoSinkChanged();
@@ -531,6 +527,10 @@ void CameraController::setPhotoResolution(const QSize &size) {
     emit photoResolutionChanged();
 }
 
+bool CameraController::takingStill() const {
+    return !m_still.first.isEmpty();
+}
+
 bool CameraController::isRecording() const {
     return m_mediaRecorder && m_mediaRecorder->recorderState() == QMediaRecorder::RecordingState;
 }
@@ -594,8 +594,8 @@ void CameraController::takeStill(const QVideoFrame &frame) {
     emit         photoExposed();
     m_camera->stop();
     m_camera->setCameraFormat(m_viewfinderFormat);
-    m_captureSession->setVideoOutput(m_videoSink);
     m_camera->start();
+    emit takingStillChanged();
     if (image.isNull()) {
         onImageError(-1, QImageCapture::ResourceError, "Could not read the photo's frame");
         return;
@@ -609,8 +609,7 @@ void CameraController::cancelStill() {
     m_stillFrames = 0;
     if (m_camera)
         m_camera->setCameraFormat(m_viewfinderFormat);
-    if (m_captureSession)
-        m_captureSession->setVideoOutput(m_videoSink);
+    emit takingStillChanged();
 }
 
 // The photo as a JPEG stood upright: libjpeg-turbo turns the coded blocks

@@ -49,8 +49,17 @@ QImage imageOf(QVideoFrame frame) {
     return image;
 }
 
+bool SoftwareVideoOutput::frozen() const {
+    return m_frozen;
+}
+
+void SoftwareVideoOutput::setFrozen(bool frozen) {
+    if (m_frozen.exchange(frozen) != frozen)
+        emit frozenChanged();
+}
+
 void SoftwareVideoOutput::onVideoFrameChanged(const QVideoFrame &frame) {
-    if (!frame.isValid())
+    if (m_frozen || !frame.isValid())
         return;
 
     QImage image = imageOf(frame);
