@@ -128,7 +128,7 @@ Item {
                 id: controls
 
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Silica.Theme.paddingSmall
+                spacing: Silica.Theme.paddingMedium
 
                 MCircularIconButton {
                     buttonSize: 40
