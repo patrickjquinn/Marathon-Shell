@@ -192,13 +192,15 @@ Rectangle {
             var existingNativeInstance = AppInstances.get(id);
             if (existingNativeInstance) {
                 Logger.info("AppWindow", "Reusing existing app instance: " + id);
+                // Going home minimized it, which locks its buffer; left set,
+                // the restored window showed no new frames. Unminimized first:
+                // a new surface that has painted, bound while locked, locks an
+                // empty view that an idle client never fills.
+                _unminimize(existingNativeInstance);
                 // An instance closed from the switcher while minimized is kept
                 // with its dead surface; a relaunch must not show that.
                 _rebindSurface(existingNativeInstance, id, surface, sid);
                 existingNativeInstance.visible = true;
-                // Going home minimized it, which locks its buffer; left set,
-                // the restored window showed no new frames.
-                _unminimize(existingNativeInstance);
                 // A backgrounded app sits in a frozen cgroup. The switcher
                 // thaws it through restoreApp(), but a restore that arrives
                 // here (home-screen tap, LaunchApp) drew the app's last frame
