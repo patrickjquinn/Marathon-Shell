@@ -752,6 +752,17 @@ impl Service {
     /// Plays station `id`; `list` is the list it was chosen from, which
     /// Next and Previous then go through.
     async fn play(&self, id: String, list: Vec<String>) -> fdo::Result<()> {
+        // A station from a list given before this daemon started (an update,
+        // a restart) is looked up in the directory, outside the lock.
+        let probe = id.clone();
+        let known =
+            id.starts_with(FM_PREFIX) || self.0.radio.with(move |r| r.find(&probe).is_some()).await;
+        if !known {
+            let lookup = id.clone();
+            if let Some(s) = blocking::unblock(move || catalogue::by_id(&lookup)).await {
+                self.0.radio.with(move |r| r.remember(&s)).await;
+            }
+        }
         self.0
             .act(move |r| {
                 if !list.is_empty() {

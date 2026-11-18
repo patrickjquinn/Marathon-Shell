@@ -359,6 +359,16 @@ pub fn fetch() -> Result<Vec<Station>, String> {
     Ok(stations)
 }
 
+/// The directory's station `id` (a UUID), for one a list named before this
+/// daemon started.
+pub fn by_id(id: &str) -> Option<Station> {
+    if id.is_empty() || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') {
+        return None;
+    }
+    let body = get(&format!("/json/stations/byuuid/{id}"), 1 << 20).ok()?;
+    records(&body).ok()?.into_iter().next()
+}
+
 /// The whole directory's stations named like `query`, located or not.
 pub fn search_online(query: &str, limit: usize) -> Result<Vec<Station>, String> {
     let q: String = query
