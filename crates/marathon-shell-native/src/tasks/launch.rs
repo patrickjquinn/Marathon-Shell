@@ -300,7 +300,7 @@ impl Tasks {
         }
         let id = app_id.to_string();
         dbus::runner(&id, "SetCoverStatus", (i32::from(visible),));
-        if visible && self.is_keel_host(&id) {
+        if visible {
             dbus::cover_action_strip(self.qt_thread(), id);
         }
     }
@@ -326,8 +326,13 @@ impl Tasks {
     /// A hosted Keel app learns from this whether it is in front; a
     /// runner takes it from its window.
     pub(super) fn set_app_active(&self, app_id: &str, active: bool) {
-        if self.is_keel_host(app_id) {
+        let hosted = self.is_keel_host(app_id);
+        if hosted {
             dbus::runner(app_id, "SetActive", (active,));
+        }
+        // Its cover's actions, read while it still runs: frozen, it cannot answer.
+        if !active && (hosted || Self::is_marathon_app(app_id)) {
+            dbus::cover_action_strip(self.qt_thread(), app_id.to_owned());
         }
     }
 

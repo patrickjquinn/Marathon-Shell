@@ -490,6 +490,13 @@ impl Lifecycle1 {
         Ok(())
     }
 
+    /// The cover's action strip (count, height in cover pixels), for the
+    /// switcher card to pass taps there to the cover.
+    async fn cover_action_strip(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<(i32, i32)> {
+        caller_is_shell(&h).await?;
+        Ok(crate::keel::host().map_or((0, 0), marathon_keel::Host::cover_action_strip))
+    }
+
     async fn prepare_freeze(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
         caller_is_shell(&h).await?;
         self.gui(ffi::RunnerLifecycle::prepare_freeze_requested)

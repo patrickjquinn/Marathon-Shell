@@ -39,4 +39,14 @@ TestCase {
         view.appId = "megapixels";
         compare(compositor.lookups, ["messages", "megapixels"]);
     }
+
+    // With no cover on the card, the card keeps every tap.
+    function test_noCoverHoldsNoPress() {
+        Tasks.coverStrip = 80;
+        Tasks.coverActionStripChanged(view.appId);
+        compare(view.actionStrip, 80);
+        verify(!view.holdsPress(view, 0, view.height - 1));
+        Tasks.coverStrip = 0;
+        Tasks.coverActionStripChanged(view.appId);
+    }
 }
