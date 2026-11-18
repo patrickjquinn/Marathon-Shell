@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Builds keel-silica (Keel's Sailfish.Silica for Qt 6) into mkosi.packages/.
-# KEEL_SRC=<Shipwright checkout> builds its committed keel/ at HEAD instead of
-# the public shipwright-open export the APKBUILD pins.
+# Builds keel-silica, Marathon Silica (keel-silica/ in this repo, Marathon's
+# fork of Keel), into mkosi.packages/. It packages the committed keel-silica/
+# at HEAD; KEEL_SRC=<another Marathon checkout> packages that one's instead.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,20 +27,16 @@ echo "output: $MKOSI_PKG_DIR/$TARGET"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/keel-silica-build.XXXXXX")"
 trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
-LOCAL_COMMIT=""
-if [ -n "${KEEL_SRC:-}" ]; then
-    require_clean "$KEEL_SRC" keel
-    LOCAL_COMMIT="$(git -C "$KEEL_SRC" rev-parse HEAD)"
-    mkdir -p "$WORK_DIR/distfiles"
-    git -C "$KEEL_SRC" archive --format=tar.gz --prefix="shipwright-open-$LOCAL_COMMIT/" \
-        -o "$WORK_DIR/distfiles/keel-silica-$LOCAL_COMMIT.tar.gz" HEAD keel
-    echo "keel source: $KEEL_SRC @ $LOCAL_COMMIT"
-fi
+KEEL_SRC="${KEEL_SRC:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+require_clean "$KEEL_SRC" keel-silica
+mkdir -p "$WORK_DIR/distfiles"
+git -C "$KEEL_SRC" archive --format=tar.gz --prefix=Marathon-Shell-main/ \
+    -o "$WORK_DIR/distfiles/keel-silica-$PKGVER.tar.gz" HEAD keel-silica
+echo "keel source: $KEEL_SRC @ $(git -C "$KEEL_SRC" rev-parse --short HEAD)"
 
 podman run --rm -i \
     --net=host \
     -e TARGET="$TARGET" \
-    -e LOCAL_COMMIT="$LOCAL_COMMIT" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
     -v "$MKOSI_PKG_DIR:/out:z" \
     -v "$WORK_DIR:/work:z" \
@@ -67,11 +63,8 @@ mkdir -p /work/aports
 rsync -a --checksum --no-times /aports-src/keel-silica/ /work/aports/keel-silica/
 
 cd /work/aports/keel-silica
-if [ -n "$LOCAL_COMMIT" ]; then
-    mkdir -p /var/cache/distfiles
-    cp /work/distfiles/*.tar.gz /var/cache/distfiles/
-    sed -i "s/^_commit=.*/_commit=$LOCAL_COMMIT/" APKBUILD
-fi
+mkdir -p /var/cache/distfiles
+cp /work/distfiles/*.tar.gz /var/cache/distfiles/
 abuild -F checksum
 abuild -d -F
 
