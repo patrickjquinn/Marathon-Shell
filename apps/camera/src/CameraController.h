@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QAudioInput>
 #include <QObject>
 #include <QCamera>
 #include <QMediaCaptureSession>
@@ -151,6 +152,8 @@ class CameraController : public QObject {
     QMediaCaptureSession *m_captureSession = nullptr;
     QImageCapture        *m_imageCapture   = nullptr;
     QMediaRecorder       *m_mediaRecorder  = nullptr;
+    // The microphone, only while a video records.
+    QAudioInput          *m_audioInput     = nullptr;
     QVideoSink           *m_videoSink      = nullptr;
 
     QList<QCameraDevice>  m_cameras;

@@ -80,6 +80,7 @@ void CameraController::createSession() {
     // H.264 keeps up with the camera on a phone's CPU; Qt's default, HEVC, does not.
     QMediaFormat format(QMediaFormat::MPEG4);
     format.setVideoCodec(QMediaFormat::VideoCodec::H264);
+    format.setAudioCodec(QMediaFormat::AudioCodec::AAC);
     m_mediaRecorder->setMediaFormat(format);
     m_captureSession->setImageCapture(m_imageCapture);
     m_captureSession->setRecorder(m_mediaRecorder);
@@ -213,6 +214,10 @@ void CameraController::startRecording(const QString &path, const QString &poster
     }
 
     m_posterPath = posterPath;
+    // A session without an audio input records video alone: videos had no sound.
+    if (!m_audioInput)
+        m_audioInput = new QAudioInput(this);
+    m_captureSession->setAudioInput(m_audioInput);
     m_mediaRecorder->setOutputLocation(QUrl::fromLocalFile(path));
     m_mediaRecorder->record();
 }
@@ -707,6 +712,7 @@ void CameraController::onRecorderStateChanged(QMediaRecorder::RecorderState stat
             m_recordingPoster = m_videoSink->videoFrame().toImage().scaled(
                 512, 512, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     } else if (state == QMediaRecorder::StoppedState) {
+        m_captureSession->setAudioInput(nullptr);
         const QString video = m_mediaRecorder->actualLocation().toLocalFile();
         if (QFileInfo::exists(video)) {
             if (!m_posterPath.isEmpty() && !m_recordingPoster.isNull())
