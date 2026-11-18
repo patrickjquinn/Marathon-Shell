@@ -17,8 +17,9 @@
 
 namespace {
     QtMessageHandler originalHandler = nullptr;
-    // The software ISP's exposure starts again with each configuration.
-    constexpr int kStillSettleFrames = 8;
+    // The software ISP keeps its exposure across the photo's format; the
+    // first frame after a restart can be torn.
+    constexpr int kStillSettleFrames = 2;
 
     void          cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
                                        const QString &msg) {
@@ -41,9 +42,15 @@ CameraController::CameraController(QObject *parent)
     m_frameWatch.setSingleShot(true);
     m_frameWatch.setInterval(4000);
     connect(&m_frameWatch, &QTimer::timeout, this, &CameraController::checkFrames);
-    m_focusSettle.setSingleShot(true);
-    m_focusSettle.setInterval(1500);
-    connect(&m_focusSettle, &QTimer::timeout, this, [this] { setFocusState(FocusLocked); });
+    m_focusPoll.setInterval(100);
+    connect(&m_focusPoll, &QTimer::timeout, this, [this] {
+        // The first reads can still be the last scan's end.
+        const int state = ++m_focusPolls > 3 ? LibcameraSource::focusState() : 1;
+        if ((state == 0 || state == 1) && m_focusPolls < 80)
+            return;
+        m_focusPoll.stop();
+        setFocusState(state == 2 ? FocusLocked : FocusUnlocked);
+    });
     connect(
         &m_stillSink, &QVideoSink::videoFrameChanged, this,
         [this](const QVideoFrame &frame) {
@@ -242,21 +249,15 @@ void CameraController::stopRecording() {
 void CameraController::focusOnPoint(qreal x, qreal y) {
     if (!m_camera || !focusSupported())
         return;
-    // The AF windows are in the sensor's full-frame coordinates: the largest
-    // frame the camera gives. A fifth of the frame each way around the point.
-    const QSize full = m_photoResolutions.isEmpty() ? m_camera->cameraFormat().resolution()
-                                                    : m_photoResolutions.first();
-    const int   w = full.width() / 5, h = full.height() / 5;
-    const int   left = std::clamp(int(x * full.width()) - w / 2, 0, full.width() - w);
-    const int   top  = std::clamp(int(y * full.height()) - h / 2, 0, full.height() - h);
-    if (!LibcameraSource::focusOn(QRect(left, top, w, h)))
+    if (!LibcameraSource::focusOn(QPointF(x, y)))
         return;
     setFocusState(FocusSearching);
-    m_focusSettle.start();
+    m_focusPolls = 0;
+    m_focusPoll.start();
 }
 
 void CameraController::unlockFocus() {
-    m_focusSettle.stop();
+    m_focusPoll.stop();
     if (m_focusState != FocusUnlocked)
         LibcameraSource::focusContinuously();
     setFocusState(FocusUnlocked);

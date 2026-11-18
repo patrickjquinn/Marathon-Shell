@@ -250,8 +250,24 @@ QtObject {
     }
 
     function searchAndLock() {
-        if (focus.focusPointMode === Camera.FocusPointCustom)
-            controller.focusOnPoint(focus.customFocusPoint.x, focus.customFocusPoint.y);
+        if (focus.focusPointMode !== Camera.FocusPointCustom)
+            return;
+        // The point is on the viewfinder, which shows the frame turned by
+        // the camera's orientation; the controller takes it on the frame.
+        const p = focus.customFocusPoint;
+        switch (orientation) {
+        case 90:
+            controller.focusOnPoint(p.y, 1 - p.x);
+            break;
+        case 180:
+            controller.focusOnPoint(1 - p.x, 1 - p.y);
+            break;
+        case 270:
+            controller.focusOnPoint(1 - p.y, p.x);
+            break;
+        default:
+            controller.focusOnPoint(p.x, p.y);
+        }
     }
 
     function unlock() {

@@ -187,7 +187,9 @@ class CameraController : public QObject {
     FocusState              m_focusState = FocusUnlocked;
     // A tap's focus search: libcamerasrc reports no AF state, so it settles
     // after the time a full sweep takes.
-    QTimer                  m_focusSettle;
+    // Reads the scan's progress until it ends.
+    QTimer                  m_focusPoll;
+    int                     m_focusPolls = 0;
     void                    setFocusState(FocusState state);
 
     QImage                  m_recordingPoster;

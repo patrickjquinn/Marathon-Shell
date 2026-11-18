@@ -4,6 +4,8 @@
 
 #include <QMutex>
 #include <QMutexLocker>
+#include <QRect>
+#include <algorithm>
 #include <gst/gst.h>
 #include <mutex>
 
@@ -55,13 +57,42 @@ void LibcameraSource::watch() {
     });
 }
 
-bool LibcameraSource::focusOn(const QRect &window) {
+namespace {
+
+// The sensor area the frame shows, in the sensor's pixel array: the
+// coordinates of the AF windows. Empty until the first frame completes.
+QRect scalerCrop(GstElement *element) {
+    GParamSpec *spec = g_object_class_find_property(G_OBJECT_GET_CLASS(element), "scaler-crop");
+    if (!spec)
+        return {};
+    GValue crop = G_VALUE_INIT;
+    g_value_init(&crop, G_PARAM_SPEC_VALUE_TYPE(spec));
+    g_object_get_property(G_OBJECT(element), "scaler-crop", &crop);
+    int v[4] = {};
+    if (GST_VALUE_HOLDS_ARRAY(&crop) && gst_value_array_get_size(&crop) == 4)
+        for (guint i = 0; i < 4; ++i)
+            v[i] = g_value_get_int(gst_value_array_get_value(&crop, i));
+    g_value_unset(&crop);
+    return QRect(v[0], v[1], v[2], v[3]);
+}
+
+} // namespace
+
+bool LibcameraSource::focusOn(const QPointF &point) {
     GstElement *element = current();
     if (!element)
         return false;
-    const bool ok = hasProperty(element, "af-windows") && hasProperty(element, "af-trigger") &&
-        hasProperty(element, "af-metering") && hasProperty(element, "af-mode");
+    const QRect crop = scalerCrop(element);
+    const bool  ok   = crop.width() > 0 && crop.height() > 0 && hasProperty(element, "af-windows") &&
+        hasProperty(element, "af-trigger") && hasProperty(element, "af-metering") &&
+        hasProperty(element, "af-mode");
     if (ok) {
+        // A fifth of the frame each way around the point, kept inside it.
+        const int   w      = crop.width() / 5, h = crop.height() / 5;
+        const QRect window(
+            std::clamp(crop.x() + int(point.x() * crop.width()) - w / 2, crop.x(), crop.right() + 1 - w),
+            std::clamp(crop.y() + int(point.y() * crop.height()) - h / 2, crop.y(), crop.bottom() + 1 - h),
+            w, h);
         // af-windows: an array of rectangles, each an array of x, y, width, height.
         GValue windows = G_VALUE_INIT;
         GValue rect    = G_VALUE_INIT;
@@ -93,4 +124,15 @@ bool LibcameraSource::focusContinuously() {
         g_object_set(element, "af-metering", kAfMeteringAuto, "af-mode", kAfModeContinuous, nullptr);
     gst_object_unref(element);
     return ok;
+}
+
+int LibcameraSource::focusState() {
+    GstElement *element = current();
+    if (!element)
+        return -1;
+    int state = -1;
+    if (hasProperty(element, "af-state"))
+        g_object_get(element, "af-state", &state, nullptr);
+    gst_object_unref(element);
+    return state;
 }
