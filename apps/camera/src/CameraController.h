@@ -178,6 +178,9 @@ class CameraController : public QObject {
     std::pair<QString, int> m_still;
     QCameraFormat           m_viewfinderFormat;
     std::atomic<int>        m_stillFrames{0};
+    // A photo's frames come here, not to the viewfinder: shown, the
+    // 12-megapixel frames jumped the viewfinder's shape and stuttered it.
+    QVideoSink              m_stillSink;
     // From the shutter to the photo's frame.
     QElapsedTimer           m_photoClock;
 

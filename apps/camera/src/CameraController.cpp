@@ -44,6 +44,15 @@ CameraController::CameraController(QObject *parent)
     m_focusSettle.setSingleShot(true);
     m_focusSettle.setInterval(1500);
     connect(&m_focusSettle, &QTimer::timeout, this, [this] { setFocusState(FocusLocked); });
+    connect(
+        &m_stillSink, &QVideoSink::videoFrameChanged, this,
+        [this](const QVideoFrame &frame) {
+            ++m_frames;
+            if (m_stillFrames > 0 && m_stillFrames.fetch_sub(1) == 1)
+                QMetaObject::invokeMethod(
+                    this, [this, frame] { takeStill(frame); }, Qt::QueuedConnection);
+        },
+        Qt::DirectConnection);
     LibcameraSource::watch();
 }
 
@@ -194,6 +203,8 @@ void CameraController::capturePhoto(const QString &path, int rotation) {
         m_still            = {path, rotation};
         m_viewfinderFormat = m_camera->cameraFormat();
         m_stillFrames      = kStillSettleFrames;
+        // The viewfinder keeps its last frame while the photo's format runs.
+        m_captureSession->setVideoOutput(&m_stillSink);
         m_camera->stop();
         m_camera->setCameraFormat(still);
         m_camera->start();
@@ -285,13 +296,7 @@ void CameraController::setVideoSink(QObject *sink) {
     if (m_videoSink)
         connect(
             m_videoSink, &QVideoSink::videoFrameChanged, this,
-            [this](const QVideoFrame &frame) {
-                ++m_frames;
-                if (m_stillFrames > 0 && m_stillFrames.fetch_sub(1) == 1)
-                    QMetaObject::invokeMethod(
-                        this, [this, frame] { takeStill(frame); }, Qt::QueuedConnection);
-            },
-            Qt::DirectConnection);
+            [this](const QVideoFrame &) { ++m_frames; }, Qt::DirectConnection);
     if (m_captureSession)
         m_captureSession->setVideoOutput(m_videoSink);
     emit videoSinkChanged();
@@ -588,6 +593,7 @@ void CameraController::takeStill(const QVideoFrame &frame) {
     emit         photoExposed();
     m_camera->stop();
     m_camera->setCameraFormat(m_viewfinderFormat);
+    m_captureSession->setVideoOutput(m_videoSink);
     m_camera->start();
     if (image.isNull()) {
         onImageError(-1, QImageCapture::ResourceError, "Could not read the photo's frame");
@@ -602,6 +608,8 @@ void CameraController::cancelStill() {
     m_stillFrames = 0;
     if (m_camera)
         m_camera->setCameraFormat(m_viewfinderFormat);
+    if (m_captureSession)
+        m_captureSession->setVideoOutput(m_videoSink);
 }
 
 // The photo as a JPEG stood upright: libjpeg-turbo turns the coded blocks
