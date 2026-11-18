@@ -1,0 +1,53 @@
+From a4d4fe511565517e2e67584383dc991cca172bc3 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 21:36:10 +0000
+Subject: [PATCH] media: i2c: imx111: Don't shorten a mode's frame below its
+ default length
+
+The vertical blanking range starts at 16 lines for every mode, but the
+sensor does not stream at every frame length that allows. In the
+3280x2464 mode it delivers two or three frames and then stops at 16, 20
+or 24 lines of blanking, at any exposure, while 26 lines (the mode's
+default frame length of 2490 lines) and more stream normally. libcamera's
+AGC now controls the blanking, and asking for a frame rate the mode
+cannot reach clamps it to the minimum, which stalls the stream.
+
+Each mode's default frame length is the one its register set was made
+with. Use it as the shortest frame the mode allows: the blanking may
+grow from the default, for longer exposures, but not shrink below it.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/media/i2c/imx111.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/i2c/imx111.c b/drivers/media/i2c/imx111.c
+index d0a72f3..96b0c44 100644
+--- a/drivers/media/i2c/imx111.c
++++ b/drivers/media/i2c/imx111.c
+@@ -89,7 +89,6 @@
+ /* frame timing registers */
+ #define IMX111_VERTICAL_TOTAL_LENGTH		CCI_REG16(0x0340)
+ #define IMX111_VTL_MAX				0x09d8
+-#define IMX111_VBLANK_MIN			16
+ #define IMX111_HORIZONTAL_TOTAL_LENGTH		CCI_REG16(0x0342)
+ #define IMX111_HTL_MAX				0x0dd0
+ #define IMX111_HBLANK_MIN			16
+@@ -932,7 +931,7 @@ static int imx111_init_controls(struct imx111 *sensor)
+ 		sensor->vflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+ 
+ 	sensor->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK,
+-					   IMX111_VBLANK_MIN,
++					   mode->vtl_def - mode->height,
+ 					   IMX111_VTL_MAX - mode->height, 1,
+ 					   mode->vtl_def - mode->height);
+ 	sensor->hblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HBLANK,
+@@ -1150,7 +1149,7 @@ static int imx111_set_format(struct v4l2_subdev *sd,
+ 			return ret;
+ 
+ 		ret = __v4l2_ctrl_modify_range(sensor->vblank,
+-					       IMX111_VBLANK_MIN,
++					       mode->vtl_def - mode->height,
+ 					       IMX111_VTL_MAX - mode->height,
+ 					       1,
+ 					       mode->vtl_def - mode->height);
