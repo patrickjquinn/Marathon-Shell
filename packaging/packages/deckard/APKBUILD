@@ -8,8 +8,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=41
-_commit=622496e046708079351753a91b48b09219e0ede1
+pkgrel=42
+_commit=2e8be1dbfdda3f8fe318853de2bcadb759387cef
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -121,6 +121,15 @@ package() {
 		"$pkgdir"/usr/libexec/deckard-containerd
 	install -Dm644 $p/deckard-container.service \
 		"$pkgdir"/usr/lib/systemd/system/deckard-container.service
+	if [ -f $p/deckard-dexopt.timer ]; then
+		install -Dm644 $p/deckard-dexopt.service \
+			"$pkgdir"/usr/lib/systemd/system/deckard-dexopt.service
+		install -Dm644 $p/deckard-dexopt.timer \
+			"$pkgdir"/usr/lib/systemd/system/deckard-dexopt.timer
+		install -d "$pkgdir"/usr/lib/systemd/system/timers.target.wants
+		ln -s ../deckard-dexopt.timer \
+			"$pkgdir"/usr/lib/systemd/system/timers.target.wants/deckard-dexopt.timer
+	fi
 	local bus=org.marathonos.Deckard.Container
 	install -Dm644 $p/$bus.service "$pkgdir"/usr/share/dbus-1/system-services/$bus.service
 	install -Dm644 $p/$bus.conf "$pkgdir"/usr/share/dbus-1/system.d/$bus.conf
