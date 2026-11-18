@@ -25,7 +25,9 @@ add_marathon_app(${APP_NAME}
 
 
 find_package(Qt6 REQUIRED COMPONENTS Concurrent)
-target_link_libraries(${APP_NAME} PRIVATE Qt6::Multimedia Qt6::Concurrent)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(TURBOJPEG REQUIRED IMPORTED_TARGET libturbojpeg)
+target_link_libraries(${APP_NAME} PRIVATE Qt6::Multimedia Qt6::Concurrent PkgConfig::TURBOJPEG)
 
 install_keel_actions(${APP_NAME} keel-actions.json)
 # The capture, settings and gallery QML is the Jolla Camera's (BSD-3-Clause).

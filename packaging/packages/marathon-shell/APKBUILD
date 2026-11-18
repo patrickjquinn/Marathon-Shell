@@ -98,6 +98,7 @@ makedepends="
 	git
 	linux-pam-dev
 	sqlite-dev
+	libjpeg-turbo-dev
 	"
 install="$pkgname.post-install"
 subpackages="$pkgname-doc marathon-icon-theme:icontheme:noarch $pkgname-browser:browser

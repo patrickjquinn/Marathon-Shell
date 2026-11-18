@@ -5,6 +5,7 @@
 #include <QMediaCaptureSession>
 #include <QImageCapture>
 #include <QMediaRecorder>
+#include <QElapsedTimer>
 #include <QTimer>
 #include <QVideoSink>
 #include <atomic>
@@ -160,6 +161,8 @@ class CameraController : public QObject {
     std::pair<QString, int> m_still;
     QCameraFormat           m_viewfinderFormat;
     std::atomic<int>        m_stillFrames{0};
+    // From the shutter to the photo's frame.
+    QElapsedTimer           m_photoClock;
 
     QImage                  m_recordingPoster;
     QString                 m_posterPath;

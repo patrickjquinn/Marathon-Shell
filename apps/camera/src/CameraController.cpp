@@ -5,12 +5,12 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
-#include <QImageWriter>
 #include <QMediaDevices>
 #include <QMediaFormat>
 #include <QPointer>
 #include <QThreadPool>
 #include <QtEndian>
+#include <turbojpeg.h>
 #include <utility>
 #include "SoftwareVideoOutput.h"
 
@@ -177,6 +177,7 @@ void CameraController::capturePhoto(const QString &path, int rotation) {
         emit errorOccurred(m_errorMessage);
         return;
     }
+    m_photoClock.start();
 
     // Qt's capture is the viewfinder's frame: a larger photo takes a frame
     // of its own format.
@@ -560,28 +561,92 @@ void CameraController::cancelStill() {
         m_camera->setCameraFormat(m_viewfinderFormat);
 }
 
+// The photo as a JPEG stood upright: libjpeg-turbo turns the coded blocks
+// (lossless), far quicker than turning 12 million pixels before encoding. A
+// lossless turn needs whole 16-pixel blocks, so a few edge columns go.
+static QByteArray encodePhoto(const QImage &image, int rotation, QString *error) {
+    int pixelFormat;
+    switch (image.format()) {
+        case QImage::Format_RGBA8888:
+        case QImage::Format_RGBX8888: pixelFormat = TJPF_RGBX; break;
+        case QImage::Format_ARGB32:
+        case QImage::Format_RGB32: pixelFormat = TJPF_BGRX; break;
+        default: return encodePhoto(image.convertToFormat(QImage::Format_RGB32), rotation, error);
+    }
+    const int width  = image.width() & ~15;
+    const int height = image.height() & ~15;
+    const uchar *top = image.constBits() + (image.width() - width) / 2 * 4 +
+        (image.height() - height) / 2 * image.bytesPerLine();
+
+    tjhandle       encoder = tjInitCompress();
+    unsigned char *jpeg    = nullptr;
+    unsigned long  size    = 0;
+    const bool encoded = encoder && tjCompress2(encoder, top, width, int(image.bytesPerLine()), height,
+                                                pixelFormat, &jpeg, &size, TJSAMP_420, 92, 0) == 0;
+    if (!encoded)
+        *error = QString::fromUtf8(tjGetErrorStr2(encoder));
+    tjDestroy(encoder);
+    if (!encoded) {
+        tjFree(jpeg);
+        return {};
+    }
+
+    rotation = ((rotation % 360) + 360) % 360;
+    if (rotation == 0) {
+        QByteArray out(reinterpret_cast<const char *>(jpeg), qsizetype(size));
+        tjFree(jpeg);
+        return out;
+    }
+    tjtransform turn{};
+    turn.op      = rotation == 90 ? TJXOP_ROT90 : rotation == 180 ? TJXOP_ROT180 : TJXOP_ROT270;
+    turn.options = TJXOPT_PERFECT;
+    tjhandle       rotator = tjInitTransform();
+    unsigned char *turned  = nullptr;
+    unsigned long  turnedSize = 0;
+    const bool rotated = rotator && tjTransform(rotator, jpeg, size, 1, &turned, &turnedSize, &turn, 0) == 0;
+    if (!rotated)
+        *error = QString::fromUtf8(tjGetErrorStr2(rotator));
+    tjDestroy(rotator);
+    tjFree(jpeg);
+    QByteArray out;
+    if (rotated)
+        out = QByteArray(reinterpret_cast<const char *>(turned), qsizetype(turnedSize));
+    tjFree(turned);
+    return out;
+}
+
 void CameraController::savePhoto(const QImage &image, const QString &fileName, int rotation) {
     QPointer<CameraController> self(this);
-    QThreadPool::globalInstance()->start([self, image, fileName, rotation] {
+    const qint64 exposedAfter = m_photoClock.elapsed();
+    QThreadPool::globalInstance()->start([self, image, fileName, rotation, exposedAfter] {
+        QElapsedTimer clock;
+        clock.start();
+        QString          error;
+        const QByteArray jpeg = encodePhoto(image, rotation, &error);
         // Under another name until whole: the camera roll shows the folder.
-        const QString part = fileName + ".part";
-        QImageWriter  writer(part, "jpeg");
-        writer.setQuality(92);
-        bool saved =
-            writer.write(rotation ? image.transformed(QTransform().rotate(rotation)) : image);
-        const QString error = writer.errorString();
+        const QString part  = fileName + ".part";
+        QFile         file(part);
+        bool          saved = !jpeg.isEmpty() && file.open(QIODevice::WriteOnly) &&
+            file.write(jpeg) == jpeg.size() && file.flush();
+        file.close();
         if (saved)
             saved = QFile::rename(part, fileName);
-        else
+        if (!saved) {
             QFile::remove(part);
-        QMetaObject::invokeMethod(QCoreApplication::instance(), [self, saved, fileName, error] {
+            if (error.isEmpty())
+                error = file.errorString();
+        }
+        const qint64 writtenIn = clock.elapsed();
+        QMetaObject::invokeMethod(QCoreApplication::instance(),
+                                  [self, saved, fileName, error, exposedAfter, writtenIn] {
             if (!self)
                 return;
             if (!saved) {
                 self->onImageError(-1, QImageCapture::ResourceError, error);
                 return;
             }
-            qWarning() << "[CameraController] Photo saved:" << fileName;
+            qWarning().noquote() << "[CameraController] Photo saved:" << fileName << "- exposed after"
+                                 << exposedAfter << "ms, written in" << writtenIn << "ms";
             emit self->photoSaved(QUrl::fromLocalFile(fileName).toString());
         });
     });
