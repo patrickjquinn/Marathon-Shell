@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 18:00:00 +0000
+Subject: [PATCH] media: i2c: s5kjn1: Expose the analogue gain code
+
+The analogue gain register takes a code in 1/32 steps, 32 being 1x. The
+driver exposed whole multiples from 1x to 64x and shifted them into the
+register, so userspace could not set a gain between two whole steps and
+could ask for four times the 16x the module supports (the stock
+driver's limit). Expose the code itself, 32 to 512.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+--- a/drivers/media/i2c/s5kjn1.c
++++ b/drivers/media/i2c/s5kjn1.c
+@@ -33,12 +33,12 @@
+ #define S5KJN1_EXPOSURE_MIN		8
+ #define S5KJN1_EXPOSURE_STEP		1
+ 
++/* Analogue gain code: 32 is 1x, in 1/32 steps up to 16x */
+ #define S5KJN1_REG_AGAIN		CCI_REG16(0x0204)
+-#define S5KJN1_AGAIN_MIN		1
+-#define S5KJN1_AGAIN_MAX		64
++#define S5KJN1_AGAIN_MIN		32
++#define S5KJN1_AGAIN_MAX		512
+ #define S5KJN1_AGAIN_STEP		1
+-#define S5KJN1_AGAIN_DEFAULT		6
+-#define S5KJN1_AGAIN_SHIFT		5
++#define S5KJN1_AGAIN_DEFAULT		192
+ 
+ #define S5KJN1_REG_VTS			CCI_REG16(0x0340)
+ #define S5KJN1_VTS_MAX			0xffff
+@@ -768,8 +768,8 @@
+ 
+ 	switch (ctrl->id) {
+ 	case V4L2_CID_ANALOGUE_GAIN:
+-		ret = cci_write(s5kjn1->regmap, S5KJN1_REG_AGAIN,
+-				ctrl->val << S5KJN1_AGAIN_SHIFT, NULL);
++		ret = cci_write(s5kjn1->regmap, S5KJN1_REG_AGAIN, ctrl->val,
++				NULL);
+ 		break;
+ 	case V4L2_CID_EXPOSURE:
+ 		ret = cci_write(s5kjn1->regmap, S5KJN1_REG_EXPOSURE,
+-- 
+2.47.0
