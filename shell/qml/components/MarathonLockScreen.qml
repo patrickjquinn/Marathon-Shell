@@ -60,17 +60,10 @@ Item {
     readonly property int roleTitle: roleId("title")
     readonly property int roleBody: roleId("body")
     readonly property int roleTimestamp: roleId("timestamp")
-    // Max notification cards shown directly; remainder collapse
-    // into the 'N more notifications' row.
-    readonly property int maxNotificationsShown: 2
-    // Fewer when the cards would run into the unlock controls.
-    property int shownLimit: maxNotificationsShown
-
     signal unlockRequested
     signal cameraLaunched
     signal phoneLaunched
     signal notificationTapped(int notifId, string appId, string title)
-    signal hubRequested
     // Idle for the screen timeout: the shell blanks the screen or shows Nightshade.
     signal idleExpired(string reason)
 
@@ -105,50 +98,29 @@ Item {
     }
 
     // Rebuilds the visible-notifications model from the global
-    // NotificationService — keeps only the first `maxNotificationsShown`
-    // unread items so the lock surface stays calm. The remainder are
-    // surfaced via the 'N more' card, which opens the Hub.
-    function refreshNotifications(keepLimit) {
-        if (!keepLimit)
-            shownLimit = maxNotificationsShown;
+    // NotificationService: every unread one, in a list that scrolls.
+    function refreshNotifications() {
         unreadModel.clear();
         // Honour the "Show on Lock Screen" privacy setting. Previously this
         // toggle wrote SettingsManagerCpp.showNotificationsOnLockScreen but
         // nothing read it, so turning it off still leaked every notification
         // onto the lock surface. Gate the whole list here.
-        if (typeof SettingsManagerCpp !== 'undefined' && !SettingsManagerCpp.showNotificationsOnLockScreen) {
-            moreCount = 0;
+        if (typeof SettingsManagerCpp !== 'undefined' && !SettingsManagerCpp.showNotificationsOnLockScreen)
             return;
-        }
-        let unread = 0;
         for (let i = 0; i < NotificationService.rowCount(); i++) {
             const idx = NotificationService.index(i, 0);
             if (NotificationService.data(idx, roleIsRead))
                 continue;
-            if (unread < shownLimit) {
-                unreadModel.append({
-                    "notifId": NotificationService.data(idx, roleIdValue) || 0,
-                    "appId": NotificationService.data(idx, roleAppId) || "other",
-                    "icon": NotificationService.data(idx, roleIcon) || "bell",
-                    "title": NotificationService.data(idx, roleTitle) || "",
-                    "body": NotificationService.data(idx, roleBody) || "",
-                    "timestamp": NotificationService.data(idx, roleTimestamp) || 0
-                });
-            }
-            unread++;
-        }
-        moreCount = Math.max(0, unread - shownLimit);
-    }
-
-    function fitNotifications() {
-        const limit = lockScreenBottomBar.mapToItem(notificationStack.parent, 0, 0).y - Silica.Theme.paddingLarge;
-        if (notificationStack.y + notificationStack.height > limit && shownLimit > 1) {
-            shownLimit--;
-            refreshNotifications(true);
+            unreadModel.append({
+                "notifId": NotificationService.data(idx, roleIdValue) || 0,
+                "appId": NotificationService.data(idx, roleAppId) || "other",
+                "icon": NotificationService.data(idx, roleIcon) || "bell",
+                "title": NotificationService.data(idx, roleTitle) || "",
+                "body": NotificationService.data(idx, roleBody) || "",
+                "timestamp": NotificationService.data(idx, roleTimestamp) || 0
+            });
         }
     }
-
-    property int moreCount: 0
 
     anchors.fill: parent
     visible: opacity > 0.01
@@ -603,11 +575,11 @@ Item {
             z: 8
         }
 
-        // ── Notification stack ──────────────────────────────
-        // The most recent unread notifications; the rest collapse into a
-        // 'N more' row beneath.
-        Column {
-            id: notificationStack
+        // ── Notifications ───────────────────────────────────
+        // Every unread one, newest first, between the clock (or media)
+        // and the unlock controls; the list scrolls when they don't fit.
+        ListView {
+            id: notificationList
 
             anchors.left: parent.left
             anchors.right: parent.right
@@ -615,122 +587,40 @@ Item {
             anchors.rightMargin: Silica.Theme.horizontalPageMargin
             anchors.top: lockScreenMediaPlayer.visible ? lockScreenMediaPlayer.bottom : clockColumn.bottom
             anchors.topMargin: Silica.Theme.paddingLarge * 2
+            anchors.bottom: lockScreenBottomBar.top
+            anchors.bottomMargin: Silica.Theme.paddingLarge
             spacing: Silica.Theme.paddingMedium
-            visible: unreadModel.count > 0 || lockScreen.moreCount > 0
+            clip: true
+            interactive: contentHeight > height
+            boundsBehavior: Flickable.StopAtBounds
+            visible: count > 0
             z: 10
-            onHeightChanged: Qt.callLater(lockScreen.fitNotifications)
+            model: unreadModel
 
-            Repeater {
-                model: unreadModel
+            Silica.VerticalScrollDecorator {}
 
-                delegate: Item {
-                    id: notifCard
+            delegate: Item {
+                id: notifCard
 
-                    required property int index
-                    required property int notifId
-                    required property string appId
-                    required property string icon
-                    required property string title
-                    required property string body
-                    required property var timestamp
+                required property int index
+                required property int notifId
+                required property string appId
+                required property string icon
+                required property string title
+                required property string body
+                required property var timestamp
 
-                    width: notificationStack.width
-                    height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
-
-                    MGlassPlatter {
-                        anchors.fill: parent
-                        backdrop: glassBackdrop.texture
-                        pressed: notifArea.pressed
-                    }
-
-                    Row {
-                        id: cardContent
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: Silica.Theme.paddingLarge
-                        anchors.rightMargin: Silica.Theme.paddingLarge
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Silica.Theme.paddingLarge
-
-                        GlyphIcon {
-                            id: notifIcon
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: notifCard.icon
-                            size: Silica.Theme.iconSizeSmall
-                            color: Silica.Theme.highlightColor
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - notifIcon.width - parent.spacing
-
-                            Item {
-                                width: parent.width
-                                height: nameText.implicitHeight
-
-                                Silica.Label {
-                                    id: nameText
-                                    anchors.left: parent.left
-                                    anchors.right: timeText.left
-                                    anchors.rightMargin: Silica.Theme.paddingMedium
-                                    text: notifCard.title
-                                    color: Silica.Theme.primaryColor
-                                    font.pixelSize: Silica.Theme.fontSizeSmall
-                                    font.weight: Font.DemiBold
-                                    truncationMode: Silica.TruncationMode.Fade
-                                }
-                                Silica.Label {
-                                    id: timeText
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: nameText.verticalCenter
-                                    text: lockScreen.relativeTime(notifCard.timestamp)
-                                    color: Silica.Theme.secondaryColor
-                                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                                    font.features: ({
-                                            "tnum": 1
-                                        })
-                                }
-                            }
-
-                            Silica.Label {
-                                width: parent.width
-                                text: notifCard.body
-                                color: Silica.Theme.secondaryColor
-                                font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                                elide: Text.ElideRight
-                                maximumLineCount: 2
-                                wrapMode: Text.WordWrap
-                                visible: text.length > 0
-                            }
-                        }
-                    }
-
-                    MouseArea {
-                        id: notifArea
-                        anchors.fill: parent
-                        onClicked: {
-                            HapticManager.light();
-                            lockScreen.notificationTapped(notifCard.notifId, notifCard.appId, notifCard.title);
-                        }
-                    }
-                }
-            }
-
-            Item {
-                width: notificationStack.width
-                height: Silica.Theme.itemSizeSmall
-                visible: lockScreen.moreCount > 0
+                width: notificationList.width
+                height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
 
                 MGlassPlatter {
                     anchors.fill: parent
                     backdrop: glassBackdrop.texture
-                    pressed: moreArea.pressed
+                    pressed: notifArea.pressed
                 }
-                Accessible.role: Accessible.Button
-                Accessible.name: moreLabel.text
-                Accessible.onPressAction: lockScreen.hubRequested()
 
                 Row {
+                    id: cardContent
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.leftMargin: Silica.Theme.paddingLarge
@@ -739,33 +629,64 @@ Item {
                     spacing: Silica.Theme.paddingLarge
 
                     GlyphIcon {
-                        id: moreIcon
+                        id: notifIcon
                         anchors.verticalCenter: parent.verticalCenter
-                        name: "bell"
+                        name: notifCard.icon
                         size: Silica.Theme.iconSizeSmall
                         color: Silica.Theme.highlightColor
                     }
 
-                    Silica.Label {
-                        id: moreLabel
-
+                    Column {
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - moreIcon.width - parent.spacing
-                        //: Shown under the lock screen notifications; %n is how many more there are
-                        text: qsTr("%n more notification(s)", "", lockScreen.moreCount)
-                        color: Silica.Theme.secondaryColor
-                        font.pixelSize: Silica.Theme.fontSizeSmall
-                        truncationMode: Silica.TruncationMode.Fade
+                        width: parent.width - notifIcon.width - parent.spacing
+
+                        Item {
+                            width: parent.width
+                            height: nameText.implicitHeight
+
+                            Silica.Label {
+                                id: nameText
+                                anchors.left: parent.left
+                                anchors.right: timeText.left
+                                anchors.rightMargin: Silica.Theme.paddingMedium
+                                text: notifCard.title
+                                color: Silica.Theme.primaryColor
+                                font.pixelSize: Silica.Theme.fontSizeSmall
+                                font.weight: Font.DemiBold
+                                truncationMode: Silica.TruncationMode.Fade
+                            }
+                            Silica.Label {
+                                id: timeText
+                                anchors.right: parent.right
+                                anchors.verticalCenter: nameText.verticalCenter
+                                text: lockScreen.relativeTime(notifCard.timestamp)
+                                color: Silica.Theme.secondaryColor
+                                font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                font.features: ({
+                                        "tnum": 1
+                                    })
+                            }
+                        }
+
+                        Silica.Label {
+                            width: parent.width
+                            text: notifCard.body
+                            color: Silica.Theme.secondaryColor
+                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                            elide: Text.ElideRight
+                            maximumLineCount: 2
+                            wrapMode: Text.WordWrap
+                            visible: text.length > 0
+                        }
                     }
                 }
 
                 MouseArea {
-                    id: moreArea
-
+                    id: notifArea
                     anchors.fill: parent
                     onClicked: {
                         HapticManager.light();
-                        lockScreen.hubRequested();
+                        lockScreen.notificationTapped(notifCard.notifId, notifCard.appId, notifCard.title);
                     }
                 }
             }

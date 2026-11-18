@@ -27,7 +27,6 @@ Item {
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
-    property bool pendingHub: false
     property IncomingCallOverlay incomingCallOverlay: null
     property var shellWindow: Window.window
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight - Constants.navBarHeight
@@ -2374,16 +2373,6 @@ Item {
                 pinScreen.show();
             }
         }
-        onHubRequested: {
-            if (SessionStore.checkSession()) {
-                SessionStore.unlock();
-                peekFlow.openPeek();
-            } else {
-                shell.pendingHub = true;
-                shell.showPinScreen = true;
-                pinScreen.show();
-            }
-        }
         onCameraLaunched: {
             Logger.info("LockScreen", "Camera quick action tapped");
             if (SessionStore.checkSession()) {
@@ -2459,10 +2448,6 @@ Item {
                 const listening = shell.pendingAssist === "pilot-voice";
                 shell.pendingAssist = "";
                 shell.askPilot(listening);
-            }
-            if (shell.pendingHub) {
-                shell.pendingHub = false;
-                peekFlow.openPeek();
             }
             if (shell.pendingNotification) {
                 Logger.info("Shell", "Executing pending notification action: " + shell.pendingNotification.title);
