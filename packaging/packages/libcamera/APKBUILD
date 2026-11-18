@@ -9,7 +9,7 @@
 pkgname=libcamera
 _pkgver=0.8.0
 pkgver=99999$_pkgver
-pkgrel=0
+pkgrel=1
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
@@ -52,6 +52,8 @@ source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$_pkgver/libc
 	0010-libcamera-camera_sensor-Add-S5KJN1-sensor-propertie.patch
 	0011-ipa-softisp-adjust-Read-the-default-contrast-and-sat.patch
 	0012-libcamera-camera_sensor-Add-IMX111-sensor-properties.patch
+	s5kjn1.yaml
+	imx111.yaml
 	"
 builddir="$srcdir/$pkgname-v$_pkgver"
 # gstreamer tests fail
@@ -90,6 +92,9 @@ build() {
 
 package() {
 	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+	# The Q25's cameras: tuned colour and contrast for the software ISP.
+	install -Dm644 -t "$pkgdir"/usr/share/libcamera/ipa/softisp \
+		"$srcdir"/s5kjn1.yaml "$srcdir"/imx111.yaml
 
 	# manual strip first..
 	scanelf --recursive \
@@ -152,4 +157,6 @@ b9c7fc2a99c33f8ed57781edd3011a145801e6bae675d4f2ca1479085b1198a3e36d7f7aa38a7fe2
 2756375279ba911329febeecf9277ca7a60e6c8b9322bb1e20e8cbb8df5534dde8a25f965a2a79bfff7903f05a929c7cc41c063367fbd198f6ac14073302fd7b  0010-libcamera-camera_sensor-Add-S5KJN1-sensor-propertie.patch
 6101bcc3292c78913f878940186830168bde21a9ec132f0b2240ec2f816a3ab86e60958fa5e3979f83fc305bbc89e49adbf66339f74793c0f7795410a016bfbe  0011-ipa-softisp-adjust-Read-the-default-contrast-and-sat.patch
 74ce26c2318f988c4e452095bcc00bcf7e76ffd124bf78016fefed737e0ba4628ec1fe8885dbae672cab388388f798d1cec8187e2e760a3acf5d666b25056d1b  0012-libcamera-camera_sensor-Add-IMX111-sensor-properties.patch
+361114068b0718869d01beee251becfddefdeaa4f60de88f6f1b8d08179e9b3ee3de33573f8afbfc283745f14f5dfb0d6f7e2ea9fe1786230b8789dec29cd43f  s5kjn1.yaml
+a9e2cfad7a92c8f63fd097fcd02dd64bd7782a64b543431536ec1480494091c2e3872206bfb7546981fd08593a42a2337270e4f3ff40787b938843503b0b3065  imx111.yaml
 "
