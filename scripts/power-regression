@@ -36,7 +36,7 @@ BUDGETS = {
     "fm": dict(cpu=6, process=4, wakeups=1500, log=2),
 }
 
-USER_BUS = "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+USER_BUS = "XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
 
 
 def remote(command, check=True):
