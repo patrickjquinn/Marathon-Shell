@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import QtQuick
+import Marathon.Platform 1.0 as Platform
 import MarathonApp.Camera
 
 // The part of Qt 5 Multimedia's Camera that the Jolla Camera's QML is written
@@ -192,6 +193,19 @@ QtObject {
 
     // Failures other than a photo's or a recording's: the camera itself.
     signal error(string message)
+
+    // From the shutter until the file is written the app stays awake: frozen
+    // in the background, the photo was never saved.
+    readonly property bool _saving: imageCapture._pending
+    property int _saveTask: 0
+    on_SavingChanged: {
+        if (_saving && _saveTask === 0) {
+            _saveTask = Platform.Lifecycle.beginBackgroundTask("photo", "saving a photo");
+        } else if (!_saving && _saveTask !== 0) {
+            Platform.Lifecycle.endBackgroundTask(_saveTask);
+            _saveTask = 0;
+        }
+    }
 
     readonly property CameraController controller: CameraController {
         cameraId: root.deviceId
