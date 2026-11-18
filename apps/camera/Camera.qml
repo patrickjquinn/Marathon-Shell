@@ -218,7 +218,7 @@ QtObject {
     property int _saveTask: 0
     on_SavingChanged: {
         if (_saving && _saveTask === 0) {
-            _saveTask = Platform.Lifecycle.beginBackgroundTask("photo", "saving a photo");
+            _saveTask = Platform.Lifecycle.beginBackgroundTask("recording", "saving a photo");
         } else if (!_saving && _saveTask !== 0) {
             Platform.Lifecycle.endBackgroundTask(_saveTask);
             _saveTask = 0;
