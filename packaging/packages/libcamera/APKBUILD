@@ -14,7 +14,7 @@ _pkgver=0.8.0
 _commit=5efdc682e5b54f7b9f793b1fbf99884d522fd9f9
 _gitdate=20261118
 pkgver=99999${_pkgver}_git$_gitdate
-pkgrel=0
+pkgrel=1
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
@@ -74,6 +74,8 @@ source="libcamera-$_commit.tar.gz::https://gitlab.freedesktop.org/camera/libcame
 	0027-gstreamer-Protect-the-controls-with-the-state-lock.patch
 	0028-ipa-softisp-Keep-the-AGC-and-AWB-state-across-the-sa.patch
 	0029-gstreamer-Expose-the-autofocus-trigger-pause-and-sta.patch
+	0030-libcamera-camera_sensor-Honour-a-minimum-vertical-bl.patch
+	0031-ipa-libipa-agc_mean_luminance-Don-t-wind-up-the-expo.patch
 	s5kjn1.yaml
 	imx111.yaml
 	"
@@ -196,6 +198,8 @@ f7fa6c44b161ea37da26b3644923690840bbb6ecb38c0ca05438b6468128f414056894a5c4109ec6
 6482655fde07ba5ec8d7821a1a35e395620862567e8b2907d3a7c2aebcb10c9fd31035db8943ca0cba154de5585bb100f89596c1220cf3124c2debad40a163d0  0027-gstreamer-Protect-the-controls-with-the-state-lock.patch
 d6e06b232e8d5eb08d11bcf6c99bc95f1c7b7c9df3aaafbfd608cfa68d0ea96c3145b218331213c164428aec3278073971584f587b8f145390237bd1601bad01  0028-ipa-softisp-Keep-the-AGC-and-AWB-state-across-the-sa.patch
 8698b39adf86ed5716d78a66836f5b7bcf76a9de8ecdf8ec56874f22b9e9ec8336927103d9f243fc4ee1c4f85e446ee72bb5401b4386cb804d6b2ec80f2da507  0029-gstreamer-Expose-the-autofocus-trigger-pause-and-sta.patch
+1fb87c36c3ce6de64d2196a6e2711c7bfb3f6b5c1c3aec1f5a608006fdd168a9810a3af2a02f8342914cf61d252bd7f4c4a4b9ea4d664ffac1488d6e07db38bd  0030-libcamera-camera_sensor-Honour-a-minimum-vertical-bl.patch
+6bc605b0b5f5e98545cb13f5ad72e429996e4ef73656030472904d422754925524ad7a133a12bec8e0da7aab332aabf4ffbf85d9ece8e7b557b9b8bf273a5e05  0031-ipa-libipa-agc_mean_luminance-Don-t-wind-up-the-expo.patch
 1c9345a42c50624cc1f9b4f1a270375749ebcf20cce0cd777dbb2479aa9a105ce49d333d889d7405aca3d3a2f9fed8c3194d85ef27eecf69b7dabbaffad1ab01  s5kjn1.yaml
 a9e2cfad7a92c8f63fd097fcd02dd64bd7782a64b543431536ec1480494091c2e3872206bfb7546981fd08593a42a2337270e4f3ff40787b938843503b0b3065  imx111.yaml
 "
