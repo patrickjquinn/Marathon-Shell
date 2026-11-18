@@ -13,6 +13,7 @@ mod fm;
 mod home;
 mod icy;
 mod library;
+mod logos;
 mod matching;
 mod mpris;
 mod route;
@@ -258,6 +259,7 @@ impl Radio {
             tags: String::new(),
             hls: false,
             popularity: 0,
+            homepage: String::new(),
         });
         s.id = format!("{FM_PREFIX}{}", u32::from(freq) * 10);
         s.codec = "FM".into();
@@ -270,11 +272,22 @@ impl Radio {
         put(&mut d, "id", s.id.as_str().into());
         put(&mut d, "name", s.name.as_str().into());
         let logo = if s.favicon.starts_with("http") {
-            Some(s.favicon.as_str())
+            Some(s.favicon.clone())
         } else {
-            self.catalogue.as_ref().and_then(|c| c.logo_for(s))
+            self.catalogue
+                .as_ref()
+                .and_then(|c| c.logo_for(s))
+                .map(str::to_owned)
+                .or_else(|| {
+                    let cc = if s.cc.is_empty() {
+                        &self.country
+                    } else {
+                        &s.cc
+                    };
+                    logos::get(&s.name, cc, &s.homepage)
+                })
         };
-        put(&mut d, "favicon", logo.unwrap_or("").into());
+        put(&mut d, "favicon", logo.as_deref().unwrap_or("").into());
         put(&mut d, "country", s.country.as_str().into());
         put(&mut d, "region", s.state.as_str().into());
         put(&mut d, "codec", s.codec.as_str().into());

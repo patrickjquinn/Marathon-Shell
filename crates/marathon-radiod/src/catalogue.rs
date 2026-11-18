@@ -36,6 +36,9 @@ pub struct Station {
     pub tags: String,
     pub hls: bool,
     pub popularity: u32,
+    /// The station's own site, where a missing logo can be found.
+    #[serde(default)]
+    pub homepage: String,
 }
 
 /// Radio Browser's record, the fields used.
@@ -64,6 +67,8 @@ struct Record {
     hls: u8,
     #[serde(default)]
     clickcount: u32,
+    #[serde(default)]
+    homepage: String,
 }
 
 impl Record {
@@ -87,6 +92,7 @@ impl Record {
             tags: self.tags,
             hls: self.hls != 0,
             popularity: self.clickcount,
+            homepage: self.homepage,
         })
     }
 }
@@ -136,7 +142,7 @@ fn short_country(name: &str) -> &str {
 
 /// A station's name for finding its other entries in the directory: its
 /// words, less those about the stream ("AAC", "128k", "HQ").
-fn name_key(name: &str) -> String {
+pub fn name_key(name: &str) -> String {
     crate::matching::words(name)
         .into_iter()
         .filter(|w| {
@@ -316,7 +322,8 @@ fn records(body: &[u8]) -> Result<Vec<Station>, String> {
 }
 
 fn cache() -> PathBuf {
-    marathon_rt::dirs::cache().join("marathon/radio/stations.json")
+    // v2: stations carry their homepage.
+    marathon_rt::dirs::cache().join("marathon/radio/stations-v2.json")
 }
 
 /// The cached catalogue, and whether it is due a refresh.
@@ -332,6 +339,8 @@ pub fn cached() -> Option<(Vec<Station>, bool)> {
 
 /// Every station with a location, fetched and cached.
 pub fn fetch() -> Result<Vec<Station>, String> {
+    // The cache from before stations had homepages.
+    std::fs::remove_file(marathon_rt::dirs::cache().join("marathon/radio/stations.json")).ok();
     let body = get(
         "/json/stations/search?has_geo_info=true&hidebroken=true&order=clickcount&reverse=true&limit=100000",
         64 << 20,
@@ -400,6 +409,7 @@ mod tests {
             tags: "pop,news".into(),
             hls: false,
             popularity,
+            homepage: String::new(),
         }
     }
 
