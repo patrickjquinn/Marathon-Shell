@@ -652,7 +652,12 @@ impl Tasks {
                     return;
                 }
                 obj.as_mut().open(&app, false);
-                obj.as_mut().show(&app, "native", -1);
+                // GTK answers Activate after its window has mapped; the
+                // splash shown then took that window off the screen.
+                match obj.task(&app.id).filter(|t| t.surface_id >= 0).cloned() {
+                    Some(task) => obj.as_mut().show(&app, &task.kind, task.surface_id),
+                    None => obj.as_mut().show(&app, "native", -1),
+                }
                 obj.as_mut().rust_mut().launching.remove(&app.id);
                 obj.launched(&app);
             })
