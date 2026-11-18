@@ -3374,7 +3374,7 @@ Item {
             Power.hasActiveCalls = active;
             // The sensor runs only in a call, to blank the screen at the ear.
             Display.setProximityWanted(state === "active");
-            if (!active)
+            if (state !== "active")
                 Display.setProximityBlank(false);
             if (state !== "active" && state !== "idle" && state !== "terminated")
                 return;
@@ -3434,8 +3434,10 @@ Item {
     }
 
     Connections {
+        // Only an answered call is at the ear. A ringing one stays lit to be
+        // answered: a hand near the top had blanked it, and calls rang out.
         function onProximityNearChanged() {
-            if (calls.active)
+            if (Modem.callState === "active")
                 Display.setProximityBlank(Display.proximityNear);
         }
 
