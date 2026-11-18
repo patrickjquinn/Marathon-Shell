@@ -314,6 +314,24 @@ pub fn updates(listing: &str) -> Value {
     json!({ "updates": apps, "ts": now() })
 }
 
+/// An installed Flatpak's own name. installed.json is in the runtime
+/// directory and empty after a boot until the store refreshes; an update
+/// before then would be titled with the app's id.
+pub fn installed_name(flatpak: &str, app_id: &str) -> Option<String> {
+    let listing = stdout_of(Command::new(flatpak).args([
+        "--user",
+        "list",
+        "--app",
+        "--columns=application,name",
+    ]))
+    .ok()?;
+    listing.lines().find_map(|line| {
+        let (id, name) = line.split_once('\t')?;
+        let name = name.trim();
+        (id == app_id && !name.is_empty()).then(|| name.to_owned())
+    })
+}
+
 /// installed.json, then updates.json: remote-ls can hang on a flaky
 /// network, so it gets 20 seconds.
 pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
@@ -405,6 +423,17 @@ mod tests {
             .unwrap()
             .success());
         path.to_str().unwrap().to_owned()
+    }
+
+    #[test]
+    fn an_installed_flatpak_is_named_by_flatpak() {
+        let tmp = tempfile::tempdir().unwrap();
+        let flatpak = fake_flatpak(tmp.path(), "org.a.B\\tBee\\norg.x.Y\\tWhy Not\\n", 0);
+        assert_eq!(
+            installed_name(&flatpak, "org.x.Y").as_deref(),
+            Some("Why Not")
+        );
+        assert_eq!(installed_name(&flatpak, "org.x.Z"), None);
     }
 
     #[test]
