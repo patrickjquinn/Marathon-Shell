@@ -386,6 +386,7 @@ Rectangle {
         running: appWindow.isLoadingComponent && !appWindow.hasError && !Tasks.androidStarting
         onTriggered: {
             Logger.warn("AppWindow", "Launch timeout for " + appWindow.appId + " — no surface after 20 s");
+            Tasks.launchAbandoned(appWindow.appId);
             appWindow.isLoadingComponent = false;
             appWindow.hasError = true;
             appWindow.loadError = qsTr("It didn't respond in time.");

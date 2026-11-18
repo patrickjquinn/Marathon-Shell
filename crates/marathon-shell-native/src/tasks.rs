@@ -135,6 +135,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "isAppLaunching"]
         fn is_app_launching(self: &Tasks, app_id: &QString) -> bool;
+        /// The app window gave up waiting for the app's window: the next
+        /// launch starts afresh rather than being taken for this one.
+        #[qinvokable]
+        #[cxx_name = "launchAbandoned"]
+        fn launch_abandoned(self: Pin<&mut Tasks>, app_id: &QString);
         #[qinvokable]
         #[cxx_name = "pidForAppId"]
         fn pid_for_app_id(self: &Tasks, app_id: &QString) -> i64;

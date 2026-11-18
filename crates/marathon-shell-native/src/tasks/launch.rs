@@ -228,6 +228,16 @@ impl Tasks {
         self.resolve(&app_id.to_string()).is_some()
     }
 
+    pub(super) fn launch_abandoned(mut self: Pin<&mut Self>, app_id: &QString) {
+        let id = app_id.to_string();
+        if self.as_mut().rust_mut().launching.remove(&id) {
+            log::warn(
+                "tasks",
+                format_args!("{id}: launch abandoned, no window came"),
+            );
+        }
+    }
+
     pub(super) fn is_app_launching(&self, app_id: &QString) -> bool {
         let id = app_id.to_string();
         self.launching.contains(&id)
@@ -615,6 +625,17 @@ impl Tasks {
     /// that does not answer it starts as before.
     fn activate_running(mut self: Pin<&mut Self>, app: App, foreground_generation: u64) {
         self.as_mut().wake(&app.id);
+        // The window it maps in answer comes in front, as a launch's would:
+        // without an activation token it would map in the background (a
+        // GTK app playing on with its window closed never showed again).
+        self.as_mut()
+            .rust_mut()
+            .expected_windows
+            .insert(app.id.clone(), Instant::now() + EXPECT_WINDOW);
+        log::warn(
+            "tasks",
+            format_args!("{}: running, asked for a window", app.id),
+        );
         let qt = self.qt_thread();
         io::spawn(async move {
             let activated = dbus::activate(&app.id).await;
