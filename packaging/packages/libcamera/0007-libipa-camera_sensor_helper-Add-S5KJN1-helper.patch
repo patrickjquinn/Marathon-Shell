@@ -29,8 +29,8 @@ index 4abb4711..72f055a7 100644
 +	{
 +		/* Samsung's usual 64 at 10bits; a Zinwa Q25 dark frame agrees. */
 +		blackLevel_ = 4096;
-+		/* The driver's control is the gain multiplier itself. */
-+		gain_ = AnalogueGainLinear{ 1, 0, 0, 1 };
++		/* The driver's control is the register code: 32 is 1x. */
++		gain_ = AnalogueGainLinear{ 1, 0, 0, 32 };
 +	}
 +};
 +REGISTER_CAMERA_SENSOR_HELPER("s5kjn1", CameraSensorHelperS5kjn1)
