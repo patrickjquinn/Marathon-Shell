@@ -25,7 +25,10 @@ Item {
     // apps that legitimately need to gate first-paint on async data
     // (e.g. Browser waiting for first WebEngine frame) set this false
     // explicitly during construction and toggle true when ready.
-    property bool revealReady: false
+    property bool revealReady: _loaded
+    // A binding, not an assignment: NativeAppWindow overrides revealReady
+    // with its first-frame binding, which an assignment here would delete.
+    property bool _loaded: false
 
     property int navigationDepth: 0
     property bool canNavigateBack: navigationDepth > 0
@@ -187,7 +190,7 @@ Item {
         // Component.onCompleted chain so children's onCompleted handlers
         // (which may queue further work) have a chance to flush first.
         Qt.callLater(function () {
-            root.revealReady = true;
+            root._loaded = true;
         });
         console.log("------- MApp.onCompleted COMPLETE -------");
     }

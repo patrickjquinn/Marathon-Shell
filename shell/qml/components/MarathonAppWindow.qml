@@ -204,6 +204,10 @@ Rectangle {
                 // here (home-screen tap, LaunchApp) drew the app's last frame
                 // over a process that could not respond to input.
                 Tasks.bringToForeground(id);
+                // Its new surface may have painted before this show(): no
+                // revealReady edge would come to lift the splash.
+                if (existingNativeInstance.revealReady === true)
+                    appWindow.isLoadingComponent = false;
                 appWindow.pendingAppInstance = existingNativeInstance;
                 if (appContentLoader.status === Loader.Ready && appWindow.appContainer) {
                     appWindow.appContainer["adoptPendingApp"]();
