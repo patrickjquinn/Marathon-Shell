@@ -109,6 +109,45 @@ pub struct Catalogue {
     pub stations: Vec<Station>,
     pub places: Vec<Place>,
     by_id: HashMap<String, usize>,
+    /// The most listened entry with a logo, by country and `name_key`.
+    logos: HashMap<(String, String), usize>,
+}
+
+/// The everyday name of a country Radio Browser gives its ISO name ("The
+/// United Kingdom Of Great Britain And Northern Ireland").
+fn short_country(name: &str) -> &str {
+    match name {
+        "The United Kingdom Of Great Britain And Northern Ireland" => "United Kingdom",
+        "The United States Of America" => "United States",
+        "The Russian Federation" => "Russia",
+        "Korea, Republic Of" | "The Republic Of Korea" => "South Korea",
+        "Iran, Islamic Republic Of" | "Iran (Islamic Republic Of)" => "Iran",
+        "Venezuela (Bolivarian Republic Of)" => "Venezuela",
+        "Bolivia (Plurinational State Of)" => "Bolivia",
+        "Tanzania, United Republic Of" | "The United Republic Of Tanzania" => "Tanzania",
+        "Viet Nam" => "Vietnam",
+        "Taiwan, Republic Of China" | "Taiwan, Province Of China" => "Taiwan",
+        "The Democratic Republic Of The Congo" => "DR Congo",
+        "The Netherlands" => "Netherlands",
+        "The Philippines" => "Philippines",
+        _ => name,
+    }
+}
+
+/// A station's name for finding its other entries in the directory: its
+/// words, less those about the stream ("AAC", "128k", "HQ").
+fn name_key(name: &str) -> String {
+    crate::matching::words(name)
+        .into_iter()
+        .filter(|w| {
+            let rate = w.strip_suffix("kbps").or_else(|| w.strip_suffix('k'));
+            !matches!(
+                w.as_str(),
+                "aac" | "mp3" | "ogg" | "opus" | "hls" | "hq" | "lq" | "stream"
+            ) && !rate.is_some_and(|r| !r.is_empty() && r.chars().all(|c| c.is_ascii_digit()))
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Great-circle distance in km.
@@ -146,10 +185,11 @@ impl Catalogue {
             if let Some(p) = near {
                 places[p].stations.push(i);
             } else {
+                let country = short_country(&s.country);
                 let label = if s.state.is_empty() || s.state == s.country {
-                    s.country.clone()
+                    country.to_owned()
                 } else {
-                    format!("{}, {}", s.state, s.country)
+                    format!("{}, {country}", s.state)
                 };
                 grid.entry((cy, cx)).or_default().push(places.len());
                 places.push(Place {
@@ -160,15 +200,35 @@ impl Catalogue {
                 });
             }
         }
+        // Sorted by popularity, so the first logo for a name is its best known.
+        let mut logos = HashMap::new();
+        for (i, s) in stations.iter().enumerate() {
+            if s.favicon.starts_with("http") {
+                logos.entry((s.cc.clone(), name_key(&s.name))).or_insert(i);
+            }
+        }
         Self {
             stations,
             places,
             by_id,
+            logos,
         }
     }
 
     pub fn get(&self, id: &str) -> Option<&Station> {
         self.by_id.get(id).map(|&i| &self.stations[i])
+    }
+
+    /// A logo for `station` when its own entry has none: another entry for
+    /// the same station, in the same country.
+    pub fn logo_for(&self, station: &Station) -> Option<&str> {
+        let key = name_key(&station.name);
+        if key.is_empty() {
+            return None;
+        }
+        self.logos
+            .get(&(station.cc.clone(), key))
+            .map(|&i| self.stations[i].favicon.as_str())
     }
 
     /// Located stations within `radius` km of a point, nearest first.
@@ -341,6 +401,20 @@ mod tests {
             hls: false,
             popularity,
         }
+    }
+
+    #[test]
+    fn a_station_without_a_logo_borrows_its_other_entry_s() {
+        let mut bare = station("RTÉ lyric fm", 53.3, -6.2, 50);
+        let mut aac = station("RTE Lyric FM (AAC 128k)", 53.3, -6.2, 10);
+        aac.favicon = "https://www.rte.ie/lyric.png".into();
+        let mut elsewhere = station("Lyric FM", 51.5, -0.1, 99);
+        elsewhere.cc = "GB".into();
+        elsewhere.favicon = "https://example.uk/lyric.png".into();
+        let c = Catalogue::new(vec![bare.clone(), aac, elsewhere]);
+        assert_eq!(c.logo_for(&bare), Some("https://www.rte.ie/lyric.png"));
+        bare.name = "Radio Kerry".into();
+        assert_eq!(c.logo_for(&bare), None);
     }
 
     #[test]

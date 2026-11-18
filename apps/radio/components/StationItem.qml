@@ -3,8 +3,9 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 
-// A station in a list: its logo, name and what it is (FM 100.3, or the
-// stream's codec and rate, and its genres), marked when it is playing.
+// A station in a list: its logo, name and what it is (FM 100.3 and the name
+// it sends over RDS, or the stream's codec and rate, and its genres),
+// marked when it is playing.
 ListItem {
     id: item
 
@@ -17,9 +18,11 @@ ListItem {
     readonly property string _what: {
         const s = station;
         const parts = [];
-        if (s.fm > 0)
+        if (s.fm > 0) {
             parts.push(qsTr("FM %1").arg((s.fm / 1000).toFixed(1)));
-        else if (s.codec)
+            if (s.rds)
+                parts.push(qsTr("RDS %1").arg(s.rds));
+        } else if (s.codec)
             parts.push(s.bitrate > 0 ? "%1 %2k".arg(s.codec).arg(s.bitrate) : s.codec);
         if (s.tags)
             parts.push(s.tags);

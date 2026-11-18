@@ -269,7 +269,12 @@ impl Radio {
         let fm = self.fm_for(s);
         put(&mut d, "id", s.id.as_str().into());
         put(&mut d, "name", s.name.as_str().into());
-        put(&mut d, "favicon", s.favicon.as_str().into());
+        let logo = if s.favicon.starts_with("http") {
+            Some(s.favicon.as_str())
+        } else {
+            self.catalogue.as_ref().and_then(|c| c.logo_for(s))
+        };
+        put(&mut d, "favicon", logo.unwrap_or("").into());
         put(&mut d, "country", s.country.as_str().into());
         put(&mut d, "region", s.state.as_str().into());
         put(&mut d, "codec", s.codec.as_str().into());
@@ -283,6 +288,11 @@ impl Radio {
             .collect();
         put(&mut d, "tags", tags.join(" · ").as_str().into());
         put(&mut d, "fm", fm.map_or(0, |f| i32::from(f) * 10).into());
+        // What the station sends over RDS, as the band survey heard it.
+        let rds = fm
+            .and_then(|f| self.band.names.get(&f))
+            .map_or("", |(_, ps)| ps.trim());
+        put(&mut d, "rds", rds.into());
         put(&mut d, "favourite", self.library.is_favourite(&s.id).into());
         if s.located() {
             put(&mut d, "lat", s.lat.into());

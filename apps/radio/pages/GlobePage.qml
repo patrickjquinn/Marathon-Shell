@@ -4,9 +4,9 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import "../components"
 
-// The world's radio on a globe. Turn it until a place sits in the ring:
-// its stations line up below, local FM first. While the radio is on,
-// settling on a place tunes to it.
+// The world's radio on a globe. Tap a place, or turn it into the ring:
+// its stations line up below, local FM first, to play from there. The
+// globe itself never changes what is playing.
 Page {
     id: page
 
@@ -14,6 +14,12 @@ Page {
     readonly property var radio: app.radio
     property var stations: []
     property int _loadedPlace: -1
+    // Where the location button takes the globe: a country fills the screen.
+    readonly property real _localZoom: 7
+    readonly property var location: typeof Location !== "undefined" ? Location : null
+    readonly property var permissions: typeof Permissions !== "undefined" ? Permissions : null
+    readonly property bool _fixed: location !== null && location.available && (location.latitude !== 0 || location.longitude !== 0)
+    property bool _locating: false
 
     function placeName(i) {
         return i >= 0 && i < radio.places.length ? radio.places[i][2] : "";
@@ -30,16 +36,55 @@ Page {
     function goHome() {
         const h = radio.home;
         if (h)
-            globe.flyTo(h[0], h[1], 1.5);
+            globe.flyTo(h[0], h[1], _localZoom);
     }
 
     // Where to open: the station on, if it has a place, else home.
     function goStart() {
         const s = radio.station;
         if (radio.playing && s && s.lat !== undefined)
-            globe.flyTo(s.lat, s.lon, 1.5);
+            globe.flyTo(s.lat, s.lon, _localZoom);
         else
             goHome();
+    }
+
+    // The globe to where the phone is: GeoClue's fix, asked for once and
+    // let go of when it comes; the time zone's city meanwhile.
+    function locate() {
+        if (_fixed) {
+            globe.flyTo(location.latitude, location.longitude, _localZoom);
+            return;
+        }
+        goHome();
+        if (location === null)
+            return;
+        if (permissions !== null && !permissions.hasPermission(app.appId, "location")) {
+            permissions.requestPermission(app.appId, "location");
+            return;
+        }
+        _locating = true;
+        location.start();
+        locateTimeout.restart();
+    }
+
+    function _stopLocating() {
+        if (_locating && location !== null)
+            location.stop();
+        _locating = false;
+        locateTimeout.stop();
+    }
+
+    // Whether a place is the one the phone is in, give or take a city.
+    function _isHome(i) {
+        const h = _fixed ? [location.latitude, location.longitude] : radio.home;
+        return h && i >= 0 && globe._distance(h[0], h[1], radio.places[i][0], radio.places[i][1]) < 0.5;
+    }
+
+    function openMore() {
+        if (_isHome(globe.selected))
+            openList(qsTr("Around you"), done => radio.local(done));
+        else
+            openList(placeName(globe.selected), done => radio.placeStations(globe.selected, done));
     }
 
     backNavigation: false
@@ -51,6 +96,33 @@ Page {
             if (globe.selected < 0)
                 page.goStart();
         }
+    }
+
+    Connections {
+        target: page.location
+        enabled: page._locating
+        function onLocationChanged() {
+            if (!page._fixed)
+                return;
+            page._stopLocating();
+            globe.flyTo(page.location.latitude, page.location.longitude, page._localZoom);
+        }
+    }
+
+    Connections {
+        target: page.permissions
+        ignoreUnknownSignals: true
+        function onPermissionGranted(appId, permission) {
+            if (appId === page.app.appId && permission === "location")
+                page.locate();
+        }
+    }
+
+    Timer {
+        id: locateTimeout
+
+        interval: 30000
+        onTriggered: page._stopLocating()
     }
 
     Rectangle {
@@ -68,6 +140,8 @@ Page {
             bottom: mini.top
         }
         places: page.radio.places
+        reach: Theme.itemSizeSmall / 2
+        inputInset: strip.count > 0 ? height - strip.y : 0
         Component.onCompleted: {
             const h = page.radio.home;
             if (h) {
@@ -75,7 +149,7 @@ Page {
                 lon = h[1];
             }
         }
-        onSettled: byHand => {
+        onSettled: {
             if (selected < 0 || selected === page._loadedPlace)
                 return;
             page._loadedPlace = selected;
@@ -85,10 +159,6 @@ Page {
                     return;
                 page.stations = list;
                 Qt.callLater(strip.positionViewAtBeginning);
-                // A dial turned by hand while listening: the place's first
-                // station. Opening the app or flying somewhere does not.
-                if (byHand && page.radio.playing && list.length > 0 && !list.some(s => page.radio.station && s.id === page.radio.station.id))
-                    page.radio.play(list[0], list);
             });
         }
         onMovingChanged: {
@@ -197,11 +267,8 @@ Page {
             IconButton {
                 objectName: "localButton"
                 icon.source: "image://theme/icon-m-location"
-                Accessible.name: qsTr("Around you")
-                onClicked: {
-                    page.goHome();
-                    page.openList(qsTr("Around you"), done => page.radio.local(done));
-                }
+                Accessible.name: qsTr("Where you are")
+                onClicked: page.locate()
             }
             IconButton {
                 objectName: "favouritesButton"
@@ -276,20 +343,34 @@ Page {
             BackgroundItem {
                 id: more
 
-                visible: page.stations.length > 4
+                objectName: "moreButton"
+                visible: page.stations.length > 1 || page._isHome(globe.selected)
                 x: Theme.paddingMedium
                 width: Theme.itemSizeHuge * 0.8
                 height: parent.height
-                onClicked: page.openList(page.placeName(globe.selected), done => page.radio.placeStations(globe.selected, done))
+                onClicked: page.openMore()
+                Accessible.name: moreLabel.text
 
-                Label {
+                Column {
                     anchors.centerIn: parent
                     width: parent.width - Theme.paddingMedium
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.Wrap
-                    text: qsTr("All %1").arg(page.stations.length)
-                    color: more.highlighted ? Theme.highlightColor : Theme.secondaryHighlightColor
-                    font.pixelSize: Theme.fontSizeSmall
+                    spacing: Theme.paddingSmall
+
+                    Icon {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        source: "image://theme/icon-m-right"
+                        highlighted: more.highlighted
+                    }
+                    Label {
+                        id: moreLabel
+
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.Wrap
+                        text: page._isHome(globe.selected) ? qsTr("Around you") : qsTr("All %1").arg(page.stations.length)
+                        color: more.highlighted ? Theme.highlightColor : Theme.secondaryHighlightColor
+                        font.pixelSize: Theme.fontSizeExtraSmall
+                    }
                 }
             }
         }

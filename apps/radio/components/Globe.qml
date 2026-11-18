@@ -2,9 +2,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 
 // A dark dot-matrix globe of the places with stations. Drag turns it under
-// the finger and it coasts on release; pinch (or the wheel) zooms. When it
-// comes to rest near a place it snaps that place to the centre, like a
-// dial finding a station, and says so with `selected`.
+// the finger and it coasts on release; pinch (or the wheel) zooms. Tapping
+// a place brings it to the centre; a place left inside the ring snaps to
+// the centre too. Either way `selected` says which.
 Item {
     id: globe
 
@@ -17,19 +17,22 @@ Item {
     readonly property real radius: zoom * Math.min(width, height) * 0.44
     // The place snapped to the centre, or -1.
     property int selected: -1
+    // How far from the centre, in pixels, a place snaps in: the ring's radius.
+    property real reach: 24
+    // The height at the bottom where the globe takes no drags or taps.
+    property real inputInset: 0
     readonly property bool moving: drag.active || pinch.active || coast.running || snap.running
 
-    // `byHand`: the person turned it (a turn, a flick, a pinch), rather
-    // than a flight the app asked for.
-    signal settled(bool byHand)
+    signal settled
 
     readonly property real _degPerPx: 180 / (Math.PI * radius)
-    // Lattice spacing: finer as the globe grows, so dots stay dots.
-    readonly property real _step: zoom < 2.2 ? 1.2 : 0.6
+    // Lattice spacing: finer as the globe grows, so dots stay about the
+    // same size on screen and a country keeps its shape. The land mask and
+    // the place map resolve the finest (0.18 degrees: 1.5 texels).
+    readonly property real _step: zoom < 1.6 ? 1.0 : zoom < 2.6 ? 0.7 : zoom < 4 ? 0.5 : zoom < 6 ? 0.35 : zoom < 10 ? 0.25 : 0.18
     property real _vlat: 0
     property real _vlon: 0
     property real _zoomFrom: 1
-    property bool _byHand: false
 
     function _wrap(lon) {
         return ((lon + 540) % 360) - 180;
@@ -41,22 +44,54 @@ Item {
         return 2 * Math.asin(Math.min(1, Math.sqrt(a))) / r;
     }
 
-    // The place nearest the centre within reach of a snap, or -1.
-    function nearest() {
-        const reach = Math.max(1.5, 7 / zoom);
+    // The place nearest a point within `within` degrees of it, or -1.
+    function _closest(atLat, atLon, within) {
         let best = -1;
-        let bestD = reach;
+        let bestD = within;
         for (let i = 0; i < places.length; i++) {
             const p = places[i];
-            if (Math.abs(p[0] - lat) > bestD)
+            if (Math.abs(p[0] - atLat) > bestD)
                 continue;
-            const d = _distance(lat, lon, p[0], p[1]);
+            const d = _distance(atLat, atLon, p[0], p[1]);
             if (d < bestD) {
                 bestD = d;
                 best = i;
             }
         }
         return best;
+    }
+
+    // The place inside the ring, or -1.
+    function nearest() {
+        return _closest(lat, lon, reach * _degPerPx);
+    }
+
+    // The latitude and longitude under a point of the item, or null off
+    // the globe: the shader's ray cast, run backwards.
+    function _at(x, y) {
+        const px = (x - width / 2) / radius;
+        const py = (y - height / 2) / radius;
+        const r2 = px * px + py * py;
+        if (r2 >= 1)
+            return null;
+        const vx = px, vy = -py, vz = Math.sqrt(1 - r2);
+        const la = lat * Math.PI / 180, lo = lon * Math.PI / 180;
+        const ay = vy * Math.cos(la) + vz * Math.sin(la);
+        const az = -vy * Math.sin(la) + vz * Math.cos(la);
+        const wx = vx * Math.cos(lo) + az * Math.sin(lo);
+        const wz = -vx * Math.sin(lo) + az * Math.cos(lo);
+        return [Math.asin(Math.max(-1, Math.min(1, ay))) * 180 / Math.PI, Math.atan2(wx, wz) * 180 / Math.PI];
+    }
+
+    // Brings the place under a tap to the centre: the nearest within a
+    // fingertip of it.
+    function _pick(x, y) {
+        const at = _at(x, y);
+        if (!at)
+            return;
+        const i = _closest(at[0], at[1], 28 * _degPerPx);
+        if (i >= 0)
+            flyTo(places[i][0], places[i][1], zoom);
     }
 
     // Turns (and zooms) to a point.
@@ -80,8 +115,7 @@ Item {
         }
         lon = _wrap(lon);
         selected = i;
-        settled(_byHand);
-        _byHand = false;
+        settled();
     }
 
     onPlacesChanged: placeMap.requestPaint()
@@ -102,8 +136,8 @@ Item {
     Canvas {
         id: placeMap
 
-        width: 2048
-        height: 1024
+        width: 3072
+        height: 1536
         renderTarget: Canvas.Image
         renderStrategy: Canvas.Immediate
         onPaint: {
@@ -162,62 +196,70 @@ Item {
         fragmentShader: Qt.resolvedUrl("../shaders/globe.frag.qsb")
     }
 
-    DragHandler {
-        id: drag
+    // The handlers' area: what lies over the bottom of the globe (the
+    // page's station strip) keeps its own drags.
+    Item {
+        id: input
 
-        property point last
+        anchors.fill: parent
+        anchors.bottomMargin: globe.inputInset
 
-        target: null
-        maximumPointCount: 1
-        onActiveChanged: {
-            if (active) {
-                coast.stop();
-                snap.stop();
-                globe.selected = -1;
-                globe._byHand = true;
-                last = centroid.position;
-                return;
+        DragHandler {
+            id: drag
+
+            property point last
+
+            target: null
+            maximumPointCount: 1
+            onActiveChanged: {
+                if (active) {
+                    coast.stop();
+                    snap.stop();
+                    globe.selected = -1;
+                    last = centroid.position;
+                    return;
+                }
+                globe._vlon = -centroid.velocity.x * globe._degPerPx;
+                globe._vlat = centroid.velocity.y * globe._degPerPx;
+                coast.start();
             }
-            globe._vlon = -centroid.velocity.x * globe._degPerPx;
-            globe._vlat = centroid.velocity.y * globe._degPerPx;
-            coast.start();
-        }
-        onCentroidChanged: {
-            if (!active)
-                return;
-            const p = centroid.position;
-            globe.lon -= (p.x - last.x) * globe._degPerPx;
-            globe.lat = Math.max(-80, Math.min(80, globe.lat + (p.y - last.y) * globe._degPerPx));
-            last = p;
-        }
-    }
-
-    PinchHandler {
-        id: pinch
-
-        target: null
-        onActiveChanged: {
-            if (active) {
-                coast.stop();
-                snap.stop();
-                globe._byHand = true;
-                globe._zoomFrom = globe.zoom;
-            } else {
-                globe._rest();
+            onCentroidChanged: {
+                if (!active)
+                    return;
+                const p = centroid.position;
+                globe.lon -= (p.x - last.x) * globe._degPerPx;
+                globe.lat = Math.max(-80, Math.min(80, globe.lat + (p.y - last.y) * globe._degPerPx));
+                last = p;
             }
         }
-        onActiveScaleChanged: globe.zoom = Math.max(0.9, Math.min(12, globe._zoomFrom * activeScale))
-    }
 
-    WheelHandler {
-        onWheel: event => {
-            globe.zoom = Math.max(0.9, Math.min(12, globe.zoom * Math.pow(1.0015, event.angleDelta.y)));
-            restTimer.restart();
+        PinchHandler {
+            id: pinch
+
+            target: null
+            onActiveChanged: {
+                if (active) {
+                    coast.stop();
+                    snap.stop();
+                    globe._zoomFrom = globe.zoom;
+                } else {
+                    globe._rest();
+                }
+            }
+            onActiveScaleChanged: globe.zoom = Math.max(0.9, Math.min(20, globe._zoomFrom * activeScale))
         }
-    }
 
-    TapHandler {
-        onDoubleTapped: globe.flyTo(globe.lat, globe.lon, Math.min(12, globe.zoom * 2.2))
+        WheelHandler {
+            onWheel: event => {
+                globe.zoom = Math.max(0.9, Math.min(20, globe.zoom * Math.pow(1.0015, event.angleDelta.y)));
+                restTimer.restart();
+            }
+        }
+
+        TapHandler {
+            onSingleTapped: eventPoint => globe._pick(eventPoint.position.x, eventPoint.position.y)
+            onDoubleTapped: globe.flyTo(globe.lat, globe.lon, Math.min(20, globe.zoom * 2.2))
+        }
     }
 
     Timer {
@@ -274,10 +316,8 @@ Item {
         }
         onFinished: {
             globe.lon = globe._wrap(globe.lon);
-            const i = globe.nearest();
-            globe.selected = i;
-            globe.settled(globe._byHand);
-            globe._byHand = false;
+            globe.selected = globe.nearest();
+            globe.settled();
         }
     }
 }

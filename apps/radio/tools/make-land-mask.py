@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Rasterises Natural Earth's 1:110m land (public domain, naturalearthdata.com)
-into the globe's land mask: an equirectangular 1024x512 greyscale PNG, land
-white. Drawn 4x larger and scaled down, so the coast is soft and the globe's
-shader can threshold it.
+"""Rasterises Natural Earth's 1:50m land (public domain, naturalearthdata.com)
+into the globe's land mask: an equirectangular 3072x1536 greyscale PNG, land
+white, fine enough for the globe's finest dots (0.18 degrees). Drawn 4x
+larger and scaled down, so the coast is soft and the globe's shader can
+threshold it.
 
-    curl -LO https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_land.geojson
-    apps/radio/tools/make-land-mask.py ne_110m_land.geojson apps/radio/assets/land.png
+    curl -LO https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_50m_land.geojson
+    apps/radio/tools/make-land-mask.py ne_50m_land.geojson apps/radio/assets/land.png
 """
 import json
 import sys
 
 from PIL import Image, ImageDraw
 
-W, H, K = 1024, 512, 4
+W, H, K = 3072, 1536, 4
 
 
 def xy(lon, lat):
