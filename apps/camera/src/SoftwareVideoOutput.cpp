@@ -130,21 +130,18 @@ QSGNode *SoftwareVideoOutput::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeD
 
     QRectF itemRect(0, 0, width(), height());
     QRectF targetRect = itemRect;
+    QRectF sourceRect(QPointF(0, 0), texSize);
 
     if (m_fillMode == Stretch) {
         targetRect = itemRect;
+    } else if (m_fillMode == PreserveAspectCrop) {
+        // The middle of the frame, in the item's shape, so nothing spills out.
+        const qreal  scale = qMax(itemRect.width() / texSize.width(), itemRect.height() / texSize.height());
+        const QSizeF shown(itemRect.width() / scale, itemRect.height() / scale);
+        sourceRect = QRectF((texSize.width() - shown.width()) / 2.0, (texSize.height() - shown.height()) / 2.0,
+                            shown.width(), shown.height());
     } else {
-        bool  fit = (m_fillMode == PreserveAspectFit);
-
-        qreal scaleW = itemRect.width() / texSize.width();
-        qreal scaleH = itemRect.height() / texSize.height();
-
-        qreal scale;
-        if (fit) {
-            scale = qMin(scaleW, scaleH);
-        } else {
-            scale = qMax(scaleW, scaleH);
-        }
+        const qreal scale = qMin(itemRect.width() / texSize.width(), itemRect.height() / texSize.height());
 
         qreal w = texSize.width() * scale;
         qreal h = texSize.height() * scale;
@@ -153,6 +150,7 @@ QSGNode *SoftwareVideoOutput::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeD
     }
 
     node->setRect(targetRect);
+    node->setSourceRect(sourceRect);
 
     node->setTextureCoordinatesTransform(QSGSimpleTextureNode::NoTransform);
 

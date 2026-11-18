@@ -225,8 +225,12 @@ QtObject {
         }
     }
 
+    // Photos and the viewfinder are the square in the middle of the frame.
+    property bool square: false
+
     readonly property CameraController controller: CameraController {
         cameraId: root.deviceId
+        squarePhotos: root.square
         zoomLevel: root.digitalZoom
 
         onActiveChanged: {
@@ -255,19 +259,28 @@ QtObject {
         // The point is on the viewfinder, which shows the frame turned by
         // the camera's orientation; the controller takes it on the frame.
         const p = focus.customFocusPoint;
+        let x = p.x, y = p.y;
         switch (orientation) {
         case 90:
-            controller.focusOnPoint(p.y, 1 - p.x);
+            [x, y] = [p.y, 1 - p.x];
             break;
         case 180:
-            controller.focusOnPoint(1 - p.x, 1 - p.y);
+            [x, y] = [1 - p.x, 1 - p.y];
             break;
         case 270:
-            controller.focusOnPoint(1 - p.y, p.x);
+            [x, y] = [1 - p.y, p.x];
             break;
-        default:
-            controller.focusOnPoint(p.x, p.y);
         }
+        // A square viewfinder shows the middle of the frame's long side.
+        const r = viewfinder.resolution;
+        if (square && r.width > 0 && r.height > 0) {
+            const k = Math.min(r.width, r.height) / Math.max(r.width, r.height);
+            if (r.width > r.height)
+                x = (1 - k) / 2 + k * x;
+            else
+                y = (1 - k) / 2 + k * y;
+        }
+        controller.focusOnPoint(x, y);
     }
 
     function unlock() {

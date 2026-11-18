@@ -11,7 +11,9 @@ import MarathonApp.Camera
 QtObject {
     enum AspectRatio {
         AspectRatio_4_3,
-        AspectRatio_16_9
+        AspectRatio_16_9,
+        // A square cut from the middle of the 4:3 frame.
+        AspectRatio_1_1
     }
 
     // Set by CaptureView.

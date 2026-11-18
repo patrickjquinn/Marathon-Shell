@@ -31,6 +31,8 @@ QtObject {
     readonly property var photoResolutions: [Qt.size(4000, 3000), Qt.size(1920, 1080)]
     property size photoResolution: Qt.size(-1, -1)
     property bool isRecording: false
+    readonly property bool takingStill: false
+    property bool squarePhotos: false
     property var photos: []
 
     signal errorOccurred(string message)

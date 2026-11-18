@@ -202,7 +202,7 @@ FocusScope {
         var ratio;
         if (aspectRatio === CameraConfigs.AspectRatio_16_9) {
             ratio = 16.0 / 9.0;
-        } else { // CameraConfigs.AspectRatio_4_3
+        } else { // CameraConfigs.AspectRatio_4_3, or a square cut from it
             ratio = 4.0 / 3.0;
         }
 
@@ -229,7 +229,7 @@ FocusScope {
         var ratio = 4.0 / 3.0;
         if (aspectRatio === CameraConfigs.AspectRatio_16_9) {
             ratio = 16.0 / 9.0;
-        } else if (aspectRatio !== CameraConfigs.AspectRatio_4_3) {
+        } else if (aspectRatio !== CameraConfigs.AspectRatio_4_3 && aspectRatio !== CameraConfigs.AspectRatio_1_1) {
             console.warn("Unknown aspect ratio", aspectRatio);
         }
         return ratio;
@@ -404,6 +404,8 @@ FocusScope {
 
     Camera {
         id: camera
+
+        square: captureMode === Camera.CaptureStillImage && Settings.aspectRatio === CameraConfigs.AspectRatio_1_1 && !(Settings.mode.enableHighres && CameraConfigs.supportedHighresImageResolutions.length > 0)
 
         function lockAutoFocus() {
             captureOverlay.closeMenus();
@@ -918,8 +920,8 @@ FocusScope {
             return w > 0 && h > 0 ? Math.min(captureView.width / w, captureView.height / h) : 1;
         }
 
-        width: camera.viewfinder.resolution.width * _scale
-        height: camera.viewfinder.resolution.height * _scale
+        width: camera.square ? Math.min(captureView.width, captureView.height) : camera.viewfinder.resolution.width * _scale
+        height: camera.square ? width : camera.viewfinder.resolution.height * _scale
 
         rotation: -captureView.viewfinderOrientation
         anchors {

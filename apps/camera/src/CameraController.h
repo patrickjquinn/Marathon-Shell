@@ -49,6 +49,8 @@ class CameraController : public QObject {
     Q_PROPERTY(bool isRecording READ isRecording NOTIFY recordingChanged)
     // The camera runs in a photo's format, whose frames are not the viewfinder's.
     Q_PROPERTY(bool takingStill READ takingStill NOTIFY takingStillChanged)
+    // Photos keep only the square in the middle of the frame.
+    Q_PROPERTY(bool squarePhotos MEMBER m_squarePhotos NOTIFY squarePhotosChanged)
     // The camera has a focus motor (a lens-focus link in the device tree).
     Q_PROPERTY(bool focusSupported READ focusSupported NOTIFY currentCameraIndexChanged)
     Q_PROPERTY(FocusState focusState READ focusState NOTIFY focusStateChanged)
@@ -126,6 +128,7 @@ class CameraController : public QObject {
     void photoResolutionChanged();
     void recordingChanged();
     void takingStillChanged();
+    void squarePhotosChanged();
     void errorOccurred(const QString &message);
     void photoExposed();
     void photoSaved(const QString &url);
@@ -180,6 +183,7 @@ class CameraController : public QObject {
     // A photo larger than the viewfinder: its path and rotation, the format
     // to go back to, and the frames left before it is taken.
     std::pair<QString, int> m_still;
+    bool                    m_squarePhotos = false;
     QCameraFormat           m_viewfinderFormat;
     std::atomic<int>        m_stillFrames{0};
     // From the shutter to the photo's frame.

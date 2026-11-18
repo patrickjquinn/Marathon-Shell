@@ -615,17 +615,19 @@ void CameraController::cancelStill() {
 // The photo as a JPEG stood upright: libjpeg-turbo turns the coded blocks
 // (lossless), far quicker than turning 12 million pixels before encoding. A
 // lossless turn needs whole 16-pixel blocks, so a few edge columns go.
-static QByteArray encodePhoto(const QImage &image, int rotation, QString *error) {
+static QByteArray encodePhoto(const QImage &image, int rotation, bool square, QString *error) {
     int pixelFormat;
     switch (image.format()) {
         case QImage::Format_RGBA8888:
         case QImage::Format_RGBX8888: pixelFormat = TJPF_RGBX; break;
         case QImage::Format_ARGB32:
         case QImage::Format_RGB32: pixelFormat = TJPF_BGRX; break;
-        default: return encodePhoto(image.convertToFormat(QImage::Format_RGB32), rotation, error);
+        default: return encodePhoto(image.convertToFormat(QImage::Format_RGB32), rotation, square, error);
     }
-    const int width  = image.width() & ~15;
-    const int height = image.height() & ~15;
+    // Whole 16-pixel blocks, so the turn below is lossless; a square from the middle.
+    const int side   = std::min(image.width(), image.height()) & ~15;
+    const int width  = square ? side : image.width() & ~15;
+    const int height = square ? side : image.height() & ~15;
     const uchar *top = image.constBits() + (image.width() - width) / 2 * 4 +
         (image.height() - height) / 2 * image.bytesPerLine();
 
@@ -669,11 +671,12 @@ static QByteArray encodePhoto(const QImage &image, int rotation, QString *error)
 void CameraController::savePhoto(const QImage &image, const QString &fileName, int rotation) {
     QPointer<CameraController> self(this);
     const qint64 exposedAfter = m_photoClock.elapsed();
-    QThreadPool::globalInstance()->start([self, image, fileName, rotation, exposedAfter] {
+    const bool   square       = m_squarePhotos;
+    QThreadPool::globalInstance()->start([self, image, fileName, rotation, square, exposedAfter] {
         QElapsedTimer clock;
         clock.start();
         QString          error;
-        const QByteArray jpeg = encodePhoto(image, rotation, &error);
+        const QByteArray jpeg = encodePhoto(image, rotation, square, &error);
         // Under another name until whole: the camera roll shows the folder.
         const QString part  = fileName + ".part";
         QFile         file(part);
