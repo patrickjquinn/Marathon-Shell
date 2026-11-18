@@ -44,6 +44,8 @@ Item {
     property Item appBackdrop: null
 
     property real swipeProgress: 0
+    // The app whose notification stack is open; the others show their newest.
+    property string expandedApp: ""
     // Finger travel that takes swipeProgress from 0 to 1.
     readonly property real swipeTravel: height * 0.15
     // Short/square screens (HackberryPi, Q25) place by height, not design px.
@@ -107,25 +109,58 @@ Item {
         // onto the lock surface. Gate the whole list here.
         if (typeof SettingsManagerCpp !== 'undefined' && !SettingsManagerCpp.showNotificationsOnLockScreen)
             return;
+        // Stacked by app, as iOS does: the app with the newest one first,
+        // each app's newest on top of its stack.
+        const groups = new Map();
         for (let i = 0; i < NotificationService.rowCount(); i++) {
             const idx = NotificationService.index(i, 0);
             if (NotificationService.data(idx, roleIsRead))
                 continue;
-            unreadModel.append({
+            const appId = NotificationService.data(idx, roleAppId) || "other";
+            if (!groups.has(appId))
+                groups.set(appId, []);
+            groups.get(appId).push({
                 "notifId": NotificationService.data(idx, roleIdValue) || 0,
-                "appId": NotificationService.data(idx, roleAppId) || "other",
+                "appId": appId,
                 "icon": NotificationService.data(idx, roleIcon) || "bell",
                 "title": NotificationService.data(idx, roleTitle) || "",
                 "body": NotificationService.data(idx, roleBody) || "",
                 "timestamp": NotificationService.data(idx, roleTimestamp) || 0
             });
         }
+        for (const stack of groups.values()) {
+            stack.sort((a, b) => b.timestamp - a.timestamp);
+            stack.forEach((n, i) => {
+                n.stackIndex = i;
+                n.stackSize = stack.length;
+            });
+        }
+        [...groups.values()].sort((a, b) => b[0].timestamp - a[0].timestamp).forEach(stack => stack.forEach(n => unreadModel.append(n)));
+        if (!groups.has(expandedApp))
+            expandedApp = "";
+    }
+
+    // Each dismissal rebuilds the list, so the ids are taken first.
+    function dismissNotifications(ids) {
+        for (const id of ids)
+            NotificationService.dismissNotification(id);
+    }
+
+    // The ids of an app's notifications on the lock screen.
+    function stackIds(appId) {
+        const ids = [];
+        for (let i = 0; i < unreadModel.count; i++) {
+            if (unreadModel.get(i).appId === appId)
+                ids.push(unreadModel.get(i).notifId);
+        }
+        return ids;
     }
 
     anchors.fill: parent
     visible: opacity > 0.01
     onVisibleChanged: {
         if (visible) {
+            lockScreen.expandedApp = "";
             lockScreen.refreshNotifications();
             SessionStore.isOnLockScreen = true;
         } else {
@@ -600,7 +635,7 @@ Item {
                 }
 
                 // ── Notifications ───────────────────────────────────
-                // Every unread one, newest first.
+                // Every unread one, stacked by app: tap a stack to open it.
                 Column {
                     id: notificationColumn
 
@@ -622,12 +657,21 @@ Item {
                             required property string title
                             required property string body
                             required property var timestamp
+                            required property int stackIndex
+                            required property int stackSize
 
+                            readonly property bool expanded: lockScreen.expandedApp === appId
+                            // The top of a closed stack stands for all of it.
+                            readonly property bool stacked: stackSize > 1 && !expanded
+                            readonly property int peeks: stacked ? Math.min(2, stackSize - 1) : 0
+                            readonly property real peekStep: Silica.Theme.paddingSmall * 1.5
+                            readonly property real headerHeight: expanded && stackIndex === 0 && stackSize > 1 ? lessLabel.implicitHeight + Silica.Theme.paddingMedium : 0
                             // Swiped right it goes, as in the Hub.
                             property real collapse: 1
 
                             width: notificationColumn.width
-                            height: cardBody.height * collapse
+                            height: (headerHeight + cardBody.height + peeks * peekStep) * collapse
+                            visible: stackIndex === 0 || expanded
                             clip: collapse < 1
 
                             SequentialAnimation {
@@ -648,7 +692,7 @@ Item {
                                     easing.type: Easing.InOutQuad
                                 }
                                 ScriptAction {
-                                    script: NotificationService.dismissNotification(notifCard.notifId)
+                                    script: lockScreen.dismissNotifications(notifCard.stacked ? lockScreen.stackIds(notifCard.appId) : [notifCard.notifId])
                                 }
                             }
 
@@ -663,8 +707,49 @@ Item {
                             }
 
                             Item {
+                                width: parent.width
+                                height: notifCard.headerHeight
+                                visible: height > 0
+                                z: 2
+
+                                Silica.Label {
+                                    id: lessLabel
+                                    anchors.right: parent.right
+                                    text: qsTr("Show less")
+                                    color: Silica.Theme.highlightColor
+                                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        HapticManager.light();
+                                        lockScreen.expandedApp = "";
+                                    }
+                                }
+                            }
+
+                            // The edges of the ones beneath.
+                            Repeater {
+                                model: notifCard.peeks
+
+                                MGlassPlatter {
+                                    required property int index
+                                    readonly property real inset: (index + 1) * Silica.Theme.paddingMedium
+
+                                    x: cardBody.x + inset
+                                    y: cardBody.y + (index + 1) * notifCard.peekStep
+                                    z: -1 - index
+                                    width: cardBody.width - 2 * inset
+                                    height: cardBody.height
+                                    opacity: 0.7 - index * 0.25
+                                    backdrop: glassBackdrop.texture
+                                }
+                            }
+
+                            Item {
                                 id: cardBody
 
+                                y: notifCard.headerHeight
                                 width: parent.width
                                 height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
 
@@ -733,6 +818,14 @@ Item {
                                             wrapMode: Text.WordWrap
                                             visible: text.length > 0
                                         }
+
+                                        Silica.Label {
+                                            //: Notifications beneath the top one in an app's stack
+                                            text: qsTr("%n more", "", notifCard.stackSize - 1)
+                                            color: Silica.Theme.highlightColor
+                                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                            visible: notifCard.stacked
+                                        }
                                     }
                                 }
                             }
@@ -786,7 +879,10 @@ Item {
                                     if (swiped)
                                         return;
                                     HapticManager.light();
-                                    lockScreen.notificationTapped(notifCard.notifId, notifCard.appId, notifCard.title);
+                                    if (notifCard.stacked)
+                                        lockScreen.expandedApp = notifCard.appId;
+                                    else
+                                        lockScreen.notificationTapped(notifCard.notifId, notifCard.appId, notifCard.title);
                                 }
                             }
                         }
