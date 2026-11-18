@@ -623,81 +623,168 @@ Item {
                             required property string body
                             required property var timestamp
 
-                            width: notificationColumn.width
-                            height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
+                            // Swiped right it goes, as in the Hub.
+                            property real collapse: 1
 
-                            MGlassPlatter {
-                                anchors.fill: parent
-                                backdrop: glassBackdrop.texture
-                                pressed: notifArea.pressed
+                            width: notificationColumn.width
+                            height: cardBody.height * collapse
+                            clip: collapse < 1
+
+                            SequentialAnimation {
+                                id: dismissAnimation
+
+                                NumberAnimation {
+                                    target: cardBody
+                                    property: "x"
+                                    to: notifCard.width
+                                    duration: MMotion.quick
+                                    easing.type: Easing.OutCubic
+                                }
+                                NumberAnimation {
+                                    target: notifCard
+                                    property: "collapse"
+                                    to: 0
+                                    duration: MMotion.quick
+                                    easing.type: Easing.InOutQuad
+                                }
+                                ScriptAction {
+                                    script: NotificationService.dismissNotification(notifCard.notifId)
+                                }
                             }
 
-                            Row {
-                                id: cardContent
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.leftMargin: Silica.Theme.paddingLarge
-                                anchors.rightMargin: Silica.Theme.paddingLarge
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Silica.Theme.paddingLarge
+                            NumberAnimation {
+                                id: snapBack
 
-                                GlyphIcon {
-                                    id: notifIcon
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: notifCard.icon
-                                    size: Silica.Theme.iconSizeSmall
-                                    color: Silica.Theme.highlightColor
+                                target: cardBody
+                                property: "x"
+                                to: 0
+                                duration: MMotion.quick
+                                easing.type: Easing.OutCubic
+                            }
+
+                            Item {
+                                id: cardBody
+
+                                width: parent.width
+                                height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
+
+                                MGlassPlatter {
+                                    anchors.fill: parent
+                                    backdrop: glassBackdrop.texture
+                                    pressed: notifArea.pressed && !notifArea.swiping
                                 }
 
-                                Column {
+                                Row {
+                                    id: cardContent
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.leftMargin: Silica.Theme.paddingLarge
+                                    anchors.rightMargin: Silica.Theme.paddingLarge
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - notifIcon.width - parent.spacing
+                                    spacing: Silica.Theme.paddingLarge
 
-                                    Item {
-                                        width: parent.width
-                                        height: nameText.implicitHeight
-
-                                        Silica.Label {
-                                            id: nameText
-                                            anchors.left: parent.left
-                                            anchors.right: timeText.left
-                                            anchors.rightMargin: Silica.Theme.paddingMedium
-                                            text: notifCard.title
-                                            color: Silica.Theme.primaryColor
-                                            font.pixelSize: Silica.Theme.fontSizeSmall
-                                            font.weight: Font.DemiBold
-                                            truncationMode: Silica.TruncationMode.Fade
-                                        }
-                                        Silica.Label {
-                                            id: timeText
-                                            anchors.right: parent.right
-                                            anchors.verticalCenter: nameText.verticalCenter
-                                            text: lockScreen.relativeTime(notifCard.timestamp)
-                                            color: Silica.Theme.secondaryColor
-                                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                                            font.features: ({
-                                                    "tnum": 1
-                                                })
-                                        }
+                                    GlyphIcon {
+                                        id: notifIcon
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: notifCard.icon
+                                        size: Silica.Theme.iconSizeSmall
+                                        color: Silica.Theme.highlightColor
                                     }
 
-                                    Silica.Label {
-                                        width: parent.width
-                                        text: notifCard.body
-                                        color: Silica.Theme.secondaryColor
-                                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                                        elide: Text.ElideRight
-                                        maximumLineCount: 2
-                                        wrapMode: Text.WordWrap
-                                        visible: text.length > 0
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - notifIcon.width - parent.spacing
+
+                                        Item {
+                                            width: parent.width
+                                            height: nameText.implicitHeight
+
+                                            Silica.Label {
+                                                id: nameText
+                                                anchors.left: parent.left
+                                                anchors.right: timeText.left
+                                                anchors.rightMargin: Silica.Theme.paddingMedium
+                                                text: notifCard.title
+                                                color: Silica.Theme.primaryColor
+                                                font.pixelSize: Silica.Theme.fontSizeSmall
+                                                font.weight: Font.DemiBold
+                                                truncationMode: Silica.TruncationMode.Fade
+                                            }
+                                            Silica.Label {
+                                                id: timeText
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: nameText.verticalCenter
+                                                text: lockScreen.relativeTime(notifCard.timestamp)
+                                                color: Silica.Theme.secondaryColor
+                                                font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                                font.features: ({
+                                                        "tnum": 1
+                                                    })
+                                            }
+                                        }
+
+                                        Silica.Label {
+                                            width: parent.width
+                                            text: notifCard.body
+                                            color: Silica.Theme.secondaryColor
+                                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                            elide: Text.ElideRight
+                                            maximumLineCount: 2
+                                            wrapMode: Text.WordWrap
+                                            visible: text.length > 0
+                                        }
                                     }
                                 }
                             }
 
                             MouseArea {
                                 id: notifArea
+
+                                property real pressX: 0
+                                property real pressY: 0
+                                property bool swiping: false
+                                property bool swiped: false
+
                                 anchors.fill: parent
+                                enabled: !dismissAnimation.running
+                                onPressed: mouse => {
+                                    const moving = snapBack.running || cardBody.x > 0;
+                                    snapBack.stop();
+                                    pressX = mouse.x - cardBody.x;
+                                    pressY = mouse.y;
+                                    swiping = moving;
+                                    preventStealing = moving;
+                                    swiped = false;
+                                }
+                                onPositionChanged: mouse => {
+                                    const dx = mouse.x - pressX;
+                                    // Claimed before the scroller or the unlock swipe can take it.
+                                    if (!swiping && dx > Application.styleHints.startDragDistance / 2 && dx > 2 * Math.abs(mouse.y - pressY)) {
+                                        swiping = true;
+                                        preventStealing = true;
+                                    }
+                                    if (swiping)
+                                        cardBody.x = Math.max(0, dx);
+                                }
+                                onReleased: {
+                                    if (!swiping)
+                                        return;
+                                    swiped = true;
+                                    swiping = false;
+                                    preventStealing = false;
+                                    if (cardBody.x > notifCard.width / 3)
+                                        dismissAnimation.start();
+                                    else
+                                        snapBack.start();
+                                }
+                                onCanceled: {
+                                    swiping = false;
+                                    preventStealing = false;
+                                    snapBack.start();
+                                }
                                 onClicked: {
+                                    if (swiped)
+                                        return;
                                     HapticManager.light();
                                     lockScreen.notificationTapped(notifCard.notifId, notifCard.appId, notifCard.title);
                                 }
