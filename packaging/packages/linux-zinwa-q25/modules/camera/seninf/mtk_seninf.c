@@ -1738,9 +1738,19 @@ static void seninf_notifier_unbind(struct v4l2_async_notifier *notifier,
 	dev_info(ctx->dev, "%s is unbounded\n", sd->entity.name);
 }
 
+/*
+ * A sensor's lens binds through the sensor's own notifier, after bound()
+ * above made the nodes; nodes made now include it.
+ */
+static int seninf_notifier_complete(struct v4l2_async_notifier *notifier)
+{
+	return v4l2_device_register_subdev_nodes(notifier->v4l2_dev);
+}
+
 static const struct v4l2_async_notifier_operations seninf_async_ops = {
 	.bound = seninf_notifier_bound,
 	.unbind = seninf_notifier_unbind,
+	.complete = seninf_notifier_complete,
 };
 
 /* NOTE: update vcinfo once test_model switches */
