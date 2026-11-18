@@ -50,6 +50,8 @@ source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$_pkgver/libc
 	0008-gstreamer-Disconnect-requestCompleted-when-closing-t.patch
 	0009-pipeline-simple-Keep-the-largest-size-when-merging-r.patch
 	0010-libcamera-camera_sensor-Add-S5KJN1-sensor-propertie.patch
+	0011-ipa-softisp-adjust-Read-the-default-contrast-and-sat.patch
+	0012-libcamera-camera_sensor-Add-IMX111-sensor-properties.patch
 	"
 builddir="$srcdir/$pkgname-v$_pkgver"
 # gstreamer tests fail
@@ -148,4 +150,6 @@ b9c7fc2a99c33f8ed57781edd3011a145801e6bae675d4f2ca1479085b1198a3e36d7f7aa38a7fe2
 82ffe009e092ec28ce69f647d1a4e23f7c14a393d4d1f0c20c4d69611e3df655c6c4b75996c31668558f092658b17c972fe3e07996d0367f89855b7a78d56523  0008-gstreamer-Disconnect-requestCompleted-when-closing-t.patch
 55ab3efc00ede8bcda59364118274cd28812e8fc1f9f3794de12033a2e0c7117db8f8ebf3552bb272a69e2a9948f3e068d9c7c4d4732411f8fd9543014f614cc  0009-pipeline-simple-Keep-the-largest-size-when-merging-r.patch
 2756375279ba911329febeecf9277ca7a60e6c8b9322bb1e20e8cbb8df5534dde8a25f965a2a79bfff7903f05a929c7cc41c063367fbd198f6ac14073302fd7b  0010-libcamera-camera_sensor-Add-S5KJN1-sensor-propertie.patch
+6101bcc3292c78913f878940186830168bde21a9ec132f0b2240ec2f816a3ab86e60958fa5e3979f83fc305bbc89e49adbf66339f74793c0f7795410a016bfbe  0011-ipa-softisp-adjust-Read-the-default-contrast-and-sat.patch
+74ce26c2318f988c4e452095bcc00bcf7e76ffd124bf78016fefed737e0ba4628ec1fe8885dbae672cab388388f798d1cec8187e2e760a3acf5d666b25056d1b  0012-libcamera-camera_sensor-Add-IMX111-sensor-properties.patch
 "

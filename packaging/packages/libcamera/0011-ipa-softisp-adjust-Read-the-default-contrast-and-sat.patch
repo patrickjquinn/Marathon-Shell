@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 17:30:44 +0000
+Subject: [PATCH] ipa: softisp: adjust: Read the default contrast and
+ saturation from the tuning file
+
+The software ISP's contrast and saturation always start at 1.0, so a
+sensor whose tuning wants a little more contrast needs the application
+to ask for it. Read optional "contrast" and "saturation" defaults from
+the Adjust section of the tuning file; without them nothing changes.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/softisp/algorithms/adjust.cpp | 30 ++++++++++++++++++---------
+ src/ipa/softisp/algorithms/adjust.h   |  3 +++
+ 2 files changed, 23 insertions(+), 10 deletions(-)
+
+diff --git a/src/ipa/softisp/algorithms/adjust.cpp b/src/ipa/softisp/algorithms/adjust.cpp
+index 56e2cf0..c250345 100644
+--- a/src/ipa/softisp/algorithms/adjust.cpp
++++ b/src/ipa/softisp/algorithms/adjust.cpp
+@@ -19,20 +19,28 @@ namespace libcamera {
+ 
+ namespace ipa::softisp::algorithms {
+ 
+-constexpr float kDefaultContrast = 1.0f;
+-constexpr float kDefaultSaturation = 1.0f;
+-
+ LOG_DEFINE_CATEGORY(IPASoftIspAdjust)
+ 
+-int Adjust::init(IPAContext &context, [[maybe_unused]] const ValueNode &tuningData)
++/**
++ * The tuning file can set the contrast and saturation a camera starts with,
++ * so a sensor tuned to look right needs no settings from the application:
++ *
++ *   - Adjust:
++ *       contrast: 1.2
++ *       saturation: 1.1
++ */
++int Adjust::init(IPAContext &context, const ValueNode &tuningData)
+ {
++	defaultContrast_ = std::clamp(tuningData["contrast"].get<float>(1.0f), 0.0f, 2.0f);
++	defaultSaturation_ = std::clamp(tuningData["saturation"].get<float>(1.0f), 0.0f, 2.0f);
++
+ 	context.ctrlMap[&controls::Gamma] =
+ 		ControlInfo(0.1f, 10.0f, kDefaultGamma);
+ 	context.ctrlMap[&controls::Contrast] =
+-		ControlInfo(0.0f, 2.0f, kDefaultContrast);
++		ControlInfo(0.0f, 2.0f, defaultContrast_);
+ 	if (context.ccmEnabled)
+ 		context.ctrlMap[&controls::Saturation] =
+-			ControlInfo(0.0f, 2.0f, kDefaultSaturation);
++			ControlInfo(0.0f, 2.0f, defaultSaturation_);
+ 	return 0;
+ }
+ 
+@@ -40,8 +48,10 @@ int Adjust::configure(IPAContext &context,
+ 		      [[maybe_unused]] const IPAConfigInfo &configInfo)
+ {
+ 	context.activeState.knobs.gamma = kDefaultGamma;
+-	context.activeState.knobs.contrast = std::optional<float>();
++	context.activeState.knobs.contrast = defaultContrast_;
+ 	context.activeState.knobs.saturation = std::optional<float>();
++	if (defaultSaturation_ != 1.0f)
++		context.activeState.knobs.saturation = defaultSaturation_;
+ 
+ 	return 0;
+ }
+@@ -107,7 +117,7 @@ void Adjust::prepare(IPAContext &context,
+ 	}
+ 
+ 	params->gamma = 1.0 / context.activeState.knobs.gamma;
+-	const float contrast = context.activeState.knobs.contrast.value_or(kDefaultContrast);
++	const float contrast = context.activeState.knobs.contrast.value_or(defaultContrast_);
+ 	params->contrastExp = tan(std::clamp(contrast * M_PI_4, 0.0, M_PI_2 - 0.00001));
+ }
+ 
+@@ -121,10 +131,10 @@ void Adjust::process([[maybe_unused]] IPAContext &context,
+ 	metadata.set(controls::Gamma, gamma);
+ 
+ 	const auto &contrast = frameContext.contrast;
+-	metadata.set(controls::Contrast, contrast.value_or(kDefaultContrast));
++	metadata.set(controls::Contrast, contrast.value_or(defaultContrast_));
+ 
+ 	const auto &saturation = frameContext.saturation;
+-	metadata.set(controls::Saturation, saturation.value_or(kDefaultSaturation));
++	metadata.set(controls::Saturation, saturation.value_or(defaultSaturation_));
+ }
+ 
+ REGISTER_IPA_ALGORITHM(Adjust, "Adjust")
+diff --git a/src/ipa/softisp/algorithms/adjust.h b/src/ipa/softisp/algorithms/adjust.h
+index 1acf7cd..2180ea4 100644
+--- a/src/ipa/softisp/algorithms/adjust.h
++++ b/src/ipa/softisp/algorithms/adjust.h
+@@ -43,6 +43,9 @@ public:
+ 
+ private:
+ 	void applySaturation(Matrix<float, 3, 3> &ccm, float saturation);
++
++	float defaultContrast_ = 1.0f;
++	float defaultSaturation_ = 1.0f;
+ };
+ 
+ } /* namespace ipa::softisp::algorithms */
