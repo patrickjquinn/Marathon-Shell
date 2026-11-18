@@ -14,6 +14,8 @@ set(SOURCES
     src/SoftwareVideoOutput.h
     src/CameraController.cpp
     src/CameraController.h
+    src/LibcameraSource.cpp
+    src/LibcameraSource.h
 )
 
 add_marathon_app(${APP_NAME}
@@ -27,7 +29,9 @@ add_marathon_app(${APP_NAME}
 find_package(Qt6 REQUIRED COMPONENTS Concurrent)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(TURBOJPEG REQUIRED IMPORTED_TARGET libturbojpeg)
-target_link_libraries(${APP_NAME} PRIVATE Qt6::Multimedia Qt6::Concurrent PkgConfig::TURBOJPEG)
+pkg_check_modules(GSTREAMER REQUIRED IMPORTED_TARGET gstreamer-1.0)
+target_link_libraries(${APP_NAME} PRIVATE Qt6::Multimedia Qt6::Concurrent PkgConfig::TURBOJPEG
+    PkgConfig::GSTREAMER)
 
 install_keel_actions(${APP_NAME} keel-actions.json)
 # The capture, settings and gallery QML is the Jolla Camera's (BSD-3-Clause).

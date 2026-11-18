@@ -103,10 +103,17 @@ QtObject {
     }
 
     component FocusControl: QtObject {
+        required property CameraController controller
         property int focusMode: Camera.FocusAuto
         property int focusPointMode: Camera.FocusPointAuto
         property point customFocusPoint: Qt.point(0.5, 0.5)
-        readonly property var focusZones: []
+        // The ring where the person tapped: white while it focuses, then lit.
+        readonly property var focusZones: focusPointMode === Camera.FocusPointCustom && controller.focusState !== CameraController.FocusUnlocked ? [
+            {
+                area: Qt.rect(customFocusPoint.x - 0.1, customFocusPoint.y - 0.1, 0.2, 0.2),
+                status: controller.focusState === CameraController.FocusLocked ? Camera.FocusAreaFocused : Camera.FocusAreaSelected
+            }
+        ] : []
     }
 
     component FlashControl: QtObject {
@@ -156,7 +163,16 @@ QtObject {
     // The cameras are known and the UI has seen LoadedStatus (it reads the
     // list then); CameraConfigs is ready from here.
     property bool configured
-    readonly property int lockStatus: Camera.Unlocked
+    readonly property int lockStatus: {
+        switch (controller.focusState) {
+        case CameraController.FocusSearching:
+            return Camera.Searching;
+        case CameraController.FocusLocked:
+            return Camera.Locked;
+        default:
+            return Camera.Unlocked;
+        }
+    }
     readonly property var _device: availableCameras.find(c => c.deviceId === controller.cameraId)
     readonly property int position: _device ? _device.position : Camera.UnspecifiedPosition
     // How far the sensor's frames turn clockwise to stand upright. A front
@@ -180,7 +196,9 @@ QtObject {
     readonly property CameraRecorder videoRecorder: CameraRecorder {
         controller: root.controller
     }
-    readonly property FocusControl focus: FocusControl {}
+    readonly property FocusControl focus: FocusControl {
+        controller: root.controller
+    }
     readonly property FlashControl flash: FlashControl {
         controller: root.controller
     }
@@ -237,6 +255,7 @@ QtObject {
     }
 
     function unlock() {
+        controller.unlockFocus();
     }
 
     function _applyState() {

@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=555
+pkgrel=556
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -99,6 +99,7 @@ makedepends="
 	linux-pam-dev
 	sqlite-dev
 	libjpeg-turbo-dev
+	gstreamer-dev
 	"
 install="$pkgname.post-install"
 subpackages="$pkgname-doc marathon-icon-theme:icontheme:noarch $pkgname-browser:browser

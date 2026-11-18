@@ -12,6 +12,7 @@
 #include <QtEndian>
 #include <turbojpeg.h>
 #include <utility>
+#include "LibcameraSource.h"
 #include "SoftwareVideoOutput.h"
 
 namespace {
@@ -30,6 +31,8 @@ namespace {
     }
 }
 
+static bool isDeviceTreeCamera(const QCameraDevice &device);
+
 CameraController::CameraController(QObject *parent)
     : QObject(parent) {
     if (!originalHandler) {
@@ -38,6 +41,10 @@ CameraController::CameraController(QObject *parent)
     m_frameWatch.setSingleShot(true);
     m_frameWatch.setInterval(4000);
     connect(&m_frameWatch, &QTimer::timeout, this, &CameraController::checkFrames);
+    m_focusSettle.setSingleShot(true);
+    m_focusSettle.setInterval(1500);
+    connect(&m_focusSettle, &QTimer::timeout, this, [this] { setFocusState(FocusLocked); });
+    LibcameraSource::watch();
 }
 
 CameraController::~CameraController() {
@@ -217,14 +224,45 @@ void CameraController::stopRecording() {
 }
 
 void CameraController::focusOnPoint(qreal x, qreal y) {
-    if (!m_camera)
+    if (!m_camera || !focusSupported())
         return;
+    // The AF windows are in the sensor's full-frame coordinates: the largest
+    // frame the camera gives. A fifth of the frame each way around the point.
+    const QSize full = m_photoResolutions.isEmpty() ? m_camera->cameraFormat().resolution()
+                                                    : m_photoResolutions.first();
+    const int   w = full.width() / 5, h = full.height() / 5;
+    const int   left = std::clamp(int(x * full.width()) - w / 2, 0, full.width() - w);
+    const int   top  = std::clamp(int(y * full.height()) - h / 2, 0, full.height() - h);
+    if (!LibcameraSource::focusOn(QRect(left, top, w, h)))
+        return;
+    setFocusState(FocusSearching);
+    m_focusSettle.start();
+}
 
-    QPointF point(x, y);
-    m_camera->setCustomFocusPoint(point);
-    if (m_camera->isFocusModeSupported(QCamera::FocusModeAutoNear)) {
-        m_camera->setFocusMode(QCamera::FocusModeAutoNear);
-    }
+void CameraController::unlockFocus() {
+    m_focusSettle.stop();
+    if (m_focusState != FocusUnlocked)
+        LibcameraSource::focusContinuously();
+    setFocusState(FocusUnlocked);
+}
+
+bool CameraController::focusSupported() const {
+    if (m_currentCameraIndex < 0 || m_currentCameraIndex >= m_cameras.size())
+        return false;
+    const QCameraDevice &device = m_cameras.at(m_currentCameraIndex);
+    return isDeviceTreeCamera(device) &&
+        QFile::exists("/sys/firmware/devicetree" + device.description() + "/lens-focus");
+}
+
+CameraController::FocusState CameraController::focusState() const {
+    return m_focusState;
+}
+
+void CameraController::setFocusState(FocusState state) {
+    if (m_focusState == state)
+        return;
+    m_focusState = state;
+    emit focusStateChanged();
 }
 
 QObject *CameraController::videoSink() const {

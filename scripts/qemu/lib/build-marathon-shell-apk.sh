@@ -108,7 +108,7 @@ apk add --no-cache --quiet \
     qt6-qtsvg-dev qt6-qtlocation-dev qt6-qtpositioning-dev \
     qt6-qtspeech-dev qt6-qttools-dev \
     hunspell-dev pulseaudio-dev wayland-dev wayland-protocols \
-    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev libjpeg-turbo-dev 2>&1 | tail -3 || true
+    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev libjpeg-turbo-dev gstreamer-dev 2>&1 | tail -3 || true
 
 KEEL_SILICA_APK="$(ls -1v /local-apks/keel-silica-[0-9]*.apk 2>/dev/null | tail -1 || true)"
 KEEL_SILICA_DEV_APK="$(ls -1v /local-apks/keel-silica-dev-*.apk 2>/dev/null | tail -1 || true)"

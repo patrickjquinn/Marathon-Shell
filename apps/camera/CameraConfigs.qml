@@ -32,7 +32,8 @@ QtObject {
         return camera.captureMode === Camera.CaptureVideo ? [Camera.FlashOff, Camera.FlashTorch] : [Camera.FlashOff, Camera.FlashOn];
     }
     // No focus control reaches libcamera's cameras through Qt Multimedia.
-    readonly property var supportedFocusModes: [Camera.FocusInfinity]
+    // A camera with a focus motor focuses continuously, and on a tap.
+    readonly property var supportedFocusModes: ready && _controller.focusSupported ? [Camera.FocusAuto, Camera.FocusContinuous] : [Camera.FocusInfinity]
     readonly property var supportedExposureModes: [Camera.ExposureManual]
     readonly property var supportedIsoSensitivities: []
     readonly property var supportedWhiteBalanceModes: []

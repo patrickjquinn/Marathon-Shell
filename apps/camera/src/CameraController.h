@@ -46,6 +46,9 @@ class CameraController : public QObject {
                    photoResolutionChanged)
 
     Q_PROPERTY(bool isRecording READ isRecording NOTIFY recordingChanged)
+    // The camera has a focus motor (a lens-focus link in the device tree).
+    Q_PROPERTY(bool focusSupported READ focusSupported NOTIFY currentCameraIndexChanged)
+    Q_PROPERTY(FocusState focusState READ focusState NOTIFY focusStateChanged)
 
   public:
     explicit CameraController(QObject *parent = nullptr);
@@ -91,9 +94,20 @@ class CameraController : public QObject {
     Q_INVOKABLE void capturePhoto(const QString &path, int rotation);
     Q_INVOKABLE void startRecording(const QString &path, const QString &posterPath);
     Q_INVOKABLE void stopRecording();
+    // A point of the frame, 0..1 each way: focus there and hold.
     Q_INVOKABLE void focusOnPoint(qreal x, qreal y);
+    // Back to continuous focus over the whole frame.
+    Q_INVOKABLE void unlockFocus();
+
+  public:
+    enum FocusState : quint8 { FocusUnlocked, FocusSearching, FocusLocked };
+    Q_ENUM(FocusState)
+
+    bool       focusSupported() const;
+    FocusState focusState() const;
 
   signals:
+    void focusStateChanged();
     void videoSinkChanged();
     void readyChanged();
     void activeChanged();
@@ -163,6 +177,12 @@ class CameraController : public QObject {
     std::atomic<int>        m_stillFrames{0};
     // From the shutter to the photo's frame.
     QElapsedTimer           m_photoClock;
+
+    FocusState              m_focusState = FocusUnlocked;
+    // A tap's focus search: libcamerasrc reports no AF state, so it settles
+    // after the time a full sweep takes.
+    QTimer                  m_focusSettle;
+    void                    setFocusState(FocusState state);
 
     QImage                  m_recordingPoster;
     QString                 m_posterPath;
