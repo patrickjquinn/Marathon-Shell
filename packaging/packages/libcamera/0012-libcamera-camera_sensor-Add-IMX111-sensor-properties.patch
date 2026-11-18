@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 18 Nov 2026 17:30:45 +0000
-Subject: [PATCH] libcamera: camera_sensor: Add IMX111 sensor properties
+Subject: [PATCH 12/29] libcamera: camera_sensor: Add IMX111 sensor properties
 
 Without a properties entry the IMX111 has no sensor delays, so the
 exposure and gain the AGC sets are matched to the wrong frames. Use
@@ -13,7 +13,7 @@ Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
  1 file changed, 11 insertions(+)
 
 diff --git a/src/libcamera/sensor/camera_sensor_properties.cpp b/src/libcamera/sensor/camera_sensor_properties.cpp
-index e4fecc8..7cae3d9 100644
+index e4fecc86..7cae3d98 100644
 --- a/src/libcamera/sensor/camera_sensor_properties.cpp
 +++ b/src/libcamera/sensor/camera_sensor_properties.cpp
 @@ -183,6 +183,17 @@ const CameraSensorProperties *CameraSensorProperties::get(const std::string &sen

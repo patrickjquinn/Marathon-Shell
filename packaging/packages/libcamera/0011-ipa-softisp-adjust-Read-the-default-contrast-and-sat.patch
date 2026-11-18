@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 18 Nov 2026 17:30:44 +0000
-Subject: [PATCH] ipa: softisp: adjust: Read the default contrast and
+Subject: [PATCH 11/29] ipa: softisp: adjust: Read the default contrast and
  saturation from the tuning file
 
 The software ISP's contrast and saturation always start at 1.0, so a
@@ -16,7 +16,7 @@ Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
  2 files changed, 23 insertions(+), 10 deletions(-)
 
 diff --git a/src/ipa/softisp/algorithms/adjust.cpp b/src/ipa/softisp/algorithms/adjust.cpp
-index 56e2cf0..c250345 100644
+index 56e2cf0e..c2503454 100644
 --- a/src/ipa/softisp/algorithms/adjust.cpp
 +++ b/src/ipa/softisp/algorithms/adjust.cpp
 @@ -19,20 +19,28 @@ namespace libcamera {
@@ -89,7 +89,7 @@ index 56e2cf0..c250345 100644
  
  REGISTER_IPA_ALGORITHM(Adjust, "Adjust")
 diff --git a/src/ipa/softisp/algorithms/adjust.h b/src/ipa/softisp/algorithms/adjust.h
-index 1acf7cd..2180ea4 100644
+index 1acf7cdf..2180ea47 100644
 --- a/src/ipa/softisp/algorithms/adjust.h
 +++ b/src/ipa/softisp/algorithms/adjust.h
 @@ -43,6 +43,9 @@ public:

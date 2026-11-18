@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Milan Zamazal <mzamazal@redhat.com>
+Date: Sat, 31 Oct 2026 19:40:35 +0100
+Subject: [PATCH 15/29] ipa: libipa: Add af::prepareControls()
+
+Similarly to what other algorithms do, let's add a control
+initialisation function to the libipa autofocus algorithm and use it in
+ipu3 IPA.
+
+Signed-off-by: Milan Zamazal <mzamazal@redhat.com>
+Link: https://patchwork.libcamera.org/patch/28727/
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/ipu3/ipu3.cpp | 3 +--
+ src/ipa/libipa/af.h   | 7 +++++++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/src/ipa/ipu3/ipu3.cpp b/src/ipa/ipu3/ipu3.cpp
+index e4333539..605a57ee 100644
+--- a/src/ipa/ipu3/ipu3.cpp
++++ b/src/ipa/ipu3/ipu3.cpp
+@@ -554,8 +554,7 @@ void IPAIPU3::setControls(unsigned int frame)
+ 	agc::prepareControls(ctrls, context_.camHelper.get(), frameContext.agc);
+ 
+ 	ControlList lensCtrls(lensCtrls_);
+-	lensCtrls.set(V4L2_CID_FOCUS_ABSOLUTE,
+-		      static_cast<int32_t>(context_.activeState.af.focus));
++	af::prepareControls(lensCtrls, context_.activeState.af.focus);
+ 
+ 	setSensorControls.emit(frame, ctrls, lensCtrls);
+ }
+diff --git a/src/ipa/libipa/af.h b/src/ipa/libipa/af.h
+index c902b434..de9f7e0b 100644
+--- a/src/ipa/libipa/af.h
++++ b/src/ipa/libipa/af.h
+@@ -7,6 +7,8 @@
+ 
+ #pragma once
+ 
++#include <linux/v4l2-controls.h>
++
+ #include <libcamera/base/log.h>
+ 
+ #include <libcamera/control_ids.h>
+@@ -25,6 +27,11 @@ struct ActiveState {
+ 	bool stable;
+ };
+ 
++inline void prepareControls(ControlList &controls, int32_t focus)
++{
++	controls.set(V4L2_CID_FOCUS_ABSOLUTE, focus);
++}
++
+ } /* namespace af */
+ 
+ class AfAlgorithm

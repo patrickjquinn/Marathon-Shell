@@ -1,0 +1,397 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 20:15:44 +0000
+Subject: [PATCH 26/29] ipa: softisp: af: Add the autofocus controls
+
+The software ISP autofocus runs continuously over the whole statistics
+window, with no way for an application to control it, and runs on the
+frames without statistics too, measuring the same frame four times.
+
+Run the AfAlgorithm on new statistics only, and offer its controls,
+AfMode, AfTrigger, AfPause and LensPosition, and AfMetering and
+AfWindows on top. Report AfState, AfPauseState and LensPosition in the
+metadata.
+
+The variance is the contrast of the focus zones normalised to their
+brightness. AfMeteringAuto measures the centre quarter of the image;
+AfMeteringWindows weighs the zones by the area of the AfWindows they
+hold. To map the windows, which are in sensor coordinates, to the zones
+the IPA gets the ScalerCrop of the output at configure time.
+
+The controls are only offered with a focus lens. As the camera controls
+are known before the camera is configured, pass the lens controls to the
+IPA at init time too.
+
+Reported-by: Jayden Milne <me@jayd.ml>
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ include/libcamera/ipa/softisp.mojom         |   4 +-
+ src/ipa/softisp/algorithms/af.cpp           | 189 ++++++++++++++++++--
+ src/ipa/softisp/algorithms/af.h             |  21 +++
+ src/ipa/softisp/softisp.cpp                 |   3 +
+ src/libcamera/software_isp/software_isp.cpp |   8 +-
+ 5 files changed, 207 insertions(+), 18 deletions(-)
+
+diff --git a/include/libcamera/ipa/softisp.mojom b/include/libcamera/ipa/softisp.mojom
+index 833f4440..89639622 100644
+--- a/include/libcamera/ipa/softisp.mojom
++++ b/include/libcamera/ipa/softisp.mojom
+@@ -11,6 +11,7 @@ import "include/libcamera/ipa/core.mojom";
+ struct IPAConfigInfo {
+ 	libcamera.ControlInfoMap sensorControls;
+ 	libcamera.ControlInfoMap lensControls;
++	libcamera.Rectangle scalerCrop;
+ };
+ 
+ interface IPASoftIspInterface {
+@@ -18,7 +19,8 @@ interface IPASoftIspInterface {
+ 	     libcamera.SharedFD fdStats,
+ 	     libcamera.SharedFD fdParams,
+ 	     libcamera.IPACameraSensorInfo sensorInfo,
+-	     libcamera.ControlInfoMap sensorControls)
++	     libcamera.ControlInfoMap sensorControls,
++	     libcamera.ControlInfoMap lensControls)
+ 		=> (int32 ret,
+ 		    libcamera.ControlInfoMap ipaControls,
+ 		    bool ccmEnabled, bool lscEnabled);
+diff --git a/src/ipa/softisp/algorithms/af.cpp b/src/ipa/softisp/algorithms/af.cpp
+index bf702c0c..5dbd4a55 100644
+--- a/src/ipa/softisp/algorithms/af.cpp
++++ b/src/ipa/softisp/algorithms/af.cpp
+@@ -7,6 +7,8 @@
+ 
+ #include "af.h"
+ 
++#include <linux/v4l2-controls.h>
++
+ #include <libcamera/base/log.h>
+ 
+ #include <libcamera/control_ids.h>
+@@ -17,10 +19,45 @@ namespace libcamera {
+ 
+ namespace ipa::softisp::algorithms {
+ 
++/**
++ * \class Af
++ * \brief Contrast detection autofocus
++ *
++ * The algorithm measures the contrast in the focus zones of the statistics
++ * and runs the libipa AfAlgorithm on it. It is only enabled when the camera
++ * has a focus lens, and takes the AfAlgorithm tuning parameters.
++ *
++ * With AfMetering set to AfMeteringAuto, it measures the centre quarter of the
++ * image. With AfMeteringWindows, it measures the focus zones the AfWindows
++ * cover, weighted by the area they cover; the windows are in the coordinates
++ * of the sensor pixel array, as the ScalerCrop.
++ */
++
+ LOG_DEFINE_CATEGORY(IPASoftIspAf)
+ 
+-int Af::init(IPAContext &context, [[maybe_unused]] const ValueNode &tuningData)
++int Af::init(IPAContext &context, const ValueNode &tuningData)
+ {
++	if (context.lensControls.find(V4L2_CID_FOCUS_ABSOLUTE) ==
++	    context.lensControls.end()) {
++		LOG(IPASoftIspAf, Info) << "No focus lens, autofocus disabled";
++		return 0;
++	}
++
++	int ret = afAlgo_.init(tuningData, context.lensControls);
++	if (ret)
++		return ret;
++
++	context.ctrlMap[&controls::AfMode] =
++		ControlInfo(controls::AfModeValues,
++			    static_cast<int32_t>(controls::AfModeContinuous));
++	context.ctrlMap[&controls::AfTrigger] = ControlInfo(controls::AfTriggerValues);
++	context.ctrlMap[&controls::AfPause] = ControlInfo(controls::AfPauseValues);
++	context.ctrlMap[&controls::AfMetering] = ControlInfo(controls::AfMeteringValues);
++	context.ctrlMap[&controls::AfWindows] =
++		ControlInfo(Rectangle{}, Rectangle(65535, 65535, 65535, 65535),
++			    std::span<const Rectangle, 1>{ { Rectangle{} } });
++	context.ctrlMap[&controls::LensPosition] = afAlgo_.lensPositionInfo();
++
+ 	/* Informs that lens controls can get focus data */
+ 	context.afEnabled = true;
+ 
+@@ -29,33 +66,153 @@ int Af::init(IPAContext &context, [[maybe_unused]] const ValueNode &tuningData)
+ 
+ int Af::configure(IPAContext &context, const IPAConfigInfo &configInfo)
+ {
++	if (!context.afEnabled)
++		return 0;
++
+ 	afAlgo_.configure(context.activeState.af, configInfo.lensControls);
+ 
++	scalerCrop_ = configInfo.scalerCrop;
++	metering_ = controls::AfMeteringAuto;
++	windows_.clear();
++	updateWeights();
++
+ 	return 0;
+ }
+ 
++void Af::queueRequest(IPAContext &context,
++		      [[maybe_unused]] const uint32_t frame,
++		      [[maybe_unused]] IPAFrameContext &frameContext,
++		      const ControlList &controls)
++{
++	if (!context.afEnabled)
++		return;
++
++	ipa::af::ActiveState &state = context.activeState.af;
++	bool meteringChanged = false;
++
++	const auto &mode = controls.get(controls::AfMode);
++	if (mode)
++		afAlgo_.setMode(state, static_cast<controls::AfModeEnum>(*mode));
++
++	const auto &metering = controls.get(controls::AfMetering);
++	if (metering && *metering != metering_) {
++		metering_ = static_cast<controls::AfMeteringEnum>(*metering);
++		meteringChanged = true;
++	}
++
++	const auto &windows = controls.get(controls::AfWindows);
++	if (windows) {
++		windows_.assign(windows->begin(), windows->end());
++		meteringChanged |= metering_ == controls::AfMeteringWindows;
++	}
++
++	if (meteringChanged) {
++		updateWeights();
++		afAlgo_.meteringChanged(state);
++	}
++
++	const auto &trigger = controls.get(controls::AfTrigger);
++	if (trigger)
++		afAlgo_.setTrigger(state, static_cast<controls::AfTriggerEnum>(*trigger));
++
++	const auto &pause = controls.get(controls::AfPause);
++	if (pause)
++		afAlgo_.setPause(static_cast<controls::AfPauseEnum>(*pause));
++
++	const auto &lensPosition = controls.get(controls::LensPosition);
++	if (lensPosition)
++		afAlgo_.setLensPosition(state, *lensPosition);
++}
++
++/*
++ * Weigh the focus zones by the area of the AfWindows they contain, or use the
++ * centre zones when there are no windows.
++ */
++void Af::updateWeights()
++{
++	constexpr unsigned int zonesX = SwIspStats::kFocusZonesX;
++	constexpr unsigned int zonesY = SwIspStats::kFocusZonesY;
++
++	weights_.fill(0.0);
++
++	if (metering_ == controls::AfMeteringWindows) {
++		double total = 0.0;
++
++		for (unsigned int y = 0; y < zonesY; y++) {
++			for (unsigned int x = 0; x < zonesX; x++) {
++				const int x0 = scalerCrop_.x + scalerCrop_.width * x / zonesX;
++				const int x1 = scalerCrop_.x + scalerCrop_.width * (x + 1) / zonesX;
++				const int y0 = scalerCrop_.y + scalerCrop_.height * y / zonesY;
++				const int y1 = scalerCrop_.y + scalerCrop_.height * (y + 1) / zonesY;
++				const Rectangle zone(x0, y0, x1 - x0, y1 - y0);
++
++				double &weight = weights_[y * zonesX + x];
++				for (const Rectangle &window : windows_) {
++					const Rectangle area = window.boundedTo(zone);
++					weight += static_cast<double>(area.width) * area.height;
++				}
++				total += weight;
++			}
++		}
++
++		if (total > 0.0)
++			return;
++
++		LOG(IPASoftIspAf, Debug)
++			<< "No AfWindows in the image, measuring the centre";
++	}
++
++	for (unsigned int y = zonesY / 4; y < zonesY * 3 / 4; y++) {
++		for (unsigned int x = zonesX / 4; x < zonesX * 3 / 4; x++)
++			weights_[y * zonesX + x] = 1.0;
++	}
++}
++
++/*
++ * Compute the mean squared difference of the green samples in the weighted
++ * zones, normalised to their mean so that exposure changes don't count.
++ */
++double Af::variance(const SwIspStats *stats) const
++{
++	double contrast = 0.0;
++	double sum = 0.0;
++	double count = 0.0;
++
++	for (unsigned int i = 0; i < kZones; i++) {
++		const SwIspStats::FocusZone &zone = stats->focus[i];
++
++		contrast += weights_[i] * zone.contrast;
++		sum += weights_[i] * zone.sum;
++		count += weights_[i] * zone.count;
++	}
++
++	if (sum <= 0.0)
++		return 0.0;
++
++	return contrast * count / (sum * sum);
++}
++
+ void Af::process(IPAContext &context,
+ 		 [[maybe_unused]] const uint32_t frame,
+ 		 [[maybe_unused]] IPAFrameContext &frameContext,
+ 		 const SwIspStats *stats,
+-		 [[maybe_unused]] ControlList &metadata)
++		 ControlList &metadata)
+ {
+-	uint64_t contrast = 0;
+-	uint64_t sum = 0;
+-	uint64_t count = 0;
+-	for (const SwIspStats::FocusZone &zone : stats->focus) {
+-		contrast += zone.contrast;
+-		sum += zone.sum;
+-		count += zone.count;
+-	}
++	if (!context.afEnabled)
++		return;
+ 
+-	/* Normalise to the brightness so that exposure changes don't count. */
+-	double variance = 0.0;
+-	if (sum)
+-		variance = static_cast<double>(contrast) * count / sum / sum;
++	ipa::af::ActiveState &state = context.activeState.af;
++
++	/* The statistics are only computed every few frames. */
++	if (stats->valid) {
++		const double focusVariance = variance(stats);
++		LOG(IPASoftIspAf, Debug) << "Focus stats: " << focusVariance;
++		afAlgo_.process(state, focusVariance);
++	}
+ 
+-	LOG(IPASoftIspAf, Debug) << "Focus stats: " << variance;
+-	afAlgo_.process(context.activeState.af, variance);
++	metadata.set(controls::AfState, afAlgo_.afState());
++	metadata.set(controls::AfPauseState, afAlgo_.pauseState());
++	metadata.set(controls::LensPosition, afAlgo_.lensPosition(state));
+ }
+ 
+ REGISTER_IPA_ALGORITHM(Af, "Af")
+diff --git a/src/ipa/softisp/algorithms/af.h b/src/ipa/softisp/algorithms/af.h
+index 881cb447..fd469f6e 100644
+--- a/src/ipa/softisp/algorithms/af.h
++++ b/src/ipa/softisp/algorithms/af.h
+@@ -7,6 +7,14 @@
+ 
+ #pragma once
+ 
++#include <array>
++#include <vector>
++
++#include <libcamera/control_ids.h>
++#include <libcamera/geometry.h>
++
++#include "libcamera/internal/software_isp/swisp_stats.h"
++
+ #include "libipa/af.h"
+ 
+ #include "algorithm.h"
+@@ -25,13 +33,26 @@ public:
+ 	int init(IPAContext &context, const ValueNode &tuningData) override;
+ 	int configure(IPAContext &context,
+ 		      const IPAConfigInfo &configInfo) override;
++	void queueRequest(IPAContext &context, const uint32_t frame,
++			  IPAFrameContext &frameContext,
++			  const ControlList &controls) override;
+ 	void process(IPAContext &context, const uint32_t frame,
+ 		     IPAFrameContext &frameContext,
+ 		     const SwIspStats *stats,
+ 		     ControlList &metadata) override;
+ 
+ private:
++	static constexpr unsigned int kZones =
++		SwIspStats::kFocusZonesX * SwIspStats::kFocusZonesY;
++
++	void updateWeights();
++	double variance(const SwIspStats *stats) const;
++
+ 	AfAlgorithm afAlgo_;
++	controls::AfMeteringEnum metering_ = controls::AfMeteringAuto;
++	std::vector<Rectangle> windows_;
++	Rectangle scalerCrop_;
++	std::array<double, kZones> weights_ = {};
+ };
+ 
+ } /* namespace ipa::softisp::algorithms */
+diff --git a/src/ipa/softisp/softisp.cpp b/src/ipa/softisp/softisp.cpp
+index 50e39c63..e7577f7d 100644
+--- a/src/ipa/softisp/softisp.cpp
++++ b/src/ipa/softisp/softisp.cpp
+@@ -58,6 +58,7 @@ public:
+ 		 const SharedFD &fdParams,
+ 		 const IPACameraSensorInfo &sensorInfo,
+ 		 const ControlInfoMap &sensorControls,
++		 const ControlInfoMap &lensControls,
+ 		 ControlInfoMap *ipaControls,
+ 		 bool *ccmEnabled,
+ 		 bool *lscEnabled) override;
+@@ -98,6 +99,7 @@ int IPASoftIsp::init(const IPASettings &settings,
+ 		     const SharedFD &fdParams,
+ 		     const IPACameraSensorInfo &sensorInfo,
+ 		     const ControlInfoMap &sensorControls,
++		     const ControlInfoMap &lensControls,
+ 		     ControlInfoMap *ipaControls,
+ 		     bool *ccmEnabled,
+ 		     bool *lscEnabled)
+@@ -111,6 +113,7 @@ int IPASoftIsp::init(const IPASettings &settings,
+ 
+ 	context_.sensorInfo = sensorInfo;
+ 	context_.sensorControls = sensorControls;
++	context_.lensControls = lensControls;
+ 
+ 	/* Load the tuning data file */
+ 	File file(settings.configurationFile);
+diff --git a/src/libcamera/software_isp/software_isp.cpp b/src/libcamera/software_isp/software_isp.cpp
+index f62fde0c..29fb5e19 100644
+--- a/src/libcamera/software_isp/software_isp.cpp
++++ b/src/libcamera/software_isp/software_isp.cpp
+@@ -24,6 +24,7 @@
+ #include <libcamera/stream.h>
+ 
+ #include "libcamera/internal/bayer_format.h"
++#include "libcamera/internal/camera_lens.h"
+ #include "libcamera/internal/framebuffer.h"
+ #include "libcamera/internal/software_isp/debayer_params.h"
+ 
+@@ -157,11 +158,14 @@ SoftwareIsp::SoftwareIsp(PipelineHandler *pipe, CameraSensor *sensor,
+ 		return;
+ 	}
+ 
++	const CameraLens *lens = sensor->focusLens();
++
+ 	ret = ipa_->init(IPASettings{ ipaTuningFile, sensor->model() },
+ 			 debayer_->getStatsFD(),
+ 			 sharedParams_.fd(),
+ 			 sensorInfo,
+ 			 sensor->controls(),
++			 lens ? lens->controls() : ControlInfoMap{},
+ 			 ipaControls,
+ 			 &ccmEnabled_,
+ 			 &lscEnabled_);
+@@ -302,7 +306,9 @@ int SoftwareIsp::configure(const StreamConfiguration &inputCfg,
+ 	scalerCrop_ = debayer_->inputCrop_.transformedBetween(Rectangle(inputCfg.size),
+ 							      sensorInfo.analogCrop);
+ 
+-	ret = ipa_->configure(configInfo, ipaControls);
++	ipa::softisp::IPAConfigInfo ipaConfigInfo = configInfo;
++	ipaConfigInfo.scalerCrop = scalerCrop_;
++	ret = ipa_->configure(ipaConfigInfo, ipaControls);
+ 	if (ret < 0)
+ 		return ret;
+ 

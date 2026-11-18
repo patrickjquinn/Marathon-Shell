@@ -1,0 +1,794 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Milan Zamazal <mzamazal@redhat.com>
+Date: Sat, 31 Oct 2026 19:40:34 +0100
+Subject: [PATCH 14/29] ipa: ipu3: Move non-specific parts of Af to libipa
+
+Some parts of the ipu3 autofocus algorithm could be reused by other
+pipelines, most notably softisp.  Let's move the parts of the algorithm
+that are not specific to the IPU3 hardware to libipa and use them from
+there in ipu3.
+
+Signed-off-by: Milan Zamazal <mzamazal@redhat.com>
+Link: https://patchwork.libcamera.org/patch/28728/
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/ipu3/algorithms/af.cpp | 219 +-----------------------
+ src/ipa/ipu3/algorithms/af.h   |  27 +--
+ src/ipa/ipu3/ipa_context.cpp   |  17 +-
+ src/ipa/ipu3/ipa_context.h     |   8 +-
+ src/ipa/libipa/af.cpp          | 299 +++++++++++++++++++++++++++++++++
+ src/ipa/libipa/af.h            |  69 ++++++++
+ src/ipa/libipa/meson.build     |   2 +
+ 7 files changed, 382 insertions(+), 259 deletions(-)
+ create mode 100644 src/ipa/libipa/af.cpp
+ create mode 100644 src/ipa/libipa/af.h
+
+diff --git a/src/ipa/ipu3/algorithms/af.cpp b/src/ipa/ipu3/algorithms/af.cpp
+index e796b06a..bb412e16 100644
+--- a/src/ipa/ipu3/algorithms/af.cpp
++++ b/src/ipa/ipu3/algorithms/af.cpp
+@@ -59,25 +59,6 @@ namespace ipa::ipu3::algorithms {
+ 
+ LOG_DEFINE_CATEGORY(IPU3Af)
+ 
+-/**
+- * Maximum focus steps of the VCM control
+- * \todo should be obtained from the VCM driver
+- */
+-static constexpr uint32_t kMaxFocusSteps = 1023;
+-
+-/* Minimum focus step for searching appropriate focus */
+-static constexpr uint32_t kCoarseSearchStep = 30;
+-static constexpr uint32_t kFineSearchStep = 1;
+-
+-/* Max ratio of variance change, 0.0 < kMaxChange < 1.0 */
+-static constexpr double kMaxChange = 0.5;
+-
+-/* The numbers of frame to be ignored, before performing focus scan. */
+-static constexpr uint32_t kIgnoreFrame = 10;
+-
+-/* Fine scan range 0 < kFineRange < 1 */
+-static constexpr double kFineRange = 0.05;
+-
+ /* Settings for IPU3 AF filter */
+ static struct ipu3_uapi_af_filter_config afFilterConfigDefault = {
+ 	.y1_coeff_0 = { 0, 1, 3, 7 },
+@@ -105,8 +86,6 @@ static struct ipu3_uapi_af_filter_config afFilterConfigDefault = {
+  * image.
+  */
+ Af::Af()
+-	: focus_(0), bestFocus_(0), currentVariance_(0.0), previousVariance_(0.0),
+-	  coarseCompleted_(false), fineCompleted_(false)
+ {
+ }
+ 
+@@ -162,18 +141,7 @@ int Af::configure(IPAContext &context, const IPAConfigInfo &configInfo)
+ 	grid.y_start = utils::alignDown(start.y, 2);
+ 	grid.y_start |= IPU3_UAPI_GRID_Y_START_EN;
+ 
+-	/* Initial max focus step */
+-	maxStep_ = kMaxFocusSteps;
+-
+-	/* Initial frame ignore counter */
+-	afIgnoreFrameReset();
+-
+-	/* Initial focus value */
+-	context.activeState.af.focus = 0;
+-	/* Maximum variance of the AF statistics */
+-	context.activeState.af.maxVariance = 0;
+-	/* The stable AF value flag. if it is true, the AF should be in a stable state. */
+-	context.activeState.af.stable = false;
++	afAlgo_.configure(context.activeState.af);
+ 
+ 	return 0;
+ }
+@@ -194,151 +162,6 @@ void Af::prepare(IPAContext &context,
+ 	params->use.acc_af = 1;
+ }
+ 
+-/**
+- * \brief AF coarse scan
+- * \param[in] context The shared IPA context
+- *
+- * Find a near focused image using a coarse step. The step is determined by
+- * kCoarseSearchStep.
+- */
+-void Af::afCoarseScan(IPAContext &context)
+-{
+-	if (coarseCompleted_)
+-		return;
+-
+-	if (afNeedIgnoreFrame())
+-		return;
+-
+-	if (afScan(context, kCoarseSearchStep)) {
+-		coarseCompleted_ = true;
+-		context.activeState.af.maxVariance = 0;
+-		focus_ = context.activeState.af.focus -
+-			 (context.activeState.af.focus * kFineRange);
+-		context.activeState.af.focus = focus_;
+-		previousVariance_ = 0;
+-		maxStep_ = std::clamp(focus_ + static_cast<uint32_t>((focus_ * kFineRange)),
+-				      0U, kMaxFocusSteps);
+-	}
+-}
+-
+-/**
+- * \brief AF fine scan
+- * \param[in] context The shared IPA context
+- *
+- * Find an optimum lens position with moving 1 step for each search.
+- */
+-void Af::afFineScan(IPAContext &context)
+-{
+-	if (!coarseCompleted_)
+-		return;
+-
+-	if (afNeedIgnoreFrame())
+-		return;
+-
+-	if (afScan(context, kFineSearchStep)) {
+-		context.activeState.af.stable = true;
+-		fineCompleted_ = true;
+-	}
+-}
+-
+-/**
+- * \brief AF reset
+- * \param[in] context The shared IPA context
+- *
+- * Reset all the parameters to start over the AF process.
+- */
+-void Af::afReset(IPAContext &context)
+-{
+-	if (afNeedIgnoreFrame())
+-		return;
+-
+-	context.activeState.af.maxVariance = 0;
+-	context.activeState.af.focus = 0;
+-	focus_ = 0;
+-	context.activeState.af.stable = false;
+-	ignoreCounter_ = kIgnoreFrame;
+-	previousVariance_ = 0.0;
+-	coarseCompleted_ = false;
+-	fineCompleted_ = false;
+-	maxStep_ = kMaxFocusSteps;
+-}
+-
+-/**
+- * \brief AF variance comparison
+- * \param[in] context The IPA context
+- * \param[in] min_step The VCM movement step
+- *
+- * We always pick the largest variance to replace the previous one. The image
+- * with a larger variance also indicates it is a clearer image than previous
+- * one. If we find a negative derivative, we return immediately.
+- *
+- * \return True, if it finds a AF value.
+- */
+-bool Af::afScan(IPAContext &context, int min_step)
+-{
+-	if (focus_ > maxStep_) {
+-		/* If reach the max step, move lens to the position. */
+-		context.activeState.af.focus = bestFocus_;
+-		return true;
+-	} else {
+-		/*
+-		 * Find the maximum of the variance by estimating its
+-		 * derivative. If the direction changes, it means we have
+-		 * passed a maximum one step before.
+-		 */
+-		if ((currentVariance_ - context.activeState.af.maxVariance) >=
+-		    -(context.activeState.af.maxVariance * 0.1)) {
+-			/*
+-			 * Positive and zero derivative:
+-			 * The variance is still increasing. The focus could be
+-			 * increased for the next comparison. Also, the max variance
+-			 * and previous focus value are updated.
+-			 */
+-			bestFocus_ = focus_;
+-			focus_ += min_step;
+-			context.activeState.af.focus = focus_;
+-			context.activeState.af.maxVariance = currentVariance_;
+-		} else {
+-			/*
+-			 * Negative derivative:
+-			 * The variance starts to decrease which means the maximum
+-			 * variance is found. Set focus step to previous good one
+-			 * then return immediately.
+-			 */
+-			context.activeState.af.focus = bestFocus_;
+-			return true;
+-		}
+-	}
+-
+-	previousVariance_ = currentVariance_;
+-	LOG(IPU3Af, Debug) << " Previous step is "
+-			   << bestFocus_
+-			   << " Current step is "
+-			   << focus_;
+-	return false;
+-}
+-
+-/**
+- * \brief Determine the frame to be ignored
+- * \return Return True if the frame should be ignored, false otherwise
+- */
+-bool Af::afNeedIgnoreFrame()
+-{
+-	if (ignoreCounter_ == 0)
+-		return false;
+-	else
+-		ignoreCounter_--;
+-	return true;
+-}
+-
+-/**
+- * \brief Reset frame ignore counter
+- */
+-void Af::afIgnoreFrameReset()
+-{
+-	ignoreCounter_ = kIgnoreFrame;
+-}
+-
+ /**
+  * \brief Estimate variance
+  * \param[in] y_items The AF filter data set from the IPU3 statistics buffer
+@@ -373,33 +196,6 @@ double Af::afEstimateVariance(std::span<const y_table_item_t> y_items, bool isY1
+ 	return var_sum / y_items.size();
+ }
+ 
+-/**
+- * \brief Determine out-of-focus situation
+- * \param[in] context The IPA context
+- *
+- * Out-of-focus means that the variance change rate for a focused and a new
+- * variance is greater than a threshold.
+- *
+- * \return True if the variance threshold is crossed indicating lost focus,
+- * false otherwise
+- */
+-bool Af::afIsOutOfFocus(IPAContext &context)
+-{
+-	const uint32_t diff_var = std::abs(currentVariance_ -
+-					   context.activeState.af.maxVariance);
+-	const double var_ratio = diff_var / context.activeState.af.maxVariance;
+-
+-	LOG(IPU3Af, Debug) << "Variance change rate: "
+-			   << var_ratio
+-			   << " Current VCM step: "
+-			   << context.activeState.af.focus;
+-
+-	if (var_ratio > kMaxChange)
+-		return true;
+-	else
+-		return false;
+-}
+-
+ /**
+  * \brief Determine the max contrast image and lens position
+  * \param[in] context The IPA context
+@@ -438,17 +234,8 @@ void Af::process(IPAContext &context, [[maybe_unused]] const uint32_t frame,
+ 	 * For coarse: y1 are used.
+ 	 * For fine: y2 results are used.
+ 	 */
+-	currentVariance_ = afEstimateVariance(y_items, !coarseCompleted_);
+-
+-	if (!context.activeState.af.stable) {
+-		afCoarseScan(context);
+-		afFineScan(context);
+-	} else {
+-		if (afIsOutOfFocus(context))
+-			afReset(context);
+-		else
+-			afIgnoreFrameReset();
+-	}
++	double variance = afEstimateVariance(y_items, !afAlgo_.coarseCompleted());
++	afAlgo_.process(context.activeState.af, variance);
+ }
+ 
+ REGISTER_IPA_ALGORITHM(Af, "Af")
+diff --git a/src/ipa/ipu3/algorithms/af.h b/src/ipa/ipu3/algorithms/af.h
+index 320b6749..fcf1c9cf 100644
+--- a/src/ipa/ipu3/algorithms/af.h
++++ b/src/ipa/ipu3/algorithms/af.h
+@@ -13,6 +13,8 @@
+ 
+ #include <libcamera/geometry.h>
+ 
++#include "libipa/af.h"
++
+ #include "algorithm.h"
+ 
+ namespace libcamera {
+@@ -40,32 +42,9 @@ public:
+ 		     ControlList &metadata) override;
+ 
+ private:
+-	void afCoarseScan(IPAContext &context);
+-	void afFineScan(IPAContext &context);
+-	bool afScan(IPAContext &context, int min_step);
+-	void afReset(IPAContext &context);
+-	bool afNeedIgnoreFrame();
+-	void afIgnoreFrameReset();
+ 	double afEstimateVariance(std::span<const y_table_item_t> y_items, bool isY1);
+ 
+-	bool afIsOutOfFocus(IPAContext &context);
+-
+-	/* VCM step configuration. It is the current setting of the VCM step. */
+-	uint32_t focus_;
+-	/* The best VCM step. It is a local optimum VCM step during scanning. */
+-	uint32_t bestFocus_;
+-	/* Current AF statistic variance. */
+-	double currentVariance_;
+-	/* The frames are ignore before starting measuring. */
+-	uint32_t ignoreCounter_;
+-	/* It is used to determine the derivative during scanning */
+-	double previousVariance_;
+-	/* The designated maximum range of focus scanning. */
+-	uint32_t maxStep_;
+-	/* If the coarse scan completes, it is set to true. */
+-	bool coarseCompleted_;
+-	/* If the fine scan completes, it is set to true. */
+-	bool fineCompleted_;
++	AfAlgorithm afAlgo_;
+ };
+ 
+ } /* namespace ipa::ipu3::algorithms */
+diff --git a/src/ipa/ipu3/ipa_context.cpp b/src/ipa/ipu3/ipa_context.cpp
+index 6632c6f4..9f628cb4 100644
+--- a/src/ipa/ipu3/ipa_context.cpp
++++ b/src/ipa/ipu3/ipa_context.cpp
+@@ -88,22 +88,13 @@ namespace libcamera::ipa::ipu3 {
+  */
+ 
+ /**
+- * \var IPAActiveState::af
+- * \brief Context for the Automatic Focus algorithm
+- *
+- * \var IPAActiveState::af.focus
+- * \brief Current position of the lens
+- *
+- * \var IPAActiveState::af.maxVariance
+- * \brief The maximum variance of the current image
+- *
+- * \var IPAActiveState::af.stable
+- * \brief It is set to true, if the best focus is found
++ * \var IPASessionConfiguration::agc
++ * \brief AGC parameters configuration of the IPA
+  */
+ 
+ /**
+- * \var IPASessionConfiguration::agc
+- * \brief AGC parameters configuration of the IPA
++ * \var IPAActiveState::af
++ * \brief Autofocus state
+  */
+ 
+ /**
+diff --git a/src/ipa/ipu3/ipa_context.h b/src/ipa/ipu3/ipa_context.h
+index fde628c2..ca3a9fc9 100644
+--- a/src/ipa/ipu3/ipa_context.h
++++ b/src/ipa/ipu3/ipa_context.h
+@@ -24,6 +24,7 @@
+ #include <libipa/fc_queue.h>
+ #include <libipa/gamma.h>
+ #include <libipa/lsc.h>
++#include "libipa/af.h"
+ 
+ namespace libcamera {
+ 
+@@ -44,12 +45,7 @@ struct IPASessionConfiguration {
+ };
+ 
+ struct IPAActiveState {
+-	struct {
+-		uint32_t focus;
+-		double maxVariance;
+-		bool stable;
+-	} af;
+-
++	ipa::af::ActiveState af;
+ 	agc::ActiveState agc;
+ 	ipa::awb::ActiveState awb;
+ 	ipa::ccm::ActiveState ccm;
+diff --git a/src/ipa/libipa/af.cpp b/src/ipa/libipa/af.cpp
+new file mode 100644
+index 00000000..492d65d1
+--- /dev/null
++++ b/src/ipa/libipa/af.cpp
+@@ -0,0 +1,299 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later */
++/*
++ * Copyright (C) 2021-2026 Red Hat
++ *
++ * Autofocus algorithm
++ */
++
++#include "af.h"
++
++namespace libcamera {
++
++namespace ipa {
++
++LOG_DEFINE_CATEGORY(Af)
++
++namespace af {
++
++/**
++ * \struct ActiveState
++ * \brief Autofocus algorithm state
++ *
++ * \var ActiveState::focus
++ * \brief The focus value for the V4L2 control
++ *
++ * \var ActiveState::maxVariance
++ * \brief Maximum variance of the AF statistics
++ *
++ * \var ActiveState::stable
++ * \brief Flag determining whether focus is in a stable state
++ */
++
++} /* namespace af */
++
++/**
++ * \class AfAlgorithm
++ * \brief Implementation of a common autofocus algorithm
++ *
++ * The algorithm is provided with a single variance value in
++ * \a AfAlgorithm::process and adjusts \a ActiveState::focus accordingly.
++ */
++
++/**
++ * Maximum focus steps of the VCM control
++ * \todo should be obtained from the VCM driver
++ */
++static constexpr uint32_t kMaxFocusSteps = 1023;
++
++/* Minimum focus step for searching appropriate focus */
++static constexpr uint32_t kCoarseSearchStep = 30;
++static constexpr uint32_t kFineSearchStep = 1;
++
++/* Max ratio of variance change, 0.0 < kMaxChange < 1.0 */
++static constexpr double kMaxChange = 0.5;
++
++/* The numbers of frame to be ignored, before performing focus scan. */
++static constexpr uint32_t kIgnoreFrame = 10;
++
++/* Fine scan range 0 < kFineRange < 1 */
++static constexpr double kFineRange = 0.05;
++
++AfAlgorithm::AfAlgorithm()
++	: focus_(0), bestFocus_(0), currentVariance_(0.0), previousVariance_(0.0),
++	  coarseCompleted_(false), fineCompleted_(false)
++{
++}
++
++/**
++ * \fn AfAlgorithm::coarseCompleted()
++ * \brief Return whether the coarse autofocus scan is completed
++ */
++
++/**
++ * \brief AF coarse scan
++ * \param[in] state The autofocus state
++ *
++ * Find a near focused image using a coarse step. The step is determined by
++ * kCoarseSearchStep.
++ */
++void AfAlgorithm::afCoarseScan(af::ActiveState &state)
++{
++	if (coarseCompleted_)
++		return;
++
++	if (afNeedIgnoreFrame())
++		return;
++
++	if (afScan(state, kCoarseSearchStep)) {
++		coarseCompleted_ = true;
++		state.maxVariance = 0;
++		focus_ = state.focus -
++			 (state.focus * kFineRange);
++		state.focus = focus_;
++		previousVariance_ = 0;
++		maxStep_ = std::clamp(focus_ + static_cast<uint32_t>((focus_ * kFineRange)),
++				      0U, kMaxFocusSteps);
++	}
++}
++
++/**
++ * \brief AF fine scan
++ * \param[in] state The autofocus state
++ *
++ * Find an optimum lens position with moving 1 step for each search.
++ */
++void AfAlgorithm::afFineScan(af::ActiveState &state)
++{
++	if (!coarseCompleted_)
++		return;
++
++	if (afNeedIgnoreFrame())
++		return;
++
++	if (afScan(state, kFineSearchStep)) {
++		state.stable = true;
++		fineCompleted_ = true;
++	}
++}
++
++/**
++ * \brief AF reset
++ * \param[in] state The autofocus state
++ *
++ * Reset all the parameters to start over the AF process.
++ */
++void AfAlgorithm::afReset(af::ActiveState &state)
++{
++	if (afNeedIgnoreFrame())
++		return;
++
++	state.maxVariance = 0;
++	state.focus = 0;
++	focus_ = 0;
++	state.stable = false;
++	ignoreCounter_ = kIgnoreFrame;
++	previousVariance_ = 0.0;
++	coarseCompleted_ = false;
++	fineCompleted_ = false;
++	maxStep_ = kMaxFocusSteps;
++}
++
++/**
++ * \brief AF variance comparison
++ * \param[in] state The autofocus state
++ * \param[in] min_step The VCM movement step
++ *
++ * We always pick the largest variance to replace the previous one. The image
++ * with a larger variance also indicates it is a clearer image than previous
++ * one. If we find a negative derivative, we return immediately.
++ *
++ * \return True, if it finds a AF value
++ */
++bool AfAlgorithm::afScan(af::ActiveState &state, int min_step)
++{
++	if (focus_ > maxStep_) {
++		/* If reach the max step, move lens to the position. */
++		state.focus = bestFocus_;
++		return true;
++	} else {
++		/*
++		 * Find the maximum of the variance by estimating its
++		 * derivative. If the direction changes, it means we have
++		 * passed a maximum one step before.
++		 */
++		if ((currentVariance_ - state.maxVariance) >=
++		    -(state.maxVariance * 0.1)) {
++			/*
++			 * Positive and zero derivative:
++			 * The variance is still increasing. The focus could be
++			 * increased for the next comparison. Also, the max variance
++			 * and previous focus value are updated.
++			 */
++			bestFocus_ = focus_;
++			focus_ += min_step;
++			state.focus = focus_;
++			state.maxVariance = currentVariance_;
++		} else {
++			/*
++			 * Negative derivative:
++			 * The variance starts to decrease which means the maximum
++			 * variance is found. Set focus step to previous good one
++			 * then return immediately.
++			 */
++			state.focus = bestFocus_;
++			return true;
++		}
++	}
++
++	previousVariance_ = currentVariance_;
++	LOG(Af, Debug) << " Previous step is "
++		       << bestFocus_
++		       << " Current step is "
++		       << focus_;
++	return false;
++}
++
++/**
++ * \brief Determine the frame to be ignored
++ * \return Return True if the frame should be ignored, false otherwise
++ */
++bool AfAlgorithm::afNeedIgnoreFrame()
++{
++	if (ignoreCounter_ == 0)
++		return false;
++	else
++		ignoreCounter_--;
++	return true;
++}
++
++/**
++ * \brief Reset frame ignore counter
++ */
++void AfAlgorithm::afIgnoreFrameReset()
++{
++	ignoreCounter_ = kIgnoreFrame;
++}
++
++/**
++ * \brief Determine out-of-focus situation
++ * \param[in] state The autofocus state
++ *
++ * Out-of-focus means that the variance change rate for a focused and a new
++ * variance is greater than a threshold.
++ *
++ * \return True if the variance threshold is crossed indicating lost focus,
++ * false otherwise
++ */
++bool AfAlgorithm::afIsOutOfFocus(af::ActiveState &state)
++{
++	const uint32_t diff_var = std::abs(currentVariance_ -
++					   state.maxVariance);
++	const double var_ratio = diff_var / state.maxVariance;
++
++	LOG(Af, Debug) << "Variance change rate: "
++		       << var_ratio
++		       << " Current VCM step: "
++		       << state.focus;
++
++	if (var_ratio > kMaxChange)
++		return true;
++	else
++		return false;
++}
++
++/**
++ * \brief Configure the algorithm and \a state
++ * \param[in] state The autofocus state
++ *
++ * The method just sets some initial variable values rather than performing real
++ * configuration but it is supposed to be called from IPA's `configure`.
++ */
++void AfAlgorithm::configure(af::ActiveState &state)
++{
++	/* Initial max focus step */
++	maxStep_ = kMaxFocusSteps;
++
++	/* Initial frame ignore counter */
++	afIgnoreFrameReset();
++
++	/* Initial focus value */
++	state.focus = 0;
++	/* Maximum variance of the AF statistics */
++	state.maxVariance = 0;
++	/* The stable AF value flag. if it is true, the AF should be in a stable state. */
++	state.stable = false;
++}
++
++/**
++ * \brief Determine the max contrast image and lens position
++ * \param[in] state The autofocus state
++ * \param[in] variance The variance of autofocus statistics
++ *
++ * Ideally, a clear image also has a relatively higher contrast. So, every
++ * image for each focus step should be tested to find an optimal focus step.
++ *
++ * The Hill Climbing Algorithm[1] is used to find the maximum variance of the AF
++ * statistics. The focus step is increased then the variance of the AF
++ * statistics are estimated. If it finds the negative derivative we have just
++ * passed the peak, and we infer that the best focus is found.
++ *
++ * [1] Hill Climbing Algorithm, https://en.wikipedia.org/wiki/Hill_climbing
++ */
++void AfAlgorithm::process(af::ActiveState &state, double variance)
++{
++	currentVariance_ = variance;
++
++	if (!state.stable) {
++		afCoarseScan(state);
++		afFineScan(state);
++	} else {
++		if (afIsOutOfFocus(state))
++			afReset(state);
++		else
++			afIgnoreFrameReset();
++	}
++}
++
++} /* namespace ipa */
++
++} /* namespace libcamera */
+diff --git a/src/ipa/libipa/af.h b/src/ipa/libipa/af.h
+new file mode 100644
+index 00000000..c902b434
+--- /dev/null
++++ b/src/ipa/libipa/af.h
+@@ -0,0 +1,69 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later */
++/*
++ * Copyright (C) 2021-2026 Red Hat
++ *
++ * Autofocus algorithm
++ */
++
++#pragma once
++
++#include <libcamera/base/log.h>
++
++#include <libcamera/control_ids.h>
++
++namespace libcamera {
++
++namespace ipa {
++
++LOG_DECLARE_CATEGORY(Af)
++
++namespace af {
++
++struct ActiveState {
++	uint32_t focus;
++	double maxVariance;
++	bool stable;
++};
++
++} /* namespace af */
++
++class AfAlgorithm
++{
++public:
++	AfAlgorithm();
++
++	void configure(af::ActiveState &state);
++	void process(af::ActiveState &state, double variance);
++	bool coarseCompleted() { return coarseCompleted_; }
++
++private:
++	void afCoarseScan(af::ActiveState &af);
++	void afFineScan(af::ActiveState &af);
++	bool afScan(af::ActiveState &af, int min_step);
++	void afReset(af::ActiveState &af);
++	bool afNeedIgnoreFrame();
++	void afIgnoreFrameReset();
++
++	bool afIsOutOfFocus(af::ActiveState &af);
++
++	/* VCM step configuration. It is the current setting of the VCM step. */
++	uint32_t focus_;
++	/* The best VCM step. It is a local optimum VCM step during scanning. */
++	uint32_t bestFocus_;
++	/* Current AF statistic variance. */
++	double currentVariance_;
++	/* The frames are ignore before starting measuring. */
++	uint32_t ignoreCounter_;
++	/* It is used to determine the derivative during scanning */
++	double previousVariance_;
++	/* The designated maximum range of focus scanning. */
++	uint32_t maxStep_;
++	/* If the coarse scan completes, it is set to true. */
++	bool coarseCompleted_;
++	/* If the fine scan completes, it is set to true. */
++	bool fineCompleted_;
++};
++
++} /* namespace ipa */
++
++} /* namespace libcamera */
+diff --git a/src/ipa/libipa/meson.build b/src/ipa/libipa/meson.build
+index a38d5d52..b80c3b01 100644
+--- a/src/ipa/libipa/meson.build
++++ b/src/ipa/libipa/meson.build
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: CC0-1.0
+ 
+ libipa_headers = files([
++    'af.h',
+     'agc.h',
+     'agc_mean_luminance.h',
+     'agc_msv.h',
+@@ -30,6 +31,7 @@ libipa_headers = files([
+ ])
+ 
+ libipa_sources = files([
++    'af.cpp',
+     'agc.cpp',
+     'agc_mean_luminance.cpp',
+     'agc_msv.cpp',
