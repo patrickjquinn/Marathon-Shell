@@ -111,9 +111,14 @@ Rectangle {
 
     function show(id, name, icon, type, surface, sid) {
         // A close still animating must not hide or close the app shown now.
+        // Stopping skips its onFinished, so its scale and fade are undone
+        // here: left part-way, the app showed inset (an Android app
+        // relaunched after its process was killed stayed at 0.97).
         if (slideOut.running) {
             isClosing = false;
             slideOut.stop();
+            appWindow.scale = 1.0;
+            appWindow.opacity = 1.0;
         }
         var hasSurface = (surface !== null && surface !== undefined && sid >= 0);
         if (appWindow.appId === id && hasSurface && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
