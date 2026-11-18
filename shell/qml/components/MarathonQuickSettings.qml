@@ -548,14 +548,20 @@ Item {
                 }
                 onPreviousClicked: {
                     MHaptics.light();
+                    if (MPRIS2Controller.desktopEntry)
+                        Tasks.wakeApp(MPRIS2Controller.desktopEntry);
                     MPRIS2Controller.previous();
                 }
                 onPlayPauseClicked: {
                     MHaptics.light();
+                    if (MPRIS2Controller.desktopEntry)
+                        Tasks.wakeApp(MPRIS2Controller.desktopEntry);
                     MPRIS2Controller.playPause();
                 }
                 onNextClicked: {
                     MHaptics.light();
+                    if (MPRIS2Controller.desktopEntry)
+                        Tasks.wakeApp(MPRIS2Controller.desktopEntry);
                     MPRIS2Controller.next();
                 }
             }

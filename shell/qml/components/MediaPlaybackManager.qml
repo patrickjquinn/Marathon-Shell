@@ -21,6 +21,13 @@ Item {
     // Stands in for missing art, as Shortwave draws a station: "CJME News/Talk" → "CN".
     readonly property string initials: trackTitle.split(/\s+/).filter(w => /^\w/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join("")
 
+    // A paused player in the background is frozen and can't answer: wake it first.
+    function control(command) {
+        if (MPRIS2Controller.desktopEntry)
+            Tasks.wakeApp(MPRIS2Controller.desktopEntry);
+        command();
+    }
+
     function formatTime(seconds) {
         const total = Math.max(0, Math.floor(seconds));
         const m = Math.floor(total / 60);
@@ -136,7 +143,7 @@ Item {
                     variant: "secondary"
                     disabled: !(mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoPrevious)
                     anchors.verticalCenter: parent.verticalCenter
-                    onClicked: MPRIS2Controller.previous()
+                    onClicked: mediaManager.control(() => MPRIS2Controller.previous())
                 }
                 MCircularIconButton {
                     buttonSize: 52
@@ -144,7 +151,7 @@ Item {
                     variant: "primary"
                     disabled: !(mediaManager.hasMedia && MPRIS2Controller)
                     anchors.verticalCenter: parent.verticalCenter
-                    onClicked: MPRIS2Controller.playPause()
+                    onClicked: mediaManager.control(() => MPRIS2Controller.playPause())
                 }
                 MCircularIconButton {
                     buttonSize: 40
@@ -152,7 +159,7 @@ Item {
                     variant: "secondary"
                     disabled: !(mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoNext)
                     anchors.verticalCenter: parent.verticalCenter
-                    onClicked: MPRIS2Controller.next()
+                    onClicked: mediaManager.control(() => MPRIS2Controller.next())
                 }
             }
         }
