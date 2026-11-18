@@ -692,6 +692,32 @@ PinchArea {
             }
 
             SettingsMenu {
+                // Photos only: video is 16:9, and high resolution the whole frame.
+                active: Settings.global.captureMode === "image" && !(Settings.mode.enableHighres && CameraConfigs.supportedHighresImageResolutions.length > 0)
+                width: overlay._menuWidth
+                title: Settings.aspectRatioText
+                header: upperHeader
+                model: [CameraConfigs.AspectRatio_1_1, CameraConfigs.AspectRatio_4_3]
+                // The ratio as text: the theme has no icon for each.
+                delegate: SettingsMenuItemBase {
+                    id: ratioItem
+
+                    settings: Settings.mode
+                    property: "aspectRatio"
+                    value: modelData
+                    // The stored value is -1 until chosen: the default counts.
+                    selected: Settings.aspectRatio === value
+
+                    Label {
+                        anchors.centerIn: parent
+                        color: ratioItem.pressed ? overlay._highlightColor : Theme.lightPrimaryColor
+                        //: Photo aspect ratios, short
+                        text: ratioItem.value === CameraConfigs.AspectRatio_1_1 ? qsTr("1:1") : qsTr("4:3")
+                    }
+                }
+            }
+
+            SettingsMenu {
                 id: flashMenu
 
                 active: model.length > 0

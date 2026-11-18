@@ -205,6 +205,10 @@ SettingsBase {
         return timer > 0 ? "image://theme/icon-camera-timer-" + timer + "s" : "image://theme/icon-camera-timer";
     }
 
+    function aspectRatioText(ratio) {
+        return ratio === CameraConfigs.AspectRatio_1_1 ? qsTr("Square photos") : qsTr("4:3 photos");
+    }
+
     function timerText(timer) {
         return timer > 0 ? qsTr("%1 second delay").arg(timer) : qsTr("No delay");
     }
