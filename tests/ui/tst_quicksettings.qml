@@ -203,12 +203,16 @@ TestCase {
         return seen;
     }
 
-    // At the overflowing height the sliders start below the fold; leave
-    // room above them so a scroll is observable.
+    // At the overflowing height the sliders start below the fold: bring them
+    // to the middle of the view, leaving room to scroll either way, or scroll
+    // to the end.
     function revealSliders(toEnd) {
         const f = scroll();
-        if (f.interactive)
-            f.contentY = (f.contentHeight - f.height) / (toEnd ? 1 : 2);
+        if (!f.interactive)
+            return;
+        const end = f.contentHeight - f.height;
+        const y = brightnessSlider().mapToItem(f.contentItem, 0, 0).y;
+        f.contentY = toEnd ? end : Math.max(0, Math.min(end - 1, y - f.height / 2));
     }
 
     function test_sliderDrags_data() {

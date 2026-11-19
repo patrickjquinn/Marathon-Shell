@@ -175,7 +175,7 @@ Item {
     readonly property var bluetoothDevice: BluetoothManagerCpp.pairedDevices.find(d => d.connected) || null
 
     // Hardware tiles only when the hardware exists: without it they control nothing.
-    // The networks are wide, with their names; tapping a name opens its settings page.
+    // `route` is the Settings page a tile's words open.
     readonly property var tiles: {
         const wifiOn = SystemControlStore.shown("wifi", SystemControlStore.isWifiOn);
         const wifiJoined = wifiOn && SystemStatusStore.wifiConnected && SystemStatusStore.wifiNetwork !== "";
@@ -183,7 +183,6 @@ Item {
             {
                 id: "wifi",
                 icon: "wifi-high",
-                wide: true,
                 route: "wifi",
                 label: wifiJoined ? SystemStatusStore.wifiNetwork : qsTr("Wi-Fi"),
                 //: Quick settings Wi-Fi tile status, e.g. "Wi-Fi · strong"
@@ -196,7 +195,6 @@ Item {
             t.push({
                 id: "cellular",
                 icon: "cell-signal-high",
-                wide: true,
                 route: "cellular",
                 label: SystemStatusStore.carrier || qsTr("Mobile"),
                 //: Quick settings mobile tile status: network type and signal, e.g. "LTE · good"
@@ -208,7 +206,6 @@ Item {
         t.push({
             id: "bluetooth",
             icon: "bluetooth",
-            wide: true,
             route: "bluetooth",
             label: btOn && bluetoothDevice ? (bluetoothDevice.alias || bluetoothDevice.name) : qsTr("Bluetooth"),
             status: !btOn ? qsTr("Off") : bluetoothDevice ? qsTr("Connected") : qsTr("On · no device"),
@@ -225,6 +222,7 @@ Item {
             on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
         }, {
             id: "dnd",
+            route: "notifications",
             icon: "bell-slash",
             label: qsTr("Silent"),
             on: SystemControlStore.isDndMode
@@ -243,6 +241,7 @@ Item {
             on: SystemControlStore.isLocationOn
         }, {
             id: "nightlight",
+            route: "display",
             icon: "moon",
             label: qsTr("Night"),
             on: SystemControlStore.isNightLightOn
@@ -250,6 +249,7 @@ Item {
         if (Display.rotationAvailable)
             t.push({
                 id: "rotation",
+                route: "display",
                 icon: "device-rotate",
                 label: qsTr("Rotate"),
                 status: SystemControlStore.isRotationLocked ? qsTr("Locked") : qsTr("Auto"),
@@ -258,6 +258,7 @@ Item {
         if (Display.lightAvailable)
             t.push({
                 id: "autobrightness",
+                route: "display",
                 icon: "sun",
                 label: qsTr("Brightness"),
                 //: Quick settings brightness tile status, e.g. "Auto · 24%"
@@ -266,6 +267,7 @@ Item {
             });
         t.push({
             id: "lowpower",
+            route: "battery",
             icon: "battery-low",
             label: qsTr("Saver"),
             on: SystemControlStore.isLowPowerMode
@@ -273,6 +275,7 @@ Item {
         if (HapticManager.available)
             t.push({
                 id: "vibration",
+                route: "sound",
                 icon: "vibrate",
                 label: qsTr("Vibrate"),
                 on: SystemControlStore.isVibrationOn
@@ -280,6 +283,7 @@ Item {
         if (typeof TrackpadInput !== "undefined" && TrackpadInput.available)
             t.push({
                 id: "trackpad",
+                route: "trackpad",
                 icon: "cursor",
                 label: qsTr("Pointer"),
                 on: SettingsManagerCpp.trackpadMode === "mouse"
@@ -461,29 +465,44 @@ Item {
                 }
             }
 
-            // ── Switches, four across; the networks span two ─────
+            // ── Switches and shortcuts, three across ─────────────
             Flow {
                 id: tileGrid
 
                 objectName: "tileGrid"
                 width: parent.width
                 spacing: Silica.Theme.paddingSmall
-                readonly property real cellWidth: (width - spacing * 3) / 4
+                readonly property real cellWidth: (width - spacing * 2) / 3
 
                 Repeater {
                     model: quickSettings.tiles
                     delegate: MQSTile {
                         required property var modelData
-                        width: modelData.wide ? tileGrid.cellWidth * 2 + tileGrid.spacing : tileGrid.cellWidth
+                        width: tileGrid.cellWidth
                         iconName: modelData.icon
                         label: modelData.label
                         status: modelData.status !== undefined ? modelData.status : modelData.id === "hotspot" && modelData.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(modelData.on)
-                        wide: modelData.wide === true
+                        hasPage: modelData.route !== undefined
                         on: modelData.on === true
                         busy: SystemControlStore.pendingSwitches.indexOf(modelData.id) >= 0
                         onToggled: quickSettings.toggle(modelData.id)
                         onHeld: quickSettings.hold(modelData.id)
                         onOpened: quickSettings.openSettings(modelData.route)
+                    }
+                }
+                // One-shot actions after the switches, as BB10 mixed them.
+                Repeater {
+                    model: quickSettings.shortcuts
+                    delegate: MQSTile {
+                        required property var modelData
+                        width: tileGrid.cellWidth
+                        checkable: false
+                        iconName: modelData.icon
+                        label: modelData.label
+                        onToggled: {
+                            MHaptics.light();
+                            quickSettings.doAction(modelData.id);
+                        }
                     }
                 }
             }
@@ -569,26 +588,6 @@ Item {
                     MPRIS2Controller.next();
                 }
             }
-
-            // ── Shortcuts: tiles of the same family, not switches ─
-            Row {
-                spacing: tileGrid.spacing
-
-                Repeater {
-                    model: quickSettings.shortcuts
-                    delegate: MQSTile {
-                        required property var modelData
-                        width: tileGrid.cellWidth
-                        checkable: false
-                        iconName: modelData.icon
-                        label: modelData.label
-                        onToggled: {
-                            MHaptics.light();
-                            quickSettings.doAction(modelData.id);
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -647,7 +646,7 @@ Item {
         }
     }
 
-    // A network tile's name opens its page in Settings.
+    // A tile's words open its page in Settings.
     function openSettings(route) {
         quickSettings.closed();
         quickSettings.launchApp({
