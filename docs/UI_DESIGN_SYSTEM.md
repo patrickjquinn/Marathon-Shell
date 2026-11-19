@@ -91,23 +91,22 @@ Numeric access via `MElevation.getSurface(0..5)`, `getBorderOuter(level)`,
 reach for `MElevation` when a component takes an `elevation:` prop and
 needs to interpolate (`MCard`, `MLayer`, `MSettingsListItem`).
 
-**Accent (teal ladder):**
+**Accent.** The accent is the ambience's highlight, `Silica.Theme.highlightColor`
+(`MColors.accent`, `marathonTeal`, `marathonTealBright` follow it), so it
+changes with the ambience. Tinted overlays come from `Silica.Theme.rgba()`
+or the named `MColors` overlays, never an inline hex.
 
-| Token | Hex | Role |
+**Colour roles.** One colour must not do every job:
+
+| Role | Colour | Examples |
 |---|---|---|
-| `marathonTealDarkest` | `#006b5d` | Pressed accent surfaces |
-| `marathonTealDark` | `#00897b` | Disabled accent state |
-| `marathonTeal` / `accent` | `#00bfa5` | Default accent (icons, indicators) |
-| `marathonTealBright` / `accentBright` | `#1de9b6` | **Primary brand mark, focus glow** |
-| `marathonTealGlow` | `#5dffdc` | Halo / pulse highlights |
+| Can be acted on | highlight | a value a row changes, a link, an on control's glow, page titles |
+| Content | primary | body text, detail values, notification titles |
+| Quiet | secondary | section headers, detail labels, explanations and hints |
+| Status | `MColors.error`, `MColors.warning` | failures, warnings |
 
-Plus tinted overlays (`marathonTealHover/Press/Glow*`, border tints
-35-40%) — never inline `Qt.rgba()` with the teal; reach for the named
-overlay token.
-
-**Status colors** (mailbox indicators, toast banners, validation):
-`success #10B981`, `warning #F59E0B`, `error #EF4444`, `info #3B82F6`
-(each with a `*Dim` sibling for borders/secondary fills).
+A paragraph that explains is secondary, even when Sailfish set it in the
+highlight; titles, names and statuses keep theirs.
 
 **Text ladder:**
 `textPrimary #f5f5f5` → `textSecondary #9a9a9a` → `textTertiary #8a8a8a`
@@ -129,10 +128,11 @@ Scale (base px, multiplied by `scaleFactor`):
 `XSmall 12 · Small 14 · Body 16 · Large 18 · XLarge 24 · XXLarge 32 ·
 Display 40 · Huge 48 · Gigantic 96`.
 
-Weights map to `Font.*` (`Light`, `Regular`, `Medium`, `DemiBold`,
-`Bold`, `Black`). Heading hierarchy uses DemiBold/Bold; body always
-Regular; chrome (clock, badges) uses Medium for the small-but-legible
-sweet spot.
+Weights stay light by decision: body and headings in Source Sans 3
+**Light**, display in ExtraLight, icons in **Phosphor Thin**. Emphasis
+comes from colour and the few DemiBold places that already exist (an
+unread notification's title), not from heavier text. Changing a family,
+weight or size is a design decision for the owner, not a refactor.
 
 ### 2.3 Geometry
 
@@ -162,35 +162,45 @@ say in the column count — they get `MPage`, which enforces it.
 
 ## 3. Surfaces & depth
 
-Depth comes from **two borders and a delta in surface lightness**, not
-from drop shadows. FBO-based shadows (`FastBlur` + `OpacityMask`) are
-banned on the etnaviv GLES2 path — they collapse the L5 to 2 fps. (See
-the `MARATHON_LAYER_SAMPLES` env / Etnaviv MSAA trap memory.)
-
-The canonical depth recipe:
+Depth comes from **light, not outlines or shadows**: `GlassSurface`
+(Keel Silica, `import Sailfish.Silica`) is the surface for cards and for
+round and pill controls.
 
 ```qml
-Rectangle {
-    color: MElevation.getSurface(elevation)
-    border.color: MElevation.getBorderOuter(elevation); border.width: 1
-    Rectangle {                                  // inner highlight
-        anchors.fill: parent; anchors.margins: 1
-        color: "transparent"
-        border.color: MElevation.getBorderInner(elevation); border.width: 1
-    }
+GlassSurface {                // a round control
+    width: Theme.itemSizeSmall; height: width
+    lit: checked              // on / primary: the tint fills the body
+    pressed: mouse.pressed    // brightens and spreads the glow
+}
+GlassSurface {                // a card
+    level: 1
+    radius: Theme.paddingLarge
+    tint: Theme.highlightColor // the colour of what it belongs to
 }
 ```
 
-Two 1 px borders, two SDF-friendly draws, zero shaders. Reads as depth
-on OLED because the outer border crushes to absolute black while the
-inner highlight catches the panel's micro-emission.
+- The body runs from neutral at the top to `tint` at the bottom, so it reads
+  as lit from above; light pools inside the bottom edge; the rim is bright
+  along the top and shaded along the bottom.
+- `level: 2` (default) is a control, `level: 1` a card. `tint` defaults to
+  the ambience highlight; a card or control that belongs to something with
+  its own colour passes that colour.
+- One fragment shader, no textures, no offscreen pass, item-local
+  coordinates and GLES 2: a quad per surface on every GPU Marathon runs on.
+  Its gradients are dithered in the shader against 6-bit panels.
 
-**`MultiEffect` exception.** Qt 6.5+'s `MultiEffect` (one shader pass,
-not the chained-FBO `QtGraphicalEffects` of Qt 5) is permitted only for
-*transient* surfaces that mount and unmount inside ~300 ms: `MModal`,
-`MSheet`, `MConfirmDialog`, `MComboBox`/`MDropdown` menus. Never on
-persistent chrome, cards, list rows, or status bar — those use `MGlass`
-(see §7) or the dual-border recipe.
+Built on it: `MCircularIconButton` (power menu, PIN pad, media),
+`MQSTile`, Silica `Button` (a pill), Hub rows (`MHubRow`: a card, and a
+disc behind the avatar). A pressed list row (`BackgroundItem`) shows a
+rounded, inset highlight that fades out on an Animator.
+
+The Sailfish glow idioms that remain are deliberate: the `Switch` glow and
+the page-stack indicator.
+
+**Blur** is for frosting what lies behind a sheet or the lock screen
+(`MGlassBackdrop`, `MGlassPlatter`, `AppBackdropBlur`), never for a
+persistent card, row or control. FBO effects on persistent surfaces are
+banned: on the Librem 5's etnaviv a 4× layer drew at 2 fps.
 
 ---
 
@@ -331,17 +341,15 @@ Springs and haptics fire together — never one without the other.
 
 ## 6. Materials & effects
 
-### 6.1 `MGlass`
+### 6.1 Glass
 
-The chrome material. A `ShaderEffectSource` samples the live
-framebuffer behind the surface, a `MultiEffect` runs a single-pass blur
-+ tint, and the result is the lightly translucent panel the user sees
-for the status bar, top bar, nav bar, dock, NowBar, QS shade, modals,
-sheets, dropdowns.
+`GlassSurface` (§3) is the material for cards and controls. For a frosted
+backdrop, `MGlassPlatter` draws a rounded box over a frosted texture in one
+pass: the shared ambience blur (`MGlassBackdrop`, screen space) or a blur of
+what is behind it. `MGlass`, the live-framebuffer `MultiEffect` panel, is
+no longer used.
 
-Reads `MMotion.reduceBlur` and `MMotion.translucencyLevel` automatically.
-Caller picks blur radius via `MBlur.blurFor(role)` — never an inline
-number:
+`MBlur.blurFor(role)` names the blur radii for the frosted backdrops:
 
 | Role | `MBlur.blurFor` | Use |
 |---|---|---|
