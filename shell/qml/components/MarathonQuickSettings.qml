@@ -166,33 +166,63 @@ Item {
         return list.filter(tile => enabled.indexOf(tile.id) >= 0);
     }
 
+    function onOff(on) {
+        return on ? qsTr("On") : qsTr("Off");
+    }
+    function signalWord(percent) {
+        return percent >= 75 ? qsTr("strong") : percent >= 50 ? qsTr("good") : percent >= 25 ? qsTr("fair") : qsTr("weak");
+    }
+    readonly property var bluetoothDevice: BluetoothManagerCpp.pairedDevices.find(d => d.connected) || null
+
     // Hardware tiles only when the hardware exists: without it they control nothing.
+    // The networks are wide, with their names; tapping a name opens its settings page.
     readonly property var tiles: {
+        const wifiOn = SystemControlStore.shown("wifi", SystemControlStore.isWifiOn);
+        const wifiJoined = wifiOn && SystemStatusStore.wifiConnected && SystemStatusStore.wifiNetwork !== "";
         var t = [
             {
                 id: "wifi",
                 icon: "wifi-high",
-                label: qsTr("Wi-Fi"),
-                on: SystemControlStore.shown("wifi", SystemControlStore.isWifiOn)
+                wide: true,
+                route: "wifi",
+                label: wifiJoined ? SystemStatusStore.wifiNetwork : qsTr("Wi-Fi"),
+                //: Quick settings Wi-Fi tile status, e.g. "Wi-Fi · strong"
+                status: wifiJoined ? qsTr("Wi-Fi · %1").arg(signalWord(SystemStatusStore.wifiStrength)) : wifiOn ? qsTr("Not connected") : qsTr("Off"),
+                on: wifiOn
             }
         ];
-        if (Modem.modemAvailable)
+        if (Modem.modemAvailable) {
+            const dataOn = SystemControlStore.shown("cellular", SystemControlStore.isCellularDataOn);
             t.push({
                 id: "cellular",
                 icon: "cell-signal-high",
-                label: qsTr("Mobile"),
-                on: SystemControlStore.shown("cellular", SystemControlStore.isCellularDataOn)
+                wide: true,
+                route: "cellular",
+                label: SystemStatusStore.carrier || qsTr("Mobile"),
+                //: Quick settings mobile tile status: network type and signal, e.g. "LTE · good"
+                status: dataOn ? (SystemStatusStore.dataType ? qsTr("%1 · %2").arg(SystemStatusStore.dataType).arg(signalWord(SystemStatusStore.cellularStrength)) : signalWord(SystemStatusStore.cellularStrength)) : qsTr("Data off"),
+                on: dataOn
             });
+        }
+        const btOn = SystemControlStore.shown("bluetooth", SystemControlStore.isBluetoothOn);
         t.push({
             id: "bluetooth",
             icon: "bluetooth",
-            label: qsTr("Bluetooth"),
-            on: SystemControlStore.shown("bluetooth", SystemControlStore.isBluetoothOn)
+            wide: true,
+            route: "bluetooth",
+            label: btOn && bluetoothDevice ? (bluetoothDevice.alias || bluetoothDevice.name) : qsTr("Bluetooth"),
+            status: !btOn ? qsTr("Off") : bluetoothDevice ? qsTr("Connected") : qsTr("On · no device"),
+            on: btOn
         }, {
             id: "airplane",
             icon: "airplane-tilt",
             label: qsTr("Flight"),
             on: SystemControlStore.shown("airplane", SystemControlStore.isAirplaneModeOn)
+        }, {
+            id: "hotspot",
+            icon: "broadcast",
+            label: qsTr("Hotspot"),
+            on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
         }, {
             id: "dnd",
             icon: "bell-slash",
@@ -212,11 +242,6 @@ Item {
             label: qsTr("Location"),
             on: SystemControlStore.isLocationOn
         }, {
-            id: "hotspot",
-            icon: "broadcast",
-            label: qsTr("Hotspot"),
-            on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
-        }, {
             id: "nightlight",
             icon: "moon",
             label: qsTr("Night"),
@@ -226,14 +251,17 @@ Item {
             t.push({
                 id: "rotation",
                 icon: "device-rotate",
-                label: qsTr("Auto-rotate"),
+                label: qsTr("Rotate"),
+                status: SystemControlStore.isRotationLocked ? qsTr("Locked") : qsTr("Auto"),
                 on: !SystemControlStore.isRotationLocked
             });
         if (Display.lightAvailable)
             t.push({
                 id: "autobrightness",
                 icon: "sun",
-                label: qsTr("Auto"),
+                label: qsTr("Brightness"),
+                //: Quick settings brightness tile status, e.g. "Auto · 24%"
+                status: (SystemControlStore.isAutoBrightnessOn ? qsTr("Auto · %1%") : qsTr("Manual · %1%")).arg(Math.round(SystemControlStore.brightness)),
                 on: SystemControlStore.isAutoBrightnessOn
             });
         t.push({
@@ -242,19 +270,19 @@ Item {
             label: qsTr("Saver"),
             on: SystemControlStore.isLowPowerMode
         });
-        if (typeof TrackpadInput !== "undefined" && TrackpadInput.available)
-            t.push({
-                id: "trackpad",
-                icon: "cursor",
-                label: qsTr("Pointer"),
-                on: SettingsManagerCpp.trackpadMode === "mouse"
-            });
         if (HapticManager.available)
             t.push({
                 id: "vibration",
                 icon: "vibrate",
                 label: qsTr("Vibrate"),
                 on: SystemControlStore.isVibrationOn
+            });
+        if (typeof TrackpadInput !== "undefined" && TrackpadInput.available)
+            t.push({
+                id: "trackpad",
+                icon: "cursor",
+                label: qsTr("Pointer"),
+                on: SettingsManagerCpp.trackpadMode === "mouse"
             });
         return enabledOnly(t);
     }
@@ -284,53 +312,7 @@ Item {
         }
     ]
 
-    component QSShortcut: Item {
-        id: shortcut
-
-        property string iconName
-        property string label
-        signal activated
-
-        width: Silica.Theme.itemSizeExtraLarge
-        height: shortcutColumn.height
-        Accessible.role: Accessible.Button
-        Accessible.name: label
-        Accessible.onPressAction: activated()
-
-        Column {
-            id: shortcutColumn
-
-            width: parent.width
-            spacing: Silica.Theme.paddingSmall
-
-            GlyphIcon {
-                anchors.horizontalCenter: parent.horizontalCenter
-                name: shortcut.iconName
-                size: Silica.Theme.iconSizeSmall
-                color: shortcutMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-            }
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
-                text: shortcut.label
-                color: shortcutMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
-                font.family: Silica.Theme.fontFamily
-                font.pixelSize: Silica.Theme.fontSizeTiny
-            }
-        }
-        MouseArea {
-            id: shortcutMouse
-
-            anchors.fill: parent
-            onClicked: {
-                MHaptics.light();
-                shortcut.activated();
-            }
-        }
-    }
-
-    // A bare glyph, as Silica's IconButton.
+    // A small glass tile holding a glyph, of a family with the switches.
     component HeaderButton: MouseArea {
         id: headerButton
 
@@ -343,11 +325,17 @@ Item {
         Accessible.name: a11yName
         Accessible.onPressAction: clicked(null)
 
+        Silica.GlassSurface {
+            anchors.fill: parent
+            anchors.margins: Silica.Theme.paddingSmall / 2
+            radius: Silica.Theme.paddingMedium
+            pressed: headerButton.pressed
+        }
         GlyphIcon {
             anchors.centerIn: parent
             name: headerButton.iconName
             size: Silica.Theme.iconSizeSmall
-            color: headerButton.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            color: Silica.Theme.primaryColor
         }
     }
 
@@ -410,7 +398,7 @@ Item {
             x: Silica.Theme.horizontalPageMargin
             y: Silica.Theme.paddingMedium
             width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
-            spacing: quickSettings.compactLayout ? Silica.Theme.paddingLarge : Silica.Theme.paddingLarge * 2
+            spacing: quickSettings.compactLayout ? Silica.Theme.paddingSmall : Silica.Theme.paddingMedium
 
             // Flattened only while it fades, so it fades as one piece; open,
             // a slider drag doesn't re-render an offscreen copy every frame.
@@ -438,6 +426,17 @@ Item {
                     truncationMode: Silica.TruncationMode.Fade
                     color: Silica.Theme.secondaryHighlightColor
                     font.pixelSize: Silica.Theme.fontSizeSmall
+
+                    Silica.Label {
+                        objectName: "batteryLine"
+                        anchors.left: parent.left
+                        anchors.leftMargin: parent.contentWidth + Silica.Theme.paddingSmall
+                        anchors.baseline: parent.baseline
+                        //: Quick settings date line battery, e.g. "· 98% charging"
+                        text: (SystemStatusStore.isCharging ? qsTr("· %1% charging") : qsTr("· %1%")).arg(SystemStatusStore.batteryLevel)
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                    }
                 }
                 Row {
                     id: headerButtons
@@ -462,27 +461,29 @@ Item {
                 }
             }
 
-            // ── Switches, four across ────────────────────────────
-            Grid {
+            // ── Switches, four across; the networks span two ─────
+            Flow {
                 id: tileGrid
 
                 objectName: "tileGrid"
                 width: parent.width
-                columns: 4
-                rowSpacing: quickSettings.compactLayout ? Silica.Theme.paddingMedium : Silica.Theme.paddingLarge
-                readonly property real cellWidth: width / columns
+                spacing: Silica.Theme.paddingSmall
+                readonly property real cellWidth: (width - spacing * 3) / 4
 
                 Repeater {
                     model: quickSettings.tiles
                     delegate: MQSTile {
                         required property var modelData
-                        width: tileGrid.cellWidth
+                        width: modelData.wide ? tileGrid.cellWidth * 2 + tileGrid.spacing : tileGrid.cellWidth
                         iconName: modelData.icon
                         label: modelData.label
+                        status: modelData.status !== undefined ? modelData.status : modelData.id === "hotspot" && modelData.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(modelData.on)
+                        wide: modelData.wide === true
                         on: modelData.on === true
                         busy: SystemControlStore.pendingSwitches.indexOf(modelData.id) >= 0
                         onToggled: quickSettings.toggle(modelData.id)
                         onHeld: quickSettings.hold(modelData.id)
+                        onOpened: quickSettings.openSettings(modelData.route)
                     }
                 }
             }
@@ -508,6 +509,7 @@ Item {
             // ── Brightness and volume ────────────────────────────
             Column {
                 width: parent.width
+                spacing: tileGrid.spacing
 
                 MQSSlider {
                     objectName: "brightnessSlider"
@@ -568,16 +570,22 @@ Item {
                 }
             }
 
-            // ── Shortcuts, on the switch columns ─────────────────
+            // ── Shortcuts: tiles of the same family, not switches ─
             Row {
+                spacing: tileGrid.spacing
+
                 Repeater {
                     model: quickSettings.shortcuts
-                    delegate: QSShortcut {
+                    delegate: MQSTile {
                         required property var modelData
                         width: tileGrid.cellWidth
+                        checkable: false
                         iconName: modelData.icon
                         label: modelData.label
-                        onActivated: quickSettings.doAction(modelData.id)
+                        onToggled: {
+                            MHaptics.light();
+                            quickSettings.doAction(modelData.id);
+                        }
                     }
                 }
             }
@@ -637,6 +645,16 @@ Item {
             });
             break;
         }
+    }
+
+    // A network tile's name opens its page in Settings.
+    function openSettings(route) {
+        quickSettings.closed();
+        quickSettings.launchApp({
+            "id": "settings",
+            "name": "Settings",
+            "route": route
+        });
     }
 
     function hold(id) {

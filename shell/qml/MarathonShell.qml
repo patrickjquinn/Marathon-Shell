@@ -2222,7 +2222,12 @@ Item {
         onClosed: {
             UIStore.closeQuickSettings();
         }
-        onLaunchApp: app => shell.launchUnlocked(typeof app === "string" ? app : app.id, app.name || "")
+        onLaunchApp: app => {
+            if (app.route && !SessionStore.isLocked)
+                Tasks.launchAppWithRoute(app.id, app.route, "{}");
+            else
+                shell.launchUnlocked(typeof app === "string" ? app : app.id, app.name || "");
+        }
         onPowerRequested: shell.showPowerMenu()
         // The screen changed size while open (rotation).
         onMaxHeightChanged: if (UIStore.quickSettingsOpen && !UIStore.quickSettingsDragging)

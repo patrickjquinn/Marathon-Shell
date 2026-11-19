@@ -4,12 +4,12 @@ import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Now Bar: live-activity row (music / call / nav / timer) drawn as a
-// A list item: glass-ring glyph, title and a secondary line.
+// Now Bar: a live activity (music / call / nav / timer) on a glass card: a
+// tinted glyph or the artwork, a title and a secondary line, transport flat.
 Item {
     id: root
 
-    implicitHeight: Math.max(Silica.Theme.itemSizeSmall, textColumn.implicitHeight + Silica.Theme.paddingSmall * 2)
+    implicitHeight: Math.max(Silica.Theme.itemSizeSmall, textColumn.implicitHeight + Silica.Theme.paddingMedium * 2)
 
     property string variant: "music"          // "music" | "call" | "nav" | "timer"
     property string iconName: "music"
@@ -56,14 +56,15 @@ Item {
         }
     }
 
-    Rectangle {
+    Silica.GlassSurface {
         anchors.fill: parent
-        color: root.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+        radius: Silica.Theme.paddingMedium
+        pressed: root.down
     }
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: Silica.Theme.paddingSmall
+        anchors.leftMargin: Silica.Theme.paddingMedium
         anchors.rightMargin: Silica.Theme.paddingSmall
         spacing: Silica.Theme.paddingMedium
 
@@ -76,9 +77,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
-                color: "transparent"
-                border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
-                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+                color: Silica.Theme.rgba(root.tintColor, 0.16)
                 visible: artwork.status !== Image.Ready
 
                 GlyphIcon {
