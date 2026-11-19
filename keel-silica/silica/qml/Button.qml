@@ -91,21 +91,29 @@ SilicaMouseArea {
         id: borderColors
     }
 
-    Rectangle {
+    // Modified by Marathon: a glass pill, not a faint rounded rectangle.
+    GlassSurface {
         anchors {
             fill: parent
             // Modified by Shipwright for Qt 6: (height - implicitHeight) / 2, updated after geometry changes settle
             topMargin: button._keelVerticalMargin
             bottomMargin: button._keelVerticalMargin
         }
-        radius: Theme.paddingSmall
-        color: button._showPress ? Theme.rgba(button.highlightBackgroundColor, Theme.highlightBackgroundOpacity) // Modified by Shipwright for Qt 6: qualified
-                          : button.backgroundColor
+        radius: height / 2
+        tint: palette.highlightColor
+        pressed: button._showPress
 
         opacity: button.enabled ? 1.0 : Theme.opacityLow
-        border {
-            width: Qt.colorEqual(borderColors.color, "transparent") ? 0 : Theme.dp(2)
-            color: button._showPress ? borderColors.highlightColor : borderColors.color
+
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            color: "transparent"
+            visible: !Qt.colorEqual(borderColors.color, "transparent")
+            border {
+                width: Theme.dp(2)
+                color: button._showPress ? borderColors.highlightColor : borderColors.color
+            }
         }
 
         Row {
