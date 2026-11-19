@@ -43,7 +43,7 @@ fn main() -> ExitCode {
     let mut check = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
-        let mut value = || args.next().ok_or(format!("{arg} needs a value"));
+        let mut value = || args.next().ok_or_else(|| format!("{arg} needs a value"));
         let r = match arg.as_str() {
             "--qml" => value().map(|v| config.qml.push(v.into())),
             "--rust" => value().map(|v| config.rust.push(v.into())),
