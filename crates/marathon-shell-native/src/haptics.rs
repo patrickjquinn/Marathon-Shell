@@ -98,7 +98,10 @@ impl cxx_qt::Initialize for Haptics {
                 .name("marathon-haptics".into())
                 .spawn(move || async_io::block_on(run(motor, rx)));
             if let Err(e) = spawned {
-                log::warn("haptics", format_args!("cannot start the motor thread: {e}"));
+                log::warn(
+                    "haptics",
+                    format_args!("cannot start the motor thread: {e}"),
+                );
             }
         });
         self.as_mut().rust_mut().motor = Some(tx);
