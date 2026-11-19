@@ -121,14 +121,6 @@ Item {
         opacity: 0
         scale: 0.9
 
-        // One glass panel holds the choices; they are flat on it.
-        Silica.GlassSurface {
-            anchors.centerIn: choices
-            width: choices.width + 2 * Silica.Theme.paddingLarge
-            height: choices.height + 2 * Silica.Theme.paddingLarge
-            radius: Silica.Theme.paddingLarge
-        }
-
         Column {
             id: choices
 
