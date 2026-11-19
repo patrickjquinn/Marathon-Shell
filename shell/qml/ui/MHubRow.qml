@@ -124,9 +124,18 @@ FocusScope {
         height: row.fullHeight
         opacity: 1 - x / Math.max(1, row.width)
 
-        Rectangle {
-            anchors.fill: parent
-            color: row.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+        // The row's card, inset so the unread mark stays outside it.
+        Silica.GlassSurface {
+            anchors {
+                fill: parent
+                leftMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
+                rightMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
+                topMargin: Silica.Theme.paddingSmall / 2
+                bottomMargin: Silica.Theme.paddingSmall / 2
+            }
+            level: 1
+            radius: Silica.Theme.paddingLarge
+            pressed: row.down
         }
 
         // A lit glass mark for what is new.
@@ -140,21 +149,22 @@ FocusScope {
             visible: row.unread
         }
 
-        Rectangle {
+        Item {
             id: avatar
             width: Silica.Theme.iconSizeMedium
             height: width
-            radius: width / 2
             anchors.left: parent.left
             anchors.leftMargin: Silica.Theme.horizontalPageMargin
             anchors.verticalCenter: parent.verticalCenter
             // Read rows step back, as BB10's monochrome icons did.
             opacity: row.unread || row.ongoing ? 1 : 0.55
-            color: "transparent"
-            // An app icon or a picture stands on its own; the ring frames a
-            // monogram or a glyph.
-            border.width: picture.hasImage ? 0 : Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
-            border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+
+            // An app icon or a picture stands on its own; a glass disc holds
+            // a monogram or a glyph.
+            Silica.GlassSurface {
+                anchors.fill: parent
+                visible: !picture.hasImage
+            }
 
             Text {
                 objectName: "hubRowMonogram"
@@ -245,7 +255,7 @@ FocusScope {
                     height: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
                     radius: height / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: avatar.border.color
+                    color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
                     clip: true
 
                     Rectangle {
