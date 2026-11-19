@@ -3,7 +3,7 @@
 
 use zbus::{fdo, interface};
 
-use crate::{Core, Dict, Radio};
+use crate::{Core, Dict, Radio, Status};
 
 pub struct Root;
 
@@ -66,7 +66,12 @@ impl Player {
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        self.stop().await
+        self.0
+            .act(|r| {
+                r.pause();
+                Ok(())
+            })
+            .await
     }
 
     async fn stop(&self) -> fdo::Result<()> {
@@ -82,7 +87,7 @@ impl Player {
         self.0
             .act(|r| {
                 if r.status.sounding() {
-                    r.stop();
+                    r.pause();
                     Ok(())
                 } else {
                     r.resume()
@@ -101,8 +106,13 @@ impl Player {
 
     #[zbus(property)]
     async fn playback_status(&self) -> String {
-        let sounding = self.0.radio.with(|r| r.status.sounding()).await;
-        if sounding { "Playing" } else { "Stopped" }.to_owned()
+        let status = self.0.radio.with(|r| r.status).await;
+        match status {
+            s if s.sounding() => "Playing",
+            Status::Paused => "Paused",
+            _ => "Stopped",
+        }
+        .to_owned()
     }
 
     #[zbus(property)]

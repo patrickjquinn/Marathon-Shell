@@ -119,7 +119,7 @@ Item {
     }
 
     function toggle() {
-        bus.call(playing ? "Stop" : "Resume", []);
+        bus.call(playing ? "Pause" : "Resume", []);
     }
 
     function stop() {

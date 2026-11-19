@@ -76,6 +76,8 @@ fn mhz(freq: u16) -> String {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Status {
     Stopped,
+    // Silent, the station kept for Play to resume.
+    Paused,
     Connecting,
     Playing,
     Failed,
@@ -85,6 +87,7 @@ impl Status {
     fn name(self) -> &'static str {
         match self {
             Self::Stopped => "stopped",
+            Self::Paused => "paused",
             Self::Connecting => "connecting",
             Self::Playing => "playing",
             Self::Failed => "failed",
@@ -378,6 +381,13 @@ impl Radio {
         self.rds = None;
     }
 
+    fn pause(&mut self) {
+        self.stop();
+        if self.station.is_some() {
+            self.status = Status::Paused;
+        }
+    }
+
     fn begin(&mut self, station: &Station) {
         self.stop();
         if let Some(fm) = self.survey.take() {
@@ -560,9 +570,16 @@ impl Core {
     }
 
     async fn changed(&self) {
-        let (state, sounding, on_fm) = self
+        let (state, sounding, paused, on_fm) = self
             .radio
-            .with(|r| (r.state(), r.status.sounding(), r.tuner().is_some()))
+            .with(|r| {
+                (
+                    r.state(),
+                    r.status.sounding(),
+                    r.status == Status::Paused,
+                    r.tuner().is_some(),
+                )
+            })
             .await;
         if on_fm {
             self.fm_started.try_send(()).ok();
@@ -570,8 +587,9 @@ impl Core {
         if let Ok(emitter) = SignalEmitter::new(&self.bus, PATH) {
             Service::state_changed(&emitter, state).await.ok();
         }
-        // Only a playing radio is a player: the shell follows the newest.
-        if sounding {
+        // A playing or paused radio is a player, so its controls stay to
+        // resume it; the shell follows the newest.
+        if sounding || paused {
             self.bus.request_name(MPRIS_NAME).await.ok();
         } else {
             self.bus.release_name(MPRIS_NAME).await.ok();
@@ -792,6 +810,15 @@ impl Service {
 
     async fn resume(&self) -> fdo::Result<()> {
         self.0.act(Radio::resume).await
+    }
+
+    async fn pause(&self) -> fdo::Result<()> {
+        self.0
+            .act(|r| {
+                r.pause();
+                Ok(())
+            })
+            .await
     }
 
     async fn stop(&self) -> fdo::Result<()> {
@@ -1022,7 +1049,7 @@ async fn stop_on_calls(core: Core) {
         let mut calls = MessageStream::for_match_rule(rule, &system, None).await?;
         while calls.next().await.is_some() {
             core.act(|r| {
-                r.stop();
+                r.pause();
                 Ok(())
             })
             .await
