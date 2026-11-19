@@ -1356,7 +1356,7 @@ Item {
         anchors.fill: parent
         source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
         fillMode: Image.Tile
-        opacity: shell.wallpaperCovered ? 0 : 0.04
+        opacity: shell.wallpaperCovered || shell.appCoversWallpaper ? 0 : 0.04
         smooth: false
         cache: true
         visible: DeviceProfile.panelDither
