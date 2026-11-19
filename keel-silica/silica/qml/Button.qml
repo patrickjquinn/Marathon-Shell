@@ -91,8 +91,8 @@ SilicaMouseArea {
         id: borderColors
     }
 
-    // Modified by Marathon: a glass pill, not a faint rounded rectangle.
-    GlassSurface {
+    // Modified by Marathon: a flat pill, not a faint near-square rectangle.
+    Rectangle {
         anchors {
             fill: parent
             // Modified by Shipwright for Qt 6: (height - implicitHeight) / 2, updated after geometry changes settle
@@ -100,20 +100,13 @@ SilicaMouseArea {
             bottomMargin: button._keelVerticalMargin
         }
         radius: height / 2
-        tint: palette.highlightColor
-        pressed: button._showPress
+        color: button._showPress ? Theme.rgba(button.highlightBackgroundColor, Theme.highlightBackgroundOpacity) // Modified by Shipwright for Qt 6: qualified
+                          : button.backgroundColor
 
         opacity: button.enabled ? 1.0 : Theme.opacityLow
-
-        Rectangle {
-            anchors.fill: parent
-            radius: parent.radius
-            color: "transparent"
-            visible: !Qt.colorEqual(borderColors.color, "transparent")
-            border {
-                width: Theme.dp(2)
-                color: button._showPress ? borderColors.highlightColor : borderColors.color
-            }
+        border {
+            width: Qt.colorEqual(borderColors.color, "transparent") ? 0 : Theme.dp(2)
+            color: button._showPress ? borderColors.highlightColor : borderColors.color
         }
 
         Row {
