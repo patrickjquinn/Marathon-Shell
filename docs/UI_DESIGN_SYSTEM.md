@@ -162,40 +162,35 @@ say in the column count — they get `MPage`, which enforces it.
 
 ## 3. Surfaces & depth
 
-Depth comes from **light, not outlines or shadows**: `GlassSurface`
-(Keel Silica, `import Sailfish.Silica`) is the surface for cards and for
-round and pill controls.
+Marathon evolves Sailfish and BB10 rather than borrowing another system's
+look: the ambience tints everything, Silica's glow marks what is on, corners
+stay crisp, and type stays light.
 
-```qml
-GlassSurface {                // a round control
-    width: Theme.itemSizeSmall; height: width
-    lit: checked              // on / primary: the tint fills the body
-    pressed: mouse.pressed    // brightens and spreads the glow
-}
-GlassSurface {                // a card
-    level: 1
-    radius: Theme.paddingLarge
-    tint: Theme.highlightColor // the colour of what it belongs to
-}
-```
+**Composition rules** (design a view whole, before its components):
 
-- The body runs from neutral at the top to `tint` at the bottom, so it reads
-  as lit from above; light pools inside the bottom edge; the rim is bright
-  along the top and shaded along the bottom.
-- `level: 2` (default) is a control, `level: 1` a card. `tint` defaults to
-  the ambience highlight; a card or control that belongs to something with
-  its own colour passes that colour.
-- One fragment shader, no textures, no offscreen pass, item-local
-  coordinates and GLES 2: a quad per surface on every GPU Marathon runs on.
-  Its gradients are dithered in the shader against 6-bit panels.
+1. One material per view: containers are glass, the controls in them are flat.
+2. No glass inside glass; contents never glow.
+3. One shape family per view.
+4. On is a container lit with the tint (plus Silica's Switch glow); off is
+   quiet neutral glass. A suggested control is filled with
+   `MColors.accentFill`; a resting one with `MColors.controlFill`.
+5. Headers, sliders and media follow the tiles of their view.
 
-Built on it: `MCircularIconButton` (power menu, PIN pad, media),
-`MQSTile`, Silica `Button` (a pill), Hub rows (`MHubRow`: a card, and a
-disc behind the avatar). A pressed list row (`BackgroundItem`) shows a
-rounded, inset highlight that fades out on an Animator.
+`GlassSurface` (Keel Silica) is the container material: a body from
+neutral to `tint` (the ambience highlight unless the container has its own
+colour), a top edge catching the light and a bottom edge in shade; `lit`
+fills it with the tint. One fragment shader, no textures, item-local
+coordinates, GLES 2, dithered against 6-bit panels.
 
-The Sailfish glow idioms that remain are deliberate: the `Switch` glow and
-the page-stack indicator.
+Built this way: Quick Settings (glass tiles with live status, wide network
+tiles whose name opens their settings, glass pill sliders, a glass media
+card), the Hub (one glass card per notification, flat tinted avatar, unread
+dot, actions under a hairline), the power menu (one glass panel, flat
+discs). Flat controls: `MCircularIconButton`, Silica `Button` (a pill), the
+pressed list row (`BackgroundItem`, a rounded inset highlight that fades).
+
+The Sailfish glow idioms that remain are deliberate: the `Switch` glow (also
+on lit Quick Settings tiles) and the page-stack indicator.
 
 **Blur** is for frosting what lies behind a sheet or the lock screen
 (`MGlassBackdrop`, `MGlassPlatter`, `AppBackdropBlur`), never for a
