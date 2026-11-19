@@ -2,9 +2,9 @@ import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// A round glass button: a disc lit from above and tinted with the ambience,
-// with a white digit or icon. "primary" is the lit, emphasised one
-// (play/pause, confirm).
+// A round button: a flat disc with a white digit or icon. Flat because it sits
+// on a glass container or the ambience; "primary", the suggested one
+// (play/pause, confirm), is filled with the accent.
 Item {
     id: root
 
@@ -36,13 +36,13 @@ Item {
     implicitHeight: diameter
     opacity: disabled ? Silica.Theme.opacityLow : 1
 
-    Silica.GlassSurface {
+    Rectangle {
         anchors.centerIn: parent
         width: Math.min(root.width, root.height)
         height: width
+        radius: width / 2
         scale: root.down ? 0.94 : 1
-        lit: root.variant === "primary"
-        pressed: root.down
+        color: root.variant === "primary" ? MColors.accentFill : root.down ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
 
         Behavior on scale {
             NumberAnimation {

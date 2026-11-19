@@ -64,6 +64,11 @@ QtObject {
     readonly property color elevated: bb10Elevated
     readonly property color text: textPrimary
     readonly property color accent: marathonTeal
+    // A switched-on or suggested control's fill: the ambience highlight, deep
+    // enough to carry a white glyph.
+    readonly property color accentFill: Qt.hsla(Silica.Theme.highlightColor.hslHue, Math.min(1, Silica.Theme.highlightColor.hslSaturation * 0.9), 0.28, 1)
+    // A control's resting fill.
+    readonly property color controlFill: Qt.rgba(1, 1, 1, 0.08)
     readonly property color border: borderGlass
 
     readonly property color whiteOverlay08: Qt.rgba(1, 1, 1, 0.08)
