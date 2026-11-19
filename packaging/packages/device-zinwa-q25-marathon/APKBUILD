@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=68
+pkgrel=69
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -11,7 +11,7 @@ depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-ren
  q25-kernel-modules>=7.0.0-r40 q25-connsys-firmware wpa_supplicant wpa_supplicant-systemd bluez-btmgmt alsa-ucm-conf
  upower-q25 q25-modem q25-gnss-firmware marathon-gnssd libcamera>=999990.8.0 libcamera-gstreamer
  cryptsetup e2fsprogs plymouth marathon-plymouth-theme nftables alsa-utils pipewire-tools
- pipewire-filter-graph-builtin"
+ pipewire-filter-graph pipewire-filter-graph-builtin"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
 # The private generic-G99 trial overlay also owned this same generated profile.
@@ -225,7 +225,7 @@ bc62f4aaf005f6aa71e6e3924d57af0fbeda769d1d0fefb45d410d70df85dc4aa696ed3788bf067c
 6959714024fef2aee48d11339848ab791635c43bace8e9195b18a804e07d78f9c8c44a0130cc2d217c3dfeba8ad96694e3fe8683dc52d0c31f24960cd88f48ec  q25-mt6366.conf
 150e67ffcb539f4bb7a834981b1626fd4b0f601db20ad1d350863f07d6dc93cb1c1e8518adf9a8bef144275338ed71218c11469c9c3fb349a09d12cf188c96b6  HiFi.conf
 db9ebb4d0b288f6c0d5e16b27fcaa4e4c6ded6bc7c24100eb5de10f2b56d5552e8c9e26f26db73f76927d3b0d2ae4d2031ab8f742c309ce6eec9ec3e72a6a977  VoiceCall.conf
-82f78b6d0d7bdc9175b697631714fbd28e8f7562d878f29a683777848011c17c8b0759ff73d1f7f35c0b04c110d874d3559bb71c015e0f4b7ac2783955939c79  q25-mic-gain.conf
+aac6a7165a0ad6f48386998f5d5a346e307fd37caf890ebedceeb4c587266cbdfa8b1c5c8ff66ed243420d81ddcc3e174ff9da87248041524c33c094d48ce661  q25-mic-gain.conf
 1721b80e84a1bb34dfb1c3467e6395a9f5a3030a37e88228103c2d66be6041850f5931794f69720fa6a44be370c673728914e1982c0f98b46c75654d72404ee8  61-q25-sensor-local.rules
 f4184dac99d7a939cbfe09c8fdd95e0cbaa9da7c3c03d14f85d1ea96e5701237d76c3f5d6dd94193d4dca66ac0190a1450969549564806860bc97e646d1edde7  61-q25-gpu-autosuspend.rules
 d32bd967376e0120d952df65dab6e247383fbf65dcab7a095336a94a788b6ebf768214100c3ba0d60aec42d6e5542eb36f43bcd22a167531889f83fae8a414e0  q25-wlan.modprobe.conf
