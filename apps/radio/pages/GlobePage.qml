@@ -413,7 +413,7 @@ Page {
                     id: fmLabel
 
                     anchors.centerIn: parent
-                    text: "FM"
+                    text: "FM" // i18n: literal
                     font.pixelSize: Theme.fontSizeTiny
                     font.weight: Font.DemiBold
                     color: "#000000"
