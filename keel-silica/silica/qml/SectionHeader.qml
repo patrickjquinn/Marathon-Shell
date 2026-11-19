@@ -49,5 +49,6 @@ Label {
     horizontalAlignment: Text.AlignRight
     font.pixelSize: Theme.fontSizeSmall
     truncationMode: TruncationMode.Fade
-    color: palette.highlightColor
+    // Modified by Marathon: a quiet label; the accent is for what can be acted on.
+    color: palette.secondaryColor
 }
