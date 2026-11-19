@@ -9,6 +9,7 @@ Rectangle {
     }
 
     property int fillMode
+    property bool frozen
 
     color: "#3a5a78"
 }
