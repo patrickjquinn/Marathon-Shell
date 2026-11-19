@@ -168,26 +168,30 @@ stay crisp, and type stays light.
 
 **Composition rules** (design a view whole, before its components):
 
-1. One material per view: containers are glass, the controls in them are flat.
-2. No glass inside glass; contents never glow.
+1. Content sits on the ambience, as in Sailfish: no cards or panels around
+   notifications, media rows or choices.
+2. Material (`GlassSurface`) is for controls that hold state: Quick Settings
+   toggles, sliders, header buttons. Never glass inside glass; contents never
+   glow.
 3. One shape family per view.
-4. On is a container lit with the tint (plus Silica's Switch glow); off is
-   quiet neutral glass. A suggested control is filled with
-   `MColors.accentFill`; a resting one with `MColors.controlFill`.
-5. Headers, sliders and media follow the tiles of their view.
+4. On is a lit toggle with Silica's Switch glow; off is quiet neutral glass.
+   A suggested control is filled with `MColors.accentFill`, a resting one
+   with `MColors.controlFill`.
+5. Toggles are BB10 rows: glyph left (switches it), words right (what it is
+   over how it stands; opens its settings page).
 
-`GlassSurface` (Keel Silica) is the container material: a body from
+`GlassSurface` (Keel Silica) is that material: a body from
 neutral to `tint` (the ambience highlight unless the container has its own
 colour), a top edge catching the light and a bottom edge in shade; `lit`
 fills it with the tint. One fragment shader, no textures, item-local
 coordinates, GLES 2, dithered against 6-bit panels.
 
-Built this way: Quick Settings (glass tiles with live status, wide network
-tiles whose name opens their settings, glass pill sliders, a glass media
-card), the Hub (one glass card per notification, flat tinted avatar, unread
-dot, actions under a hairline), the power menu (one glass panel, flat
-discs). Flat controls: `MCircularIconButton`, Silica `Button` (a pill), the
-pressed list row (`BackgroundItem`, a rounded inset highlight that fades).
+Built this way: Quick Settings (three across: BB10 rows with live status,
+shortcuts in the same grid, glass pill sliders), the Hub (notifications on
+the ambience: flat tinted avatar, unread dot), the power menu (flat discs on
+the dimmed ambience). Flat controls: `MCircularIconButton`, Silica `Button`
+(a pill), the pressed list row (`BackgroundItem`, a rounded inset highlight
+that fades).
 
 The Sailfish glow idioms that remain are deliberate: the `Switch` glow (also
 on lit Quick Settings tiles) and the page-stack indicator.
