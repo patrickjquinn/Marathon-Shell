@@ -781,6 +781,11 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     connect(process, &QProcess::errorOccurred, this, &WaylandCompositor::handleProcessError);
 
     process->setProcessChannelMode(QProcess::SeparateChannels);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+    // Apps must not inherit the compositor's descriptors: a GPU driver dup()s
+    // the shell's DRM render client without O_CLOEXEC.
+    process->setUnixProcessParameters(QProcess::UnixProcessFlag::CloseFileDescriptors);
+#endif
     process->setProperty("marathonStdoutTail", QString());
     process->setProperty("marathonStderrTail", QString());
 

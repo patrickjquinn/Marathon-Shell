@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 use std::io::Write as _;
+use std::os::unix::process::CommandExt as _;
 use std::pin::Pin;
 use std::process::{ChildStdin, Command, Stdio};
 use std::time::{Duration, Instant};
@@ -146,14 +147,35 @@ impl Tasks {
             return false;
         };
         // Shell-only start-up shortcuts (see WaylandCompositor::launchApp).
-        let child = Command::new(program)
+        let mut command = Command::new(program);
+        command
             .args(args)
             .env_remove("QT_NO_BUILTIN_SELECTORS")
             .env_remove("GST_REGISTRY_UPDATE")
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
-            .spawn();
+            .stderr(Stdio::inherit());
+        // The sandbox must not inherit the shell's descriptors: a GPU
+        // driver dup()s the compositor's DRM render client without
+        // O_CLOEXEC, and its buffer handles are guessable.
+        // SAFETY: only an async-signal-safe syscall runs between fork and exec.
+        unsafe {
+            command.pre_exec(|| {
+                // Marked rather than closed: std's own exec-error pipe stays open until exec.
+                if libc::syscall(
+                    libc::SYS_close_range,
+                    3,
+                    u32::MAX,
+                    libc::CLOSE_RANGE_CLOEXEC,
+                ) == 0
+                {
+                    Ok(())
+                } else {
+                    Err(std::io::Error::last_os_error())
+                }
+            });
+        }
+        let child = command.spawn();
         let mut child = match child {
             Ok(child) => child,
             Err(e) => {
