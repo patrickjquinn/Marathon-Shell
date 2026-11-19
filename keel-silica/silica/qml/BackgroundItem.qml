@@ -38,7 +38,7 @@
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
 // Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
-import QtQuick 2.0
+import QtQuick 2.2 // Modified by Marathon: OpacityAnimator
 import Sailfish.Silica 1.0
 import Sailfish.Silica.private 1.0
 import Sailfish.Silica 1.0 as KeelSilica // Modified by Shipwright for Qt 6: see Screen below
@@ -73,13 +73,33 @@ SilicaMouseArea {
 
     onPreventStealingChanged: if (preventStealing) item.DragFilter.end()
 
+    // Modified by Marathon: the press is a rounded, inset highlight that
+    // fades out, not a full-bleed flash.
+    Rectangle {
+        anchors {
+            fill: parent
+            leftMargin: Theme.paddingSmall
+            rightMargin: Theme.paddingSmall
+        }
+        radius: Theme.paddingMedium
+        color: item.highlightedColor
+        opacity: item._showPress ? 1 : 0
+
+        Behavior on opacity {
+            OpacityAnimator {
+                duration: item._showPress ? 0 : 160
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
     Rectangle {
         id: content
 
         width: parent.width
         height: item.height
 
-        color: item._showPress ? item.highlightedColor : "transparent" // Modified by Shipwright for Qt 6: qualified
+        color: "transparent"
     }
 
     Timer {
