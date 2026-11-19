@@ -40,11 +40,12 @@ TestCase {
     function test_busyPulsesTheRing() {
         const ring = findChild(tile, "ring");
         verify(ring);
-        const idle = ring.border.color.toString();
+        verify(!ring.pressed);
         tile.busy = true;
         const pulse = findChild(tile, "busyPulse");
         verify(pulse.running, "busy pulse runs");
-        tryVerify(() => ring.border.color.toString() !== idle, 1000, "busy ring differs from idle");
+        tryVerify(() => !ring.pressed, 1000, "busy pulse dims the ring");
+        tryVerify(() => ring.pressed, 1000, "busy pulse brightens the ring");
     }
 
     function test_busyStopsWhenResolved() {
@@ -55,9 +56,8 @@ TestCase {
 
     function test_busyDoesNotFill() {
         const ring = findChild(tile, "ring");
-        const idleFill = ring.color.toString();
         tile.busy = true;
-        compare(ring.color.toString(), idleFill);
+        verify(!ring.lit);
     }
 
     function test_longPressHoldsWithoutToggling() {

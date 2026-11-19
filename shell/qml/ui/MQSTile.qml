@@ -2,8 +2,8 @@ import QtQuick
 import MarathonOS.Shell
 import Sailfish.Silica 1.0 as Silica
 
-// Quick Settings switch: a glass ring lit with the ambience highlight when
-// on, its label beneath. Sized from Silica's units, so it grows with
+// Quick Settings switch: a glass disc, lit with the ambience when on, its
+// label beneath. Sized from Silica's units, so it grows with
 // the density and the user's interface size.
 Item {
     id: tile
@@ -33,34 +33,17 @@ Item {
     Keys.onEnterPressed: toggled()
     Keys.onSpacePressed: toggled()
 
-    Rectangle {
+    Silica.GlassSurface {
         id: circle
 
         objectName: "ring"
         anchors.horizontalCenter: parent.horizontalCenter
         width: Silica.Theme.itemSizeSmall
         height: width
-        radius: width / 2
         scale: tileMouse.pressed ? 0.96 : 1.0
-        // A glass ring, filled with the highlight when on.
-        color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.12 : 0)
-        // A keyboard-focused tile wears a thicker ring.
-        border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4)) * (tile.activeFocus ? 2 : 1)
-        border.color: tile.activeFocus ? Silica.Theme.highlightColor : tile.busy ? Silica.Theme.rgba(Silica.Theme.highlightColor, busyPulse.bright ? 1 : Silica.Theme.opacityLow) : tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+        lit: tile.on
+        pressed: tileMouse.pressed || (tile.busy && busyPulse.bright)
 
-        Behavior on border.color {
-            enabled: tile.busy && !MMotion.reduceMotion
-            ColorAnimation {
-                duration: busyPulse.interval - 50
-                easing.type: Easing.InOutQuad
-            }
-        }
-        Behavior on color {
-            enabled: !MMotion.reduceMotion
-            ColorAnimation {
-                duration: MMotion.quick
-            }
-        }
         Behavior on scale {
             enabled: !MMotion.reduceMotion
             NumberAnimation {
@@ -69,11 +52,21 @@ Item {
             }
         }
 
+        // A keyboard-focused tile wears a ring.
+        Rectangle {
+            anchors.fill: parent
+            visible: tile.activeFocus
+            radius: width / 2
+            color: "transparent"
+            border.width: Math.max(2, Math.round(Silica.Theme.paddingSmall / 2))
+            border.color: Silica.Theme.highlightColor
+        }
+
         GlyphIcon {
             anchors.centerIn: parent
             name: tile.iconName
             size: Silica.Theme.iconSizeSmall
-            color: tile.on || tileMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            color: Silica.Theme.primaryColor
         }
     }
 
@@ -85,7 +78,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         width: tile.width
         text: tile.label
-        color: tile.on ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+        color: tile.on ? Silica.Theme.primaryColor : Silica.Theme.secondaryColor
         font.family: Silica.Theme.fontFamily
         font.pixelSize: Silica.Theme.fontSizeTiny
         horizontalAlignment: Text.AlignHCenter
