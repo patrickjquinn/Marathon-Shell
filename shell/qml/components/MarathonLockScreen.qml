@@ -292,6 +292,8 @@ Item {
 
             anchors.fill: parent
             source: SettingsManagerCpp.wallpaperPath
+            // The home screen's size too, so both share one decoded image.
+            sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
         }
