@@ -412,7 +412,9 @@ Item {
             width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
             spacing: quickSettings.compactLayout ? Silica.Theme.paddingLarge : Silica.Theme.paddingLarge * 2
 
-            layer.enabled: true
+            // Flattened only while it fades, so it fades as one piece; open,
+            // a slider drag doesn't re-render an offscreen copy every frame.
+            layer.enabled: opacity < 1
 
             // Gesture-coupled reveal: fade + a small settle-up as the shade
             // opens; both collapse to a no-op under reduceMotion.
