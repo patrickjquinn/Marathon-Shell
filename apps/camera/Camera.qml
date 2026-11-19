@@ -195,6 +195,7 @@ QtObject {
     }
     readonly property CameraRecorder videoRecorder: CameraRecorder {
         controller: root.controller
+        orientation: root.metaData.orientation
     }
     readonly property FocusControl focus: FocusControl {
         controller: root.controller
@@ -237,6 +238,8 @@ QtObject {
             if (active)
                 root.errorCode = Camera.NoError;
         }
+        // Discovery ends later than discover() returns.
+        onReadyChanged: Qt.callLater(root._applyState)
         onPhotoExposed: root.imageCapture.imageExposed(0)
         onPhotoSaved: function (url) {
             root.imageCapture._pending = false;
@@ -296,9 +299,10 @@ QtObject {
         const recording = videoRecorder.recording;
         if (recording)
             controller.stopRecording();
-        // Out of sight the camera is dropped, so its devices close; a recording
-        // still being written keeps it.
-        if (cameraState === Camera.UnloadedState && !recording)
+        // Behind the gallery the camera only stops, to come back quickly; with
+        // the app in the background it is closed, so its devices close. A
+        // recording still being written keeps it.
+        if (cameraState === Camera.UnloadedState && !recording && _away)
             controller.release();
         else
             controller.stop();
@@ -307,6 +311,12 @@ QtObject {
             controller.discover();
             configured = controller.discovered;
         }
+    }
+
+    readonly property bool _away: !__silica_applicationwindow_instance.applicationActive
+    on_AwayChanged: {
+        if (_away && cameraState === Camera.UnloadedState && !videoRecorder.recording)
+            controller.release();
     }
 
     // Later: discovery readies CameraConfigs, which cameraState's binding reads.

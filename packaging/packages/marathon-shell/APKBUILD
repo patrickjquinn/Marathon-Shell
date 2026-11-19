@@ -60,6 +60,7 @@ depends="
 	libcap
 	bubblewrap
 	ffmpeg
+	gst-plugins-bad
 	gst-plugins-base
 	gst-plugins-good
 	iw
@@ -100,6 +101,8 @@ makedepends="
 	sqlite-dev
 	libjpeg-turbo-dev
 	gstreamer-dev
+	gst-plugins-base-dev
+	libcamera-dev
 	"
 install="$pkgname.post-install"
 subpackages="$pkgname-doc marathon-icon-theme:icontheme:noarch $pkgname-browser:browser

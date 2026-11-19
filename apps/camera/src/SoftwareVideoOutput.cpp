@@ -3,21 +3,7 @@
 
 SoftwareVideoOutput::SoftwareVideoOutput(QQuickItem *parent)
     : QQuickItem(parent) {
-    m_videoSink = new QVideoSink(this);
-    // Frames are converted on the thread that delivers them: on the GUI
-    // thread, 30 a second kept it from drawing at all.
-    connect(m_videoSink, &QVideoSink::videoFrameChanged, this,
-            &SoftwareVideoOutput::onVideoFrameChanged, Qt::DirectConnection);
-
     setFlag(ItemHasContents, true);
-}
-
-SoftwareVideoOutput::~SoftwareVideoOutput() {
-    disconnect(m_videoSink, nullptr, this, nullptr);
-}
-
-QObject *SoftwareVideoOutput::videoSink() const {
-    return m_videoSink;
 }
 
 int SoftwareVideoOutput::fillMode() const {
@@ -32,23 +18,6 @@ void SoftwareVideoOutput::setFillMode(int mode) {
     update();
 }
 
-QImage imageOf(QVideoFrame frame) {
-    QImage::Format format;
-    switch (frame.pixelFormat()) {
-        case QVideoFrameFormat::Format_RGBA8888: format = QImage::Format_RGBA8888; break;
-        case QVideoFrameFormat::Format_RGBX8888: format = QImage::Format_RGBX8888; break;
-        case QVideoFrameFormat::Format_BGRA8888: format = QImage::Format_ARGB32; break;
-        case QVideoFrameFormat::Format_BGRX8888: format = QImage::Format_RGB32; break;
-        default: return frame.toImage();
-    }
-    if (!frame.map(QVideoFrame::ReadOnly))
-        return QImage();
-    QImage image =
-        QImage(frame.bits(0), frame.width(), frame.height(), frame.bytesPerLine(0), format).copy();
-    frame.unmap();
-    return image;
-}
-
 bool SoftwareVideoOutput::frozen() const {
     return m_frozen;
 }
@@ -58,28 +27,20 @@ void SoftwareVideoOutput::setFrozen(bool frozen) {
         emit frozenChanged();
 }
 
-void SoftwareVideoOutput::onVideoFrameChanged(const QVideoFrame &frame) {
-    if (m_frozen || !frame.isValid())
+void SoftwareVideoOutput::present(const QImage &frame) {
+    if (m_frozen && !frame.isNull())
         return;
-
-    QImage image = imageOf(frame);
-    if (image.isNull())
-        return;
-
-    if (image.format() != QImage::Format_RGBA8888_Premultiplied &&
-        image.format() != QImage::Format_RGBA8888 && image.format() != QImage::Format_RGBX8888 &&
-        image.format() != QImage::Format_ARGB32_Premultiplied &&
-        image.format() != QImage::Format_RGB32) {
-        image = image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
-    }
-
     {
         QMutexLocker locker(&m_frameMutex);
-        m_currentFrame = std::move(image);
+        m_currentFrame = frame;
         m_frameUpdated = true;
     }
+    update();
+}
 
-    QMetaObject::invokeMethod(this, &QQuickItem::update, Qt::QueuedConnection);
+QImage SoftwareVideoOutput::frame() const {
+    QMutexLocker locker(&m_frameMutex);
+    return m_currentFrame;
 }
 
 QSGNode *SoftwareVideoOutput::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) {

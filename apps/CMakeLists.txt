@@ -32,14 +32,6 @@ else()
 endif()
 
 
-find_package(Qt6 6.4 COMPONENTS Multimedia)
-if(TARGET Qt6::Multimedia)
-  set(HAVE_MULTIMEDIA TRUE)
-else()
-  set(HAVE_MULTIMEDIA FALSE)
-  message(WARNING "Qt6::Multimedia not found - Camera app will not be built")
-endif()
-
 
 if(NOT DEFINED MARATHON_APPS_DIR)
   set(MARATHON_APPS_DIR
