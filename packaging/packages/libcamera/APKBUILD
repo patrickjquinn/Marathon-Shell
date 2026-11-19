@@ -14,7 +14,7 @@ _pkgver=0.8.0
 _commit=5efdc682e5b54f7b9f793b1fbf99884d522fd9f9
 _gitdate=20261118
 pkgver=99999${_pkgver}_git$_gitdate
-pkgrel=2
+pkgrel=3
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
@@ -75,6 +75,8 @@ source="libcamera-$_commit.tar.gz::https://gitlab.freedesktop.org/camera/libcame
 	0028-ipa-softisp-Keep-the-AGC-and-AWB-state-across-the-sa.patch
 	0029-gstreamer-Expose-the-autofocus-trigger-pause-and-sta.patch
 	0031-ipa-libipa-agc_mean_luminance-Don-t-wind-up-the-expo.patch
+	0032-libcamera-software_isp-Keep-the-GPU-debayer-context-.patch
+	0033-ipa-softisp-af-Keep-the-focus-across-the-same-sensor.patch
 	s5kjn1.yaml
 	imx111.yaml
 	"
@@ -198,6 +200,8 @@ f7fa6c44b161ea37da26b3644923690840bbb6ecb38c0ca05438b6468128f414056894a5c4109ec6
 d6e06b232e8d5eb08d11bcf6c99bc95f1c7b7c9df3aaafbfd608cfa68d0ea96c3145b218331213c164428aec3278073971584f587b8f145390237bd1601bad01  0028-ipa-softisp-Keep-the-AGC-and-AWB-state-across-the-sa.patch
 8698b39adf86ed5716d78a66836f5b7bcf76a9de8ecdf8ec56874f22b9e9ec8336927103d9f243fc4ee1c4f85e446ee72bb5401b4386cb804d6b2ec80f2da507  0029-gstreamer-Expose-the-autofocus-trigger-pause-and-sta.patch
 6bc605b0b5f5e98545cb13f5ad72e429996e4ef73656030472904d422754925524ad7a133a12bec8e0da7aab332aabf4ffbf85d9ece8e7b557b9b8bf273a5e05  0031-ipa-libipa-agc_mean_luminance-Don-t-wind-up-the-expo.patch
+7b0d0039bfa7e486db6bb9b7eabc70449c62e471716499387696dfed8396b7b26725ec1fc32d8f9236f1a259cf2c64fc4625d23c6f1a923a2c3f2678a9923749  0032-libcamera-software_isp-Keep-the-GPU-debayer-context-.patch
+313d24b293041272ddc081dfcf816ac3ca92497c732e7cf6a3c750790cfac4702fac041b6e59b9fd83ba964dd1a93547a286a8793dc9d69e8d5dcecdf9d31ab5  0033-ipa-softisp-af-Keep-the-focus-across-the-same-sensor.patch
 1c9345a42c50624cc1f9b4f1a270375749ebcf20cce0cd777dbb2479aa9a105ce49d333d889d7405aca3d3a2f9fed8c3194d85ef27eecf69b7dabbaffad1ab01  s5kjn1.yaml
 a9e2cfad7a92c8f63fd097fcd02dd64bd7782a64b543431536ec1480494091c2e3872206bfb7546981fd08593a42a2337270e4f3ff40787b938843503b0b3065  imx111.yaml
 "
