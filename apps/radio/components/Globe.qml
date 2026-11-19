@@ -38,8 +38,9 @@ Item {
     readonly property real _step: zoom < 1.6 ? 1.0 : zoom < 2.6 ? 0.7 : zoom < 4 ? 0.5 : zoom < 6 ? 0.35 : zoom < 10 ? 0.25 : 0.18
     property real _vlat: 0
     property real _vlon: 0
-    // The place last ticked under the ring while dragging.
+    // The place last ticked under the ring while dragging, and when.
     property int _ticked: -1
+    property real _tickedAt: 0
     // The coast's decay rate, per second: a fling's rest is velocity / it away.
     readonly property real _decay: 3.5
     property real _zoomFrom: 1
@@ -78,7 +79,7 @@ Item {
 
     // How much of the finger's travel turns the globe: less over a place
     // under the ring, a detent felt as resistance, never a jump. A light
-    // tick as each place reaches the middle of the ring.
+    // tick as a place reaches the middle of the ring.
     function _gain() {
         const near = reach * 0.75;
         const i = _closest(lat, lon, near * _degPerPx);
@@ -87,9 +88,15 @@ Item {
             return 1;
         }
         const px = _distance(lat, lon, places[i][0], places[i][1]) / _degPerPx;
+        // One tick per place, and no closer than 120 ms: a sweep across a
+        // dense cluster is a blur, not a buzz.
         if (px < reach / 3 && i !== _ticked) {
             _ticked = i;
-            Haptics.light();
+            const now = Date.now();
+            if (now - _tickedAt >= 120) {
+                _tickedAt = now;
+                Haptics.light();
+            }
         }
         const u = px / near;
         return 0.3 + 0.7 * u * u * (3 - 2 * u);
