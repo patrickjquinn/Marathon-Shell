@@ -2,8 +2,8 @@ import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Hub row: unread dot, a glass-ring monogram or icon, then sender and
-// time, account and a one-line snippet.
+// Hub row: a glass card holding a tinted monogram or icon, then sender
+// (a dot before it while unread) and time, account and a snippet.
 // Swiping it to the right dismisses it; leftward stays with the pager.
 // An ongoing row shows its progress and can't be swiped away.
 // A focus scope: the list focuses its current row, which must leave the
@@ -124,7 +124,7 @@ FocusScope {
         height: row.fullHeight
         opacity: 1 - x / Math.max(1, row.width)
 
-        // The row's card, inset so the unread mark stays outside it.
+        // The row's card; everything on it is flat.
         Silica.GlassSurface {
             anchors {
                 fill: parent
@@ -133,20 +133,8 @@ FocusScope {
                 topMargin: Silica.Theme.paddingSmall / 2
                 bottomMargin: Silica.Theme.paddingSmall / 2
             }
-            level: 1
-            radius: Silica.Theme.paddingLarge
+            radius: Silica.Theme.paddingMedium
             pressed: row.down
-        }
-
-        // A lit glass mark for what is new.
-        Silica.GlassItem {
-            objectName: "hubRowUnread"
-            width: Silica.Theme.itemSizeExtraSmall * 0.6
-            height: width
-            x: (Silica.Theme.horizontalPageMargin - width) / 2
-            anchors.verticalCenter: avatar.verticalCenter
-            color: Silica.Theme.highlightColor
-            visible: row.unread
         }
 
         Item {
@@ -159,10 +147,12 @@ FocusScope {
             // Read rows step back, as BB10's monochrome icons did.
             opacity: row.unread || row.ongoing ? 1 : 0.55
 
-            // An app icon or a picture stands on its own; a glass disc holds
+            // An app icon or a picture stands on its own; a tinted disc holds
             // a monogram or a glyph.
-            Silica.GlassSurface {
+            Rectangle {
                 anchors.fill: parent
+                radius: width / 2
+                color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.16)
                 visible: !picture.hasImage
             }
 
@@ -207,9 +197,22 @@ FocusScope {
                 width: parent.width
                 height: nameText.implicitHeight
 
+                // What is new: a dot before the sender.
+                Rectangle {
+                    id: unreadDot
+                    objectName: "hubRowUnread"
+                    width: Math.round(Silica.Theme.paddingSmall * 1.2)
+                    height: width
+                    radius: width / 2
+                    anchors.left: parent.left
+                    anchors.verticalCenter: nameText.verticalCenter
+                    color: Silica.Theme.highlightColor
+                    visible: row.unread
+                }
                 Silica.Label {
                     id: nameText
                     anchors.left: parent.left
+                    anchors.leftMargin: row.unread ? unreadDot.width + Silica.Theme.paddingSmall : 0
                     anchors.right: timeText.left
                     anchors.rightMargin: Silica.Theme.paddingMedium
                     text: row.name
@@ -299,7 +302,14 @@ FocusScope {
                 visible: text.length > 0
             }
 
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Qt.rgba(1, 1, 1, 0.08)
+                visible: actionsRow.visible
+            }
             NotificationActions {
+                id: actionsRow
                 objectName: "hubRowActions"
                 x: -Silica.Theme.paddingLarge
                 availableWidth: parent.width + Silica.Theme.paddingLarge
