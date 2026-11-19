@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 12:00:00 +0000
+Subject: [PATCH] i2c: mt65xx: Hold a CPU latency request during transfers
+
+Every message of a transfer waits for its completion interrupt. While
+it waits the CPUs go idle, and on SoCs with deep cluster and system
+idle states each message then also pays the time to leave them. On
+MT6789 those states take 1.05 to 4.1 ms to exit. A camera sensor
+programmed through v4l2-cci writes one register per transfer, and
+starting the Samsung S5KJN1 (about 300 register writes) took 0.3 to
+2.6 s, varying with how deep the CPUs had gone, against about 0.2 s
+with the deep states held off.
+
+Hold a CPU latency request of 50 us for the duration of
+mtk_i2c_transfer(), the value MediaTek's downstream kernels use for
+this controller. spi-mt65xx does the same around its messages for the
+same reason; i2c-omap once did it for OMAP3.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/i2c/busses/i2c-mt65xx.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/i2c/busses/i2c-mt65xx.c b/drivers/i2c/busses/i2c-mt65xx.c
+index 9e701b3..30fe7f0 100644
+--- a/drivers/i2c/busses/i2c-mt65xx.c
++++ b/drivers/i2c/busses/i2c-mt65xx.c
+@@ -21,6 +21,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_qos.h>
+ #include <linux/scatterlist.h>
+ #include <linux/sched.h>
+ #include <linux/slab.h>
+@@ -85,6 +86,9 @@
+ 
+ #define I2C_DRV_NAME		"i2c-mt65xx"
+ 
++/* Wake-up latency the CPUs may take while a transfer waits for its interrupt */
++#define I2C_CPU_LATENCY_US	50
++
+ /**
+  * enum i2c_mt65xx_clks - Clocks enumeration for MT65XX I2C
+  *
+@@ -308,6 +312,7 @@ struct mtk_i2c {
+ 	bool ignore_restart_irq;
+ 	struct mtk_i2c_ac_timing ac_timing;
+ 	const struct mtk_i2c_compatible *dev_comp;
++	struct pm_qos_request cpu_latency;
+ };
+ 
+ /**
+@@ -1262,6 +1267,8 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
+ 	if (ret)
+ 		return ret;
+ 
++	cpu_latency_qos_add_request(&i2c->cpu_latency, I2C_CPU_LATENCY_US);
++
+ 	i2c->auto_restart = i2c->dev_comp->auto_restart;
+ 
+ 	/* checking if we can skip restart and optimize using WRRD mode */
+@@ -1314,6 +1321,7 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
+ 	ret = num;
+ 
+ err_exit:
++	cpu_latency_qos_remove_request(&i2c->cpu_latency);
+ 	clk_bulk_disable(I2C_MT65XX_CLK_MAX, i2c->clocks);
+ 	return ret;
+ }
+-- 
+2.55.0
+
