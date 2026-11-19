@@ -1,0 +1,222 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 10:17:49 +0000
+Subject: [PATCH] libcamera: software_isp: Keep the GPU debayer context across
+ sessions
+
+Every start() created the debayer worker thread and its EGL context, and
+compiled and linked the shaders, and every stop() destroyed them all. On
+a Zinwa Q25 (Mali-G57) that costs 20 to 35 ms per start, and an
+application that reconfigures the camera to take a photo pays it twice
+per photo.
+
+Start the worker thread with the software ISP and keep it, keep the EGL
+context for the lifetime of the GPU debayer, and keep the linked
+programs by shader sources, so that a configuration with the same
+formats reuses its program. The debayer is now destroyed in the worker
+thread, where its context is current.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../internal/software_isp/software_isp.h      |  1 +
+ src/libcamera/software_isp/debayer_egl.cpp    | 53 +++++++++++++++----
+ src/libcamera/software_isp/debayer_egl.h      |  7 +++
+ src/libcamera/software_isp/software_isp.cpp   | 27 +++++++---
+ 4 files changed, 72 insertions(+), 16 deletions(-)
+
+diff --git a/include/libcamera/internal/software_isp/software_isp.h b/include/libcamera/internal/software_isp/software_isp.h
+index 2ef294c7..76968c24 100644
+--- a/include/libcamera/internal/software_isp/software_isp.h
++++ b/include/libcamera/internal/software_isp/software_isp.h
+@@ -101,6 +101,7 @@ private:
+ 	std::unique_ptr<Debayer> debayer_;
+ 	Rectangle scalerCrop_;
+ 	Thread ispWorkerThread_;
++	bool running_ = false;
+ 	SharedMemObject<DebayerParams> sharedParams_;
+ 	DebayerParams debayerParams_;
+ 	DmaBufAllocator dmaHeap_;
+diff --git a/src/libcamera/software_isp/debayer_egl.cpp b/src/libcamera/software_isp/debayer_egl.cpp
+index 911ad08e..9f01a19e 100644
+--- a/src/libcamera/software_isp/debayer_egl.cpp
++++ b/src/libcamera/software_isp/debayer_egl.cpp
+@@ -47,8 +47,23 @@ DebayerEGL::DebayerEGL(std::unique_ptr<SwStatsCpu> stats, const CameraManager &c
+ {
+ }
+ 
++/*
++ * The context and the programs live as long as the debayer, which the
++ * software ISP destroys in the worker thread the context is current in.
++ */
+ DebayerEGL::~DebayerEGL()
+ {
++	if (!contextReady_)
++		return;
++
++	eglImageOutCache_.clear();
++	eglImageInCache_.clear();
++	eglImageLscLookup_.reset();
++
++	for (const auto &[key, program] : programs_)
++		glDeleteProgram(program);
++
++	egl_.resetEGLContext();
+ }
+ 
+ int DebayerEGL::getInputConfig(PixelFormat inputFormat, DebayerInputConfig &config)
+@@ -268,6 +283,24 @@ int DebayerEGL::initBayerShaders(PixelFormat inputFormat, PixelFormat outputForm
+ 		break;
+ 	};
+ 
++	/*
++	 * Link each shader variant once for the lifetime of the context: the
++	 * sources only change with the formats and the LSC.
++	 */
++	std::string key(reinterpret_cast<const char *>(vertexShaderData.data()),
++			vertexShaderData.size());
++	key.append(reinterpret_cast<const char *>(fragmentShaderData.data()),
++		   fragmentShaderData.size());
++	for (const std::string &env : shaderEnv)
++		key += env;
++
++	auto cached = programs_.find(key);
++	if (cached != programs_.end()) {
++		programId_ = cached->second;
++		glUseProgram(programId_);
++		return getShaderVariableLocations();
++	}
++
+ 	if (egl_.compileVertexShader(vertexShaderId_, vertexShaderData,
+ 				     shaderEnv)) {
+ 		LOG(Debayer, Error) << "Compile vertex shader fail";
+@@ -290,6 +323,8 @@ int DebayerEGL::initBayerShaders(PixelFormat inputFormat, PixelFormat outputForm
+ 	egl_.dumpShaderSource(vertexShaderId_);
+ 	egl_.dumpShaderSource(fragmentShaderId_);
+ 
++	programs_[key] = programId_;
++
+ 	/* Ensure we set the programId_ */
+ 	glUseProgram(programId_);
+ 	err = glGetError();
+@@ -705,14 +740,17 @@ error:
+ 
+ int DebayerEGL::start()
+ {
+-	GLint maxTextureImageUnits;
++	if (!contextReady_) {
++		GLint maxTextureImageUnits;
+ 
+-	if (egl_.initEGLContext())
+-		return -ENODEV;
++		if (egl_.initEGLContext())
++			return -ENODEV;
++		contextReady_ = true;
+ 
+-	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxTextureImageUnits);
++		glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxTextureImageUnits);
+ 
+-	LOG(Debayer, Debug) << "Available fragment shader texture units " << maxTextureImageUnits;
++		LOG(Debayer, Debug) << "Available fragment shader texture units " << maxTextureImageUnits;
++	}
+ 
+ 	if (initBayerShaders(inputPixelFormat_, outputPixelFormat_))
+ 		return -EINVAL;
+@@ -739,11 +777,6 @@ void DebayerEGL::stop()
+ 
+ 	eglImageLscLookup_.reset();
+ 	lscLutVersion_.reset();
+-
+-	if (programId_)
+-		glDeleteProgram(programId_);
+-
+-	egl_.resetEGLContext();
+ }
+ 
+ SizeRange DebayerEGL::sizes(PixelFormat inputFormat, const Size &inputSize)
+diff --git a/src/libcamera/software_isp/debayer_egl.h b/src/libcamera/software_isp/debayer_egl.h
+index 21a70941..f8ed7687 100644
+--- a/src/libcamera/software_isp/debayer_egl.h
++++ b/src/libcamera/software_isp/debayer_egl.h
+@@ -15,6 +15,9 @@
+ #include <tuple>
+ #include <vector>
+ 
++#include <map>
++#include <string>
++
+ #define GL_GLEXT_PROTOTYPES
+ #define EGL_EGLEXT_PROTOTYPES
+ #include <libcamera/base/object.h>
+@@ -77,6 +80,10 @@ private:
+ 	GLuint fragmentShaderId_ = 0;
+ 	GLuint programId_ = 0;
+ 
++	/* Linked programs by shader sources, kept with the context */
++	std::map<std::string, GLuint> programs_;
++	bool contextReady_ = false;
++
+ 	/* Pointer to object representing input texture */
+ 	std::deque<std::pair<SharedFD, std::unique_ptr<eGLImage>>> eglImageInCache_;
+ 	std::deque<std::pair<SharedFD, std::unique_ptr<eGLImage>>> eglImageOutCache_;
+diff --git a/src/libcamera/software_isp/software_isp.cpp b/src/libcamera/software_isp/software_isp.cpp
+index a200801d..c4e957ff 100644
+--- a/src/libcamera/software_isp/software_isp.cpp
++++ b/src/libcamera/software_isp/software_isp.cpp
+@@ -182,12 +182,27 @@ SoftwareIsp::SoftwareIsp(PipelineHandler *pipe, CameraSensor *sensor,
+ 				    });
+ 	ipa_->setSensorControls.connect(this, &SoftwareIsp::setSensorCtrls);
+ 
++	/*
++	 * Keep the worker thread for the lifetime of the ISP, so that the
++	 * debayer can keep its state, such as the GPU context, across streaming
++	 * sessions.
++	 */
+ 	debayer_->moveToThread(&ispWorkerThread_);
++	ispWorkerThread_.start();
+ }
+ 
+ SoftwareIsp::~SoftwareIsp()
+ {
+-	/* make sure to destroy the DebayerCpu before the ispWorkerThread_ is gone */
++	/*
++	 * Destroy the debayer in its thread, where the GPU context is current,
++	 * before the thread is gone.
++	 */
++	if (ispWorkerThread_.isRunning()) {
++		debayer_.release()->deleteLater();
++		ispWorkerThread_.exit();
++		ispWorkerThread_.wait();
++	}
++
+ 	debayer_.reset();
+ }
+ 
+@@ -408,7 +423,7 @@ int SoftwareIsp::start()
+ 	if (ret)
+ 		return ret;
+ 
+-	ispWorkerThread_.start();
++	running_ = true;
+ 
+ 	return debayer_->invokeMethod(&Debayer::start,
+ 				      ConnectionTypeBlocking);
+@@ -424,15 +439,15 @@ int SoftwareIsp::start()
+  */
+ void SoftwareIsp::stop()
+ {
+-	if (!ispWorkerThread_.isRunning())
++	if (!running_)
+ 		return;
+ 
++	running_ = false;
++
++	/* The blocking call runs after the frames queued to the debayer. */
+ 	debayer_->invokeMethod(&Debayer::stop,
+ 			       ConnectionTypeBlocking);
+ 
+-	ispWorkerThread_.exit();
+-	ispWorkerThread_.wait();
+-
+ 	Thread::current()->dispatchMessages(Message::Type::InvokeMessage, this);
+ 
+ 	ipa_->stop();

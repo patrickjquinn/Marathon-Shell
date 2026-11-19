@@ -86,7 +86,9 @@ mkdir -p "$m/mediatek"
 cp "$here/camera/Kbuild" "$m/mediatek/"
 cp -r "$here/camera/seninf" "$here/camera/camsv" "$here/camera/phy" "$m/mediatek/"
 cp "$ksrc/drivers/phy/mediatek/phy-mtk-io.h" "$m/mediatek/phy/"
-(cd "$m/mediatek" && patch -p1 -s < "$here/camera/0001-mt6789-port.patch")
+for p in "$here"/camera/0*.patch; do
+	(cd "$m/mediatek" && patch -p1 -s < "$p")
+done
 
 rm -rf "$out/src/modem"
 mkdir -p "$out/src/modem"

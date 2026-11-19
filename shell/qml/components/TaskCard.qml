@@ -261,6 +261,12 @@ Item {
             preventStealing: false
             propagateComposedEvents: true
             onPressed: mouse => {
+                // The cover lies under this area: a press on its actions goes on to it.
+                if (coverView.holdsPress(previewTapArea, mouse.x, mouse.y)) {
+                    Tasks.wakeApp(taskCard.appId);
+                    mouse.accepted = false;
+                    return;
+                }
                 var p = cardPoint(mouse);
                 pressX = p.x;
                 pressY = p.y;

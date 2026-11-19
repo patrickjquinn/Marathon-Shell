@@ -1,15 +1,20 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 # libcamera for Marathon's camera apps. Follows Alpine's community/libcamera
-# recipe (0.7.2-r1) at a newer release, without qcam, the Python bindings
-# and the docs, and with the patches the Zinwa Q25's MediaTek camera needs
+# recipe (0.7.2-r1) at an upstream master snapshot after 0.8.0 (for the AGC
+# frame duration and vblank work), without qcam, the Python bindings and
+# the docs, and with the patches the Zinwa Q25's MediaTek camera needs
 # (software ISP for its 14-bit unpacked RAW, the simple pipeline on
-# mtk-seninf); each is written for upstream.
+# mtk-seninf, autofocus); each is written for upstream. 0013-0020 are
+# Milan Zamazal's software ISP autofocus series v2, still in review.
 # 99999 so it outranks postmarketOS's own fork (99990.<version>), which
-# otherwise takes the same version and wins.
+# otherwise takes the same version and wins. _git sorts above 0.8.0 and
+# below the next release.
 pkgname=libcamera
 _pkgver=0.8.0
-pkgver=99999$_pkgver
-pkgrel=0
+_commit=5efdc682e5b54f7b9f793b1fbf99884d522fd9f9
+_gitdate=20261118
+pkgver=99999${_pkgver}_git$_gitdate
+pkgrel=4
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
@@ -39,7 +44,7 @@ subpackages="
 	$pkgname-v4l2
 	$pkgname-tools
 	"
-source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$_pkgver/libcamera-v$_pkgver.tar.gz
+source="libcamera-$_commit.tar.gz::https://gitlab.freedesktop.org/camera/libcamera/-/archive/$_commit/libcamera-$_commit.tar.gz
 	0001-libcamera-software_isp-Support-unpacked-14-bit-Bayer.patch
 	0002-libcamera-shaders-Sample-the-texel-the-Bayer-phase-i.patch
 	0003-pipeline-simple-Allow-the-software-ISP-on-mtk-seninf.patch
@@ -49,9 +54,34 @@ source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$_pkgver/libc
 	0007-libipa-camera_sensor_helper-Add-S5KJN1-helper.patch
 	0008-gstreamer-Disconnect-requestCompleted-when-closing-t.patch
 	0009-pipeline-simple-Keep-the-largest-size-when-merging-r.patch
-	0010-libcamera-camera_sensor-Add-S5KJN1-sensor-propertie.patch
+	0010-libcamera-camera_sensor-Add-S5KJN1-sensor-properties.patch
+	0011-ipa-softisp-adjust-Read-the-default-contrast-and-sat.patch
+	0012-libcamera-camera_sensor-Add-IMX111-sensor-properties.patch
+	0013-libcamera-software_isp-Let-a-single-point-decide-abo.patch
+	0014-ipa-ipu3-Move-non-specific-parts-of-Af-to-libipa.patch
+	0015-ipa-libipa-Add-af-prepareControls.patch
+	0016-libcamera-software_isp-Add-variance-to-stats.patch
+	0017-ipa-softisp-Remove-unused-imports-from-ipa_context.h.patch
+	0018-ipa-softisp-Add-Af-algorithm.patch
+	0019-libcamera-software_isp-Add-autofocus-controls.patch
+	0020-ipa-libipa-Use-autofocus-limits-if-available.patch
+	0021-libcamera-software_isp-Gather-focus-statistics.patch
+	0022-libcamera-software_isp-debayer_egl-Gather-statistics.patch
+	0023-pipeline-simple-Report-the-sensor-area-the-software-.patch
+	0024-pipeline-simple-Move-the-lens-when-the-sensor-has-a-.patch
+	0025-ipa-libipa-af-Support-the-autofocus-controls.patch
+	0026-ipa-softisp-af-Add-the-autofocus-controls.patch
+	0027-gstreamer-Protect-the-controls-with-the-state-lock.patch
+	0028-ipa-softisp-Keep-the-AGC-and-AWB-state-across-the-sa.patch
+	0029-gstreamer-Expose-the-autofocus-trigger-pause-and-sta.patch
+	0031-ipa-libipa-agc_mean_luminance-Don-t-wind-up-the-expo.patch
+	0032-libcamera-software_isp-Keep-the-GPU-debayer-context-.patch
+	0033-ipa-softisp-af-Keep-the-focus-across-the-same-sensor.patch
+	0034-pipeline-simple-Pass-the-requested-stride-to-multi-p.patch
+	s5kjn1.yaml
+	imx111.yaml
 	"
-builddir="$srcdir/$pkgname-v$_pkgver"
+builddir="$srcdir/$pkgname-$_commit"
 # gstreamer tests fail
 # manual strip because ipa .sign files depend on the file contents- have to re-sign after strip
 options="!strip !check"
@@ -88,6 +118,9 @@ build() {
 
 package() {
 	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+	# The Q25's cameras: tuned colour and contrast for the software ISP.
+	install -Dm644 -t "$pkgdir"/usr/share/libcamera/ipa/softisp \
+		"$srcdir"/s5kjn1.yaml "$srcdir"/imx111.yaml
 
 	# manual strip first..
 	scanelf --recursive \
@@ -137,15 +170,40 @@ tools() {
 }
 
 sha512sums="
-21ada092a1944c3476e0a254fe82d2775d2eb833d931dd051bd551a9f12ae596b3cd57f3792335d4ad86479e2247d23056d30e2631aa620897d067002c88e060  libcamera-v0.8.0.tar.gz
-466e72819909cbe4f7de98990bb5ccf55bd5304f046381733033b0b0e7dd8772e161f0244fbd39e54b01eb6f8d1c937664492d9c6ca7eaa3eadb3f5a488fead7  0001-libcamera-software_isp-Support-unpacked-14-bit-Bayer.patch
-c6a5f07753214998ab064e109d8f7741a5ff98ef3b82a7f19bbecb5ea87453b76dbb6a696c8b18f6f8f1dcc64cab6f1ac17fabeb6ec6292f07bda1098f4bd5b0  0002-libcamera-shaders-Sample-the-texel-the-Bayer-phase-i.patch
-46ecf125145879b4a0b03fc364b2cf645c6012279e805291de91c6227ee595e4e020fd436e26ae0cad609e1522e55c141622cea167d53e375fb278eee7dc2069  0003-pipeline-simple-Allow-the-software-ISP-on-mtk-seninf.patch
-f1f12e17d2fe78c7ac2d72419e50eaf40ee4c3ac1996977bd5a2145fb4b1cd8d1fa5327424d2ac1b2f1e34cea5e95b49484d1035b883bc366b9c5db2f015a9d5  0004-libipa-camera_sensor_helper-Add-IMX111-helper.patch
-27e6a3364e137eff94412ba0ce888edc60ba8c99ab98ff476adf7a02261d8d03b65f197b8c8f05629e6b4b07a41f55cdce8754c93dc414219ca4313ef5d1de7c  0005-pipeline-simple-Skip-capture-sizes-the-video-node-do.patch
-b9c7fc2a99c33f8ed57781edd3011a145801e6bae675d4f2ca1479085b1198a3e36d7f7aa38a7fe28db89e66da68808f4d0636c0677a655310b0976fa9e0ee65  0006-pipeline-simple-Complete-requests-on-stop-when-the-I.patch
-178c7f3f629bc7c627bf93919f8fbb438590a7e036e35023dda3e4a0c81bec3b53266c72f4301489a9a4b64a1451260c3c9d93cc670bf7136793257e42a4167f  0007-libipa-camera_sensor_helper-Add-S5KJN1-helper.patch
-82ffe009e092ec28ce69f647d1a4e23f7c14a393d4d1f0c20c4d69611e3df655c6c4b75996c31668558f092658b17c972fe3e07996d0367f89855b7a78d56523  0008-gstreamer-Disconnect-requestCompleted-when-closing-t.patch
-55ab3efc00ede8bcda59364118274cd28812e8fc1f9f3794de12033a2e0c7117db8f8ebf3552bb272a69e2a9948f3e068d9c7c4d4732411f8fd9543014f614cc  0009-pipeline-simple-Keep-the-largest-size-when-merging-r.patch
-2756375279ba911329febeecf9277ca7a60e6c8b9322bb1e20e8cbb8df5534dde8a25f965a2a79bfff7903f05a929c7cc41c063367fbd198f6ac14073302fd7b  0010-libcamera-camera_sensor-Add-S5KJN1-sensor-propertie.patch
+919c6b5bef0ef971b4ede67dbf0c5a4b1729fa27b74aacad81feefe3fb6c64d42baa2c1cdf8b2f210fcfa824d09f6e94c740d969f31a297f6ac24a40037c18b3  libcamera-$_commit.tar.gz
+9c7d10ef377c19a8de140ac641a7fa6e7eb06dceaf008462aacdd444ea3962ec9cf804bb4c873e0019eb5dce632c68b632da5725c1789e1935d18473217e7966  0001-libcamera-software_isp-Support-unpacked-14-bit-Bayer.patch
+39b11164f198a115996275698511235e6b172ec40ae9c4ee22c05f6b7b21472d56a54245e7e45f4533d7f67b3202899b654f23f239fe622a2ec28c3f20aa7448  0002-libcamera-shaders-Sample-the-texel-the-Bayer-phase-i.patch
+5a9cba87dab7b63edd81d96005cc98e90764c7698a0d1426a2fbaab9a9e1a2c8c06f8622dbfefa311f6e043aa21fca2729db7f6d9337f0913db6de8ebafcc45a  0003-pipeline-simple-Allow-the-software-ISP-on-mtk-seninf.patch
+429e9a283ed7ccc874fc02da71a6b4d0f6f62b2e466b8a937da18da42487feeac2572ece3427531c4f6f20fde97986543da0d73d499f404476ef040115e247fb  0004-libipa-camera_sensor_helper-Add-IMX111-helper.patch
+8c80f75559371f40b641b2acd67153ec68d9297aa1abe30a0bb423e251820cdc4844e1dcf0292b7139e10c32c6e5cb445e88370122c111d25571d64374e4140d  0005-pipeline-simple-Skip-capture-sizes-the-video-node-do.patch
+472da0262300dd78d9a8354ad2f83aa17788d4c861726f58c866d5bc80d1d50d1895c50ddd25e7ac646a5ab2924601902cfdad7f2cac7754f4822386fbbfdf2b  0006-pipeline-simple-Complete-requests-on-stop-when-the-I.patch
+48bbd230683c82b55237f197b5b83dc9d0dea0903a67b54a10b16d47e1d9795e567b3fa37a523c0c9da4acd362ccc893c4dda22681c69f86e62e5661e7a4b63e  0007-libipa-camera_sensor_helper-Add-S5KJN1-helper.patch
+cb416df0c4d3b24ac19051c858ea342fcc5a8acb5c785656c694fd3dd760add29129d0b1c34e9c4c9bf4fb15db478f8dc1d6bb2af39adb8537e673a8077e00dc  0008-gstreamer-Disconnect-requestCompleted-when-closing-t.patch
+1d9988ee3bffabd5c322e8ae61061dcf21565e6d04a729a679c0482980ac48653f580f5ac076e20ee2d88af06fd2f2d7ccf294183febc5d8b18937c095df8d4d  0009-pipeline-simple-Keep-the-largest-size-when-merging-r.patch
+2c3c8db181a78ab83cd398b83c0d555c198fd37e1de82c958e6c7be17720b7d8b99eaedd52cf4e7ae2902a65793cc3050d5d9c2315d319c568fea51131a96570  0010-libcamera-camera_sensor-Add-S5KJN1-sensor-properties.patch
+b32bd635e158f66f4f82d23ceffa4dbec637a17c0b7c25d4e2722fe756d6c21b75665dd304a887089cc831754ba11e10165a37ceb121762d8048acda0df9b0e0  0011-ipa-softisp-adjust-Read-the-default-contrast-and-sat.patch
+7fa2e411669176cfa395a74bae44c3cdc4417ac67f15c1010bed04514e88525f0df417bf31c108c52479af92183ef17bee05bd00266d6cdff5cb03d45de21add  0012-libcamera-camera_sensor-Add-IMX111-sensor-properties.patch
+07e0af8f4e85092284c076c104b5f291e566b5e33beb047ed05adfa0b6108aec705239553f213ca1525aa289207b0abb59c9e3cc82175f1c0e5c28d160a4fe6e  0013-libcamera-software_isp-Let-a-single-point-decide-abo.patch
+de0bbf598ee1b2b623f61fccc5a223dcfac90778d85bd1ee5413b37b6ea237b583df1422f03d98615ea37d9bb1140714641a6c84d92b0054fb7520a860190fe3  0014-ipa-ipu3-Move-non-specific-parts-of-Af-to-libipa.patch
+951556578b371df80ec61e3d2b053e8826f2742b31b2b0a5367875f4f0a7370444f2ca8c556bcf5159dac5cce9daaf118e2e4d456f62d401cb0616f5e5846e87  0015-ipa-libipa-Add-af-prepareControls.patch
+cc4f01eda042bf3e4fbeee2e1a29a2bcd7cd944a4145b3dd37df18c799a6f6191346bcbfca932b1504902a136623c1558b24d4855063b5061b54277d22844c30  0016-libcamera-software_isp-Add-variance-to-stats.patch
+0da3fdcab04c70c6c609bfa41a32788ce348957df173d84cec238f106f35b38613876843c8ddb5f7c3880f465d6fd7dd41f04bd5eca5cd76db0ae8dac7b4521f  0017-ipa-softisp-Remove-unused-imports-from-ipa_context.h.patch
+8bcdd028ecabcd4aa7e5c24e6bd35c9c4fa978e1be18b6c07bcbdd43b918d946a2c9914193753d24604aa5254670b22c657a4c5d3a173928d859215450bed11c  0018-ipa-softisp-Add-Af-algorithm.patch
+d3d055146be5369da968a94652cb19ed51a67c3a5cff458251916f6dd74bb721c69797f7c3f93547c1a696b8598b9f10d0e082e62eab5c2797e70edbe0ec5902  0019-libcamera-software_isp-Add-autofocus-controls.patch
+f57bb15180e2eb0d7e2fad280acc2ba1ae7a1bfc875541db32938234a7f1673b4154b46c29fb967d57f3c048d53656d87db7d73992fd21933aa25948ffca3bb6  0020-ipa-libipa-Use-autofocus-limits-if-available.patch
+6db417b57a5cf3842aace9dd0ee8d6e44804f1c64b735894774860f1ce1c80f95f2ac2e80734603c4317bc251ff2c740b17e6662da6707100811c579debdaa0d  0021-libcamera-software_isp-Gather-focus-statistics.patch
+5a46204bcd9bbea68d8a2be77652097022b3b3a5c9261433aa19addae9bd8eea1bae5eff8e408f2d124f25df2ed4d6e75460d3fc4b3f0c41ba29a8f5d32b0153  0022-libcamera-software_isp-debayer_egl-Gather-statistics.patch
+f7fa6c44b161ea37da26b3644923690840bbb6ecb38c0ca05438b6468128f414056894a5c4109ec63c91d52d1d8f6bb442965578e1e6e3d74e485d049c363625  0023-pipeline-simple-Report-the-sensor-area-the-software-.patch
+0ec3c826a4a179dae758f3b33ba0913fffeb988abf8f0214f2a3fe4f284172b17474e175d5f00fce89d32cc9093403007e50b5d568a3e2536d37791888de9c53  0024-pipeline-simple-Move-the-lens-when-the-sensor-has-a-.patch
+05f449a0900e94605bcdd776bdd6281a3b3066ca672180fbfe56ee492192243c2dc368502f7fcbb2610eae677f047a50a17e67db1a350e28f19a28a1f5576ad7  0025-ipa-libipa-af-Support-the-autofocus-controls.patch
+6c0e81339061363894d5c64a51f881595044df54f05c0484d85b6564a53f93dbefaccb2ea3ae36c5e82fdd29947ae41b2305994d28293d250968e179d5db24c7  0026-ipa-softisp-af-Add-the-autofocus-controls.patch
+6482655fde07ba5ec8d7821a1a35e395620862567e8b2907d3a7c2aebcb10c9fd31035db8943ca0cba154de5585bb100f89596c1220cf3124c2debad40a163d0  0027-gstreamer-Protect-the-controls-with-the-state-lock.patch
+d6e06b232e8d5eb08d11bcf6c99bc95f1c7b7c9df3aaafbfd608cfa68d0ea96c3145b218331213c164428aec3278073971584f587b8f145390237bd1601bad01  0028-ipa-softisp-Keep-the-AGC-and-AWB-state-across-the-sa.patch
+8698b39adf86ed5716d78a66836f5b7bcf76a9de8ecdf8ec56874f22b9e9ec8336927103d9f243fc4ee1c4f85e446ee72bb5401b4386cb804d6b2ec80f2da507  0029-gstreamer-Expose-the-autofocus-trigger-pause-and-sta.patch
+6bc605b0b5f5e98545cb13f5ad72e429996e4ef73656030472904d422754925524ad7a133a12bec8e0da7aab332aabf4ffbf85d9ece8e7b557b9b8bf273a5e05  0031-ipa-libipa-agc_mean_luminance-Don-t-wind-up-the-expo.patch
+7b0d0039bfa7e486db6bb9b7eabc70449c62e471716499387696dfed8396b7b26725ec1fc32d8f9236f1a259cf2c64fc4625d23c6f1a923a2c3f2678a9923749  0032-libcamera-software_isp-Keep-the-GPU-debayer-context-.patch
+313d24b293041272ddc081dfcf816ac3ca92497c732e7cf6a3c750790cfac4702fac041b6e59b9fd83ba964dd1a93547a286a8793dc9d69e8d5dcecdf9d31ab5  0033-ipa-softisp-af-Keep-the-focus-across-the-same-sensor.patch
+f80f7d21df18601c89dde6dde2a6ac2f422fff7fa320760c0e2bcbc7ea7d4aa032c8331052254e53f13a2078a98e8109ea2454b21352e60883683f7b6110d5a2  0034-pipeline-simple-Pass-the-requested-stride-to-multi-p.patch
+1c9345a42c50624cc1f9b4f1a270375749ebcf20cce0cd777dbb2479aa9a105ce49d333d889d7405aca3d3a2f9fed8c3194d85ef27eecf69b7dabbaffad1ab01  s5kjn1.yaml
+a9e2cfad7a92c8f63fd097fcd02dd64bd7782a64b543431536ec1480494091c2e3872206bfb7546981fd08593a42a2337270e4f3ff40787b938843503b0b3065  imx111.yaml
 "

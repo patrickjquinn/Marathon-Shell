@@ -1,0 +1,39 @@
+#!/bin/sh
+# bake-shaders DIR...: bakes every *.vert and *.frag in each DIR into a .qsb
+# next to it, for the targets the devices and desktop hosts need: GLSL ES 100
+# and 300 for the GPUs (etnaviv, lima, V3D, Mali), 120/150 for desktop GL.
+# A scene-graph vertex shader also needs the batchable variant (-b).
+#
+#   scripts/bake-shaders apps/radio/shaders
+#
+# QSB names the qsb to use; else qsb on PATH, else Qt 6's own.
+set -eu
+
+[ $# -gt 0 ] || { echo "usage: bake-shaders DIR..." >&2; exit 2; }
+qsb=${QSB:-}
+if [ -z "$qsb" ]; then
+	for q in qsb /usr/lib64/qt6/bin/qsb /usr/lib/qt6/bin/qsb; do
+		if command -v "$q" >/dev/null 2>&1; then
+			qsb=$q
+			break
+		fi
+	done
+fi
+[ -n "$qsb" ] || { echo "bake-shaders: no qsb; install Qt 6 Shader Tools or set QSB" >&2; exit 1; }
+
+n=0
+for dir in "$@"; do
+	[ -d "$dir" ] || { echo "bake-shaders: $dir is not a directory" >&2; exit 2; }
+	for src in "$dir"/*.vert "$dir"/*.frag; do
+		[ -f "$src" ] || continue
+		case $src in
+		*.vert) batchable=-b ;;
+		*) batchable= ;;
+		esac
+		# shellcheck disable=SC2086 # empty when not a vertex shader
+		"$qsb" $batchable --glsl "100 es,120,150,300 es" -o "$src.qsb" "$src"
+		echo "$src.qsb"
+		n=$((n + 1))
+	done
+done
+[ "$n" -gt 0 ] || { echo "bake-shaders: no .vert or .frag in $*" >&2; exit 1; }

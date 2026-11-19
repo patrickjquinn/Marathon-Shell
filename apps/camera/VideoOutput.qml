@@ -10,7 +10,6 @@ Item {
     id: root
 
     property Camera source
-    readonly property alias videoSink: output.videoSink
     readonly property int _rotation: source ? source.orientation : 0
 
     transform: Scale {
@@ -20,16 +19,21 @@ Item {
 
     onSourceChanged: {
         if (source)
-            source.controller.videoSink = videoSink;
+            source.controller.videoSink = output;
     }
+
+    readonly property bool _square: source !== null && source.square
 
     SoftwareVideoOutput {
         id: output
 
         anchors.centerIn: parent
-        width: root._rotation % 180 === 0 ? root.width : root.height
-        height: root._rotation % 180 === 0 ? root.height : root.width
+        width: root._square ? Math.min(root.width, root.height) : root._rotation % 180 === 0 ? root.width : root.height
+        height: root._square ? width : root._rotation % 180 === 0 ? root.height : root.width
         rotation: root._rotation
-        fillMode: SoftwareVideoOutput.PreserveAspectFit
+        fillMode: root._square ? SoftwareVideoOutput.PreserveAspectCrop : SoftwareVideoOutput.PreserveAspectFit
+        // A photo's frames are larger and slow: shown, they jumped the
+        // viewfinder's shape and stuttered it.
+        frozen: root.source !== null && root.source.controller.takingStill
     }
 }

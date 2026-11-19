@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 20:16:13 +0000
+Subject: [PATCH 27/29] gstreamer: Protect the controls with the state lock
+
+The application sets and reads the control properties from its own
+thread, with the object lock held, while the streaming thread applies
+the controls to new requests and the libcamera thread merges the request
+metadata into them, without that lock. Reading a property such as
+af-state while requests complete races with the merge, and can crash in
+the ControlList.
+
+Take the state lock_, which requestCompleted() already holds to merge
+the metadata, to set or get a control property and to apply the controls
+to a request. Apply them just before queueing the request, so that the
+controls are not lost with a request that could not get buffers.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/gstreamer/gstlibcamerasrc.cpp | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/src/gstreamer/gstlibcamerasrc.cpp b/src/gstreamer/gstlibcamerasrc.cpp
+index 791099ec..825bb52d 100644
+--- a/src/gstreamer/gstlibcamerasrc.cpp
++++ b/src/gstreamer/gstlibcamerasrc.cpp
+@@ -116,6 +116,9 @@ struct GstLibcameraSrcState {
+ 	 * the realtime-sensitive requestCompleted() handler to protect
+ 	 * queuedRequests_ and completedRequests_.
+ 	 *
++	 * It also protects controls_, which the application accesses through
++	 * the element properties.
++	 *
+ 	 * stream_lock must be taken before lock_ in contexts where both locks
+ 	 * need to be taken. In particular, this means that the lock_ must not
+ 	 * be held while calling into other graph elements (e.g. when calling
+@@ -186,9 +189,6 @@ int GstLibcameraSrcState::queueRequest()
+ 	if (!request)
+ 		return -ENOMEM;
+ 
+-	/* Apply controls */
+-	controls_.applyControls(request);
+-
+ 	std::unique_ptr<RequestWrap> wrap =
+ 		std::make_unique<RequestWrap>(std::move(request));
+ 
+@@ -214,6 +214,7 @@ int GstLibcameraSrcState::queueRequest()
+ 
+ 	{
+ 		GLibLocker locker(&lock_);
++		controls_.applyControls(wrap->request_);
+ 		cam_->queueRequest(wrap->request_.get());
+ 		queuedRequests_.push(std::move(wrap));
+ 	}
+@@ -1004,11 +1005,13 @@ gst_libcamera_src_set_property(GObject *object, guint prop_id,
+ 		g_clear_pointer(&self->sensor_config, gst_structure_free);
+ 		self->sensor_config = (GstStructure *)g_value_dup_boxed(value);
+ 		break;
+-	default:
++	default: {
++		GLibLocker locker(&state->lock_);
+ 		if (!state->controls_.setProperty(prop_id - PROP_LAST, value, pspec))
+ 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+ 		break;
+ 	}
++	}
+ }
+ 
+ static void
+@@ -1026,11 +1029,13 @@ gst_libcamera_src_get_property(GObject *object, guint prop_id, GValue *value,
+ 	case PROP_SENSOR_CONFIG:
+ 		g_value_set_boxed(value, self->sensor_config);
+ 		break;
+-	default:
++	default: {
++		GLibLocker locker(&state->lock_);
+ 		if (!state->controls_.getProperty(prop_id - PROP_LAST, value, pspec))
+ 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+ 		break;
+ 	}
++	}
+ }
+ 
+ static GstStateChangeReturn

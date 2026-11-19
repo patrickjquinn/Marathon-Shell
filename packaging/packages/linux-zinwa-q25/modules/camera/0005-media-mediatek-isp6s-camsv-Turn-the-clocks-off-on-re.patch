@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 13:00:00 +0000
+Subject: [PATCH] media: mediatek: isp6s: camsv: Turn the clocks off on removal
+
+The driver core drops its runtime PM reference before calling
+.remove(), but with autosuspend in use that only schedules the
+suspend. mtk_camsv_remove() then disabled runtime PM, which cancelled
+it, and left the device active with its clocks enabled; its own
+pm_runtime_put_autosuspend() had no reference to drop and only logged
+"Runtime PM usage count underflow!".
+
+The CAM power domain then went off and reset the CAMSYS clock gates,
+while the clock framework still counted them as enabled. After the
+driver was bound again, enabling the clocks only raised their counts,
+the gates stayed closed, and the first stream failed with "larb13
+port 6 stays in MMU mode" because larb13 ignored the write. The
+enable counts of all five CAMSYS clocks and the CAMTM mux stayed at 1
+after unloading the module, with the domain off.
+
+Stop autosuspend, disable runtime PM and run the runtime suspend
+callback if the device is still active, so that the clocks are turned
+off while the domain is still on, and drop the unbalanced put.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ camsv/mtk_camsv_hw.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/camsv/mtk_camsv_hw.c b/camsv/mtk_camsv_hw.c
+index a4c0688..5339c6d 100644
+--- a/camsv/mtk_camsv_hw.c
++++ b/camsv/mtk_camsv_hw.c
+@@ -603,8 +603,11 @@ static void mtk_camsv_remove(struct platform_device *pdev)
+ 	struct mtk_cam_dev *cam_dev = dev_get_drvdata(dev);
+ 
+ 	mtk_isp6s_camsv_dev_cleanup(cam_dev);
+-	pm_runtime_put_autosuspend(dev);
++	pm_runtime_dont_use_autosuspend(dev);
+ 	pm_runtime_disable(dev);
++	if (!pm_runtime_status_suspended(dev))
++		mtk_camsv_runtime_suspend(dev);
++	pm_runtime_set_suspended(dev);
+ }
+ 
+ static const struct dev_pm_ops mtk_camsv_pm_ops = {
+-- 
+2.55.0
+

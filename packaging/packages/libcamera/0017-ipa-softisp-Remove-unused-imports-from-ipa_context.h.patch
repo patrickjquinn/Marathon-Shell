@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Milan Zamazal <mzamazal@redhat.com>
+Date: Sat, 31 Oct 2026 19:40:37 +0100
+Subject: [PATCH 17/29] ipa: softisp: Remove unused imports from ipa_context.h
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Milan Zamazal <mzamazal@redhat.com>
+Reviewed-by: Kieran Bingham <kieran.bingham@ideasonboard.com>
+Reviewed-by: Barnabás Pőcze <barnabas.pocze@ideasonboard.com>
+Link: https://patchwork.libcamera.org/patch/28730/
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/softisp/ipa_context.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/src/ipa/softisp/ipa_context.h b/src/ipa/softisp/ipa_context.h
+index 62d1ae84..ccb3d724 100644
+--- a/src/ipa/softisp/ipa_context.h
++++ b/src/ipa/softisp/ipa_context.h
+@@ -7,7 +7,6 @@
+ 
+ #pragma once
+ 
+-#include <array>
+ #include <memory>
+ #include <optional>
+ #include <stdint.h>
+@@ -15,7 +14,6 @@
+ #include <libcamera/controls.h>
+ 
+ #include "libcamera/internal/matrix.h"
+-#include "libcamera/internal/vector.h"
+ 
+ #include <libipa/agc.h>
+ #include <libipa/awb.h>

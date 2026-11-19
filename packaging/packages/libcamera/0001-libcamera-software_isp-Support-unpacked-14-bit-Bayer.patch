@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: patrickjquinn <patrick.jm.quinn@gmail.com>
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Sun, 1 Nov 2026 12:56:09 +0000
-Subject: [PATCH 1/6] libcamera: software_isp: Support unpacked 14-bit Bayer
+Subject: [PATCH 01/29] libcamera: software_isp: Support unpacked 14-bit Bayer
 
 MediaTek's CAMSV writes unpacked RAW10 shifted into 14 bits per 16-bit
 word, so a sensor behind it can only be described as 14-bit Bayer. Add
@@ -11,6 +11,8 @@ scale by 4 and 16.
 
 Tested on a Zinwa Q25 (MT6789, IMX111): 1600x1200 at 30 fps on both
 the CPU and the GPU path.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
 ---
  .../internal/software_isp/swstats_cpu.h       |  1 +
  src/libcamera/shaders/bayer_unpacked.frag     |  3 ++

@@ -44,6 +44,8 @@ Item {
     property Item appBackdrop: null
 
     property real swipeProgress: 0
+    // The app whose notification stack is open; the others show their newest.
+    property string expandedApp: ""
     // Finger travel that takes swipeProgress from 0 to 1.
     readonly property real swipeTravel: height * 0.15
     // Short/square screens (HackberryPi, Q25) place by height, not design px.
@@ -60,17 +62,10 @@ Item {
     readonly property int roleTitle: roleId("title")
     readonly property int roleBody: roleId("body")
     readonly property int roleTimestamp: roleId("timestamp")
-    // Max notification cards shown directly; remainder collapse
-    // into the 'N more notifications' row.
-    readonly property int maxNotificationsShown: 2
-    // Fewer when the cards would run into the unlock controls.
-    property int shownLimit: maxNotificationsShown
-
     signal unlockRequested
     signal cameraLaunched
     signal phoneLaunched
     signal notificationTapped(int notifId, string appId, string title)
-    signal hubRequested
     // Idle for the screen timeout: the shell blanks the screen or shows Nightshade.
     signal idleExpired(string reason)
 
@@ -105,55 +100,67 @@ Item {
     }
 
     // Rebuilds the visible-notifications model from the global
-    // NotificationService — keeps only the first `maxNotificationsShown`
-    // unread items so the lock surface stays calm. The remainder are
-    // surfaced via the 'N more' card, which opens the Hub.
-    function refreshNotifications(keepLimit) {
-        if (!keepLimit)
-            shownLimit = maxNotificationsShown;
+    // NotificationService: every unread one, in a list that scrolls.
+    function refreshNotifications() {
         unreadModel.clear();
         // Honour the "Show on Lock Screen" privacy setting. Previously this
         // toggle wrote SettingsManagerCpp.showNotificationsOnLockScreen but
         // nothing read it, so turning it off still leaked every notification
         // onto the lock surface. Gate the whole list here.
-        if (typeof SettingsManagerCpp !== 'undefined' && !SettingsManagerCpp.showNotificationsOnLockScreen) {
-            moreCount = 0;
+        if (typeof SettingsManagerCpp !== 'undefined' && !SettingsManagerCpp.showNotificationsOnLockScreen)
             return;
-        }
-        let unread = 0;
+        // Stacked by app, as iOS does: the app with the newest one first,
+        // each app's newest on top of its stack.
+        const groups = new Map();
         for (let i = 0; i < NotificationService.rowCount(); i++) {
             const idx = NotificationService.index(i, 0);
             if (NotificationService.data(idx, roleIsRead))
                 continue;
-            if (unread < shownLimit) {
-                unreadModel.append({
-                    "notifId": NotificationService.data(idx, roleIdValue) || 0,
-                    "appId": NotificationService.data(idx, roleAppId) || "other",
-                    "icon": NotificationService.data(idx, roleIcon) || "bell",
-                    "title": NotificationService.data(idx, roleTitle) || "",
-                    "body": NotificationService.data(idx, roleBody) || "",
-                    "timestamp": NotificationService.data(idx, roleTimestamp) || 0
-                });
-            }
-            unread++;
+            const appId = NotificationService.data(idx, roleAppId) || "other";
+            if (!groups.has(appId))
+                groups.set(appId, []);
+            groups.get(appId).push({
+                "notifId": NotificationService.data(idx, roleIdValue) || 0,
+                "appId": appId,
+                "icon": NotificationService.data(idx, roleIcon) || "bell",
+                "title": NotificationService.data(idx, roleTitle) || "",
+                "body": NotificationService.data(idx, roleBody) || "",
+                "timestamp": NotificationService.data(idx, roleTimestamp) || 0
+            });
         }
-        moreCount = Math.max(0, unread - shownLimit);
+        for (const stack of groups.values()) {
+            stack.sort((a, b) => b.timestamp - a.timestamp);
+            stack.forEach((n, i) => {
+                n.stackIndex = i;
+                n.stackSize = stack.length;
+            });
+        }
+        [...groups.values()].sort((a, b) => b[0].timestamp - a[0].timestamp).forEach(stack => stack.forEach(n => unreadModel.append(n)));
+        if (!groups.has(expandedApp))
+            expandedApp = "";
     }
 
-    function fitNotifications() {
-        const limit = lockScreenBottomBar.mapToItem(notificationStack.parent, 0, 0).y - Silica.Theme.paddingLarge;
-        if (notificationStack.y + notificationStack.height > limit && shownLimit > 1) {
-            shownLimit--;
-            refreshNotifications(true);
-        }
+    // Each dismissal rebuilds the list, so the ids are taken first.
+    function dismissNotifications(ids) {
+        for (const id of ids)
+            NotificationService.dismissNotification(id);
     }
 
-    property int moreCount: 0
+    // The ids of an app's notifications on the lock screen.
+    function stackIds(appId) {
+        const ids = [];
+        for (let i = 0; i < unreadModel.count; i++) {
+            if (unreadModel.get(i).appId === appId)
+                ids.push(unreadModel.get(i).notifId);
+        }
+        return ids;
+    }
 
     anchors.fill: parent
     visible: opacity > 0.01
     onVisibleChanged: {
         if (visible) {
+            lockScreen.expandedApp = "";
             lockScreen.refreshNotifications();
             SessionStore.isOnLockScreen = true;
         } else {
@@ -476,7 +483,7 @@ Item {
 
             objectName: "lockClockTone"
             x: clockColumn.x
-            y: clockColumn.y - clockColumn.spacing
+            y: lockScroller.y + clockColumn.y - lockScroller.contentY - clockColumn.spacing
             width: clockColumn.width
             height: lockClock.height + Math.round(1.5 * clockColumn.spacing)
         }
@@ -486,289 +493,404 @@ Item {
 
             objectName: "lockDateTone"
             x: clockColumn.x
-            y: clockColumn.y + lockClock.height + Math.round(clockColumn.spacing / 2)
+            y: lockScroller.y + clockColumn.y - lockScroller.contentY + lockClock.height + Math.round(clockColumn.spacing / 2)
             width: clockColumn.width
             height: clockColumn.height - lockClock.height + Math.round(clockColumn.spacing / 2)
         }
 
-        // ── Clock cluster ───────────────────────────────────
-        // Two layouts per the JSX: LockScreen() puts the clock at
-        // top:190 / 84 px / -2 tracking; LockMedia() shifts it up
-        // to top:170 / 76 px / -1.5 tracking so the media card at
-        // top:360 has breathing room. Switches automatically when
-        // MPRIS2Controller.hasActivePlayer flips.
-        Column {
-            id: clockColumn
-
-            readonly property bool mediaActive: lockScreenMediaPlayer.hasMedia
-            // Re-read when the date string turns over at midnight.
-            readonly property date today: SystemStatusStore.dateString ? new Date() : new Date()
-
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingSmall
-            width: parent.width * 0.9
-            anchors.top: parent.top
-            anchors.topMargin: lockScreen.compactLayout ? Math.round(lockScreen.height * (mediaActive ? 0.06 : 0.14)) : Math.round((mediaActive ? 170 : 190) * Constants.scaleFactor)
-            // layer.enabled was: true (with layer.smooth) to keep the
-            // pixelSize Behavior from chattering, but on Qt 6.10 + SDF
-            // QtRendering the extra FBO + bilinear pass renders the
-            // glyphs with a ghosted secondary stroke ~3 px inside each
-            // digit. Static composition is sharp; the size animation
-            // doesn't need an extra texture pass at this scale.
-
-            Behavior on anchors.topMargin {
-                NumberAnimation {
-                    duration: MMotion.moderate
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            // The lock clock: large and extra-light, the weekday and
-            // the date beneath on their own lines, all in the primary colour.
-            Silica.Label {
-                id: lockClock
-
-                objectName: "lockClock"
-                text: SystemStatusStore.timeString
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                fontSizeMode: Text.HorizontalFit
-                font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
-                font.weight: Font.ExtraLight
-                // Display sizes set tighter; figures of one width, so the clock never shifts.
-                font.letterSpacing: -0.02 * lockClock.font.pixelSize
-                font.features: ({
-                        "tnum": 1
-                    })
-                color: clockTone.glyph
-                style: Text.Outline
-                styleColor: clockTone.halo
-            }
-
-            // The weekday shares its row with the weather; with media below,
-            // the date joins them, so the clock never takes more than two lines.
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Silica.Theme.paddingLarge
-
-                Silica.Label {
-                    objectName: "lockDay"
-                    //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the lock screen date, e.g. 26 October
-                    readonly property string date: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
-                    //: Weekday and date on one line on the lock screen, e.g. Monday, 26 October
-                    text: clockColumn.mediaActive ? qsTr("%1, %2").arg(Qt.formatDate(clockColumn.today, "dddd")).arg(date) : Qt.formatDate(clockColumn.today, "dddd")
-                    anchors.verticalCenter: parent.verticalCenter
-                    font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
-                    color: dateTone.glyph
-                    style: Text.Outline
-                    styleColor: dateTone.halo
-                }
-                LockWeather {
-                    objectName: "lockWeather"
-                    glyph: dateTone.glyph
-                    halo: dateTone.halo
-                    pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
-                    visible: current !== null
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-            Silica.Label {
-                objectName: "lockDate"
-                visible: !clockColumn.mediaActive
-                text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
-                anchors.horizontalCenter: parent.horizontalCenter
-                font.pixelSize: Silica.Theme.fontSizeLarge
-                color: dateTone.glyph
-                style: Text.Outline
-                styleColor: dateTone.halo
-            }
-        }
-
-        // ── Media card (LockMedia variant) ──────────────────
-        // Per screens-shell.jsx:188-240 LockMedia(): absolute
-        // positioned at top:360, left/right:18. Visible only when
-        // MPRIS reports an active player — no card when nothing is
-        // playing (the LockScreen variant takes over).
-        MediaPlaybackManager {
-            id: lockScreenMediaPlayer
+        // ── Clock, player and notifications ─────────────────
+        // One column between the status bar and the unlock controls: the
+        // clock, the player under it and the notifications. It scrolls as a
+        // whole when they do not fit, the clock going up out of the way;
+        // when they fit it takes no touches, and a swipe anywhere unlocks.
+        Flickable {
+            id: lockScroller
 
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.leftMargin: Math.round(18 * Constants.scaleFactor)
-            anchors.rightMargin: Math.round(18 * Constants.scaleFactor)
-            anchors.top: clockColumn.bottom
-            anchors.topMargin: Silica.Theme.paddingLarge * 2
-            visible: hasMedia
-            z: 8
-        }
-
-        // ── Notification stack ──────────────────────────────
-        // The most recent unread notifications; the rest collapse into a
-        // 'N more' row beneath.
-        Column {
-            id: notificationStack
-
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: Silica.Theme.horizontalPageMargin
-            anchors.rightMargin: Silica.Theme.horizontalPageMargin
-            anchors.top: lockScreenMediaPlayer.visible ? lockScreenMediaPlayer.bottom : clockColumn.bottom
-            anchors.topMargin: Silica.Theme.paddingLarge * 2
-            spacing: Silica.Theme.paddingMedium
-            visible: unreadModel.count > 0 || lockScreen.moreCount > 0
+            anchors.top: statusBar.bottom
+            anchors.bottom: lockScreenBottomBar.top
+            anchors.bottomMargin: Silica.Theme.paddingLarge
+            contentHeight: lockStack.height
+            clip: true
+            interactive: contentHeight > height
+            boundsBehavior: Flickable.StopAtBounds
             z: 10
-            onHeightChanged: Qt.callLater(lockScreen.fitNotifications)
 
-            Repeater {
-                model: unreadModel
+            Column {
+                id: lockStack
 
-                delegate: Item {
-                    id: notifCard
+                width: lockScroller.width
+                spacing: Silica.Theme.paddingLarge * 2
 
-                    required property int index
-                    required property int notifId
-                    required property string appId
-                    required property string icon
-                    required property string title
-                    required property string body
-                    required property var timestamp
+                // Where the clock sits: lower with nothing below it.
+                Item {
+                    width: 1
+                    height: Math.max(0, (lockScreen.compactLayout ? Math.round(lockScreen.height * (clockColumn.mediaActive || unreadModel.count > 0 ? 0.04 : 0.14)) : Math.round((clockColumn.mediaActive ? 170 : 190) * Constants.scaleFactor)) - statusBar.height - lockStack.spacing)
 
-                    width: notificationStack.width
-                    height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
+                    Behavior on height {
+                        NumberAnimation {
+                            duration: MMotion.moderate
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                }
 
-                    MGlassPlatter {
-                        anchors.fill: parent
-                        backdrop: glassBackdrop.texture
-                        pressed: notifArea.pressed
+                // ── Clock cluster ───────────────────────────────────
+                // Two layouts per the JSX: LockScreen() puts the clock at
+                // top:190 / 84 px / -2 tracking; LockMedia() shifts it up
+                // to top:170 / 76 px / -1.5 tracking so the media card at
+                // top:360 has breathing room. Switches automatically when
+                // MPRIS2Controller.hasActivePlayer flips.
+                Column {
+                    id: clockColumn
+
+                    readonly property bool mediaActive: lockScreenMediaPlayer.hasMedia
+                    // Re-read when the date string turns over at midnight.
+                    readonly property date today: SystemStatusStore.dateString ? new Date() : new Date()
+
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: Constants.spacingSmall
+                    width: parent.width * 0.9
+                    // layer.enabled was: true (with layer.smooth) to keep the
+                    // pixelSize Behavior from chattering, but on Qt 6.10 + SDF
+                    // QtRendering the extra FBO + bilinear pass renders the
+                    // glyphs with a ghosted secondary stroke ~3 px inside each
+                    // digit. Static composition is sharp; the size animation
+                    // doesn't need an extra texture pass at this scale.
+
+                    // The lock clock: large and extra-light, the weekday and
+                    // the date beneath on their own lines, all in the primary colour.
+                    Silica.Label {
+                        id: lockClock
+
+                        objectName: "lockClock"
+                        text: SystemStatusStore.timeString
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        fontSizeMode: Text.HorizontalFit
+                        font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
+                        font.weight: Font.ExtraLight
+                        // Display sizes set tighter; figures of one width, so the clock never shifts.
+                        font.letterSpacing: -0.02 * lockClock.font.pixelSize
+                        font.features: ({
+                                "tnum": 1
+                            })
+                        color: clockTone.glyph
+                        style: Text.Outline
+                        styleColor: clockTone.halo
                     }
 
+                    // The weekday shares its row with the weather; with media below,
+                    // the date joins them, so the clock never takes more than two lines.
                     Row {
-                        id: cardContent
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: Silica.Theme.paddingLarge
-                        anchors.rightMargin: Silica.Theme.paddingLarge
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.horizontalCenter: parent.horizontalCenter
                         spacing: Silica.Theme.paddingLarge
 
-                        GlyphIcon {
-                            id: notifIcon
+                        Silica.Label {
+                            objectName: "lockDay"
+                            //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the lock screen date, e.g. 26 October
+                            readonly property string date: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
+                            //: Weekday and date on one line on the lock screen, e.g. Monday, 26 October
+                            text: clockColumn.mediaActive ? qsTr("%1, %2").arg(Qt.formatDate(clockColumn.today, "dddd")).arg(date) : Qt.formatDate(clockColumn.today, "dddd")
                             anchors.verticalCenter: parent.verticalCenter
-                            name: notifCard.icon
-                            size: Silica.Theme.iconSizeSmall
-                            color: Silica.Theme.highlightColor
+                            font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                            color: dateTone.glyph
+                            style: Text.Outline
+                            styleColor: dateTone.halo
                         }
-
-                        Column {
+                        LockWeather {
+                            objectName: "lockWeather"
+                            glyph: dateTone.glyph
+                            halo: dateTone.halo
+                            pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                            visible: current !== null
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - notifIcon.width - parent.spacing
+                        }
+                    }
+                    Silica.Label {
+                        objectName: "lockDate"
+                        visible: !clockColumn.mediaActive
+                        text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        font.pixelSize: Silica.Theme.fontSizeLarge
+                        color: dateTone.glyph
+                        style: Text.Outline
+                        styleColor: dateTone.halo
+                    }
+                }
+
+                // ── Media card (LockMedia variant) ──────────────────
+                // Per screens-shell.jsx:188-240 LockMedia(): absolute
+                // positioned at top:360, left/right:18. Visible only when
+                // MPRIS reports an active player — no card when nothing is
+                // playing (the LockScreen variant takes over).
+                MediaPlaybackManager {
+                    id: lockScreenMediaPlayer
+
+                    x: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
+                    width: parent.width - 2 * x
+                    visible: hasMedia
+                }
+
+                // ── Notifications ───────────────────────────────────
+                // Every unread one, stacked by app: tap a stack to open it.
+                Column {
+                    id: notificationColumn
+
+                    x: Silica.Theme.horizontalPageMargin
+                    width: parent.width - 2 * x
+                    spacing: Silica.Theme.paddingMedium
+                    visible: unreadModel.count > 0
+
+                    Repeater {
+                        model: unreadModel
+
+                        delegate: Item {
+                            id: notifCard
+
+                            required property int index
+                            required property int notifId
+                            required property string appId
+                            required property string icon
+                            required property string title
+                            required property string body
+                            required property var timestamp
+                            required property int stackIndex
+                            required property int stackSize
+
+                            readonly property bool expanded: lockScreen.expandedApp === appId
+                            // The top of a closed stack stands for all of it.
+                            readonly property bool stacked: stackSize > 1 && !expanded
+                            readonly property int peeks: stacked ? Math.min(2, stackSize - 1) : 0
+                            readonly property real peekStep: Silica.Theme.paddingSmall * 1.5
+                            readonly property real headerHeight: expanded && stackIndex === 0 && stackSize > 1 ? lessLabel.implicitHeight + Silica.Theme.paddingMedium : 0
+                            // Swiped right it goes, as in the Hub.
+                            property real collapse: 1
+
+                            width: notificationColumn.width
+                            height: (headerHeight + cardBody.height + peeks * peekStep) * collapse
+                            visible: stackIndex === 0 || expanded
+                            clip: collapse < 1
+
+                            SequentialAnimation {
+                                id: dismissAnimation
+
+                                NumberAnimation {
+                                    target: cardBody
+                                    property: "x"
+                                    to: notifCard.width
+                                    duration: MMotion.quick
+                                    easing.type: Easing.OutCubic
+                                }
+                                NumberAnimation {
+                                    target: notifCard
+                                    property: "collapse"
+                                    to: 0
+                                    duration: MMotion.quick
+                                    easing.type: Easing.InOutQuad
+                                }
+                                ScriptAction {
+                                    script: lockScreen.dismissNotifications(notifCard.stacked ? lockScreen.stackIds(notifCard.appId) : [notifCard.notifId])
+                                }
+                            }
+
+                            NumberAnimation {
+                                id: snapBack
+
+                                target: cardBody
+                                property: "x"
+                                to: 0
+                                duration: MMotion.quick
+                                easing.type: Easing.OutCubic
+                            }
 
                             Item {
                                 width: parent.width
-                                height: nameText.implicitHeight
+                                height: notifCard.headerHeight
+                                visible: height > 0
+                                z: 2
 
                                 Silica.Label {
-                                    id: nameText
-                                    anchors.left: parent.left
-                                    anchors.right: timeText.left
-                                    anchors.rightMargin: Silica.Theme.paddingMedium
-                                    text: notifCard.title
-                                    color: Silica.Theme.primaryColor
-                                    font.pixelSize: Silica.Theme.fontSizeSmall
-                                    font.weight: Font.DemiBold
-                                    truncationMode: Silica.TruncationMode.Fade
-                                }
-                                Silica.Label {
-                                    id: timeText
+                                    id: lessLabel
                                     anchors.right: parent.right
-                                    anchors.verticalCenter: nameText.verticalCenter
-                                    text: lockScreen.relativeTime(notifCard.timestamp)
-                                    color: Silica.Theme.secondaryColor
+                                    text: qsTr("Show less")
+                                    color: Silica.Theme.highlightColor
                                     font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                                    font.features: ({
-                                            "tnum": 1
-                                        })
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        HapticManager.light();
+                                        lockScreen.expandedApp = "";
+                                    }
                                 }
                             }
 
-                            Silica.Label {
+                            // The edges of the ones beneath.
+                            Repeater {
+                                model: notifCard.peeks
+
+                                MGlassPlatter {
+                                    required property int index
+                                    readonly property real inset: (index + 1) * Silica.Theme.paddingMedium
+
+                                    x: cardBody.x + inset
+                                    y: cardBody.y + (index + 1) * notifCard.peekStep
+                                    z: -1 - index
+                                    width: cardBody.width - 2 * inset
+                                    height: cardBody.height
+                                    opacity: 0.7 - index * 0.25
+                                    backdrop: glassBackdrop.texture
+                                }
+                            }
+
+                            Item {
+                                id: cardBody
+
+                                y: notifCard.headerHeight
                                 width: parent.width
-                                text: notifCard.body
-                                color: Silica.Theme.secondaryColor
-                                font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                                elide: Text.ElideRight
-                                maximumLineCount: 2
-                                wrapMode: Text.WordWrap
-                                visible: text.length > 0
+                                height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
+
+                                MGlassPlatter {
+                                    anchors.fill: parent
+                                    backdrop: glassBackdrop.texture
+                                    pressed: notifArea.pressed && !notifArea.swiping
+                                }
+
+                                Row {
+                                    id: cardContent
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.leftMargin: Silica.Theme.paddingLarge
+                                    anchors.rightMargin: Silica.Theme.paddingLarge
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: Silica.Theme.paddingLarge
+
+                                    GlyphIcon {
+                                        id: notifIcon
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: notifCard.icon
+                                        size: Silica.Theme.iconSizeSmall
+                                        color: Silica.Theme.highlightColor
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - notifIcon.width - parent.spacing
+
+                                        Item {
+                                            width: parent.width
+                                            height: nameText.implicitHeight
+
+                                            Silica.Label {
+                                                id: nameText
+                                                anchors.left: parent.left
+                                                anchors.right: timeText.left
+                                                anchors.rightMargin: Silica.Theme.paddingMedium
+                                                text: notifCard.title
+                                                color: Silica.Theme.primaryColor
+                                                font.pixelSize: Silica.Theme.fontSizeSmall
+                                                font.weight: Font.DemiBold
+                                                truncationMode: Silica.TruncationMode.Fade
+                                            }
+                                            Silica.Label {
+                                                id: timeText
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: nameText.verticalCenter
+                                                text: lockScreen.relativeTime(notifCard.timestamp)
+                                                color: Silica.Theme.secondaryColor
+                                                font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                                font.features: ({
+                                                        "tnum": 1
+                                                    })
+                                            }
+                                        }
+
+                                        Silica.Label {
+                                            width: parent.width
+                                            text: notifCard.body
+                                            color: Silica.Theme.secondaryColor
+                                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                            elide: Text.ElideRight
+                                            maximumLineCount: 2
+                                            wrapMode: Text.WordWrap
+                                            visible: text.length > 0
+                                        }
+
+                                        Silica.Label {
+                                            //: Notifications beneath the top one in an app's stack
+                                            text: qsTr("%n more", "", notifCard.stackSize - 1)
+                                            color: Silica.Theme.highlightColor
+                                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                            visible: notifCard.stacked
+                                        }
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: notifArea
+
+                                property real pressX: 0
+                                property real pressY: 0
+                                property bool swiping: false
+                                property bool swiped: false
+
+                                anchors.fill: parent
+                                enabled: !dismissAnimation.running
+                                onPressed: mouse => {
+                                    const moving = snapBack.running || cardBody.x > 0;
+                                    snapBack.stop();
+                                    pressX = mouse.x - cardBody.x;
+                                    pressY = mouse.y;
+                                    swiping = moving;
+                                    preventStealing = moving;
+                                    swiped = false;
+                                }
+                                onPositionChanged: mouse => {
+                                    const dx = mouse.x - pressX;
+                                    // Claimed before the scroller or the unlock swipe can take it.
+                                    if (!swiping && dx > Application.styleHints.startDragDistance / 2 && dx > 2 * Math.abs(mouse.y - pressY)) {
+                                        swiping = true;
+                                        preventStealing = true;
+                                    }
+                                    if (swiping)
+                                        cardBody.x = Math.max(0, dx);
+                                }
+                                onReleased: {
+                                    if (!swiping)
+                                        return;
+                                    swiped = true;
+                                    swiping = false;
+                                    preventStealing = false;
+                                    if (cardBody.x > notifCard.width / 3)
+                                        dismissAnimation.start();
+                                    else
+                                        snapBack.start();
+                                }
+                                onCanceled: {
+                                    swiping = false;
+                                    preventStealing = false;
+                                    snapBack.start();
+                                }
+                                onClicked: {
+                                    if (swiped)
+                                        return;
+                                    HapticManager.light();
+                                    if (notifCard.stacked)
+                                        lockScreen.expandedApp = notifCard.appId;
+                                    else
+                                        lockScreen.notificationTapped(notifCard.notifId, notifCard.appId, notifCard.title);
+                                }
                             }
                         }
                     }
-
-                    MouseArea {
-                        id: notifArea
-                        anchors.fill: parent
-                        onClicked: {
-                            HapticManager.light();
-                            lockScreen.notificationTapped(notifCard.notifId, notifCard.appId, notifCard.title);
-                        }
-                    }
                 }
             }
 
-            Item {
-                width: notificationStack.width
-                height: Silica.Theme.itemSizeSmall
-                visible: lockScreen.moreCount > 0
-
-                MGlassPlatter {
-                    anchors.fill: parent
-                    backdrop: glassBackdrop.texture
-                    pressed: moreArea.pressed
-                }
-                Accessible.role: Accessible.Button
-                Accessible.name: moreLabel.text
-                Accessible.onPressAction: lockScreen.hubRequested()
-
-                Row {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: Silica.Theme.paddingLarge
-                    anchors.rightMargin: Silica.Theme.paddingLarge
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: Silica.Theme.paddingLarge
-
-                    GlyphIcon {
-                        id: moreIcon
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "bell"
-                        size: Silica.Theme.iconSizeSmall
-                        color: Silica.Theme.highlightColor
-                    }
-
-                    Silica.Label {
-                        id: moreLabel
-
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - moreIcon.width - parent.spacing
-                        //: Shown under the lock screen notifications; %n is how many more there are
-                        text: qsTr("%n more notification(s)", "", lockScreen.moreCount)
-                        color: Silica.Theme.secondaryColor
-                        font.pixelSize: Silica.Theme.fontSizeSmall
-                        truncationMode: Silica.TruncationMode.Fade
-                    }
-                }
-
-                MouseArea {
-                    id: moreArea
-
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticManager.light();
-                        lockScreen.hubRequested();
-                    }
-                }
-            }
+            Silica.VerticalScrollDecorator {}
         }
 
         // A dot for each stroke of a trackpad combination, where the hint was.

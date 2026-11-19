@@ -20,7 +20,7 @@ STATE=/sys/devices/platform/soc/soc:md1-owner/state
 log=/tmp/modem-reset-test.$$
 since=$(date '+%Y-%m-%d %H:%M:%S')
 
-boot() { cat /sys/kernel/ccci/boot 2>/dev/null; }
+boot() { cut -d' ' -f1 /sys/kernel/ccci/boot 2>/dev/null; }
 [ "$(boot)" = "md1:4" ] || { echo "MD1 not ready ($(boot)); not testing" >&2; exit 1; }
 owner=$(cat $STATE)
 echo "before: boot=$(boot) owner=$owner"

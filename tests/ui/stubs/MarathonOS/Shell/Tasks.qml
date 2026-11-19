@@ -4,13 +4,14 @@ import QtQml
 QtObject {
     property bool androidStarting: false
     property var secureApps: []
+    property int coverStrip: 0
     signal appUnregistered(string appId)
     signal appCommand(string appId, string command)
     signal coverActionStripChanged(string appId)
     function setCoverVisible(appId, visible) {
     }
     function coverActionStrip(appId) {
-        return 0;
+        return coverStrip;
     }
     function closeAppWindows(appId) {
         return 0;

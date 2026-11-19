@@ -7,6 +7,7 @@
 pragma Singleton
 import QtQuick 2.0
 import Nemo.Configuration 1.0
+import Sailfish.Silica 1.0 as S
 import MarathonApp.Camera 1.0
 
 SettingsBase {
@@ -28,7 +29,9 @@ SettingsBase {
     // group's Component.onCompleted below stores one only for the mode open
     // at start, so video used to get the photo's 4:3 viewfinder and record
     // a 16:9 frame that was not the one shown.
-    readonly property int aspectRatio: mode.aspectRatio !== -1 ? mode.aspectRatio : (global.captureMode === "image" ? CameraConfigs.AspectRatio_4_3 : CameraConfigs.AspectRatio_16_9)
+    readonly property int aspectRatio: mode.aspectRatio !== -1 ? mode.aspectRatio : (global.captureMode === "image" ? photoAspectRatio : CameraConfigs.AspectRatio_16_9)
+    // A square screen takes square photos: the viewfinder fills it.
+    readonly property int photoAspectRatio: S.Screen.width === S.Screen.height ? CameraConfigs.AspectRatio_1_1 : CameraConfigs.AspectRatio_4_3
     property var viewfinderGridValues: ["none", "thirds"]
 
     readonly property var settingsDefaults: ({
@@ -138,7 +141,7 @@ SettingsBase {
                     "exposureMode": Camera.ExposureManual,
                     "meteringMode": Camera.MeteringMatrix,
                     "timer": 0,
-                    "aspectRatio": globalSettings.captureMode === "image" ? CameraConfigs.AspectRatio_4_3 : CameraConfigs.AspectRatio_16_9,
+                    "aspectRatio": globalSettings.captureMode === "image" ? photoAspectRatio : CameraConfigs.AspectRatio_16_9,
                     "enableHighres": false
                 };
                 for (var key in defaults) {
@@ -200,6 +203,10 @@ SettingsBase {
 
     function timerIcon(timer) {
         return timer > 0 ? "image://theme/icon-camera-timer-" + timer + "s" : "image://theme/icon-camera-timer";
+    }
+
+    function aspectRatioText(ratio) {
+        return ratio === CameraConfigs.AspectRatio_1_1 ? qsTr("Square photos") : qsTr("4:3 photos");
     }
 
     function timerText(timer) {

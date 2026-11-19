@@ -1,0 +1,187 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 20:09:53 +0000
+Subject: [PATCH 23/29] pipeline: simple: Report the sensor area the software
+ ISP output shows
+
+With the software ISP, the simple pipeline handler reports the whole
+analogue crop as the ScalerCrop, but the output can show less of it: the
+CPU debayer crops the centre of the input when the output is smaller,
+and the GPU debayer crops the scaled input when the aspect ratios
+differ. An application mapping a point of the image to sensor
+coordinates, for instance to set AfWindows, then gets it wrong.
+
+Let the debayers record the area of the input frame they show, map it to
+the sensor pixel array in SoftwareIsp::configure(), and report that as
+the ScalerCrop. Configure the debayer before the IPA so that the IPA can
+use it too.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../internal/software_isp/software_isp.h      |  6 ++++-
+ src/libcamera/pipeline/simple/simple.cpp      |  8 +++++-
+ src/libcamera/software_isp/debayer.cpp        |  5 ++++
+ src/libcamera/software_isp/debayer.h          |  1 +
+ src/libcamera/software_isp/debayer_cpu.cpp    |  1 +
+ src/libcamera/software_isp/debayer_egl.cpp    |  1 +
+ src/libcamera/software_isp/software_isp.cpp   | 26 ++++++++++++++++---
+ 7 files changed, 42 insertions(+), 6 deletions(-)
+
+diff --git a/include/libcamera/internal/software_isp/software_isp.h b/include/libcamera/internal/software_isp/software_isp.h
+index be90a229..2ef294c7 100644
+--- a/include/libcamera/internal/software_isp/software_isp.h
++++ b/include/libcamera/internal/software_isp/software_isp.h
+@@ -47,7 +47,7 @@ LOG_DECLARE_CATEGORY(SoftwareIsp)
+ class SoftwareIsp : public Object
+ {
+ public:
+-	SoftwareIsp(PipelineHandler *pipe, const CameraSensor *sensor,
++	SoftwareIsp(PipelineHandler *pipe, CameraSensor *sensor,
+ 		    ControlInfoMap *ipaControls);
+ 	~SoftwareIsp();
+ 
+@@ -68,6 +68,8 @@ public:
+ 		      const ipa::softisp::IPAConfigInfo &configInfo,
+ 		      ControlInfoMap *ipaControls);
+ 
++	const Rectangle &scalerCrop() const { return scalerCrop_; }
++
+ 	int exportBuffers(const Stream *stream, unsigned int count,
+ 			  std::vector<std::unique_ptr<FrameBuffer>> *buffers);
+ 
+@@ -95,7 +97,9 @@ private:
+ 	void statsReady(uint32_t frame, uint32_t bufferId);
+ 	void inputReady(FrameBuffer *input);
+ 	void outputReady(FrameBuffer *output);
++	CameraSensor *sensor_;
+ 	std::unique_ptr<Debayer> debayer_;
++	Rectangle scalerCrop_;
+ 	Thread ispWorkerThread_;
+ 	SharedMemObject<DebayerParams> sharedParams_;
+ 	DebayerParams debayerParams_;
+diff --git a/src/libcamera/pipeline/simple/simple.cpp b/src/libcamera/pipeline/simple/simple.cpp
+index dca7caac..c0d0e3d7 100644
+--- a/src/libcamera/pipeline/simple/simple.cpp
++++ b/src/libcamera/pipeline/simple/simple.cpp
+@@ -1694,7 +1694,13 @@ int SimplePipelineHandler::configure(Camera *camera, CameraConfiguration *c)
+ 		configInfo.sensorControls = data->sensor_->controls();
+ 		if (data->sensor_->focusLens())
+ 			configInfo.lensControls = data->sensor_->focusLens()->controls();
+-		return data->swIsp_->configure(inputCfg, outputCfgs, configInfo, &data->controlInfo_);
++		ret = data->swIsp_->configure(inputCfg, outputCfgs, configInfo,
++					      &data->controlInfo_);
++		if (ret)
++			return ret;
++
++		data->scalerCrop_ = data->swIsp_->scalerCrop();
++		return 0;
+ 	}
+ }
+ 
+diff --git a/src/libcamera/software_isp/debayer.cpp b/src/libcamera/software_isp/debayer.cpp
+index 4f665900..d11b55fd 100644
+--- a/src/libcamera/software_isp/debayer.cpp
++++ b/src/libcamera/software_isp/debayer.cpp
+@@ -273,6 +273,11 @@ Debayer::~Debayer()
+  * \brief Output size object
+  */
+ 
++/**
++ * \var Debayer::inputCrop_
++ * \brief The area of the input frame shown in the output, set by configure()
++ */
++
+ /**
+  * \var Debayer::swapRedBlueGains_
+  * \brief Flag indicating whether red and blue channel gains should be swapped
+diff --git a/src/libcamera/software_isp/debayer.h b/src/libcamera/software_isp/debayer.h
+index e30a0527..5c843fb2 100644
+--- a/src/libcamera/software_isp/debayer.h
++++ b/src/libcamera/software_isp/debayer.h
+@@ -77,6 +77,7 @@ public:
+ 	DebayerInputConfig inputConfig_;
+ 	DebayerOutputConfig outputConfig_;
+ 	Size outputSize_;
++	Rectangle inputCrop_;
+ 	PixelFormat inputPixelFormat_;
+ 	PixelFormat outputPixelFormat_;
+ 	bool swapRedBlueGains_;
+diff --git a/src/libcamera/software_isp/debayer_cpu.cpp b/src/libcamera/software_isp/debayer_cpu.cpp
+index dd53cc17..abe232ce 100644
+--- a/src/libcamera/software_isp/debayer_cpu.cpp
++++ b/src/libcamera/software_isp/debayer_cpu.cpp
+@@ -718,6 +718,7 @@ int DebayerCpu::configure(const StreamConfiguration &inputCfg,
+ 		    ~(inputConfig_.patternSize.height - 1);
+ 	window_.width = outputCfg.size.width;
+ 	window_.height = outputCfg.size.height;
++	inputCrop_ = window_;
+ 
+ 	/*
+ 	 * Set the stats window to the whole processed window. Its coordinates are
+diff --git a/src/libcamera/software_isp/debayer_egl.cpp b/src/libcamera/software_isp/debayer_egl.cpp
+index 3e683915..911ad08e 100644
+--- a/src/libcamera/software_isp/debayer_egl.cpp
++++ b/src/libcamera/software_isp/debayer_egl.cpp
+@@ -374,6 +374,7 @@ int DebayerEGL::configure(const StreamConfiguration &inputCfg,
+ 	window_ = Rectangle(Size(std::min(width_, static_cast<uint32_t>(outputSize_.width / scale)),
+ 				 std::min(height_, static_cast<uint32_t>(outputSize_.height / scale))));
+ 	stats_->setWindow(window_);
++	inputCrop_ = window_;
+ 
+ 	inputBufferCount_ = inputCfg.bufferCount;
+ 	outputBufferCount_ = outputCfg.bufferCount;
+diff --git a/src/libcamera/software_isp/software_isp.cpp b/src/libcamera/software_isp/software_isp.cpp
+index 53ae3d76..f62fde0c 100644
+--- a/src/libcamera/software_isp/software_isp.cpp
++++ b/src/libcamera/software_isp/software_isp.cpp
+@@ -78,9 +78,9 @@ LOG_DEFINE_CATEGORY(SoftwareIsp)
+  * \param[in] sensor Pointer to the CameraSensor instance owned by the pipeline handler
+  * \param[out] ipaControls The IPA controls to update
+  */
+-SoftwareIsp::SoftwareIsp(PipelineHandler *pipe, const CameraSensor *sensor,
++SoftwareIsp::SoftwareIsp(PipelineHandler *pipe, CameraSensor *sensor,
+ 			 ControlInfoMap *ipaControls)
+-	: ispWorkerThread_("SWIspWorker"),
++	: sensor_(sensor), ispWorkerThread_("SWIspWorker"),
+ 	  dmaHeap_(DmaBufAllocator::DmaBufAllocatorFlag::CmaHeap |
+ 		   DmaBufAllocator::DmaBufAllocatorFlag::SystemHeap |
+ 		   DmaBufAllocator::DmaBufAllocatorFlag::UDmaBuf)
+@@ -290,11 +290,19 @@ int SoftwareIsp::configure(const StreamConfiguration &inputCfg,
+ {
+ 	ASSERT(ipa_ && debayer_);
+ 
+-	int ret = ipa_->configure(configInfo, ipaControls);
++	int ret = debayer_->configure(inputCfg, outputCfgs, ccmEnabled_, lscEnabled_);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = debayer_->configure(inputCfg, outputCfgs, ccmEnabled_, lscEnabled_);
++	IPACameraSensorInfo sensorInfo;
++	ret = sensor_->sensorInfo(&sensorInfo);
++	if (ret < 0)
++		return ret;
++
++	scalerCrop_ = debayer_->inputCrop_.transformedBetween(Rectangle(inputCfg.size),
++							      sensorInfo.analogCrop);
++
++	ret = ipa_->configure(configInfo, ipaControls);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -306,6 +314,16 @@ int SoftwareIsp::configure(const StreamConfiguration &inputCfg,
+ 	return 0;
+ }
+ 
++/**
++ * \fn SoftwareIsp::scalerCrop()
++ * \brief Retrieve the area of the sensor shown in the output
++ *
++ * The rectangle is in the coordinates of the sensor pixel array, as the
++ * ScalerCrop control, and is valid after a successful configure() call.
++ *
++ * \return The area of the sensor pixel array shown in the output
++ */
++
+ /**
+  * \brief Export the buffers from the Software ISP
+  * \param[in] stream Output stream exporting the buffers

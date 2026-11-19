@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: patrickjquinn <patrick.jm.quinn@gmail.com>
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Sun, 1 Nov 2026 13:38:25 +0000
-Subject: [PATCH 6/6] pipeline: simple: Complete requests on stop when the IPA
- owes metadata
+Subject: [PATCH 06/29] pipeline: simple: Complete requests on stop when the
+ IPA owes metadata
 
 With the software ISP, a request also waits for the IPA's metadata. On
 stop, SoftwareIsp::stop() stops the IPA and cancels the in-flight output
@@ -16,12 +16,14 @@ requests whose buffers are done before clearing the frame information.
 
 Tested on a Zinwa Q25 (MT6789, IMX111): five libcamerasrc start/stop
 cycles and the cam raw and viewfinder captures all stop cleanly.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
 ---
  src/libcamera/pipeline/simple/simple.cpp | 29 +++++++++++++++++++++---
  1 file changed, 26 insertions(+), 3 deletions(-)
 
 diff --git a/src/libcamera/pipeline/simple/simple.cpp b/src/libcamera/pipeline/simple/simple.cpp
-index 62ac67e8..6b4e1dbc 100644
+index 877defb1..264b1197 100644
 --- a/src/libcamera/pipeline/simple/simple.cpp
 +++ b/src/libcamera/pipeline/simple/simple.cpp
 @@ -207,6 +207,8 @@ public:
@@ -54,7 +56,7 @@ index 62ac67e8..6b4e1dbc 100644
  SimpleFrameInfo *SimpleFrames::find(uint32_t frame)
  {
  	auto info = frameInfo_.find(frame);
-@@ -992,6 +1008,10 @@ void SimpleCameraData::imageBufferReady(FrameBuffer *buffer)
+@@ -993,6 +1009,10 @@ void SimpleCameraData::imageBufferReady(FrameBuffer *buffer)
  
  void SimpleCameraData::clearIncompleteRequests()
  {
@@ -65,7 +67,7 @@ index 62ac67e8..6b4e1dbc 100644
  	while (!conversionQueue_.empty()) {
  		pipe()->cancelRequest(conversionQueue_.front().request);
  		conversionQueue_.pop();
-@@ -1775,10 +1795,13 @@ void SimplePipelineHandler::stopDevice(Camera *camera)
+@@ -1776,10 +1796,13 @@ void SimplePipelineHandler::stopDevice(Camera *camera)
  	}
  
  	if (data->useConversion_) {
@@ -81,7 +83,7 @@ index 62ac67e8..6b4e1dbc 100644
  	}
  
  	video->streamOff();
-@@ -1786,8 +1809,8 @@ void SimplePipelineHandler::stopDevice(Camera *camera)
+@@ -1787,8 +1810,8 @@ void SimplePipelineHandler::stopDevice(Camera *camera)
  
  	video->bufferReady.disconnect(data, &SimpleCameraData::imageBufferReady);
  

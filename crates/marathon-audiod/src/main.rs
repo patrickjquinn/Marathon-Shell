@@ -230,6 +230,36 @@ fn publisher(
         if let Err(e) = emit(conn, &old, &new) {
             log(&format!("emitting PropertiesChanged: {e}"));
         }
+        // Headphones gone and the speaker taking over: what played into
+        // them pauses rather than play out loud, as on Android and iOS.
+        if !old.output.is_empty() && new.output.is_empty() {
+            pause_players(conn);
+        }
+    }
+}
+
+/// Pauses every MPRIS player on the session bus, waiting for none: a
+/// frozen app takes its Pause when it thaws.
+fn pause_players(conn: &zbus::Connection) {
+    let names = zbus::block_on(async { zbus::fdo::DBusProxy::new(conn).await?.list_names().await });
+    let names = match names {
+        Ok(names) => names,
+        Err(e) => return log(&format!("listing media players: {e}")),
+    };
+    for name in names
+        .iter()
+        .filter(|n| n.starts_with("org.mpris.MediaPlayer2."))
+    {
+        let paused = zbus::Message::method_call("/org/mpris/MediaPlayer2", "Pause")
+            .destination(name.as_str())
+            .interface("org.mpris.MediaPlayer2.Player")
+            .with_flags(zbus::message::Flags::NO_REPLY_EXPECTED)
+            .build(&())
+            .and_then(|m| zbus::block_on(conn.send(&m)));
+        match paused {
+            Ok(()) => log(&format!("headphones gone: paused {name}")),
+            Err(e) => log(&format!("pausing {name}: {e}")),
+        }
     }
 }
 

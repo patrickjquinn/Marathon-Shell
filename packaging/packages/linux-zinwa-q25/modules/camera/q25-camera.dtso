@@ -223,6 +223,13 @@
 				regulator-max-microvolt = <2800000>;
 			};
 
+			/* the rear module's focus motor (stock cam0_vcamaf) */
+			cam0_afvdd: ldo6 {
+				regulator-name = "cam0-afvdd";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+			};
+
 			cam_iovdd: ldo7 {
 				regulator-name = "cam-iovdd";
 				regulator-min-microvolt = <1800000>;
@@ -305,6 +312,7 @@
 		reset-gpios = <PIO_PH 18 GPIO_ACTIVE_LOW>;
 		orientation = <1>;
 		rotation = <90>;
+		lens-focus = <&cam0_vcm>;
 
 		port {
 			s5kjn1_seninf1: endpoint {
@@ -313,5 +321,11 @@
 				remote-endpoint = <&seninf1_s5kjn1>;
 			};
 		};
+	};
+
+	cam0_vcm: lens@c {
+		compatible = "dongwoon,dw9714";
+		reg = <0x0c>;
+		vcc-supply = <&cam0_afvdd>;
 	};
 };

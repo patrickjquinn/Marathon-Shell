@@ -3466,6 +3466,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-radiod"
+version = "0.1.0"
+dependencies = [
+ "async-channel 2.5.0",
+ "async-io",
+ "blocking",
+ "futures-lite",
+ "libc",
+ "marathon-rt",
+ "serde",
+ "serde_json",
+ "ureq",
+ "zbus 6.1.0",
+]
+
+[[package]]
 name = "marathon-rt"
 version = "0.1.0"
 dependencies = [

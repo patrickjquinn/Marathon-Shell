@@ -8,8 +8,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=39
-_commit=dc3ae59f4678054763f2057b9df3367971ceb625
+pkgrel=42
+_commit=2e8be1dbfdda3f8fe318853de2bcadb759387cef
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -30,9 +30,9 @@ makedepends="cargo unzip libxkbcommon-dev gstreamer-dev gst-plugins-base-dev"
 checkdepends="dbus"
 install="$pkgname.post-install $pkgname.post-upgrade"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
-_microg=v0.3.17.252432
-_gms=com.google.android.gms-252432034.apk
-_vending=com.android.vending-84022634.apk
+_microg=v0.3.18.252432
+_gms=com.google.android.gms-252432036.apk
+_vending=com.android.vending-84022636.apk
 # F-Droid, its Privileged Extension and Aurora Store from f-droid.org, unchanged
 # (Marathon-Deckard docs/fdroid.md).
 _fdroid=org.fdroid.fdroid_1023052.apk
@@ -121,6 +121,15 @@ package() {
 		"$pkgdir"/usr/libexec/deckard-containerd
 	install -Dm644 $p/deckard-container.service \
 		"$pkgdir"/usr/lib/systemd/system/deckard-container.service
+	if [ -f $p/deckard-dexopt.timer ]; then
+		install -Dm644 $p/deckard-dexopt.service \
+			"$pkgdir"/usr/lib/systemd/system/deckard-dexopt.service
+		install -Dm644 $p/deckard-dexopt.timer \
+			"$pkgdir"/usr/lib/systemd/system/deckard-dexopt.timer
+		install -d "$pkgdir"/usr/lib/systemd/system/timers.target.wants
+		ln -s ../deckard-dexopt.timer \
+			"$pkgdir"/usr/lib/systemd/system/timers.target.wants/deckard-dexopt.timer
+	fi
 	local bus=org.marathonos.Deckard.Container
 	install -Dm644 $p/$bus.service "$pkgdir"/usr/share/dbus-1/system-services/$bus.service
 	install -Dm644 $p/$bus.conf "$pkgdir"/usr/share/dbus-1/system.d/$bus.conf
@@ -170,8 +179,8 @@ package() {
 
 sha512sums="
 SKIP  deckard-$_commit.tar.gz
-0b2f77e87aea3f97e0958f8d02b2d0859ad413347181eee3e45949cf1fb23b8eadc3654472ef802030a15707b85245b22af6d74ebb85667a960d707fea223e27  com.google.android.gms-252432034.apk
-8a0297a6e2ee648f456480309c41b84ead67ffb2a28ac907e764077012d28f5826a7994f9a39e4202b1b7382030bd7cd45d6368930faa84773f0b4695f9c7af6  com.android.vending-84022634.apk
+2bf298482faedf77c7310dcc51fea62d152fa706d376b4c9f7405a4231e0e96085cf2da058d3c4bb9ee2bd430344cfe441563b534547cd6a707ee11f87123944  com.google.android.gms-252432036.apk
+2b87c6688725ea8ed2e4d1bf6bac097b3ce1aa5adb843221a02df7b64a3d8b3b0a9fc076629625f053b59136a9c2950b2d7344204ad755459df8659863659978  com.android.vending-84022636.apk
 a57b0952c4a3a1573bd9837998c5941d1a820ae9bae5fe4e0e6f24ff2f95c91e083a08b5b26619329f6099ad796a1e06692fad1d3b73bb534da0f71eafe88792  org.fdroid.fdroid_1023052.apk
 1d57c4927f5e88f9480f51132dc29ca366a06021c805c30e85fb53d7c577e2e4f3ceb507e3dabecf9ed4360eea02d1b9dcd8f83ad199b11aec7d06e0411c4929  org.fdroid.fdroid.privileged_2140.apk
 0511962ae1474c804805c06b78a614d5aa62a977625f178a06aedcb651ff8162e62c2ec4715e70303836be7e6b4dc048d541e9511804f1b4272171b8e5b24b4b  com.aurora.store_76.apk

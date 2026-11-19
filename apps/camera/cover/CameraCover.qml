@@ -127,8 +127,8 @@ CoverBackground {
     }
 
     Item {
-        // "Focus indicator"
-        width: Math.floor(cover.width / 2)
+        // "Focus indicator": from the shorter side, as Marathon's cards are wide
+        width: Math.floor(Math.min(cover.width, cover.height) / 2)
         height: width
         anchors.centerIn: parent
         visible: !galleryActive

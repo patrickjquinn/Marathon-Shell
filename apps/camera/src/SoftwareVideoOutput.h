@@ -4,19 +4,16 @@
 #include <QMutex>
 #include <QQuickItem>
 #include <QSGSimpleTextureNode>
-#include <QVideoFrame>
-#include <QVideoSink>
+#include <atomic>
 #include <QtQmlIntegration/qqmlintegration.h>
-
-// The frame as an image: RGB frames copied, others converted through the GPU.
-QImage imageOf(QVideoFrame frame);
 
 class SoftwareVideoOutput : public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(QObject *videoSink READ videoSink CONSTANT)
     Q_PROPERTY(int fillMode READ fillMode WRITE setFillMode NOTIFY fillModeChanged)
+    // Holds the last frame, and skips new ones.
+    Q_PROPERTY(bool frozen READ frozen WRITE setFrozen NOTIFY frozenChanged)
 
   public:
     enum FillMode : quint8 {
@@ -27,26 +24,27 @@ class SoftwareVideoOutput : public QQuickItem {
     Q_ENUM(FillMode)
 
     explicit SoftwareVideoOutput(QQuickItem *parent = nullptr);
-    ~SoftwareVideoOutput() override;
 
-    QObject *videoSink() const;
+    int  fillMode() const;
+    void setFillMode(int mode);
+    bool frozen() const;
+    void setFrozen(bool frozen);
 
-    int      fillMode() const;
-    void     setFillMode(int mode);
+    // Shows an RGB frame; a null image clears the item.
+    void   present(const QImage &frame);
+    QImage frame() const;
 
   protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;
 
   signals:
     void fillModeChanged();
-
-  private slots:
-    void onVideoFrameChanged(const QVideoFrame &frame);
+    void frozenChanged();
 
   private:
-    QVideoSink    *m_videoSink = nullptr;
-    QImage         m_currentFrame;
-    mutable QMutex m_frameMutex;
-    FillMode       m_fillMode     = PreserveAspectFit;
-    bool           m_frameUpdated = false;
+    QImage            m_currentFrame;
+    mutable QMutex    m_frameMutex;
+    FillMode          m_fillMode     = PreserveAspectFit;
+    bool              m_frameUpdated = false;
+    std::atomic<bool> m_frozen{false};
 };

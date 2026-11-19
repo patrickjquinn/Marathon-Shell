@@ -108,7 +108,7 @@ apk add --no-cache --quiet \
     qt6-qtsvg-dev qt6-qtlocation-dev qt6-qtpositioning-dev \
     qt6-qtspeech-dev qt6-qttools-dev \
     hunspell-dev pulseaudio-dev wayland-dev wayland-protocols \
-    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev 2>&1 | tail -3 || true
+    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev libjpeg-turbo-dev gstreamer-dev gst-plugins-base-dev 2>&1 | tail -3 || true
 
 KEEL_SILICA_APK="$(ls -1v /local-apks/keel-silica-[0-9]*.apk 2>/dev/null | tail -1 || true)"
 KEEL_SILICA_DEV_APK="$(ls -1v /local-apks/keel-silica-dev-*.apk 2>/dev/null | tail -1 || true)"
@@ -118,6 +118,15 @@ if [ -z "$KEEL_SILICA_APK" ]; then
 fi
 apk add --no-cache --quiet --allow-untrusted "$KEEL_SILICA_APK" $KEEL_SILICA_DEV_APK
 echo "keel-silica installed from $KEEL_SILICA_APK"
+
+# The camera app builds against our libcamera, not Alpine's older one.
+# The APKBUILD reads abuild's variables ($srcdir, $CARCH) at top level.
+LIBCAMERA_VER="$(set +u; . /aports-src/libcamera/APKBUILD; echo "$pkgver-r$pkgrel")"
+apk add --no-cache --quiet --allow-untrusted \
+    "/local-apks/libcamera-$LIBCAMERA_VER.apk" \
+    "/local-apks/libcamera-ipa-$LIBCAMERA_VER.apk" \
+    "/local-apks/libcamera-dev-$LIBCAMERA_VER.apk"
+echo "libcamera $LIBCAMERA_VER installed"
 
 mkdir -p /root/.abuild
 abuild-keygen -a -n -q

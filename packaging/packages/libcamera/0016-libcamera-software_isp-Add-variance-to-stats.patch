@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Milan Zamazal <mzamazal@redhat.com>
+Date: Sat, 31 Oct 2026 19:40:36 +0100
+Subject: [PATCH 16/29] libcamera: software_isp: Add variance to stats
+
+The libipa Af algorithm requests variance value as its input.  Let's add
+the corresponding member to SwIspStats and initialise it.
+
+This commit is preparatory and doesn't implement computation of the
+variance nor introduces other changes to the stats like when to update
+them for autofocus.
+
+Signed-off-by: Milan Zamazal <mzamazal@redhat.com>
+Link: https://patchwork.libcamera.org/patch/28729/
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ include/libcamera/internal/software_isp/swisp_stats.h | 8 +++++++-
+ src/libcamera/software_isp/swstats_cpu.cpp            | 3 +++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/include/libcamera/internal/software_isp/swisp_stats.h b/include/libcamera/internal/software_isp/swisp_stats.h
+index 65d826f6..a0f6f4a7 100644
+--- a/include/libcamera/internal/software_isp/swisp_stats.h
++++ b/include/libcamera/internal/software_isp/swisp_stats.h
+@@ -17,7 +17,7 @@ namespace libcamera {
+ /**
+  * \brief Statistics for the Software ISP
+  *
+- * The software ISP computes two types of statistics:
++ * The software ISP computes the following types of statistics:
+  *
+  * - The accumulator counts the number of non-saturated pixels and sums their
+  *   R, G and B channels individually. Pixels that have any saturated channel
+@@ -27,6 +27,8 @@ namespace libcamera {
+  * - The histogram groups pixels in bins based on their luminance and counts
+  *   the number of pixels in each bin. Saturated pixels are included.
+  *
++ * - The variance value for autofocus.
++ *
+  * The value types are large enough to not overflow. Should they still overflow
+  * for some reason, no check is performed and they wrap around.
+  */
+@@ -56,6 +58,10 @@ struct SwIspStats {
+ 	 * \brief A histogram of luminance values of all the sampled pixels
+ 	 */
+ 	Histogram yHistogram;
++	/**
++	 * \brief A variance value for the autofocus algorithm
++	 */
++	double variance;
+ };
+ 
+ } /* namespace libcamera */
+diff --git a/src/libcamera/software_isp/swstats_cpu.cpp b/src/libcamera/software_isp/swstats_cpu.cpp
+index 6d8e47f7..23dc4f63 100644
+--- a/src/libcamera/software_isp/swstats_cpu.cpp
++++ b/src/libcamera/software_isp/swstats_cpu.cpp
+@@ -433,6 +433,7 @@ void SwStatsCpu::startFrame(uint32_t frame)
+ 	for (auto &s : stats_) {
+ 		s.sum_ = RGB<uint64_t>({ 0, 0, 0 });
+ 		s.numPixels_ = 0;
++		s.variance = 0.0;
+ 		s.yHistogram.fill(0);
+ 	}
+ }
+@@ -451,10 +452,12 @@ void SwStatsCpu::finishFrame(uint32_t frame, uint32_t bufferId)
+ 	if (valid) {
+ 		sharedStats_->sum_ = RGB<uint64_t>({ 0, 0, 0 });
+ 		sharedStats_->numPixels_ = 0;
++		sharedStats_->variance = 0.0;
+ 		sharedStats_->yHistogram.fill(0);
+ 		for (const auto &s : stats_) {
+ 			sharedStats_->sum_ += s.sum_;
+ 			sharedStats_->numPixels_ += s.numPixels_;
++			sharedStats_->variance += s.variance;
+ 			for (unsigned int j = 0; j < SwIspStats::kYHistogramSize; j++)
+ 				sharedStats_->yHistogram[j] += s.yHistogram[j];
+ 		}

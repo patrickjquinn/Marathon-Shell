@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 21:26:06 +0000
+Subject: [PATCH] ipa: libipa: agc_mean_luminance: Don't wind up the exposure
+ in the dark
+
+When the image is black the lower bound constraints divide the target by
+a mean close to zero, and the exposure value grows by up to 10^8. The
+exposure time and analogue gain clamp it, the rest shows as a huge
+digital gain, but the filtered exposure value keeps it: when the scene
+brightens it only shrinks by a fifth per frame, so the image stays
+overexposed for tens of statistics frames.
+
+Clamp the filtered exposure value to what the exposure time and
+analogue gain deliver.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/libipa/agc_mean_luminance.cpp | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/src/ipa/libipa/agc_mean_luminance.cpp b/src/ipa/libipa/agc_mean_luminance.cpp
+index 0c5ad469..9f68206a 100644
+--- a/src/ipa/libipa/agc_mean_luminance.cpp
++++ b/src/ipa/libipa/agc_mean_luminance.cpp
+@@ -797,7 +797,20 @@ AgcMeanLuminance::calculateNewEv(const Params &params)
+ 	newExposureValue = filterExposure(newExposureValue);
+ 
+ 	frameCount_++;
+-	return { exposureModeHelper.splitExposure(newExposureValue), yTarget };
++
++	ExposureModeHelper::Result result = exposureModeHelper.splitExposure(newExposureValue);
++
++	/*
++	 * In the dark the gain to the target has no bound. Don't let the
++	 * filtered exposure value wind up beyond what the exposure time and
++	 * analogue gain deliver, or it takes many frames to come back down when
++	 * the scene brightens.
++	 */
++	filteredExposure_ = std::min<utils::Duration>(filteredExposure_,
++						      result.exposureTime * result.analogueGain *
++						      result.quantizationGain);
++
++	return { result, yTarget };
+ }
+ 
+ } /* namespace ipa */

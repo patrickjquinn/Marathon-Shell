@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 12:30:00 +0000
+Subject: [PATCH] media: mediatek: isp6s: camsv: Honour the requested
+ bytesperline
+
+TRY_FMT and S_FMT always replaced bytesperline with the packed line
+length, and the IMGO DMA was programmed with that one value as both its
+line size (XSIZE) and its line pitch (STRIDE). A user that needs padded
+lines got the packed pitch back: libcamera's GPU debayer asks for a
+256-byte-aligned pitch so it can import the buffer into EGL, got 8160
+instead of 8192 for a 4080-pixel 16-bit Bayer line, and fell back to
+copying every 25 MB frame to the GPU on the CPU.
+
+The DMA keeps the two apart: XSIZE is the number of bytes written per
+line and STRIDE the distance between line starts. MediaTek's ISP 7.1
+CAMSV driver programs a STRIDE larger than XSIZE when the RAW path
+needs one, and its STRIDE field is the register's low 16 bits, as the
+format bits this driver ORs in above bit 16 imply here. Accept a
+requested bytesperline between the packed line length and that limit,
+aligned to the bus width the line length already uses, size the planes
+from it, and program XSIZE from the width.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ camsv/mtk_camsv.h       | 9 +++++++++
+ camsv/mtk_camsv_hw.c    | 4 +++-
+ camsv/mtk_camsv_video.c | 6 ++++--
+ 3 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/camsv/mtk_camsv.h b/camsv/mtk_camsv.h
+index 19399ef..56eb606 100644
+--- a/camsv/mtk_camsv.h
++++ b/camsv/mtk_camsv.h
+@@ -27,6 +27,8 @@
+ #define IMG_DEF_HEIGHT			1080
+ #define IMG_MIN_WIDTH			80
+ #define IMG_MIN_HEIGHT			60
++/* IMGO_STRIDE holds the line pitch in its low 16 bits */
++#define IMG_MAX_BPL			0xffff
+ 
+ #define MTK_CAM_CIO_PAD_SENINF		0
+ #define MTK_CAM_CIO_PAD_VIDEO		1
+@@ -41,6 +43,13 @@ struct mtk_cam_format_info {
+ 	u8 bpp;
+ };
+ 
++/* Bytes the IMGO DMA writes per line: whole bus words of 2 << pix_mode bytes */
++static inline u32 mtk_cam_line_bytes(const struct mtk_cam_format_info *fmtinfo,
++				     u32 width, unsigned char pix_mode)
++{
++	return ALIGN(DIV_ROUND_UP(width * fmtinfo->bpp, 8), 2 << pix_mode);
++}
++
+ struct mtk_cam_dev_buffer {
+ 	struct vb2_v4l2_buffer v4l2_buf;
+ 	struct list_head list;
+diff --git a/camsv/mtk_camsv_hw.c b/camsv/mtk_camsv_hw.c
+index 380ec48..a4c0688 100644
+--- a/camsv/mtk_camsv_hw.c
++++ b/camsv/mtk_camsv_hw.c
+@@ -261,7 +261,9 @@ static int mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
+ 	mtk_camsv_write(cam_dev, CAMSV_FBC_IMGO_CTL1, 0x0U);
+ 	// mtk_camsv_write(cam_dev, CAMSV_FBC_IMGO_CTL1, 0x00010000U);
+ 
+-	mtk_camsv_write(cam_dev, CAMSV_IMGO_XSIZE, bpl - 1U);
++	mtk_camsv_write(cam_dev, CAMSV_IMGO_XSIZE,
++			mtk_cam_line_bytes(cam_dev->vdev.fmtinfo, w,
++					   mtk_camsv_get_pixel_mode(cam_dev)) - 1U);
+ 	mtk_camsv_write(cam_dev, CAMSV_IMGO_YSIZE, h - 1U);
+ 
+ 	mtk_camsv_write(cam_dev, CAMSV_IMGO_STRIDE, sparams.imgo_stride | bpl);
+diff --git a/camsv/mtk_camsv_video.c b/camsv/mtk_camsv_video.c
+index 7c4371a..1e42c30 100644
+--- a/camsv/mtk_camsv_video.c
++++ b/camsv/mtk_camsv_video.c
+@@ -172,11 +172,13 @@ static void calc_bpl_size_pix_mp(const struct mtk_cam_format_info *fmtinfo,
+ 				 struct v4l2_pix_format_mplane *pix_mp,
+ 				 unsigned char camsv_pix_mode)
+ {
++	unsigned int align = 2 << camsv_pix_mode;
+ 	unsigned int bpl;
+ 	unsigned int i;
+ 
+-	bpl = ALIGN(DIV_ROUND_UP(pix_mp->width * fmtinfo->bpp, 8),
+-		    2 << camsv_pix_mode);
++	bpl = clamp_t(u32, ALIGN(pix_mp->plane_fmt[0].bytesperline, align),
++		      mtk_cam_line_bytes(fmtinfo, pix_mp->width, camsv_pix_mode),
++		      ALIGN_DOWN(IMG_MAX_BPL, align));
+ 
+ 	for (i = 0; i < pix_mp->num_planes; ++i) {
+ 		pix_mp->plane_fmt[i].bytesperline = bpl;
+-- 
+2.55.0
+

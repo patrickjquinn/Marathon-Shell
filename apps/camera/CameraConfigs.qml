@@ -11,7 +11,9 @@ import MarathonApp.Camera
 QtObject {
     enum AspectRatio {
         AspectRatio_4_3,
-        AspectRatio_16_9
+        AspectRatio_16_9,
+        // A square cut from the middle of the 4:3 frame.
+        AspectRatio_1_1
     }
 
     // Set by CaptureView.
@@ -32,7 +34,8 @@ QtObject {
         return camera.captureMode === Camera.CaptureVideo ? [Camera.FlashOff, Camera.FlashTorch] : [Camera.FlashOff, Camera.FlashOn];
     }
     // No focus control reaches libcamera's cameras through Qt Multimedia.
-    readonly property var supportedFocusModes: [Camera.FocusInfinity]
+    // A camera with a focus motor focuses continuously, and on a tap.
+    readonly property var supportedFocusModes: ready && _controller.focusSupported ? [Camera.FocusAuto, Camera.FocusContinuous] : [Camera.FocusInfinity]
     readonly property var supportedExposureModes: [Camera.ExposureManual]
     readonly property var supportedIsoSensitivities: []
     readonly property var supportedWhiteBalanceModes: []

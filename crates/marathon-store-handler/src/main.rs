@@ -100,6 +100,7 @@ fn run(request: &Request) -> std::io::Result<()> {
                 .filter(|name| !name.is_empty())
                 .or_else(|| state.installed_name(&request.arg))
                 .or_else(|| fdroid::catalogue_name(&request.arg))
+                .or_else(|| ops::installed_name(FLATPAK, &request.arg))
                 .unwrap_or_else(|| request.arg.clone());
             let notice = notice::Notice::for_job(request.verb, &name);
             if marathon::app_of(&request.arg).is_some() {

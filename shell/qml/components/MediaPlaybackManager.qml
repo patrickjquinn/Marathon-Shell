@@ -2,8 +2,10 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Lock-screen media controls, straight on the ambience: art, title and
-// artist, a highlight scrubber, ring buttons.
+// Lock-screen media controls, straight on the ambience, in one row: art,
+// title and artist, then previous, play and next beside them, so the card
+// leaves the lock screen to the notifications. A scrubber below for a
+// track with a length.
 Item {
     id: mediaManager
 
@@ -19,6 +21,13 @@ Item {
     // Stands in for missing art, as Shortwave draws a station: "CJME News/Talk" → "CN".
     readonly property string initials: trackTitle.split(/\s+/).filter(w => /^\w/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join("")
 
+    // A paused player in the background is frozen and can't answer: wake it first.
+    function control(command) {
+        if (MPRIS2Controller.desktopEntry)
+            Tasks.wakeApp(MPRIS2Controller.desktopEntry);
+        command();
+    }
+
     function formatTime(seconds) {
         const total = Math.max(0, Math.floor(seconds));
         const m = Math.floor(total / 60);
@@ -27,7 +36,7 @@ Item {
     }
 
     width: parent ? parent.width : 0
-    implicitHeight: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
+    implicitHeight: cardContent.implicitHeight + Silica.Theme.paddingMedium * 2
 
     MouseArea {
         anchors.fill: parent
@@ -49,16 +58,19 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: Silica.Theme.paddingLarge
-        spacing: Silica.Theme.paddingLarge
+        anchors.margins: Silica.Theme.paddingMedium
+        spacing: Silica.Theme.paddingMedium
 
         Row {
+            id: playerRow
+
             width: parent.width
             spacing: Silica.Theme.paddingMedium
 
             Rectangle {
                 id: albumBay
-                width: Silica.Theme.iconSizeLarge
+                anchors.verticalCenter: parent.verticalCenter
+                width: Silica.Theme.iconSizeMedium + Silica.Theme.paddingSmall
                 height: width
                 radius: Silica.Theme.paddingSmall
                 clip: true
@@ -100,22 +112,54 @@ Item {
 
             Column {
                 anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - albumBay.width - parent.spacing
+                width: parent.width - albumBay.width - controls.width - parent.spacing * 2
 
                 Silica.Label {
                     width: parent.width
                     text: mediaManager.trackTitle
                     color: Silica.Theme.primaryColor
-                    font.pixelSize: Silica.Theme.fontSizeMedium
+                    font.pixelSize: Silica.Theme.fontSizeSmall
                     truncationMode: Silica.TruncationMode.Fade
                 }
                 Silica.Label {
                     width: parent.width
                     text: mediaManager.artist
                     color: Silica.Theme.secondaryColor
-                    font.pixelSize: Silica.Theme.fontSizeSmall
+                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
                     truncationMode: Silica.TruncationMode.Fade
                     visible: text.length > 0
+                }
+            }
+
+            Row {
+                id: controls
+
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Silica.Theme.paddingMedium
+
+                MCircularIconButton {
+                    buttonSize: 40
+                    iconName: "skip-back"
+                    variant: "secondary"
+                    disabled: !(mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoPrevious)
+                    anchors.verticalCenter: parent.verticalCenter
+                    onClicked: mediaManager.control(() => MPRIS2Controller.previous())
+                }
+                MCircularIconButton {
+                    buttonSize: 52
+                    iconName: mediaManager.isPlaying ? "pause" : "play"
+                    variant: "primary"
+                    disabled: !(mediaManager.hasMedia && MPRIS2Controller)
+                    anchors.verticalCenter: parent.verticalCenter
+                    onClicked: mediaManager.control(() => MPRIS2Controller.playPause())
+                }
+                MCircularIconButton {
+                    buttonSize: 40
+                    iconName: "skip-forward"
+                    variant: "secondary"
+                    disabled: !(mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoNext)
+                    anchors.verticalCenter: parent.verticalCenter
+                    onClicked: mediaManager.control(() => MPRIS2Controller.next())
                 }
             }
         }
@@ -190,43 +234,6 @@ Item {
                 font.features: ({
                         "tnum": 1
                     })
-            }
-        }
-
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Silica.Theme.paddingLarge * 2
-
-            MCircularIconButton {
-                buttonSize: 48
-                iconName: "skip-back"
-                variant: "secondary"
-                disabled: !(mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoPrevious)
-                anchors.verticalCenter: parent.verticalCenter
-                onClicked: {
-                    MPRIS2Controller.previous();
-                }
-            }
-
-            MCircularIconButton {
-                buttonSize: 62
-                iconName: mediaManager.isPlaying ? "pause" : "play"
-                variant: "primary"
-                disabled: !(mediaManager.hasMedia && MPRIS2Controller)
-                onClicked: {
-                    MPRIS2Controller.playPause();
-                }
-            }
-
-            MCircularIconButton {
-                buttonSize: 48
-                iconName: "skip-forward"
-                variant: "secondary"
-                disabled: !(mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoNext)
-                anchors.verticalCenter: parent.verticalCenter
-                onClicked: {
-                    MPRIS2Controller.next();
-                }
             }
         }
     }

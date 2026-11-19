@@ -187,6 +187,8 @@ pub mod qobject {
 
 use qobject::Network;
 
+/// How long active connections' changes settle before they are read.
+const LINKS_SETTLE: Duration = Duration::from_millis(300);
 const BLUEZ_ADAPTER: &str = "org.bluez.Adapter1";
 
 /// `Marathon-XXXX` and `xxxx-xxxx-xxxx`, read off the screen and typed.
@@ -1117,6 +1119,8 @@ enum Event {
     },
     /// A requested connection still hasn't ended this long after it began.
     ConnectTimeout(OwnedObjectPath),
+    /// Time to read the active connections again (`Actor::links_soon`).
+    LinksDue,
     PortalRecheck,
     /// A notification was tapped or one of its actions chosen.
     NoticeAction(u32),
@@ -1146,6 +1150,8 @@ struct Actor {
     rescan: Sender<Event>,
     /// The Bluetooth adapters airplane mode powered off, to power back on.
     airplane_bluetooth: Vec<OwnedObjectPath>,
+    /// A read of the active connections is on its way.
+    links_due: bool,
 }
 
 async fn run(qt: Qt, commands: Receiver<Command>) {
@@ -1174,23 +1180,9 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         hotspot_active: false,
         rescan,
         airplane_bluetooth: Vec::new(),
+        links_due: false,
     };
-    actor.detect_hardware().await;
-    if let Ok(enabled) = actor.nm.wireless_enabled().await {
-        actor
-            .qt
-            .queue(move |obj| obj.apply_wifi_enabled(enabled))
-            .ok();
-    }
-    if let Ok(wwan) = actor.nm.wwan_enabled().await {
-        actor.publish_wwan(wwan);
-    }
-    actor.refresh_links().await;
-    actor.refresh_saved().await;
-    actor.scan().await;
-    if let Ok(state) = actor.nm.connectivity().await {
-        actor.publish_connectivity(state).await;
-    }
+    actor.start().await;
 
     let events = commands
         .map(Event::Command)
@@ -1213,7 +1205,8 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     .ok();
             }
             Event::WwanEnabled(wwan) => actor.publish_wwan(wwan),
-            Event::ActiveChanged => actor.refresh_links().await,
+            Event::ActiveChanged => actor.links_soon(),
+            Event::LinksDue => actor.links_now().await,
             Event::DevicesChanged => {
                 actor.detect_hardware().await;
                 actor.scan().await;
@@ -1222,7 +1215,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 path,
                 state,
                 reason,
-            } => actor.on_active_state(&path, state, reason).await,
+            } => actor.on_active_state(&path, state, reason),
             Event::Saved => actor.refresh_saved().await,
             Event::Strength { path, strength } => {
                 if actor.active_ap.as_ref() == Some(&path) {
@@ -1564,6 +1557,45 @@ impl Actor {
         self.qt.queue(move |obj| obj.apply_networks(&networks)).ok();
     }
 
+    /// Reads the active connections once their changes settle: a modem that
+    /// keeps failing to attach replaces its connection many times a second,
+    /// and each read is a call per connection.
+    fn links_soon(&mut self) {
+        if std::mem::replace(&mut self.links_due, true) {
+            return;
+        }
+        let due = self.rescan.clone();
+        io::spawn(async move {
+            Timer::after(LINKS_SETTLE).await;
+            due.send(Event::LinksDue).await.ok();
+        });
+    }
+
+    /// What the shell shows from the start: the hardware, the radios'
+    /// switches, the links, the saved networks, a scan, connectivity.
+    async fn start(&mut self) {
+        self.detect_hardware().await;
+        if let Ok(enabled) = self.nm.wireless_enabled().await {
+            self.qt
+                .queue(move |obj| obj.apply_wifi_enabled(enabled))
+                .ok();
+        }
+        if let Ok(wwan) = self.nm.wwan_enabled().await {
+            self.publish_wwan(wwan);
+        }
+        self.refresh_links().await;
+        self.refresh_saved().await;
+        self.scan().await;
+        if let Ok(state) = self.nm.connectivity().await {
+            self.publish_connectivity(state).await;
+        }
+    }
+
+    async fn links_now(&mut self) {
+        self.links_due = false;
+        self.refresh_links().await;
+    }
+
     async fn refresh_links(&mut self) {
         let mut links = Links::default();
         for path in self.nm.active_connections().await.unwrap_or_default() {
@@ -1794,7 +1826,7 @@ impl Actor {
         }
     }
 
-    async fn on_active_state(&mut self, path: &OwnedObjectPath, state: u32, reason: u32) {
+    fn on_active_state(&mut self, path: &OwnedObjectPath, state: u32, reason: u32) {
         if self.hotspot.as_ref() == Some(path) {
             self.on_hotspot_state(state);
         }
@@ -1810,7 +1842,7 @@ impl Actor {
                 .queue(move |obj| obj.connection_failed(&QString::from(deactivation_error(reason))))
                 .ok();
         }
-        self.refresh_links().await;
+        self.links_soon();
     }
 
     // The device says why a connection failed (wrong key, no network, no

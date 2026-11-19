@@ -31,12 +31,17 @@ QtObject {
     readonly property var photoResolutions: [Qt.size(4000, 3000), Qt.size(1920, 1080)]
     property size photoResolution: Qt.size(-1, -1)
     property bool isRecording: false
+    readonly property bool takingStill: false
+    property bool squarePhotos: false
     property var photos: []
 
+    signal readyChanged
     signal errorOccurred(string message)
     signal photoExposed
     signal photoSaved(string url)
     signal videoSaved(string url)
+
+    onDiscoveredChanged: readyChanged()
 
     function discover() {
         discovered = true;
@@ -55,7 +60,7 @@ QtObject {
         photoExposed();
         photoSaved("file://" + path);
     }
-    function startRecording(path, posterPath) {
+    function startRecording(path, posterPath, rotation) {
         isRecording = true;
     }
     function stopRecording() {

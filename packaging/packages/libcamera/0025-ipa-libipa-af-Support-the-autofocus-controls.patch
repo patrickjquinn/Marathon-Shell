@@ -1,0 +1,1017 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 20:14:05 +0000
+Subject: [PATCH 25/29] ipa: libipa: af: Support the autofocus controls
+
+AfAlgorithm always runs a continuous autofocus. Add the AfMode,
+AfTrigger, AfPause and LensPosition controls, and report the AfState and
+AfPauseState, so that an IPA can offer the autofocus controls:
+
+- AfModeManual moves the lens to the LensPosition only;
+- AfModeAuto scans once on AfTriggerStart, and AfTriggerCancel stops the
+  scan;
+- AfModeContinuous, still the default, scans and rescans when the focus
+  is lost, and AfPause pauses it, immediately or after the scan.
+
+LensPosition is in dioptres. An optional piecewise linear map in the
+tuning data converts it to lens units, and also limits the scans to the
+part of the lens range it covers; by default the lens range covers 0 to
+10 dioptres. The other constants become optional tuning parameters, with
+their current values as defaults: coarse-step, fine-step, max-change and
+skip-frames.
+
+While at it, fix a few things in the scan, which change the IPU3
+behaviour a little:
+
+- the fine scan used the variance of the last coarse step for its first
+  step, and covered the range just below the coarse result rather than
+  around it: run it on the next frame, a coarse step either side;
+- the scan kept the last position within 10% of the maximum rather than
+  the maximum, and could set a lens position past the lens maximum;
+- the out-of-focus check truncated the variance change to an integer,
+  so a variance below 1 never lost focus, and divided by zero after a
+  scan with no contrast;
+- a new scan could start on the first out-of-focus frame after a scan,
+  as the frames to skip were only counted after an in-focus one.
+
+A scan that finds no contrast at all reports AfStateFailed, and
+meteringChanged() lets the IPA start a new continuous scan when the
+measured area changes. Add a test for the modes and the tuning.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/libipa/af.cpp       | 507 +++++++++++++++++++++++++++---------
+ src/ipa/libipa/af.h         |  48 +++-
+ test/ipa/libipa/af.cpp      | 211 +++++++++++++++
+ test/ipa/libipa/meson.build |   1 +
+ 4 files changed, 640 insertions(+), 127 deletions(-)
+ create mode 100644 test/ipa/libipa/af.cpp
+
+diff --git a/src/ipa/libipa/af.cpp b/src/ipa/libipa/af.cpp
+index fc71bcd7..0ac89708 100644
+--- a/src/ipa/libipa/af.cpp
++++ b/src/ipa/libipa/af.cpp
+@@ -7,8 +7,13 @@
+ 
+ #include "af.h"
+ 
++#include <algorithm>
++#include <cmath>
++
+ #include <linux/v4l2-controls.h>
+ 
++#include "libcamera/internal/value_node.h"
++
+ namespace libcamera {
+ 
+ namespace ipa {
+@@ -39,11 +44,34 @@ namespace af {
+  *
+  * The algorithm is provided with a single variance value in
+  * \a AfAlgorithm::process and adjusts \a ActiveState::focus accordingly.
++ *
++ * It implements the AfMode, AfTrigger, AfPause and LensPosition controls,
++ * through setMode(), setTrigger(), setPause() and setLensPosition(), and
++ * reports the AfState and AfPauseState through afState() and pauseState().
++ * Without any of them, it runs in the AfModeContinuous mode.
++ *
++ * The lens range comes from the V4L2_CID_FOCUS_ABSOLUTE control of the lens.
++ * A scan covers the lens range, or the part of it the dioptre map below
++ * covers.
++ *
++ * Tuning file parameters, all optional:
++ * - **coarse-step:** The lens movement between the coarse scan steps, in lens
++ *   units. Defaults to 30.
++ * - **fine-step:** The lens movement between the fine scan steps, in lens
++ *   units. The fine scan covers a coarse step around the best position found
++ *   by the coarse scan. Defaults to 1.
++ * - **max-change:** The ratio by which the variance must change from the
++ *   focused one, in the AfModeContinuous mode, to start a new scan. Defaults
++ *   to 0.5.
++ * - **skip-frames:** The number of frames to skip before a scan, and for which
++ *   the variance must keep changing in the AfModeContinuous mode before a new
++ *   scan starts. Defaults to 10.
++ * - **map:** A piecewise linear function mapping the LensPosition control, in
++ *   dioptres, to lens units, as a list of dioptre and lens unit pairs.
++ *   Defaults to a linear map of 0 to 10 dioptres over the lens range.
+  */
+ 
+-/**
+- * Default maximum focus steps of the VCM control
+- */
++/* Default maximum focus steps of the VCM control */
+ static constexpr uint32_t kMaxFocusSteps = 1023;
+ 
+ /* Minimum focus step for searching appropriate focus */
+@@ -56,12 +84,20 @@ static constexpr double kMaxChange = 0.5;
+ /* The numbers of frame to be ignored, before performing focus scan. */
+ static constexpr uint32_t kIgnoreFrame = 10;
+ 
+-/* Fine scan range 0 < kFineRange < 1 */
+-static constexpr double kFineRange = 0.05;
++/* The variance drop, as a ratio of the maximum, that ends a scan. */
++static constexpr double kScanDrop = 0.1;
++
++/* The dioptres the lens range maps to without a map in the tuning data. */
++static constexpr double kDefaultMaxDioptres = 10.0;
+ 
+ AfAlgorithm::AfAlgorithm()
+-	: focus_(0), bestFocus_(0), currentVariance_(0.0), previousVariance_(0.0),
+-	  coarseCompleted_(false), fineCompleted_(false)
++	: mode_(controls::AfModeContinuous), afState_(controls::AfStateIdle),
++	  pauseState_(controls::AfPauseStateRunning), focus_(0), bestFocus_(0),
++	  currentVariance_(0.0), ignoreCounter_(0), maxStep_(kMaxFocusSteps),
++	  coarseCompleted_(false), minFocus_(0), maxFocus_(kMaxFocusSteps),
++	  defaultFocus_(0), tunedMap_(false), coarseStep_(kCoarseSearchStep),
++	  fineStep_(kFineSearchStep), maxChange_(kMaxChange),
++	  skipFrames_(kIgnoreFrame)
+ {
+ }
+ 
+@@ -70,127 +106,364 @@ AfAlgorithm::AfAlgorithm()
+  * \brief Return whether the coarse autofocus scan is completed
+  */
+ 
++/**
++ * \fn AfAlgorithm::mode()
++ * \brief Retrieve the autofocus mode
++ * \return The AfMode
++ */
++
++/**
++ * \fn AfAlgorithm::afState()
++ * \brief Retrieve the autofocus state, for the AfState metadata
++ * \return The AfState
++ */
++
++/**
++ * \fn AfAlgorithm::pauseState()
++ * \brief Retrieve the pause state, for the AfPauseState metadata
++ * \return The AfPauseState
++ */
++
++/**
++ * \brief Initialise the algorithm from the tuning data
++ * \param[in] tuningData The tuning data of the algorithm
++ * \param[in] lensControls The lens controls
++ *
++ * Calling this function is optional: without it, the algorithm uses the
++ * default tuning parameters.
++ *
++ * \return 0 on success, a negative error code otherwise
++ */
++int AfAlgorithm::init(const ValueNode &tuningData, const ControlInfoMap &lensControls)
++{
++	coarseStep_ = tuningData["coarse-step"].get<uint32_t>(kCoarseSearchStep);
++	fineStep_ = tuningData["fine-step"].get<uint32_t>(kFineSearchStep);
++	maxChange_ = tuningData["max-change"].get<double>(kMaxChange);
++	skipFrames_ = tuningData["skip-frames"].get<uint32_t>(kIgnoreFrame);
++
++	if (!coarseStep_ || !fineStep_) {
++		LOG(Af, Error) << "Invalid scan steps";
++		return -EINVAL;
++	}
++
++	if (tuningData.contains("map")) {
++		std::optional<Pwl> map = tuningData["map"].get<Pwl>();
++		if (!map || map->size() < 2 || !map->inverse().second) {
++			LOG(Af, Error) << "Invalid lens position map";
++			return -EINVAL;
++		}
++
++		map_ = std::move(*map);
++		tunedMap_ = true;
++	}
++
++	setLensLimits(lensControls);
++
++	LOG(Af, Debug)
++		<< "Coarse step " << coarseStep_ << ", fine step " << fineStep_
++		<< ", max change " << maxChange_ << ", skip frames " << skipFrames_
++		<< ", lens map " << map_.toString();
++
++	return 0;
++}
++
++void AfAlgorithm::setLensLimits(const ControlInfoMap &lensControls)
++{
++	int32_t lensMin = 0;
++	int32_t lensMax = kMaxFocusSteps;
++	int32_t lensDefault = 0;
++
++	const auto it = lensControls.find(V4L2_CID_FOCUS_ABSOLUTE);
++	if (it != lensControls.end()) {
++		const ControlInfo &focusInfo = it->second;
++		if (!focusInfo.min().isNone())
++			lensMin = focusInfo.min().get<int32_t>();
++		if (!focusInfo.max().isNone())
++			lensMax = focusInfo.max().get<int32_t>();
++		if (!focusInfo.def().isNone())
++			lensDefault = focusInfo.def().get<int32_t>();
++	}
++
++	lensMin = std::max(lensMin, 0);
++	lensMax = std::max(lensMax, lensMin);
++
++	if (!tunedMap_) {
++		map_.clear();
++		map_.append(0.0, lensMin);
++		map_.append(kDefaultMaxDioptres, lensMax);
++	}
++	inverseMap_ = map_.inverse().first;
++
++	const Pwl::Interval range = map_.range();
++	minFocus_ = std::clamp<int32_t>(std::lround(range.start), lensMin, lensMax);
++	maxFocus_ = std::clamp<int32_t>(std::lround(range.end), minFocus_, lensMax);
++	defaultFocus_ = std::clamp<int32_t>(lensDefault, minFocus_, maxFocus_);
++}
++
++/**
++ * \brief Retrieve the control information of the LensPosition control
++ *
++ * The range covers the dioptre map, and the default is the lens default
++ * position.
++ *
++ * \return The LensPosition control information
++ */
++ControlInfo AfAlgorithm::lensPositionInfo() const
++{
++	const Pwl::Interval domain = map_.domain();
++
++	return ControlInfo(static_cast<float>(domain.start),
++			   static_cast<float>(domain.end),
++			   static_cast<float>(inverseMap_.eval(defaultFocus_)));
++}
++
++/**
++ * \brief Retrieve the lens position in dioptres, for the LensPosition metadata
++ * \param[in] state The autofocus state
++ * \return The lens position in dioptres
++ */
++float AfAlgorithm::lensPosition(const af::ActiveState &state) const
++{
++	return inverseMap_.eval(state.focus);
++}
++
++/**
++ * \brief Set the autofocus mode
++ * \param[in] state The autofocus state
++ * \param[in] mode The AfMode
++ *
++ * The AfModeContinuous mode starts a scan right away, the AfModeAuto mode
++ * waits for an AfTriggerStart.
++ */
++void AfAlgorithm::setMode(af::ActiveState &state, controls::AfModeEnum mode)
++{
++	if (mode == mode_)
++		return;
++
++	LOG(Af, Debug) << "Mode " << mode_ << " -> " << mode;
++
++	mode_ = mode;
++	pauseState_ = controls::AfPauseStateRunning;
++
++	if (mode_ == controls::AfModeContinuous)
++		startScan(state);
++	else
++		afState_ = controls::AfStateIdle;
++}
++
++/**
++ * \brief Start or cancel a scan in the AfModeAuto mode
++ * \param[in] state The autofocus state
++ * \param[in] trigger The AfTrigger
++ */
++void AfAlgorithm::setTrigger(af::ActiveState &state, controls::AfTriggerEnum trigger)
++{
++	if (mode_ != controls::AfModeAuto) {
++		LOG(Af, Debug) << "Ignoring AfTrigger outside of AfModeAuto";
++		return;
++	}
++
++	switch (trigger) {
++	case controls::AfTriggerStart:
++		startScan(state);
++		break;
++	case controls::AfTriggerCancel:
++		if (afState_ == controls::AfStateScanning)
++			afState_ = controls::AfStateIdle;
++		break;
++	}
++}
++
++/**
++ * \brief Pause or resume the AfModeContinuous mode
++ * \param[in] pause The AfPause
++ */
++void AfAlgorithm::setPause(controls::AfPauseEnum pause)
++{
++	if (mode_ != controls::AfModeContinuous) {
++		LOG(Af, Debug) << "Ignoring AfPause outside of AfModeContinuous";
++		return;
++	}
++
++	switch (pause) {
++	case controls::AfPauseImmediate:
++		pauseState_ = controls::AfPauseStatePaused;
++		break;
++	case controls::AfPauseDeferred:
++		if (afState_ == controls::AfStateScanning)
++			pauseState_ = controls::AfPauseStatePausing;
++		else
++			pauseState_ = controls::AfPauseStatePaused;
++		break;
++	case controls::AfPauseResume:
++		pauseState_ = controls::AfPauseStateRunning;
++		break;
++	}
++}
++
++/**
++ * \brief Move the lens in the AfModeManual mode
++ * \param[in] state The autofocus state
++ * \param[in] position The LensPosition, in dioptres
++ */
++void AfAlgorithm::setLensPosition(af::ActiveState &state, float position)
++{
++	if (mode_ != controls::AfModeManual) {
++		LOG(Af, Debug) << "Ignoring LensPosition outside of AfModeManual";
++		return;
++	}
++
++	state.focus = std::clamp<int64_t>(std::lround(map_.eval(position)),
++					  minFocus_, maxFocus_);
++
++	LOG(Af, Debug) << "Lens position " << position << " -> " << state.focus;
++}
++
++/**
++ * \brief Notify the algorithm that the variance measures another area
++ * \param[in] state The autofocus state
++ *
++ * In the AfModeContinuous mode, start a new scan unless paused, as the
++ * focused position is unlikely to suit the new area. Call it when the
++ * AfMetering or AfWindows controls change.
++ */
++void AfAlgorithm::meteringChanged(af::ActiveState &state)
++{
++	if (mode_ == controls::AfModeContinuous &&
++	    pauseState_ == controls::AfPauseStateRunning)
++		startScan(state);
++}
++
++/**
++ * \brief Start a scan from the lower end of the lens range
++ * \param[in] state The autofocus state
++ */
++void AfAlgorithm::startScan(af::ActiveState &state)
++{
++	state.maxVariance = 0;
++	state.focus = minFocus_;
++	state.stable = false;
++	focus_ = minFocus_;
++	bestFocus_ = minFocus_;
++	maxStep_ = maxFocus_;
++	coarseCompleted_ = false;
++	ignoreCounter_ = skipFrames_;
++	afState_ = controls::AfStateScanning;
++}
++
++/**
++ * \brief Run a scan step
++ * \param[in] state The autofocus state
++ */
++void AfAlgorithm::scan(af::ActiveState &state)
++{
++	if (!coarseCompleted_) {
++		afCoarseScan(state);
++		return;
++	}
++
++	afFineScan(state);
++	if (!state.stable)
++		return;
++
++	afState_ = state.maxVariance > 0.0 ? controls::AfStateFocused
++					   : controls::AfStateFailed;
++	afIgnoreFrameReset();
++	if (pauseState_ == controls::AfPauseStatePausing)
++		pauseState_ = controls::AfPauseStatePaused;
++}
++
+ /**
+  * \brief AF coarse scan
+  * \param[in] state The autofocus state
+  *
+  * Find a near focused image using a coarse step. The step is determined by
+- * kCoarseSearchStep.
++ * the coarse-step tuning parameter.
+  */
+ void AfAlgorithm::afCoarseScan(af::ActiveState &state)
+ {
+-	if (coarseCompleted_)
++	if (afNeedIgnoreFrame())
+ 		return;
+ 
+-	if (afNeedIgnoreFrame())
++	if (!afScan(state, coarseStep_))
+ 		return;
+ 
+-	if (afScan(state, kCoarseSearchStep)) {
+-		coarseCompleted_ = true;
+-		state.maxVariance = 0;
+-		focus_ = state.focus -
+-			 (state.focus * kFineRange);
+-		state.focus = focus_;
+-		previousVariance_ = 0;
+-		maxStep_ = std::clamp(focus_ + static_cast<uint32_t>((focus_ * kFineRange)),
+-				      0U, kMaxFocusSteps);
+-	}
++	/* The peak is within a coarse step of the best position found. */
++	coarseCompleted_ = true;
++	focus_ = bestFocus_ > minFocus_ + coarseStep_ ? bestFocus_ - coarseStep_
++						      : minFocus_;
++	maxStep_ = std::min(bestFocus_ + coarseStep_, maxFocus_);
++	bestFocus_ = focus_;
++	state.focus = focus_;
++	state.maxVariance = 0;
+ }
+ 
+ /**
+  * \brief AF fine scan
+  * \param[in] state The autofocus state
+  *
+- * Find an optimum lens position with moving 1 step for each search.
++ * Find an optimum lens position around the coarse scan result, moving the
++ * lens by the fine-step tuning parameter for each search.
+  */
+ void AfAlgorithm::afFineScan(af::ActiveState &state)
+ {
+-	if (!coarseCompleted_)
+-		return;
+-
+ 	if (afNeedIgnoreFrame())
+ 		return;
+ 
+-	if (afScan(state, kFineSearchStep)) {
++	if (afScan(state, fineStep_))
+ 		state.stable = true;
+-		fineCompleted_ = true;
+-	}
+ }
+ 
+ /**
+  * \brief AF reset
+  * \param[in] state The autofocus state
+  *
+- * Reset all the parameters to start over the AF process.
++ * Start over the AF process, once the focus has been lost for the number of
++ * frames given by the skip-frames tuning parameter.
+  */
+ void AfAlgorithm::afReset(af::ActiveState &state)
+ {
+ 	if (afNeedIgnoreFrame())
+ 		return;
+ 
+-	state.maxVariance = 0;
+-	state.focus = 0;
+-	focus_ = 0;
+-	state.stable = false;
+-	ignoreCounter_ = kIgnoreFrame;
+-	previousVariance_ = 0.0;
+-	coarseCompleted_ = false;
+-	fineCompleted_ = false;
+-	maxStep_ = initMaxStep_;
++	startScan(state);
+ }
+ 
+ /**
+  * \brief AF variance comparison
+  * \param[in] state The autofocus state
+- * \param[in] min_step The VCM movement step
++ * \param[in] step The VCM movement step
+  *
+- * We always pick the largest variance to replace the previous one. The image
++ * Move the lens by \a step as long as the variance doesn't drop clearly below
++ * its maximum, and keep the position with the maximum variance. The image
+  * with a larger variance also indicates it is a clearer image than previous
+- * one. If we find a negative derivative, we return immediately.
++ * one. When the variance drops, we have passed the peak: move back to the
++ * best position.
+  *
+- * \return True, if it finds a AF value
++ * \return True when the scan is done and the lens at the best position
+  */
+-bool AfAlgorithm::afScan(af::ActiveState &state, int min_step)
++bool AfAlgorithm::afScan(af::ActiveState &state, uint32_t step)
+ {
+-	if (focus_ > maxStep_) {
+-		/* If reach the max step, move lens to the position. */
++	if (currentVariance_ < state.maxVariance * (1.0 - kScanDrop)) {
+ 		state.focus = bestFocus_;
+ 		return true;
+-	} else {
+-		/*
+-		 * Find the maximum of the variance by estimating its
+-		 * derivative. If the direction changes, it means we have
+-		 * passed a maximum one step before.
+-		 */
+-		if ((currentVariance_ - state.maxVariance) >=
+-		    -(state.maxVariance * 0.1)) {
+-			/*
+-			 * Positive and zero derivative:
+-			 * The variance is still increasing. The focus could be
+-			 * increased for the next comparison. Also, the max variance
+-			 * and previous focus value are updated.
+-			 */
+-			bestFocus_ = focus_;
+-			focus_ += min_step;
+-			state.focus = focus_;
+-			state.maxVariance = currentVariance_;
+-		} else {
+-			/*
+-			 * Negative derivative:
+-			 * The variance starts to decrease which means the maximum
+-			 * variance is found. Set focus step to previous good one
+-			 * then return immediately.
+-			 */
+-			state.focus = bestFocus_;
+-			return true;
+-		}
+ 	}
+ 
+-	previousVariance_ = currentVariance_;
+-	LOG(Af, Debug) << " Previous step is "
+-		       << bestFocus_
+-		       << " Current step is "
+-		       << focus_;
++	if (currentVariance_ > state.maxVariance) {
++		bestFocus_ = focus_;
++		state.maxVariance = currentVariance_;
++	}
++
++	if (focus_ >= maxStep_) {
++		state.focus = bestFocus_;
++		return true;
++	}
++
++	focus_ = std::min(focus_ + step, maxStep_);
++	state.focus = focus_;
++
++	LOG(Af, Debug) << "Best step " << bestFocus_
++		       << ", current step " << focus_;
+ 	return false;
+ }
+ 
+@@ -212,7 +485,7 @@ bool AfAlgorithm::afNeedIgnoreFrame()
+  */
+ void AfAlgorithm::afIgnoreFrameReset()
+ {
+-	ignoreCounter_ = kIgnoreFrame;
++	ignoreCounter_ = skipFrames_;
+ }
+ 
+ /**
+@@ -227,19 +500,16 @@ void AfAlgorithm::afIgnoreFrameReset()
+  */
+ bool AfAlgorithm::afIsOutOfFocus(af::ActiveState &state)
+ {
+-	const uint32_t diff_var = std::abs(currentVariance_ -
+-					   state.maxVariance);
+-	const double var_ratio = diff_var / state.maxVariance;
++	if (state.maxVariance <= 0.0)
++		return currentVariance_ > 0.0;
+ 
+-	LOG(Af, Debug) << "Variance change rate: "
+-		       << var_ratio
+-		       << " Current VCM step: "
+-		       << state.focus;
++	const double varRatio = std::abs(currentVariance_ - state.maxVariance) /
++				state.maxVariance;
+ 
+-	if (var_ratio > kMaxChange)
+-		return true;
+-	else
+-		return false;
++	LOG(Af, Debug) << "Variance change rate: " << varRatio
++		       << " Current VCM step: " << state.focus;
++
++	return varRatio > maxChange_;
+ }
+ 
+ /**
+@@ -247,37 +517,19 @@ bool AfAlgorithm::afIsOutOfFocus(af::ActiveState &state)
+  * \param[in] state The autofocus state
+  * \param[in] lensControls The lens controls
+  *
+- * The method just sets some initial variable values rather than performing real
+- * configuration but it is supposed to be called from IPA's `configure`.
++ * Reset the algorithm to the AfModeContinuous mode, and start a scan. This is
++ * supposed to be called from IPA's `configure`.
+  */
+ void AfAlgorithm::configure(af::ActiveState &state, const ControlInfoMap &lensControls)
+ {
+-	/* Initial max focus step */
+-	initMaxStep_ = kMaxFocusSteps;
++	setLensLimits(lensControls);
+ 
+-	/* Initial frame ignore counter */
+-	afIgnoreFrameReset();
++	mode_ = controls::AfModeContinuous;
++	pauseState_ = controls::AfPauseStateRunning;
++	startScan(state);
+ 
+-	/* Initial focus value */
+-	state.focus = 0;
+-	/* Maximum variance of the AF statistics */
+-	state.maxVariance = 0;
+-	/* The stable AF value flag. if it is true, the AF should be in a stable state. */
+-	state.stable = false;
+-
+-	const auto it = lensControls.find(V4L2_CID_FOCUS_ABSOLUTE);
+-	if (it != lensControls.end()) {
+-		const ControlInfo &focusInfo = it->second;
+-		if (!focusInfo.max().isNone())
+-			initMaxStep_ = static_cast<uint32_t>(focusInfo.max().get<int32_t>());
+-		if (!focusInfo.def().isNone())
+-			state.focus = static_cast<uint32_t>(focusInfo.def().get<int32_t>());
+-	}
+-
+-	maxStep_ = initMaxStep_;
+-
+-	LOG(Af, Debug) << "Configured focus parameters: max=" << initMaxStep_
+-		       << " focus=" << state.focus;
++	LOG(Af, Debug) << "Configured focus parameters: min=" << minFocus_
++		       << " max=" << maxFocus_;
+ }
+ 
+ /**
+@@ -293,20 +545,35 @@ void AfAlgorithm::configure(af::ActiveState &state, const ControlInfoMap &lensCo
+  * statistics are estimated. If it finds the negative derivative we have just
+  * passed the peak, and we infer that the best focus is found.
+  *
++ * Each call must provide the variance of a frame captured with the lens at the
++ * position set by the previous call.
++ *
+  * [1] Hill Climbing Algorithm, https://en.wikipedia.org/wiki/Hill_climbing
+  */
+ void AfAlgorithm::process(af::ActiveState &state, double variance)
+ {
+ 	currentVariance_ = variance;
+ 
+-	if (!state.stable) {
+-		afCoarseScan(state);
+-		afFineScan(state);
+-	} else {
+-		if (afIsOutOfFocus(state))
++	switch (mode_) {
++	case controls::AfModeManual:
++		break;
++
++	case controls::AfModeAuto:
++		if (afState_ == controls::AfStateScanning)
++			scan(state);
++		break;
++
++	case controls::AfModeContinuous:
++		if (pauseState_ == controls::AfPauseStatePaused)
++			break;
++
++		if (!state.stable)
++			scan(state);
++		else if (afIsOutOfFocus(state))
+ 			afReset(state);
+ 		else
+ 			afIgnoreFrameReset();
++		break;
+ 	}
+ }
+ 
+diff --git a/src/ipa/libipa/af.h b/src/ipa/libipa/af.h
+index 464fc0f7..c70fcd38 100644
+--- a/src/ipa/libipa/af.h
++++ b/src/ipa/libipa/af.h
+@@ -7,6 +7,8 @@
+ 
+ #pragma once
+ 
++#include <stdint.h>
++
+ #include <linux/v4l2-controls.h>
+ 
+ #include <libcamera/base/log.h>
+@@ -14,8 +16,12 @@
+ #include <libcamera/control_ids.h>
+ #include <libcamera/controls.h>
+ 
++#include "pwl.h"
++
+ namespace libcamera {
+ 
++class ValueNode;
++
+ namespace ipa {
+ 
+ LOG_DECLARE_CATEGORY(Af)
+@@ -40,20 +46,40 @@ class AfAlgorithm
+ public:
+ 	AfAlgorithm();
+ 
++	int init(const ValueNode &tuningData, const ControlInfoMap &lensControls);
+ 	void configure(af::ActiveState &state, const ControlInfoMap &lensControls);
+ 	void process(af::ActiveState &state, double variance);
+ 	bool coarseCompleted() { return coarseCompleted_; }
+ 
++	void setMode(af::ActiveState &state, controls::AfModeEnum mode);
++	void setTrigger(af::ActiveState &state, controls::AfTriggerEnum trigger);
++	void setPause(controls::AfPauseEnum pause);
++	void setLensPosition(af::ActiveState &state, float position);
++	void meteringChanged(af::ActiveState &state);
++
++	controls::AfModeEnum mode() const { return mode_; }
++	controls::AfStateEnum afState() const { return afState_; }
++	controls::AfPauseStateEnum pauseState() const { return pauseState_; }
++	float lensPosition(const af::ActiveState &state) const;
++	ControlInfo lensPositionInfo() const;
++
+ private:
++	void setLensLimits(const ControlInfoMap &lensControls);
++	void startScan(af::ActiveState &state);
++	void scan(af::ActiveState &state);
+ 	void afCoarseScan(af::ActiveState &af);
+ 	void afFineScan(af::ActiveState &af);
+-	bool afScan(af::ActiveState &af, int min_step);
++	bool afScan(af::ActiveState &af, uint32_t step);
+ 	void afReset(af::ActiveState &af);
+ 	bool afNeedIgnoreFrame();
+ 	void afIgnoreFrameReset();
+ 
+ 	bool afIsOutOfFocus(af::ActiveState &af);
+ 
++	controls::AfModeEnum mode_;
++	controls::AfStateEnum afState_;
++	controls::AfPauseStateEnum pauseState_;
++
+ 	/* VCM step configuration. It is the current setting of the VCM step. */
+ 	uint32_t focus_;
+ 	/* The best VCM step. It is a local optimum VCM step during scanning. */
+@@ -62,16 +88,24 @@ private:
+ 	double currentVariance_;
+ 	/* The frames are ignore before starting measuring. */
+ 	uint32_t ignoreCounter_;
+-	/* It is used to determine the derivative during scanning */
+-	double previousVariance_;
+ 	/* The designated maximum range of focus scanning. */
+ 	uint32_t maxStep_;
+-	/* Initial value of maxStep_ */
+-	uint32_t initMaxStep_;
+ 	/* If the coarse scan completes, it is set to true. */
+ 	bool coarseCompleted_;
+-	/* If the fine scan completes, it is set to true. */
+-	bool fineCompleted_;
++
++	/* The lens range, and its mapping from dioptres. */
++	uint32_t minFocus_;
++	uint32_t maxFocus_;
++	uint32_t defaultFocus_;
++	Pwl map_;
++	Pwl inverseMap_;
++	bool tunedMap_;
++
++	/* Tuning parameters */
++	uint32_t coarseStep_;
++	uint32_t fineStep_;
++	double maxChange_;
++	uint32_t skipFrames_;
+ };
+ 
+ } /* namespace ipa */
+diff --git a/test/ipa/libipa/af.cpp b/test/ipa/libipa/af.cpp
+new file mode 100644
+index 00000000..534fa164
+--- /dev/null
++++ b/test/ipa/libipa/af.cpp
+@@ -0,0 +1,211 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/*
++ * Copyright (C) 2026, Patrick Quinn
++ *
++ * Autofocus algorithm tests
++ */
++
++#include "../src/ipa/libipa/af.h"
++
++#include <cmath>
++#include <iostream>
++#include <stdint.h>
++#include <stdlib.h>
++#include <string>
++#include <unistd.h>
++
++#include <libcamera/base/file.h>
++
++#include "libcamera/internal/yaml_parser.h"
++
++#include "test.h"
++
++using namespace std;
++using namespace libcamera;
++using namespace ipa;
++
++#define ASSERT_TRUE(cond)                                             \
++	if (!(cond)) {                                                \
++		std::cout << "Failed: " #cond " at line " << __LINE__ \
++			  << std::endl;                               \
++		return TestFail;                                      \
++	}
++
++class AfTest : public Test
++{
++protected:
++	/* A contrast curve peaking at the lens position peak_. */
++	double variance(uint32_t focus) const
++	{
++		const double d = (static_cast<double>(focus) - peak_) / 80.0;
++		return flat_ ? 0.0 : 1.0 / (1.0 + d * d);
++	}
++
++	/* Run the algorithm until it leaves the scanning state. */
++	unsigned int run(AfAlgorithm &af, af::ActiveState &state, unsigned int frames)
++	{
++		unsigned int i;
++		for (i = 0; i < frames; i++) {
++			af.process(state, variance(state.focus));
++			if (af.afState() != controls::AfStateScanning)
++				break;
++		}
++		return i;
++	}
++
++	std::unique_ptr<ValueNode> parse(const std::string &content)
++	{
++		std::string filename = "/tmp/libcamera.test.af.XXXXXX";
++		int fd = mkstemp(&filename.front());
++		if (fd == -1)
++			return nullptr;
++
++		ssize_t ret = write(fd, content.c_str(), content.size());
++		close(fd);
++
++		std::unique_ptr<ValueNode> root;
++		if (ret == static_cast<ssize_t>(content.size())) {
++			File file{ filename };
++			if (file.open(File::OpenModeFlag::ReadOnly))
++				root = YamlParser::parse(file);
++		}
++
++		unlink(filename.c_str());
++		return root;
++	}
++
++	int runTuned()
++	{
++		AfAlgorithm af;
++		af::ActiveState state{};
++
++		std::unique_ptr<ValueNode> tuning =
++			parse("coarse-step: 80\n"
++			      "fine-step: 20\n"
++			      "skip-frames: 1\n"
++			      "map: [ 0.0, 100, 8.0, 900 ]\n");
++		ASSERT_TRUE(tuning);
++		ASSERT_TRUE(af.init(*tuning, ControlInfoMap{}) == 0);
++
++		const ControlInfo info = af.lensPositionInfo();
++		ASSERT_TRUE(info.min().get<float>() == 0.0f);
++		ASSERT_TRUE(info.max().get<float>() == 8.0f);
++
++		/* The scan stays within the map, and finds the peak. */
++		af.configure(state, ControlInfoMap{});
++		ASSERT_TRUE(state.focus == 100);
++		peak_ = 650;
++		unsigned int frames = run(af, state, 1000);
++		ASSERT_TRUE(af.afState() == controls::AfStateFocused);
++		ASSERT_TRUE(std::abs(static_cast<int>(state.focus) - 650) <= 20);
++		ASSERT_TRUE(frames < 20);
++
++		af.setMode(state, controls::AfModeManual);
++		af.setLensPosition(state, 20.0f);
++		ASSERT_TRUE(state.focus == 900);
++
++		/* A map with less than two points is refused. */
++		AfAlgorithm bad;
++		tuning = parse("map: [ 0.0, 100 ]\n");
++		ASSERT_TRUE(tuning);
++		ASSERT_TRUE(bad.init(*tuning, ControlInfoMap{}) < 0);
++
++		return TestPass;
++	}
++
++	int run() override
++	{
++		if (runTuned() != TestPass)
++			return TestFail;
++
++		AfAlgorithm af;
++		af::ActiveState state{};
++
++		/* The default mode scans continuously, over 0 to 1023. */
++		af.configure(state, ControlInfoMap{});
++		ASSERT_TRUE(af.mode() == controls::AfModeContinuous);
++		ASSERT_TRUE(af.afState() == controls::AfStateScanning);
++
++		peak_ = 400;
++		run(af, state, 1000);
++		ASSERT_TRUE(af.afState() == controls::AfStateFocused);
++		ASSERT_TRUE(std::abs(static_cast<int>(state.focus) - 400) <= 2);
++
++		/* A scene change starts a new scan. */
++		peak_ = 700;
++		for (unsigned int i = 0; i < 20; i++)
++			af.process(state, variance(state.focus));
++		ASSERT_TRUE(af.afState() == controls::AfStateScanning);
++		run(af, state, 1000);
++		ASSERT_TRUE(af.afState() == controls::AfStateFocused);
++		ASSERT_TRUE(std::abs(static_cast<int>(state.focus) - 700) <= 2);
++
++		/* Pausing stops the lens, resuming carries on. */
++		peak_ = 300;
++		af.meteringChanged(state);
++		for (unsigned int i = 0; i < 15; i++)
++			af.process(state, variance(state.focus));
++		af.setPause(controls::AfPauseImmediate);
++		ASSERT_TRUE(af.pauseState() == controls::AfPauseStatePaused);
++		const uint32_t paused = state.focus;
++		for (unsigned int i = 0; i < 20; i++)
++			af.process(state, variance(state.focus));
++		ASSERT_TRUE(state.focus == paused);
++		af.setPause(controls::AfPauseResume);
++		run(af, state, 1000);
++		ASSERT_TRUE(std::abs(static_cast<int>(state.focus) - 300) <= 2);
++
++		/* The auto mode only scans on a trigger, once. */
++		af.setMode(state, controls::AfModeAuto);
++		ASSERT_TRUE(af.afState() == controls::AfStateIdle);
++		peak_ = 500;
++		for (unsigned int i = 0; i < 20; i++)
++			af.process(state, variance(state.focus));
++		ASSERT_TRUE(af.afState() == controls::AfStateIdle);
++		ASSERT_TRUE(std::abs(static_cast<int>(state.focus) - 300) <= 2);
++
++		af.setTrigger(state, controls::AfTriggerStart);
++		ASSERT_TRUE(af.afState() == controls::AfStateScanning);
++		run(af, state, 1000);
++		ASSERT_TRUE(af.afState() == controls::AfStateFocused);
++		ASSERT_TRUE(std::abs(static_cast<int>(state.focus) - 500) <= 2);
++
++		peak_ = 100;
++		for (unsigned int i = 0; i < 20; i++)
++			af.process(state, variance(state.focus));
++		ASSERT_TRUE(af.afState() == controls::AfStateFocused);
++
++		/* A scan with no contrast fails. */
++		flat_ = true;
++		af.setTrigger(state, controls::AfTriggerStart);
++		run(af, state, 1000);
++		ASSERT_TRUE(af.afState() == controls::AfStateFailed);
++		flat_ = false;
++
++		/* The manual mode maps 0 to 10 dioptres over the lens range. */
++		af.setMode(state, controls::AfModeManual);
++		ASSERT_TRUE(af.afState() == controls::AfStateIdle);
++		af.setLensPosition(state, 5.0f);
++		ASSERT_TRUE(state.focus == 512);
++		ASSERT_TRUE(std::abs(af.lensPosition(state) - 5.0f) < 0.01f);
++		af.setLensPosition(state, 20.0f);
++		ASSERT_TRUE(state.focus == 1023);
++
++		/* The lens position is ignored outside of the manual mode. */
++		af.setMode(state, controls::AfModeAuto);
++		af.setLensPosition(state, 0.0f);
++		ASSERT_TRUE(state.focus == 1023);
++
++		const ControlInfo info = af.lensPositionInfo();
++		ASSERT_TRUE(info.min().get<float>() == 0.0f);
++		ASSERT_TRUE(info.max().get<float>() == 10.0f);
++
++		return TestPass;
++	}
++
++private:
++	double peak_ = 0.0;
++	bool flat_ = false;
++};
++
++TEST_REGISTER(AfTest)
+diff --git a/test/ipa/libipa/meson.build b/test/ipa/libipa/meson.build
+index c3e25587..9a4ef423 100644
+--- a/test/ipa/libipa/meson.build
++++ b/test/ipa/libipa/meson.build
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: CC0-1.0
+ 
+ libipa_test = [
++    {'name': 'af', 'sources': ['af.cpp']},
+     {'name': 'fixedpoint', 'sources': ['fixedpoint.cpp']},
+     {'name': 'histogram', 'sources': ['histogram.cpp']},
+     {'name': 'interpolator', 'sources': ['interpolator.cpp']},

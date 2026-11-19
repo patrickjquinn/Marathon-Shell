@@ -1,19 +1,23 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: patrickjquinn <patrick.jm.quinn@gmail.com>
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Sun, 1 Nov 2026 12:56:09 +0000
-Subject: [PATCH 4/6] libipa: camera_sensor_helper: Add IMX111 helper
+Subject: [PATCH 04/29] libipa: camera_sensor_helper: Add IMX111 helper
 
 The analogue gain follows the usual Sony 256 / (256 - code) model. The
 black level, 64 at 10 bits, was measured on a Zinwa Q25 module.
+
+The exposure margin, 5 lines, is the driver's.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
 ---
- src/ipa/libipa/camera_sensor_helper.cpp | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ src/ipa/libipa/camera_sensor_helper.cpp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
 diff --git a/src/ipa/libipa/camera_sensor_helper.cpp b/src/ipa/libipa/camera_sensor_helper.cpp
-index 359040ec..4abb4711 100644
+index 608937d4..e555899e 100644
 --- a/src/ipa/libipa/camera_sensor_helper.cpp
 +++ b/src/ipa/libipa/camera_sensor_helper.cpp
-@@ -529,6 +529,18 @@ public:
+@@ -554,6 +554,19 @@ public:
  };
  REGISTER_CAMERA_SENSOR_HELPER("hm1246", CameraSensorHelperHm1246)
  
@@ -25,6 +29,7 @@ index 359040ec..4abb4711 100644
 +		/* Measured: 64 at 10bits. */
 +		blackLevel_ = 4096;
 +		gain_ = AnalogueGainLinear{ 0, 256, -1, 256 };
++		exposureMargin_ = 5;
 +	}
 +};
 +REGISTER_CAMERA_SENSOR_HELPER("imx111", CameraSensorHelperImx111)

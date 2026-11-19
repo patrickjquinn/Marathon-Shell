@@ -115,6 +115,21 @@ impl Navigation1 {
         .await
     }
 
+    /// Closes the app as its card's close does. Not for apps, which could
+    /// otherwise close one another: the person's own tools (app-push) and
+    /// session services may.
+    async fn close_app(&self, app_id: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        not_empty(&app_id)?;
+        if ipc::caller(&h)
+            .await
+            .is_some_and(|c| !c.starts_with("service:"))
+        {
+            return Err(fdo::Error::AccessDenied("An app may not close apps".into()));
+        }
+        let id = q(&app_id);
+        ipc::on_gui(&self.qt, move |obj| obj.close_app(&id, false)).await
+    }
+
     /// Starts the app without bringing it to the front (Pilot's overlay).
     async fn start_app_in_background(&self, app_id: String) -> fdo::Result<bool> {
         not_empty(&app_id)?;

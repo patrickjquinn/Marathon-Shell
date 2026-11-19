@@ -1,0 +1,32 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] fmradio: log warnings and errors only by default
+
+The default level, NOTICE, logged every RDS group the receiver decoded:
+about 24 kernel log lines a second while FM plays, each a journald
+write and a wakeup. WARNING keeps faults in the log; NOTICE and below
+can still be switched on through /proc/fm while FM is on.
+---
+diff -ru a/core/fm_main.c b/core/fm_main.c
+--- a/core/fm_main.c	2026-11-18 08:30:38.606246673 +0000
++++ b/core/fm_main.c	2026-11-18 08:30:38.612068644 +0000
+@@ -2248,7 +2248,7 @@
+ 	FM_UNLOCK(fm_ops_lock);
+ 
+ 	if (g_fm_trigger_rst == true) {
+-		g_dbg_level = 0xfffffff5;
++		g_dbg_level = 0xfffffff4;
+ 		g_fm_trigger_rst = false;
+ 	}
+ }
+diff -ru a/core/fm_module.c b/core/fm_module.c
+--- a/core/fm_module.c	2026-11-18 08:30:38.607131435 +0000
++++ b/core/fm_module.c	2026-11-18 08:30:38.610708190 +0000
+@@ -36,7 +36,7 @@
+ 
+ #define FM_PROC_FILE		"fm"
+ 
+-unsigned int g_dbg_level = 0xfffffff5;	/* Debug level of FM */
++unsigned int g_dbg_level = 0xfffffff4;	/* Debug level of FM */
+ 
+ #define FM_NO_LNA_PIN 0xffffffff
+ unsigned int g_fm_lna_pin_num = FM_NO_LNA_PIN;

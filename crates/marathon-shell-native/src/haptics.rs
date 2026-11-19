@@ -92,7 +92,17 @@ impl cxx_qt::Initialize for Haptics {
             };
             qt.queue(|mut obj| set!(obj, available, available_changed, true))
                 .ok();
-            run(motor, rx).await;
+            // The motor's ioctls block: on the I/O thread, a burst of pulses
+            // stalled every D-Bus call the shell serves.
+            let spawned = std::thread::Builder::new()
+                .name("marathon-haptics".into())
+                .spawn(move || async_io::block_on(run(motor, rx)));
+            if let Err(e) = spawned {
+                log::warn(
+                    "haptics",
+                    format_args!("cannot start the motor thread: {e}"),
+                );
+            }
         });
         self.as_mut().rust_mut().motor = Some(tx);
         HAPTICS.set(self.qt_thread()).ok();
@@ -314,7 +324,11 @@ async fn run(mut motor: Motor, requests: Receiver<Vec<Step>>) {
     loop {
         match io::recv_within(&requests, wait).await {
             Some(Err(_)) => return,
-            Some(Ok(new)) => {
+            Some(Ok(mut new)) => {
+                // A burst plays only its newest request.
+                while let Ok(newer) = requests.try_recv() {
+                    new = newer;
+                }
                 if new.is_empty() {
                     motor.stop();
                 }

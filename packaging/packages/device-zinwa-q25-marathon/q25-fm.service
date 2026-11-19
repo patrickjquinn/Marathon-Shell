@@ -1,0 +1,12 @@
+[Unit]
+Description=Q25 FM radio receiver (CONNSYS over WMT)
+Requires=q25-wmt-launcher.service
+After=q25-wmt-launcher.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/modprobe fmradio_drv_mt6631_6635
+
+[Install]
+WantedBy=multi-user.target

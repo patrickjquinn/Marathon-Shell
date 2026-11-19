@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 20:08:51 +0000
+Subject: [PATCH 22/29] libcamera: software_isp: debayer_egl: Gather statistics
+ over the shown image
+
+The GPU debayer scales the whole input to the output, but it gathers the
+statistics over an output-sized window at the top-left corner of the
+input. When the output is smaller than the input, AGC and AWB then only
+see a corner of the image: with a 4080x3072 sensor and a 1280x960
+output, a tenth of it.
+
+The output shows the input scaled by the factor setShaderVariableValues()
+computes, cropped from the top-left corner. Gather the statistics over
+that part of the input, which is the whole input when the aspect ratios
+match.
+
+Statistics for a large input now cost more, as for an output at the
+native size.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/libcamera/software_isp/debayer_egl.cpp | 35 +++++++++++-----------
+ src/libcamera/software_isp/debayer_egl.h   |  2 ++
+ subprojects/.wraplock                      |  0
+ 3 files changed, 20 insertions(+), 17 deletions(-)
+ create mode 100644 subprojects/.wraplock
+
+diff --git a/src/libcamera/software_isp/debayer_egl.cpp b/src/libcamera/software_isp/debayer_egl.cpp
+index 51453459..3e683915 100644
+--- a/src/libcamera/software_isp/debayer_egl.cpp
++++ b/src/libcamera/software_isp/debayer_egl.cpp
+@@ -301,6 +301,16 @@ int DebayerEGL::initBayerShaders(PixelFormat inputFormat, PixelFormat outputForm
+ 	return getShaderVariableLocations();
+ }
+ 
++/*
++ * Scale the output size from the native size the algorithm produces for the
++ * input size. Keep the aspect ratio and prefer cropping over black bars.
++ */
++float DebayerEGL::outputScale() const
++{
++	return std::max(static_cast<float>(outputSize_.width) / nativeOutputSize_.width,
++			static_cast<float>(outputSize_.height) / nativeOutputSize_.height);
++}
++
+ int DebayerEGL::configure(const StreamConfiguration &inputCfg,
+ 			  const std::vector<std::reference_wrapper<const StreamConfiguration>> &outputCfgs,
+ 			  [[maybe_unused]] bool ccmEnabled,
+@@ -355,18 +365,15 @@ int DebayerEGL::configure(const StreamConfiguration &inputCfg,
+ 	outputSize_ = outputCfg.size;
+ 	nativeOutputSize_ = outSizeRange.max;
+ 
+-	window_.x = ((inputCfg.size.width - outputCfg.size.width) / 2) &
+-		    ~(inputConfig_.patternSize.width - 1);
+-	window_.y = ((inputCfg.size.height - outputCfg.size.height) / 2) &
+-		    ~(inputConfig_.patternSize.height - 1);
+-	window_.width = outputCfg.size.width;
+-	window_.height = outputCfg.size.height;
+-
+ 	/*
+-	 * Don't pass x,y from window_ since process() already adjusts for it.
+-	 * But crop the window to 2/3 of its width and height for speedup.
++	 * The output shows the input scaled to cover it, cropped to the output
++	 * size from the top-left corner. Gather the statistics over that part
++	 * of the input.
+ 	 */
+-	stats_->setWindow(Rectangle(window_.size()));
++	const float scale = outputScale();
++	window_ = Rectangle(Size(std::min(width_, static_cast<uint32_t>(outputSize_.width / scale)),
++				 std::min(height_, static_cast<uint32_t>(outputSize_.height / scale))));
++	stats_->setWindow(window_);
+ 
+ 	inputBufferCount_ = inputCfg.bufferCount;
+ 	outputBufferCount_ = outputCfg.bufferCount;
+@@ -421,13 +428,7 @@ void DebayerEGL::setShaderVariableValues(eGLImage &eglImageIn, const DebayerPara
+ 	GLfloat Step[] = { static_cast<float>(bytesPerPixel_) / (inputConfig_.stride - 1),
+ 			   1.0f / (height_ - 1) };
+ 	GLfloat Stride = (GLfloat)width_ / (shaderStridePixels_ / bytesPerPixel_);
+-	/*
+-	 * Scale the output size from the native size the algorithm produces for
+-	 * the input size. Keep the aspect ratio and prefer cropping over black
+-	 * bars.
+-	 */
+-	GLfloat scale = std::max((GLfloat)outputSize_.width / nativeOutputSize_.width,
+-				 (GLfloat)outputSize_.height / nativeOutputSize_.height);
++	GLfloat scale = outputScale();
+ 	GLfloat trans = -(1.0f - scale);
+ 	GLfloat projMatrix[] = {
+ 		scale, 0, 0, 0,
+diff --git a/src/libcamera/software_isp/debayer_egl.h b/src/libcamera/software_isp/debayer_egl.h
+index cbbc6a45..21a70941 100644
+--- a/src/libcamera/software_isp/debayer_egl.h
++++ b/src/libcamera/software_isp/debayer_egl.h
+@@ -119,6 +119,8 @@ private:
+ 	/* Contrast */
+ 	GLint contrastExpUniformDataIn_;
+ 
++	float outputScale() const;
++
+ 	Size nativeOutputSize_;
+ 	Rectangle window_;
+ 	std::unique_ptr<SwStatsCpu> stats_;
+diff --git a/subprojects/.wraplock b/subprojects/.wraplock
+new file mode 100644
+index 00000000..e69de29b

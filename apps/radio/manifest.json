@@ -1,0 +1,43 @@
+{
+  "manifestVersion": 1,
+  "id": "radio",
+  "name": "Radio",
+  "version": "1.0.0",
+  "description": "The world's radio on a globe, and FM from your headphones",
+  "icon": "assets/icon.svg",
+  "entryPoint": "RadioApp.qml",
+  "categories": [
+    "Entertainment"
+  ],
+  "author": "Marathon OS",
+  "permissions": [
+    "network",
+    "location"
+  ],
+  "permissionReasons": {
+    "location": "Turns the globe to where you are"
+  },
+  "searchKeywords": [
+    "radio",
+    "fm",
+    "station",
+    "tuner",
+    "music",
+    "news",
+    "world",
+    "stream"
+  ],
+  "testedOn": {
+    "widths": [
+      720
+    ],
+    "inputModes": [
+      "touch",
+      "keyboard"
+    ]
+  },
+  "dataLifecycle": {
+    "appData": "remove",
+    "cache": "remove"
+  }
+}

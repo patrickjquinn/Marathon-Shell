@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: patrickjquinn <patrick.jm.quinn@gmail.com>
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 5 Nov 2026 15:00:00 +0000
-Subject: [PATCH] pipeline: simple: Keep the largest size when merging ranges
+Subject: [PATCH 09/29] pipeline: simple: Keep the largest size when merging
+ ranges
 
 generateConfiguration() sorts each format's size ranges by their minimum
 and merges overlapping neighbours, assuming a range that starts later
@@ -14,15 +15,17 @@ from its 1280x720 mode, instead of 3276x2464, so no 4:3 size above
 800x600 was offered.
 
 Merge to the larger of both maximums.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
 ---
  src/libcamera/pipeline/simple/simple.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/libcamera/pipeline/simple/simple.cpp b/src/libcamera/pipeline/simple/simple.cpp
-index 6b4e1dbc..8b1b43be 100644
+index 264b1197..3361dafd 100644
 --- a/src/libcamera/pipeline/simple/simple.cpp
 +++ b/src/libcamera/pipeline/simple/simple.cpp
-@@ -1537,7 +1537,7 @@ SimplePipelineHandler::generateConfiguration(Camera *camera, std::span<const Str
+@@ -1538,7 +1538,7 @@ SimplePipelineHandler::generateConfiguration(Camera *camera, std::span<const Str
  			while (++next != sizes.end()) {
  				if (cur->max.width >= next->min.width &&
  				    cur->max.height >= next->min.height)
@@ -31,6 +34,3 @@ index 6b4e1dbc..8b1b43be 100644
  				else if (++cur != next)
  					*cur = *next;
  			}
--- 
-2.55.0
-

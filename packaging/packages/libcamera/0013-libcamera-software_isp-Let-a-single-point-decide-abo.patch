@@ -1,0 +1,150 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Milan Zamazal <mzamazal@redhat.com>
+Date: Sat, 31 Oct 2026 19:40:33 +0100
+Subject: [PATCH 13/29] libcamera: software_isp: Let a single point decide
+ about computing stats
+
+Currently, the decision whether to compute stats for a given frame is
+implemented in SwStatsCpu in several places and duplicated in
+debayer_egl.cpp.  Let's decide it solely in SwStatsCpu.  This will also
+help if a more flexible or complex update frequency is introduced,
+e.g. to support stats for autofocus.
+
+Signed-off-by: Milan Zamazal <mzamazal@redhat.com>
+Link: https://patchwork.libcamera.org/patch/28726/
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../internal/software_isp/swstats_cpu.h       | 21 ++++++++++---------
+ src/libcamera/software_isp/debayer_egl.cpp    |  6 +++---
+ src/libcamera/software_isp/swstats_cpu.cpp    | 16 +++++++++++---
+ 3 files changed, 27 insertions(+), 16 deletions(-)
+
+diff --git a/include/libcamera/internal/software_isp/swstats_cpu.h b/include/libcamera/internal/software_isp/swstats_cpu.h
+index 9695e772..462b7321 100644
+--- a/include/libcamera/internal/software_isp/swstats_cpu.h
++++ b/include/libcamera/internal/software_isp/swstats_cpu.h
+@@ -38,14 +38,6 @@ public:
+ 	SwStatsCpu(const CameraManager &cm);
+ 	~SwStatsCpu() = default;
+ 
+-	/*
+-	 * The combination of pipeline + sensor delays means that
+-	 * exposure changes can take up to 3 frames to get applied,
+-	 * Run stats once every 4 frames to ensure any previous
+-	 * exposure changes have been applied.
+-	 */
+-	static constexpr uint32_t kStatPerNumFrames = 4;
+-
+ 	bool isValid() const { return sharedStats_.fd().isValid(); }
+ 
+ 	const SharedFD &getStatsFD() { return sharedStats_.fd(); }
+@@ -54,13 +46,14 @@ public:
+ 
+ 	int configure(const StreamConfiguration &inputCfg, unsigned int statsBufferCount = 1);
+ 	void setWindow(const Rectangle &window);
++	bool updating(uint32_t frame);
+ 	void startFrame(uint32_t frame);
+ 	void finishFrame(uint32_t frame, uint32_t bufferId);
+ 	void processFrame(uint32_t frame, uint32_t bufferId, MappedFrameBuffer &input);
+ 
+ 	void processLine0(uint32_t frame, unsigned int y, const uint8_t *src[], unsigned int statsBufferIndex = 0)
+ 	{
+-		if (frame % kStatPerNumFrames)
++		if (!updating(frame))
+ 			return;
+ 
+ 		if ((y & ySkipMask_) || y < static_cast<unsigned int>(window_.y) ||
+@@ -72,7 +65,7 @@ public:
+ 
+ 	void processLine2(uint32_t frame, unsigned int y, const uint8_t *src[], unsigned int statsBufferIndex = 0)
+ 	{
+-		if (frame % kStatPerNumFrames)
++		if (!updating(frame))
+ 			return;
+ 
+ 		if ((y & ySkipMask_) || y < static_cast<unsigned int>(window_.y) ||
+@@ -88,6 +81,14 @@ private:
+ 	using statsProcessFn = void (SwStatsCpu::*)(const uint8_t *src[], SwIspStats &stats);
+ 	using processFrameFn = void (SwStatsCpu::*)(MappedFrameBuffer &in);
+ 
++	/*
++	 * The combination of pipeline + sensor delays means that
++	 * exposure changes can take up to 3 frames to get applied,
++	 * Run stats once every 4 frames to ensure any previous
++	 * exposure changes have been applied.
++	 */
++	static constexpr uint32_t kStatPerNumFrames = 4;
++
+ 	int setupStandardBayerOrder(BayerFormat::Order order);
+ 	/* Bayer 8 bpp unpacked */
+ 	void statsBGGR8Line0(const uint8_t *src[], SwIspStats &stats);
+diff --git a/src/libcamera/software_isp/debayer_egl.cpp b/src/libcamera/software_isp/debayer_egl.cpp
+index 4866b1c7..51453459 100644
+--- a/src/libcamera/software_isp/debayer_egl.cpp
++++ b/src/libcamera/software_isp/debayer_egl.cpp
+@@ -670,9 +670,7 @@ void DebayerEGL::process(uint32_t frame, FrameBuffer *input, FrameBuffer *output
+ 	metadata.planes()[0].bytesused = output->planes()[0].length;
+ 
+ 	/* Calculate stats for the whole frame */
+-	if (frame % SwStatsCpu::kStatPerNumFrames) {
+-		stats_->finishFrame(frame, 0);
+-	} else {
++	if (stats_->updating(frame)) {
+ 		if (!inMapped) {
+ 			/*
+ 			 * The buffer was directly imported into EGL and thus
+@@ -684,6 +682,8 @@ void DebayerEGL::process(uint32_t frame, FrameBuffer *input, FrameBuffer *output
+ 			inMapped.emplace(input, MappedFrameBuffer::MapFlag::Read);
+ 		}
+ 		stats_->processFrame(frame, 0, inMapped.value());
++	} else {
++		stats_->finishFrame(frame, 0);
+ 	}
+ 	inDmaSyncer.reset();
+ 
+diff --git a/src/libcamera/software_isp/swstats_cpu.cpp b/src/libcamera/software_isp/swstats_cpu.cpp
+index d512377d..6d8e47f7 100644
+--- a/src/libcamera/software_isp/swstats_cpu.cpp
++++ b/src/libcamera/software_isp/swstats_cpu.cpp
+@@ -424,7 +424,7 @@ void SwStatsCpu::statsGBRG12PLine0(const uint8_t *src[], SwIspStats &stats)
+  */
+ void SwStatsCpu::startFrame(uint32_t frame)
+ {
+-	if (frame % kStatPerNumFrames)
++	if (!updating(frame))
+ 		return;
+ 
+ 	if (window_.width == 0)
+@@ -446,7 +446,7 @@ void SwStatsCpu::startFrame(uint32_t frame)
+  */
+ void SwStatsCpu::finishFrame(uint32_t frame, uint32_t bufferId)
+ {
+-	bool valid = frame % kStatPerNumFrames == 0;
++	bool valid = updating(frame);
+ 
+ 	if (valid) {
+ 		sharedStats_->sum_ = RGB<uint64_t>({ 0, 0, 0 });
+@@ -652,7 +652,7 @@ void SwStatsCpu::processBayerFrame2(MappedFrameBuffer &in)
+  */
+ void SwStatsCpu::processFrame(uint32_t frame, uint32_t bufferId, MappedFrameBuffer &input)
+ {
+-	if (frame % kStatPerNumFrames) {
++	if (!updating(frame)) {
+ 		finishFrame(frame, bufferId);
+ 		return;
+ 	}
+@@ -664,4 +664,14 @@ void SwStatsCpu::processFrame(uint32_t frame, uint32_t bufferId, MappedFrameBuff
+ 	bench_.finishFrame();
+ }
+ 
++/**
++ * \brief Determine whether stats update is required for the given frame
++ * \param[in] frame The frame number
++ * \return Whether the stats are updated for the given frame
++ */
++bool SwStatsCpu::updating(uint32_t frame)
++{
++	return frame % kStatPerNumFrames == 0;
++}
++
+ } /* namespace libcamera */

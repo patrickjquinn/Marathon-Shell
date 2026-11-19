@@ -32,14 +32,6 @@ else()
 endif()
 
 
-find_package(Qt6 6.4 COMPONENTS Multimedia)
-if(TARGET Qt6::Multimedia)
-  set(HAVE_MULTIMEDIA TRUE)
-else()
-  set(HAVE_MULTIMEDIA FALSE)
-  message(WARNING "Qt6::Multimedia not found - Camera app will not be built")
-endif()
-
 
 if(NOT DEFINED MARATHON_APPS_DIR)
   set(MARATHON_APPS_DIR
@@ -89,6 +81,11 @@ function(add_marathon_app APP_NAME)
 
   set(APP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
   set(INSTALL_DIR "${MARATHON_APPS_DIR}/${APP_NAME}")
+
+  # Baked shaders (shaders/*.qsb, from scripts/bake-shaders) go into the
+  # module, where the app's QML finds them by relative URL.
+  file(GLOB _app_shaders RELATIVE "${APP_DIR}" CONFIGURE_DEPENDS "${APP_DIR}/shaders/*.qsb")
+  list(APPEND ARG_RESOURCES ${_app_shaders})
 
   # QTP0001/QTP0004 are Qt 6.5+ only - guard for Droidian (Qt 6.4.2)
   if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
@@ -255,6 +252,7 @@ add_subdirectory(calendar)
 add_subdirectory(camera)
 add_subdirectory(gallery)
 add_subdirectory(music)
+add_subdirectory(radio)
 add_subdirectory(maps)
 add_subdirectory(pilot)
 add_subdirectory(terminal)

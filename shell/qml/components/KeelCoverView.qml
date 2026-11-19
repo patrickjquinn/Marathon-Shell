@@ -27,6 +27,11 @@ Item {
         return appId !== "" ? Tasks.coverActionStrip(appId) : 0;
     }
 
+    // A press at (x, y) in `item` lands on the cover's actions.
+    function holdsPress(item, x, y) {
+        return visible && actionStrip > 0 && actionStripArea.contains(actionStripArea.mapFromItem(item, x, y));
+    }
+
     function _report() {
         if (appId !== "")
             Tasks.setCoverVisible(appId, shown && available);
@@ -62,6 +67,7 @@ Item {
         anchors.centerIn: parent
         surface: root.coverSurface
         inputEventsEnabled: root.actionStrip > 0
+        focusOnClick: false
         containmentMask: actionStripArea
         scale: width > 0 && height > 0 ? Math.min(root.width / width, root.height / height) : 1
         opacity: coverTexture.ready ? 0 : 1

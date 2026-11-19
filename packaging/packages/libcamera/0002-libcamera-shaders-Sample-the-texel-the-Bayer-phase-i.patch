@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: patrickjquinn <patrick.jm.quinn@gmail.com>
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Sun, 1 Nov 2026 12:56:09 +0000
-Subject: [PATCH 2/6] libcamera: shaders: Sample the texel the Bayer phase is
+Subject: [PATCH 02/29] libcamera: shaders: Sample the texel the Bayer phase is
  taken from
 
 bayer_unpacked.frag picks the Bayer phase from floor(center.zw) but
@@ -14,6 +14,8 @@ with it.
 
 Tested on a Zinwa Q25 (Mali-G57): the R-G column deviation at 1600x1200
 drops from 46.9 to 0.3; native size was already clean.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
 ---
  src/libcamera/shaders/bayer_unpacked.frag | 39 +++++++++++++++--------
  1 file changed, 26 insertions(+), 13 deletions(-)

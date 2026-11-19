@@ -1,0 +1,229 @@
+{
+  "appId": "org.marathonos.radio",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.radio/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "radio.play",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Play a radio station: the station `id` from radio.search, else the best match for `query` (a station's name, a genre or a city; one on FM here comes first), else the station played last. Returns the station now playing.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "A station id from radio.search",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "query": {
+            "description": "A station's name, a genre or a city",
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "org.marathonos.radio/radio.play",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "fm": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "country",
+          "fm"
+        ],
+        "type": "object"
+      },
+      "title": "Play the radio"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "radio.search",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Find radio stations by name, genre or city, from the phone's FM band and the world's internet radio; stations on FM here come first. Returns up to `limit` stations, each with its id, name, country and FM frequency in MHz (0 when it is internet-only).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 10,
+            "maximum": 30,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.radio/radio.search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "country": {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                "fm": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "id": {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 200,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "country",
+                "fm"
+              ],
+              "type": "object"
+            },
+            "maxItems": 30,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Find radio stations"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "radio.stop",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Stop the radio, if it is playing.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.radio/radio.stop",
+      "title": "Stop the radio"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "radio.tune",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Tune the phone's FM radio to `frequency` MHz (87.5 to 108). FM needs wired headphones plugged in: they are the aerial.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "frequency": {
+            "maximum": 108,
+            "minimum": 87.5,
+            "type": "number"
+          }
+        },
+        "required": [
+          "frequency"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.radio/radio.tune",
+      "title": "Tune the FM radio"
+    }
+  ],
+  "version": 1
+}

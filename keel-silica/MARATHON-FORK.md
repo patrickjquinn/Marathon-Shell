@@ -2,13 +2,14 @@
 
 This directory is Marathon's own copy of Keel, `keel/` in Shipwright
 (published as `shipwright-open`). Marathon changes it freely; Shipwright
-keeps its own copy for its Sailfish OS apps.
+keeps its own copy for its Sailfish OS apps. It is Marathon Silica: the
+`keel-silica` package (`packaging/packages/keel-silica`, built by
+`scripts/qemu/lib/build-keel-silica-apk.sh`) is built from this directory.
 
 ## Base
 
 - `shipwright-open` commit `0df499bf34e02cec7f571853cbf5a4323dc1609e`,
-  "Export of 7a6c40a883d1", the commit `packaging/packages/keel-silica`
-  builds.
+  "Export of 7a6c40a883d1".
 - Imported with its history: `keel/` was split out of `shipwright-open` at
   that commit (tip `2b87e66e772ef0ffc7c0872a5d01162eb4ec0ed8`) and merged
   in here as a subtree.

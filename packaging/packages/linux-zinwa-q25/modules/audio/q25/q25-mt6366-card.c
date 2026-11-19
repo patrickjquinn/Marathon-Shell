@@ -175,6 +175,11 @@ SND_SOC_DAILINK_DEFS(pcm2,
 	DAILINK_COMP_ARRAY(COMP_CPU("PCM 2")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+/* FM radio: the A-die's I2S, captured through UL2 (Capture_2). */
+SND_SOC_DAILINK_DEFS(connsys_i2s,
+	DAILINK_COMP_ARRAY(COMP_CPU("CONNSYS_I2S")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(adda,
 	DAILINK_COMP_ARRAY(COMP_CPU("ADDA")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("mt6358-sound", "mt6358-snd-codec-aif1")),
@@ -242,6 +247,13 @@ static struct snd_soc_dai_link q25_links[] = {
 		.no_pcm = 1,
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(pcm2),
+	},
+	{
+		.name = "CONNSYS_I2S",
+		.no_pcm = 1,
+		.capture_only = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(connsys_i2s),
 	},
 };
 

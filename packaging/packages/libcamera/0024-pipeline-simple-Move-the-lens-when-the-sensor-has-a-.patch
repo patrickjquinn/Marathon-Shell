@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 20:10:04 +0000
+Subject: [PATCH 24/29] pipeline: simple: Move the lens when the sensor has a
+ frame start event
+
+setSensorControls() only moves the lens when no subdevice emits frame
+start events, as it applies the sensor controls directly only then. The
+lens position is not handled by the delayed controls, so with a frame
+start event the lens never moves.
+
+Move the lens whenever the IPA asks for it, as the IPU3 and Raspberry Pi
+pipeline handlers do.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/libcamera/pipeline/simple/simple.cpp | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/src/libcamera/pipeline/simple/simple.cpp b/src/libcamera/pipeline/simple/simple.cpp
+index c0d0e3d7..d8152ffd 100644
+--- a/src/libcamera/pipeline/simple/simple.cpp
++++ b/src/libcamera/pipeline/simple/simple.cpp
+@@ -1094,12 +1094,16 @@ void SimpleCameraData::setSensorControls(const ControlList &sensorControls, cons
+ 	if (!frameStartEmitter_) {
+ 		ControlList ctrls(sensorControls);
+ 		sensor_->setControls(&ctrls);
++	}
+ 
+-		CameraLens *lens = sensor_->focusLens();
+-		if (lens && lensControls.contains(V4L2_CID_FOCUS_ABSOLUTE)) {
+-			ControlValue const &focusValue = lensControls.get(V4L2_CID_FOCUS_ABSOLUTE);
+-			lens->setFocusPosition(focusValue.get<int32_t>());
+-		}
++	/*
++	 * The lens is not handled by delayedCtrls_. Move it right away, the
++	 * IPA takes the lens movement time into account.
++	 */
++	CameraLens *lens = sensor_->focusLens();
++	if (lens && lensControls.contains(V4L2_CID_FOCUS_ABSOLUTE)) {
++		const ControlValue &focusValue = lensControls.get(V4L2_CID_FOCUS_ABSOLUTE);
++		lens->setFocusPosition(focusValue.get<int32_t>());
+ 	}
+ }
+ 

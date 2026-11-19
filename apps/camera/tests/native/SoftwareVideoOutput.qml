@@ -8,8 +8,8 @@ Rectangle {
         PreserveAspectCrop
     }
 
-    readonly property QtObject videoSink: QtObject {}
     property int fillMode
+    property bool frozen
 
     color: "#3a5a78"
 }

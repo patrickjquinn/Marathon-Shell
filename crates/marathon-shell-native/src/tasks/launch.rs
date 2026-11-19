@@ -228,6 +228,16 @@ impl Tasks {
         self.resolve(&app_id.to_string()).is_some()
     }
 
+    pub(super) fn launch_abandoned(mut self: Pin<&mut Self>, app_id: &QString) {
+        let id = app_id.to_string();
+        if self.as_mut().rust_mut().launching.remove(&id) {
+            log::warn(
+                "tasks",
+                format_args!("{id}: launch abandoned, no window came"),
+            );
+        }
+    }
+
     pub(super) fn is_app_launching(&self, app_id: &QString) -> bool {
         let id = app_id.to_string();
         self.launching.contains(&id)
@@ -290,7 +300,7 @@ impl Tasks {
         }
         let id = app_id.to_string();
         dbus::runner(&id, "SetCoverStatus", (i32::from(visible),));
-        if visible && self.is_keel_host(&id) {
+        if visible {
             dbus::cover_action_strip(self.qt_thread(), id);
         }
     }
@@ -316,8 +326,13 @@ impl Tasks {
     /// A hosted Keel app learns from this whether it is in front; a
     /// runner takes it from its window.
     pub(super) fn set_app_active(&self, app_id: &str, active: bool) {
-        if self.is_keel_host(app_id) {
+        let hosted = self.is_keel_host(app_id);
+        if hosted {
             dbus::runner(app_id, "SetActive", (active,));
+        }
+        // Its cover's actions, read while it still runs: frozen, it cannot answer.
+        if !active && (hosted || Self::is_marathon_app(app_id)) {
+            dbus::cover_action_strip(self.qt_thread(), app_id.to_owned());
         }
     }
 
@@ -615,6 +630,17 @@ impl Tasks {
     /// that does not answer it starts as before.
     fn activate_running(mut self: Pin<&mut Self>, app: App, foreground_generation: u64) {
         self.as_mut().wake(&app.id);
+        // The window it maps in answer comes in front, as a launch's would:
+        // without an activation token it would map in the background (a
+        // GTK app playing on with its window closed never showed again).
+        self.as_mut()
+            .rust_mut()
+            .expected_windows
+            .insert(app.id.clone(), Instant::now() + EXPECT_WINDOW);
+        log::warn(
+            "tasks",
+            format_args!("{}: running, asked for a window", app.id),
+        );
         let qt = self.qt_thread();
         io::spawn(async move {
             let activated = dbus::activate(&app.id).await;
@@ -631,7 +657,12 @@ impl Tasks {
                     return;
                 }
                 obj.as_mut().open(&app, false);
-                obj.as_mut().show(&app, "native", -1);
+                // GTK answers Activate after its window has mapped; the
+                // splash shown then took that window off the screen.
+                match obj.task(&app.id).filter(|t| t.surface_id >= 0).cloned() {
+                    Some(task) => obj.as_mut().show(&app, &task.kind, task.surface_id),
+                    None => obj.as_mut().show(&app, "native", -1),
+                }
                 obj.as_mut().rust_mut().launching.remove(&app.id);
                 obj.launched(&app);
             })

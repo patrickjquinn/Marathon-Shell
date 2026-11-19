@@ -7,9 +7,10 @@
   "entryPoint": "CameraApp.qml",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
-  "permissions": ["camera", "storage"],
+  "permissions": ["camera", "microphone", "storage"],
   "permissionReasons": {
     "camera": "Takes photos and records videos",
+    "microphone": "Records the sound of your videos",
     "storage": "Saves photos and videos to Pictures and DCIM"
   },
   "minShellVersion": "1.0.0",

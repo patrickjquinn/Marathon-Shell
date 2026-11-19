@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+# Sony IMX111 (Zinwa Q25 front camera). 10-bit data, black level 64.
+# The colour matrices are a first, uncalibrated estimate: rows sum to one
+# so white stays white; to be replaced by a colour-chart calibration.
+version: 1
+algorithms:
+  - BlackLevel:
+      blackLevel: 4096
+  - Awb:
+  - Ccm:
+      ccms:
+        - ct: 2800
+          ccm: [ 1.90, -0.55, -0.35,
+                -0.50,  1.85, -0.35,
+                -0.20, -0.90,  2.10 ]
+        - ct: 5000
+          ccm: [ 1.80, -0.55, -0.25,
+                -0.40,  1.75, -0.35,
+                -0.10, -0.65,  1.75 ]
+        - ct: 6500
+          ccm: [ 1.75, -0.55, -0.20,
+                -0.35,  1.70, -0.35,
+                -0.05, -0.55,  1.60 ]
+  - Adjust:
+      contrast: 1.2
+  - Agc:
+...

@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: patrickjquinn <patrick.jm.quinn@gmail.com>
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Sun, 1 Nov 2026 13:38:25 +0000
-Subject: [PATCH 5/6] pipeline: simple: Skip capture sizes the video node does
- not support
+Subject: [PATCH 05/29] pipeline: simple: Skip capture sizes the video node
+ does not support
 
 tryPipeline() adds a configuration for every pixel format the video
 node offers for the propagated media bus code, ignoring the frame sizes
@@ -15,15 +15,17 @@ On MediaTek's CAMSV, which takes widths in steps of 8, this stops the
 IMX111's 820x614 mode from being picked for the viewfinder.
 
 Tested on a Zinwa Q25 (MT6789, IMX111).
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
 ---
  src/libcamera/pipeline/simple/simple.cpp | 12 ++++++++++++
  1 file changed, 12 insertions(+)
 
 diff --git a/src/libcamera/pipeline/simple/simple.cpp b/src/libcamera/pipeline/simple/simple.cpp
-index 79efc8e9..62ac67e8 100644
+index 20a6a256..877defb1 100644
 --- a/src/libcamera/pipeline/simple/simple.cpp
 +++ b/src/libcamera/pipeline/simple/simple.cpp
-@@ -735,6 +735,18 @@ void SimpleCameraData::tryPipeline(unsigned int code, const Size &size)
+@@ -736,6 +736,18 @@ void SimpleCameraData::tryPipeline(unsigned int code, const Size &size)
  			continue;
  		}
  

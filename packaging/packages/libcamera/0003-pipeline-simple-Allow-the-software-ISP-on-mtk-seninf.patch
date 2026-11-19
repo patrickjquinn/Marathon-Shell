@@ -1,19 +1,21 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: patrickjquinn <patrick.jm.quinn@gmail.com>
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Sun, 1 Nov 2026 12:56:09 +0000
-Subject: [PATCH 3/6] pipeline: simple: Allow the software ISP on mtk-seninf
+Subject: [PATCH 03/29] pipeline: simple: Allow the software ISP on mtk-seninf
 
 MT6789 has the mtk-seninf CSI receiver but no mtk-mdp converter for the
 simple pipeline to use. The software ISP is still skipped whenever a
 converter is found, so platforms with MDP keep it.
 
 Tested on a Zinwa Q25 (MT6789).
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
 ---
  src/libcamera/pipeline/simple/simple.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/libcamera/pipeline/simple/simple.cpp b/src/libcamera/pipeline/simple/simple.cpp
-index 35e06649..79efc8e9 100644
+index 2f7f4c89..20a6a256 100644
 --- a/src/libcamera/pipeline/simple/simple.cpp
 +++ b/src/libcamera/pipeline/simple/simple.cpp
 @@ -262,7 +262,7 @@ static const SimplePipelineInfo supportedDevices[] = {

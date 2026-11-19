@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import QtQuick
+import Marathon.Platform 1.0 as Platform
 import MarathonApp.Camera
 
 // The part of Qt 5 Multimedia's Camera that the Jolla Camera's QML is written
@@ -102,10 +103,17 @@ QtObject {
     }
 
     component FocusControl: QtObject {
+        required property CameraController controller
         property int focusMode: Camera.FocusAuto
         property int focusPointMode: Camera.FocusPointAuto
         property point customFocusPoint: Qt.point(0.5, 0.5)
-        readonly property var focusZones: []
+        // The ring where the person tapped: white while it focuses, then lit.
+        readonly property var focusZones: focusPointMode === Camera.FocusPointCustom && controller.focusState !== CameraController.FocusUnlocked ? [
+            {
+                area: Qt.rect(customFocusPoint.x - 0.1, customFocusPoint.y - 0.1, 0.2, 0.2),
+                status: controller.focusState === CameraController.FocusLocked ? Camera.FocusAreaFocused : Camera.FocusAreaSelected
+            }
+        ] : []
     }
 
     component FlashControl: QtObject {
@@ -155,7 +163,16 @@ QtObject {
     // The cameras are known and the UI has seen LoadedStatus (it reads the
     // list then); CameraConfigs is ready from here.
     property bool configured
-    readonly property int lockStatus: Camera.Unlocked
+    readonly property int lockStatus: {
+        switch (controller.focusState) {
+        case CameraController.FocusSearching:
+            return Camera.Searching;
+        case CameraController.FocusLocked:
+            return Camera.Locked;
+        default:
+            return Camera.Unlocked;
+        }
+    }
     readonly property var _device: availableCameras.find(c => c.deviceId === controller.cameraId)
     readonly property int position: _device ? _device.position : Camera.UnspecifiedPosition
     // How far the sensor's frames turn clockwise to stand upright. A front
@@ -178,8 +195,11 @@ QtObject {
     }
     readonly property CameraRecorder videoRecorder: CameraRecorder {
         controller: root.controller
+        orientation: root.metaData.orientation
     }
-    readonly property FocusControl focus: FocusControl {}
+    readonly property FocusControl focus: FocusControl {
+        controller: root.controller
+    }
     readonly property FlashControl flash: FlashControl {
         controller: root.controller
     }
@@ -193,14 +213,33 @@ QtObject {
     // Failures other than a photo's or a recording's: the camera itself.
     signal error(string message)
 
+    // From the shutter until the file is written the app stays awake: frozen
+    // in the background, the photo was never saved.
+    readonly property bool _saving: imageCapture._pending
+    property int _saveTask: 0
+    on_SavingChanged: {
+        if (_saving && _saveTask === 0) {
+            _saveTask = Platform.Lifecycle.beginBackgroundTask("recording", "saving a photo");
+        } else if (!_saving && _saveTask !== 0) {
+            Platform.Lifecycle.endBackgroundTask(_saveTask);
+            _saveTask = 0;
+        }
+    }
+
+    // Photos and the viewfinder are the square in the middle of the frame.
+    property bool square: false
+
     readonly property CameraController controller: CameraController {
         cameraId: root.deviceId
+        squarePhotos: root.square
         zoomLevel: root.digitalZoom
 
         onActiveChanged: {
             if (active)
                 root.errorCode = Camera.NoError;
         }
+        // Discovery ends later than discover() returns.
+        onReadyChanged: Qt.callLater(root._applyState)
         onPhotoExposed: root.imageCapture.imageExposed(0)
         onPhotoSaved: function (url) {
             root.imageCapture._pending = false;
@@ -218,11 +257,37 @@ QtObject {
     }
 
     function searchAndLock() {
-        if (focus.focusPointMode === Camera.FocusPointCustom)
-            controller.focusOnPoint(focus.customFocusPoint.x, focus.customFocusPoint.y);
+        if (focus.focusPointMode !== Camera.FocusPointCustom)
+            return;
+        // The point is on the viewfinder, which shows the frame turned by
+        // the camera's orientation; the controller takes it on the frame.
+        const p = focus.customFocusPoint;
+        let x = p.x, y = p.y;
+        switch (orientation) {
+        case 90:
+            [x, y] = [p.y, 1 - p.x];
+            break;
+        case 180:
+            [x, y] = [1 - p.x, 1 - p.y];
+            break;
+        case 270:
+            [x, y] = [1 - p.y, p.x];
+            break;
+        }
+        // A square viewfinder shows the middle of the frame's long side.
+        const r = viewfinder.resolution;
+        if (square && r.width > 0 && r.height > 0) {
+            const k = Math.min(r.width, r.height) / Math.max(r.width, r.height);
+            if (r.width > r.height)
+                x = (1 - k) / 2 + k * x;
+            else
+                y = (1 - k) / 2 + k * y;
+        }
+        controller.focusOnPoint(x, y);
     }
 
     function unlock() {
+        controller.unlockFocus();
     }
 
     function _applyState() {
@@ -234,9 +299,10 @@ QtObject {
         const recording = videoRecorder.recording;
         if (recording)
             controller.stopRecording();
-        // Out of sight the camera is dropped, so its devices close; a recording
-        // still being written keeps it.
-        if (cameraState === Camera.UnloadedState && !recording)
+        // Behind the gallery the camera only stops, to come back quickly; with
+        // the app in the background it is closed, so its devices close. A
+        // recording still being written keeps it.
+        if (cameraState === Camera.UnloadedState && !recording && _away)
             controller.release();
         else
             controller.stop();
@@ -245,6 +311,12 @@ QtObject {
             controller.discover();
             configured = controller.discovered;
         }
+    }
+
+    readonly property bool _away: !__silica_applicationwindow_instance.applicationActive
+    on_AwayChanged: {
+        if (_away && cameraState === Camera.UnloadedState && !videoRecorder.recording)
+            controller.release();
     }
 
     // Later: discovery readies CameraConfigs, which cameraState's binding reads.

@@ -1,0 +1,183 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Milan Zamazal <mzamazal@redhat.com>
+Date: Sat, 31 Oct 2026 19:40:38 +0100
+Subject: [PATCH 18/29] ipa: softisp: Add Af algorithm
+
+Let's add Af algorithm, which is mostly a proxy to the libipa Af.
+
+The only special feature is setting afEnabled flag to prevent attempting
+lens movements when the algorithm is not enabled.
+
+The algorithm is not enabled yet because there are no autofocus stats
+computed.
+
+Signed-off-by: Milan Zamazal <mzamazal@redhat.com>
+Link: https://patchwork.libcamera.org/patch/28731/
+[Patrick: rebased on the removal of the unused lsc state variable]
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/softisp/algorithms/af.cpp      | 53 ++++++++++++++++++++++++++
+ src/ipa/softisp/algorithms/af.h        | 39 +++++++++++++++++++
+ src/ipa/softisp/algorithms/meson.build |  1 +
+ src/ipa/softisp/data/uncalibrated.yaml |  1 +
+ src/ipa/softisp/ipa_context.h          |  3 ++
+ 5 files changed, 97 insertions(+)
+ create mode 100644 src/ipa/softisp/algorithms/af.cpp
+ create mode 100644 src/ipa/softisp/algorithms/af.h
+
+diff --git a/src/ipa/softisp/algorithms/af.cpp b/src/ipa/softisp/algorithms/af.cpp
+new file mode 100644
+index 00000000..557cca00
+--- /dev/null
++++ b/src/ipa/softisp/algorithms/af.cpp
+@@ -0,0 +1,53 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later */
++/*
++ * Copyright (C) 2026 Red Hat Inc.
++ *
++ * Autofocus
++ */
++
++#include "af.h"
++
++#include <libcamera/base/log.h>
++
++#include <libcamera/control_ids.h>
++
++#include "libcamera/internal/software_isp/swisp_stats.h"
++
++namespace libcamera {
++
++namespace ipa::softisp::algorithms {
++
++LOG_DEFINE_CATEGORY(IPASoftIspAf)
++
++int Af::init(IPAContext &context, [[maybe_unused]] const ValueNode &tuningData)
++{
++	/* Informs that lens controls can get focus data */
++	context.afEnabled = true;
++
++	return 0;
++}
++
++int Af::configure(IPAContext &context,
++		  [[maybe_unused]] const IPAConfigInfo &configInfo)
++{
++	afAlgo_.configure(context.activeState.af);
++
++	return 0;
++}
++
++void Af::process(IPAContext &context,
++		 [[maybe_unused]] const uint32_t frame,
++		 [[maybe_unused]] IPAFrameContext &frameContext,
++		 const SwIspStats *stats,
++		 [[maybe_unused]] ControlList &metadata)
++{
++	const double variance = stats->variance;
++	LOG(IPASoftIspAf, Debug) << "Focus stats: " << variance;
++	afAlgo_.process(context.activeState.af, variance);
++}
++
++REGISTER_IPA_ALGORITHM(Af, "Af")
++
++} /* namespace ipa::softisp::algorithms */
++
++} /* namespace libcamera */
+diff --git a/src/ipa/softisp/algorithms/af.h b/src/ipa/softisp/algorithms/af.h
+new file mode 100644
+index 00000000..881cb447
+--- /dev/null
++++ b/src/ipa/softisp/algorithms/af.h
+@@ -0,0 +1,39 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later */
++/*
++ * Copyright (C) 2026 Red Hat Inc.
++ *
++ * Autofocus
++ */
++
++#pragma once
++
++#include "libipa/af.h"
++
++#include "algorithm.h"
++#include "ipa_context.h"
++
++namespace libcamera {
++
++namespace ipa::softisp::algorithms {
++
++class Af : public Algorithm
++{
++public:
++	Af() = default;
++	~Af() = default;
++
++	int init(IPAContext &context, const ValueNode &tuningData) override;
++	int configure(IPAContext &context,
++		      const IPAConfigInfo &configInfo) override;
++	void process(IPAContext &context, const uint32_t frame,
++		     IPAFrameContext &frameContext,
++		     const SwIspStats *stats,
++		     ControlList &metadata) override;
++
++private:
++	AfAlgorithm afAlgo_;
++};
++
++} /* namespace ipa::softisp::algorithms */
++
++} /* namespace libcamera */
+diff --git a/src/ipa/softisp/algorithms/meson.build b/src/ipa/softisp/algorithms/meson.build
+index d98f4b1f..7d107711 100644
+--- a/src/ipa/softisp/algorithms/meson.build
++++ b/src/ipa/softisp/algorithms/meson.build
+@@ -2,6 +2,7 @@
+ 
+ softisp_ipa_algorithms = files([
+     'adjust.cpp',
++    'af.cpp',
+     'awb.cpp',
+     'agc.cpp',
+     'blc.cpp',
+diff --git a/src/ipa/softisp/data/uncalibrated.yaml b/src/ipa/softisp/data/uncalibrated.yaml
+index fc90ca52..53d3792a 100644
+--- a/src/ipa/softisp/data/uncalibrated.yaml
++++ b/src/ipa/softisp/data/uncalibrated.yaml
+@@ -4,6 +4,7 @@
+ version: 1
+ algorithms:
+   - BlackLevel:
++  # - Af:
+   - Awb:
+   # Color correction matrices can be defined here. The CCM algorithm
+   # has a significant performance impact, and should only be enabled
+diff --git a/src/ipa/softisp/ipa_context.h b/src/ipa/softisp/ipa_context.h
+index ccb3d724..e602de31 100644
+--- a/src/ipa/softisp/ipa_context.h
++++ b/src/ipa/softisp/ipa_context.h
+@@ -20,6 +20,7 @@
+ #include <libipa/camera_sensor_helper.h>
+ #include <libipa/ccm.h>
+ #include <libipa/fc_queue.h>
++#include "libipa/af.h"
+ #include "libipa/lsc.h"
+ 
+ #include "core_ipa_interface.h"
+@@ -39,6 +40,7 @@ struct IPAActiveState {
+ 	ipa::awb::ActiveState awb;
+ 	ipa::ccm::ActiveState ccm;
+ 	ipa::agc::ActiveState agc;
++	ipa::af::ActiveState af;
+ 
+ 	struct {
+ 		uint8_t level;
+@@ -88,6 +90,7 @@ struct IPAContext {
+ 	FCQueue<IPAFrameContext> frameContexts;
+ 	ControlInfoMap::Map ctrlMap;
+ 	bool ccmEnabled = false;
++	bool afEnabled = false;
+ 	bool lscEnabled = false;
+ };
+ 

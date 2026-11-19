@@ -1,0 +1,130 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 20:50:08 +0000
+Subject: [PATCH 28/29] ipa: softisp: Keep the AGC and AWB state across the
+ same sensor mode
+
+Applications often configure the camera again to switch from a
+viewfinder stream to a still capture stream, with the same sensor mode.
+The IPA then restarts the AGC and AWB from their defaults, and the first
+frames are badly exposed and balanced until they converge again: about
+eight frames, close to a second each at full resolution, on a Zinwa Q25
+taking a photo.
+
+The sensor keeps its exposure and gain over such a configuration, and
+the scene hasn't changed. Keep the automatic AGC and AWB state when the
+sensor mode is the same as in the previous session and that session has
+processed statistics.
+
+To tell, pass the sensor information to configure(). The IPA so far
+used the information from init() all along, which also gets out of date
+when an application picks another sensor mode: use the new one.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ include/libcamera/ipa/softisp.mojom         |  1 +
+ src/ipa/softisp/softisp.cpp                 | 36 +++++++++++++++++++++
+ src/libcamera/software_isp/software_isp.cpp |  1 +
+ 3 files changed, 38 insertions(+)
+
+diff --git a/include/libcamera/ipa/softisp.mojom b/include/libcamera/ipa/softisp.mojom
+index 89639622..b867a5ff 100644
+--- a/include/libcamera/ipa/softisp.mojom
++++ b/include/libcamera/ipa/softisp.mojom
+@@ -12,6 +12,7 @@ struct IPAConfigInfo {
+ 	libcamera.ControlInfoMap sensorControls;
+ 	libcamera.ControlInfoMap lensControls;
+ 	libcamera.Rectangle scalerCrop;
++	libcamera.IPACameraSensorInfo sensorInfo;
+ };
+ 
+ interface IPASoftIspInterface {
+diff --git a/src/ipa/softisp/softisp.cpp b/src/ipa/softisp/softisp.cpp
+index e7577f7d..ac7b8572 100644
+--- a/src/ipa/softisp/softisp.cpp
++++ b/src/ipa/softisp/softisp.cpp
+@@ -82,6 +82,9 @@ private:
+ 	DebayerParams *params_;
+ 	SwIspStats *stats_;
+ 
++	/* Whether the current session has processed statistics. */
++	bool converging_ = false;
++
+ 	/* Local parameter storage */
+ 	struct IPAContext context_;
+ };
+@@ -193,8 +196,31 @@ int IPASoftIsp::init(const IPASettings &settings,
+ 	return 0;
+ }
+ 
++static bool sameSensorMode(const IPACameraSensorInfo &a, const IPACameraSensorInfo &b)
++{
++	return a.bitsPerPixel == b.bitsPerPixel && a.cfaPattern == b.cfaPattern &&
++	       a.analogCrop == b.analogCrop && a.outputSize == b.outputSize &&
++	       a.pixelRate == b.pixelRate && a.minLineLength == b.minLineLength &&
++	       a.maxLineLength == b.maxLineLength &&
++	       a.minFrameLength == b.minFrameLength &&
++	       a.maxFrameLength == b.maxFrameLength;
++}
++
+ int IPASoftIsp::configure(const IPAConfigInfo &configInfo, ControlInfoMap *ipaControls)
+ {
++	/*
++	 * When the sensor mode doesn't change, for instance to switch from a
++	 * viewfinder to a still capture output, the sensor keeps its exposure
++	 * and gain, and the scene is the same. Keep what the AGC and AWB found
++	 * then, so that the first frames are exposed and balanced right rather
++	 * than starting over from the defaults.
++	 */
++	const bool keepState = converging_ &&
++			       sameSensorMode(context_.sensorInfo, configInfo.sensorInfo);
++	const auto agcState = context_.activeState.agc.automatic;
++	const auto awbState = context_.activeState.awb.automatic;
++
++	context_.sensorInfo = configInfo.sensorInfo;
+ 	context_.sensorControls = configInfo.sensorControls;
+ 	context_.lensControls = configInfo.lensControls;
+ 
+@@ -202,6 +228,7 @@ int IPASoftIsp::configure(const IPAConfigInfo &configInfo, ControlInfoMap *ipaCo
+ 	context_.configuration = {};
+ 	context_.activeState = {};
+ 	context_.frameContexts.clear();
++	converging_ = false;
+ 
+ 	for (const auto &algo : algorithms()) {
+ 		int ret = algo->configure(context_, configInfo);
+@@ -209,6 +236,12 @@ int IPASoftIsp::configure(const IPAConfigInfo &configInfo, ControlInfoMap *ipaCo
+ 			return ret;
+ 	}
+ 
++	if (keepState) {
++		LOG(IPASoftIsp, Debug) << "Same sensor mode, keeping the AGC and AWB state";
++		context_.activeState.agc.automatic = agcState;
++		context_.activeState.awb.automatic = awbState;
++	}
++
+ 	*ipaControls = { ControlInfoMap::Map(context_.ctrlMap), controls::controls };
+ 
+ 	return 0;
+@@ -253,6 +286,9 @@ void IPASoftIsp::processStats(const uint32_t frame,
+ 	std::tie(frameContext.sensor.exposure, frameContext.sensor.gain) =
+ 		agc::extractControls(sensorControls, context_.camHelper.get());
+ 
++	if (stats_->valid)
++		converging_ = true;
++
+ 	ControlList metadata(controls::controls);
+ 	for (const auto &algo : algorithms())
+ 		algo->process(context_, frame, frameContext, stats_, metadata);
+diff --git a/src/libcamera/software_isp/software_isp.cpp b/src/libcamera/software_isp/software_isp.cpp
+index 29fb5e19..a200801d 100644
+--- a/src/libcamera/software_isp/software_isp.cpp
++++ b/src/libcamera/software_isp/software_isp.cpp
+@@ -308,6 +308,7 @@ int SoftwareIsp::configure(const StreamConfiguration &inputCfg,
+ 
+ 	ipa::softisp::IPAConfigInfo ipaConfigInfo = configInfo;
+ 	ipaConfigInfo.scalerCrop = scalerCrop_;
++	ipaConfigInfo.sensorInfo = sensorInfo;
+ 	ret = ipa_->configure(ipaConfigInfo, ipaControls);
+ 	if (ret < 0)
+ 		return ret;

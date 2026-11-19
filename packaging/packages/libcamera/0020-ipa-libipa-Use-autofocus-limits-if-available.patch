@@ -1,0 +1,149 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Milan Zamazal <mzamazal@redhat.com>
+Date: Sat, 31 Oct 2026 19:40:40 +0100
+Subject: [PATCH 20/29] ipa: libipa: Use autofocus limits if available
+
+Let's try to set the maximum and the initial focusing positions rather
+than using hard-wired values.
+
+Signed-off-by: Milan Zamazal <mzamazal@redhat.com>
+Link: https://patchwork.libcamera.org/patch/28733/
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/ipu3/algorithms/af.cpp    |  2 +-
+ src/ipa/libipa/af.cpp             | 26 +++++++++++++++++++++-----
+ src/ipa/libipa/af.h               |  5 ++++-
+ src/ipa/softisp/algorithms/af.cpp |  5 ++---
+ 4 files changed, 28 insertions(+), 10 deletions(-)
+
+diff --git a/src/ipa/ipu3/algorithms/af.cpp b/src/ipa/ipu3/algorithms/af.cpp
+index bb412e16..f79ef4b9 100644
+--- a/src/ipa/ipu3/algorithms/af.cpp
++++ b/src/ipa/ipu3/algorithms/af.cpp
+@@ -141,7 +141,7 @@ int Af::configure(IPAContext &context, const IPAConfigInfo &configInfo)
+ 	grid.y_start = utils::alignDown(start.y, 2);
+ 	grid.y_start |= IPU3_UAPI_GRID_Y_START_EN;
+ 
+-	afAlgo_.configure(context.activeState.af);
++	afAlgo_.configure(context.activeState.af, configInfo.lensControls);
+ 
+ 	return 0;
+ }
+diff --git a/src/ipa/libipa/af.cpp b/src/ipa/libipa/af.cpp
+index 492d65d1..fc71bcd7 100644
+--- a/src/ipa/libipa/af.cpp
++++ b/src/ipa/libipa/af.cpp
+@@ -7,6 +7,8 @@
+ 
+ #include "af.h"
+ 
++#include <linux/v4l2-controls.h>
++
+ namespace libcamera {
+ 
+ namespace ipa {
+@@ -40,8 +42,7 @@ namespace af {
+  */
+ 
+ /**
+- * Maximum focus steps of the VCM control
+- * \todo should be obtained from the VCM driver
++ * Default maximum focus steps of the VCM control
+  */
+ static constexpr uint32_t kMaxFocusSteps = 1023;
+ 
+@@ -135,7 +136,7 @@ void AfAlgorithm::afReset(af::ActiveState &state)
+ 	previousVariance_ = 0.0;
+ 	coarseCompleted_ = false;
+ 	fineCompleted_ = false;
+-	maxStep_ = kMaxFocusSteps;
++	maxStep_ = initMaxStep_;
+ }
+ 
+ /**
+@@ -244,14 +245,15 @@ bool AfAlgorithm::afIsOutOfFocus(af::ActiveState &state)
+ /**
+  * \brief Configure the algorithm and \a state
+  * \param[in] state The autofocus state
++ * \param[in] lensControls The lens controls
+  *
+  * The method just sets some initial variable values rather than performing real
+  * configuration but it is supposed to be called from IPA's `configure`.
+  */
+-void AfAlgorithm::configure(af::ActiveState &state)
++void AfAlgorithm::configure(af::ActiveState &state, const ControlInfoMap &lensControls)
+ {
+ 	/* Initial max focus step */
+-	maxStep_ = kMaxFocusSteps;
++	initMaxStep_ = kMaxFocusSteps;
+ 
+ 	/* Initial frame ignore counter */
+ 	afIgnoreFrameReset();
+@@ -262,6 +264,20 @@ void AfAlgorithm::configure(af::ActiveState &state)
+ 	state.maxVariance = 0;
+ 	/* The stable AF value flag. if it is true, the AF should be in a stable state. */
+ 	state.stable = false;
++
++	const auto it = lensControls.find(V4L2_CID_FOCUS_ABSOLUTE);
++	if (it != lensControls.end()) {
++		const ControlInfo &focusInfo = it->second;
++		if (!focusInfo.max().isNone())
++			initMaxStep_ = static_cast<uint32_t>(focusInfo.max().get<int32_t>());
++		if (!focusInfo.def().isNone())
++			state.focus = static_cast<uint32_t>(focusInfo.def().get<int32_t>());
++	}
++
++	maxStep_ = initMaxStep_;
++
++	LOG(Af, Debug) << "Configured focus parameters: max=" << initMaxStep_
++		       << " focus=" << state.focus;
+ }
+ 
+ /**
+diff --git a/src/ipa/libipa/af.h b/src/ipa/libipa/af.h
+index de9f7e0b..464fc0f7 100644
+--- a/src/ipa/libipa/af.h
++++ b/src/ipa/libipa/af.h
+@@ -12,6 +12,7 @@
+ #include <libcamera/base/log.h>
+ 
+ #include <libcamera/control_ids.h>
++#include <libcamera/controls.h>
+ 
+ namespace libcamera {
+ 
+@@ -39,7 +40,7 @@ class AfAlgorithm
+ public:
+ 	AfAlgorithm();
+ 
+-	void configure(af::ActiveState &state);
++	void configure(af::ActiveState &state, const ControlInfoMap &lensControls);
+ 	void process(af::ActiveState &state, double variance);
+ 	bool coarseCompleted() { return coarseCompleted_; }
+ 
+@@ -65,6 +66,8 @@ private:
+ 	double previousVariance_;
+ 	/* The designated maximum range of focus scanning. */
+ 	uint32_t maxStep_;
++	/* Initial value of maxStep_ */
++	uint32_t initMaxStep_;
+ 	/* If the coarse scan completes, it is set to true. */
+ 	bool coarseCompleted_;
+ 	/* If the fine scan completes, it is set to true. */
+diff --git a/src/ipa/softisp/algorithms/af.cpp b/src/ipa/softisp/algorithms/af.cpp
+index 557cca00..4fb834f8 100644
+--- a/src/ipa/softisp/algorithms/af.cpp
++++ b/src/ipa/softisp/algorithms/af.cpp
+@@ -27,10 +27,9 @@ int Af::init(IPAContext &context, [[maybe_unused]] const ValueNode &tuningData)
+ 	return 0;
+ }
+ 
+-int Af::configure(IPAContext &context,
+-		  [[maybe_unused]] const IPAConfigInfo &configInfo)
++int Af::configure(IPAContext &context, const IPAConfigInfo &configInfo)
+ {
+-	afAlgo_.configure(context.activeState.af);
++	afAlgo_.configure(context.activeState.af, configInfo.lensControls);
+ 
+ 	return 0;
+ }

@@ -1,0 +1,166 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 10:19:01 +0000
+Subject: [PATCH] ipa: softisp: af: Keep the focus across the same sensor mode
+
+Reconfiguring the camera, for instance to take a photo with a still
+capture stream after a viewfinder, restarts the autofocus: the lens
+moves to the infinity end and sweeps the whole range again, although
+the image is the same and the lens has kept its position.
+
+When the sensor mode is unchanged and the previous session has run,
+keep the autofocus state along with the AGC and AWB state: the mode,
+the AF state, the metering and the lens position. A focused lens stays
+focused, a manual or locked one stays where it is, and a continuous
+scan carries on from where it was, after the frames to skip.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/libipa/af.cpp             | 20 ++++++++++++++++++++
+ src/ipa/libipa/af.h               |  1 +
+ src/ipa/softisp/algorithms/af.cpp | 19 +++++++++++++++----
+ src/ipa/softisp/ipa_context.h     |  2 ++
+ src/ipa/softisp/softisp.cpp       |  8 +++++++-
+ test/ipa/libipa/af.cpp            |  9 +++++++++
+ 6 files changed, 54 insertions(+), 5 deletions(-)
+
+diff --git a/src/ipa/libipa/af.cpp b/src/ipa/libipa/af.cpp
+index 0ac89708..2df08210 100644
+--- a/src/ipa/libipa/af.cpp
++++ b/src/ipa/libipa/af.cpp
+@@ -532,6 +532,26 @@ void AfAlgorithm::configure(af::ActiveState &state, const ControlInfoMap &lensCo
+ 		       << " max=" << maxFocus_;
+ }
+ 
++/**
++ * \brief Carry on with the current state in a new session
++ * \param[in] state The autofocus state, kept from the previous session
++ * \param[in] lensControls The lens controls
++ *
++ * Unlike configure(), keep the mode, the AF state and the lens position, for a
++ * new session that sees the same image, such as after reconfiguring the
++ * camera with the same sensor mode. The lens must have kept its position. The
++ * frames to skip are skipped again, as the first frames of a session may not
++ * be settled yet.
++ */
++void AfAlgorithm::resume(af::ActiveState &state, const ControlInfoMap &lensControls)
++{
++	setLensLimits(lensControls);
++	state.focus = std::clamp(state.focus, minFocus_, maxFocus_);
++	afIgnoreFrameReset();
++
++	LOG(Af, Debug) << "Resuming in mode " << mode_ << " at " << state.focus;
++}
++
+ /**
+  * \brief Determine the max contrast image and lens position
+  * \param[in] state The autofocus state
+diff --git a/src/ipa/libipa/af.h b/src/ipa/libipa/af.h
+index c70fcd38..d627381e 100644
+--- a/src/ipa/libipa/af.h
++++ b/src/ipa/libipa/af.h
+@@ -48,6 +48,7 @@ public:
+ 
+ 	int init(const ValueNode &tuningData, const ControlInfoMap &lensControls);
+ 	void configure(af::ActiveState &state, const ControlInfoMap &lensControls);
++	void resume(af::ActiveState &state, const ControlInfoMap &lensControls);
+ 	void process(af::ActiveState &state, double variance);
+ 	bool coarseCompleted() { return coarseCompleted_; }
+ 
+diff --git a/src/ipa/softisp/algorithms/af.cpp b/src/ipa/softisp/algorithms/af.cpp
+index 5dbd4a55..fcbce3ce 100644
+--- a/src/ipa/softisp/algorithms/af.cpp
++++ b/src/ipa/softisp/algorithms/af.cpp
+@@ -69,11 +69,22 @@ int Af::configure(IPAContext &context, const IPAConfigInfo &configInfo)
+ 	if (!context.afEnabled)
+ 		return 0;
+ 
+-	afAlgo_.configure(context.activeState.af, configInfo.lensControls);
+-
+ 	scalerCrop_ = configInfo.scalerCrop;
+-	metering_ = controls::AfMeteringAuto;
+-	windows_.clear();
++
++	/*
++	 * Over a configuration of the same sensor mode, such as from a
++	 * viewfinder to a still capture, carry on with the same mode, metering
++	 * and lens position rather than starting over: a focused lens stays
++	 * focused.
++	 */
++	if (context.configuration.sensorModeKept) {
++		afAlgo_.resume(context.activeState.af, configInfo.lensControls);
++	} else {
++		afAlgo_.configure(context.activeState.af, configInfo.lensControls);
++		metering_ = controls::AfMeteringAuto;
++		windows_.clear();
++	}
++
+ 	updateWeights();
+ 
+ 	return 0;
+diff --git a/src/ipa/softisp/ipa_context.h b/src/ipa/softisp/ipa_context.h
+index 308a7a6f..7ceac365 100644
+--- a/src/ipa/softisp/ipa_context.h
++++ b/src/ipa/softisp/ipa_context.h
+@@ -34,6 +34,8 @@ struct IPASessionConfiguration {
+ 	struct {
+ 		std::optional<uint8_t> level;
+ 	} black;
++	/* The sensor mode is the one of the previous session. */
++	bool sensorModeKept;
+ };
+ 
+ struct IPAActiveState {
+diff --git a/src/ipa/softisp/softisp.cpp b/src/ipa/softisp/softisp.cpp
+index ac7b8572..0fb4ebaf 100644
+--- a/src/ipa/softisp/softisp.cpp
++++ b/src/ipa/softisp/softisp.cpp
+@@ -219,6 +219,7 @@ int IPASoftIsp::configure(const IPAConfigInfo &configInfo, ControlInfoMap *ipaCo
+ 			       sameSensorMode(context_.sensorInfo, configInfo.sensorInfo);
+ 	const auto agcState = context_.activeState.agc.automatic;
+ 	const auto awbState = context_.activeState.awb.automatic;
++	const auto afState = context_.activeState.af;
+ 
+ 	context_.sensorInfo = configInfo.sensorInfo;
+ 	context_.sensorControls = configInfo.sensorControls;
+@@ -230,6 +231,11 @@ int IPASoftIsp::configure(const IPAConfigInfo &configInfo, ControlInfoMap *ipaCo
+ 	context_.frameContexts.clear();
+ 	converging_ = false;
+ 
++	/* The lens holds its position over the configuration, keep it. */
++	context_.configuration.sensorModeKept = keepState;
++	if (keepState)
++		context_.activeState.af = afState;
++
+ 	for (const auto &algo : algorithms()) {
+ 		int ret = algo->configure(context_, configInfo);
+ 		if (ret)
+@@ -237,7 +243,7 @@ int IPASoftIsp::configure(const IPAConfigInfo &configInfo, ControlInfoMap *ipaCo
+ 	}
+ 
+ 	if (keepState) {
+-		LOG(IPASoftIsp, Debug) << "Same sensor mode, keeping the AGC and AWB state";
++		LOG(IPASoftIsp, Debug) << "Same sensor mode, keeping the AGC, AWB and AF state";
+ 		context_.activeState.agc.automatic = agcState;
+ 		context_.activeState.awb.automatic = awbState;
+ 	}
+diff --git a/test/ipa/libipa/af.cpp b/test/ipa/libipa/af.cpp
+index 534fa164..8b7c44e8 100644
+--- a/test/ipa/libipa/af.cpp
++++ b/test/ipa/libipa/af.cpp
+@@ -131,6 +131,15 @@ protected:
+ 		ASSERT_TRUE(af.afState() == controls::AfStateFocused);
+ 		ASSERT_TRUE(std::abs(static_cast<int>(state.focus) - 400) <= 2);
+ 
++		/* Resuming in a new session keeps the focus without a scan. */
++		af.resume(state, ControlInfoMap{});
++		ASSERT_TRUE(af.afState() == controls::AfStateFocused);
++		for (unsigned int i = 0; i < 20; i++) {
++			af.process(state, variance(state.focus));
++			ASSERT_TRUE(af.afState() == controls::AfStateFocused);
++		}
++		ASSERT_TRUE(std::abs(static_cast<int>(state.focus) - 400) <= 2);
++
+ 		/* A scene change starts a new scan. */
+ 		peak_ = 700;
+ 		for (unsigned int i = 0; i < 20; i++)

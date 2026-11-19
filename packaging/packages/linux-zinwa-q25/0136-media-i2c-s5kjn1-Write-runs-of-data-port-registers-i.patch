@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 13:20:00 +0000
+Subject: [PATCH] media: i2c: s5kjn1: Write runs of data port registers in one
+ transfer
+
+The mode tables program the sensor's memory through its indirect access
+port: 0x6028 and 0x602a set the page and address, and every 16-bit
+write to 0x6f12 stores a word and advances the address. The 4080x3072
+table writes 269 registers, 158 of them to 0x6f12 in runs of up to 16,
+and cci_multi_reg_write() sends one I2C transfer per register.
+
+The data port also takes several words in one write, as in Samsung's
+own s5k5baf driver (s5k5baf_write_arr_seq()), so send each run of data
+port writes as one transfer with regmap_noinc_write(). This brings the
+tables from 299 transfers to 218.
+
+After the burst writes, reading the sensor memory back through 0x602c,
+0x602e and 0x6f12, and the directly addressed registers, returned the
+written value for all 210 such entries of both tables.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/media/i2c/s5kjn1.c | 49 ++++++++++++++++++++++++++++++++++----
+ 1 file changed, 45 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/i2c/s5kjn1.c b/drivers/media/i2c/s5kjn1.c
+index 2d872cf..a7ba173 100644
+--- a/drivers/media/i2c/s5kjn1.c
++++ b/drivers/media/i2c/s5kjn1.c
+@@ -7,8 +7,10 @@
+ #include <linux/i2c.h>
+ #include <linux/module.h>
+ #include <linux/pm_runtime.h>
++#include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/units.h>
++#include <linux/unaligned.h>
+ #include <media/v4l2-cci.h>
+ #include <media/v4l2-ctrls.h>
+ #include <media/v4l2-device.h>
+@@ -51,6 +53,10 @@
+ #define S5KJN1_REG_X_OUTPUT_SIZE	CCI_REG16(0x034c)
+ #define S5KJN1_REG_Y_OUTPUT_SIZE	CCI_REG16(0x034e)
+ 
++/* Indirect access data port; the sensor advances the address per word */
++#define S5KJN1_REG_DATA			CCI_REG16(0x6f12)
++#define S5KJN1_DATA_BURST_MAX		32
++
+ #define S5KJN1_REG_TEST_PATTERN		CCI_REG16(0x0600)
+ 
+ #define to_s5kjn1(_sd)			container_of(_sd, struct s5kjn1, sd)
+@@ -889,6 +895,41 @@ error_free_hdlr:
+ 	return ret;
+ }
+ 
++/*
++ * Like cci_multi_reg_write(), but a run of writes to the data port goes out
++ * as one transfer.
++ */
++static int s5kjn1_write_regs(struct regmap *map,
++			     const struct cci_reg_sequence *regs,
++			     unsigned int num_regs, int *err)
++{
++	u8 buf[2 * S5KJN1_DATA_BURST_MAX];
++	unsigned int i, n;
++	int ret = 0;
++
++	if (err && *err)
++		return *err;
++
++	for (i = 0; i < num_regs && !ret; i += n) {
++		for (n = 0; i + n < num_regs && n < S5KJN1_DATA_BURST_MAX &&
++		     regs[i + n].reg == S5KJN1_REG_DATA; n++)
++			put_unaligned_be16(regs[i + n].val, &buf[2 * n]);
++
++		if (n > 1) {
++			ret = regmap_noinc_write(map, CCI_REG_ADDR(S5KJN1_REG_DATA),
++						 buf, 2 * n);
++		} else {
++			n = 1;
++			cci_write(map, regs[i].reg, regs[i].val, &ret);
++		}
++	}
++
++	if (ret && err)
++		*err = ret;
++
++	return ret;
++}
++
+ static int s5kjn1_enable_streams(struct v4l2_subdev *sd,
+ 				 struct v4l2_subdev_state *state, u32 pad,
+ 				 u64 streams_mask)
+@@ -922,10 +963,10 @@ static int s5kjn1_enable_streams(struct v4l2_subdev *sd,
+ 	usleep_range(10 * USEC_PER_MSEC, 11 * USEC_PER_MSEC);
+ 
+ 	/* Sensor init settings */
+-	cci_multi_reg_write(s5kjn1->regmap, init_array_setting,
+-			    ARRAY_SIZE(init_array_setting), &ret);
+-	cci_multi_reg_write(s5kjn1->regmap, reg_list->regs,
+-			    reg_list->num_regs, &ret);
++	s5kjn1_write_regs(s5kjn1->regmap, init_array_setting,
++			  ARRAY_SIZE(init_array_setting), &ret);
++	s5kjn1_write_regs(s5kjn1->regmap, reg_list->regs,
++			  reg_list->num_regs, &ret);
+ 	if (ret)
+ 		goto error;
+ 
+-- 
+2.55.0
+

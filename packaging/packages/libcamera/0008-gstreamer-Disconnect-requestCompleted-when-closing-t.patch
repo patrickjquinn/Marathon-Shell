@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: patrickjquinn <patrick.jm.quinn@gmail.com>
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Sun, 1 Nov 2026 18:15:08 +0000
-Subject: [PATCH] gstreamer: Disconnect requestCompleted when closing the
+Subject: [PATCH 08/29] gstreamer: Disconnect requestCompleted when closing the
  camera
 
 gst_libcamera_src_open() connects the camera's requestCompleted signal
@@ -21,6 +21,8 @@ Disconnect the state's slot before releasing the camera.
 Tested on a Zinwa Q25 (MT6789, S5KJN1 and IMX111): a Qt Multimedia app
 that stops and starts its camera, and one that recreates it, both kept
 streaming where each crashed on the first restart.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
 ---
  src/gstreamer/gstlibcamerasrc.cpp | 2 ++
  1 file changed, 2 insertions(+)
@@ -38,6 +40,3 @@ index 9541aa3f..791099ec 100644
  	ret = state->cam_->release();
  	if (ret) {
  		GST_ELEMENT_WARNING(self, RESOURCE, BUSY,
--- 
-2.55.0
-

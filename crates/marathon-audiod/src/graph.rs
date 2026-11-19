@@ -368,6 +368,9 @@ impl Graph {
         if node.name.starts_with("bluez_output.") {
             return "bluetooth";
         }
+        if node.name.starts_with("alsa_output.usb-") {
+            return "usb";
+        }
         let wired = node
             .device
             .zip(node.profile_device)

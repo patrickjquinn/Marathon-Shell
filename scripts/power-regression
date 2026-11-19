@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""power-regression [SECONDS] [--playback]: the phone's power budgets.
+
+Takes the phone over ssh through the states that must stay cheap, each
+measured for SECONDS (default 60) by scripts/power-audit.py against a budget,
+and exits 1 if any is over. The screen must be off.
+
+  idle     nothing playing
+  online   an internet station playing      (--playback)
+  fm       an FM station playing, if a wired headset is in  (--playback)
+
+Playback goes to a null sink made for the test, so nothing is heard; the
+test refuses to play if that sink is not there.
+
+MARATHON_DEVICE is the phone as ssh reaches it (default root@172.16.42.1),
+MARATHON_SSH_OPTS adds ssh options.
+"""
+import json
+import os
+import shlex
+import subprocess
+import sys
+import time
+
+DEVICE = os.environ.get("MARATHON_DEVICE", "root@172.16.42.1")
+SSH = ["ssh", *shlex.split(os.environ.get("MARATHON_SSH_OPTS", "")), DEVICE]
+AUDIT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "power-audit.py")
+SINK = "silent-test"
+
+# CPU in % of one core for the whole system and the busiest process, wakeups
+# and journal lines a second. Measured on the Zinwa Q25 (2026-11-17): idle
+# 1.5% / 26 wakeups; an internet station ~6% (ffmpeg 5%); FM ~1%.
+BUDGETS = {
+    "idle": dict(cpu=5, process=2, wakeups=300, log=2),
+    "online": dict(cpu=12, process=8, wakeups=1500, log=2),
+    "fm": dict(cpu=6, process=4, wakeups=1500, log=2),
+}
+
+USER_BUS = "XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+
+
+def remote(command, check=True):
+    r = subprocess.run([*SSH, command], capture_output=True, text=True, check=False)
+    if check and r.returncode != 0:
+        sys.exit(f"power-regression: {command!r} failed: {r.stderr.strip()}")
+    return r.stdout
+
+
+def as_user(command):
+    return f"su user -s /bin/sh -c {shlex.quote(f'{USER_BUS} {command}')}"
+
+
+def radio(method, signature="", *args):
+    call = " ".join(["busctl --user --json=short --timeout=90 call org.marathonos.Radio",
+                     "/org/marathonos/Radio org.marathonos.Radio1", method, signature,
+                     *(shlex.quote(a) for a in args)])
+    out = remote(as_user(call))
+    return json.loads(out)["data"] if out.strip() else None
+
+
+def audit(name, seconds):
+    limits = [f"--max-{k} {v}" for k, v in BUDGETS[name].items()]
+    with open(AUDIT, "rb") as script:
+        r = subprocess.run([*SSH, f"python3 - {seconds:.0f} {' '.join(limits)}"],
+                           stdin=script, capture_output=True, text=True, check=False)
+    print(f"== {name}\n{r.stdout.rstrip()}\n")
+    return r.returncode == 0
+
+
+def silent_sink():
+    nodes = remote(as_user("pw-cli ls Node"))
+    if f'node.name = "{SINK}"' not in nodes:
+        remote(as_user("pw-cli create-node adapter "
+                       f"'{{ factory.name=support.null-audio-sink node.name={SINK} "
+                       "media.class=Audio/Sink object.linger=true "
+                       "audio.position=[ FL FR ] }'"))
+        time.sleep(1)
+        nodes = remote(as_user("pw-cli ls Node"))
+    if f'node.name = "{SINK}"' not in nodes:
+        sys.exit("power-regression: no silent sink, so no playback test")
+    remote(as_user(f"systemctl --user set-environment MARATHON_RADIO_SINK={SINK}"))
+    remote(as_user("systemctl --user restart marathon-radiod"))
+    time.sleep(3)
+
+
+def restore_sink():
+    radio("Stop")
+    remote(as_user("systemctl --user unset-environment MARATHON_RADIO_SINK"))
+    remote(as_user("systemctl --user restart marathon-radiod"))
+
+
+def playing(seconds=30):
+    for _ in range(seconds):
+        state = radio("GetState")
+        status = state[0].get("status", {}).get("data") if state else None
+        if status == "playing":
+            return True
+        time.sleep(1)
+    return False
+
+
+def screen_on():
+    # The CRTC, as power-audit.py reads it; the backlight where debugfs is absent.
+    out = remote("cat /sys/kernel/debug/dri/*/state 2>/dev/null"
+                 " || cat /sys/class/backlight/*/bl_power", check=False)
+    if "active=" in out:
+        return "\tactive=1" in out
+    return not out.split() or "0" in out.split()
+
+
+def main(argv):
+    seconds = next((float(a) for a in argv if not a.startswith("-")), 60.0)
+    playback = "--playback" in argv
+    if screen_on():
+        sys.exit("power-regression: turn the screen off first")
+    radio("Stop")
+    time.sleep(5)
+    results = {"idle": audit("idle", seconds)}
+    if playback:
+        silent_sink()
+        try:
+            online = next(s for s in radio("Search", "s", "BBC World Service")[0]
+                          if not str(s.get("id", {}).get("data", "")).startswith("fm:"))
+            radio("Play", "sas", online["id"]["data"], "0")
+            results["online"] = playing() and audit("online", seconds)
+            radio("Stop")
+            jack = remote("amixer -c 0 cget iface=CARD,name='Headphones Jack'", check=False)
+            if "values=on" in jack:
+                local = [s for s in radio("Local")[0]
+                         if str(s.get("id", {}).get("data", "")).startswith("fm:")]
+                if local:
+                    radio("Play", "sas", local[0]["id"]["data"], "0")
+                    results["fm"] = playing() and audit("fm", seconds)
+            else:
+                print("== fm\nskipped: no wired headset (the FM aerial)\n")
+        finally:
+            restore_sink()
+    for name, ok in results.items():
+        print(f"{name}: {'pass' if ok else 'FAIL'}")
+    return 0 if all(results.values()) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,101 @@
+#!/bin/sh
+# new-app ID "Name": a new app in apps/ID, copied from apps/template and
+# renamed, and added to apps/CMakeLists.txt.
+#
+#   scripts/new-app weather "Weather"
+#
+# ID is the app id (manifest, appId, install directory, org.marathonos.ID):
+# lowercase letters, digits and -. Name is the display name; without its
+# spaces and punctuation it names the QML types (WeatherApp.qml,
+# WeatherCover.qml) and the module (MarathonApp.Weather).
+set -eu
+
+usage() {
+	echo 'usage: new-app ID "Name"' >&2
+	exit 2
+}
+die() {
+	echo "new-app: $*" >&2
+	exit 2
+}
+
+[ $# -eq 2 ] || usage
+id=$1
+name=$2
+case $id in
+[a-z]?*) ;;
+*) die "ID must start with a lowercase letter and be at least two characters" ;;
+esac
+case $id in
+*[!a-z0-9-]*) die "ID may use only a-z, 0-9 and -" ;;
+esac
+case $name in
+'' | *'"'* | *\\*) die "Name must be non-empty, without \" or \\" ;;
+esac
+type=$(printf '%s' "$name" | LC_ALL=C tr -cd 'A-Za-z0-9')
+case $type in
+[A-Z]*) ;;
+*) die "Name must start with a capital letter (it names the QML types)" ;;
+esac
+
+repo=$(cd "$(dirname "$0")/.." && pwd)
+dst=$repo/apps/$id
+cmake=$repo/apps/CMakeLists.txt
+[ ! -e "$dst" ] || die "apps/$id exists"
+! grep -q "^add_subdirectory($id)" "$cmake" || die "apps/CMakeLists.txt already adds $id"
+! grep -q "URI \"MarathonApp\.$type\"" "$repo"/apps/*/CMakeLists.txt ||
+	die "another app is already MarathonApp.$type; choose another Name"
+
+tmp=$(mktemp)
+done=0
+cleanup() {
+	rm -f "$tmp"
+	[ "$done" = 1 ] || rm -rf "$dst"
+}
+trap cleanup EXIT
+
+# The replacement text in sed: escape \, & and the | delimiter.
+sed_name=$(printf '%s' "$name" | sed 's/[\\&|]/\\&/g')
+edit() {
+	f=$1
+	shift
+	sed "$@" "$f" >"$tmp"
+	cat "$tmp" >"$f"
+}
+
+cp -R "$repo/apps/template" "$dst"
+rm -f "$dst/.do-not-install" "$dst/README.md"
+mv "$dst/TemplateApp.qml" "$dst/${type}App.qml"
+mv "$dst/cover/TemplateCover.qml" "$dst/cover/${type}Cover.qml"
+lower=$(printf '%s' "$type" | tr '[:upper:]' '[:lower:]')
+mv "$dst/tests/tst_templateapp.qml" "$dst/tests/tst_${lower}app.qml"
+
+find "$dst" -name '*.qml' | while IFS= read -r f; do
+	edit "$f" -e "s|TemplateApp|${type}App|g" -e "s|TemplateCover|${type}Cover|g" \
+		-e "s|/apps/template/|/apps/$id/|g" -e "s|appId: \"template\"|appId: \"$id\"|" \
+		-e "s|qsTr(\"Template\")|qsTr(\"$sed_name\")|"
+done
+edit "$dst/manifest.json" -e "s|\"id\": \"template\"|\"id\": \"$id\"|" \
+	-e "s|\"name\": \"Template App\"|\"name\": \"$sed_name\"|" \
+	-e "s|\"entryPoint\": \"TemplateApp.qml\"|\"entryPoint\": \"${type}App.qml\"|" \
+	-e 's|"description": "[^"]*"|"description": ""|'
+# The template's header comment says it never ships; drop it.
+edit "$dst/CMakeLists.txt" -e '/^#/d' -e '/./,$!d' -e "s|^set(APP_NAME template)|set(APP_NAME $id)|" \
+	-e "s|\"MarathonApp.Template\"|\"MarathonApp.$type\"|"
+
+last=$(grep -n '^add_subdirectory(' "$cmake" | tail -n 1 | cut -d: -f1)
+awk -v n="$last" -v line="add_subdirectory($id)" '{ print } NR == n { print line }' "$cmake" >"$tmp"
+cat "$tmp" >"$cmake"
+done=1
+
+cat <<EOF
+new-app: apps/$id (${type}App.qml, MarathonApp.$type), added to apps/CMakeLists.txt
+Next:
+  apps/$id/manifest.json   set description, permissions, categories, searchKeywords
+  icon                     add "$id" to ICONS in scripts/build-app-icons.py, then run
+                           scripts/build-app-icons.py $id (with picosvg)
+  tests                    KEEL_QML=<Keel qml dir> sh apps/$id/tests/run.sh;
+                           add apps/$id/tests to the Qml suites in tests/CMakeLists.txt
+  on a phone               scripts/app-push $id
+See docs/APP_DEVELOPMENT.md.
+EOF

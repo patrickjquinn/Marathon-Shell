@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 18 Nov 2026 20:52:30 +0000
+Subject: [PATCH 29/29] gstreamer: Expose the autofocus trigger, pause and
+ state controls
+
+libcamerasrc offers AfMode, AfMetering and AfWindows, but not AfTrigger
+and AfPause, so an application can't start an AfModeAuto scan or pause a
+continuous one, nor read AfState and AfPauseState to tell when the scene
+is in focus.
+
+Add them. The element already merges the request metadata into the
+values its properties return, so AfState and AfPauseState read back the
+latest state. As they are only reported, make them read-only properties,
+and generally make the properties of output-only controls read-only.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/gstreamer/gstlibcamera-controls.cpp.in | 6 +++++-
+ utils/codegen/gen-gst-controls.py          | 4 +++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/src/gstreamer/gstlibcamera-controls.cpp.in b/src/gstreamer/gstlibcamera-controls.cpp.in
+index 17e88a23..b2648a2e 100644
+--- a/src/gstreamer/gstlibcamera-controls.cpp.in
++++ b/src/gstreamer/gstlibcamera-controls.cpp.in
+@@ -84,8 +84,12 @@ g_param_spec_{{ ctrl.gtype }}(
+ {%- elif ctrl.gtype in ['float', 'int', 'int64', 'uchar'] %}
+ 	{{ ctrl.min }}, {{ ctrl.max }}, {{ ctrl.default }},
+ {%- endif %}
++{%- if ctrl.is_writable %}
+ 	(GParamFlags) (GST_PARAM_CONTROLLABLE | G_PARAM_READWRITE |
+ 		       G_PARAM_STATIC_STRINGS)
++{%- else %}
++	(GParamFlags) (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)
++{%- endif %}
+ )
+ {%- endset %}
+ 
+@@ -180,7 +184,7 @@ bool GstCameraControls::setProperty(guint propId, const GValue *value,
+ 
+ 	switch (propId) {
+ {%- for vendor, ctrls in controls %}
+-{%- for ctrl in ctrls %}
++{%- for ctrl in ctrls if ctrl.is_writable %}
+ 
+ 	case controls::{{ ctrl.namespace }}{{ ctrl.name|snake_case|upper }}: {
+ {%- if ctrl.is_array %}
+diff --git a/utils/codegen/gen-gst-controls.py b/utils/codegen/gen-gst-controls.py
+index 4a271c1e..d821ad20 100755
+--- a/utils/codegen/gen-gst-controls.py
++++ b/utils/codegen/gen-gst-controls.py
+@@ -25,7 +25,7 @@ exposed_controls = [
+     'Brightness', 'Contrast', 'AwbEnable', 'AwbMode', 'ColourGains',
+     'Saturation', 'Sharpness', 'ColourCorrectionMatrix', 'ScalerCrop',
+     'DigitalGain', 'AfMode', 'AfRange', 'AfSpeed', 'AfMetering', 'AfWindows',
+-    'LensPosition', 'Gamma',
++    'AfTrigger', 'AfPause', 'LensPosition', 'AfState', 'AfPauseState', 'Gamma',
+ ]
+ 
+ 
+@@ -80,6 +80,8 @@ def extend_control(ctrl):
+         ctrl.vendor_prefix = ''
+ 
+     ctrl.is_array = ctrl.size is not None
++    # Controls only reported in metadata make read-only properties.
++    ctrl.is_writable = 'Direction::In' in ctrl.direction
+ 
+     if ctrl.is_enum:
+         ctrl.gtype = 'enum'
