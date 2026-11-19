@@ -43,7 +43,7 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * x
                 wrapMode: Text.Wrap
-                color: Theme.highlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Pacific is free, with no telemetry, ads or account. It only connects on its own to update its filter lists, and to your search engine for suggestions if you allow it.")
             }
             SectionHeader {
@@ -54,7 +54,7 @@ Page {
                 width: parent.width - 2 * x
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("WPE WebKit (LGPL and BSD licences). Atlantic Browser by SpecSierra, whose engine build and Qt view Pacific's are ported from (MPL-2.0, LGPL). Brave's adblock-rust (MPL-2.0). DuckDuckGo's autoconsent (MPL-2.0). EasyList, EasyPrivacy, uBlock Origin's filter lists and Peter Lowe's list. dom_smoothie, a Rust port of Mozilla's Readability (MIT).")
             }
         }

@@ -280,7 +280,7 @@ Page {
                 width: parent.width - 2 * x
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("To open links from other apps in Pacific, choose it in Settings > Apps > Default apps.")
             }
         }

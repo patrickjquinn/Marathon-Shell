@@ -80,7 +80,7 @@ SilicaFlickable {
             wrapMode: Text.Wrap
             bottomPadding: Theme.paddingLarge
             font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
             text: qsTr("Pages you open here aren't saved to history. Their cookies and site data are deleted when you close the last private tab. Downloads and bookmarks stay. Sites and your network can still see what you visit.")
         }
 
@@ -273,7 +273,7 @@ SilicaFlickable {
             horizontalAlignment: Text.AlignHCenter
             topPadding: Theme.paddingLarge
             text: qsTr("Sites you visit often and your bookmarks appear here. Search or type an address in the bar below.")
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
             font.pixelSize: Theme.fontSizeSmall
         }
     }

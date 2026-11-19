@@ -470,7 +470,7 @@ Page {
                 visible: page.buying && page.canBuy
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 text: qsTr("Finish the purchase in the browser. Reef adds the licence when you come back.")
                 bottomPadding: Theme.paddingMedium

@@ -57,7 +57,7 @@ Page {
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeMedium
                 text: qsTr("The map couldn't start its graphics. Try again, or close and reopen Maps.")
             }
@@ -88,7 +88,7 @@ Page {
             width: parent.width - 2 * Theme.horizontalPageMargin
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
             font.pixelSize: Theme.fontSizeMedium
             text: qsTr("You can still search for places and get spoken directions.")
         }
@@ -176,7 +176,7 @@ Page {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - x - hintCancel.width - Theme.paddingMedium
             wrapMode: Text.Wrap
-            color: Theme.highlightColor
+            color: Theme.secondaryColor
             text: qsTr("Your location isn't known yet. Tap the map where the route should start.")
         }
         IconButton {
