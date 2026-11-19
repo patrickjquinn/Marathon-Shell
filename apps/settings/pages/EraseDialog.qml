@@ -24,7 +24,7 @@ Dialog {
             bottomPadding: Theme.paddingLarge
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
             text: qsTr("All content and settings are deleted, and this can't be undone.")
         }
         PasswordField {

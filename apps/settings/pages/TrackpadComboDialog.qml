@@ -43,7 +43,7 @@ Dialog {
                 bottomPadding: Theme.paddingLarge
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: dialog.confirming ? qsTr("Swipe the same combination again.") : qsTr("Swipe a combination of at least 4 strokes on the trackpad: up, down, left or right. To repeat a direction, pause between the swipes. On the lock screen, swipe it to unlock; your PIN always works too.")
             }
             Row {

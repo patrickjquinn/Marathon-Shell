@@ -75,7 +75,7 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
-                color: Theme.highlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Erasing deletes everything on this phone: apps' data, accounts, Wi-Fi networks, settings and your files. It restarts, erases itself and starts setup again, as when it was new.")
             }
             Label {
@@ -84,7 +84,7 @@ Page {
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: (Updates.osVersion !== "" ? qsTr("Marathon OS stays at version %1.").arg(Updates.osVersion) : qsTr("Marathon OS itself stays as it is.")) + " " + qsTr("This can't be undone, so copy anything you want to keep first.")
             }
             Label {
@@ -93,7 +93,7 @@ Page {
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 visible: !Security.canEraseAllContent
                 wrapMode: Text.Wrap
-                color: Theme.highlightColor
+                color: Theme.secondaryColor
                 text: qsTr("This device can't erase itself yet. Flash a fresh image to start over.")
             }
             Button {

@@ -22,7 +22,7 @@ Dialog {
             bottomPadding: Theme.paddingLarge
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
             text: qsTr("Enter your PIN to let a computer log in with this password.")
         }
         PasswordField {

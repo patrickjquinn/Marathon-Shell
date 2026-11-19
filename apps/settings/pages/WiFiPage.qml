@@ -351,7 +351,7 @@ Page {
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
             }
         }
 

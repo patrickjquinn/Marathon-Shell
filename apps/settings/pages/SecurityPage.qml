@@ -264,7 +264,7 @@ Page {
                 bottomPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: Logic.dataEncryptionNote(Security.dataEncryption)
             }
 
@@ -276,7 +276,7 @@ Page {
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Your device password always unlocks the lock screen. The quick PIN is an optional shortcut, stored encrypted. Wrong attempts are logged, and after 5 you have to wait before trying again, longer each time.")
             }
         }

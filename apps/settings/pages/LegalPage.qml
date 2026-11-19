@@ -44,7 +44,7 @@ Page {
                         wrapMode: Text.Wrap
                         lineHeight: 1.1
                         font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.highlightColor
+                        color: Theme.secondaryColor
                         text: section.modelData.text
                     }
                 }

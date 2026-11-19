@@ -109,7 +109,7 @@ Page {
                 text: Updates.releaseNotes
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.highlightColor
+                color: Theme.secondaryColor
             }
             Label {
                 objectName: "hintLabel"
@@ -120,7 +120,7 @@ Page {
                 text: page.hintText()
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
             }
             ProgressBar {
                 objectName: "downloadProgress"
@@ -211,7 +211,7 @@ Page {
                 text: Updates.currentReleaseNotes
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.highlightColor
+                color: Theme.secondaryColor
             }
             Label {
                 x: Theme.horizontalPageMargin
@@ -220,7 +220,7 @@ Page {
                 visible: page.updateState !== "unsupported"
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Updates are signed and checked every 6 hours. They download only on Wi-Fi, with the battery at 30% or more or on charge.")
             }
         }

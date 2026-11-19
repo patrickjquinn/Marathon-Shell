@@ -46,7 +46,7 @@ Page {
                 bottomPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("What your apps may use, Android apps included. Turn a permission off for an app and it asks again the next time it needs it.")
             }
 
@@ -59,7 +59,7 @@ Page {
                 bottomPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("A dot beside the clock shows what is in use right now, split into a slice for each. The microphone and camera are seen as the system opens them, so no app can use them unseen. Tap the dot to see which apps.")
             }
             Repeater {

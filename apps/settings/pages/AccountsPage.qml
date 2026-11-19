@@ -123,7 +123,7 @@ Page {
                 bottomPadding: Theme.paddingLarge
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Contacts sync into the device's address book. Google needs OAuth2 and isn't supported yet; use Nextcloud, Fastmail, an iCloud app password or Mailbox.org.")
             }
         }

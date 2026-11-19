@@ -49,7 +49,7 @@ Page {
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("The key between the volume keys. It works in any app, and on the lock screen after your PIN.")
             }
             ActionCombo {

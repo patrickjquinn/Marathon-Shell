@@ -66,7 +66,7 @@ Dialog {
                 text: qsTr("This network is not secured. Others nearby may see what you send.")
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
             }
         }
     }
