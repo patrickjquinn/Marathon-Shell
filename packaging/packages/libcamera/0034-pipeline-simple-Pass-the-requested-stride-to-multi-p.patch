@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 12:05:00 +0000
+Subject: [PATCH] pipeline: simple: Pass the requested stride to multi-planar
+ video nodes
+
+configure() asks the video node for the stride the software ISP
+prefers, but leaves the capture format's planesCount at 0.
+V4L2VideoDevice::trySetFormatMultiplane() copies bytesperline only for
+planesCount planes and sets num_planes from it, so a multi-planar node
+never sees the request and returns its packed stride. The single-planar
+path reads planes[0] unconditionally, which hid the problem there.
+
+On the MediaTek CAMSV node (V4L2_CAP_VIDEO_CAPTURE_MPLANE), the GPU
+debayer asked for 8192 bytes per 4080-pixel line, got 8160, could not
+import the buffer into EGL on Panfrost and uploaded every frame on the
+CPU. With the request passed through, the driver returns 8192, the
+import succeeds, and the software ISP thread drops from 65% to 37% of a
+core.
+
+Set planesCount to the single plane the pipeline supports.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/libcamera/pipeline/simple/simple.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/libcamera/pipeline/simple/simple.cpp b/src/libcamera/pipeline/simple/simple.cpp
+index d8152ff..3beb25f 100644
+--- a/src/libcamera/pipeline/simple/simple.cpp
++++ b/src/libcamera/pipeline/simple/simple.cpp
+@@ -1636,6 +1636,7 @@ int SimplePipelineHandler::configure(Camera *camera, CameraConfiguration *c)
+ 	uint32_t requested_bpl = 0;
+ 	if (data->swIsp_)
+ 		requested_bpl = data->swIsp_->preferredInputStride(videoFormat.toPixelFormat(), pipeConfig->captureSize);
++	captureFormat.planesCount = 1;
+ 	captureFormat.planes[0].bpl = requested_bpl;
+ 
+ 	ret = video->setFormat(&captureFormat);
+-- 
+2.55.0
+
