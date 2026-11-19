@@ -2,11 +2,12 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Marathon.Platform 1.0
 
-// A dark dot-matrix globe of the places with stations. Drag turns it under
-// the finger, and a place near the centre pulls in and holds there until
-// the finger drags past it; a fling lands on the place nearest where it
-// would come to rest. Pinch (or the wheel) zooms. Tapping a place brings
-// it to the centre. Either way `selected` says which.
+// A dark dot-matrix globe of the places with stations. Drag turns it with
+// the finger, a little slower while a place passes under the ring, so a
+// place is easy to stop on; it never moves on its own while held. Let go,
+// and a place near the ring settles into it; a fling lands on the place
+// nearest where it would come to rest. Pinch (or the wheel) zooms. Tapping
+// a place brings it to the centre. Either way `selected` says which.
 Item {
     id: globe
 
@@ -21,9 +22,9 @@ Item {
     property int selected: -1
     // How far from the centre, in pixels, a place snaps in: the ring's radius.
     property real reach: 24
-    // How far a place pulls the globe toward it, in pixels: within half the
-    // ring it sits dead centre, and the pull fades out to here.
-    readonly property real capture: reach * 2
+    // How near the ring, in pixels, a place must be to settle into it on
+    // release; with none that near the globe stays where it was left.
+    readonly property real capture: reach * 1.5
     // The height at the bottom where the globe takes no drags or taps.
     property real inputInset: 0
     readonly property bool moving: drag.active || pinch.active || coast.running || snap.running
@@ -37,9 +38,8 @@ Item {
     readonly property real _step: zoom < 1.6 ? 1.0 : zoom < 2.6 ? 0.7 : zoom < 4 ? 0.5 : zoom < 6 ? 0.35 : zoom < 10 ? 0.25 : 0.18
     property real _vlat: 0
     property real _vlon: 0
-    // Where the finger alone has turned the globe, before a place's pull.
-    property real _rawLat: 0
-    property real _rawLon: 0
+    // The place last ticked under the ring while dragging.
+    property int _ticked: -1
     // The coast's decay rate, per second: a fling's rest is velocity / it away.
     readonly property real _decay: 3.5
     property real _zoomFrom: 1
@@ -76,30 +76,23 @@ Item {
         return _closest(lat, lon, reach * _degPerPx);
     }
 
-    // Turns the globe to the finger's point, pulled toward a place near the
-    // centre; a place close enough holds, with a tick, until dragged past.
-    function _follow() {
-        const i = _closest(_rawLat, _rawLon, capture * _degPerPx);
-        let t = 0;
-        if (i >= 0) {
-            const hold = reach / 2;
-            const px = _distance(_rawLat, _rawLon, places[i][0], places[i][1]) / _degPerPx;
-            const u = Math.max(0, Math.min(1, (px - hold) / (capture - hold)));
-            t = 1 - u * u * (3 - 2 * u);
+    // How much of the finger's travel turns the globe: less over a place
+    // under the ring, a detent felt as resistance, never a jump. A light
+    // tick as each place reaches the middle of the ring.
+    function _gain() {
+        const near = reach * 0.75;
+        const i = _closest(lat, lon, near * _degPerPx);
+        if (i < 0) {
+            _ticked = -1;
+            return 1;
         }
-        if (t > 0) {
-            lat = _rawLat + (places[i][0] - _rawLat) * t;
-            lon = _rawLon + _wrap(places[i][1] - _rawLon) * t;
-        } else {
-            lat = _rawLat;
-            lon = _rawLon;
+        const px = _distance(lat, lon, places[i][0], places[i][1]) / _degPerPx;
+        if (px < reach / 3 && i !== _ticked) {
+            _ticked = i;
+            Haptics.light();
         }
-        const held = t >= 1 ? i : -1;
-        if (held !== selected) {
-            selected = held;
-            if (held >= 0)
-                Haptics.light();
-        }
+        const u = px / near;
+        return 0.3 + 0.7 * u * u * (3 - 2 * u);
     }
 
     // A fling's landing: the place nearest where it would come to rest, met
@@ -269,14 +262,15 @@ Item {
                 if (active) {
                     coast.stop();
                     snap.stop();
-                    globe._rawLat = globe.lat;
-                    globe._rawLon = globe.lon;
+                    globe.selected = -1;
+                    globe._ticked = -1;
                     last = centroid.position;
                     return;
                 }
                 globe._vlon = -centroid.velocity.x * globe._degPerPx;
                 globe._vlat = centroid.velocity.y * globe._degPerPx;
-                // Let go on a held place, it stays; a fling lands on a place.
+                // Let go slowly and a place near the ring settles into it; a
+                // fling lands on the place nearest its rest, or coasts.
                 if (Math.abs(globe._vlon) + Math.abs(globe._vlat) < 3 / globe.zoom)
                     globe._rest();
                 else if (!globe._land())
@@ -286,10 +280,10 @@ Item {
                 if (!active)
                     return;
                 const p = centroid.position;
-                globe._rawLon -= (p.x - last.x) * globe._degPerPx;
-                globe._rawLat = Math.max(-80, Math.min(80, globe._rawLat + (p.y - last.y) * globe._degPerPx));
+                const k = globe._degPerPx * globe._gain();
+                globe.lon -= (p.x - last.x) * k;
+                globe.lat = Math.max(-80, Math.min(80, globe.lat + (p.y - last.y) * k));
                 last = p;
-                globe._follow();
             }
         }
 
