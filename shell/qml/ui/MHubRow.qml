@@ -2,8 +2,8 @@ import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Hub row: a glass card holding a tinted monogram or icon, then sender
-// (a dot before it while unread) and time, account and a snippet.
+// Hub row, on the ambience: a tinted monogram or icon, then sender (a dot
+// before it while unread) and time, account and a snippet.
 // Swiping it to the right dismisses it; leftward stays with the pager.
 // An ongoing row shows its progress and can't be swiped away.
 // A focus scope: the list focuses its current row, which must leave the
@@ -124,17 +124,14 @@ FocusScope {
         height: row.fullHeight
         opacity: 1 - x / Math.max(1, row.width)
 
-        // The row's card; everything on it is flat.
-        Silica.GlassSurface {
-            anchors {
-                fill: parent
-                leftMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
-                rightMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
-                topMargin: Silica.Theme.paddingSmall / 2
-                bottomMargin: Silica.Theme.paddingSmall / 2
-            }
+        // Pressed: a rounded highlight inset from the edges, as a list row's.
+        Rectangle {
+            anchors.fill: parent
+            anchors.leftMargin: Silica.Theme.paddingSmall
+            anchors.rightMargin: Silica.Theme.paddingSmall
             radius: Silica.Theme.paddingMedium
-            pressed: row.down
+            color: Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
+            opacity: row.down ? 1 : 0
         }
 
         Item {
@@ -302,14 +299,7 @@ FocusScope {
                 visible: text.length > 0
             }
 
-            Rectangle {
-                width: parent.width
-                height: 1
-                color: Qt.rgba(1, 1, 1, 0.08)
-                visible: actionsRow.visible
-            }
             NotificationActions {
-                id: actionsRow
                 objectName: "hubRowActions"
                 x: -Silica.Theme.paddingLarge
                 availableWidth: parent.width + Silica.Theme.paddingLarge

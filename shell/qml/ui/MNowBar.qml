@@ -4,8 +4,8 @@ import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Now Bar: a live activity (music / call / nav / timer) on a glass card: a
-// tinted glyph or the artwork, a title and a secondary line, transport flat.
+// Now Bar: a live activity (music / call / nav / timer) on the ambience: a
+// tinted glyph or the artwork, a title and a secondary line, and transport.
 Item {
     id: root
 
@@ -56,10 +56,11 @@ Item {
         }
     }
 
-    Silica.GlassSurface {
+    Rectangle {
         anchors.fill: parent
         radius: Silica.Theme.paddingMedium
-        pressed: root.down
+        color: Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
+        opacity: root.down ? 1 : 0
     }
 
     Row {
