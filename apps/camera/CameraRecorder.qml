@@ -5,7 +5,7 @@ import QtQuick
 import MarathonApp.Camera
 
 // Qt 5 Multimedia's CameraRecorder, as Camera.videoRecorder. The encoding
-// settings are the controller's own (H.264 in MP4, no sound); the ones here
+// settings are the controller's own (H.264 and AAC in MP4); the ones here
 // are what the Jolla Camera reads back.
 QtObject {
     enum RecorderState {
@@ -30,6 +30,8 @@ QtObject {
     }
 
     required property CameraController controller
+    // Clockwise degrees that stand the video upright.
+    property int orientation
 
     readonly property bool recording: controller.isRecording
     readonly property int recorderState: recording ? CameraRecorder.RecordingState : CameraRecorder.StoppedState
@@ -50,7 +52,7 @@ QtObject {
     readonly property int audioBitRate: 0
 
     function record() {
-        controller.startRecording(outputLocation, Settings.captures.posterPath(outputLocation));
+        controller.startRecording(outputLocation, Settings.captures.posterPath(outputLocation), orientation);
     }
 
     function stop() {

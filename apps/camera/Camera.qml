@@ -195,6 +195,7 @@ QtObject {
     }
     readonly property CameraRecorder videoRecorder: CameraRecorder {
         controller: root.controller
+        orientation: root.metaData.orientation
     }
     readonly property FocusControl focus: FocusControl {
         controller: root.controller
@@ -237,6 +238,8 @@ QtObject {
             if (active)
                 root.errorCode = Camera.NoError;
         }
+        // Discovery ends later than discover() returns.
+        onReadyChanged: Qt.callLater(root._applyState)
         onPhotoExposed: root.imageCapture.imageExposed(0)
         onPhotoSaved: function (url) {
             root.imageCapture._pending = false;

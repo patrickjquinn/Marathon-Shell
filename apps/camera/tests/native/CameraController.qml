@@ -35,10 +35,13 @@ QtObject {
     property bool squarePhotos: false
     property var photos: []
 
+    signal readyChanged
     signal errorOccurred(string message)
     signal photoExposed
     signal photoSaved(string url)
     signal videoSaved(string url)
+
+    onDiscoveredChanged: readyChanged()
 
     function discover() {
         discovered = true;
@@ -57,7 +60,7 @@ QtObject {
         photoExposed();
         photoSaved("file://" + path);
     }
-    function startRecording(path, posterPath) {
+    function startRecording(path, posterPath, rotation) {
         isRecording = true;
     }
     function stopRecording() {

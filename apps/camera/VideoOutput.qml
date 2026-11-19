@@ -10,7 +10,6 @@ Item {
     id: root
 
     property Camera source
-    readonly property alias videoSink: output.videoSink
     readonly property int _rotation: source ? source.orientation : 0
 
     transform: Scale {
@@ -20,7 +19,7 @@ Item {
 
     onSourceChanged: {
         if (source)
-            source.controller.videoSink = videoSink;
+            source.controller.videoSink = output;
     }
 
     readonly property bool _square: source !== null && source.square

@@ -1,21 +1,17 @@
 #pragma once
 
-#include <QAudioInput>
-#include <QObject>
-#include <QCamera>
-#include <QMediaCaptureSession>
-#include <QImageCapture>
-#include <QMediaRecorder>
 #include <QElapsedTimer>
-#include <QTimer>
-#include <QVideoSink>
-#include <atomic>
-#include <QHash>
 #include <QImage>
+#include <QObject>
+#include <QPointer>
 #include <QSize>
-#include <QUrl>
+#include <QThread>
 #include <QVariantList>
 #include <QtQmlIntegration/qqmlintegration.h>
+
+#include "CameraSession.h"
+
+class SoftwareVideoOutput;
 
 class CameraController : public QObject {
     Q_OBJECT
@@ -25,14 +21,15 @@ class CameraController : public QObject {
     Q_PROPERTY(bool discovered READ isDiscovered NOTIFY readyChanged)
     Q_PROPERTY(bool active READ isActive NOTIFY activeChanged)
     Q_PROPERTY(int cameraCount READ cameraCount NOTIFY cameraCountChanged)
-    // Each camera as {id, description, position}, position a QCameraDevice::Position.
+    // Each camera as {id, description, position, rotation}; position as Qt's
+    // QCameraDevice::Position.
     Q_PROPERTY(QVariantList cameras READ cameras NOTIFY cameraCountChanged)
     Q_PROPERTY(QString defaultCameraId READ defaultCameraId NOTIFY cameraCountChanged)
     // Empty for the first camera.
     Q_PROPERTY(QString cameraId READ cameraId WRITE setCameraId NOTIFY currentCameraIndexChanged)
     Q_PROPERTY(
         QVariantList previewResolutions READ previewResolutions NOTIFY currentCameraIndexChanged)
-    // An empty size leaves the choice to the camera backend.
+    // An empty size leaves the choice to libcamera.
     Q_PROPERTY(QSize viewfinderResolution READ viewfinderResolution WRITE setViewfinderResolution
                    NOTIFY viewfinderResolutionChanged)
 
@@ -92,13 +89,14 @@ class CameraController : public QObject {
     Q_INVOKABLE void discover();
     Q_INVOKABLE void start();
     Q_INVOKABLE void stop();
-    // Stops and drops the camera and its capture session so libcamera closes
-    // its devices; start() makes them again.
+    // Stops and closes the camera and libcamera, so its devices close;
+    // start() opens them again.
     Q_INVOKABLE void release();
     // Paths come from Captures (crates/marathon-app-native/src/camera.rs).
     // rotation: clockwise degrees that stand the photo upright.
     Q_INVOKABLE void capturePhoto(const QString &path, int rotation);
-    Q_INVOKABLE void startRecording(const QString &path, const QString &posterPath);
+    // rotation: clockwise degrees that stand the video upright.
+    Q_INVOKABLE void startRecording(const QString &path, const QString &posterPath, int rotation);
     Q_INVOKABLE void stopRecording();
     // A point of the frame, 0..1 each way: focus there and hold.
     Q_INVOKABLE void focusOnPoint(qreal x, qreal y);
@@ -134,76 +132,47 @@ class CameraController : public QObject {
     void photoSaved(const QString &url);
     void videoSaved(const QString &url);
 
-  private slots:
-    void onCameraActiveChanged(bool active);
-    void onCameraErrorOccurred(QCamera::Error error, const QString &errorString);
-    void onImageCaptured(int id, const QImage &image);
-    void onImageError(int id, QImageCapture::Error error, const QString &errorString);
-    void onRecorderStateChanged(QMediaRecorder::RecorderState state);
-    void onRecorderError(QMediaRecorder::Error error, const QString &errorString);
-
   private:
-    void                  initialize();
-    void                  createSession();
-    void                  setupCamera(int index);
-    void                  updateZoomRange();
-    int                   indexOfCamera(const QString &id) const;
-    QCameraFormat         fastestFormat(const QSize &size) const;
-    void                  applyViewfinderResolution();
-    void                  checkFrames();
-    void                  takeStill(const QVideoFrame &frame);
-    void                  cancelStill();
+    void                  want();
+    QString               currentId() const;
+    void                  onDiscovered(const QList<CameraInfo> &cameras);
+    void                  onStreamingChanged(bool streaming);
+    void                  onFrameReady();
+    void                  onStillCaptured(const QImage &image);
+    void                  onStillFinished();
+    void                  onRecordingFinished(const QString &path, bool saved);
     void                  savePhoto(const QImage &image, const QString &fileName, int rotation);
+    void                  setFocusState(FocusState state);
+    void                  fail(const QString &message);
 
-    QCamera              *m_camera         = nullptr;
-    QMediaCaptureSession *m_captureSession = nullptr;
-    QImageCapture        *m_imageCapture   = nullptr;
-    QMediaRecorder       *m_mediaRecorder  = nullptr;
-    // The microphone, only while a video records.
-    QAudioInput          *m_audioInput     = nullptr;
-    QVideoSink           *m_videoSink      = nullptr;
+    QThread               m_thread;
+    // Lives on m_thread.
+    CameraSession        *m_session = nullptr;
+    QPointer<SoftwareVideoOutput> m_videoSink;
 
-    QList<QCameraDevice>  m_cameras;
+    QList<CameraInfo>     m_cameras;
     int                   m_currentCameraIndex = 0;
     QString               m_cameraId;
-    bool                  m_discovered = false;
+    bool                  m_discovered  = false;
+    bool                  m_discovering = false;
+    bool                  m_wantStreaming = false;
+    bool                  m_active      = false;
 
-    qreal                 m_zoomLevel = 1.0;
-    qreal                 m_minZoom   = 1.0;
-    qreal                 m_maxZoom   = 1.0;
-
+    qreal                 m_zoomLevel    = 1.0;
     bool                  m_flashEnabled = false;
 
-    QList<QSize>          m_photoResolutions;
     QSize                 m_photoResolution;
     QSize                 m_viewfinderResolution;
 
-    QHash<int, std::pair<QString, int>> m_photoPaths;
-
-    // A photo larger than the viewfinder: its path and rotation, the format
-    // to go back to, and the frames left before it is taken.
+    // A photo being taken: its path and rotation.
     std::pair<QString, int> m_still;
     bool                    m_squarePhotos = false;
-    QCameraFormat           m_viewfinderFormat;
-    std::atomic<int>        m_stillFrames{0};
     // From the shutter to the photo's frame.
     QElapsedTimer           m_photoClock;
 
     FocusState              m_focusState = FocusUnlocked;
-    // A tap's focus search: libcamerasrc reports no AF state, so it settles
-    // after the time a full sweep takes.
-    // Reads the scan's progress until it ends.
-    QTimer                  m_focusPoll;
-    int                     m_focusPolls = 0;
-    void                    setFocusState(FocusState state);
 
+    bool                    m_recording = false;
     QImage                  m_recordingPoster;
     QString                 m_posterPath;
-    QString                 m_errorMessage;
-
-    // Frames since start, counted on the delivering thread.
-    std::atomic<quint64> m_frames{0};
-    quint64              m_framesAtStart = 0;
-    QTimer               m_frameWatch;
-    int                  m_restarts = 0;
 };
