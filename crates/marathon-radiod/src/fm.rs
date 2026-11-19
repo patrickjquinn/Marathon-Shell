@@ -83,11 +83,11 @@ impl Fm {
     }
 
     fn ioctl(&self, request: u64, arg: &mut [u8]) -> io::Result<()> {
-        // SAFETY: `arg` is a live buffer the size of the driver's struct.
         #[allow(
             clippy::cast_possible_truncation,
             reason = "musl's ioctl takes the request as an int; request numbers fit 32 bits"
         )]
+        // SAFETY: `arg` is a live buffer the size of the driver's struct.
         let r = unsafe { libc::ioctl(self.0.as_raw_fd(), request as _, arg.as_mut_ptr()) };
         if r < 0 {
             Err(io::Error::last_os_error())
