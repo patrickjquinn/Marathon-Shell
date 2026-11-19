@@ -1,10 +1,12 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import Marathon.Platform 1.0
 
 // A dark dot-matrix globe of the places with stations. Drag turns it under
-// the finger and it coasts on release; pinch (or the wheel) zooms. Tapping
-// a place brings it to the centre; a place left inside the ring snaps to
-// the centre too. Either way `selected` says which.
+// the finger, and a place near the centre pulls in and holds there until
+// the finger drags past it; a fling lands on the place nearest where it
+// would come to rest. Pinch (or the wheel) zooms. Tapping a place brings
+// it to the centre. Either way `selected` says which.
 Item {
     id: globe
 
@@ -19,6 +21,9 @@ Item {
     property int selected: -1
     // How far from the centre, in pixels, a place snaps in: the ring's radius.
     property real reach: 24
+    // How far a place pulls the globe toward it, in pixels: within half the
+    // ring it sits dead centre, and the pull fades out to here.
+    readonly property real capture: reach * 2
     // The height at the bottom where the globe takes no drags or taps.
     property real inputInset: 0
     readonly property bool moving: drag.active || pinch.active || coast.running || snap.running
@@ -32,6 +37,11 @@ Item {
     readonly property real _step: zoom < 1.6 ? 1.0 : zoom < 2.6 ? 0.7 : zoom < 4 ? 0.5 : zoom < 6 ? 0.35 : zoom < 10 ? 0.25 : 0.18
     property real _vlat: 0
     property real _vlon: 0
+    // Where the finger alone has turned the globe, before a place's pull.
+    property real _rawLat: 0
+    property real _rawLon: 0
+    // The coast's decay rate, per second: a fling's rest is velocity / it away.
+    readonly property real _decay: 3.5
     property real _zoomFrom: 1
 
     function _wrap(lon) {
@@ -66,6 +76,46 @@ Item {
         return _closest(lat, lon, reach * _degPerPx);
     }
 
+    // Turns the globe to the finger's point, pulled toward a place near the
+    // centre; a place close enough holds, with a tick, until dragged past.
+    function _follow() {
+        const i = _closest(_rawLat, _rawLon, capture * _degPerPx);
+        let t = 0;
+        if (i >= 0) {
+            const hold = reach / 2;
+            const px = _distance(_rawLat, _rawLon, places[i][0], places[i][1]) / _degPerPx;
+            const u = Math.max(0, Math.min(1, (px - hold) / (capture - hold)));
+            t = 1 - u * u * (3 - 2 * u);
+        }
+        if (t > 0) {
+            lat = _rawLat + (places[i][0] - _rawLat) * t;
+            lon = _rawLon + _wrap(places[i][1] - _rawLon) * t;
+        } else {
+            lat = _rawLat;
+            lon = _rawLon;
+        }
+        const held = t >= 1 ? i : -1;
+        if (held !== selected) {
+            selected = held;
+            if (held >= 0)
+                Haptics.light();
+        }
+    }
+
+    // A fling's landing: the place nearest where it would come to rest, met
+    // at the release speed (an ease-out's start speed is 3 x distance / time).
+    function _land() {
+        const toLat = Math.max(-80, Math.min(80, lat + _vlat / _decay));
+        const toLon = lon + _vlon / _decay;
+        const i = _closest(toLat, _wrap(toLon), capture * _degPerPx);
+        if (i < 0)
+            return false;
+        const speed = Math.sqrt(_vlat * _vlat + _vlon * _vlon);
+        const d = _distance(lat, lon, places[i][0], places[i][1]);
+        flyTo(places[i][0], places[i][1], zoom, Math.max(180, Math.min(700, speed > 0 ? 3000 * d / speed : 420)));
+        return true;
+    }
+
     // The latitude and longitude under a point of the item, or null off
     // the globe: the shader's ray cast, run backwards.
     function _at(x, y) {
@@ -94,10 +144,13 @@ Item {
             flyTo(places[i][0], places[i][1], zoom);
     }
 
-    // Turns (and zooms) to a point.
-    function flyTo(toLat, toLon, toZoom) {
+    property real _flyDuration: 420
+
+    // Turns (and zooms) to a point, in `ms` (420 by default).
+    function flyTo(toLat, toLon, toZoom, ms) {
         coast.stop();
         snap.stop();
+        _flyDuration = ms === undefined ? 420 : ms;
         snapLat.to = Math.max(-80, Math.min(80, toLat));
         snapLon.to = lon + _wrap(toLon - lon);
         snapZoom.to = toZoom === undefined ? zoom : toZoom;
@@ -105,8 +158,9 @@ Item {
     }
 
     function _rest() {
-        const i = nearest();
+        const i = _closest(lat, lon, capture * _degPerPx);
         if (i >= 0 && (Math.abs(places[i][0] - lat) > 0.01 || Math.abs(_wrap(places[i][1] - lon)) > 0.01)) {
+            _flyDuration = 420;
             snapLat.to = places[i][0];
             snapLon.to = lon + _wrap(places[i][1] - lon);
             snapZoom.to = zoom;
@@ -215,21 +269,27 @@ Item {
                 if (active) {
                     coast.stop();
                     snap.stop();
-                    globe.selected = -1;
+                    globe._rawLat = globe.lat;
+                    globe._rawLon = globe.lon;
                     last = centroid.position;
                     return;
                 }
                 globe._vlon = -centroid.velocity.x * globe._degPerPx;
                 globe._vlat = centroid.velocity.y * globe._degPerPx;
-                coast.start();
+                // Let go on a held place, it stays; a fling lands on a place.
+                if (Math.abs(globe._vlon) + Math.abs(globe._vlat) < 3 / globe.zoom)
+                    globe._rest();
+                else if (!globe._land())
+                    coast.start();
             }
             onCentroidChanged: {
                 if (!active)
                     return;
                 const p = centroid.position;
-                globe.lon -= (p.x - last.x) * globe._degPerPx;
-                globe.lat = Math.max(-80, Math.min(80, globe.lat + (p.y - last.y) * globe._degPerPx));
+                globe._rawLon -= (p.x - last.x) * globe._degPerPx;
+                globe._rawLat = Math.max(-80, Math.min(80, globe._rawLat + (p.y - last.y) * globe._degPerPx));
                 last = p;
+                globe._follow();
             }
         }
 
@@ -295,7 +355,7 @@ Item {
 
             target: globe
             property: "lat"
-            duration: 420
+            duration: globe._flyDuration
             easing.type: Easing.OutCubic
         }
         NumberAnimation {
@@ -303,7 +363,7 @@ Item {
 
             target: globe
             property: "lon"
-            duration: 420
+            duration: globe._flyDuration
             easing.type: Easing.OutCubic
         }
         NumberAnimation {
@@ -311,7 +371,7 @@ Item {
 
             target: globe
             property: "zoom"
-            duration: 420
+            duration: globe._flyDuration
             easing.type: Easing.OutCubic
         }
         onFinished: {
