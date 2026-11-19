@@ -120,7 +120,8 @@ apk add --no-cache --quiet --allow-untrusted "$KEEL_SILICA_APK" $KEEL_SILICA_DEV
 echo "keel-silica installed from $KEEL_SILICA_APK"
 
 # The camera app builds against our libcamera, not Alpine's older one.
-LIBCAMERA_VER="$(. /aports-src/libcamera/APKBUILD; echo "$pkgver-r$pkgrel")"
+# The APKBUILD reads abuild's variables ($srcdir, $CARCH) at top level.
+LIBCAMERA_VER="$(set +u; . /aports-src/libcamera/APKBUILD; echo "$pkgver-r$pkgrel")"
 apk add --no-cache --quiet --allow-untrusted \
     "/local-apks/libcamera-$LIBCAMERA_VER.apk" \
     "/local-apks/libcamera-ipa-$LIBCAMERA_VER.apk" \
