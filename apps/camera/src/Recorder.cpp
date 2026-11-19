@@ -7,12 +7,15 @@
 
 namespace {
 
-// The encoders Qt's recorder picked: openh264enc keeps up on the phone's CPU.
-constexpr char kPipeline[] =
-    "appsrc name=video is-live=true format=time max-buffers=4 leaky-type=downstream ! queue ! "
-    "videoconvert ! openh264enc rate-control=bitrate bitrate=5000000 complexity=low multi-thread=2 ! h264parse ! "
-    "taginject name=orientation scope=stream ! queue ! mp4mux name=mux ! filesink name=file async=false "
-    "pulsesrc name=audio ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! fdkaacenc bitrate=128000 ! queue ! mux.";
+    // The encoders Qt's recorder picked: openh264enc keeps up on the phone's CPU.
+    constexpr char kPipeline[] =
+        "appsrc name=video is-live=true format=time max-buffers=4 leaky-type=downstream ! queue ! "
+        "videoconvert ! openh264enc rate-control=bitrate bitrate=5000000 complexity=low "
+        "multi-thread=2 ! h264parse ! "
+        "taginject name=orientation scope=stream ! queue ! mp4mux name=mux ! filesink name=file "
+        "async=false "
+        "pulsesrc name=audio ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! "
+        "fdkaacenc bitrate=128000 ! queue ! mux.";
 
 } // namespace
 
@@ -41,10 +44,9 @@ std::unique_ptr<Recorder> Recorder::start(const QString &path, const QSize &size
     recorder->m_video    = gst_bin_get_by_name(GST_BIN(pipeline), "video");
     recorder->m_audio    = gst_bin_get_by_name(GST_BIN(pipeline), "audio");
 
-    GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "RGBx", "width",
-                                        G_TYPE_INT, size.width(), "height", G_TYPE_INT,
-                                        size.height(), "framerate", GST_TYPE_FRACTION, 30, 1,
-                                        nullptr);
+    GstCaps *caps = gst_caps_new_simple(
+        "video/x-raw", "format", G_TYPE_STRING, "RGBx", "width", G_TYPE_INT, size.width(), "height",
+        G_TYPE_INT, size.height(), "framerate", GST_TYPE_FRACTION, 30, 1, nullptr);
     g_object_set(recorder->m_video, "caps", caps, nullptr);
     gst_caps_unref(caps);
 
@@ -55,7 +57,7 @@ std::unique_ptr<Recorder> Recorder::start(const QString &path, const QSize &size
     rotation = ((rotation % 360) + 360) % 360;
     if (rotation != 0) {
         GstElement      *orientation = gst_bin_get_by_name(GST_BIN(pipeline), "orientation");
-        const QByteArray tags = "image-orientation=rotate-" + QByteArray::number(rotation);
+        const QByteArray tags        = "image-orientation=rotate-" + QByteArray::number(rotation);
         g_object_set(orientation, "tags", tags.constData(), nullptr);
         gst_object_unref(orientation);
     }

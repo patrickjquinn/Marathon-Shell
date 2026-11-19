@@ -36,7 +36,7 @@
 class Recorder;
 
 struct CameraInfo {
-    QString      id;
+    QString id;
     // Largest first.
     QList<QSize> sizes;
 };
@@ -51,29 +51,29 @@ class CameraSession : public QObject {
     struct Wanted {
         QString cameraId;
         // Invalid: libcamera's choice.
-        QSize   size;
-        bool    streaming = false;
+        QSize size;
+        bool  streaming = false;
     };
 
     CameraSession();
     ~CameraSession() override;
 
     // These four from any thread.
-    void   want(const Wanted &wanted);
+    void want(const Wanted &wanted);
     // A point of the frame, 0..1 each way: focus there once and hold.
-    bool   focusOn(const QPointF &point);
-    void   focusContinuously();
+    bool focusOn(const QPointF &point);
+    void focusContinuously();
     // The newest viewfinder frame, once; null if it was taken already.
     QImage takeFrame();
 
     // On the session's thread.
-    void   discover();
-    void   takeStill(const QSize &size);
+    void discover();
+    void takeStill(const QSize &size);
     // rotation: clockwise degrees that stand the video upright.
-    void   startRecording(const QString &path, int rotation);
-    void   stopRecording();
+    void startRecording(const QString &path, int rotation);
+    void stopRecording();
     // Closes the camera and libcamera; want() opens them again.
-    void   release();
+    void release();
 
   signals:
     void discovered(const QList<CameraInfo> &cameras);
@@ -96,34 +96,34 @@ class CameraSession : public QObject {
         int          fd;
     };
 
-    bool   startManager();
-    void   reconcile();
-    bool   open(const QString &id);
-    void   close();
-    bool   configureViewfinder(const QSize &size);
-    bool   startViewfinder();
-    void   stopCamera();
-    void   finishStill();
-    void   finishRecording();
-    void   requestCompleted(libcamera::Request *request);
-    QImage copyFrame(const libcamera::FrameBuffer *buffer);
-    void   addControls(libcamera::Request *request);
+    bool                                            startManager();
+    void                                            reconcile();
+    bool                                            open(const QString &id);
+    void                                            close();
+    bool                                            configureViewfinder(const QSize &size);
+    bool                                            startViewfinder();
+    void                                            stopCamera();
+    void                                            finishStill();
+    void                                            finishRecording();
+    void                                            requestCompleted(libcamera::Request *request);
+    QImage                                          copyFrame(const libcamera::FrameBuffer *buffer);
+    void                                            addControls(libcamera::Request *request);
 
-    std::unique_ptr<libcamera::CameraManager>        m_manager;
-    std::shared_ptr<libcamera::Camera>               m_camera;
-    QString                                          m_cameraId;
-    std::unique_ptr<libcamera::CameraConfiguration>  m_config;
-    QSize                                            m_size;
+    std::unique_ptr<libcamera::CameraManager>       m_manager;
+    std::shared_ptr<libcamera::Camera>              m_camera;
+    QString                                         m_cameraId;
+    std::unique_ptr<libcamera::CameraConfiguration> m_config;
+    QSize                                           m_size;
     // The camera runs m_config, not a photo's.
-    bool                                             m_configured = false;
-    std::unique_ptr<libcamera::FrameBufferAllocator> m_allocator;
-    std::vector<std::unique_ptr<libcamera::Request>> m_requests;
+    bool                                              m_configured = false;
+    std::unique_ptr<libcamera::FrameBufferAllocator>  m_allocator;
+    std::vector<std::unique_ptr<libcamera::Request>>  m_requests;
     std::map<const libcamera::FrameBuffer *, Mapping> m_mappings;
-    QSize                                            m_frameSize;
-    unsigned int                                     m_stride = 0;
-    std::atomic<bool>                                m_streaming{false};
-    QElapsedTimer                                    m_startClock;
-    bool                                             m_firstFrame = false;
+    QSize                                             m_frameSize;
+    unsigned int                                      m_stride = 0;
+    std::atomic<bool>                                 m_streaming{false};
+    QElapsedTimer                                     m_startClock;
+    bool                                              m_firstFrame = false;
 
     // Frames handed out are only reused once nobody holds them.
     std::vector<QImage> m_pool;
@@ -142,12 +142,12 @@ class CameraSession : public QObject {
     bool                                             m_stillActive = false;
 
     // Controls for the next request; the sticky ones also follow a reconfigure.
-    QMutex                    m_controlLock;
-    libcamera::ControlList    m_controls;
-    libcamera::ControlList    m_sticky;
-    libcamera::Rectangle      m_scalerCrop;
-    float                     m_lensPosition = -1;
-    std::atomic<bool>         m_hasAutofocus{false};
+    QMutex                 m_controlLock;
+    libcamera::ControlList m_controls;
+    libcamera::ControlList m_sticky;
+    libcamera::Rectangle   m_scalerCrop;
+    float                  m_lensPosition = -1;
+    std::atomic<bool>      m_hasAutofocus{false};
     // The request carrying a focus trigger, until it completes; then the scan's end is awaited.
     libcamera::Request       *m_triggerRequest = nullptr;
     bool                      m_scanning       = false;

@@ -97,12 +97,15 @@ QSGNode *SoftwareVideoOutput::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeD
         targetRect = itemRect;
     } else if (m_fillMode == PreserveAspectCrop) {
         // The middle of the frame, in the item's shape, so nothing spills out.
-        const qreal  scale = qMax(itemRect.width() / texSize.width(), itemRect.height() / texSize.height());
+        const qreal scale =
+            qMax(itemRect.width() / texSize.width(), itemRect.height() / texSize.height());
         const QSizeF shown(itemRect.width() / scale, itemRect.height() / scale);
-        sourceRect = QRectF((texSize.width() - shown.width()) / 2.0, (texSize.height() - shown.height()) / 2.0,
-                            shown.width(), shown.height());
+        sourceRect =
+            QRectF((texSize.width() - shown.width()) / 2.0,
+                   (texSize.height() - shown.height()) / 2.0, shown.width(), shown.height());
     } else {
-        const qreal scale = qMin(itemRect.width() / texSize.width(), itemRect.height() / texSize.height());
+        const qreal scale =
+            qMin(itemRect.width() / texSize.width(), itemRect.height() / texSize.height());
 
         qreal w = texSize.width() * scale;
         qreal h = texSize.height() * scale;

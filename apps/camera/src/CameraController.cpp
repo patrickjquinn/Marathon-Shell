@@ -13,7 +13,11 @@
 
 namespace {
     // QCameraDevice::Position's values, which the QML takes.
-    enum Position : quint8 { UnspecifiedPosition, BackFace, FrontFace };
+    enum Position : quint8 {
+        UnspecifiedPosition,
+        BackFace,
+        FrontFace
+    };
 
     // libcamera names a camera on a device tree by its sensor's node, whose
     // orientation says which side it faces.
@@ -105,7 +109,8 @@ void CameraController::onDiscovered(const QList<CameraInfo> &cameras) {
 }
 
 QString CameraController::currentId() const {
-    return m_currentCameraIndex < m_cameras.size() ? m_cameras.at(m_currentCameraIndex).id : QString();
+    return m_currentCameraIndex < m_cameras.size() ? m_cameras.at(m_currentCameraIndex).id :
+                                                     QString();
 }
 
 // The session follows the camera, size and state asked for last.
@@ -155,7 +160,7 @@ void CameraController::capturePhoto(const QString &path, int rotation) {
     }
     m_photoClock.start();
     m_still = {path, rotation};
-    emit takingStillChanged();
+    emit        takingStillChanged();
     const QSize size = m_photoResolution.isValid() ? m_photoResolution : m_viewfinderResolution;
     QMetaObject::invokeMethod(
         m_session, [session = m_session, size] { session->takeStill(size); }, Qt::QueuedConnection);
@@ -191,7 +196,8 @@ void CameraController::startRecording(const QString &path, const QString &poster
     m_posterPath      = posterPath;
     m_recordingPoster = m_videoSink ? m_videoSink->frame() : QImage();
     QMetaObject::invokeMethod(
-        m_session, [session = m_session, path, rotation] { session->startRecording(path, rotation); },
+        m_session,
+        [session = m_session, path, rotation] { session->startRecording(path, rotation); },
         Qt::QueuedConnection);
 }
 
@@ -388,20 +394,23 @@ static QByteArray encodePhoto(const QImage &image, int rotation, bool square, QS
         case QImage::Format_RGBX8888: pixelFormat = TJPF_RGBX; break;
         case QImage::Format_ARGB32:
         case QImage::Format_RGB32: pixelFormat = TJPF_BGRX; break;
-        default: return encodePhoto(image.convertToFormat(QImage::Format_RGB32), rotation, square, error);
+        default:
+            return encodePhoto(image.convertToFormat(QImage::Format_RGB32), rotation, square,
+                               error);
     }
     // Whole 16-pixel blocks, so the turn below is lossless; a square from the middle.
-    const int side   = std::min(image.width(), image.height()) & ~15;
-    const int width  = square ? side : image.width() & ~15;
-    const int height = square ? side : image.height() & ~15;
-    const uchar *top = image.constBits() + (image.width() - width) / 2 * 4 +
+    const int    side   = std::min(image.width(), image.height()) & ~15;
+    const int    width  = square ? side : image.width() & ~15;
+    const int    height = square ? side : image.height() & ~15;
+    const uchar *top    = image.constBits() + (image.width() - width) / 2 * 4 +
         (image.height() - height) / 2 * image.bytesPerLine();
 
     tjhandle       encoder = tjInitCompress();
     unsigned char *jpeg    = nullptr;
     unsigned long  size    = 0;
-    const bool encoded = encoder && tjCompress2(encoder, top, width, int(image.bytesPerLine()), height,
-                                                pixelFormat, &jpeg, &size, TJSAMP_420, 92, 0) == 0;
+    const bool     encoded = encoder &&
+        tjCompress2(encoder, top, width, int(image.bytesPerLine()), height, pixelFormat, &jpeg,
+                    &size, TJSAMP_420, 92, 0) == 0;
     if (!encoded)
         *error = QString::fromUtf8(tjGetErrorStr2(encoder));
     tjDestroy(encoder);
@@ -419,10 +428,11 @@ static QByteArray encodePhoto(const QImage &image, int rotation, bool square, QS
     tjtransform turn{};
     turn.op      = rotation == 90 ? TJXOP_ROT90 : rotation == 180 ? TJXOP_ROT180 : TJXOP_ROT270;
     turn.options = TJXOPT_PERFECT;
-    tjhandle       rotator = tjInitTransform();
-    unsigned char *turned  = nullptr;
+    tjhandle       rotator    = tjInitTransform();
+    unsigned char *turned     = nullptr;
     unsigned long  turnedSize = 0;
-    const bool rotated = rotator && tjTransform(rotator, jpeg, size, 1, &turned, &turnedSize, &turn, 0) == 0;
+    const bool     rotated =
+        rotator && tjTransform(rotator, jpeg, size, 1, &turned, &turnedSize, &turn, 0) == 0;
     if (!rotated)
         *error = QString::fromUtf8(tjGetErrorStr2(rotator));
     tjDestroy(rotator);
@@ -436,15 +446,15 @@ static QByteArray encodePhoto(const QImage &image, int rotation, bool square, QS
 
 void CameraController::savePhoto(const QImage &image, const QString &fileName, int rotation) {
     QPointer<CameraController> self(this);
-    const qint64 exposedAfter = m_photoClock.elapsed();
-    const bool   square       = m_squarePhotos;
+    const qint64               exposedAfter = m_photoClock.elapsed();
+    const bool                 square       = m_squarePhotos;
     QThreadPool::globalInstance()->start([self, image, fileName, rotation, square, exposedAfter] {
         QElapsedTimer clock;
         clock.start();
         QString          error;
         const QByteArray jpeg = encodePhoto(image, rotation, square, &error);
         // Under another name until whole: the camera roll shows the folder.
-        const QString part  = fileName + ".part";
+        const QString part = fileName + ".part";
         QFile         file(part);
         bool          saved = !jpeg.isEmpty() && file.open(QIODevice::WriteOnly) &&
             file.write(jpeg) == jpeg.size() && file.flush();
@@ -457,18 +467,19 @@ void CameraController::savePhoto(const QImage &image, const QString &fileName, i
                 error = file.errorString();
         }
         const qint64 writtenIn = clock.elapsed();
-        QMetaObject::invokeMethod(QCoreApplication::instance(),
-                                  [self, saved, fileName, error, exposedAfter, writtenIn] {
-            if (!self)
-                return;
-            if (!saved) {
-                self->fail(error);
-                return;
-            }
-            qWarning().noquote() << "[CameraController] Photo saved:" << fileName << "- exposed after"
-                                 << exposedAfter << "ms, written in" << writtenIn << "ms";
-            emit self->photoSaved(QUrl::fromLocalFile(fileName).toString());
-        });
+        QMetaObject::invokeMethod(
+            QCoreApplication::instance(), [self, saved, fileName, error, exposedAfter, writtenIn] {
+                if (!self)
+                    return;
+                if (!saved) {
+                    self->fail(error);
+                    return;
+                }
+                qWarning().noquote()
+                    << "[CameraController] Photo saved:" << fileName << "- exposed after"
+                    << exposedAfter << "ms, written in" << writtenIn << "ms";
+                emit self->photoSaved(QUrl::fromLocalFile(fileName).toString());
+            });
     });
 }
 

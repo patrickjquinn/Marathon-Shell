@@ -104,7 +104,11 @@ class CameraController : public QObject {
     Q_INVOKABLE void unlockFocus();
 
   public:
-    enum FocusState : quint8 { FocusUnlocked, FocusSearching, FocusLocked };
+    enum FocusState : quint8 {
+        FocusUnlocked,
+        FocusSearching,
+        FocusLocked
+    };
     Q_ENUM(FocusState)
 
     bool       focusSupported() const;
@@ -133,46 +137,46 @@ class CameraController : public QObject {
     void videoSaved(const QString &url);
 
   private:
-    void                  want();
-    QString               currentId() const;
-    void                  onDiscovered(const QList<CameraInfo> &cameras);
-    void                  onStreamingChanged(bool streaming);
-    void                  onFrameReady();
-    void                  onStillCaptured(const QImage &image);
-    void                  onStillFinished();
-    void                  onRecordingFinished(const QString &path, bool saved);
-    void                  savePhoto(const QImage &image, const QString &fileName, int rotation);
-    void                  setFocusState(FocusState state);
-    void                  fail(const QString &message);
+    void    want();
+    QString currentId() const;
+    void    onDiscovered(const QList<CameraInfo> &cameras);
+    void    onStreamingChanged(bool streaming);
+    void    onFrameReady();
+    void    onStillCaptured(const QImage &image);
+    void    onStillFinished();
+    void    onRecordingFinished(const QString &path, bool saved);
+    void    savePhoto(const QImage &image, const QString &fileName, int rotation);
+    void    setFocusState(FocusState state);
+    void    fail(const QString &message);
 
-    QThread               m_thread;
+    QThread m_thread;
     // Lives on m_thread.
-    CameraSession        *m_session = nullptr;
+    CameraSession                *m_session = nullptr;
     QPointer<SoftwareVideoOutput> m_videoSink;
 
-    QList<CameraInfo>     m_cameras;
-    int                   m_currentCameraIndex = 0;
-    QString               m_cameraId;
-    bool                  m_discovered  = false;
-    bool                  m_discovering = false;
-    bool                  m_wantStreaming = false;
-    bool                  m_active      = false;
+    QList<CameraInfo>             m_cameras;
+    int                           m_currentCameraIndex = 0;
+    QString                       m_cameraId;
+    bool                          m_discovered    = false;
+    bool                          m_discovering   = false;
+    bool                          m_wantStreaming = false;
+    bool                          m_active        = false;
 
-    qreal                 m_zoomLevel    = 1.0;
-    bool                  m_flashEnabled = false;
+    qreal                         m_zoomLevel    = 1.0;
+    bool                          m_flashEnabled = false;
 
-    QSize                 m_photoResolution;
-    QSize                 m_viewfinderResolution;
+    QSize                         m_photoResolution;
+    QSize                         m_viewfinderResolution;
 
     // A photo being taken: its path and rotation.
     std::pair<QString, int> m_still;
     bool                    m_squarePhotos = false;
     // From the shutter to the photo's frame.
-    QElapsedTimer           m_photoClock;
+    QElapsedTimer m_photoClock;
 
-    FocusState              m_focusState = FocusUnlocked;
+    FocusState    m_focusState = FocusUnlocked;
 
-    bool                    m_recording = false;
-    QImage                  m_recordingPoster;
-    QString                 m_posterPath;
+    bool          m_recording = false;
+    QImage        m_recordingPoster;
+    QString       m_posterPath;
 };

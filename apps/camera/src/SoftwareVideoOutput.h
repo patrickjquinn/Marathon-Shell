@@ -25,14 +25,14 @@ class SoftwareVideoOutput : public QQuickItem {
 
     explicit SoftwareVideoOutput(QQuickItem *parent = nullptr);
 
-    int      fillMode() const;
-    void     setFillMode(int mode);
-    bool     frozen() const;
-    void     setFrozen(bool frozen);
+    int  fillMode() const;
+    void setFillMode(int mode);
+    bool frozen() const;
+    void setFrozen(bool frozen);
 
     // Shows an RGB frame; a null image clears the item.
-    void     present(const QImage &frame);
-    QImage   frame() const;
+    void   present(const QImage &frame);
+    QImage frame() const;
 
   protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;
@@ -42,9 +42,9 @@ class SoftwareVideoOutput : public QQuickItem {
     void frozenChanged();
 
   private:
-    QImage         m_currentFrame;
-    mutable QMutex m_frameMutex;
-    FillMode       m_fillMode     = PreserveAspectFit;
-    bool           m_frameUpdated = false;
+    QImage            m_currentFrame;
+    mutable QMutex    m_frameMutex;
+    FillMode          m_fillMode     = PreserveAspectFit;
+    bool              m_frameUpdated = false;
     std::atomic<bool> m_frozen{false};
 };

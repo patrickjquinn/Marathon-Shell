@@ -15,37 +15,39 @@ using namespace libcamera;
 
 namespace {
 
-// R, G, B, X in memory: QImage's RGBX8888, GL's RGBA, GStreamer's RGBx.
-const PixelFormat kFormat = formats::XBGR8888;
-constexpr uint64_t kViewfinderCookie = 0;
-constexpr uint64_t kStillCookie      = 1;
-// The software ISP keeps its exposure across the photo's format; the first
-// frame after a restart can be torn.
-constexpr int kStillFrames = 2;
-constexpr size_t kPoolSize = 6;
+    // R, G, B, X in memory: QImage's RGBX8888, GL's RGBA, GStreamer's RGBx.
+    const PixelFormat  kFormat           = formats::XBGR8888;
+    constexpr uint64_t kViewfinderCookie = 0;
+    constexpr uint64_t kStillCookie      = 1;
+    // The software ISP keeps its exposure across the photo's format; the first
+    // frame after a restart can be torn.
+    constexpr int    kStillFrames = 2;
+    constexpr size_t kPoolSize    = 6;
 
-void syncForCpu(int fd, bool start) {
-    dma_buf_sync sync{__u64((start ? DMA_BUF_SYNC_START : DMA_BUF_SYNC_END) | DMA_BUF_SYNC_READ)};
-    ioctl(fd, DMA_BUF_IOCTL_SYNC, &sync);
-}
+    void             syncForCpu(int fd, bool start) {
+        dma_buf_sync sync{
+            __u64((start ? DMA_BUF_SYNC_START : DMA_BUF_SYNC_END) | DMA_BUF_SYNC_READ)};
+        ioctl(fd, DMA_BUF_IOCTL_SYNC, &sync);
+    }
 
-size_t mappedLength(const FrameBuffer *buffer) {
-    const FrameBuffer::Plane &last = buffer->planes().back();
-    return last.offset + last.length;
-}
+    size_t mappedLength(const FrameBuffer *buffer) {
+        const FrameBuffer::Plane &last = buffer->planes().back();
+        return last.offset + last.length;
+    }
 
-// A photo's buffer, mapped, and the allocator that owns it.
-struct StillHold {
-    std::shared_ptr<FrameBufferAllocator> allocator;
-    void                                 *data;
-    size_t                                length;
-    int                                   fd;
-};
+    // A photo's buffer, mapped, and the allocator that owns it.
+    struct StillHold {
+        std::shared_ptr<FrameBufferAllocator> allocator;
+        void                                 *data;
+        size_t                                length;
+        int                                   fd;
+    };
 
 } // namespace
 
 CameraSession::CameraSession()
-    : m_controls(controls::controls), m_sticky(controls::controls) {}
+    : m_controls(controls::controls)
+    , m_sticky(controls::controls) {}
 
 CameraSession::~CameraSession() {
     release();
@@ -82,7 +84,7 @@ void CameraSession::discover() {
     }
     QList<CameraInfo> cameras;
     for (const std::shared_ptr<Camera> &camera : m_manager->cameras()) {
-        CameraInfo info{QString::fromStdString(camera->id()), {}};
+        CameraInfo                                 info{QString::fromStdString(camera->id()), {}};
         const std::unique_ptr<CameraConfiguration> config =
             camera->generateConfiguration({StreamRole::Viewfinder});
         if (config) {
@@ -155,8 +157,8 @@ bool CameraSession::open(const QString &id) {
         return false;
     }
     camera->requestCompleted.connect(this, &CameraSession::requestCompleted);
-    m_camera   = std::move(camera);
-    m_cameraId = id;
+    m_camera       = std::move(camera);
+    m_cameraId     = id;
     m_hasAutofocus = m_camera->controls().count(&controls::AfMode) > 0;
     QMutexLocker locked(&m_controlLock);
     m_controls.clear();
@@ -227,8 +229,8 @@ bool CameraSession::configureViewfinder(const QSize &size) {
             emit error(QStringLiteral("Could not map the camera's buffers"));
             return false;
         }
-        m_mappings[buffer.get()] = {static_cast<const uchar *>(data) + buffer->planes().front().offset,
-                                    length, fd};
+        m_mappings[buffer.get()] = {
+            static_cast<const uchar *>(data) + buffer->planes().front().offset, length, fd};
         std::unique_ptr<Request> request = m_camera->createRequest(kViewfinderCookie);
         request->addBuffer(stream.stream(), buffer.get());
         m_requests.push_back(std::move(request));
@@ -239,7 +241,8 @@ bool CameraSession::configureViewfinder(const QSize &size) {
     m_config     = std::move(config);
     m_size       = size;
     m_configured = true;
-    qWarning().noquote() << "[CameraSession] Viewfinder" << QString::fromStdString(m_config->at(0).toString());
+    qWarning().noquote() << "[CameraSession] Viewfinder"
+                         << QString::fromStdString(m_config->at(0).toString());
     return true;
 }
 
@@ -253,7 +256,7 @@ bool CameraSession::startViewfinder() {
     m_streaming = true;
     {
         QMutexLocker locked(&m_controlLock);
-        ControlList controls = m_sticky;
+        ControlList  controls = m_sticky;
         controls.merge(m_controls, ControlList::MergePolicy::OverwriteExisting);
         m_controls = std::move(controls);
     }
@@ -286,16 +289,16 @@ void CameraSession::addControls(Request *request) {
 bool CameraSession::focusOn(const QPointF &point) {
     if (!m_hasAutofocus)
         return false;
-    QMutexLocker locked(&m_controlLock);
+    QMutexLocker    locked(&m_controlLock);
     const Rectangle crop = m_scalerCrop;
     if (crop.isNull())
         return false;
     // A fifth of the frame each way around the point, kept inside it.
-    const int w = int(crop.width / 5), h = int(crop.height / 5);
-    const int x = std::clamp(crop.x + int(point.x() * crop.width) - w / 2, crop.x,
-                             crop.x + int(crop.width) - w);
-    const int y = std::clamp(crop.y + int(point.y() * crop.height) - h / 2, crop.y,
-                             crop.y + int(crop.height) - h);
+    const int       w = int(crop.width / 5), h = int(crop.height / 5);
+    const int       x = std::clamp(crop.x + int(point.x() * crop.width) - w / 2, crop.x,
+                                   crop.x + int(crop.width) - w);
+    const int       y = std::clamp(crop.y + int(point.y() * crop.height) - h / 2, crop.y,
+                                   crop.y + int(crop.height) - h);
     const Rectangle window(x, y, unsigned(w), unsigned(h));
     m_sticky.set(controls::AfMode, controls::AfModeAuto);
     m_sticky.set(controls::AfMetering, controls::AfMeteringWindows);
@@ -327,7 +330,7 @@ QImage CameraSession::takeFrame() {
 void CameraSession::requestCompleted(Request *request) {
     if (request->status() == Request::RequestCancelled)
         return;
-    const ControlList &metadata = request->metadata();
+    const ControlList &metadata   = request->metadata();
     bool               focusEnded = false, focused = false;
     {
         QMutexLocker locked(&m_controlLock);
@@ -404,10 +407,10 @@ void CameraSession::requestCompleted(Request *request) {
 
 QImage CameraSession::copyFrame(const FrameBuffer *buffer) {
     const Mapping &mapping = m_mappings.at(buffer);
-    auto free = std::find_if(m_pool.begin(), m_pool.end(),
-                             [](const QImage &image) { return image.isDetached(); });
-    QImage spare;
-    QImage *frame = nullptr;
+    auto           free    = std::find_if(m_pool.begin(), m_pool.end(),
+                                          [](const QImage &image) { return image.isDetached(); });
+    QImage         spare;
+    QImage        *frame = nullptr;
     if (free != m_pool.end()) {
         frame = &*free;
     } else if (m_pool.size() < kPoolSize) {
