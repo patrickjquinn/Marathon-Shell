@@ -87,7 +87,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: action.label
             font.pixelSize: Silica.Theme.fontSizeSmall
-            color: action.emphasised ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            color: Silica.Theme.primaryColor
         }
     }
 
@@ -121,7 +121,17 @@ Item {
         opacity: 0
         scale: 0.9
 
+        // One glass panel holds the choices; they are flat on it.
+        Silica.GlassSurface {
+            anchors.centerIn: choices
+            width: choices.width + 2 * Silica.Theme.paddingLarge
+            height: choices.height + 2 * Silica.Theme.paddingLarge
+            radius: Silica.Theme.paddingLarge
+        }
+
         Column {
+            id: choices
+
             anchors.centerIn: parent
             width: parent.width - 2 * Silica.Theme.horizontalPageMargin
             spacing: Silica.Theme.paddingLarge
@@ -197,7 +207,7 @@ Item {
             Silica.Button {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: qsTr("Cancel")
-                backgroundColor: "transparent"
+                backgroundColor: MColors.controlFill
                 onClicked: {
                     HapticManager.light();
                     root.cancel();
