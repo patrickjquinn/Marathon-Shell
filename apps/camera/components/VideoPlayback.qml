@@ -8,15 +8,28 @@ Item {
     id: root
 
     property alias source: video.source
+    // Shown until the video plays: before that the player draws nothing.
+    property alias poster: posterImage.source
     readonly property bool playing: video.playbackState === MediaPlayer.PlayingState
     readonly property bool controlsShown: !playing || shown
     property bool shown: true
+    // Space kept free below the slider, for a toolbar over the video.
+    property real bottomInset: 0
 
     function toggle() {
         if (playing)
             video.pause();
         else
             video.play();
+    }
+
+    Image {
+        id: posterImage
+
+        anchors.fill: parent
+        fillMode: Image.PreserveAspectFit
+        asynchronous: true
+        visible: !root.playing && video.position === 0
     }
 
     Video {
@@ -50,7 +63,7 @@ Item {
             left: parent.left
             right: parent.right
             bottom: parent.bottom
-            bottomMargin: Theme.paddingLarge
+            bottomMargin: Theme.paddingLarge + root.bottomInset
         }
         visible: root.controlsShown
         minimumValue: 0

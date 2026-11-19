@@ -62,6 +62,8 @@ PagedView {
         readonly property int index: model.index
         // Not `source`: that is the Loader's own (an invalid override in Qt 6).
         readonly property url mediaUrl: model.fileUrl
+        // A video's poster frame, saved when it was recorded.
+        readonly property url posterUrl: isImage ? "" : "file://" + Settings.captures.posterPath(model.filePath)
 
         readonly property bool isImage: !/\.mp4$/i.test(model.fileName)
         readonly property bool error: !!item && !!item.error
@@ -100,6 +102,9 @@ PagedView {
             // Its own controls; the roll's go while it plays.
             VideoPlayback {
                 source: parent.mediaUrl
+                poster: parent.posterUrl
+                // The slider and its times sat under the roll's buttons.
+                bottomInset: overlay.active ? overlay.toolbarHeight : 0
                 onPlayingChanged: overlay.active = !playing
             }
         }

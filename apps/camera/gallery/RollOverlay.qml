@@ -15,6 +15,8 @@ Item {
     property bool active: true
     property url source
     property bool isImage: true
+    // The height of the bottom toolbar, for content to keep clear of it.
+    readonly property real toolbarHeight: toolbar.height + toolbar.anchors.bottomMargin
     readonly property alias remorse: remorse
 
     signal remove
@@ -61,6 +63,8 @@ Item {
     }
 
     Row {
+        id: toolbar
+
         anchors {
             bottom: parent.bottom
             bottomMargin: Theme.paddingLarge
