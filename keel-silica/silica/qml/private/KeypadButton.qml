@@ -93,7 +93,7 @@ MouseArea {
             id: numberLabel
 
             anchors.horizontalCenter: parent.horizontalCenter
-            font.pixelSize: Theme.fontSizeLarge // Modified by Marathon: lighter keys (was fontSizeExtraLarge)
+            font.pixelSize: Theme.fontSizeExtraLarge
             color: dialerButton.down ? dialer.pressedTextColor : dialer.textColor
             text: dialerButton.text
         }
@@ -102,7 +102,7 @@ MouseArea {
             id: vanityLabel
 
             anchors.horizontalCenter: parent.horizontalCenter
-            font.pixelSize: Theme.fontSizeTiny // Modified by Marathon: lighter keys (was fontSizeExtraSmall)
+            font.pixelSize: Theme.fontSizeExtraSmall
             visible: dialer.vanityDialNumbersVisible && text !== ""
             color: dialerButton.down ? dialer.pressedSecondaryTextColor : dialer.secondaryTextColor
             text: dialerButton.secondaryText

@@ -5,8 +5,6 @@
 
 #include <QColor>
 #include <QImageReader>
-#include <QPainter>
-#include <QRadialGradient>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -144,22 +142,6 @@ QImage KeelAmbienceImageProvider::requestImage(const QString &id, QSize *size, c
     const QColor dim(QLatin1Char('#') + query.queryItemValue(QStringLiteral("dim")));
     if (dim.isValid())
         blendTowards(image, dim, 0.12);
-    // Modified by Marathon: an app's backdrop carries a soft glow of the
-    // ambience colour from its lower left, baked in with the tone.
-    const QColor glow(QLatin1Char('#') + query.queryItemValue(QStringLiteral("glow")));
-    if (glow.isValid() && !image.isNull()) {
-        QPainter p(&image);
-        p.setRenderHint(QPainter::Antialiasing);
-        p.translate(0.30 * image.width(), 0.85 * image.height());
-        p.scale(0.72 * image.width(), 0.54 * image.height());
-        QRadialGradient gradient(QPointF(0, 0), 1);
-        QColor c = glow;
-        c.setAlphaF(0.18);
-        gradient.setColorAt(0, c);
-        c.setAlphaF(0);
-        gradient.setColorAt(1, c);
-        p.fillRect(QRectF(-2, -2, 4, 4), gradient);
-    }
     if (size)
         *size = image.size();
     return image;
