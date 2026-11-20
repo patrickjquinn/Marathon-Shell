@@ -76,7 +76,6 @@ Item {
         y: Theme.paddingMedium
         width: parent.width - 2 * x
         visible: line.partial.length > 0
-        height: visible ? implicitHeight : 0
         text: line.partial
         wrapMode: Text.Wrap
         textFormat: Text.PlainText

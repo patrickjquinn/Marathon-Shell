@@ -19,6 +19,7 @@ Page {
     // The conversation is the app's (Conversation.qml): the overlay over
     // other apps adds to the same one. These keep the page's own API.
     readonly property ListModel model: Conversation.model
+    readonly property int turns: model ? model.count : 0
     readonly property var now: Conversation.now
     readonly property bool listening: Conversation.listening
     readonly property bool transcribing: Conversation.transcribing
@@ -114,7 +115,7 @@ Page {
         objectName: "nowTimer"
         interval: 60000
         repeat: true
-        running: page.model.count === 0 && page.status === PageStatus.Active && Qt.application.state === Qt.ApplicationActive
+        running: page.turns === 0 && page.status === PageStatus.Active && Qt.application.state === Qt.ApplicationActive
         onTriggered: Pilot.refreshNow()
     }
 
@@ -228,7 +229,7 @@ Page {
             MenuItem {
                 objectName: "clearMenuItem"
                 text: qsTr("Clear conversation")
-                visible: page.model.count > 0
+                visible: page.turns > 0
                 onClicked: clearRemorse.execute(qsTr("Clearing conversation"), function () {
                     Conversation.clear();
                 })
@@ -236,7 +237,7 @@ Page {
         }
 
         ViewPlaceholder {
-            enabled: page.model.count === 0 && !Pilot.busy && !page.now.greeting
+            enabled: page.turns === 0 && !Pilot.busy && !page.now.greeting
             text: Pilot.offline ? qsTr("Pilot is offline") : qsTr("Ask Pilot")
             hintText: Pilot.offline ? qsTr("Timers, alarms, reminders, media and the calendar still work from text") : qsTr("Timers, alarms, reminders, music, your calendar, or any question")
         }
