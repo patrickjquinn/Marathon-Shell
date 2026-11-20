@@ -1,0 +1,49 @@
+From f7022c14386488b2a956c43e27198207b4c0ceff Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 20 Nov 2026 17:34:52 +0000
+Subject: [PATCH] xfrm: use compat translator only for u64 alignment mismatch
+
+Backport of the upstream ipsec patch of the same name by Sanman Pradhan
+<psanman@juniper.net> (applied by Steffen Klassert, 2026-06-16): require
+the XFRM compat translator only where COMPAT_FOR_U64_ALIGNMENT applies.
+
+XFRM_USER_COMPAT can only be built on x86, so on arm64 every XFRM netlink
+request from a 32-bit task failed with -EOPNOTSUPP, although AArch32
+aligns u64 like the kernel and the native path handles it. On the Zinwa
+Q25 that rejected every IPsec SA and policy of MediaTek's 32-bit
+volte_stack (seen with a kretprobe on xfrm_user_rcv_msg: -95), so IMS
+registration never got past IMS-AKA.
+---
+ net/xfrm/xfrm_state.c | 2 +-
+ net/xfrm/xfrm_user.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 1748d37..e23c388 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -2976,7 +2976,7 @@ int xfrm_user_policy(struct sock *sk, int optname, sockptr_t optval, int optlen)
+ 	if (IS_ERR(data))
+ 		return PTR_ERR(data);
+ 
+-	if (in_compat_syscall()) {
++	if (IS_ENABLED(CONFIG_COMPAT_FOR_U64_ALIGNMENT) && in_compat_syscall()) {
+ 		struct xfrm_translator *xtr = xfrm_get_translator();
+ 
+ 		if (!xtr) {
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index d56450f..5b2e38e 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -3472,7 +3472,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (!netlink_net_capable(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	if (in_compat_syscall()) {
++	if (IS_ENABLED(CONFIG_COMPAT_FOR_U64_ALIGNMENT) && in_compat_syscall()) {
+ 		struct xfrm_translator *xtr = xfrm_get_translator();
+ 
+ 		if (!xtr)
+-- 
+2.55.0
+
