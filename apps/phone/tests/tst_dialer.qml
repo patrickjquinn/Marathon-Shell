@@ -37,6 +37,7 @@ TestCase {
     }
 
     function init() {
+        failOnWarning(/Binding loop/);
         Telephony.reset();
         Contacts.reset();
         CallHistory.reset();
@@ -266,7 +267,7 @@ TestCase {
         compare(Telephony.log.filter(e => e.indexOf("dial") === 0).length, 0);
     }
 
-    function test_numberRowClearsTabBarOnSquareScreen() {
+    function test_squareScreenLinesTheLeftColumnUpWithTheKeys() {
         const app = makeApp({}, squareAppComponent);
         dialer(app);
         type(app, "555");
@@ -279,10 +280,16 @@ TestCase {
             const item = findChild(page, name);
             return item.mapToItem(page, dx ? item.width : 0, 0).x;
         };
-        tryVerify(() => y("numberLabel", true) <= y("keypad"), 2000, "number row over the keypad");
+        const middle = name => (y(name) + y(name, true)) / 2;
+        const row = r => y("keypad") + (r + 0.5) * (y("keypad", true) - y("keypad")) / 4;
+        tryVerify(() => x("numberLabel", true) <= x("keypad"), 2000, "number beside the keypad");
+        verify(x("backspaceButton", true) <= x("keypad"), "backspace beside the keypad");
         verify(x("matchLabel", true) <= x("keypad"), "match beside the keypad");
         verify(x("callButton", true) <= x("keypad"), "Call beside the keypad");
+        fuzzyCompare(middle("numberLabel"), row(0), 1, "number on the top row of keys");
+        fuzzyCompare(middle("callButton"), row(3), 1, "Call on the bottom row of keys");
         verify(findChild(page, "keypad").scale >= 0.6, "keypad not shrunk to fit a column");
+        compare(findChild(page, "keypad").height, findChild(page, "keypad").implicitHeight, "keypad keeps its own height");
         verify(y("numberLabel") >= y("tabBar", true), "number row under the tab bar");
         verify(y("backspaceButton") >= y("tabBar", true));
         verify(y("callButton", true) <= page.height);
