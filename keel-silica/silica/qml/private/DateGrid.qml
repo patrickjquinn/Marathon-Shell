@@ -238,13 +238,14 @@ SilicaControl {
 
         property Item target
 
-        x: target ? grid.x + target.x + (root.cellWidth - target.width)/2 : 0 // Modified by Shipwright for Qt 6: qualified
-        y: target ? grid.y + target.y + (root.cellHeight - target.height)/2 : 0 // Modified by Shipwright for Qt 6: qualified
-        width: root.cellWidth // Modified by Shipwright for Qt 6: qualified
-        height: root.cellHeight // Modified by Shipwright for Qt 6: qualified
+        // Modified by Marathon: a disc centred on the day, not the cell's rectangle
+        x: target ? grid.x + target.x + (target.width - width)/2 : 0
+        y: target ? grid.y + target.y + (target.height - height)/2 : 0
+        width: Math.min(root.cellWidth, root.cellHeight)
+        height: width
         visible: !!target
         color: Theme.rgba(root.palette.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
-        radius: 4
+        radius: width / 2
     }
 
     Rectangle {
@@ -252,13 +253,14 @@ SilicaControl {
 
         property Item target
 
-        x: target ? grid.x + target.x + (root.cellWidth - target.width)/2 : 0 // Modified by Shipwright for Qt 6: qualified
-        y: target ? grid.y + target.y + (root.cellHeight - target.height)/2 : 0 // Modified by Shipwright for Qt 6: qualified
-        width: root.cellWidth // Modified by Shipwright for Qt 6: qualified
-        height: root.cellHeight // Modified by Shipwright for Qt 6: qualified
+        // Modified by Marathon: a disc centred on the day, not the cell's rectangle
+        x: target ? grid.x + target.x + (target.width - width)/2 : 0
+        y: target ? grid.y + target.y + (target.height - height)/2 : 0
+        width: Math.min(root.cellWidth, root.cellHeight)
+        height: width
         visible: !!target
         color: Theme.rgba(root.palette.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
-        radius: 4
+        radius: width / 2
     }
 
     Row {
