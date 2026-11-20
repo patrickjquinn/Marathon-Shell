@@ -3,6 +3,7 @@
 
 #include "ambienceimageprovider.h"
 
+#include <QColor>
 #include <QImageReader>
 #include <QUrl>
 #include <QUrlQuery>
@@ -99,6 +100,22 @@ QImage KeelAmbienceImageProvider::process(const QImage &source, const QSize &win
     return image;
 }
 
+// Blends every pixel `amount` of the way to `color`.
+static void blendTowards(QImage &image, QColor color, qreal amount)
+{
+    if (amount <= 0 || image.isNull())
+        return;
+    const int a = qRound(qMin<qreal>(amount, 1) * 256);
+    const int r = color.red() * a, g = color.green() * a, b = color.blue() * a;
+    for (int y = 0; y < image.height(); ++y) {
+        auto *line = reinterpret_cast<QRgb *>(image.scanLine(y));
+        for (int x = 0; x < image.width(); ++x) {
+            const QRgb c = line[x];
+            line[x] = qRgb((qRed(c) * (256 - a) + r) >> 8, (qGreen(c) * (256 - a) + g) >> 8, (qBlue(c) * (256 - a) + b) >> 8);
+        }
+    }
+}
+
 QImage KeelAmbienceImageProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
 {
     const int q = id.lastIndexOf(QLatin1Char('?'));
@@ -117,7 +134,14 @@ QImage KeelAmbienceImageProvider::requestImage(const QString &id, QSize *size, c
         const qreal f = qMax(2.0 * window.width() / full.width(), 2.0 * window.height() / full.height());
         reader.setScaledSize(QSize(qRound(full.width() * f), qRound(full.height() * f)));
     }
-    const QImage image = process(reader.read(), window);
+    QImage image = process(reader.read(), window);
+    // The tone and the dimmer the ambience lays over its wallpaper, baked in
+    // once here: the image comes out opaque and is drawn as it is.
+    const bool light = query.queryItemValue(QStringLiteral("light")) == QLatin1String("1");
+    blendTowards(image, light ? Qt::white : Qt::black, query.queryItemValue(QStringLiteral("tone")).toDouble());
+    const QColor dim(QLatin1Char('#') + query.queryItemValue(QStringLiteral("dim")));
+    if (dim.isValid())
+        blendTowards(image, dim, 0.12);
     if (size)
         *size = image.size();
     return image;
