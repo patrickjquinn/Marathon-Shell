@@ -2,7 +2,7 @@ import QtQuick
 import MarathonOS.Shell
 import Sailfish.Silica 1.0 as Silica
 
-// Quick Settings slider: a glass pill the ambience tint fills as the value
+// Quick Settings slider: a flat pill the lit fill grows across as the value
 // rises, its glyph at the left end and the value at the right. The whole
 // pill is the control; there is no thumb.
 Item {
@@ -23,7 +23,7 @@ Item {
 
     readonly property real fraction: (value - from) / Math.max(1, to - from)
 
-    Silica.GlassSurface {
+    Rectangle {
         id: track
 
         objectName: "sliderTrack"
@@ -31,13 +31,13 @@ Item {
         anchors.topMargin: Silica.Theme.paddingSmall / 2
         anchors.bottomMargin: Silica.Theme.paddingSmall / 2
         radius: height / 2
-        pressed: trackHit.pressed
+        color: trackHit.pressed ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
 
         Rectangle {
             width: Math.max(parent.height, parent.width * root.fraction)
             height: parent.height
             radius: parent.radius
-            color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.38)
+            color: MColors.accentFill
         }
 
         GlyphIcon {

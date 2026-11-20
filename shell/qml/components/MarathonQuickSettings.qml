@@ -290,11 +290,11 @@ Item {
             });
         return enabledOnly(t);
     }
-    // Switches, then the one-shot shortcuts, in pages of two across by three.
-    // Paged by id: statuses change every few seconds, and a page made of the
-    // tiles themselves would rebuild every tile on it each time.
+    // Switches in pages of two across by three. Paged by id: statuses change
+    // every few seconds, and a page made of the tiles themselves would rebuild
+    // every tile on it each time.
     readonly property int tilesPerPage: 6
-    readonly property var tileIds: tiles.map(t => t.id).concat(shortcuts.map(s => s.id))
+    readonly property var tileIds: tiles.map(t => t.id)
     property var tilePages: []
     onTileIdsChanged: repage()
     Component.onCompleted: repage()
@@ -308,13 +308,7 @@ Item {
         tilePages = pages;
     }
     function tileById(id) {
-        const t = tiles.find(x => x.id === id);
-        if (t)
-            return t;
-        const s = shortcuts.find(x => x.id === id);
-        return s ? Object.assign({
-            "shortcut": true
-        }, s) : null;
+        return tiles.find(x => x.id === id) || null;
     }
     readonly property bool powerShown: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf("power") >= 0
 
@@ -342,7 +336,61 @@ Item {
         }
     ]
 
-    // A small glass tile holding a glyph, of a family with the switches.
+    // A one-shot action: a flat disc with its glyph, the name under it.
+    component QSShortcut: Item {
+        id: shortcut
+
+        property string iconName
+        property string label
+        signal activated
+
+        height: shortcutColumn.height
+        Accessible.role: Accessible.Button
+        Accessible.name: label
+        Accessible.onPressAction: activated()
+
+        Column {
+            id: shortcutColumn
+
+            width: parent.width
+            spacing: Silica.Theme.paddingSmall
+
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Silica.Theme.itemSizeExtraSmall * 0.8
+                height: width
+                radius: width / 2
+                color: shortcutMouse.pressed ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    name: shortcut.iconName
+                    size: Silica.Theme.iconSizeSmall
+                    color: Silica.Theme.primaryColor
+                }
+            }
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+                text: shortcut.label
+                color: shortcutMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+                font.family: Silica.Theme.fontFamily
+                font.pixelSize: Silica.Theme.fontSizeTiny
+            }
+        }
+        MouseArea {
+            id: shortcutMouse
+
+            anchors.fill: parent
+            onClicked: {
+                MHaptics.light();
+                shortcut.activated();
+            }
+        }
+    }
+
+    // A bare glyph, as Silica's IconButton.
     component HeaderButton: MouseArea {
         id: headerButton
 
@@ -355,17 +403,11 @@ Item {
         Accessible.name: a11yName
         Accessible.onPressAction: clicked(null)
 
-        Silica.GlassSurface {
-            anchors.fill: parent
-            anchors.margins: Silica.Theme.paddingSmall / 2
-            radius: Silica.Theme.paddingMedium
-            pressed: headerButton.pressed
-        }
         GlyphIcon {
             anchors.centerIn: parent
             name: headerButton.iconName
             size: Silica.Theme.iconSizeSmall
-            color: Silica.Theme.primaryColor
+            color: headerButton.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
         }
     }
 
@@ -493,7 +535,7 @@ Item {
                 }
             }
 
-            // ── Switches and shortcuts: pages swiped sideways, as on BB10 ──
+            // ── Switches: pages swiped sideways, as on BB10 ──
             ListView {
                 id: tilePager
 
@@ -529,19 +571,11 @@ Item {
                             width: (page.width - page.spacing) / 2
                             iconName: t.icon || ""
                             label: t.label || ""
-                            checkable: t.shortcut !== true
-                            status: t.shortcut === true ? "" : t.status !== undefined ? t.status : t.id === "hotspot" && t.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(t.on)
+                            status: t.status !== undefined ? t.status : t.id === "hotspot" && t.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(t.on)
                             hasPage: t.route !== undefined
                             on: t.on === true
                             busy: SystemControlStore.pendingSwitches.indexOf(modelData) >= 0
-                            onToggled: {
-                                if (t.shortcut === true) {
-                                    MHaptics.light();
-                                    quickSettings.doAction(modelData);
-                                } else {
-                                    quickSettings.toggle(modelData);
-                                }
-                            }
+                            onToggled: quickSettings.toggle(modelData)
                             onHeld: quickSettings.hold(modelData)
                             onOpened: quickSettings.openSettings(t.route)
                         }
@@ -656,6 +690,23 @@ Item {
                     if (MPRIS2Controller.desktopEntry)
                         Tasks.wakeApp(MPRIS2Controller.desktopEntry);
                     MPRIS2Controller.next();
+                }
+            }
+
+            // ── Shortcuts, on the switch columns ─────────────────
+            Row {
+                objectName: "shortcutsRow"
+                width: parent.width
+
+                Repeater {
+                    model: quickSettings.shortcuts
+                    delegate: QSShortcut {
+                        required property var modelData
+                        width: parent.width / quickSettings.shortcuts.length
+                        iconName: modelData.icon
+                        label: modelData.label
+                        onActivated: quickSettings.doAction(modelData.id)
+                    }
                 }
             }
         }

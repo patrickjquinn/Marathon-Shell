@@ -2,10 +2,9 @@ import QtQuick
 import MarathonOS.Shell
 import Sailfish.Silica 1.0 as Silica
 
-// Quick Settings switch, as BB10's: the glyph at the left, what it is and how
-// it stands at the right ("SKYZMTGV" over "Wi-Fi · good"). A tap switches it;
-// holding it opens its settings page. A glass tile, lit with the ambience
-// when on, with Silica's Switch glow at its end.
+// Quick Settings switch, as BB10's: a disc with the glyph at the left, lit
+// when on; what it is and how it stands at the right ("SKYZMTGV" over
+// "Wi-Fi · good"). A tap switches it; holding it opens its settings page.
 Item {
     id: tile
 
@@ -17,7 +16,7 @@ Item {
     property bool checkable: true
     // Its settings page, if it has one: holding the tile opens it.
     property bool hasPage: false
-    // The backend is switching: pulse the tile as Silica's Switch.busy does.
+    // The backend is switching: pulse the disc as Silica's Switch.busy does.
     property bool busy: false
 
     signal toggled
@@ -38,57 +37,57 @@ Item {
     Keys.onEnterPressed: toggled()
     Keys.onSpacePressed: toggled()
 
-    Silica.GlassSurface {
-        id: card
-
-        objectName: "ring"
+    MPressHighlight {
         anchors.fill: parent
-        radius: Silica.Theme.paddingMedium
-        scale: tileMouse.pressed ? 0.97 : 1.0
-        lit: tile.checkable && tile.on
-        pressed: tileMouse.pressed || (tile.busy && busyPulse.bright)
-
-        Behavior on scale {
-            enabled: !MMotion.reduceMotion
-            NumberAnimation {
-                duration: MMotion.quick
-                easing.type: Easing.OutQuad
-            }
-        }
+        down: tileMouse.pressed
     }
 
     // A keyboard-focused tile wears a ring.
     Rectangle {
-        anchors.fill: card
+        anchors.fill: parent
         visible: tile.activeFocus
-        radius: card.radius
+        radius: Silica.Theme.paddingMedium
         color: "transparent"
         border.width: Math.max(2, Math.round(Silica.Theme.paddingSmall / 2))
         border.color: Silica.Theme.highlightColor
     }
 
-    GlyphIcon {
-        id: icon
+    Rectangle {
+        id: disc
 
+        readonly property bool lit: tile.checkable && tile.on
+        readonly property bool pressed: tile.busy && busyPulse.bright
+
+        objectName: "ring"
         x: Silica.Theme.paddingMedium
         anchors.verticalCenter: parent.verticalCenter
-        name: tile.iconName
-        size: Silica.Theme.iconSizeSmall
-        color: Silica.Theme.primaryColor
+        width: Silica.Theme.itemSizeExtraSmall * 0.75
+        height: width
+        radius: width / 2
+        color: lit ? MColors.accentFill : MColors.controlFill
+        opacity: pressed ? 0.6 : 1
+
+        GlyphIcon {
+            anchors.centerIn: parent
+            name: tile.iconName
+            size: Silica.Theme.iconSizeSmall
+            color: "white"
+        }
     }
 
     Column {
         id: textColumn
 
-        anchors.left: icon.right
+        anchors.left: disc.right
         anchors.leftMargin: Silica.Theme.paddingMedium
-        anchors.right: mark.left
+        anchors.right: parent.right
+        anchors.rightMargin: Silica.Theme.paddingSmall
         anchors.verticalCenter: parent.verticalCenter
 
         Text {
             width: parent.width
             text: tile.label
-            color: tile.on || !tile.checkable ? Silica.Theme.primaryColor : Silica.Theme.secondaryColor
+            color: Silica.Theme.primaryColor
             font.family: Silica.Theme.fontFamily
             font.pixelSize: Silica.Theme.fontSizeExtraSmall
             elide: Text.ElideRight
@@ -103,19 +102,6 @@ Item {
             font.pixelSize: Silica.Theme.fontSizeTiny
             elide: Text.ElideRight
         }
-    }
-
-    Silica.GlassItem {
-        id: mark
-
-        objectName: "stateMark"
-        width: tile.checkable ? Silica.Theme.itemSizeExtraSmall * 0.45 : Silica.Theme.paddingSmall
-        height: width
-        anchors.right: parent.right
-        anchors.rightMargin: Silica.Theme.paddingSmall
-        anchors.verticalCenter: parent.verticalCenter
-        visible: tile.checkable && tile.on
-        color: Silica.Theme.lightPrimaryColor
     }
 
     Timer {
