@@ -542,16 +542,18 @@ Item {
                     Silica.Label {
                         id: lockClock
 
+                        readonly property int clockSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
+
                         objectName: "lockClock"
                         text: SystemStatusStore.timeString
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
                         fontSizeMode: Text.HorizontalFit
-                        font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
+                        font.pixelSize: clockSize
                         font.weight: Font.ExtraLight
                         // Display sizes set tighter; figures of one width, so the clock never shifts.
-                        font.letterSpacing: -0.02 * lockClock.font.pixelSize
+                        font.letterSpacing: -0.02 * clockSize
                         font.features: ({
                                 "tnum": 1
                             })
