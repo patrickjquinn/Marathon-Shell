@@ -65,7 +65,7 @@ Item {
         anchors.fill: parent
         anchors.leftMargin: Silica.Theme.paddingMedium
         anchors.rightMargin: Silica.Theme.paddingSmall
-        spacing: Silica.Theme.paddingMedium
+        spacing: Silica.Theme.paddingLarge
 
         Item {
             id: badgeWrap

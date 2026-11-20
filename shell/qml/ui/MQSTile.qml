@@ -79,7 +79,7 @@ Item {
         id: textColumn
 
         anchors.left: disc.right
-        anchors.leftMargin: Silica.Theme.paddingMedium
+        anchors.leftMargin: Silica.Theme.paddingLarge
         anchors.right: parent.right
         anchors.rightMargin: Silica.Theme.paddingSmall
         anchors.verticalCenter: parent.verticalCenter

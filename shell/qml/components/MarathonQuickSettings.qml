@@ -348,7 +348,7 @@ Item {
 
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: Silica.Theme.itemSizeExtraSmall * 0.8
+                width: Silica.Theme.itemSizeExtraSmall * 0.75
                 height: width
                 radius: width / 2
                 color: shortcutMouse.pressed ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
@@ -463,7 +463,7 @@ Item {
             x: Silica.Theme.horizontalPageMargin
             y: Silica.Theme.paddingMedium
             width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
-            spacing: quickSettings.compactLayout ? Silica.Theme.paddingSmall : Silica.Theme.paddingMedium
+            spacing: Silica.Theme.paddingMedium
 
             // Flattened only while it fades, so it fades as one piece; open,
             // a slider drag doesn't re-render an offscreen copy every frame.
@@ -688,6 +688,7 @@ Item {
             Row {
                 objectName: "shortcutsRow"
                 width: parent.width
+                topPadding: Silica.Theme.paddingLarge
 
                 Repeater {
                     model: quickSettings.shortcuts
