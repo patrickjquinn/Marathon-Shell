@@ -291,15 +291,30 @@ Item {
         return enabledOnly(t);
     }
     // Switches, then the one-shot shortcuts, in pages of two across by three.
+    // Paged by id: statuses change every few seconds, and a page made of the
+    // tiles themselves would rebuild every tile on it each time.
     readonly property int tilesPerPage: 6
-    readonly property var tilePages: {
-        const all = tiles.concat(shortcuts.map(s => Object.assign({
-                "shortcut": true
-            }, s)));
+    readonly property var tileIds: tiles.map(t => t.id).concat(shortcuts.map(s => s.id))
+    property var tilePages: []
+    onTileIdsChanged: repage()
+    Component.onCompleted: repage()
+    function repage() {
+        const ids = tileIds;
+        if (JSON.stringify(ids) === JSON.stringify([].concat(...tilePages)))
+            return;
         const pages = [];
-        for (let i = 0; i < all.length; i += tilesPerPage)
-            pages.push(all.slice(i, i + tilesPerPage));
-        return pages;
+        for (let i = 0; i < ids.length; i += tilesPerPage)
+            pages.push(ids.slice(i, i + tilesPerPage));
+        tilePages = pages;
+    }
+    function tileById(id) {
+        const t = tiles.find(x => x.id === id);
+        if (t)
+            return t;
+        const s = shortcuts.find(x => x.id === id);
+        return s ? Object.assign({
+            "shortcut": true
+        }, s) : null;
     }
     readonly property bool powerShown: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf("power") >= 0
 
@@ -509,24 +524,26 @@ Item {
                         model: quickSettings.tilePages[page.index] || []
                         delegate: MQSTile {
                             required property var modelData
+                            // Its live state, rebound in place as it changes.
+                            readonly property var t: quickSettings.tileById(modelData) || ({})
                             width: (page.width - page.spacing) / 2
-                            iconName: modelData.icon
-                            label: modelData.label
-                            checkable: modelData.shortcut !== true
-                            status: modelData.shortcut === true ? "" : modelData.status !== undefined ? modelData.status : modelData.id === "hotspot" && modelData.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(modelData.on)
-                            hasPage: modelData.route !== undefined
-                            on: modelData.on === true
-                            busy: SystemControlStore.pendingSwitches.indexOf(modelData.id) >= 0
+                            iconName: t.icon || ""
+                            label: t.label || ""
+                            checkable: t.shortcut !== true
+                            status: t.shortcut === true ? "" : t.status !== undefined ? t.status : t.id === "hotspot" && t.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(t.on)
+                            hasPage: t.route !== undefined
+                            on: t.on === true
+                            busy: SystemControlStore.pendingSwitches.indexOf(modelData) >= 0
                             onToggled: {
-                                if (modelData.shortcut === true) {
+                                if (t.shortcut === true) {
                                     MHaptics.light();
-                                    quickSettings.doAction(modelData.id);
+                                    quickSettings.doAction(modelData);
                                 } else {
-                                    quickSettings.toggle(modelData.id);
+                                    quickSettings.toggle(modelData);
                                 }
                             }
-                            onHeld: quickSettings.hold(modelData.id)
-                            onOpened: quickSettings.openSettings(modelData.route)
+                            onHeld: quickSettings.hold(modelData)
+                            onOpened: quickSettings.openSettings(t.route)
                         }
                     }
                 }
