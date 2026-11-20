@@ -202,6 +202,7 @@ set(QML_FILES
     qml/ui/MCircularIconButton.qml
     qml/ui/MEntrance.qml
     qml/ui/MGlowLine.qml
+    qml/ui/MPressHighlight.qml
     qml/ui/MHaptics.qml
     qml/ui/MHubRow.qml
     qml/ui/MMarathonMark.qml

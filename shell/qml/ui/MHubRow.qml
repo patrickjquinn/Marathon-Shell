@@ -125,13 +125,11 @@ FocusScope {
         opacity: 1 - x / Math.max(1, row.width)
 
         // Pressed: a rounded highlight inset from the edges, as a list row's.
-        Rectangle {
+        MPressHighlight {
             anchors.fill: parent
             anchors.leftMargin: Silica.Theme.paddingSmall
             anchors.rightMargin: Silica.Theme.paddingSmall
-            radius: Silica.Theme.paddingMedium
-            color: Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
-            opacity: row.down ? 1 : 0
+            down: row.down
         }
 
         Item {

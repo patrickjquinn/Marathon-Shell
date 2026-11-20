@@ -730,13 +730,11 @@ Item {
                                 height: cardContent.implicitHeight + Silica.Theme.paddingMedium * 2
 
                                 // On the ambience, as in the Hub: pressed, a rounded inset highlight.
-                                Rectangle {
+                                MPressHighlight {
                                     anchors.fill: parent
                                     anchors.leftMargin: -Silica.Theme.paddingSmall
                                     anchors.rightMargin: -Silica.Theme.paddingSmall
-                                    radius: Silica.Theme.paddingMedium
-                                    color: Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
-                                    opacity: notifArea.pressed && !notifArea.swiping ? 1 : 0
+                                    down: notifArea.pressed && !notifArea.swiping
                                 }
 
                                 Row {

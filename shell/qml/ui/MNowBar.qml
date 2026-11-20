@@ -56,11 +56,9 @@ Item {
         }
     }
 
-    Rectangle {
+    MPressHighlight {
         anchors.fill: parent
-        radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
-        opacity: root.down ? 1 : 0
+        down: root.down
     }
 
     Row {

@@ -26,6 +26,7 @@ GlyphIcon 1.0 GlyphIcon.qml
 MCircularIconButton 1.0 ../../../../../shell/qml/ui/MCircularIconButton.qml
 MHubRow 1.0 ../../../../../shell/qml/ui/MHubRow.qml
 MGlowLine 1.0 ../../../../../shell/qml/ui/MGlowLine.qml
+MPressHighlight 1.0 ../../../../../shell/qml/ui/MPressHighlight.qml
 NotificationIcon 1.0 ../../../../../shell/qml/ui/NotificationIcon.qml
 NotificationActions 1.0 ../../../../../shell/qml/ui/NotificationActions.qml
 singleton Router 1.0 Router.qml
