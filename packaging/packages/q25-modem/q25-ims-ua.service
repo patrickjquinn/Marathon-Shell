@@ -1,8 +1,8 @@
 [Unit]
 Description=Q25 IMS: user agent (volte_ua)
 Requires=q25-ims-runtime.service
-Wants=q25-ims-logd.service q25-ims-stack.service
-After=q25-ims-logd.service q25-ims-stack.service
+Wants=q25-ims-logd.service q25-ims-propd.service q25-ims-stack.service
+After=q25-ims-logd.service q25-ims-propd.service q25-ims-stack.service
 PartOf=q25-modem.target
 
 [Service]

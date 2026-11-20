@@ -3,7 +3,10 @@
 # Android, unmodified, each in a bubblewrap sandbox (docs/hardware/mt6789-ims.md).
 #   prepare             mount stock system, vendor and the runtime APEX
 #                       read-only from super; write the property area
-#   run DEVS -- CMD...  run CMD in the sandbox with /dev/DEVS passed through
+#   run [+CAP...] DEVS -- CMD...
+#                       run CMD in the sandbox with /dev/DEVS passed through
+#                       and only the capabilities named (as the stock init
+#                       .rc grants them)
 set -eu
 R=/run/q25-ims
 SUPER=/dev/disk/by-partlabel/super
@@ -34,11 +37,18 @@ prepare() {
 }
 
 run() {
-	devs=
-	while [ "$1" != -- ]; do devs="$devs --dev-bind /dev/$1 /dev/$1"; shift; done
+	devs= caps=
+	while [ "$1" != -- ]; do
+		case $1 in
+		+*) caps="$caps --cap-add ${1#+}" ;;
+		*) devs="$devs --dev-bind /dev/$1 /dev/$1" ;;
+		esac
+		shift
+	done
 	shift
-	# shellcheck disable=SC2086 # word-split device list
-	exec bwrap --die-with-parent --unshare-all --share-net --new-session \
+	# shellcheck disable=SC2086 # word-split device and capability lists
+	exec bwrap --die-with-parent --unshare-ipc --unshare-uts --unshare-cgroup-try \
+		--new-session --cap-drop ALL $caps \
 		--ro-bind "$R/system/system" /system --ro-bind "$R/vendor" /vendor \
 		--ro-bind "$R/runtime" /apex/com.android.runtime \
 		--dev /dev --dev-bind /dev/pts /dev/pts --bind "$R/radio" /dev/radio \

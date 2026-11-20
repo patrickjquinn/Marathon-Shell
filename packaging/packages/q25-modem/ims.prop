@@ -3,3 +3,4 @@
 service.nvram_init=Ready
 vendor.service.nvram_init=Ready
 vendor.volte_md_status=ready
+ro.property_service.version=2
