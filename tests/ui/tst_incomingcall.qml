@@ -67,6 +67,19 @@ TestCase {
         compare(UIStore.opened, ["phone"]);
     }
 
+    function test_aCallAnsweredElsewhereOpensThePhone() {
+        host.item.connected();
+        compare(UIStore.opened, ["phone"]);
+        verify(!host.item.isRinging);
+    }
+
+    function test_aCallAnsweredElsewhereWhileLockedStaysOnScreen() {
+        SessionStore.isLocked = true;
+        host.item.connected();
+        verify(host.item.inCall);
+        verify(host.item.visible);
+    }
+
     function test_declineHangsUpEvenWhenHangingUpUnloadsTheOverlay() {
         const decline = button("Decline");
         verify(decline);

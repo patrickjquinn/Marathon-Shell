@@ -3376,7 +3376,10 @@ Item {
             if (state !== "active")
                 Display.turnScreenOn("call " + state);
             if (shell.incomingCallOverlay) {
-                shell.incomingCallOverlay.hide();
+                if (state === "active" && shell.incomingCallOverlay.isRinging)
+                    shell.incomingCallOverlay.connected();
+                else
+                    shell.incomingCallOverlay.hide();
                 if (shell.incomingCallOverlay.inCall)
                     return;
             }
