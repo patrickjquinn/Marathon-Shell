@@ -53,7 +53,7 @@ SilicaMouseArea {
     property color color: palette.primaryColor
     property color highlightColor: palette.highlightColor
     property color highlightBackgroundColor: Theme.rgba(palette.highlightBackgroundColor, Theme.opacityFaint)
-    property color backgroundColor: Theme.rgba(color, Theme.opacityFaint)
+    property color backgroundColor: Theme.rgba(color, 0.08) // Modified by Marathon: the flat control fill (was opacityFaint)
     property real preferredWidth: _implicitPreferredWidth
     property real _implicitPreferredWidth: Theme.buttonWidthSmall
     property bool __silica_button

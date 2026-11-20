@@ -199,7 +199,6 @@ Item {
             Silica.Button {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: qsTr("Cancel")
-                backgroundColor: MColors.controlFill
                 onClicked: {
                     HapticManager.light();
                     root.cancel();
