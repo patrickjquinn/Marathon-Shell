@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-// Typing an address or a search, over the page (BrowserPage): the page
-// stays in view behind frosted glass, and the toolbar rises into the field
-// with the keyboard, as the Sailfish Browser's toolbar becomes its address
-// field (it was a page of its own, pushed at once: the page behind vanished
-// and came back with no motion between). The field stays at the bottom,
-// under the thumb, and the list grows upwards from it, the best match
-// nearest.
+// Typing an address or a search, over the page (BrowserPage): a sheet on
+// the toolbar's flat surface with the page in view above it, and the
+// toolbar rises into the field with the keyboard, as the Sailfish Browser's
+// toolbar becomes its address field (it was a page of its own, pushed at
+// once: the page behind vanished and came back with no motion between).
+// The field stays at the bottom, under the thumb, and the list grows
+// upwards from it, the best match nearest.
 // Before anything is typed: "paste and go" for what is on the clipboard,
 // the recent searches and the most visited sites. While typing: the
 // address or search first, the most frecent site's host completed inline
@@ -28,8 +28,6 @@ Item {
     objectName: "addressSheet"
 
     property var browser
-    // What is behind, for the glass (BrowserPage's pages).
-    property Item backdrop
     property string initialText
     // 0 closed, 1 open; the toolbar fades by it (BrowserPage).
     property real progress: 0
@@ -61,7 +59,7 @@ Item {
         openAnim.restart();
         field.forceActiveFocus();
     }
-    // Back to the page: the glass clears as the keyboard goes.
+    // Back to the page: the sheet goes as the keyboard goes.
     function leave(): void {
         if (!_open)
             return;
@@ -92,15 +90,7 @@ Item {
         }
     }
 
-    // The page behind, frosted as the sheet opens; a tap on what shows of
-    // it (above the list) goes back to the page.
-    FrostedGlass {
-        anchors.fill: parent
-        backdrop: page.backdrop
-        backdropY: page.backdrop ? -page.backdrop.y : 0
-        active: page.shown
-        opacity: page.progress
-    }
+    // A tap on the page above the sheet goes back to it.
     MouseArea {
         anchors.fill: parent
         enabled: page._open
@@ -164,6 +154,17 @@ Item {
         opacity: page.progress
         transform: Translate {
             y: (1 - page.progress) * Theme.itemSizeLarge
+        }
+        Rectangle {
+            anchors {
+                top: list.top
+                bottom: parent.bottom
+            }
+            width: parent.width
+            color: Theme.rgba(Theme.overlayBackgroundColor, 1.0)
+            GlowLine {
+                width: parent.width
+            }
         }
         SilicaListView {
             id: list

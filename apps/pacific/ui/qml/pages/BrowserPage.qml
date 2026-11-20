@@ -370,7 +370,7 @@ Page {
     // The address sheet rises over the page (AddressSheet), the toolbar
     // turning into its field as the keyboard comes up. The pages keep the
     // height they had meanwhile: the keyboard shrinks the window's content,
-    // and the page behind the glass laid itself out again at the smaller
+    // and the page behind the sheet laid itself out again at the smaller
     // height and back.
     function openAddress(): void {
         _frozenWebHeight = webArea.height;
@@ -1052,10 +1052,6 @@ Page {
             }
         }
         browser: page.browser
-        // Frosted over the pages while any of the bar is on screen.
-        backdrop: webArea
-        backdropY: y - webArea.y
-        frosted: y < page.height
         tabCount: page.browser ? page.browser.tabs.count : 0
         blockedCount: page.blocked
         protectionIncomplete: page.browser.protectionIncomplete
@@ -1086,7 +1082,6 @@ Page {
         objectName: "addressSheet"
         anchors.fill: parent
         browser: page.browser
-        backdrop: webArea
     }
 
     function scrolled(dy: var): void {
@@ -1123,6 +1118,7 @@ Page {
         sourceComponent: PageMenu {
             objectName: "pageMenu"
             maxHeight: page.height - Theme.paddingLarge
+            bottomMargin: page.toolbarHeight
             browser: page.browser
             onFindRequested: {
                 page.finding = true;
@@ -1134,6 +1130,8 @@ Page {
         }
     }
     readonly property var pageMenu: pageMenuLoader.item
+    // How much of the toolbar is on screen: the menus' sheets rise from it.
+    readonly property real toolbarHeight: toolbar.visible ? Math.max(0, height - toolbar.y) : 0
 
     Loader {
         id: tabsMenuLoader
@@ -1144,6 +1142,7 @@ Page {
             objectName: "tabsMenu"
             browser: page.browser
             remorseParent: page
+            bottomMargin: page.toolbarHeight
         }
     }
     readonly property var tabsMenu: tabsMenuLoader.item

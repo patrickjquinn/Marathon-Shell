@@ -16,7 +16,7 @@ Rectangle {
     signal closed
 
     height: Theme.itemSizeMedium
-    color: Theme.rgba(Theme.overlayBackgroundColor, 0.95)
+    color: Theme.rgba(Theme.overlayBackgroundColor, 1.0)
 
     // Which match is selected, counted from the first one found, as Safari
     // and WebKit's own match index count (0: none yet).
