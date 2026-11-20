@@ -213,8 +213,11 @@ Item {
             bottomMargin: root._wide ? root.height - root._rowCenter(3) - height / 2 : 2 * Theme.paddingLarge
         }
         preferredWidth: root._wide ? side.width - 2 * Theme.horizontalPageMargin : Math.min(Theme.buttonWidthLarge, side.width - 2 * Theme.horizontalPageMargin)
+        // The page's one action: taller than a plain button, in the accent.
+        implicitHeight: Theme.itemSizeSmall
+        backgroundColor: Theme.rgba(Theme.highlightBackgroundColor, 0.5)
         enabled: root.canCall || (root.number.length === 0 && root.lastDialed.length > 0)
-        icon.source: "image://theme/icon-m-call"
+        icon.source: "image://theme/icon-s-call"
         text: root.emergency ? qsTr("Emergency call") : qsTr("Call")
         onClicked: root.call()
     }

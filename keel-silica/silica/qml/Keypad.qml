@@ -68,7 +68,10 @@ SilicaControl {
     property int _buttonHeight: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.itemSizeExtraLarge : Theme.itemSizeLarge // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     property int _horizontalSpacing: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.paddingLarge : 0 // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     property int _horizontalPadding: Math.max((width - column.implicitWidth) / 2, 0)
-    property int _discSize: Math.min(_buttonWidth, _buttonHeight) - Theme.paddingSmall // Modified by Marathon: keys are flat discs
+    // Modified by Marathon: keys are flat discs on an even grid: rows as far
+    // apart as columns, the same gap between discs either way.
+    property int _rowHeight: Math.max(_buttonHeight, _buttonWidth + _horizontalSpacing)
+    property int _discSize: _buttonWidth + _horizontalSpacing - Theme.paddingLarge
 
     signal pressed(string number)
     signal released(string number)

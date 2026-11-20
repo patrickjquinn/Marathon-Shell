@@ -69,7 +69,7 @@ MouseArea {
     onExited: dialer._buttonExited()
 
     width: dialer._buttonWidth
-    height: dialer._buttonHeight
+    height: dialer._rowHeight // Modified by Marathon: square cells
 
     preventStealing: down && dialer.preventStealing
     onPreventStealingChanged: if (preventStealing) dialerButton.DragFilter.end()
@@ -83,29 +83,29 @@ MouseArea {
         color: Theme.rgba(Theme.primaryColor, 0.08)
     }
 
-    Label {
-        id: numberLabel
+    // Modified by Marathon: the digit and its letters centred together on the
+    // disc, a digit without letters on its own
+    Column {
+        anchors.centerIn: parent
+        spacing: -Theme.paddingSmall
 
-        anchors {
-            centerIn: parent
-            verticalCenterOffset: dialer.vanityDialNumbersVisible ? -(vanityLabel.font.pixelSize / 2) : 0
+        Label {
+            id: numberLabel
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            font.pixelSize: Theme.fontSizeExtraLarge
+            color: dialerButton.down ? dialer.pressedTextColor : dialer.textColor
+            text: dialerButton.text
         }
-        font.pixelSize: Theme.fontSizeExtraLarge
-        color: dialerButton.down ? dialer.pressedTextColor : dialer.textColor
-        text: dialerButton.text
-    }
 
-    Label {
-        id: vanityLabel
+        Label {
+            id: vanityLabel
 
-        anchors {
-            horizontalCenter: parent.horizontalCenter
-            top: numberLabel.bottom
-            topMargin: -Theme.paddingSmall
+            anchors.horizontalCenter: parent.horizontalCenter
+            font.pixelSize: Theme.fontSizeExtraSmall
+            visible: dialer.vanityDialNumbersVisible && text !== ""
+            color: dialerButton.down ? dialer.pressedSecondaryTextColor : dialer.secondaryTextColor
+            text: dialerButton.secondaryText
         }
-        font.pixelSize: Theme.fontSizeExtraSmall
-        visible: dialer.vanityDialNumbersVisible
-        color: dialerButton.down ? dialer.pressedSecondaryTextColor : dialer.secondaryTextColor
-        text: dialerButton.secondaryText
     }
 }
