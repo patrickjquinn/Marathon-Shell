@@ -204,6 +204,7 @@ set(QML_FILES
     qml/ui/MGlass.qml
     qml/ui/MGlassBackdrop.qml
     qml/ui/MGlassPlatter.qml
+    qml/ui/MGlowLine.qml
     qml/ui/MHaptics.qml
     qml/ui/MHubRow.qml
     qml/ui/MMarathonMark.qml
