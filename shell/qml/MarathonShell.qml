@@ -2091,14 +2091,6 @@ Item {
 
                 Binding {
                     target: dockCorners.app
-                    property: "texturesRequested"
-                    value: dockCorners.active
-                    when: dockCorners.app !== null && dockCorners.app.drawnByTexture !== undefined
-                    restoreMode: Binding.RestoreBindingOrValue
-                }
-
-                Binding {
-                    target: dockCorners.app
                     property: "drawnByTexture"
                     value: dockCorners.active && dockCorners.ready
                     when: dockCorners.app !== null && dockCorners.app.drawnByTexture !== undefined
