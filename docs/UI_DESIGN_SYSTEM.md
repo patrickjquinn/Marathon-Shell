@@ -52,12 +52,12 @@ how Marathon expresses it.
 |---|---|---|
 | **Spring physics over ease curves** | iOS rubber-banding, M3 Expressive's 4-rung stiffness ladder, OneUI 7 micro-springs | `MMotion.stiffness{High,Medium,Low,VeryLow}` + spatial/effects damping split. `MMotion.roles` table tags every microinteraction with a role, not a duration |
 | **Predictive gestures** | Android predictive-back, iOS edge-swipe with parallax | `MarathonNavBar.backProgress` drives `appWindowContainer.scale 1.0→0.9` + opacity fade past `MMotion.backFadeThreshold` (0.35). Pill left-drag is the primary back affordance |
-| **Glass / blur with discipline** | iOS 26 Liquid Glass, M3 Expressive's tinted scrim, OneUI 7's translucent shade | `MGlass` primitive: `ShaderEffectSource + MultiEffect` blur of the live framebuffer behind the chrome. `MBlur` role map (`chrome=lg`, `sheet=lg`, `dropdown=sm`, `halo=sm`, `hairline=xxs`). Always opt-out via `MMotion.reduceBlur` |
+| **Glass / blur with discipline** | iOS 26 Liquid Glass, M3 Expressive's tinted scrim, OneUI 7's translucent shade | `GlassSurface` for stateful controls only; content on the ambience; live blur only behind the shade, Hub, lock screen and Keel dialogs (`MBlur` role map). |
 | **Restraint at the edge** | iOS's "everything is the same color but slightly different temperature", BB10's near-black palette | OLED-first dark theme, `#040404` floor, six elevation steps up to `#353536`. Teal accent (`#1de9b6` bright) appears only on the active path: focused control, current tab, primary action |
 | **Microcoherence (sub-frame)** | Apple's app-open animation that paints chrome + app body as one surface; impossible on multi-process compositors | In-process scenegraph means a status-bar reveal, a navbar pill morph, and an app-window scale can land in one frame with zero IPC. We design for this — see §7 |
 | **Live activities / persistent surfaces** | Dynamic Island, iOS Live Activities, Android persistent notifications | NowBar (planned): an always-visible micro-surface for active calls, media, navigation, timers. One canonical promotion target, not per-feature widgets |
 | **Tactile coupling** | iOS Taptic Engine, OneUI 7 micro-rumbles on every flick | `MHaptics` singleton; every gesture threshold + state-change has a haptic tier (`light/medium/heavy/selection/success/error`). Springs and haptics fire together, never apart |
-| **Accessibility as primitive** | iOS Reduce Motion + Reduce Transparency (separate toggles), Android Talkback-tested per release | `MMotion.reduceMotion` + `MMotion.reduceBlur` + `MMotion.translucencyLevel` (0..1 slider). Every component routes through `dur()`/`ease()`/blur token APIs so the toggles are uniform |
+| **Accessibility as primitive** | iOS Reduce Motion + Reduce Transparency (separate toggles), Android Talkback-tested per release | `MMotion.reduceMotion` + `MMotion.reduceBlur`. Every component routes through `dur()`/`ease()`/blur token APIs so the toggles are uniform |
 | **Density that scales with palm size** | iOS Display Zoom, Android display density | `Constants.scaleFactor` multiplies `MSpacing`, `MRadius`, `MTypography` from a single DPI signal. Breakpoint helpers in `MBreakpoints`/`MResponsive` for phone/tablet/desktop split |
 
 The non-obvious shared idea: **the best mobile OSes feel alive without
@@ -196,9 +196,8 @@ that fades).
 The Sailfish glow idioms that remain are deliberate: the `Switch` glow (also
 on lit Quick Settings tiles) and the page-stack indicator.
 
-**Blur** is for frosting what lies behind a sheet or the lock screen
-(`MGlassBackdrop`, `MGlassPlatter`, `AppBackdropBlur`), never for a
-persistent card, row or control. FBO effects on persistent surfaces are
+**Blur** is for what lies behind the shade, the Hub, the lock screen and
+Keel dialogs (`AppBackdropBlur`), never for a persistent row or control. FBO effects on persistent surfaces are
 banned: on the Librem 5's etnaviv a 4× layer drew at 2 fps.
 
 ---
@@ -294,11 +293,8 @@ freehand `NumberAnimation { duration: 300 }` — the audit catches them.
 
 ### 4.5 Reduce blur / translucency level
 
-Companion to reduce-motion. `MMotion.reduceBlur` switches `MGlass` to
-an opaque chrome rendering. `MMotion.translucencyLevel` (0..1) is the
-soft knob Apple shipped as the iOS 27 translucency slider — multiplies
-blur radius + tint opacity proportionally. At 0.0 it collapses to
-reduce-blur; at 1.0 the chrome gets full effect.
+Companion to reduce-motion. `MMotion.reduceBlur` drops the Keel dialog
+layer's blurred backdrop for an opaque one.
 
 ---
 
@@ -342,11 +338,11 @@ Springs and haptics fire together — never one without the other.
 
 ### 6.1 Glass
 
-`GlassSurface` (§3) is the material for cards and controls. For a frosted
-backdrop, `MGlassPlatter` draws a rounded box over a frosted texture in one
-pass: the shared ambience blur (`MGlassBackdrop`, screen space) or a blur of
-what is behind it. `MGlass`, the live-framebuffer `MultiEffect` panel, is
-no longer used.
+`GlassSurface` (§3) is the material for stateful controls. Bands and sheets
+(toasts, the share sheet, the file picker) are the ambience edge to edge,
+lit along one edge by `MGlowLine`, Sailfish's glow line. Live blur is left
+only behind the Quick Settings shade, the Hub and the lock screen
+(`AppBackdropBlur`) and the Keel dialog layer.
 
 `MBlur.blurFor(role)` names the blur radii for the frosted backdrops:
 
@@ -547,10 +543,9 @@ These are *primitives*, not features.
 - **`MMotion.reduceMotion`** — bound to Settings → Display → Reduce
   Motion. Every animation routes through `dur()`/`ease()`
   or `MMotion.roles` accessors.
-- **`MMotion.reduceBlur`** + **`MMotion.translucencyLevel`** — bound
-  from `org.gnome.desktop.a11y reduce-transparency`. `MGlass`
-  collapses to opaque chrome when reduce-blur is on; otherwise scales
-  blur+tint linearly by translucencyLevel.
+- **`MMotion.reduceBlur`** — bound
+  from `org.gnome.desktop.a11y reduce-transparency`. Reduce-blur
+  drops the Keel dialog layer's blur for an opaque backdrop.
 - **Touch-target floor** — `MSpacing.touchTargetMin 44 px` (scaled).
   Even status-bar taps respect this — never less.
 - **Typography scaling** — every type token multiplies by
@@ -740,9 +735,6 @@ not a vague aspiration:
   call/media/nav/timer (§7.6). Needs a NotificationModel-side
   "ongoing + progress" field and a shell-side mount slot above the
   nav-bar.
-- **Glass-architecture lensing** — let `MGlass` sample not just the
-  flat backdrop but a refracted lens view (iOS 26 Liquid Glass
-  pattern). Shader work; gates on `MMotion.reduceBlur`.
 - **Live recents thumbnails** — task switcher cards show a live
   framebuffer of the running app (in-process compositor moat).
 - **Predictive-forward** — the opposite of predictive-back; a
