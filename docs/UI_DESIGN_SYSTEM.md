@@ -52,7 +52,7 @@ how Marathon expresses it.
 |---|---|---|
 | **Spring physics over ease curves** | iOS rubber-banding, M3 Expressive's 4-rung stiffness ladder, OneUI 7 micro-springs | `MMotion.stiffness{High,Medium,Low,VeryLow}` + spatial/effects damping split. `MMotion.roles` table tags every microinteraction with a role, not a duration |
 | **Predictive gestures** | Android predictive-back, iOS edge-swipe with parallax | `MarathonNavBar.backProgress` drives `appWindowContainer.scale 1.0→0.9` + opacity fade past `MMotion.backFadeThreshold` (0.35). Pill left-drag is the primary back affordance |
-| **Glass / blur with discipline** | iOS 26 Liquid Glass, M3 Expressive's tinted scrim, OneUI 7's translucent shade | `GlassSurface` for stateful controls only; content on the ambience; live blur only behind the shade, Hub, lock screen and Keel dialogs (`MBlur` role map). |
+| **Flat materials, blur with discipline** | M3 Expressive's tinted scrim, OneUI 7's translucent shade | Flat fills on one plane (no glass, bevels or borders); content on the ambience; live blur only behind the shade, Hub, lock screen and Keel dialogs (`MBlur` role map). |
 | **Restraint at the edge** | iOS's "everything is the same color but slightly different temperature", BB10's near-black palette | OLED-first dark theme, `#040404` floor, six elevation steps up to `#353536`. Teal accent (`#1de9b6` bright) appears only on the active path: focused control, current tab, primary action |
 | **Microcoherence (sub-frame)** | Apple's app-open animation that paints chrome + app body as one surface; impossible on multi-process compositors | In-process scenegraph means a status-bar reveal, a navbar pill morph, and an app-window scale can land in one frame with zero IPC. We design for this — see §7 |
 | **Live activities / persistent surfaces** | Dynamic Island, iOS Live Activities, Android persistent notifications | NowBar (planned): an always-visible micro-surface for active calls, media, navigation, timers. One canonical promotion target, not per-feature widgets |
@@ -170,31 +170,26 @@ stay crisp, and type stays light.
 
 1. Content sits on the ambience, as in Sailfish: no cards or panels around
    notifications, media rows or choices.
-2. Material (`GlassSurface`) is for controls that hold state: Quick Settings
-   toggles, sliders, header buttons. Never glass inside glass; contents never
-   glow.
+2. Materials are flat, on one plane: no glass, bevels, edge light, borders
+   or shadows. Controls are flat discs and pills; surfaces (switcher frames,
+   sheets) are flat fills.
 3. One shape family per view.
-4. On is a lit toggle with Silica's Switch glow; off is quiet neutral glass.
-   A suggested control is filled with `MColors.accentFill`, a resting one
-   with `MColors.controlFill`.
-5. Toggles are BB10 rows: glyph left (switches it), words right (what it is
-   over how it stands; opens its settings page).
+4. A resting control is filled with `MColors.controlFill` (white at 8%, as
+   Keel's `Button`), an on or suggested one with `MColors.accentFill`.
+5. Toggles are BB10 rows: a disc with the glyph left, lit when on; what it
+   is over how it stands right. A tap switches it; holding it opens its
+   settings page.
 
-`GlassSurface` (Keel Silica) is that material: a body from
-neutral to `tint` (the ambience highlight unless the container has its own
-colour), a top edge catching the light and a bottom edge in shade; `lit`
-fills it with the tint. One fragment shader, no textures, item-local
-coordinates, GLES 2, dithered against 6-bit panels.
+Built this way: Quick Settings (two across in sideways pages, flat pill
+sliders, shortcuts as a row of discs), the Hub (notifications on the
+ambience: flat tinted avatar, unread dot), the power menu and keypads (flat
+discs), the switcher (flat frames). Flat controls: `MCircularIconButton`,
+Keel `Button` (a pill), Keel `Keypad` (discs), the pressed row
+(`BackgroundItem`, or `MPressHighlight` where a row can't be one: a rounded
+inset highlight that fades).
 
-Built this way: Quick Settings (three across: BB10 rows with live status,
-shortcuts in the same grid, glass pill sliders), the Hub (notifications on
-the ambience: flat tinted avatar, unread dot), the power menu (flat discs on
-the dimmed ambience). Flat controls: `MCircularIconButton`, Silica `Button`
-(a pill), the pressed list row (`BackgroundItem`, a rounded inset highlight
-that fades).
-
-The Sailfish glow idioms that remain are deliberate: the `Switch` glow (also
-on lit Quick Settings tiles) and the page-stack indicator.
+The Sailfish glow idioms that remain are deliberate: the `Switch` glow and
+the page-stack indicator.
 
 **Blur** is for what lies behind the shade, the Hub, the lock screen and
 Keel dialogs (`AppBackdropBlur`), never for a persistent row or control. FBO effects on persistent surfaces are
@@ -336,9 +331,9 @@ Springs and haptics fire together — never one without the other.
 
 ## 6. Materials & effects
 
-### 6.1 Glass
+### 6.1 Surfaces
 
-`GlassSurface` (§3) is the material for stateful controls. Bands and sheets
+Controls and surfaces are flat fills (§3). Bands and sheets
 (toasts, the share sheet, the file picker) are the ambience edge to edge,
 lit along one edge by `MGlowLine`, Sailfish's glow line. Live blur is left
 only behind the Quick Settings shade, the Hub and the lock screen
