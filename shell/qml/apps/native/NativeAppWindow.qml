@@ -60,6 +60,7 @@ MApp {
             Component.onCompleted: nativeAppWindow.ambienceItem = ambience.textureSource
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
+            glow: AmbienceService.light ? "transparent" : Silica.Theme.highlightBackgroundColor
             brightest: AmbienceService.brightest
             darkest: AmbienceService.darkest
         }

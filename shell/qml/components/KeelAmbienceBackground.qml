@@ -9,6 +9,9 @@ Item {
 
     property string wallpaper
     property bool light: false
+    // A soft glow of this colour from the lower left (app backdrops); none
+    // while transparent.
+    property color glow: "transparent"
     // How much the tone dims the wallpaper; lower lets the ambience show.
     property real toneOpacity: light ? 0.45 : 0.62
     // Relative luminance of the wallpaper's brightest and darkest spots.
@@ -43,7 +46,7 @@ Item {
         asynchronous: true
         // The tone and, on a dark ambience, the dimmer come baked in, so the
         // image is opaque: one quad, no layer to flatten them.
-        source: root.visible && root.wallpaper !== "" && width > 0 && height > 0 ? "image://keelambience/" + encodeURIComponent(root.wallpaper) + "?w=" + Math.round(width) + "&h=" + Math.round(height) + "&tone=" + root.tone.toFixed(3) + (root.light ? "&light=1" : "&dim=" + Theme.highlightDimmerColor.toString().slice(1)) : ""
+        source: root.visible && root.wallpaper !== "" && width > 0 && height > 0 ? "image://keelambience/" + encodeURIComponent(root.wallpaper) + "?w=" + Math.round(width) + "&h=" + Math.round(height) + "&tone=" + root.tone.toFixed(3) + (root.light ? "&light=1" : "&dim=" + Theme.highlightDimmerColor.toString().slice(1)) + (root.glow.a > 0 ? "&glow=" + Qt.rgba(root.glow.r, root.glow.g, root.glow.b, 1).toString().slice(1) : "") : ""
 
         // Another ambience's wallpaper cross-fades in, as Keel's own window
         // and Silica's wallpaper window do; a resize swaps in place.
