@@ -211,7 +211,13 @@ Item {
         _readerFrom = String(view.url);
         view.pageHtml(4000000, function (html) {
             if (typeof html === "string" && html.length > 0)
-                Pacific.reader(tab.tabId, tab._readerFrom, html, qsTr("%1 min read"));
+                Pacific.reader(tab.tabId, tab._readerFrom, html, qsTr("%1 min read"), JSON.stringify({
+                    background: String(Theme.rgba(Theme.overlayBackgroundColor, 1.0)),
+                    primary: String(Theme.primaryColor),
+                    secondary: String(Theme.secondaryColor),
+                    highlight: String(Theme.highlightColor),
+                    fontFamily: Theme.fontFamily
+                }));
             else
                 tab.readerFailed(qsTr("This page cannot be shown in reader mode"));
         });

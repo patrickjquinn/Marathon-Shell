@@ -49,9 +49,7 @@ pub struct Settings {
     /// What websites are told the user prefers (`prefers-color-scheme`):
     /// "ambience" (dark on a dark ambience), "light" or "dark".
     pub color_scheme: String,
-    pub reader_theme: String,
     pub reader_font_px: u32,
-    pub reader_serif: bool,
     /// Offer to fill and save logins with Shoal Keys.
     pub keys_autofill: bool,
     /// Let Pilot use the browser (Keel Actions).
@@ -86,9 +84,7 @@ impl Default for Settings {
             history_days: 180,
             toolbar_autohide: true,
             color_scheme: "ambience".into(),
-            reader_theme: "light".into(),
             reader_font_px: 18,
-            reader_serif: true,
             keys_autofill: true,
             pilot_actions: true,
             download_dir: String::new(),
@@ -128,9 +124,6 @@ impl Settings {
         }
         if !matches!(self.color_scheme.as_str(), "ambience" | "light" | "dark") {
             self.color_scheme = "ambience".into();
-        }
-        if !matches!(self.reader_theme.as_str(), "light" | "sepia" | "dark") {
-            self.reader_theme = "light".into();
         }
     }
 

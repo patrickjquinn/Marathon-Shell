@@ -72,7 +72,7 @@ Text fields are spell-checked by the engine (WebKit's enchant/hunspell checker, 
 
 ### Reader mode, downloads, home screen
 
-Reader mode extracts the article from the live DOM with `dom_smoothie` (MIT; chosen over `readabilityrs` for its maintenance and releases) and writes a static page under a Content Security Policy that allows no script, frame or form, with the reading time (230 words or 500 CJK characters a minute), in light, sepia or dark. Downloads go to a free name in `~/Downloads` and are listed with progress, open, share, retry and remove. "Add to app grid" writes a launcher entry that opens the page through `/usr/bin/shipwright-pacific`, with the site's icon when Pacific has it (outside the runner's sandbox only, above).
+Reader mode extracts the article from the live DOM with `dom_smoothie` (MIT; chosen over `readabilityrs` for its maintenance and releases) and writes a static page under a Content Security Policy that allows no script, frame or form, with the reading time (230 words or 500 CJK characters a minute), in the theme's colours and typeface. Downloads go to a free name in `~/Downloads` and are listed with progress, open, share, retry and remove. "Add to app grid" writes a launcher entry that opens the page through `/usr/bin/shipwright-pacific`, with the site's icon when Pacific has it (outside the runner's sandbox only, above).
 
 ### Logins from Shoal Keys
 
