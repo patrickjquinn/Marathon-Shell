@@ -4,7 +4,7 @@
 # ECCCI modules are built with the kernel and ship in q25-kernel-modules.
 pkgname=q25-modem
 pkgver=1.0.0
-pkgrel=20
+pkgrel=21
 pkgdesc="Zinwa Q25 MD1 modem stack: CCCI daemons and services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -62,7 +62,7 @@ package() {
 sha512sums="
 ad89c3f2a02151cc1ebd956b51cff044e4ff1fe62ed393726f73beb97088569cf897189718b6d78663a41a9ac242c2a8e7a0935db7cc1fb2741af020376f8396  q25-modem-up
 feafd0fb05726d0106a576721521de5a8cff6ad9c4b2dd98ed4da965cbc8d9acc585285b8cc5bf1954b8ac17d8ba4cd583ef8d882ab1ec805e0f4a86cd63998d  q25-modem-nv
-6c88a2e1a055669640979b93ef00960d923b550b9d3029a7ee68b46f29f92018bb8789af304cdacf0eafbe47c8c774fec21ad2517febbe97825305ecf5df98bf  q25-modem-init
+54a09c6fb1d058d084dd071dc9bcc93be9aa2c5eb4784ce4e2d4026364f27caa4cde768d9f9d8ce49aa5c9363567d679260525bb92166026d99a9ab5e5542ee7  q25-modem-init
 52045229f3866af3fff554062bfd4efa2aeeb590059e9e221826b65144514ab543bec874e2605a3f1c7b2c3c408fb74795341b875d23f9559e64b9f766cac593  q25-call-audio
 7a97d12af2eba1a4373dfdc129a9fdd5b9f534c066a656390e923fb836fbcb5b0b9af74321214375fbd0a365d58f7ab68a830c16421c36d1fe93d5752b1fe08e  q25-ims-runtime
 8d912a27dbc08c03767b5d7c2f352b03201c6182392981c4baea8aab374c64826df0289561102bbc457dc16459da411e66c96e98406be1ac8d5d18d7616d3c2b  ims.prop
