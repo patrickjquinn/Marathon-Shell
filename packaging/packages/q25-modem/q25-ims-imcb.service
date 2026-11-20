@@ -1,0 +1,12 @@
+[Unit]
+Description=Q25 IMS: control bridge to the modem (volte_imcb)
+Requires=q25-ims-runtime.service
+Wants=q25-ims-logd.service q25-ims-ua.service
+After=q25-ims-logd.service q25-ims-ua.service q25-ccci-mdinit.service
+PartOf=q25-modem.target
+
+[Service]
+ExecStartPre=/usr/libexec/q25-modem/q25-modem-up wait
+ExecStart=/usr/libexec/q25-modem/q25-ims-runtime run ccci_imsa ccci_imsc ccci_imsdc ccci_imsem ccci_imsv -- /q25-ims-exec -s volte_imsa1:stream:660 -s volte_imsa2:stream:660 -s volte_ut:stream:660 -- /vendor/bin/volte_imcb
+Restart=always
+RestartSec=2

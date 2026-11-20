@@ -1,0 +1,9 @@
+[Unit]
+Description=Q25 IMS: the IMS daemons' Android logs into the journal
+Requires=q25-ims-runtime.service
+After=q25-ims-runtime.service
+PartOf=q25-modem.target
+
+[Service]
+ExecStart=/usr/libexec/q25-modem/q25-ims-logd /run/q25-ims/socket/logdw
+Restart=on-failure

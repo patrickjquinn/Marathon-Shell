@@ -93,7 +93,24 @@ carrier_apn() {
 		sed -n 's/.* apn="\([^"]*\)".*/\1/p' | head -n 1
 }
 
+# IMS, as the stock RIL sets it up before the radio comes on: the ims APN in
+# the modem's APN table (the modem brings its PDN up itself), VoLTE and SMS
+# over IMS, registration and VoPS reports, and IMS PDN notifications.
+ims_setup() {
+	cmd 'AT+EAPNLOCK=1'
+	cmd 'AT+EAPNSET="ims",1,"",""'
+	cmd 'AT+EAPNSET="ims",2,"type=ims;protocol=IPV4V6;roaming_protocol=IPV4V6;authtype=0;carrier_enabled=1;max_conns=0;max_conns_time=0;wait_time=0;bearer_bitmask=0;inactive_timer=0"'
+	cmd 'AT+EAPNLOCK=0'
+	cmd 'AT+EIMSCFG=1,0,0,0,1,1'
+	cmd 'AT+CIREG=2'
+	cmd 'AT+CIREP=1'
+	cmd 'AT+ECFGSET="report_eimsreginfo_urc","1"'
+	cmd 'AT+EIMSPDN="onoff",1'
+	cmd 'AT+EIMS=1'
+}
+
 [ -n "$IA_APN" ] && set_apn "$IA_APN"
+ims_setup
 radio_on
 # Without an attach APN the modem stays on 2G, and it reads one only at
 # radio power-on. With none configured, take the carrier's, as Android's
