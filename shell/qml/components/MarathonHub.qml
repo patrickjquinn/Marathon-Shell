@@ -360,6 +360,7 @@ Rectangle {
             readonly property string appIcon: fromPerson || AppModel.count === 0 ? "" : (AppModel.findById(appKey).icon || "")
 
             unread: !isRead
+            separator: ListView.section === ListView.nextSection
             avatarText: appIcon ? "" : hub.monogramFor(title, appKey)
             avatarIcon: appKey === "phone" ? "phone" : appKey === "messages" ? "user" : ""
             image: icon || appIcon

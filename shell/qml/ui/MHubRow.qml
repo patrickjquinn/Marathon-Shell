@@ -35,6 +35,8 @@ FocusScope {
     property string account: ""
     property string snippet: ""
     property bool ongoing: false
+    // A hairline under the row, before the next one in its section.
+    property bool separator: false
     // 0..1, or negative while unknown.
     property real progress: -1
     readonly property bool down: area.pressed && area.containsMouse && !area.swiping && !tapTimeout.running
@@ -130,6 +132,19 @@ FocusScope {
             anchors.leftMargin: Silica.Theme.paddingSmall
             anchors.rightMargin: Silica.Theme.paddingSmall
             down: row.down
+        }
+
+        // From the text to the margin, so the icons stay one column.
+        Rectangle {
+            objectName: "hubRowSeparator"
+            anchors.left: parent.left
+            anchors.leftMargin: Silica.Theme.horizontalPageMargin + Silica.Theme.iconSizeMedium + Silica.Theme.paddingLarge
+            anchors.right: parent.right
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
+            anchors.bottom: parent.bottom
+            height: 1
+            color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.08)
+            visible: row.separator && !row.down
         }
 
         Item {

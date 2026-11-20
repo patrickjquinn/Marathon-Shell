@@ -48,7 +48,7 @@ TestCase {
 
     // Every role the delegate reads, since a ListView sees only the roles
     // its first row had.
-    function addNotification(id, appId, icon) {
+    function addNotification(id, appId, icon, daysAgo) {
         NotificationService.append({
             id: id,
             appId: appId,
@@ -59,7 +59,7 @@ TestCase {
             isRead: false,
             ongoing: false,
             progress: -1,
-            day: isoDay(0)
+            day: isoDay(daysAgo || 0)
         });
         hub.refreshSources();
     }
@@ -501,5 +501,25 @@ TestCase {
         verify(item);
         item.clicked();
         verify(NotificationService.dismissedAll);
+    }
+
+    function visibleSeparators(item) {
+        let n = 0;
+        for (const child of item.children) {
+            if (child.objectName === "hubRowSeparator" && child.visible)
+                n++;
+            n += visibleSeparators(child);
+        }
+        return n;
+    }
+
+    // A line between the rows of a day, none after a day's last row.
+    function test_separatorsOnlyBetweenRowsOfADay() {
+        addNotification(1, "mail");
+        addNotification(2, "mail");
+        addNotification(3, "mail", "", 1);
+        const list = findChild(hub, "hubList");
+        tryCompare(list, "count", 3);
+        tryVerify(() => visibleSeparators(list.contentItem) === 1, 2000, "one line, between today's two rows");
     }
 }
