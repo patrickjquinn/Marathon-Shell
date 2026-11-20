@@ -41,7 +41,8 @@ import Sailfish.Silica 1.0
 import Sailfish.Silica.private 1.0 // Modified by Shipwright for Qt 6: native types of this module
 
 Label {
-    width: Math.min(implicitWidth, parent.width - parent.leftMargin - parent.rightMargin)
+    // Modified by Marathon: not bound to implicitWidth (re-entered Qt's text layout: crash)
+    width: parent.width - parent.leftMargin - parent.rightMargin
     anchors {
         top: parent._titleItem.bottom
         right: parent.right
