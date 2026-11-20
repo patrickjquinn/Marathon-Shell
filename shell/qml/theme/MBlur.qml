@@ -7,16 +7,12 @@ import QtQuick
 // every one was a copy of someone else's "this looks about right".
 // This singleton centralises the scale so:
 //   1. The Marathon DS has ONE answer to "how much blur for a sheet?"
-//   2. MGlass / the chrome layers can clamp to a Reduce-Blur path in
-//      one place by reading MMotion.reduceBlur — see MGlass.qml.
+//   2. A blur can drop out under MMotion.reduceBlur in one place.
 //   3. Call sites read blurFor(role) instead of magic numbers.
 //
-// Caller pattern (preferred):
-//   MGlass { blurMaxRadius: MBlur.blurFor("chrome") }
-//
 // Direct constants stay exposed for cases that legitimately want a
-// fixed scale step (e.g. a button's halo). The accessibility clamp
-// is applied by MGlass / consumers, not here — MBlur is a leaf.
+// fixed scale step. The accessibility clamp is applied by the
+// consumers, not here — MBlur is a leaf.
 QtObject {
     // Scale (px). Powers-of-two so doubling/halving stays predictable.
     readonly property real none: 0

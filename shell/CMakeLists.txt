@@ -201,9 +201,6 @@ set(QML_FILES
     qml/ui/MAppIcon.qml
     qml/ui/MCircularIconButton.qml
     qml/ui/MEntrance.qml
-    qml/ui/MGlass.qml
-    qml/ui/MGlassBackdrop.qml
-    qml/ui/MGlassPlatter.qml
     qml/ui/MGlowLine.qml
     qml/ui/MHaptics.qml
     qml/ui/MHubRow.qml
@@ -342,7 +339,6 @@ qt_add_resources(marathon-shell "shell_shaders"
     FILES
         shaders/windowcorner.vert.qsb
         shaders/windowcorner.frag.qsb
-        shaders/glassplatter.frag.qsb
         shaders/nightlight.vert.qsb
         shaders/nightlight.frag.qsb
 )
