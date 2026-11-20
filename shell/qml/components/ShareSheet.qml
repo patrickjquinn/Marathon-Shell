@@ -13,8 +13,6 @@ Item {
     property bool shown: false
     property real dragOffset: 0
     readonly property var targets: request ? request.targets || [] : []
-    // Marathon glass needs a GPU renderer; the software one draws no shaders.
-    readonly property bool glass: GraphicsInfo.api !== GraphicsInfo.Software
 
     signal chosen(string targetId)
     signal dismissed
@@ -46,13 +44,6 @@ Item {
     z: 2900
     visible: shown || panel.y < height
 
-    MGlassBackdrop {
-        id: glassBackdrop
-
-        anchors.fill: parent
-        visible: shareSheet.visible && shareSheet.glass
-    }
-
     Rectangle {
         objectName: "shareScrim"
         anchors.fill: parent
@@ -82,29 +73,20 @@ Item {
         y: (shareSheet.shown ? parent.height - height : parent.height) + shareSheet.dragOffset
         clip: true
 
-        MGlassPlatter {
-            anchors.fill: parent
-            visible: shareSheet.glass
-            backdrop: glassBackdrop.texture
-            radius: 0
-        }
-
-        // Without glass, the ambience, as behind a Keel app's pages.
+        // The ambience, edge to edge, as behind a Keel app's pages.
         KeelAmbienceBackground {
             width: shareSheet.width
             height: shareSheet.height
             y: -panel.y
-            visible: !shareSheet.glass
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
             brightest: AmbienceService.brightest
             darkest: AmbienceService.darkest
         }
 
-        Rectangle {
+        // Lit along its top edge in the highlight, as Sailfish's sheets were.
+        MGlowLine {
             width: parent.width
-            height: 1
-            color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.3)
         }
 
         Behavior on y {
