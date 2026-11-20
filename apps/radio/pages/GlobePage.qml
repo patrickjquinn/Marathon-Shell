@@ -197,11 +197,15 @@ Page {
         id: top
 
         width: parent.width
-        height: header.height + Theme.paddingLarge * 2
+        height: header.height * 1.5
         gradient: Gradient {
             GradientStop {
                 position: 0
-                color: Theme.rgba("#040404", 0.92)
+                color: "#040404"
+            }
+            GradientStop {
+                position: header.height / top.height
+                color: "#040404"
             }
             GradientStop {
                 position: 1
@@ -209,74 +213,51 @@ Page {
             }
         }
 
-        Column {
+        PageHeader {
             id: header
 
-            anchors {
-                left: parent.left
-                leftMargin: Theme.horizontalPageMargin
-                right: tools.left
-                top: parent.top
-                topMargin: Theme.paddingLarge
+            leftMargin: tools.x + tools.width + Theme.paddingMedium
+            title: {
+                if (!page.radio.ready)
+                    return page.radio.failed ? qsTr("No stations yet") : qsTr("Finding stations…");
+                return globe.selected >= 0 ? page.placeName(globe.selected) : qsTr("Turn the globe");
+            }
+            description: {
+                if (!page.radio.ready)
+                    return page.radio.failed ? qsTr("Connect to the internet to see the world's stations") : "";
+                if (globe.selected < 0)
+                    return qsTr("%1 places with radio").arg(page.radio.places.length);
+                return page.radio.stationCount(page.radio.places[globe.selected][3]);
             }
 
-            Label {
-                width: parent.width
-                text: {
-                    if (!page.radio.ready)
-                        return page.radio.failed ? qsTr("No stations yet") : qsTr("Finding stations…");
-                    return globe.selected >= 0 ? page.placeName(globe.selected) : qsTr("Turn the globe");
+            Row {
+                id: tools
+
+                x: Theme.horizontalPageMargin - Theme.paddingMedium
+                anchors.verticalCenter: parent.verticalCenter
+
+                IconButton {
+                    objectName: "searchButton"
+                    icon.source: "image://theme/icon-m-search"
+                    Accessible.name: qsTr("Search")
+                    onClicked: pageStack.animatorPush(Qt.resolvedUrl("SearchPage.qml"), {
+                        app: page.app
+                    })
                 }
-                font.pixelSize: Theme.fontSizeLarge
-                color: globe.selected >= 0 ? Theme.highlightColor : Theme.primaryColor
-                truncationMode: TruncationMode.Fade
-            }
-            Label {
-                width: parent.width
-                text: {
-                    if (!page.radio.ready)
-                        return page.radio.failed ? qsTr("Connect to the internet to see the world's stations") : "";
-                    if (globe.selected < 0)
-                        return qsTr("%1 places with radio").arg(page.radio.places.length);
-                    return page.radio.stationCount(page.radio.places[globe.selected][3]);
+                IconButton {
+                    objectName: "localButton"
+                    icon.source: "image://theme/icon-m-location"
+                    Accessible.name: qsTr("Where you are")
+                    onClicked: page.locate()
                 }
-                font.pixelSize: Theme.fontSizeExtraSmall
-                color: Theme.secondaryColor
-                truncationMode: TruncationMode.Fade
-            }
-        }
-
-        Row {
-            id: tools
-
-            anchors {
-                right: parent.right
-                rightMargin: Theme.horizontalPageMargin - Theme.paddingMedium
-                top: parent.top
-                topMargin: Theme.paddingMedium
-            }
-
-            IconButton {
-                objectName: "searchButton"
-                icon.source: "image://theme/icon-m-search"
-                Accessible.name: qsTr("Search")
-                onClicked: pageStack.animatorPush(Qt.resolvedUrl("SearchPage.qml"), {
-                    app: page.app
-                })
-            }
-            IconButton {
-                objectName: "localButton"
-                icon.source: "image://theme/icon-m-location"
-                Accessible.name: qsTr("Where you are")
-                onClicked: page.locate()
-            }
-            IconButton {
-                objectName: "favouritesButton"
-                icon.source: "image://theme/icon-m-favorite"
-                Accessible.name: qsTr("Favourites")
-                onClicked: pageStack.animatorPush(Qt.resolvedUrl("LibraryPage.qml"), {
-                    app: page.app
-                })
+                IconButton {
+                    objectName: "favouritesButton"
+                    icon.source: "image://theme/icon-m-favorite"
+                    Accessible.name: qsTr("Favourites")
+                    onClicked: pageStack.animatorPush(Qt.resolvedUrl("LibraryPage.qml"), {
+                        app: page.app
+                    })
+                }
             }
         }
     }
