@@ -1,0 +1,1060 @@
+From 038f29b9e254621a80400b4df414343b97a84b98 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 20 Nov 2026 17:42:22 +0000
+Subject: [PATCH] mtk-ccci: NetAgent for the PDNs the modem brings up itself
+ (IMS)
+
+The modem brings some PDNs up by itself, the IMS one among them, and
+reports each with +EIF: <id>, ifup, <type>, <address>. Do what the stock
+NetAgent and netd do for them: bring the ccmni up with the network's
+IPv6 interface identifier, router advertisements for its prefix but no
+default route, confirm it (AT+EIF=<id>, "ifst", "up"), report the
+global address SLAAC gives it (AT+EIF=<id>, "ipupdate", 2, ...), add the
+IPv4 address of a later +EIF: ifchg, take it down on ifdown, and confirm
+the IMS manager's bearer requests (+EIMSPDN: "notify" -> AT+EIMSPDN=
+"confirm", <aid>, 0) as the stock RIL does when nothing above it
+listens. Without these the IMS PDN never finished coming up and IMS
+never registered.
+
+A data bearer's PDN still comes up in its +EAPNACT reply. The NetAgent's
+ifup handler is held during the activation, and the bearer now tells its
+own +EIF: ifup from one the modem brought up meanwhile by the address
++EPDN reports for its PDN, handing the other to the NetAgent; it confirms
+its interface once identified.
+
+The modem's IMS controller turns off with the radio, and the stock RIL
+sends the IMS configuration again whenever the radio comes on: after
+powering up, send AT+EIMSCFG with the device's ID_MM_MTK_CCCI_IMS_CFG.
+---
+ src/plugins/meson.build                       |   1 +
+ .../mtk-ccci/mm-broadband-bearer-mtk-ccci.c   | 114 ++++++-
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.c    | 316 +++++++++++++++++-
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.h    |   9 +
+ src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c   | 303 +++++++++++++++++
+ src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h   |  54 +++
+ 6 files changed, 772 insertions(+), 25 deletions(-)
+ create mode 100644 src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c
+ create mode 100644 src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h
+
+diff --git a/src/plugins/meson.build b/src/plugins/meson.build
+index 33c965a..ecd2e2b 100644
+--- a/src/plugins/meson.build
++++ b/src/plugins/meson.build
+@@ -874,6 +874,7 @@ if plugins_options['mtk-ccci']
+   sources = files(
+     'mtk-ccci/mm-broadband-bearer-mtk-ccci.c',
+     'mtk-ccci/mm-broadband-modem-mtk-ccci.c',
++    'mtk-ccci/mm-netagent-mtk-ccci.c',
+     'mtk-ccci/mm-plugin-mtk-ccci.c',
+   )
+ 
+diff --git a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+index 4b33022..eacebe6 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+@@ -25,6 +25,7 @@
+ 
+ #include "mm-base-modem-at.h"
+ #include "mm-broadband-bearer-mtk-ccci.h"
++#include "mm-broadband-modem-mtk-ccci.h"
+ #include "mm-log.h"
+ #include "mm-modem-helpers.h"
+ #include "mm-bind.h"
+@@ -37,12 +38,15 @@
+  *   AT+EDALLOW=1                        allow data on this SIM
+  *   AT+EAPNACT=1,"<apn>","default",0    activate a PDN; the modem picks the
+  *                                       interface and reports it in
+- *                                       +EIF: <id>, ifup, ... where
+- *                                       <id> % 100 is the ccmni index
++ *                                       +EIF: <id>, ifup, <type>, <address>
++ *                                       where <id> % 100 is the ccmni index
++ *   AT+CGCONTRDP                        find the activated id (aid) and DNS
++ *   AT+EPDN=<aid>,"addr"                IPv4 address / IPv6 link-local, which
++ *                                       tells this PDN's +EIF: ifup from one
++ *                                       the modem brought up meanwhile (IMS,
++ *                                       left to the modem's NetAgent)
+  *   AT+EIF=<id>, "ifst", "up", <type>  confirm the interface is up (the
+  *                                       modem module confirms "down")
+- *   AT+CGCONTRDP                        find the activated id (aid) and DNS
+- *   AT+EPDN=<aid>,"addr"                IPv4 address / IPv6 link-local
+  *   AT+EAPNACT=0,<aid>,0                deactivate
+  *
+  * On LTE the network already set up the default bearer on attach (APN from
+@@ -136,9 +140,9 @@ typedef enum {
+     CONNECT_STEP_STALE_CHECK,
+     CONNECT_STEP_STALE_DEACTIVATE,
+     CONNECT_STEP_EAPNACT,
+-    CONNECT_STEP_CONFIRM_UP,
+     CONNECT_STEP_CGCONTRDP,
+     CONNECT_STEP_EPDN_ADDR,
++    CONNECT_STEP_CONFIRM_UP,
+     CONNECT_STEP_LAST,
+ } ConnectStep;
+ 
+@@ -157,6 +161,8 @@ typedef struct {
+     MMBearerIpConfig *ipv6_config;
+     GPtrArray        *dns4;
+     GPtrArray        *dns6;
++    /* The +EIF: ifup lines in the activation's reply */
++    GPtrArray        *ifups;
+ } ConnectContext;
+ 
+ static void
+@@ -166,6 +172,7 @@ connect_context_free (ConnectContext *ctx)
+     g_clear_object (&ctx->ipv6_config);
+     g_ptr_array_unref (ctx->dns4);
+     g_ptr_array_unref (ctx->dns6);
++    g_ptr_array_unref (ctx->ifups);
+     g_free (ctx->apn);
+     g_clear_object (&ctx->data);
+     g_object_unref (ctx->primary);
+@@ -210,6 +217,7 @@ eapnact_ready (MMBaseModem  *modem,
+     GError         *error = NULL;
+ 
+     ctx = g_task_get_task_data (task);
++    mm_broadband_modem_mtk_ccci_hold_ifup (MM_BROADBAND_MODEM_MTK_CCCI (modem), FALSE);
+     response = mm_base_modem_at_command_full_finish (modem, res, &error);
+     if (!response) {
+         g_prefix_error (&error, "PDN activation failed: ");
+@@ -218,25 +226,23 @@ eapnact_ready (MMBaseModem  *modem,
+         return;
+     }
+ 
+-    /* The +EIF URC comes before the OK, so it is part of the response */
++    /* The +EIF URC comes before the OK, so it is part of the response; the
++     * modem may have brought another PDN up meanwhile */
+     for (eif = strstr (response, "+EIF:"); eif; eif = strstr (eif + 1, "+EIF:")) {
+-        g_autofree gchar     *line = NULL;
+-        g_autoptr(GPtrArray)  fields = NULL;
+-        guint                 id;
++        g_autofree gchar *line = NULL;
++        GPtrArray        *fields;
++        guint             id;
+ 
+         line = g_strndup (eif + strlen ("+EIF:"), strcspn (eif, "\r\n") - strlen ("+EIF:"));
+         fields = split_fields (line);
+         if (fields->len >= 2 &&
+             !g_strcmp0 (g_ptr_array_index (fields, 1), "ifup") &&
+-            mm_get_uint_from_str (g_ptr_array_index (fields, 0), &id)) {
+-            ctx->eif_id = id;
+-            ctx->ifid = id % 100;
+-            if (fields->len < 3 || !mm_get_uint_from_str (g_ptr_array_index (fields, 2), &ctx->eif_type))
+-                ctx->eif_type = 3;
+-            break;
+-        }
++            mm_get_uint_from_str (g_ptr_array_index (fields, 0), &id))
++            g_ptr_array_add (ctx->ifups, fields);
++        else
++            g_ptr_array_unref (fields);
+     }
+-    if (ctx->ifid < 0) {
++    if (!ctx->ifups->len) {
+         g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
+                                  "PDN activated but the modem reported no interface");
+         g_object_unref (task);
+@@ -448,6 +454,77 @@ cgcontrdp_ready (MMBaseModem  *modem,
+     connect_step (task);
+ }
+ 
++/* +EIF: <id>, ifup, <type>, <address>: the address as the modem writes it,
++ * "FE:80:...:DA" or "10.1.2.3", in standard notation */
++static gchar *
++ifup_address (GPtrArray *fields)
++{
++    g_auto(GStrv) parts = NULL;
++    const gchar  *str;
++    guint8        bytes[16];
++    gchar         buf[INET6_ADDRSTRLEN];
++    guint         i;
++
++    if (fields->len < 4)
++        return NULL;
++    str = g_ptr_array_index (fields, 3);
++    if (inet_pton (AF_INET, str, bytes) == 1)
++        return g_strdup (str);
++    parts = g_strsplit (str, ":", -1);
++    if (g_strv_length (parts) != 16)
++        return NULL;
++    for (i = 0; i < 16; i++) {
++        gchar  *end = NULL;
++        gulong  v = strtoul (parts[i], &end, 16);
++
++        if (!parts[i][0] || *end || v > 255)
++            return NULL;
++        bytes[i] = (guint8) v;
++    }
++    return inet_ntop (AF_INET6, bytes, buf, sizeof (buf)) ? g_strdup (buf) : NULL;
++}
++
++/* This PDN's interface is the one reported with its address; any other
++ * +EIF: ifup in the activation's reply goes to the modem's NetAgent */
++static void
++choose_ifup (MMBroadbandBearerMtkCcci *self,
++             ConnectContext           *ctx)
++{
++    const gchar *v4 = ctx->ipv4_config ? mm_bearer_ip_config_get_address (ctx->ipv4_config) : NULL;
++    const gchar *v6 = ctx->ipv6_config ? mm_bearer_ip_config_get_address (ctx->ipv6_config) : NULL;
++    guint        own = 0;
++    guint        i;
++
++    for (i = 0; i < ctx->ifups->len; i++) {
++        g_autofree gchar *address = ifup_address (g_ptr_array_index (ctx->ifups, i));
++
++        if (address && (!g_strcmp0 (address, v4) || !g_strcmp0 (address, v6))) {
++            own = i;
++            break;
++        }
++    }
++    if (i == ctx->ifups->len && ctx->ifups->len > 1)
++        mm_obj_warn (self, "no interface reported with PDN aid %u's address, taking the first", ctx->aid);
++
++    for (i = 0; i < ctx->ifups->len; i++) {
++        GPtrArray *fields = g_ptr_array_index (ctx->ifups, i);
++        guint      id = 0;
++        guint      type = 3;
++
++        mm_get_uint_from_str (g_ptr_array_index (fields, 0), &id);
++        if (fields->len >= 3)
++            mm_get_uint_from_str (g_ptr_array_index (fields, 2), &type);
++        if (i == own) {
++            ctx->eif_id = id;
++            ctx->eif_type = type;
++            ctx->ifid = id % 100;
++        } else {
++            mm_broadband_modem_mtk_ccci_netagent_ifup (MM_BROADBAND_MODEM_MTK_CCCI (ctx->modem), id, type,
++                                                       fields->len >= 4 ? g_ptr_array_index (fields, 3) : NULL);
++        }
++    }
++}
++
+ static void
+ epdn_addr_ready (MMBaseModem  *modem,
+                  GAsyncResult *res,
+@@ -525,6 +602,7 @@ epdn_addr_ready (MMBaseModem  *modem,
+         return;
+     }
+ 
++    choose_ifup (g_task_get_source_object (task), ctx);
+     ctx->step++;
+     connect_step (task);
+ }
+@@ -588,6 +666,7 @@ connect_step (GTask *task)
+ 
+         apn = mm_at_quote_string (ctx->apn);
+         command = g_strdup_printf ("+EAPNACT=1,%s,\"default\",0", apn);
++        mm_broadband_modem_mtk_ccci_hold_ifup (MM_BROADBAND_MODEM_MTK_CCCI (ctx->modem), TRUE);
+         mm_base_modem_at_command_full (ctx->modem,
+                                        MM_IFACE_PORT_AT (ctx->primary),
+                                        command,
+@@ -695,6 +774,7 @@ connect_3gpp (MMBroadbandBearer   *self,
+     ctx->aid = UNKNOWN_AID;
+     ctx->dns4 = g_ptr_array_new_with_free_func (g_free);
+     ctx->dns6 = g_ptr_array_new_with_free_func (g_free);
++    ctx->ifups = g_ptr_array_new_with_free_func ((GDestroyNotify) g_ptr_array_unref);
+ 
+     g_task_set_task_data (task, ctx, (GDestroyNotify) connect_context_free);
+     connect_step (task);
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index 749cdc3..84cc118 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -26,19 +26,44 @@
+ #include "mm-modem-helpers.h"
+ #include "mm-broadband-modem-mtk-ccci.h"
+ #include "mm-broadband-bearer-mtk-ccci.h"
++#include "mm-kernel-device.h"
++#include "mm-netagent-mtk-ccci.h"
++
++#include <arpa/inet.h>
++#include <stdlib.h>
++#include <string.h>
++#include <net/if.h>
+ 
+ static void iface_modem_init (MMIfaceModemInterface *iface);
++static void netagent_pdn_down (MMBroadbandModemMtkCcci *self, guint id);
+ 
+ G_DEFINE_TYPE_EXTENDED (MMBroadbandModemMtkCcci, mm_broadband_modem_mtk_ccci, MM_TYPE_BROADBAND_MODEM, 0,
+                         G_IMPLEMENT_INTERFACE (MM_TYPE_IFACE_MODEM, iface_modem_init))
+ 
+ struct _MMBroadbandModemMtkCcciPrivate {
+     GRegex *eif_ifdown_regex;
++    GRegex *eif_ifup_regex;
++    GRegex *eif_ifchg_regex;
++    GRegex *eimspdn_regex;
+     GRegex *eaic_regex;
+     GRegex *ecpi_regex;
+     GRegex *no_carrier_regex;
++    /* PDN interfaces the modem brought up by itself (IMS), by +EIF id */
++    MMNetagentMtkCcci *netagent;
++    GHashTable        *pdns;
++    guint              ifup_holds;
+ };
+ 
++typedef struct {
++    guint           id;
++    guint           type;
++    gchar           ifname[IF_NAMESIZE];
++    guint           ifindex;
++    gboolean        has_link_local;
++    struct in6_addr link_local;
++    gboolean        ip_updated;
++} NetagentPdn;
++
+ /*****************************************************************************/
+ /* Interface state confirmation
+  *
+@@ -70,6 +95,7 @@ eif_ifdown_received (MMPortSerialAt          *port,
+         return;
+ 
+     mm_obj_dbg (self, "PDN interface %u (ccmni%u) down, confirming", id, id % 100);
++    netagent_pdn_down (self, id);
+     command = g_strdup_printf ("+EIF=%u, \"ifst\", \"down\", 0", id);
+     mm_base_modem_at_command (MM_BASE_MODEM (self), command, 10, FALSE, NULL, NULL);
+ 
+@@ -79,6 +105,224 @@ eif_ifdown_received (MMPortSerialAt          *port,
+                                 GINT_TO_POINTER ((gint) (id % 100)));
+ }
+ 
++/*****************************************************************************/
++/* NetAgent
++ *
++ * The modem brings some PDNs up by itself, the IMS one among them, and
++ * reports each with +EIF: <id>, ifup, <type>, <address>, where <address> is
++ * the IPv4 address or the IPv6 link-local one with the network's interface
++ * identifier. The stock NetAgent then configures the interface, confirms it
++ * (AT+EIF=<id>, "ifst", "up", <type>) and reports the global IPv6 address
++ * SLAAC gives it (AT+EIF=<id>, "ipupdate", 2, "<address>/<prefix>"); for
++ * IMS the modem's IMS manager then asks the host to confirm the bearer
++ * (+EIMSPDN: "notify", <aid>, <action>, ...), which the stock RIL does when
++ * nothing above it listens (AT+EIMSPDN= "confirm", <aid>, 0). Data PDNs
++ * come up inside their bearer's +EAPNACT and stay with the bearer. */
++
++/* "FE:80:...:DA" (16 hex bytes) or "10.1.2.3" */
++static gboolean
++parse_eif_address (const gchar     *str,
++                   gint            *family,
++                   struct in6_addr *ipv6,
++                   struct in_addr  *ipv4)
++{
++    g_auto(GStrv) parts = NULL;
++    guint         i;
++
++    if (inet_pton (AF_INET, str, ipv4) == 1) {
++        *family = AF_INET;
++        return TRUE;
++    }
++    parts = g_strsplit (str, ":", -1);
++    if (g_strv_length (parts) != 16)
++        return FALSE;
++    for (i = 0; i < 16; i++) {
++        gchar *end = NULL;
++        gulong v = strtoul (parts[i], &end, 16);
++
++        if (!parts[i][0] || *end || v > 255)
++            return FALSE;
++        ipv6->s6_addr[i] = (guint8) v;
++    }
++    *family = AF_INET6;
++    return TRUE;
++}
++
++static void
++netagent_pdn_down (MMBroadbandModemMtkCcci *self,
++                   guint                    id)
++{
++    NetagentPdn *pdn;
++
++    pdn = self->priv->pdns ? g_hash_table_lookup (self->priv->pdns, GUINT_TO_POINTER (id)) : NULL;
++    if (!pdn)
++        return;
++    mm_obj_msg (self, "PDN interface %u (%s) down", id, pdn->ifname);
++    mm_netagent_mtk_ccci_down (self->priv->netagent, pdn->ifname);
++    g_hash_table_remove (self->priv->pdns, GUINT_TO_POINTER (id));
++}
++
++static void
++netagent_ipupdate (MMBroadbandModemMtkCcci *self,
++                   NetagentPdn             *pdn,
++                   const struct in6_addr   *address,
++                   guint                    prefix)
++{
++    g_autoptr(GString) hex = g_string_new (NULL);
++    g_autofree gchar  *command = NULL;
++    guint              i;
++
++    for (i = 0; i < 16; i++)
++        g_string_append_printf (hex, i ? ":%02X" : "%02X", address->s6_addr[i]);
++    command = g_strdup_printf ("+EIF=%u, \"ipupdate\", 2, \"%s/%u\"", pdn->id, hex->str, prefix);
++    mm_obj_msg (self, "PDN interface %u (%s) has its global IPv6 address", pdn->id, pdn->ifname);
++    pdn->ip_updated = TRUE;
++    mm_base_modem_at_command (MM_BASE_MODEM (self), command, 10, FALSE, NULL, NULL);
++}
++
++static void
++netagent_address (guint                  ifindex,
++                  const struct in6_addr *address,
++                  guint                  prefix,
++                  gpointer               user_data)
++{
++    MMBroadbandModemMtkCcci *self = user_data;
++    GHashTableIter           iter;
++    NetagentPdn             *pdn;
++
++    g_hash_table_iter_init (&iter, self->priv->pdns);
++    while (g_hash_table_iter_next (&iter, NULL, (gpointer *) &pdn)) {
++        /* The network's prefix with the modem's interface identifier */
++        if (pdn->ifindex == ifindex && pdn->has_link_local && !pdn->ip_updated &&
++            !memcmp (&address->s6_addr[8], &pdn->link_local.s6_addr[8], 8))
++            netagent_ipupdate (self, pdn, address, prefix);
++    }
++}
++
++void
++mm_broadband_modem_mtk_ccci_netagent_ifup (MMBroadbandModemMtkCcci *self,
++                                           guint                    id,
++                                           guint                    type,
++                                           const gchar             *address)
++{
++    g_autoptr(GError)  error = NULL;
++    g_autofree gchar  *command = NULL;
++    NetagentPdn       *pdn;
++    struct in_addr     ipv4;
++    gint               family = 0;
++
++    if (!self->priv->netagent) {
++        self->priv->netagent = mm_netagent_mtk_ccci_new (netagent_address, self, &error);
++        if (!self->priv->netagent) {
++            mm_obj_warn (self, "can't bring PDN interfaces up: %s", error->message);
++            return;
++        }
++    }
++
++    netagent_pdn_down (self, id);
++    pdn = g_new0 (NetagentPdn, 1);
++    pdn->id = id;
++    pdn->type = type;
++    g_snprintf (pdn->ifname, sizeof (pdn->ifname), "ccmni%u", id % 100);
++    if (address && !parse_eif_address (address, &family, &pdn->link_local, &ipv4))
++        mm_obj_warn (self, "PDN interface %u: unexpected address '%s'", id, address);
++    pdn->has_link_local = (family == AF_INET6);
++
++    pdn->ifindex = mm_netagent_mtk_ccci_up (self->priv->netagent, pdn->ifname,
++                                            pdn->has_link_local ? &pdn->link_local : NULL, &error);
++    if (pdn->ifindex && family == AF_INET &&
++        !mm_netagent_mtk_ccci_add_ipv4 (self->priv->netagent, pdn->ifname, &ipv4, &error))
++        pdn->ifindex = 0;
++    if (!pdn->ifindex) {
++        mm_obj_warn (self, "couldn't bring PDN interface %u (%s) up: %s", id, pdn->ifname, error->message);
++        g_free (pdn);
++        return;
++    }
++    g_hash_table_insert (self->priv->pdns, GUINT_TO_POINTER (id), pdn);
++    mm_obj_msg (self, "PDN interface %u up on %s", id, pdn->ifname);
++    command = g_strdup_printf ("+EIF=%u, \"ifst\", \"up\", %u", id, type);
++    mm_base_modem_at_command (MM_BASE_MODEM (self), command, 10, FALSE, NULL, NULL);
++}
++
++static void
++eif_ifup_received (MMPortSerialAt          *port,
++                   GMatchInfo              *match_info,
++                   MMBroadbandModemMtkCcci *self)
++{
++    g_autofree gchar *address = NULL;
++    guint             id;
++    guint             type;
++
++    if (!mm_get_uint_from_match_info (match_info, 1, &id) ||
++        !mm_get_uint_from_match_info (match_info, 2, &type))
++        return;
++    address = g_match_info_fetch (match_info, 3);
++    mm_broadband_modem_mtk_ccci_netagent_ifup (self, id, type, address);
++}
++
++/* An address the PDN gained later, e.g. its IPv4 one */
++static void
++eif_ifchg_received (MMPortSerialAt          *port,
++                    GMatchInfo              *match_info,
++                    MMBroadbandModemMtkCcci *self)
++{
++    g_autoptr(GError)  error = NULL;
++    g_autofree gchar  *address = NULL;
++    NetagentPdn       *pdn;
++    struct in6_addr    ipv6;
++    struct in_addr     ipv4;
++    gint               family = 0;
++    guint              id;
++
++    if (!mm_get_uint_from_match_info (match_info, 1, &id))
++        return;
++    pdn = g_hash_table_lookup (self->priv->pdns, GUINT_TO_POINTER (id));
++    address = g_match_info_fetch (match_info, 2);
++    if (!pdn || !address || !parse_eif_address (address, &family, &ipv6, &ipv4) || family != AF_INET)
++        return;
++    if (!mm_netagent_mtk_ccci_add_ipv4 (self->priv->netagent, pdn->ifname, &ipv4, &error))
++        mm_obj_warn (self, "couldn't add IPv4 address to %s: %s", pdn->ifname, error->message);
++}
++
++static void
++eimspdn_received (MMPortSerialAt          *port,
++                  GMatchInfo              *match_info,
++                  MMBroadbandModemMtkCcci *self)
++{
++    g_autofree gchar *command = NULL;
++    guint             aid;
++    guint             action;
++
++    if (!mm_get_uint_from_match_info (match_info, 1, &aid) ||
++        !mm_get_uint_from_match_info (match_info, 2, &action))
++        return;
++    mm_obj_msg (self, "confirming IMS bearer %s of PDN aid %u", action ? "activation" : "release", aid);
++    command = g_strdup_printf ("+EIMSPDN= \"confirm\", %u, 0", aid);
++    mm_base_modem_at_command (MM_BASE_MODEM (self), command, 10, FALSE, NULL, NULL);
++}
++
++/* While a bearer activates a PDN, the +EIF: ifup in the activation's reply
++ * is the bearer's: leave it in the reply */
++void
++mm_broadband_modem_mtk_ccci_hold_ifup (MMBroadbandModemMtkCcci *self,
++                                       gboolean                 hold)
++{
++    MMPortSerialAt *ports[2];
++    guint           i;
++
++    if (hold)
++        self->priv->ifup_holds++;
++    else if (self->priv->ifup_holds)
++        self->priv->ifup_holds--;
++    ports[0] = mm_base_modem_peek_port_primary (MM_BASE_MODEM (self));
++    ports[1] = mm_base_modem_peek_port_secondary (MM_BASE_MODEM (self));
++    for (i = 0; i < G_N_ELEMENTS (ports); i++) {
++        if (ports[i])
++            mm_port_serial_at_enable_unsolicited_msg_handler (ports[i], self->priv->eif_ifup_regex,
++                                                              self->priv->ifup_holds == 0);
++    }
++}
++
+ /*****************************************************************************/
+ /* Incoming call approval
+  *
+@@ -135,6 +379,24 @@ setup_ports (MMBroadbandModem *_self)
+             (MMPortSerialAtUnsolicitedMsgFn) eif_ifdown_received,
+             self,
+             NULL);
++        mm_port_serial_at_add_unsolicited_msg_handler (
++            ports[i],
++            self->priv->eif_ifup_regex,
++            (MMPortSerialAtUnsolicitedMsgFn) eif_ifup_received,
++            self,
++            NULL);
++        mm_port_serial_at_add_unsolicited_msg_handler (
++            ports[i],
++            self->priv->eif_ifchg_regex,
++            (MMPortSerialAtUnsolicitedMsgFn) eif_ifchg_received,
++            self,
++            NULL);
++        mm_port_serial_at_add_unsolicited_msg_handler (
++            ports[i],
++            self->priv->eimspdn_regex,
++            (MMPortSerialAtUnsolicitedMsgFn) eimspdn_received,
++            self,
++            NULL);
+         mm_port_serial_at_add_unsolicited_msg_handler (
+             ports[i],
+             self->priv->eaic_regex,
+@@ -256,6 +518,26 @@ modem_power_finish (MMIfaceModem  *self,
+     return g_task_propagate_boolean (G_TASK (res), error);
+ }
+ 
++/* The modem's IMS controller turns off with the radio; the stock RIL sends
++ * the IMS configuration again whenever the radio comes on. The value is the
++ * modem port's udev ID_MM_MTK_CCCI_IMS_CFG, AT+EIMSCFG's <volte>,<vilte>,<vowifi>,
++ * <viwifi>,<sms>,<ims>. */
++static void
++send_ims_cfg (MMBaseModem *self)
++{
++    MMPortSerialAt   *primary;
++    const gchar      *cfg;
++    g_autofree gchar *command = NULL;
++
++    primary = mm_base_modem_peek_port_primary (self);
++    cfg = primary ? mm_kernel_device_get_property (mm_port_peek_kernel_device (MM_PORT (primary)),
++                                                  "ID_MM_MTK_CCCI_IMS_CFG") : NULL;
++    if (!cfg || !cfg[0])
++        return;
++    command = g_strdup_printf ("+EIMSCFG=%s", cfg);
++    mm_base_modem_at_command (self, command, 10, FALSE, NULL, NULL);
++}
++
+ static void
+ efun_ready (MMBaseModem  *self,
+             GAsyncResult *res,
+@@ -264,23 +546,29 @@ efun_ready (MMBaseModem  *self,
+     GError *error = NULL;
+ 
+     filter_no_carrier (MM_BROADBAND_MODEM_MTK_CCCI (self), FALSE);
+-    if (!mm_base_modem_at_command_finish (self, res, &error))
++    if (!mm_base_modem_at_command_finish (self, res, &error)) {
+         g_task_return_error (task, error);
+-    else
++    } else {
++        if (GPOINTER_TO_INT (g_task_get_task_data (task)))
++            send_ims_cfg (self);
+         g_task_return_boolean (task, TRUE);
++    }
+     g_object_unref (task);
+ }
+ 
+ static void
+ efun (MMIfaceModem        *self,
+-      const gchar         *command,
++      gboolean             on,
+       GAsyncReadyCallback  callback,
+       gpointer             user_data)
+ {
++    GTask *task;
++
++    task = g_task_new (self, NULL, callback, user_data);
++    g_task_set_task_data (task, GINT_TO_POINTER (on), NULL);
+     filter_no_carrier (MM_BROADBAND_MODEM_MTK_CCCI (self), TRUE);
+-    mm_base_modem_at_command (MM_BASE_MODEM (self), command, 60, FALSE,
+-                              (GAsyncReadyCallback) efun_ready,
+-                              g_task_new (self, NULL, callback, user_data));
++    mm_base_modem_at_command (MM_BASE_MODEM (self), on ? "+EFUN=1" : "+EFUN=0", 60, FALSE,
++                              (GAsyncReadyCallback) efun_ready, task);
+ }
+ 
+ static void
+@@ -288,7 +576,7 @@ modem_power_up (MMIfaceModem        *self,
+                 GAsyncReadyCallback  callback,
+                 gpointer             user_data)
+ {
+-    efun (self, "+EFUN=1", callback, user_data);
++    efun (self, TRUE, callback, user_data);
+ }
+ 
+ static void
+@@ -296,7 +584,7 @@ modem_power_down (MMIfaceModem        *self,
+                   GAsyncReadyCallback  callback,
+                   gpointer             user_data)
+ {
+-    efun (self, "+EFUN=0", callback, user_data);
++    efun (self, FALSE, callback, user_data);
+ }
+ 
+ /*****************************************************************************/
+@@ -337,6 +625,13 @@ mm_broadband_modem_mtk_ccci_init (MMBroadbandModemMtkCcci *self)
+                                                 G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->ecpi_regex = g_regex_new ("\\r\\n\\+ECPI:[^\\r\\n]*\\r\\n",
+                                           G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    self->priv->eif_ifup_regex = g_regex_new ("\\r\\n\\+EIF:\\s*(\\d+)\\s*,\\s*ifup\\s*,\\s*(\\d+)\\s*,\\s*([0-9A-Fa-f:.]+)[^\\r\\n]*\\r\\n",
++                                              G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    self->priv->eif_ifchg_regex = g_regex_new ("\\r\\n\\+EIF:\\s*(\\d+)\\s*,\\s*ifchg\\s*,\\s*\\d+\\s*,\\s*([0-9A-Fa-f:.]+)[^\\r\\n]*\\r\\n",
++                                               G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    self->priv->eimspdn_regex = g_regex_new ("\\r\\n\\+EIMSPDN:\\s*\"notify\"\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)[^\\r\\n]*\\r\\n",
++                                             G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    self->priv->pdns = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, g_free);
+ }
+ 
+ static void
+@@ -345,6 +640,11 @@ finalize (GObject *object)
+     MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (object);
+ 
+     g_regex_unref (self->priv->eif_ifdown_regex);
++    g_regex_unref (self->priv->eif_ifup_regex);
++    g_regex_unref (self->priv->eif_ifchg_regex);
++    g_regex_unref (self->priv->eimspdn_regex);
++    g_hash_table_unref (self->priv->pdns);
++    mm_netagent_mtk_ccci_free (self->priv->netagent);
+     g_regex_unref (self->priv->eaic_regex);
+     g_regex_unref (self->priv->ecpi_regex);
+     g_regex_unref (self->priv->no_carrier_regex);
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.h b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.h
+index d666b22..3317111 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.h
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.h
+@@ -48,4 +48,13 @@ MMBroadbandModemMtkCcci *mm_broadband_modem_mtk_ccci_new (const gchar  *device,
+                                                           guint16       vendor_id,
+                                                           guint16       product_id);
+ 
++/* NetAgent: a PDN interface reported up outside a bearer's activation */
++void mm_broadband_modem_mtk_ccci_netagent_ifup (MMBroadbandModemMtkCcci *self,
++                                                guint                    id,
++                                                guint                    type,
++                                                const gchar             *address);
++/* A bearer activating a PDN keeps its +EIF: ifup in the activation's reply */
++void mm_broadband_modem_mtk_ccci_hold_ifup     (MMBroadbandModemMtkCcci *self,
++                                                gboolean                 hold);
++
+ #endif /* MM_BROADBAND_MODEM_MTK_CCCI_H */
+diff --git a/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c b/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c
+new file mode 100644
+index 0000000..a5a0fdd
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c
+@@ -0,0 +1,303 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#include <config.h>
++
++#include <errno.h>
++#include <fcntl.h>
++#include <net/if.h>
++#include <string.h>
++#include <sys/socket.h>
++#include <unistd.h>
++#include <linux/if_addr.h>
++#include <linux/netlink.h>
++#include <linux/rtnetlink.h>
++
++#include <glib-unix.h>
++#include <gio/gio.h>
++
++#include "mm-netagent-mtk-ccci.h"
++
++struct _MMNetagentMtkCcci {
++    MMNetagentMtkCcciAddressFn  callback;
++    gpointer                    user_data;
++    gint                        monitor_fd;
++    guint                       monitor_id;
++    guint32                     seq;
++};
++
++/*****************************************************************************/
++/* rtnetlink requests */
++
++#define NLMSG_TAIL(nmsg) ((struct rtattr *) (((guint8 *) (nmsg)) + NLMSG_ALIGN ((nmsg)->nlmsg_len)))
++
++typedef struct {
++    struct nlmsghdr hdr;
++    union {
++        struct ifinfomsg ifi;
++        struct ifaddrmsg ifa;
++    };
++    guint8          attrs[64];
++} Request;
++
++static void
++add_attr (struct nlmsghdr *hdr,
++          gushort          type,
++          gconstpointer    data,
++          gsize            len)
++{
++    struct rtattr *rta = NLMSG_TAIL (hdr);
++
++    rta->rta_type = type;
++    rta->rta_len = RTA_LENGTH (len);
++    memcpy (RTA_DATA (rta), data, len);
++    hdr->nlmsg_len = NLMSG_ALIGN (hdr->nlmsg_len) + RTA_ALIGN (rta->rta_len);
++}
++
++/* Send one request and wait for its acknowledgement */
++static gboolean
++rtnl_request (MMNetagentMtkCcci  *self,
++              struct nlmsghdr    *hdr,
++              GError            **error)
++{
++    struct sockaddr_nl  kernel = { .nl_family = AF_NETLINK };
++    guint8              buf[512];
++    gint                fd;
++    gssize              n;
++    gboolean            ok = FALSE;
++
++    fd = socket (AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
++    if (fd < 0) {
++        g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno), "netlink: %s", g_strerror (errno));
++        return FALSE;
++    }
++    hdr->nlmsg_flags |= NLM_F_REQUEST | NLM_F_ACK;
++    hdr->nlmsg_seq = ++self->seq;
++    if (sendto (fd, hdr, hdr->nlmsg_len, 0, (struct sockaddr *) &kernel, sizeof (kernel)) < 0) {
++        g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno), "netlink send: %s", g_strerror (errno));
++        goto out;
++    }
++    while ((n = recv (fd, buf, sizeof (buf), 0)) > 0) {
++        struct nlmsghdr *h;
++
++        for (h = (struct nlmsghdr *) buf; NLMSG_OK (h, (guint) n); h = NLMSG_NEXT (h, n)) {
++            struct nlmsgerr *err;
++
++            if (h->nlmsg_seq != hdr->nlmsg_seq || h->nlmsg_type != NLMSG_ERROR)
++                continue;
++            err = NLMSG_DATA (h);
++            if (err->error && err->error != -EEXIST) {
++                g_set_error (error, G_IO_ERROR, g_io_error_from_errno (-err->error),
++                             "netlink: %s", g_strerror (-err->error));
++                goto out;
++            }
++            ok = TRUE;
++            goto out;
++        }
++    }
++    g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "netlink: no acknowledgement");
++out:
++    close (fd);
++    return ok;
++}
++
++static gboolean
++set_link_up (MMNetagentMtkCcci  *self,
++             guint               ifindex,
++             gboolean            up,
++             GError            **error)
++{
++    Request req = { 0 };
++
++    req.hdr.nlmsg_len = NLMSG_LENGTH (sizeof (struct ifinfomsg));
++    req.hdr.nlmsg_type = RTM_NEWLINK;
++    req.ifi.ifi_family = AF_UNSPEC;
++    req.ifi.ifi_index = (gint) ifindex;
++    req.ifi.ifi_flags = up ? IFF_UP : 0;
++    req.ifi.ifi_change = IFF_UP;
++    return rtnl_request (self, &req.hdr, error);
++}
++
++static gboolean
++add_address (MMNetagentMtkCcci  *self,
++             guint               ifindex,
++             gint                family,
++             gconstpointer       address,
++             guint               prefix,
++             guint8              scope,
++             GError            **error)
++{
++    Request req = { 0 };
++    gsize   len = (family == AF_INET6) ? 16 : 4;
++
++    req.hdr.nlmsg_len = NLMSG_LENGTH (sizeof (struct ifaddrmsg));
++    req.hdr.nlmsg_type = RTM_NEWADDR;
++    req.hdr.nlmsg_flags = NLM_F_CREATE | NLM_F_REPLACE;
++    req.ifa.ifa_family = family;
++    req.ifa.ifa_prefixlen = prefix;
++    req.ifa.ifa_scope = scope;
++    req.ifa.ifa_index = ifindex;
++    /* A raw IP point-to-point link: nothing to detect a duplicate with */
++    req.ifa.ifa_flags = (family == AF_INET6) ? IFA_F_NODAD : 0;
++    add_attr (&req.hdr, IFA_LOCAL, address, len);
++    add_attr (&req.hdr, IFA_ADDRESS, address, len);
++    return rtnl_request (self, &req.hdr, error);
++}
++
++/*****************************************************************************/
++
++static gboolean
++write_sysctl (const gchar  *ifname,
++              const gchar  *key,
++              const gchar  *value,
++              GError      **error)
++{
++    g_autofree gchar *path = NULL;
++
++    path = g_strdup_printf ("/proc/sys/net/ipv6/conf/%s/%s", ifname, key);
++    return g_file_set_contents_full (path, value, -1, G_FILE_SET_CONTENTS_NONE, 0644, error);
++}
++
++guint
++mm_netagent_mtk_ccci_up (MMNetagentMtkCcci      *self,
++                         const gchar            *ifname,
++                         const struct in6_addr  *link_local,
++                         GError                **error)
++{
++    guint ifindex;
++
++    ifindex = if_nametoindex (ifname);
++    if (!ifindex) {
++        g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno), "%s: %s", ifname, g_strerror (errno));
++        return 0;
++    }
++    /* Taking IPv6 off and on again drops what an earlier PDN left; the
++     * interface identifier is the modem's, not one the kernel makes up */
++    if (!write_sysctl (ifname, "disable_ipv6", "1", error) ||
++        !write_sysctl (ifname, "addr_gen_mode", "1", error) ||
++        !write_sysctl (ifname, "use_tempaddr", "0", error) ||
++        !write_sysctl (ifname, "accept_ra", "2", error) ||
++        !write_sysctl (ifname, "accept_ra_defrtr", "0", error) ||
++        !write_sysctl (ifname, "disable_ipv6", link_local ? "0" : "1", error) ||
++        !set_link_up (self, ifindex, TRUE, error))
++        return 0;
++    if (link_local &&
++        !add_address (self, ifindex, AF_INET6, link_local, 64, RT_SCOPE_LINK, error))
++        return 0;
++    return ifindex;
++}
++
++gboolean
++mm_netagent_mtk_ccci_add_ipv4 (MMNetagentMtkCcci     *self,
++                               const gchar           *ifname,
++                               const struct in_addr  *address,
++                               GError               **error)
++{
++    guint ifindex;
++
++    ifindex = if_nametoindex (ifname);
++    if (!ifindex) {
++        g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno), "%s: %s", ifname, g_strerror (errno));
++        return FALSE;
++    }
++    return add_address (self, ifindex, AF_INET, address, 32, RT_SCOPE_UNIVERSE, error);
++}
++
++void
++mm_netagent_mtk_ccci_down (MMNetagentMtkCcci *self,
++                           const gchar       *ifname)
++{
++    guint ifindex;
++
++    ifindex = if_nametoindex (ifname);
++    if (ifindex)
++        set_link_up (self, ifindex, FALSE, NULL);
++}
++
++/*****************************************************************************/
++/* Global IPv6 addresses from router advertisements */
++
++static gboolean
++monitor_readable (gint          fd,
++                  GIOCondition  condition,
++                  gpointer      user_data)
++{
++    MMNetagentMtkCcci *self = user_data;
++    guint8             buf[4096];
++    gssize             n;
++
++    while ((n = recv (fd, buf, sizeof (buf), MSG_DONTWAIT)) > 0) {
++        struct nlmsghdr *h;
++
++        for (h = (struct nlmsghdr *) buf; NLMSG_OK (h, (guint) n); h = NLMSG_NEXT (h, n)) {
++            struct ifaddrmsg      *ifa;
++            struct rtattr         *rta;
++            const struct in6_addr *address = NULL;
++            guint32                flags;
++            gint                   len;
++
++            if (h->nlmsg_type != RTM_NEWADDR)
++                continue;
++            ifa = NLMSG_DATA (h);
++            if (ifa->ifa_family != AF_INET6 || ifa->ifa_scope != RT_SCOPE_UNIVERSE)
++                continue;
++            flags = ifa->ifa_flags;
++            len = IFA_PAYLOAD (h);
++            for (rta = IFA_RTA (ifa); RTA_OK (rta, len); rta = RTA_NEXT (rta, len)) {
++                if (rta->rta_type == IFA_ADDRESS)
++                    address = RTA_DATA (rta);
++                else if (rta->rta_type == IFA_FLAGS)
++                    flags = *(guint32 *) RTA_DATA (rta);
++            }
++            if (address && !(flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED)))
++                self->callback (ifa->ifa_index, address, ifa->ifa_prefixlen, self->user_data);
++        }
++    }
++    return G_SOURCE_CONTINUE;
++}
++
++MMNetagentMtkCcci *
++mm_netagent_mtk_ccci_new (MMNetagentMtkCcciAddressFn   callback,
++                          gpointer                     user_data,
++                          GError                     **error)
++{
++    MMNetagentMtkCcci  *self;
++    struct sockaddr_nl  local = { .nl_family = AF_NETLINK, .nl_groups = RTMGRP_IPV6_IFADDR };
++
++    self = g_new0 (MMNetagentMtkCcci, 1);
++    self->callback = callback;
++    self->user_data = user_data;
++    self->monitor_fd = socket (AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, NETLINK_ROUTE);
++    if (self->monitor_fd < 0 || bind (self->monitor_fd, (struct sockaddr *) &local, sizeof (local)) < 0) {
++        g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
++                     "netlink address monitor: %s", g_strerror (errno));
++        mm_netagent_mtk_ccci_free (self);
++        return NULL;
++    }
++    self->monitor_id = g_unix_fd_add (self->monitor_fd, G_IO_IN, monitor_readable, self);
++    return self;
++}
++
++void
++mm_netagent_mtk_ccci_free (MMNetagentMtkCcci *self)
++{
++    if (!self)
++        return;
++    if (self->monitor_id)
++        g_source_remove (self->monitor_id);
++    if (self->monitor_fd >= 0)
++        close (self->monitor_fd);
++    g_free (self);
++}
+diff --git a/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h b/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h
+new file mode 100644
+index 0000000..287e73f
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h
+@@ -0,0 +1,54 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#ifndef MM_NETAGENT_MTK_CCCI_H
++#define MM_NETAGENT_MTK_CCCI_H
++
++#include <glib.h>
++#include <netinet/in.h>
++
++/* The host side of a PDN interface the modem brings up by itself (IMS):
++ * what the stock NetAgent and netd do for it, without AT commands. */
++
++typedef struct _MMNetagentMtkCcci MMNetagentMtkCcci;
++
++/* A global IPv6 address appeared on a watched interface */
++typedef void (*MMNetagentMtkCcciAddressFn) (guint                   ifindex,
++                                           const struct in6_addr  *address,
++                                           guint                   prefix,
++                                           gpointer                user_data);
++
++MMNetagentMtkCcci *mm_netagent_mtk_ccci_new      (MMNetagentMtkCcciAddressFn   callback,
++                                                  gpointer                     user_data,
++                                                  GError                     **error);
++void               mm_netagent_mtk_ccci_free     (MMNetagentMtkCcci           *self);
++
++/* Bring an interface up for a PDN: with an IPv6 link-local address (the
++ * modem's interface identifier), router advertisements for its prefix but
++ * not as a default route, no temporary addresses. Returns the ifindex, 0 on
++ * error. */
++guint              mm_netagent_mtk_ccci_up       (MMNetagentMtkCcci           *self,
++                                                  const gchar                 *ifname,
++                                                  const struct in6_addr       *link_local,
++                                                  GError                     **error);
++gboolean           mm_netagent_mtk_ccci_add_ipv4 (MMNetagentMtkCcci           *self,
++                                                  const gchar                 *ifname,
++                                                  const struct in_addr        *address,
++                                                  GError                     **error);
++/* Down takes its addresses with it */
++void               mm_netagent_mtk_ccci_down     (MMNetagentMtkCcci           *self,
++                                                  const gchar                 *ifname);
++
++#endif /* MM_NETAGENT_MTK_CCCI_H */
+-- 
+2.55.0
+

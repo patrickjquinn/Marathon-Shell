@@ -4,13 +4,13 @@
 # and Marathon's 0102 (mtk-ccci attach-PDN reuse), 0103 (incoming calls),
 # 0104 (PDN state from +EIF events, no polling), 0105 (low power) and
 # 0106 (reuse the LTE attach PDN beside IMS's) and 0107 (+CHUP for a call
-# not yet up).
+# not yet up) and 0108 (NetAgent for the modem's own PDNs, IMS).
 # It provides modemmanager, so installing it (q25-modem depends on it)
 # replaces Alpine's daemon; nothing else pulls it in. libmm-glib stays
 # Alpine's. Keep pkgver and _commit in sync with Alpine's modemmanager.
 pkgname=modemmanager-mtk-ccci
 pkgver=1.25.95_git20261005
-pkgrel=9
+pkgrel=10
 _commit=7f0bf17ab518cd78925cf7e53cc0d5c42f88b41a
 pkgdesc="ModemManager with MediaTek CCCI (SoC modem) support"
 url="https://www.freedesktop.org/wiki/Software/ModemManager"
@@ -42,6 +42,7 @@ source="https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/$
 	0105-mtk-ccci-low-power.patch
 	0106-mtk-ccci-reuse-the-attach-pdn.patch
 	0107-call-at-hangup-with-chup.patch
+	0108-mtk-ccci-netagent.patch
 	"
 builddir="$srcdir"/ModemManager-$_commit
 
@@ -83,4 +84,5 @@ edfd4c4d418a7c61f8ac52e0ba01e6fd2e58de0d55b5383fd193af0fbf6b6e54744ea51b543ad67d
 c74b8d1d01d26e9a6560a94a2218421e3660a2fee0b68f78150f1aa05399bc588e911aa68979da2804edab1bd678a2863333f812a15b0e279961ab8c96370d26  0105-mtk-ccci-low-power.patch
 9dd4a4ccf0d10063274ccbf8077755e822993a2296c2f0424b190b805d3799b21f18fc232058f34a2c767f578546d68c1031bdd43c47e7e9321a9a868b37135e  0106-mtk-ccci-reuse-the-attach-pdn.patch
 6756b33c74c2ec2a170a42e351934d13c184bfe67bcc67410e66883a2c91413be7ad623ff4efc08bf4b3bcf8915010762802ac48c87bc925832cad7a68b43508  0107-call-at-hangup-with-chup.patch
+66cb4d10f0139200577837f2e1ffcc1092427c27717e00a4d902c62c771a45a34019fdc22fc1dca4286183d675a0a13bf36c73c0f1da08cc33654d7b6dbaa2ec  0108-mtk-ccci-netagent.patch
 "
