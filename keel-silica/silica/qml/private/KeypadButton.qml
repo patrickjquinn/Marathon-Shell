@@ -74,6 +74,15 @@ MouseArea {
     preventStealing: down && dialer.preventStealing
     onPreventStealingChanged: if (preventStealing) dialerButton.DragFilter.end()
 
+    // Modified by Marathon: a flat disc, as Button's fill
+    Rectangle {
+        anchors.centerIn: parent
+        width: dialer._discSize
+        height: width
+        radius: width / 2
+        color: Theme.rgba(Theme.primaryColor, 0.08)
+    }
+
     Label {
         id: numberLabel
 
