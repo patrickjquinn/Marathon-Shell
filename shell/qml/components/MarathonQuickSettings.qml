@@ -281,10 +281,11 @@ Item {
             });
         return enabledOnly(t);
     }
-    // Switches in pages of two across by three. Paged by id: statuses change
+    // Switches in pages of three across by three. Paged by id: statuses change
     // every few seconds, and a page made of the tiles themselves would rebuild
     // every tile on it each time.
-    readonly property int tilesPerPage: 6
+    readonly property int tileColumns: 3
+    readonly property int tilesPerPage: 3 * tileColumns
     readonly property var tileIds: tiles.map(t => t.id)
     property var tilePages: []
     onTileIdsChanged: repage()
@@ -550,7 +551,7 @@ Item {
 
                     required property int index
                     width: tilePager.width
-                    columns: 2
+                    columns: quickSettings.tileColumns
                     spacing: Silica.Theme.paddingSmall
 
                     Repeater {
@@ -559,7 +560,7 @@ Item {
                             required property var modelData
                             // Its live state, rebound in place as it changes.
                             readonly property var t: quickSettings.tileById(modelData) || ({})
-                            width: (page.width - page.spacing) / 2
+                            width: (page.width - (page.columns - 1) * page.spacing) / page.columns
                             iconName: t.icon || ""
                             label: t.label || ""
                             status: t.status !== undefined ? t.status : t.id === "hotspot" && t.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(t.on)
