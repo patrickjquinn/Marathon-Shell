@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Effects
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
@@ -219,64 +218,15 @@ Item {
         target: Security
     }
 
-    Image {
-        id: wallpaperSource
-
+    // The ambience behind the lock code: the same cached, toned image the
+    // apps draw on, not a blur of the wallpaper made for this screen.
+    KeelAmbienceBackground {
         anchors.fill: parent
-        source: SettingsManagerCpp.wallpaperPath
-        sourceSize: Qt.size(width, height)
-        asynchronous: true
-        retainWhileLoading: true
-        fillMode: Image.PreserveAspectCrop
-        cache: true
-        smooth: true
         z: 0
-    }
-
-    Rectangle {
-        id: glassRect
-
-        anchors.fill: parent
-        color: MColors.background
-        opacity: 0.95
-        z: 1
-
-        ShaderEffectSource {
-            id: wallpaperCapture
-
-            anchors.fill: parent
-            sourceItem: wallpaperSource
-            sourceRect: Qt.rect(0, 0, width, height)
-            visible: false
-            // Wallpaper is a static image — sample once. Skipping per-vsync
-            // sampling cuts render-thread cost on the PIN screen by half on
-            // etnaviv GPUs.
-            live: false
-        }
-
-        MultiEffect {
-            anchors.fill: parent
-            source: wallpaperCapture
-            // The capture is static (live: false); render the blur into a
-            // layer once instead of re-running the full-screen effect
-            // shader on every frame of PIN entry.
-            layer.enabled: true
-            blurEnabled: true
-            blur: 1
-            // 24 instead of 64 — the kernel growing beyond ~24 produces no
-            // perceived blur difference on a 540×1140 panel, just fillrate.
-            blurMax: MBlur.lg
-            blurMultiplier: 1.4
-            saturation: 0.3
-            brightness: -0.2
-        }
-    }
-
-    // The ambience, blurred and dimmed, behind the lock code.
-    Rectangle {
-        anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.45)
-        z: 2
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     Column {
