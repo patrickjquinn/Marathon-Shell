@@ -1118,7 +1118,6 @@ Page {
         sourceComponent: PageMenu {
             objectName: "pageMenu"
             maxHeight: page.height - Theme.paddingLarge
-            bottomMargin: page.toolbarHeight
             browser: page.browser
             onFindRequested: {
                 page.finding = true;
