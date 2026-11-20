@@ -72,3 +72,6 @@ FileChooserModel 1.0 FileChooserModel.qml
 BackdropProbe 1.0 BackdropProbe.qml
 NativeSurfaceItem 1.0 NativeSurfaceItem.qml
 singleton Privacy 1.0 Privacy.qml
+singleton PilotClient 1.0 PilotClient.qml
+singleton UnifiedSearchService 1.0 UnifiedSearchService.qml
+singleton Platform 1.0 Platform.qml

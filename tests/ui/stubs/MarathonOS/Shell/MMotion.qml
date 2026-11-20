@@ -10,6 +10,8 @@ QtObject {
     readonly property var easingDecelerateCurve: [0, 0, 0.2, 1, 1, 1]
     property bool reduceMotion: false
     readonly property int flickDecelerationFast: 8000
+    readonly property real flickDeceleration: 3500
+    readonly property real flickVelocity: 16000
     readonly property int tapTimeout: 0
     readonly property real pagerFlickVelocity: 10000
     readonly property int staggerMicro: 0
