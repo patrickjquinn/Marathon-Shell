@@ -1,0 +1,170 @@
+From 20829bfc5d3e226c34f20765a7e6d56bd6713c0d Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 20 Nov 2026 18:51:37 +0000
+Subject: [PATCH] mtk-ccci: own the IMS configuration; follow a renumbered IMS
+ PDN
+
+The modem bring-up powered the radio and configured IMS before
+ModemManager started, so the IMS PDN could come up while the port was
+still being probed; its +EIF: ifup went unhandled and IMS waited for a
+confirmation that never came. Send the IMS configuration once enabling
+has started (ports open, NetAgent handlers in place) as well as after
+each radio power-up, so the plugin alone starts IMS.
+
+When the network gives the IMS PDN another prefix, report the new
+address (+EIF ipupdate) and drop the replaced one, which no longer
+reaches the network; the replaced address is never reported again.
+---
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.c    | 63 ++++++++++++++++++-
+ src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c   | 17 +++++
+ src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h   |  4 ++
+ 3 files changed, 81 insertions(+), 3 deletions(-)
+
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index 84cc118..832add3 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -61,7 +61,13 @@ typedef struct {
+     guint           ifindex;
+     gboolean        has_link_local;
+     struct in6_addr link_local;
++    /* The global address last reported to the modem */
+     gboolean        ip_updated;
++    struct in6_addr global;
++    guint           global_prefix;
++    /* The one it replaced, never reported again */
++    gboolean        has_replaced;
++    struct in6_addr replaced;
+ } NetagentPdn;
+ 
+ /*****************************************************************************/
+@@ -175,8 +181,17 @@ netagent_ipupdate (MMBroadbandModemMtkCcci *self,
+     for (i = 0; i < 16; i++)
+         g_string_append_printf (hex, i ? ":%02X" : "%02X", address->s6_addr[i]);
+     command = g_strdup_printf ("+EIF=%u, \"ipupdate\", 2, \"%s/%u\"", pdn->id, hex->str, prefix);
+-    mm_obj_msg (self, "PDN interface %u (%s) has its global IPv6 address", pdn->id, pdn->ifname);
++    mm_obj_msg (self, "PDN interface %u (%s) has %s global IPv6 address", pdn->id, pdn->ifname,
++                pdn->ip_updated ? "a new" : "its");
++    /* The network renumbered the PDN: the old address no longer reaches it */
++    if (pdn->ip_updated) {
++        mm_netagent_mtk_ccci_del_ipv6 (self->priv->netagent, pdn->ifindex, &pdn->global, pdn->global_prefix);
++        pdn->has_replaced = TRUE;
++        pdn->replaced = pdn->global;
++    }
+     pdn->ip_updated = TRUE;
++    pdn->global = *address;
++    pdn->global_prefix = prefix;
+     mm_base_modem_at_command (MM_BASE_MODEM (self), command, 10, FALSE, NULL, NULL);
+ }
+ 
+@@ -193,8 +208,10 @@ netagent_address (guint                  ifindex,
+     g_hash_table_iter_init (&iter, self->priv->pdns);
+     while (g_hash_table_iter_next (&iter, NULL, (gpointer *) &pdn)) {
+         /* The network's prefix with the modem's interface identifier */
+-        if (pdn->ifindex == ifindex && pdn->has_link_local && !pdn->ip_updated &&
+-            !memcmp (&address->s6_addr[8], &pdn->link_local.s6_addr[8], 8))
++        if (pdn->ifindex == ifindex && pdn->has_link_local &&
++            !memcmp (&address->s6_addr[8], &pdn->link_local.s6_addr[8], 8) &&
++            (!pdn->ip_updated || memcmp (address, &pdn->global, sizeof (*address))) &&
++            (!pdn->has_replaced || memcmp (address, &pdn->replaced, sizeof (*address))))
+             netagent_ipupdate (self, pdn, address, prefix);
+     }
+ }
+@@ -538,6 +555,44 @@ send_ims_cfg (MMBaseModem *self)
+     mm_base_modem_at_command (self, command, 10, FALSE, NULL, NULL);
+ }
+ 
++static gboolean
++enabling_started_finish (MMBroadbandModem  *self,
++                         GAsyncResult      *res,
++                         GError           **error)
++{
++    return g_task_propagate_boolean (G_TASK (res), error);
++}
++
++static void
++parent_enabling_started_ready (MMBroadbandModem *self,
++                               GAsyncResult     *res,
++                               GTask            *task)
++{
++    GError *error = NULL;
++
++    if (!MM_BROADBAND_MODEM_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->enabling_started_finish (self, res, &error)) {
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++    /* The radio may already be on (the modem bring-up powers it before
++     * ModemManager starts): IMS starts once its PDN events are handled here */
++    send_ims_cfg (MM_BASE_MODEM (self));
++    g_task_return_boolean (task, TRUE);
++    g_object_unref (task);
++}
++
++static void
++enabling_started (MMBroadbandModem    *self,
++                  GAsyncReadyCallback  callback,
++                  gpointer             user_data)
++{
++    MM_BROADBAND_MODEM_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->enabling_started (
++        self,
++        (GAsyncReadyCallback) parent_enabling_started_ready,
++        g_task_new (self, NULL, callback, user_data));
++}
++
+ static void
+ efun_ready (MMBaseModem  *self,
+             GAsyncResult *res,
+@@ -675,4 +730,6 @@ mm_broadband_modem_mtk_ccci_class_init (MMBroadbandModemMtkCcciClass *klass)
+ 
+     object_class->finalize = finalize;
+     broadband_modem_class->setup_ports = setup_ports;
++    broadband_modem_class->enabling_started = enabling_started;
++    broadband_modem_class->enabling_started_finish = enabling_started_finish;
+ }
+diff --git a/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c b/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c
+index a5a0fdd..e484627 100644
+--- a/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.c
+@@ -215,6 +215,23 @@ mm_netagent_mtk_ccci_add_ipv4 (MMNetagentMtkCcci     *self,
+     return add_address (self, ifindex, AF_INET, address, 32, RT_SCOPE_UNIVERSE, error);
+ }
+ 
++void
++mm_netagent_mtk_ccci_del_ipv6 (MMNetagentMtkCcci     *self,
++                               guint                  ifindex,
++                               const struct in6_addr *address,
++                               guint                  prefix)
++{
++    Request req = { 0 };
++
++    req.hdr.nlmsg_len = NLMSG_LENGTH (sizeof (struct ifaddrmsg));
++    req.hdr.nlmsg_type = RTM_DELADDR;
++    req.ifa.ifa_family = AF_INET6;
++    req.ifa.ifa_prefixlen = prefix;
++    req.ifa.ifa_index = ifindex;
++    add_attr (&req.hdr, IFA_LOCAL, address, 16);
++    rtnl_request (self, &req.hdr, NULL);
++}
++
+ void
+ mm_netagent_mtk_ccci_down (MMNetagentMtkCcci *self,
+                            const gchar       *ifname)
+diff --git a/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h b/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h
+index 287e73f..0fa2f0d 100644
+--- a/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h
++++ b/src/plugins/mtk-ccci/mm-netagent-mtk-ccci.h
+@@ -47,6 +47,10 @@ gboolean           mm_netagent_mtk_ccci_add_ipv4 (MMNetagentMtkCcci           *s
+                                                   const gchar                 *ifname,
+                                                   const struct in_addr        *address,
+                                                   GError                     **error);
++void               mm_netagent_mtk_ccci_del_ipv6 (MMNetagentMtkCcci           *self,
++                                                  guint                        ifindex,
++                                                  const struct in6_addr       *address,
++                                                  guint                        prefix);
+ /* Down takes its addresses with it */
+ void               mm_netagent_mtk_ccci_down     (MMNetagentMtkCcci           *self,
+                                                   const gchar                 *ifname);
+-- 
+2.55.0
+

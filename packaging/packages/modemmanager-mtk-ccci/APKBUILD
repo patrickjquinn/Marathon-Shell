@@ -2,15 +2,16 @@
 # community/modemmanager at the same snapshot plus the Moto G06 (lagos)
 # postmarketOS port's 0100 (ccci_node AT ports) and 0101 (mtk-ccci plugin),
 # and Marathon's 0102 (mtk-ccci attach-PDN reuse), 0103 (incoming calls),
-# 0104 (PDN state from +EIF events, no polling), 0105 (low power) and
-# 0106 (reuse the LTE attach PDN beside IMS's) and 0107 (+CHUP for a call
-# not yet up) and 0108 (NetAgent for the modem's own PDNs, IMS).
+# 0104 (PDN state from +EIF events, no polling), 0105 (low power),
+# 0106 (reuse the LTE attach PDN beside IMS's), 0107 (+CHUP for a call not
+# yet up), 0108 (NetAgent for the modem's own PDNs, IMS), 0109 (the plugin
+# starts IMS; renumbered IMS PDNs) and 0110 (VoLTE calls in +CLCC).
 # It provides modemmanager, so installing it (q25-modem depends on it)
 # replaces Alpine's daemon; nothing else pulls it in. libmm-glib stays
 # Alpine's. Keep pkgver and _commit in sync with Alpine's modemmanager.
 pkgname=modemmanager-mtk-ccci
 pkgver=1.25.95_git20261005
-pkgrel=10
+pkgrel=12
 _commit=7f0bf17ab518cd78925cf7e53cc0d5c42f88b41a
 pkgdesc="ModemManager with MediaTek CCCI (SoC modem) support"
 url="https://www.freedesktop.org/wiki/Software/ModemManager"
@@ -43,6 +44,8 @@ source="https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/$
 	0106-mtk-ccci-reuse-the-attach-pdn.patch
 	0107-call-at-hangup-with-chup.patch
 	0108-mtk-ccci-netagent.patch
+	0109-mtk-ccci-ims-config-and-renumbering.patch
+	0110-mtk-ccci-volte-calls.patch
 	"
 builddir="$srcdir"/ModemManager-$_commit
 
@@ -85,4 +88,6 @@ c74b8d1d01d26e9a6560a94a2218421e3660a2fee0b68f78150f1aa05399bc588e911aa68979da28
 9dd4a4ccf0d10063274ccbf8077755e822993a2296c2f0424b190b805d3799b21f18fc232058f34a2c767f578546d68c1031bdd43c47e7e9321a9a868b37135e  0106-mtk-ccci-reuse-the-attach-pdn.patch
 6756b33c74c2ec2a170a42e351934d13c184bfe67bcc67410e66883a2c91413be7ad623ff4efc08bf4b3bcf8915010762802ac48c87bc925832cad7a68b43508  0107-call-at-hangup-with-chup.patch
 66cb4d10f0139200577837f2e1ffcc1092427c27717e00a4d902c62c771a45a34019fdc22fc1dca4286183d675a0a13bf36c73c0f1da08cc33654d7b6dbaa2ec  0108-mtk-ccci-netagent.patch
+bc6b2648bd4f5f35db80d17f250455c5a5a383ea5e74cfc92b8cb15fc6ec0e801ad0f48604cdf0b37117c277155e1941d1bbad5caa50f7086a25b8483e44eca2  0109-mtk-ccci-ims-config-and-renumbering.patch
+068c049639b3e68bd03ec812c3217d59f97110c3cced064afd7d80123e611d0a2367a1fc9918f75895b71edbb5c00f4f1c69703a8f91aaf2c5f65c2da82b8af7  0110-mtk-ccci-volte-calls.patch
 "

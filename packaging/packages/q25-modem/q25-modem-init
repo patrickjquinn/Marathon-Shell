@@ -95,8 +95,9 @@ carrier_apn() {
 
 # IMS, as the stock RIL sets it up before the radio comes on: the ims APN in
 # the modem's APN table (the modem brings its PDN up itself), registration
-# and VoPS reports, and IMS PDN notifications. Its configuration follows
-# each radio power-up (ims_cfg).
+# and VoPS reports, and IMS PDN notifications. ModemManager's mtk-ccci
+# plugin then sends the IMS configuration (ID_MM_MTK_CCCI_IMS_CFG), so IMS
+# starts once its PDN events are handled there.
 ims_setup() {
 	cmd 'AT+EAPNLOCK=1'
 	cmd 'AT+EAPNSET="ims",1,"",""'
@@ -114,14 +115,6 @@ ims_setup() {
 dsbp=$(sed -n 's/^persist\.vendor\.radio\.mtk_dsbp_support=//p' /etc/q25-modem/properties)
 cmd "AT+EDSBP=${dsbp:-0}"
 
-# The IMS configuration (VoLTE, SMS over IMS) from the modem port's udev
-# property, as ModemManager sends it after its own radio power-ups; the
-# modem's IMS controller turns off with the radio.
-ims_cfg() {
-	cfg=$(udevadm info -q property -n /dev/ttyC0 | sed -n 's/^ID_MM_MTK_CCCI_IMS_CFG=//p')
-	[ -n "$cfg" ] && cmd "AT+EIMSCFG=$cfg"
-}
-
 [ -n "$IA_APN" ] && set_apn "$IA_APN"
 ims_setup
 radio_on
@@ -135,7 +128,6 @@ if [ -z "$IA_APN" ] && apn=$(carrier_apn) && [ -n "$apn" ]; then
 	set_apn "$apn"
 	radio_on
 fi
-ims_cfg
 # Call control as the stock RIL sets it up (RmcCallControlCommonRequestHandler):
 # call waiting, every call progress report (+ECPI; ModemManager's mtk-ccci
 # plugin consumes them), incoming calls waiting for the host to allow them
