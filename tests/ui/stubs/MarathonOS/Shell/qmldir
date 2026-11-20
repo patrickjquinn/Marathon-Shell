@@ -44,6 +44,7 @@ MAppIcon 1.0 MAppIcon.qml
 singleton SystemControlStore 1.0 SystemControlStore.qml
 singleton Modem 1.0 Modem.qml
 singleton FlashlightManagerCpp 1.0 FlashlightManagerCpp.qml
+singleton BluetoothManagerCpp 1.0 BluetoothManagerCpp.qml
 singleton MPRIS2Controller 1.0 MPRIS2Controller.qml
 MQSTile 1.0 ../../../../../shell/qml/ui/MQSTile.qml
 MQSSlider 1.0 ../../../../../shell/qml/ui/MQSSlider.qml
