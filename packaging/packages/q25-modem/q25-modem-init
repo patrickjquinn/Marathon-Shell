@@ -122,10 +122,18 @@ if [ -z "$IA_APN" ] && apn=$(carrier_apn) && [ -n "$apn" ]; then
 	set_apn "$apn"
 	radio_on
 fi
-# Incoming calls wait for the host to allow them (+EAIC), as with the stock
-# RIL; ModemManager's mtk-ccci plugin answers each. Call progress (+ECPI)
-# stays off: nothing reads it.
+# Call control as the stock RIL sets it up (RmcCallControlCommonRequestHandler):
+# call waiting, every call progress report (+ECPI; ModemManager's mtk-ccci
+# plugin consumes them), incoming calls waiting for the host to allow them
+# (+EAIC, which the plugin answers), voice codec and call cause reports.
+cmd 'ATS0=0'
+cmd 'AT+CCWA=1'
+cmd 'AT+ECPI=4294967295'
 cmd 'AT+EAIC=2'
-cmd 'AT+ECPI=0'
+cmd 'AT+EVOCD=1'
+cmd 'AT+ECCP=1'
+cmd 'AT+EECCFC=1'
 cmd 'AT+CPIN?'
+# Phone activity at bring-up (+CPAS: 0 ready, 4 call in progress).
+cmd 'AT+CPAS'
 exit 0
