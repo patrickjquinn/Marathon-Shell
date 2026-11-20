@@ -32,6 +32,8 @@ Item {
     // confirmation, whether it was allowed.
     property string stamp: ""
     property bool approved: false
+    // In the overlay's sheet, what you asked is a quiet line.
+    property bool sheet: false
     signal answer(bool approved)
     signal look(string question)
     signal openSettings
@@ -110,7 +112,7 @@ Item {
                 textFormat: Text.PlainText
                 horizontalAlignment: card.mine ? Text.AlignRight : Text.AlignLeft
                 font.pixelSize: card.failed ? Theme.fontSizeSmall : Theme.fontSizeMedium
-                color: card.failed ? Theme.secondaryColor : Theme.primaryColor
+                color: card.failed || (card.sheet && card.mine) ? Theme.secondaryColor : Theme.primaryColor
                 text: card.kind === "confirm" ? card.detail : card.text
             }
             Label {

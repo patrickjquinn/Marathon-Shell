@@ -20,6 +20,9 @@ DelegateChooser {
     // "Look with the camera" on a question back, and the Settings link.
     signal look(string question)
     signal openSettings
+    // In the overlay's sheet: questions quiet, no times, an answer's links
+    // and follow-ups as rows.
+    property bool sheet: false
 
     role: "kind"
     DelegateChoice {
@@ -110,6 +113,7 @@ DelegateChooser {
             required via
             required ms
             readonly property var c: JSON.parse(payload)
+            sheet: cards.sheet
             text: c.text
             sources: c.sources || []
             how: c.how || []
@@ -124,7 +128,8 @@ DelegateChooser {
             required property int index
             required property string time
             required property bool allowed
-            stamp: time
+            stamp: cards.sheet ? "" : time
+            sheet: cards.sheet
             approved: allowed
             onAnswer: function (approved) {
                 Conversation.answer(index, approved);
