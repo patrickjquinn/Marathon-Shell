@@ -138,7 +138,8 @@ FocusScope {
             height: width
             anchors.left: parent.left
             anchors.leftMargin: Silica.Theme.horizontalPageMargin
-            anchors.verticalCenter: parent.verticalCenter
+            // Level with the title, however many lines and actions follow it.
+            anchors.top: textColumn.top
             // Read rows step back, as BB10's monochrome icons did.
             opacity: row.unread || row.ongoing ? 1 : 0.55
 

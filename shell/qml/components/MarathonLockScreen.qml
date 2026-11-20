@@ -730,7 +730,6 @@ Item {
 
                                     Rectangle {
                                         id: notifIcon
-                                        anchors.verticalCenter: parent.verticalCenter
                                         width: Silica.Theme.iconSizeMedium
                                         height: width
                                         radius: width / 2
