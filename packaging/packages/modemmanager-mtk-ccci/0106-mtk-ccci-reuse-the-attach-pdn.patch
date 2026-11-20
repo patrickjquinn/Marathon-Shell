@@ -1,0 +1,146 @@
+From be2ff4d6edfab90c4b0299c75de03c50e4c72823 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 20 Nov 2026 14:40:30 +0000
+Subject: [PATCH] mtk-ccci: reuse the LTE attach PDN, not the only active one
+
+With IMS the modem keeps a second PDN up for the ims APN (aid 2 on eir),
+which it owns and will not release (+CME ERROR: 54015). Without an APN
+the bearer took "the only active PDN", found two, and failed with "no
+APN given and no attach PDN to reuse", so mobile data never came back
+after the radio was cycled. The attach PDN is aid 0, the one the bearer
+already refuses to release: reuse that, and fall back to it when the
+network replaced the requested APN.
+---
+ .../mtk-ccci/mm-broadband-bearer-mtk-ccci.c   | 69 ++++++++++---------
+ 1 file changed, 36 insertions(+), 33 deletions(-)
+
+diff --git a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+index e25fe77..4b33022 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+@@ -50,6 +50,8 @@
+  */
+ 
+ #define UNKNOWN_AID G_MAXUINT
++/* The LTE attach PDN (default bearer) */
++#define ATTACH_AID  0
+ 
+ G_DEFINE_TYPE (MMBroadbandBearerMtkCcci, mm_broadband_bearer_mtk_ccci, MM_TYPE_BROADBAND_BEARER)
+ 
+@@ -259,8 +261,8 @@ apn_matches (const gchar *reported,
+ 
+ /* +CGCONTRDP: <aid>,<bearer id>,<apn>,<local addr>,<gw>,<dns1>,<dns2>,...
+  * lists the active PDNs; a dual stack PDN has one line per family. Returns
+- * the aid of the PDN for APN (any APN if NULL, as long as only one PDN is
+- * active), or UNKNOWN_AID. */
++ * the aid of the PDN for APN (the LTE attach PDN, aid 0, if NULL), or
++ * UNKNOWN_AID. */
+ static guint
+ parse_cgcontrdp (const gchar *response,
+                  const gchar *apn,
+@@ -284,17 +286,10 @@ parse_cgcontrdp (const gchar *response,
+         fields = split_fields (line + strlen ("+CGCONTRDP:"));
+         if (fields->len < 3 || !mm_get_uint_from_str (g_ptr_array_index (fields, 0), &aid))
+             continue;
+-        if (apn && !apn_matches (g_ptr_array_index (fields, 2), apn))
++        if (apn ? !apn_matches (g_ptr_array_index (fields, 2), apn) : aid != ATTACH_AID)
++            continue;
++        if (found != UNKNOWN_AID && found != aid)
+             continue;
+-        if (found != UNKNOWN_AID && found != aid) {
+-            if (apn)
+-                continue;
+-            if (dns4 && dns6) {
+-                g_ptr_array_set_size (dns4, 0);
+-                g_ptr_array_set_size (dns6, 0);
+-            }
+-            return UNKNOWN_AID;
+-        }
+         found = aid;
+ 
+         for (j = 5; dns4 && dns6 && j < 7 && j < fields->len; j++) {
+@@ -309,28 +304,36 @@ parse_cgcontrdp (const gchar *response,
+     return found;
+ }
+ 
+-/* The APN of the only active PDN, without the operator suffix */
++/* The APN of the LTE attach PDN, without the operator suffix */
+ static gchar *
+-single_pdn_apn (const gchar *response)
++attach_pdn_apn (const gchar *response)
+ {
+-    g_autoptr(GPtrArray)  fields = NULL;
+-    g_autofree gchar     *line = NULL;
+-    const gchar          *apn;
+-    const gchar          *p;
++    g_auto(GStrv) lines = NULL;
++    guint         i;
+ 
+-    if (parse_cgcontrdp (response, NULL, NULL, NULL) == UNKNOWN_AID)
+-        return NULL;
+-    p = strstr (response, "+CGCONTRDP:") + strlen ("+CGCONTRDP:");
+-    line = g_strndup (p, strcspn (p, "\r\n"));
+-    fields = split_fields (line);
+-    if (fields->len < 3)
+-        return NULL;
+-    apn = g_ptr_array_index (fields, 2);
+-    for (p = apn; *p; p++) {
+-        if (*p == '.' && g_ascii_strncasecmp (p, ".mnc", 4) == 0)
+-            break;
++    lines = g_strsplit (response, "\n", -1);
++    for (i = 0; lines[i]; i++) {
++        g_autoptr(GPtrArray)  fields = NULL;
++        const gchar          *line;
++        const gchar          *apn;
++        const gchar          *p;
++        guint                 aid;
++
++        line = g_strstrip (lines[i]);
++        if (!g_str_has_prefix (line, "+CGCONTRDP:"))
++            continue;
++        fields = split_fields (line + strlen ("+CGCONTRDP:"));
++        if (fields->len < 3 || !mm_get_uint_from_str (g_ptr_array_index (fields, 0), &aid) ||
++            aid != ATTACH_AID)
++            continue;
++        apn = g_ptr_array_index (fields, 2);
++        for (p = apn; *p; p++) {
++            if (*p == '.' && g_ascii_strncasecmp (p, ".mnc", 4) == 0)
++                break;
++        }
++        return (p > apn) ? g_strndup (apn, p - apn) : NULL;
+     }
+-    return (p > apn) ? g_strndup (apn, p - apn) : NULL;
++    return NULL;
+ }
+ 
+ static void
+@@ -347,7 +350,7 @@ stale_check_ready (MMBaseModem  *modem,
+     /* Without an APN, reuse the attach PDN, as the stock RIL does for the
+      * default data call */
+     if (!ctx->apn) {
+-        ctx->apn = response ? single_pdn_apn (response) : NULL;
++        ctx->apn = response ? attach_pdn_apn (response) : NULL;
+         if (!ctx->apn) {
+             g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
+                                      "no APN given and no attach PDN to reuse");
+@@ -365,7 +368,7 @@ stale_check_ready (MMBaseModem  *modem,
+     /* A PDN still bound from before (e.g. the daemon restarted while
+      * connected) must be released first, or the activation fails. aid 0 is
+      * the LTE attach PDN: never release it, activating its APN reuses it */
+-    ctx->step = (ctx->stale_aid != UNKNOWN_AID && ctx->stale_aid != 0) ?
++    ctx->step = (ctx->stale_aid != UNKNOWN_AID && ctx->stale_aid != ATTACH_AID) ?
+                 CONNECT_STEP_STALE_DEACTIVATE : CONNECT_STEP_EAPNACT;
+     connect_step (task);
+ }
+@@ -427,7 +430,7 @@ cgcontrdp_ready (MMBaseModem  *modem,
+     if (ctx->aid == UNKNOWN_AID) {
+         /* The network may give the attach PDN another APN than the one
+          * requested (its default for the subscription); the modem then
+-         * binds that PDN, the only one active */
++         * binds that PDN, the attach PDN */
+         ctx->aid = parse_cgcontrdp (response, NULL, ctx->dns4, ctx->dns6);
+         if (ctx->aid != UNKNOWN_AID)
+             mm_obj_msg (self, "network replaced APN '%s', using its PDN aid %u", ctx->apn, ctx->aid);
+-- 
+2.55.0
+
