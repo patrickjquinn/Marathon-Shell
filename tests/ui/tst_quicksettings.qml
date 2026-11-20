@@ -249,6 +249,16 @@ TestCase {
         verify(seen[seen.length / 2] > 30 && seen[seen.length / 2] < 70, "continuous: " + seen);
     }
 
+    // Live statuses rebuild the tiles every few seconds; the page stays put.
+    function test_tilePageSurvivesStatusUpdates() {
+        const pager = findChild(qs, "tilePager");
+        verify(pager.count > 1, "more than one page");
+        pager.currentIndex = 1;
+        SystemControlStore.brightness = 10;
+        SystemControlStore.brightness = 60;
+        compare(pager.currentIndex, 1);
+    }
+
     // The value shown, the value set and the OSD's percentage agree.
     function test_sliderSetsWholeValues() {
         fit.height = 5000;

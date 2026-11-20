@@ -175,7 +175,7 @@ Item {
     readonly property var bluetoothDevice: BluetoothManagerCpp.pairedDevices.find(d => d.connected) || null
 
     // Hardware tiles only when the hardware exists: without it they control nothing.
-    // `route` is the Settings page a tile's words open. The order is the pages'.
+    // `route` is the Settings page holding a tile opens. The order is the pages'.
     readonly property var tiles: {
         const wifiOn = SystemControlStore.shown("wifi", SystemControlStore.isWifiOn);
         const wifiJoined = wifiOn && SystemStatusStore.wifiConnected && SystemStatusStore.wifiNetwork !== "";
@@ -493,18 +493,20 @@ Item {
                 cacheBuffer: Math.max(1, width) * quickSettings.tilePages.length
                 // The neighbouring pages would show in the page margins.
                 clip: true
-                model: quickSettings.tilePages
+                // The page count, not the pages: live statuses rebuild the
+                // tiles every few seconds, and a new model would reset the page.
+                model: quickSettings.tilePages.length
 
                 delegate: Grid {
                     id: page
 
-                    required property var modelData
+                    required property int index
                     width: tilePager.width
                     columns: 2
                     spacing: Silica.Theme.paddingSmall
 
                     Repeater {
-                        model: page.modelData
+                        model: quickSettings.tilePages[page.index] || []
                         delegate: MQSTile {
                             required property var modelData
                             width: (page.width - page.spacing) / 2
@@ -697,7 +699,7 @@ Item {
         }
     }
 
-    // A tile's words open its page in Settings.
+    // Holding a tile opens its page in Settings.
     function openSettings(route) {
         quickSettings.closed();
         quickSettings.launchApp({
