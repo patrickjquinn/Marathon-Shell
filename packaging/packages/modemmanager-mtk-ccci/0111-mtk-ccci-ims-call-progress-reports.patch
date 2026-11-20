@@ -1,0 +1,79 @@
+From c6409ca2bebcfe61a591e88adbd30483028bc676 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 20 Nov 2026 20:06:14 +0000
+Subject: [PATCH] mtk-ccci: keep IMS call progress reports out of command
+ replies
+
+Answering a call over IMS (VoLTE), the modem reports its SIP progress
+(+ESIPCPI), speech (+ESPEECH) and video capability (+EIMSVCAP) between
+ATA and its OK. ATA's reply must be empty, so ModemManager took them for
+an error and ended a call the network had just connected, which then
+stayed up with no audio. Treat them, with +ECPI and the codec report
+(+EVOCD), as the unsolicited reports they are.
+---
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.c    | 20 ++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index 58963aa..e060e42 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -49,7 +49,7 @@ struct _MMBroadbandModemMtkCcciPrivate {
+     GRegex *eif_ifchg_regex;
+     GRegex *eimspdn_regex;
+     GRegex *eaic_regex;
+-    GRegex *ecpi_regex;
++    GRegex *call_progress_regex;
+     GRegex *no_carrier_regex;
+     /* PDN interfaces the modem brought up by itself (IMS), by +EIF id */
+     MMNetagentMtkCcci *netagent;
+@@ -370,10 +370,12 @@ eaic_received (MMPortSerialAt          *port,
+     mm_base_modem_at_command (MM_BASE_MODEM (self), command, 5, FALSE, NULL, NULL);
+ }
+ 
+-/* +ECPI call progress, if enabled, arrives between a command and its reply
+- * (ATA among them) and must not be taken for the reply. */
++/* Call progress (+ECPI), and over IMS the SIP progress (+ESIPCPI), speech
++ * (+ESPEECH), video capability (+EIMSVCAP) and codec (+EVOCD) reports,
++ * arrive between a command and its reply (ATA among them) and must not be
++ * taken for the reply. */
+ static void
+-ecpi_received (MMPortSerialAt          *port,
++call_progress_received (MMPortSerialAt          *port,
+                GMatchInfo              *match_info,
+                MMBroadbandModemMtkCcci *self)
+ {
+@@ -425,8 +427,8 @@ setup_ports (MMBroadbandModem *_self)
+             NULL);
+         mm_port_serial_at_add_unsolicited_msg_handler (
+             ports[i],
+-            self->priv->ecpi_regex,
+-            (MMPortSerialAtUnsolicitedMsgFn) ecpi_received,
++            self->priv->call_progress_regex,
++            (MMPortSerialAtUnsolicitedMsgFn) call_progress_received,
+             self,
+             NULL);
+         mm_port_serial_at_add_unsolicited_msg_handler (ports[i], self->priv->no_carrier_regex,
+@@ -750,8 +752,8 @@ mm_broadband_modem_mtk_ccci_init (MMBroadbandModemMtkCcci *self)
+                                           G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->no_carrier_regex = g_regex_new ("\\r\\nNO CARRIER\\r\\n",
+                                                 G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+-    self->priv->ecpi_regex = g_regex_new ("\\r\\n\\+ECPI:[^\\r\\n]*\\r\\n",
+-                                          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    self->priv->call_progress_regex = g_regex_new ("\\r\\n\\+(ECPI|ESIPCPI|ESPEECH|EIMSVCAP|EVOCD):[^\\r\\n]*\\r\\n",
++                                                   G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->eif_ifup_regex = g_regex_new ("\\r\\n\\+EIF:\\s*(\\d+)\\s*,\\s*ifup\\s*,\\s*(\\d+)\\s*,\\s*([0-9A-Fa-f:.]+)[^\\r\\n]*\\r\\n",
+                                               G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->eif_ifchg_regex = g_regex_new ("\\r\\n\\+EIF:\\s*(\\d+)\\s*,\\s*ifchg\\s*,\\s*\\d+\\s*,\\s*([0-9A-Fa-f:.]+)[^\\r\\n]*\\r\\n",
+@@ -773,7 +775,7 @@ finalize (GObject *object)
+     g_hash_table_unref (self->priv->pdns);
+     mm_netagent_mtk_ccci_free (self->priv->netagent);
+     g_regex_unref (self->priv->eaic_regex);
+-    g_regex_unref (self->priv->ecpi_regex);
++    g_regex_unref (self->priv->call_progress_regex);
+     g_regex_unref (self->priv->no_carrier_regex);
+ 
+     G_OBJECT_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->finalize (object);
+-- 
+2.55.0
+
