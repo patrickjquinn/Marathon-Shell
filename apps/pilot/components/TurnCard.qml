@@ -4,8 +4,8 @@
 // One entry of the conversation: the user's words, or one card from
 // pilotd (response, clarify, confirm, camera, offline, error). Laid out as
 // Jolla Messages lays out a conversation: what you said on the right, what
-// Pilot said on the left, each bubble inside the page margin on its own side
-// and leaving the other side free, the time below the text. A confirmation
+// Pilot said on the left, each inside the page margin on its own side and
+// leaving the other side free, the time below the text. A confirmation
 // card says what will happen and waits for Allow or Cancel; it is answered
 // once and then says which. A camera card offers the viewfinder; its
 // question travels in `detail`.
@@ -65,7 +65,6 @@ Item {
     height: bubble.height + Theme.paddingMedium
 
     readonly property bool mine: who === "you"
-    readonly property bool pending: (kind === "confirm" || kind === "camera") && !answered
 
     Item {
         id: bubble
@@ -74,7 +73,7 @@ Item {
         // The opposite side always keeps a free strip, as in Messages.
         readonly property real maximumWidth: Math.min(card.width - 2 * Theme.horizontalPageMargin - Theme.paddingLarge, 6 * Theme.itemSizeLarge)
         readonly property real naturalWidth: Math.max(titleLabel.visible ? titleLabel.implicitWidth : 0, textWidth.advanceWidth, stampLabel.implicitWidth, cameraButton.visible ? cameraButton.implicitWidth : 0, card.pointsToSettings || card.offersRetry || card.offersDownload ? Theme.buttonWidthSmall : 0, buttonRow.visible ? 2 * Theme.buttonWidthExtraSmall + Theme.paddingMedium : 0)
-        width: Math.min(maximumWidth, naturalWidth + 2 * Theme.paddingLarge)
+        width: Math.min(maximumWidth, naturalWidth)
 
         // The text's unwrapped width (a wrapping label's own implicit width
         // follows the width it is given).
@@ -87,17 +86,10 @@ Item {
         x: card.mine ? card.width - width - Theme.horizontalPageMargin : Theme.horizontalPageMargin
         height: content.height + 2 * Theme.paddingMedium
 
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.paddingLarge
-            color: card.kind === "confirm" && card.pending ? Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity) : card.mine ? Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint) : Theme.rgba(Theme.primaryColor, 0.08)
-        }
-
         Column {
             id: content
-            x: Theme.paddingLarge
             y: Theme.paddingMedium
-            width: bubble.width - 2 * Theme.paddingLarge
+            width: bubble.width
             spacing: Theme.paddingSmall
 
             Label {

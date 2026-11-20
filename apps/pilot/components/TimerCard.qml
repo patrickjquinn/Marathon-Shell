@@ -26,7 +26,6 @@ Glass {
     readonly property bool done: remaining === 0 && !cancelled
     readonly property bool live: !done && !cancelled
 
-    accent: live
     opacity: cancelled ? 0.6 : 1
     Behavior on opacity {
         FadeAnimator {}

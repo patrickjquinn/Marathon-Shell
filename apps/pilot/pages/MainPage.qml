@@ -134,18 +134,17 @@ Page {
         header: Column {
             width: list.width
             bottomPadding: list.count > 0 ? Theme.paddingMedium : 0
-            // In a conversation: a plain header. Before one: the home.
+            // Before a conversation: the greeting and the date.
             PageHeader {
-                visible: list.count > 0
-                title: qsTr("Pilot")
-                description: Pilot.offline ? qsTr("Offline") : ""
+                readonly property bool home: list.count === 0 && !!page.now.greeting
+                title: home ? page.now.greeting : qsTr("Pilot")
+                description: home ? (page.now.offline ? qsTr("%1 · Offline").arg(page.now.date || "") : (page.now.date || "")) : Pilot.offline ? qsTr("Offline") : ""
             }
             Label {
                 objectName: "offlineBanner"
                 visible: Pilot.offline || Pilot.error.length > 0
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                topPadding: list.count > 0 ? 0 : Theme.paddingLarge
                 bottomPadding: Theme.paddingLarge
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
@@ -303,20 +302,7 @@ Page {
 
         Rectangle {
             anchors.fill: parent
-            gradient: Gradient {
-                GradientStop {
-                    position: 0.0
-                    color: "transparent"
-                }
-                GradientStop {
-                    position: 0.45
-                    color: Theme.rgba(Theme.overlayBackgroundColor, 0.55)
-                }
-                GradientStop {
-                    position: 1.0
-                    color: Theme.rgba(Theme.overlayBackgroundColor, 0.85)
-                }
-            }
+            color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityHigh)
         }
         MouseArea {
             anchors.fill: parent
@@ -360,6 +346,7 @@ Page {
         height: sheetColumn.height + 2 * Theme.paddingMedium
         dock: Dock.Bottom
         open: true
+        background: null
 
         Column {
             id: sheetColumn

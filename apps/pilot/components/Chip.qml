@@ -36,8 +36,6 @@ BackgroundItem {
         height: Theme.itemSizeExtraSmall
         radius: height / 2
         color: chip.down ? Theme.rgba(Theme.highlightBackgroundColor, 0.35) : Theme.rgba(Theme.primaryColor, chip.secondary ? 0.04 : 0.08)
-        border.width: 1
-        border.color: Theme.rgba(chip.secondary ? Theme.primaryColor : Theme.highlightColor, chip.secondary ? 0.10 : 0.30)
     }
 
     Row {

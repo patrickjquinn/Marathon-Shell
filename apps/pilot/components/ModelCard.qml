@@ -63,7 +63,6 @@ Glass {
 
     objectName: "modelCard"
     visible: ["absent", "downloading", "loading", "failed"].indexOf(phase) >= 0
-    accent: true
 
     Label {
         objectName: "modelHeadline"
