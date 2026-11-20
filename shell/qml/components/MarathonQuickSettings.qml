@@ -175,7 +175,7 @@ Item {
     readonly property var bluetoothDevice: BluetoothManagerCpp.pairedDevices.find(d => d.connected) || null
 
     // Hardware tiles only when the hardware exists: without it they control nothing.
-    // `route` is the Settings page a tile's words open.
+    // `route` is the Settings page a tile's words open. The order is the pages'.
     readonly property var tiles: {
         const wifiOn = SystemControlStore.shown("wifi", SystemControlStore.isWifiOn);
         const wifiJoined = wifiOn && SystemStatusStore.wifiConnected && SystemStatusStore.wifiNetwork !== "";
@@ -216,11 +216,6 @@ Item {
             label: qsTr("Flight"),
             on: SystemControlStore.shown("airplane", SystemControlStore.isAirplaneModeOn)
         }, {
-            id: "hotspot",
-            icon: "broadcast",
-            label: qsTr("Hotspot"),
-            on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
-        }, {
             id: "dnd",
             route: "notifications",
             icon: "bell-slash",
@@ -235,6 +230,11 @@ Item {
                 on: SystemControlStore.isFlashlightOn
             });
         t.push({
+            id: "hotspot",
+            icon: "broadcast",
+            label: qsTr("Hotspot"),
+            on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
+        }, {
             id: "location",
             icon: "map-pin",
             label: qsTr("Location"),
@@ -289,6 +289,17 @@ Item {
                 on: SettingsManagerCpp.trackpadMode === "mouse"
             });
         return enabledOnly(t);
+    }
+    // Switches, then the one-shot shortcuts, in pages of two across by three.
+    readonly property int tilesPerPage: 6
+    readonly property var tilePages: {
+        const all = tiles.concat(shortcuts.map(s => Object.assign({
+                "shortcut": true
+            }, s)));
+        const pages = [];
+        for (let i = 0; i < all.length; i += tilesPerPage)
+            pages.push(all.slice(i, i + tilesPerPage));
+        return pages;
     }
     readonly property bool powerShown: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf("power") >= 0
 
@@ -384,8 +395,10 @@ Item {
         interactive: quickSettings.maxHeight > 0 && contentHeight > quickSettings.maxHeight
 
         // The shade is hidden, not destroyed: reopen at the top.
-        onVisibleChanged: if (!visible)
-            contentY = 0
+        onVisibleChanged: if (!visible) {
+            contentY = 0;
+            tilePager.positionViewAtBeginning();
+        }
 
         // A tap off the controls dismisses. An item beneath them, not a
         // handler over them: a control that takes the press keeps the tap.
@@ -465,43 +478,81 @@ Item {
                 }
             }
 
-            // ── Switches and shortcuts, three across ─────────────
-            Flow {
-                id: tileGrid
+            // ── Switches and shortcuts: pages swiped sideways, as on BB10 ──
+            ListView {
+                id: tilePager
 
-                objectName: "tileGrid"
+                objectName: "tilePager"
                 width: parent.width
-                spacing: Silica.Theme.paddingSmall
-                readonly property real cellWidth: (width - spacing * 2) / 3
+                height: contentItem.childrenRect.height
+                orientation: ListView.Horizontal
+                snapMode: ListView.SnapOneItem
+                highlightRangeMode: ListView.StrictlyEnforceRange
+                boundsBehavior: Flickable.StopAtBounds
+                // Every page stays built: few, and switches off-screen keep their state.
+                cacheBuffer: Math.max(1, width) * quickSettings.tilePages.length
+                // The neighbouring pages would show in the page margins.
+                clip: true
+                model: quickSettings.tilePages
 
-                Repeater {
-                    model: quickSettings.tiles
-                    delegate: MQSTile {
-                        required property var modelData
-                        width: tileGrid.cellWidth
-                        iconName: modelData.icon
-                        label: modelData.label
-                        status: modelData.status !== undefined ? modelData.status : modelData.id === "hotspot" && modelData.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(modelData.on)
-                        hasPage: modelData.route !== undefined
-                        on: modelData.on === true
-                        busy: SystemControlStore.pendingSwitches.indexOf(modelData.id) >= 0
-                        onToggled: quickSettings.toggle(modelData.id)
-                        onHeld: quickSettings.hold(modelData.id)
-                        onOpened: quickSettings.openSettings(modelData.route)
+                delegate: Grid {
+                    id: page
+
+                    required property var modelData
+                    width: tilePager.width
+                    columns: 2
+                    spacing: Silica.Theme.paddingSmall
+
+                    Repeater {
+                        model: page.modelData
+                        delegate: MQSTile {
+                            required property var modelData
+                            width: (page.width - page.spacing) / 2
+                            iconName: modelData.icon
+                            label: modelData.label
+                            checkable: modelData.shortcut !== true
+                            status: modelData.shortcut === true ? "" : modelData.status !== undefined ? modelData.status : modelData.id === "hotspot" && modelData.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(modelData.on)
+                            hasPage: modelData.route !== undefined
+                            on: modelData.on === true
+                            busy: SystemControlStore.pendingSwitches.indexOf(modelData.id) >= 0
+                            onToggled: {
+                                if (modelData.shortcut === true) {
+                                    MHaptics.light();
+                                    quickSettings.doAction(modelData.id);
+                                } else {
+                                    quickSettings.toggle(modelData.id);
+                                }
+                            }
+                            onHeld: quickSettings.hold(modelData.id)
+                            onOpened: quickSettings.openSettings(modelData.route)
+                        }
                     }
                 }
-                // One-shot actions after the switches, as BB10 mixed them.
+            }
+
+            // Which page: a dot for each, the current one lit; a tap goes there.
+            Row {
+                objectName: "tilePageDots"
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Silica.Theme.paddingMedium
+                visible: quickSettings.tilePages.length > 1
+
                 Repeater {
-                    model: quickSettings.shortcuts
-                    delegate: MQSTile {
-                        required property var modelData
-                        width: tileGrid.cellWidth
-                        checkable: false
-                        iconName: modelData.icon
-                        label: modelData.label
-                        onToggled: {
-                            MHaptics.light();
-                            quickSettings.doAction(modelData.id);
+                    model: quickSettings.tilePages.length
+                    delegate: MouseArea {
+                        id: dot
+
+                        required property int index
+                        width: Silica.Theme.paddingLarge
+                        height: width
+                        onClicked: tilePager.currentIndex = index
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: Math.round(Silica.Theme.paddingSmall * 1.2)
+                            height: width
+                            radius: width / 2
+                            color: dot.index === tilePager.currentIndex ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.3)
                         }
                     }
                 }
@@ -528,7 +579,7 @@ Item {
             // ── Brightness and volume ────────────────────────────
             Column {
                 width: parent.width
-                spacing: tileGrid.spacing
+                spacing: Silica.Theme.paddingSmall
 
                 MQSSlider {
                     objectName: "brightnessSlider"
