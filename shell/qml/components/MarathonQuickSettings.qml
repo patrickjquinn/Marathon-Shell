@@ -21,7 +21,6 @@ Item {
 
     // What the shade frosts, bottom to top: the open app, or the wallpaper
     // and the home screen.
-    property list<Item> backdrops
 
     signal closed
     signal launchApp(var app)
@@ -38,25 +37,17 @@ Item {
     // follows the finger.
     readonly property real openProgress: Math.min(1, height / Math.max(1, maxHeight))
 
-    // Backdrop: what is behind the shade, frosted. It keeps the open shade's
-    // size while the shade animates and the shade clips it, so a drag does
-    // not re-blur at every height. A solid floor keeps the shade opaque.
-    Rectangle {
-        anchors.fill: parent
-        color: MColors.elev0
-    }
-    AppBackdropBlur {
+    // The ambience, flat, at the open shade's size so a drag doesn't reload it;
+    // the shade clips it.
+    KeelAmbienceBackground {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: quickSettings.maxHeight
-        sources: quickSettings.backdrops
-        sourceRect: Qt.rect(0, quickSettings.y, width, height)
-        blurAmount: 1.0
-        blurMax: MBlur.xl
-        saturation: 0.8
-        brightness: -0.05
-        tint: Qt.rgba(0, 0, 0, 0.5)
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     // The drawn height: follows UIStore while a finger drags the shade and

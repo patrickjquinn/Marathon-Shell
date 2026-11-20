@@ -52,7 +52,7 @@ how Marathon expresses it.
 |---|---|---|
 | **Spring physics over ease curves** | iOS rubber-banding, M3 Expressive's 4-rung stiffness ladder, OneUI 7 micro-springs | `MMotion.stiffness{High,Medium,Low,VeryLow}` + spatial/effects damping split. `MMotion.roles` table tags every microinteraction with a role, not a duration |
 | **Predictive gestures** | Android predictive-back, iOS edge-swipe with parallax | `MarathonNavBar.backProgress` drives `appWindowContainer.scale 1.0→0.9` + opacity fade past `MMotion.backFadeThreshold` (0.35). Pill left-drag is the primary back affordance |
-| **Flat materials, blur with discipline** | M3 Expressive's tinted scrim, OneUI 7's translucent shade | Flat fills on one plane (no glass, bevels or borders); content on the ambience; live blur only behind the shade, Hub, lock screen and Keel dialogs (`MBlur` role map). |
+| **Flat materials, no blur** | M3 Expressive's tinted scrim | Flat fills on one plane (no glass, bevels, borders or blur); content on the ambience; Keel dialogs dim the live app. |
 | **Restraint at the edge** | iOS's "everything is the same color but slightly different temperature", BB10's near-black palette | OLED-first dark theme, `#040404` floor, six elevation steps up to `#353536`. Teal accent (`#1de9b6` bright) appears only on the active path: focused control, current tab, primary action |
 | **Microcoherence (sub-frame)** | Apple's app-open animation that paints chrome + app body as one surface; impossible on multi-process compositors | In-process scenegraph means a status-bar reveal, a navbar pill morph, and an app-window scale can land in one frame with zero IPC. We design for this — see §7 |
 | **Live activities / persistent surfaces** | Dynamic Island, iOS Live Activities, Android persistent notifications | NowBar (planned): an always-visible micro-surface for active calls, media, navigation, timers. One canonical promotion target, not per-feature widgets |
@@ -191,9 +191,10 @@ inset highlight that fades).
 The Sailfish glow idioms that remain are deliberate: the `Switch` glow and
 the page-stack indicator.
 
-**Blur** is for what lies behind the shade, the Hub, the lock screen and
-Keel dialogs (`AppBackdropBlur`), never for a persistent row or control. FBO effects on persistent surfaces are
-banned: on the Librem 5's etnaviv a 4× layer drew at 2 fps.
+**No blur.** The shade, the Hub and the sheets lie on the ambience
+(`KeelAmbienceBackground`, one cached opaque image); the lock screen on its
+wallpaper; Keel dialogs dim the live app. FBO effects on persistent surfaces
+are banned: on the Librem 5's etnaviv a 4× layer drew at 2 fps.
 
 ---
 
@@ -334,20 +335,9 @@ Springs and haptics fire together — never one without the other.
 ### 6.1 Surfaces
 
 Controls and surfaces are flat fills (§3). Bands and sheets
-(toasts, the share sheet, the file picker) are the ambience edge to edge,
-lit along one edge by `MGlowLine`, Sailfish's glow line. Live blur is left
-only behind the Quick Settings shade, the Hub and the lock screen
-(`AppBackdropBlur`) and the Keel dialog layer.
-
-`MBlur.blurFor(role)` names the blur radii for the frosted backdrops:
-
-| Role | `MBlur.blurFor` | Use |
-|---|---|---|
-| `chrome` | 24 px | status bar, top bar, nav bar, dock, NowBar |
-| `sheet` | 24 px | modal sheets, full-bleed sheets, QS shade |
-| `dropdown` | 8 px | combo dropdowns, autocomplete popovers |
-| `halo` | 8 px | focus halos / glows |
-| `hairline` | 2 px | sub-1px glass tint on flat surfaces |
+(toasts, the share sheet, the file picker, Pilot's sheet, the Quick
+Settings shade) are the ambience edge to edge, lit along one edge by
+`MGlowLine`, Sailfish's glow line. Nothing is blurred.
 
 ### 6.2 In-process compositor as material moat
 
@@ -384,8 +374,7 @@ process boundaries here.
 
 ### 7.1 Status bar
 
-Top 50 px (scaled). Glass material at `MBlur.blurFor("chrome")` with
-`MColors.glassTitlebar` tint. Left cluster: battery + percent. Centre:
+Top 50 px (scaled), a flat `MColors.glassTitlebar` tint. Left cluster: battery + percent. Centre:
 lock icon (lockscreen only) or `time`. Right cluster: signal · LTE ·
 wifi · bluetooth.
 

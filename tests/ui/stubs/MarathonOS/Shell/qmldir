@@ -2,7 +2,6 @@ module MarathonOS.Shell
 ShellStub 1.0 ShellStub.qml
 singleton MTypography 1.0 ../../../../../shell/qml/theme/MTypography.qml
 singleton MColors 1.0 ../../../../../shell/qml/theme/MColors.qml
-singleton MBlur 1.0 ../../../../../shell/qml/theme/MBlur.qml
 singleton MHaptics 1.0 ../../../../../shell/qml/ui/MHaptics.qml
 singleton MMotion 1.0 MMotion.qml
 singleton Constants 1.0 Constants.qml

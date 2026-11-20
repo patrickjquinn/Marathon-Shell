@@ -41,7 +41,6 @@ Item {
     // The running app surface to blur behind the lock chrome, if any.
     // Set by MarathonShell.qml to appWindowContainer when an app is
     // open; null otherwise (the wallpaper renders through normally).
-    property Item appBackdrop: null
 
     property real swipeProgress: 0
     // The app whose notification stack is open; the others show their newest.
@@ -296,23 +295,6 @@ Item {
             sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-        }
-
-        AppBackdropBlur {
-            anchors.fill: parent
-            source: lockScreen.appBackdrop
-            blurAmount: 1.0
-            // 24 instead of 64 — see AppBackdropBlur.qml. A wider kernel
-            // is invisible past ~24 on a 540×1140 screen but quadruples
-            // fillrate on etnaviv.
-            blurMax: MBlur.xl
-            saturation: 0.4
-            brightness: -0.15
-            tint: Qt.rgba(0, 0, 0, 0.25)
-            // The lock screen sits over an app that has been frozen by
-            // AppLifecycleManager — its surface texture does not change.
-            // Sample once, then stop.
-            live: false
         }
     }
 

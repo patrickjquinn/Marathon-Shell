@@ -16,7 +16,6 @@ Rectangle {
 
     property bool isInPeekMode: false
     // Peeking over the screen, what it frosts, bottom to top; empty, the ambience.
-    property list<Item> backdrops
     property var agenda: []
     // An app id narrows the list to that app; "" shows everything.
     property string filterApp: ""
@@ -143,7 +142,6 @@ Rectangle {
     KeelAmbienceBackground {
         id: ambience
 
-        visible: hub.backdrops.length === 0
         width: hub.Window.width
         height: hub.Window.height
         wallpaper: AmbienceService.wallpaperUrl
@@ -151,23 +149,6 @@ Rectangle {
         light: AmbienceService.light
         brightest: AmbienceService.brightest
         darkest: AmbienceService.darkest
-    }
-
-    Rectangle {
-        width: hub.Window.width
-        height: hub.Window.height
-        visible: hub.backdrops.length > 0
-        color: MColors.elev0
-    }
-    AppBackdropBlur {
-        width: hub.Window.width
-        height: hub.Window.height
-        sources: hub.backdrops
-        sourceRect: Qt.rect(0, 0, width, height)
-        blurMax: MBlur.xl
-        saturation: 0.8
-        brightness: -0.05
-        tint: Qt.rgba(0, 0, 0, 0.5)
     }
 
     Silica.SilicaListView {

@@ -1790,7 +1790,6 @@ Item {
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
-        backdrops: UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
 
         // The Hub and Quick Settings never outlive a lock or an app launch.
         Connections {
@@ -2209,8 +2208,6 @@ Item {
         visible: drawnHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
-        // Over the lock screen it blurs the lock screen, not the home behind it.
-        backdrops: SessionStore.isLocked ? [lockScreen] : UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
         onClosed: {
             UIStore.closeQuickSettings();
         }
@@ -2335,7 +2332,6 @@ Item {
 
         anchors.fill: parent
         z: Constants.zIndexLockScreen
-        appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
         comboLength: comboEntry.combo.length
         onIdleExpired: reason => nightshade.idle(reason)
         onUnlockRequested: {

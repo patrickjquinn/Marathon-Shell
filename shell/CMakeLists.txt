@@ -102,7 +102,6 @@ endif()
 set(QML_FILES
     qml/Main.qml
     qml/MarathonShell.qml
-    qml/components/AppBackdropBlur.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonNightshade.qml
     qml/components/MarathonAppGrid.qml
@@ -195,7 +194,6 @@ set(QML_FILES
     qml/theme/MRadius.qml
     qml/theme/MElevation.qml
     qml/theme/MMotion.qml
-    qml/theme/MBlur.qml
     qml/ui/GlyphIcon.qml
     qml/ui/MApp.qml
     qml/ui/MAppIcon.qml
@@ -280,7 +278,6 @@ set(SINGLETON_FILES
     qml/theme/MRadius.qml
     qml/theme/MElevation.qml
     qml/theme/MMotion.qml
-    qml/theme/MBlur.qml
     qml/ui/MHaptics.qml
     qml/ui/MPhoneNumber.qml
 )
