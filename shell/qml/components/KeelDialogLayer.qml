@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Effects
 
 // Keel apps' dialog windows (KeelDialog), above the app on screen or the
 // home screen, as Lipstick's dialog layer: Pilot's overlay. The dialog has
@@ -103,7 +102,7 @@ Item {
 
         objectName: "keelDialogBackdrop"
         anchors.fill: parent
-        opacity: root._showing && !MMotion.reduceBlur ? 1 : 0
+        opacity: root._showing ? 1 : 0
         visible: opacity > 0
 
         KeelAmbienceBackground {
@@ -115,37 +114,12 @@ Item {
             darkest: AmbienceService.darkest
         }
 
-        // Quarter resolution, captured when the dialog opens or moves, not
-        // live: the blur hides the detail and etnaviv can't afford a pass a frame.
-        ShaderEffectSource {
-            id: snapshot
-
-            objectName: "keelDialogSnapshot"
+        // The app stays live under a flat dim: no capture, no blur.
+        Rectangle {
+            objectName: "keelDialogDim"
             anchors.fill: parent
-            visible: false
-            sourceItem: backdrop.visible ? root.backdropSource : null
-            sourceRect: {
-                root.y;
-                root.height;
-                const p = sourceItem ? root.mapToItem(sourceItem, 0, 0) : Qt.point(0, 0);
-                return Qt.rect(p.x, p.y, root.width, root.height);
-            }
-            textureSize: Qt.size(Math.ceil(root.width / 4), Math.ceil(root.height / 4))
-            live: false
-            hideSource: false
-            onSourceItemChanged: scheduleUpdate()
-            onSourceRectChanged: scheduleUpdate()
-        }
-
-        MultiEffect {
-            anchors.fill: parent
-            visible: snapshot.sourceItem !== null
-            source: snapshot
-            autoPaddingEnabled: false
-            blurEnabled: true
-            blur: 1
-            blurMax: 16
-            brightness: -0.15
+            visible: !!root.backdropSource
+            color: Qt.rgba(0, 0, 0, 0.6)
         }
 
         Behavior on opacity {

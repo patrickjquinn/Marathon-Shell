@@ -143,16 +143,6 @@ QtObject {
     // Settings → Accessibility → Reduce motion. Components go through dur().
     property bool reduceMotion: typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true)
 
-    // ── Reduce blur (translucency) ────────────────────────────
-    // Companion to reduceMotion. When true, the Keel dialog layer
-    // drops its blurred backdrop for an opaque surface — saves GPU cost on etnaviv
-    // GLES2 and is the accessibility affordance Apple shipped as
-    // the iOS 26 "Reduce Transparency" toggle. Bind from
-    // gsettings org.gnome.desktop.a11y reduce-transparency at
-    // shell startup; for now the property is writable from
-    // SettingsManager.
-    property bool reduceBlur: false
-
     function dur(token) {
         return reduceMotion ? micro : token;
     }

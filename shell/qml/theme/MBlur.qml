@@ -7,8 +7,7 @@ import QtQuick
 // every one was a copy of someone else's "this looks about right".
 // This singleton centralises the scale so:
 //   1. The Marathon DS has ONE answer to "how much blur for a sheet?"
-//   2. A blur can drop out under MMotion.reduceBlur in one place.
-//   3. Call sites read blurFor(role) instead of magic numbers.
+//   2. Call sites read blurFor(role) instead of magic numbers.
 //
 // Direct constants stay exposed for cases that legitimately want a
 // fixed scale step. The accessibility clamp is applied by the
