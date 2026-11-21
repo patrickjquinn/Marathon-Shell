@@ -31,10 +31,10 @@ download to a working phone. Zinwa Q25 images are on
 | <img src="screenshots/screen2.png" width="400" alt="Hub: notifications and weather"> | <img src="screenshots/screen3.png" width="400" alt="Hub weather sheet"> |
 | <img src="screenshots/screen4.png" width="400" alt="Quick settings"> | <img src="screenshots/screen5.png" width="400" alt="Lock screen"> |
 | <img src="screenshots/screen6.png" width="400" alt="Pacific browser"> | <img src="screenshots/screen7.png" width="400" alt="Native app (Shortwave, a Flatpak)"> |
-| <img src="screenshots/screen8.png" width="400" alt="Android app (Markor) through Deckard"> | <img src="screenshots/screen9.png" width="400" alt="Light Android app: the gesture bar turns light"> |
+| <img src="screenshots/screen8.png" width="400" alt="Android app (F-Droid) through Deckard"> | <img src="screenshots/screen9.png" width="400" alt="Phone: the dialer"> |
 | <img src="screenshots/screen10.png" width="400" alt="Settings: Android apps"> | |
 
-Screenshots are from the HackberryPi CM5 (720x720).
+Screenshots are from the Zinwa Q25 (720x720).
 
 ## Architecture
 
