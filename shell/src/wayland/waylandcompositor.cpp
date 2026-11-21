@@ -129,7 +129,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                             m_xdgShell, nullptr))
                 qWarning() << "[WaylandCompositor] xdg-shell focus handling not replaced";
             connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
-                    [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
+                    [this](QWaylandSurface *newFocus, QWaylandSurface *) {
+                        // Qt's old focus can already be freed.
+                        QWaylandSurface *oldFocus = m_activeFocus;
+                        m_activeFocus             = newFocus;
                         for (QWaylandSurface *surface : {newFocus, oldFocus}) {
                             if (!surface || surface->property("foreignClient").toBool())
                                 continue;
