@@ -152,12 +152,7 @@ pub(super) fn descends_from(pid: i64, ancestor: i64) -> bool {
 /// An entry kept off the grid (Waydroid's stock Android apps) still
 /// launches by its id.
 fn desktop_entry(app_id: &str) -> Option<App> {
-    let dirs =
-        std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
-    let found = std::iter::once(marathon_rt::dirs::data())
-        .chain(dirs.split(':').map(std::path::PathBuf::from))
-        .map(|d| d.join("applications").join(format!("{app_id}.desktop")))
-        .find(|p| p.is_file())?;
+    let found = desktop::find(app_id)?;
     let map = desktop::parse(&QString::from(&*found.to_string_lossy()));
     let text = |k: &str| {
         map.get(&q(k))

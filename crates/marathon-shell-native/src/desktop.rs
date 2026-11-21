@@ -204,6 +204,16 @@ pub(crate) fn parse(path: &QString) -> QMap<QMapPair_QString_QVariant> {
     read_app(Path::new(&path.to_string()), &mut Icons::new()).map_or_default(|app| app.to_qt())
 }
 
+/// The desktop file for an app id, even one kept off the grid.
+pub(crate) fn find(app_id: &str) -> Option<PathBuf> {
+    let dirs =
+        std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
+    std::iter::once(marathon_rt::dirs::data())
+        .chain(dirs.split(':').map(PathBuf::from))
+        .map(|d| d.join("applications").join(format!("{app_id}.desktop")))
+        .find(|p| p.is_file())
+}
+
 fn phone_apps_path() -> QString {
     QString::from(cached_phone_apps().to_string_lossy().as_ref())
 }

@@ -32,7 +32,7 @@ NativeSurfaceItem {
         var toplevel = _toplevelFromObj(surfaceObj);
         if (!toplevel || !toplevel.appId)
             return [];
-        var app = AppModel.findById(toplevel.appId);
+        var app = AppModel.findEntry(toplevel.appId);
         return app.searchTerms || [];
     }
 
