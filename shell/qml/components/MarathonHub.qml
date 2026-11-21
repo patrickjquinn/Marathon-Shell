@@ -357,7 +357,8 @@ Rectangle {
             // marked each row with its service.
             readonly property bool fromPerson: ["messages", "phone", "call", "email", "mail"].indexOf(appKey) >= 0
             // AppModel.count: look again once the apps have loaded.
-            readonly property string appIcon: fromPerson || AppModel.count === 0 ? "" : (AppModel.findById(appKey).icon || "")
+            // By the id as given: Flatpak ids have capitals (org.gnome.Fractal).
+            readonly property string appIcon: fromPerson || AppModel.count === 0 ? "" : (AppModel.findById(String(appId || "")).icon || "")
 
             unread: !isRead
             separator: ListView.section === ListView.nextSection
@@ -465,7 +466,8 @@ Rectangle {
     function sourceLabel(rawAppId, senderName) {
         const raw = String(rawAppId || "");
         const desktop = raw.replace(/\.desktop$/, "");
-        const candidates = [desktop, desktop.replace(/^waydroid\./, "deckard."), "deckard." + desktop];
+        // An id can itself end in .desktop (org.telegram.desktop).
+        const candidates = [raw, desktop, desktop.replace(/^waydroid\./, "deckard."), "deckard." + desktop];
         if (AppModel.count > 0) {
             for (const id of candidates) {
                 const name = AppModel.findById(id).name;
