@@ -8,8 +8,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=42
-_commit=2e8be1dbfdda3f8fe318853de2bcadb759387cef
+pkgrel=43
+_commit=62feacd6ed77298094b6ec37804a8db833da4267
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -59,7 +59,8 @@ prepare() {
 	[ -f host/deckard-container/Cargo.toml ] &&
 	[ -f host/deckard-host-tools/src/migrate.rs ] &&
 	[ -f host/deckard-bridge/Cargo.toml ] &&
-	[ -f host/deckard-camera/Cargo.toml ] ||
+	[ -f host/deckard-camera/Cargo.toml ] &&
+	[ -f host/deckard-sensors/Cargo.toml ] ||
 		die "pin a Deckard commit containing the native host tools"
 }
 
@@ -69,7 +70,7 @@ build() {
 	cargo build --release --locked -p deckard-host-tools \
 		-p deckard-fonts-sync -p deckard-overlay-sync \
 		-p deckard-runtime -p deckard-launch -p deckard-container \
-		-p deckard-bridge -p deckard-camera
+		-p deckard-bridge -p deckard-camera -p deckard-sensors
 }
 
 check() {
@@ -80,7 +81,8 @@ check() {
 		cargo test --release --locked -p deckard-host-tools -p deckard-fonts-sync \
 		-p deckard-overlay-sync -p deckard-runtime -p deckard-launch \
 		-p deckard-container -p deckard-bridge -p deckard-core \
-		-p deckard-mpris -p deckard-packages -p deckard-camera
+		-p deckard-mpris -p deckard-packages -p deckard-camera \
+		-p deckard-sensors
 }
 
 package() {
@@ -98,6 +100,12 @@ package() {
 		"$pkgdir"/usr/lib/systemd/user/deckard-camera.service
 	ln -s ../deckard-camera.service \
 		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckard-camera.service
+	# Android's sensors: the HAL in the overlay reads them from this.
+	install -Dm755 target/release/deckard-sensors "$pkgdir"/usr/libexec/deckard-sensors
+	install -Dm644 $p/deckard-sensors.service \
+		"$pkgdir"/usr/lib/systemd/user/deckard-sensors.service
+	ln -s ../deckard-sensors.service \
+		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckard-sensors.service
 	install -Dm755 target/release/deckard-overlay-sync \
 		"$pkgdir"/usr/libexec/deckard-overlay-sync
 	install -Dm755 target/release/deckard-open-apk "$pkgdir"/usr/libexec/deckard-open-apk
