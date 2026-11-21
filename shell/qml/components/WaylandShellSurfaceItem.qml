@@ -27,7 +27,17 @@ NativeSurfaceItem {
     // The item takes the surface's size in those and is scaled up, so popups,
     // subsurfaces and touch points map 1:1 onto the client's coordinates.
     readonly property real clientScale: !isPreview && launchCompositor && launchCompositor.usesNativeScale(surface) ? launchCompositor.nativeScale : 1
-    readonly property size configureSize: parent ? Qt.size(Math.round(parent.width / clientScale), Math.round(parent.height / clientScale)) : Qt.size(0, 0)
+    readonly property size availableSize: parent ? Qt.size(Math.round(parent.width / clientScale), Math.round(parent.height / clientScale)) : Qt.size(0, 0)
+    // An app whose minimum size is bigger than the screen is scaled down to
+    // fit, as Phosh's scale-to-fit does, and sized to fill it once scaled.
+    readonly property real fitScale: {
+        var toplevel = _toplevelFromObj(surfaceObj);
+        var min = toplevel ? toplevel.minSize : undefined;
+        if (isPreview || !min || availableSize.width <= 0 || availableSize.height <= 0)
+            return 1;
+        return Math.min(1, min.width > 0 ? availableSize.width / min.width : 1, min.height > 0 ? availableSize.height / min.height : 1);
+    }
+    readonly property size configureSize: Qt.size(Math.round(availableSize.width / fitScale), Math.round(availableSize.height / fitScale))
     applicationTerms: {
         var toplevel = _toplevelFromObj(surfaceObj);
         if (!toplevel || !toplevel.appId)
@@ -194,9 +204,9 @@ NativeSurfaceItem {
         onTriggered: surfaceItem.takeFocusForKeyboard()
     }
 
-    width: clientScale === 1 ? (parent ? parent.width : 0) : implicitWidth
-    height: clientScale === 1 ? (parent ? parent.height : 0) : implicitHeight
-    scale: clientScale
+    width: clientScale === 1 && fitScale === 1 ? (parent ? parent.width : 0) : implicitWidth
+    height: clientScale === 1 && fitScale === 1 ? (parent ? parent.height : 0) : implicitHeight
+    scale: clientScale * fitScale
     transformOrigin: Item.TopLeft
     // NativeSurfaceItem creates popup children itself because Qt's built-in
     // integration ignores configured popup geometry and loses our input policy.
