@@ -49,6 +49,13 @@ void NativeSurfaceItem::setApplicationTerms(const QStringList &terms) {
 void NativeSurfaceItem::touchEvent(QTouchEvent *event) {
     if (!m_pointerFallback) {
         QWaylandQuickShellSurfaceItem::touchEvent(event);
+        // Qt moves the pointer onto the surface with a touch; left there, it
+        // reads as a hover to GTK, which opens tooltips under the finger.
+        if (event->type() == QEvent::TouchEnd || event->type() == QEvent::TouchCancel) {
+            QWaylandSeat *seat = compositor() ? compositor()->defaultSeat() : nullptr;
+            if (seat && seat->mouseFocus() == view())
+                seat->setMouseFocus(nullptr);
+        }
         return;
     }
 
