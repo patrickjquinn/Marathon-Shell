@@ -1,0 +1,50 @@
+From ec85e984cbfbbbb44b57125897edaaa4cc5afe46 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 21 Nov 2026 07:56:20 +0000
+Subject: [PATCH] media: i2c: dw9714: Move the lens gradually to a new focus
+ position
+
+The driver already steps the lens in units of DW9714_CTRL_STEPS when it
+suspends and resumes, to move it smoothly. A focus position set through
+V4L2_CID_FOCUS_ABSOLUTE is written at once, however far the lens has to
+travel. Autofocus algorithms start a search by returning the lens to one
+end of its range, and that single long jump knocks the lens across its
+travel with an audible click.
+
+Step towards the new position in the same units and with the same delay
+as suspend and resume, writing the target itself last. A short move
+within one step is still a single write.
+---
+ drivers/media/i2c/dw9714.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/media/i2c/dw9714.c b/drivers/media/i2c/dw9714.c
+index 3288de5..d8dc6e3 100644
+--- a/drivers/media/i2c/dw9714.c
++++ b/drivers/media/i2c/dw9714.c
+@@ -68,6 +68,22 @@ static int dw9714_i2c_write(struct i2c_client *client, u16 data)
+ static int dw9714_t_focus_vcm(struct dw9714_device *dw9714_dev, u16 val)
+ {
+ 	struct i2c_client *client = v4l2_get_subdevdata(&dw9714_dev->sd);
++	int pos = dw9714_dev->current_val;
++	int ret;
++
++	/*
++	 * Move in units of DW9714_CTRL_STEPS, as suspend and resume do: a long
++	 * jump in a single write knocks the lens across its travel, and the
++	 * knock is audible.
++	 */
++	while (abs((int)val - pos) > DW9714_CTRL_STEPS) {
++		pos += val > pos ? DW9714_CTRL_STEPS : -DW9714_CTRL_STEPS;
++		ret = dw9714_i2c_write(client, DW9714_VAL(pos, DW9714_DEFAULT_S));
++		if (ret)
++			return ret;
++		dw9714_dev->current_val = pos;
++		usleep_range(DW9714_CTRL_DELAY_US, DW9714_CTRL_DELAY_US + 10);
++	}
+ 
+ 	dw9714_dev->current_val = val;
+ 
+-- 
+2.55.0
+
