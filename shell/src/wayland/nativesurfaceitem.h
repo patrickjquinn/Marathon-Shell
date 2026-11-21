@@ -4,6 +4,7 @@
 #include <QWaylandQuickShellSurfaceItem>
 #include <QMetaObject>
 #include <QPointer>
+#include <QTimer>
 
 class QWaylandXdgPopup;
 class QWaylandXdgSurface;
@@ -28,6 +29,10 @@ class NativeSurfaceItem : public QWaylandQuickShellSurfaceItem {
     void wheelEvent(QWheelEvent *event) override;
 
   private:
+    // A pointer-fallback touch: a tap clicks, a hold presses, and a drag
+    // goes to the app as touch, which these apps do scroll from.
+    enum class TouchPointer { Pending, Dragging, Held };
+
     void                       releasePointer();
     void                       setupShellSurface();
     void                       createPopup(QWaylandXdgPopup *popup, QWaylandXdgSurface *xdgSurface);
@@ -37,6 +42,9 @@ class NativeSurfaceItem : public QWaylandQuickShellSurfaceItem {
     QStringList                m_applicationTerms;
     bool                       m_pointerFallback = false;
     int                        m_pointerTouchId  = -1;
+    TouchPointer               m_touchPointer    = TouchPointer::Pending;
+    QPointF                    m_touchStart;
+    QTimer                     m_holdTimer;
     QPointer<QWaylandXdgPopup> m_popup;
     QMetaObject::Connection    m_popupCreatedConnection;
 };
