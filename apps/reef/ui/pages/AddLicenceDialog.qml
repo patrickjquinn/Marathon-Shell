@@ -42,7 +42,7 @@ Dialog {
                 bottomPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Paste the licence from your purchase email. Reef checks it on this phone and sends nothing.")
             }
 

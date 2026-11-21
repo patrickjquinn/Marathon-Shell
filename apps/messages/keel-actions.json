@@ -115,6 +115,44 @@
     },
     {
       "_meta": {
+        "org.shipwright.keel/action": "messages.compose",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only opens a draft; nothing leaves the phone until the person sends it",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Open a text message (SMS) to a phone number in Marathon Messages with the text written in, for the person to check and send.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "The message",
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "to": {
+            "description": "Phone number to write to",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.messages/messages.compose",
+      "title": "Write text message"
+    },
+    {
+      "_meta": {
         "org.shipwright.keel/action": "messages.read",
         "org.shipwright.keel/confirm": false,
         "org.shipwright.keel/result": "wrapped",
@@ -187,44 +225,6 @@
         "type": "object"
       },
       "title": "Read conversation"
-    },
-    {
-      "_meta": {
-        "org.shipwright.keel/action": "messages.compose",
-        "org.shipwright.keel/confirm": false,
-        "org.shipwright.keel/notDestructiveBecause": "it only opens a draft; nothing leaves the phone until the person sends it",
-        "org.shipwright.keel/result": "none",
-        "org.shipwright.keel/sensitive": false,
-        "org.shipwright.keel/timeoutMs": 25000
-      },
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Open a text message (SMS) to a phone number in Marathon Messages with the text written in, for the person to check and send.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "text": {
-            "description": "The message",
-            "maxLength": 2000,
-            "type": "string"
-          },
-          "to": {
-            "description": "Phone number to write to",
-            "maxLength": 64,
-            "type": "string"
-          }
-        },
-        "required": [
-          "to"
-        ],
-        "type": "object"
-      },
-      "name": "org.marathonos.messages/messages.compose",
-      "title": "Write text message"
     },
     {
       "_meta": {

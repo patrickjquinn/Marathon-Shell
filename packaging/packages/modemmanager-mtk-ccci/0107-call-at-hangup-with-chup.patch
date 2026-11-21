@@ -1,0 +1,50 @@
+From b0914119ae40321d0b0c4955eea2f41e6e51d8fb Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 20 Nov 2026 16:00:53 +0000
+Subject: [PATCH] call-at: hang up a call not yet up with +CHUP
+
++CHLD=1x releases a specific call that is active, held or waiting (3GPP
+TS 27.007); a call still being dialled or ringing is hung up with +CHUP.
+MediaTek's CCCI modem (Zinwa Q25) never answers +CHLD=1x for a call
+ringing out: ModemManager timed out, fell back to +CHUP, and the modem's
+call control then held every later ATD until a reboot, so only the first
+call after boot rang.
+---
+ src/mm-call-at.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/src/mm-call-at.c b/src/mm-call-at.c
+index 3a1c326..5e6a0a2 100644
+--- a/src/mm-call-at.c
++++ b/src/mm-call-at.c
+@@ -283,15 +283,22 @@ call_hangup (MMBaseCall          *_self,
+              GAsyncReadyCallback  callback,
+              gpointer             user_data)
+ {
+-    MMCallAt *self = MM_CALL_AT (_self);
+-    GTask    *task;
+-    guint     index;
++    MMCallAt    *self = MM_CALL_AT (_self);
++    GTask       *task;
++    guint        index;
++    MMCallState  state;
+ 
+     task = g_task_new (self, NULL, callback, user_data);
+ 
+-    /* Try to hangup the single call id */
++    /* +CHLD=1x releases a specific call that is up, held or waiting (3GPP TS
++     * 27.007); one still being dialled or ringing is hung up with +CHUP.
++     * MediaTek's CCCI modem (Zinwa Q25) never answers +CHLD=1x for a call
++     * ringing out, and its call control then holds every later ATD. */
+     index = mm_base_call_get_index (MM_BASE_CALL (self));
+-    if (index) {
++    state = mm_base_call_get_state (MM_BASE_CALL (self));
++    if (index && (state == MM_CALL_STATE_ACTIVE ||
++                  state == MM_CALL_STATE_HELD ||
++                  state == MM_CALL_STATE_WAITING)) {
+         gchar *cmd;
+ 
+         cmd = g_strdup_printf ("+CHLD=1%u", index);
+-- 
+2.55.0
+

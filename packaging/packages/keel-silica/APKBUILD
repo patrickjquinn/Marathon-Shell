@@ -1,7 +1,7 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 pkgname=keel-silica
 pkgver=0.1.0
-pkgrel=14
+pkgrel=15
 _qtver=6.12.0
 pkgdesc="Marathon Silica: Sailfish Silica QML components for Qt 6, from Keel"
 url="https://github.com/patrickjquinn/Marathon-Shell"

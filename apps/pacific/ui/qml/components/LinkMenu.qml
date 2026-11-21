@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // A long press on a link or an image: open it in a new (private) tab,
-// copy, share or save it.
+// copy, share or save it, from a sheet at the bottom; a tap on the page
+// above closes it.
 
 pragma ComponentBehavior: Bound
 
@@ -13,7 +14,7 @@ import Sailfish.Share 1.0
 import Shipwright.Pacific 1.0
 import "../js/logic.js" as Logic
 
-Rectangle {
+Item {
     id: menu
 
     property var browser
@@ -29,8 +30,6 @@ Rectangle {
 
     signal done
 
-    color: Theme.rgba(Theme.overlayBackgroundColor, 0.9)
-
     MouseArea {
         anchors.fill: parent
         onClicked: menu.done()
@@ -45,6 +44,10 @@ Rectangle {
         width: parent.width
         height: column.height + Theme.paddingLarge
         color: Theme.rgba(Theme.overlayBackgroundColor, 1.0)
+
+        GlowLine {
+            width: parent.width
+        }
 
         Column {
             id: column

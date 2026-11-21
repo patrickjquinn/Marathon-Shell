@@ -36,7 +36,7 @@ Dialog {
                 bottomPadding: Theme.paddingLarge
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: dialog.startupPin ? qsTr("Your phone asks for this PIN when it starts. After that your system password works too.") : qsTr("The quick PIN is a shortcut. Your system password always works too.")
             }
             PasswordField {

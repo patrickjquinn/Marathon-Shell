@@ -2,6 +2,8 @@
 Description=Q25 MD1: SIM power-up and LTE attach APN, before ModemManager takes ttyC0
 Requires=q25-ccci-mdinit.service
 After=q25-ccci-mdinit.service
+# The modem's IMS controller needs its AP partner before the radio comes up.
+After=q25-ims-imsm.service
 Before=ModemManager.service
 PartOf=q25-modem.target
 StartLimitIntervalSec=600

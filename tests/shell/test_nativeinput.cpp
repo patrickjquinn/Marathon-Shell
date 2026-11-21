@@ -12,6 +12,11 @@ class TestNativeInput : public QObject {
         QVERIFY(NativeInput::needsPointerFallback({QStringLiteral("cosmic")}));
     }
 
+    void telegramDesktopUsesPointerFallback() {
+        QVERIFY(NativeInput::needsPointerFallback(
+            {QStringLiteral("tg"), QStringLiteral("tdesktop"), QStringLiteral("Network")}));
+    }
+
     void otherToolkitsKeepNativeTouch() {
         QVERIFY(!NativeInput::needsPointerFallback({}));
         QVERIFY(!NativeInput::needsPointerFallback(

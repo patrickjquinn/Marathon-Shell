@@ -16,7 +16,6 @@ Rectangle {
 
     property bool isInPeekMode: false
     // Peeking over the screen, what it frosts, bottom to top; empty, the ambience.
-    property list<Item> backdrops
     property var agenda: []
     // An app id narrows the list to that app; "" shows everything.
     property string filterApp: ""
@@ -143,7 +142,6 @@ Rectangle {
     KeelAmbienceBackground {
         id: ambience
 
-        visible: hub.backdrops.length === 0
         width: hub.Window.width
         height: hub.Window.height
         wallpaper: AmbienceService.wallpaperUrl
@@ -151,23 +149,6 @@ Rectangle {
         light: AmbienceService.light
         brightest: AmbienceService.brightest
         darkest: AmbienceService.darkest
-    }
-
-    Rectangle {
-        width: hub.Window.width
-        height: hub.Window.height
-        visible: hub.backdrops.length > 0
-        color: MColors.elev0
-    }
-    AppBackdropBlur {
-        width: hub.Window.width
-        height: hub.Window.height
-        sources: hub.backdrops
-        sourceRect: Qt.rect(0, 0, width, height)
-        blurMax: MBlur.xl
-        saturation: 0.8
-        brightness: -0.05
-        tint: Qt.rgba(0, 0, 0, 0.5)
     }
 
     Silica.SilicaListView {
@@ -376,9 +357,11 @@ Rectangle {
             // marked each row with its service.
             readonly property bool fromPerson: ["messages", "phone", "call", "email", "mail"].indexOf(appKey) >= 0
             // AppModel.count: look again once the apps have loaded.
-            readonly property string appIcon: fromPerson || AppModel.count === 0 ? "" : (AppModel.findById(appKey).icon || "")
+            // By the id as given: Flatpak ids have capitals (org.gnome.Fractal).
+            readonly property string appIcon: fromPerson || AppModel.count === 0 ? "" : (AppModel.findById(String(appId || "")).icon || "")
 
             unread: !isRead
+            separator: ListView.section === ListView.nextSection
             avatarText: appIcon ? "" : hub.monogramFor(title, appKey)
             avatarIcon: appKey === "phone" ? "phone" : appKey === "messages" ? "user" : ""
             image: icon || appIcon
@@ -483,7 +466,8 @@ Rectangle {
     function sourceLabel(rawAppId, senderName) {
         const raw = String(rawAppId || "");
         const desktop = raw.replace(/\.desktop$/, "");
-        const candidates = [desktop, desktop.replace(/^waydroid\./, "deckard."), "deckard." + desktop];
+        // An id can itself end in .desktop (org.telegram.desktop).
+        const candidates = [raw, desktop, desktop.replace(/^waydroid\./, "deckard."), "deckard." + desktop];
         if (AppModel.count > 0) {
             for (const id of candidates) {
                 const name = AppModel.findById(id).name;

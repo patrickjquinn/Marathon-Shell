@@ -7,7 +7,8 @@ CFLAGS += -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter \
 LDFLAGS += -static -pthread
 COMPAT := compat/q25_compat.c common/nvram_shim_musl.c
 
-all: out/ccci_mdinit out/ccci_fsd out/ccci_rpcd out/q25-speech
+all: out/ccci_mdinit out/ccci_fsd out/ccci_rpcd out/q25-speech \
+	out/q25-lp-map out/q25-ims-props out/q25-ims-logd out/q25-ims-exec
 
 out/ccci_mdinit: mdinit/ccci_mdinit.c $(COMPAT)
 	@mkdir -p out
@@ -21,5 +22,17 @@ out/ccci_rpcd: rpcd/ccci_rpcd.c common/ccci_rpc_route.c $(COMPAT)
 out/q25-speech: speech/q25_speech.c
 	@mkdir -p out
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lm
+out/q25-lp-map: ims/lpmap.c
+	@mkdir -p out
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+out/q25-ims-props: ims/propgen.c
+	@mkdir -p out
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+out/q25-ims-logd: ims/logdw.c
+	@mkdir -p out
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+out/q25-ims-exec: ims/exec.c
+	@mkdir -p out
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 clean:
 	rm -rf out

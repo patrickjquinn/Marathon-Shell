@@ -151,7 +151,7 @@ Page {
             wrapMode: Text.Wrap
             text: qsTr("Plug in wired headphones for clear FM: they are the aerial")
             font.pixelSize: Theme.fontSizeExtraSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
         }
     }
 }

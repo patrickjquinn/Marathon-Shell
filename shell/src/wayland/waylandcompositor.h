@@ -275,6 +275,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QList<QObject *>                        m_surfaces;
     QMap<int, QPointer<QWaylandSurface>>    m_surfaceMap;
     QMap<int, QPointer<QWaylandXdgSurface>> m_xdgSurfaceMap;
+    QPointer<QWaylandSurface>               m_activeFocus;
     QMap<QProcess *, QString>               m_processes;
     QMap<qint64, int>                       m_pidToSurfaceId;
     QMap<int, qint64>                       m_surfaceIdToPid;

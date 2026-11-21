@@ -52,12 +52,12 @@ how Marathon expresses it.
 |---|---|---|
 | **Spring physics over ease curves** | iOS rubber-banding, M3 Expressive's 4-rung stiffness ladder, OneUI 7 micro-springs | `MMotion.stiffness{High,Medium,Low,VeryLow}` + spatial/effects damping split. `MMotion.roles` table tags every microinteraction with a role, not a duration |
 | **Predictive gestures** | Android predictive-back, iOS edge-swipe with parallax | `MarathonNavBar.backProgress` drives `appWindowContainer.scale 1.0→0.9` + opacity fade past `MMotion.backFadeThreshold` (0.35). Pill left-drag is the primary back affordance |
-| **Glass / blur with discipline** | iOS 26 Liquid Glass, M3 Expressive's tinted scrim, OneUI 7's translucent shade | `MGlass` primitive: `ShaderEffectSource + MultiEffect` blur of the live framebuffer behind the chrome. `MBlur` role map (`chrome=lg`, `sheet=lg`, `dropdown=sm`, `halo=sm`, `hairline=xxs`). Always opt-out via `MMotion.reduceBlur` |
+| **Flat materials, no blur** | M3 Expressive's tinted scrim | Flat fills on one plane (no glass, bevels, borders or blur); content on the ambience; Keel dialogs dim the live app. |
 | **Restraint at the edge** | iOS's "everything is the same color but slightly different temperature", BB10's near-black palette | OLED-first dark theme, `#040404` floor, six elevation steps up to `#353536`. Teal accent (`#1de9b6` bright) appears only on the active path: focused control, current tab, primary action |
 | **Microcoherence (sub-frame)** | Apple's app-open animation that paints chrome + app body as one surface; impossible on multi-process compositors | In-process scenegraph means a status-bar reveal, a navbar pill morph, and an app-window scale can land in one frame with zero IPC. We design for this — see §7 |
 | **Live activities / persistent surfaces** | Dynamic Island, iOS Live Activities, Android persistent notifications | NowBar (planned): an always-visible micro-surface for active calls, media, navigation, timers. One canonical promotion target, not per-feature widgets |
 | **Tactile coupling** | iOS Taptic Engine, OneUI 7 micro-rumbles on every flick | `MHaptics` singleton; every gesture threshold + state-change has a haptic tier (`light/medium/heavy/selection/success/error`). Springs and haptics fire together, never apart |
-| **Accessibility as primitive** | iOS Reduce Motion + Reduce Transparency (separate toggles), Android Talkback-tested per release | `MMotion.reduceMotion` + `MMotion.reduceBlur` + `MMotion.translucencyLevel` (0..1 slider). Every component routes through `dur()`/`ease()`/blur token APIs so the toggles are uniform |
+| **Accessibility as primitive** | iOS Reduce Motion + Reduce Transparency (separate toggles), Android Talkback-tested per release | `MMotion.reduceMotion` + `MMotion.reduceBlur`. Every component routes through `dur()`/`ease()`/blur token APIs so the toggles are uniform |
 | **Density that scales with palm size** | iOS Display Zoom, Android display density | `Constants.scaleFactor` multiplies `MSpacing`, `MRadius`, `MTypography` from a single DPI signal. Breakpoint helpers in `MBreakpoints`/`MResponsive` for phone/tablet/desktop split |
 
 The non-obvious shared idea: **the best mobile OSes feel alive without
@@ -91,23 +91,22 @@ Numeric access via `MElevation.getSurface(0..5)`, `getBorderOuter(level)`,
 reach for `MElevation` when a component takes an `elevation:` prop and
 needs to interpolate (`MCard`, `MLayer`, `MSettingsListItem`).
 
-**Accent (teal ladder):**
+**Accent.** The accent is the ambience's highlight, `Silica.Theme.highlightColor`
+(`MColors.accent`, `marathonTeal`, `marathonTealBright` follow it), so it
+changes with the ambience. Tinted overlays come from `Silica.Theme.rgba()`
+or the named `MColors` overlays, never an inline hex.
 
-| Token | Hex | Role |
+**Colour roles.** One colour must not do every job:
+
+| Role | Colour | Examples |
 |---|---|---|
-| `marathonTealDarkest` | `#006b5d` | Pressed accent surfaces |
-| `marathonTealDark` | `#00897b` | Disabled accent state |
-| `marathonTeal` / `accent` | `#00bfa5` | Default accent (icons, indicators) |
-| `marathonTealBright` / `accentBright` | `#1de9b6` | **Primary brand mark, focus glow** |
-| `marathonTealGlow` | `#5dffdc` | Halo / pulse highlights |
+| Can be acted on | highlight | a value a row changes, a link, an on control's glow, page titles |
+| Content | primary | body text, detail values, notification titles |
+| Quiet | secondary | section headers, detail labels, explanations and hints |
+| Status | `MColors.error`, `MColors.warning` | failures, warnings |
 
-Plus tinted overlays (`marathonTealHover/Press/Glow*`, border tints
-35-40%) — never inline `Qt.rgba()` with the teal; reach for the named
-overlay token.
-
-**Status colors** (mailbox indicators, toast banners, validation):
-`success #10B981`, `warning #F59E0B`, `error #EF4444`, `info #3B82F6`
-(each with a `*Dim` sibling for borders/secondary fills).
+A paragraph that explains is secondary, even when Sailfish set it in the
+highlight; titles, names and statuses keep theirs.
 
 **Text ladder:**
 `textPrimary #f5f5f5` → `textSecondary #9a9a9a` → `textTertiary #8a8a8a`
@@ -129,10 +128,11 @@ Scale (base px, multiplied by `scaleFactor`):
 `XSmall 12 · Small 14 · Body 16 · Large 18 · XLarge 24 · XXLarge 32 ·
 Display 40 · Huge 48 · Gigantic 96`.
 
-Weights map to `Font.*` (`Light`, `Regular`, `Medium`, `DemiBold`,
-`Bold`, `Black`). Heading hierarchy uses DemiBold/Bold; body always
-Regular; chrome (clock, badges) uses Medium for the small-but-legible
-sweet spot.
+Weights stay light by decision: body and headings in Source Sans 3
+**Light**, display in ExtraLight, icons in **Phosphor Thin**. Emphasis
+comes from colour and the few DemiBold places that already exist (an
+unread notification's title), not from heavier text. Changing a family,
+weight or size is a design decision for the owner, not a refactor.
 
 ### 2.3 Geometry
 
@@ -162,35 +162,39 @@ say in the column count — they get `MPage`, which enforces it.
 
 ## 3. Surfaces & depth
 
-Depth comes from **two borders and a delta in surface lightness**, not
-from drop shadows. FBO-based shadows (`FastBlur` + `OpacityMask`) are
-banned on the etnaviv GLES2 path — they collapse the L5 to 2 fps. (See
-the `MARATHON_LAYER_SAMPLES` env / Etnaviv MSAA trap memory.)
+Marathon evolves Sailfish and BB10 rather than borrowing another system's
+look: the ambience tints everything, Silica's glow marks what is on, corners
+stay crisp, and type stays light.
 
-The canonical depth recipe:
+**Composition rules** (design a view whole, before its components):
 
-```qml
-Rectangle {
-    color: MElevation.getSurface(elevation)
-    border.color: MElevation.getBorderOuter(elevation); border.width: 1
-    Rectangle {                                  // inner highlight
-        anchors.fill: parent; anchors.margins: 1
-        color: "transparent"
-        border.color: MElevation.getBorderInner(elevation); border.width: 1
-    }
-}
-```
+1. Content sits on the ambience, as in Sailfish: no cards or panels around
+   notifications, media rows or choices.
+2. Materials are flat, on one plane: no glass, bevels, edge light, borders
+   or shadows. Controls are flat discs and pills; surfaces (switcher frames,
+   sheets) are flat fills.
+3. One shape family per view.
+4. A resting control is filled with `MColors.controlFill` (white at 8%, as
+   Keel's `Button`), an on or suggested one with `MColors.accentFill`.
+5. Toggles are BB10 rows: a disc with the glyph left, lit when on; what it
+   is over how it stands right. A tap switches it; holding it opens its
+   settings page.
 
-Two 1 px borders, two SDF-friendly draws, zero shaders. Reads as depth
-on OLED because the outer border crushes to absolute black while the
-inner highlight catches the panel's micro-emission.
+Built this way: Quick Settings (two across in sideways pages, flat pill
+sliders, shortcuts as a row of discs), the Hub (notifications on the
+ambience: flat tinted avatar, unread dot), the power menu and keypads (flat
+discs), the switcher (flat frames). Flat controls: `MCircularIconButton`,
+Keel `Button` (a pill), Keel `Keypad` (discs), the pressed row
+(`BackgroundItem`, or `MPressHighlight` where a row can't be one: a rounded
+inset highlight that fades).
 
-**`MultiEffect` exception.** Qt 6.5+'s `MultiEffect` (one shader pass,
-not the chained-FBO `QtGraphicalEffects` of Qt 5) is permitted only for
-*transient* surfaces that mount and unmount inside ~300 ms: `MModal`,
-`MSheet`, `MConfirmDialog`, `MComboBox`/`MDropdown` menus. Never on
-persistent chrome, cards, list rows, or status bar — those use `MGlass`
-(see §7) or the dual-border recipe.
+The Sailfish glow idioms that remain are deliberate: the `Switch` glow and
+the page-stack indicator.
+
+**No blur.** The shade, the Hub and the sheets lie on the ambience
+(`KeelAmbienceBackground`, one cached opaque image); the lock screen on its
+wallpaper; Keel dialogs dim the live app. FBO effects on persistent surfaces
+are banned: on the Librem 5's etnaviv a 4× layer drew at 2 fps.
 
 ---
 
@@ -285,11 +289,8 @@ freehand `NumberAnimation { duration: 300 }` — the audit catches them.
 
 ### 4.5 Reduce blur / translucency level
 
-Companion to reduce-motion. `MMotion.reduceBlur` switches `MGlass` to
-an opaque chrome rendering. `MMotion.translucencyLevel` (0..1) is the
-soft knob Apple shipped as the iOS 27 translucency slider — multiplies
-blur radius + tint opacity proportionally. At 0.0 it collapses to
-reduce-blur; at 1.0 the chrome gets full effect.
+Companion to reduce-motion. `MMotion.reduceBlur` drops the Keel dialog
+layer's blurred backdrop for an opaque one.
 
 ---
 
@@ -331,25 +332,12 @@ Springs and haptics fire together — never one without the other.
 
 ## 6. Materials & effects
 
-### 6.1 `MGlass`
+### 6.1 Surfaces
 
-The chrome material. A `ShaderEffectSource` samples the live
-framebuffer behind the surface, a `MultiEffect` runs a single-pass blur
-+ tint, and the result is the lightly translucent panel the user sees
-for the status bar, top bar, nav bar, dock, NowBar, QS shade, modals,
-sheets, dropdowns.
-
-Reads `MMotion.reduceBlur` and `MMotion.translucencyLevel` automatically.
-Caller picks blur radius via `MBlur.blurFor(role)` — never an inline
-number:
-
-| Role | `MBlur.blurFor` | Use |
-|---|---|---|
-| `chrome` | 24 px | status bar, top bar, nav bar, dock, NowBar |
-| `sheet` | 24 px | modal sheets, full-bleed sheets, QS shade |
-| `dropdown` | 8 px | combo dropdowns, autocomplete popovers |
-| `halo` | 8 px | focus halos / glows |
-| `hairline` | 2 px | sub-1px glass tint on flat surfaces |
+Controls and surfaces are flat fills (§3). Bands and sheets
+(toasts, the share sheet, the file picker, Pilot's sheet, the Quick
+Settings shade) are the ambience edge to edge, lit along one edge by
+`MGlowLine`, Sailfish's glow line. Nothing is blurred.
 
 ### 6.2 In-process compositor as material moat
 
@@ -386,8 +374,7 @@ process boundaries here.
 
 ### 7.1 Status bar
 
-Top 50 px (scaled). Glass material at `MBlur.blurFor("chrome")` with
-`MColors.glassTitlebar` tint. Left cluster: battery + percent. Centre:
+Top 50 px (scaled), a flat `MColors.glassTitlebar` tint. Left cluster: battery + percent. Centre:
 lock icon (lockscreen only) or `time`. Right cluster: signal · LTE ·
 wifi · bluetooth.
 
@@ -540,10 +527,9 @@ These are *primitives*, not features.
 - **`MMotion.reduceMotion`** — bound to Settings → Display → Reduce
   Motion. Every animation routes through `dur()`/`ease()`
   or `MMotion.roles` accessors.
-- **`MMotion.reduceBlur`** + **`MMotion.translucencyLevel`** — bound
-  from `org.gnome.desktop.a11y reduce-transparency`. `MGlass`
-  collapses to opaque chrome when reduce-blur is on; otherwise scales
-  blur+tint linearly by translucencyLevel.
+- **`MMotion.reduceBlur`** — bound
+  from `org.gnome.desktop.a11y reduce-transparency`. Reduce-blur
+  drops the Keel dialog layer's blur for an opaque backdrop.
 - **Touch-target floor** — `MSpacing.touchTargetMin 44 px` (scaled).
   Even status-bar taps respect this — never less.
 - **Typography scaling** — every type token multiplies by
@@ -733,9 +719,6 @@ not a vague aspiration:
   call/media/nav/timer (§7.6). Needs a NotificationModel-side
   "ongoing + progress" field and a shell-side mount slot above the
   nav-bar.
-- **Glass-architecture lensing** — let `MGlass` sample not just the
-  flat backdrop but a refracted lens view (iOS 26 Liquid Glass
-  pattern). Shader work; gates on `MMotion.reduceBlur`.
 - **Live recents thumbnails** — task switcher cards show a live
   framebuffer of the running app (in-process compositor moat).
 - **Predictive-forward** — the opposite of predictive-back; a

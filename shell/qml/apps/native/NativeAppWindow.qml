@@ -19,7 +19,6 @@ MApp {
     readonly property Item backdropItem: ambienceBackdrop ? ambienceItem : null
     // The shell draws the backdrop and surface itself (rounded, while the
     // window lands on its card); the originals only keep their textures.
-    property bool texturesRequested: false
     property bool drawnByTexture: false
     // Android windows carry alpha too (a platform-themed app draws a clear
     // window background), so they sit on the ambience as Keel apps do.
@@ -57,10 +56,8 @@ MApp {
 
             anchors.fill: parent
             opacity: nativeAppWindow.drawnByTexture ? 0 : 1
-            // A texture to draw even before the wallpaper has loaded.
-            layer.enabled: ready || nativeAppWindow.texturesRequested
             visible: nativeAppWindow.ambienceBackdrop
-            Component.onCompleted: nativeAppWindow.ambienceItem = ambience
+            Component.onCompleted: nativeAppWindow.ambienceItem = ambience.textureSource
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
             brightest: AmbienceService.brightest

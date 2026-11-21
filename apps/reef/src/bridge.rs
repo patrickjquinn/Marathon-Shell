@@ -748,18 +748,20 @@ impl qobject::Reef {
                 .count(),
         );
         let catalogue = Some(&merged);
+        // Desktop-only apps: search finds them; the store's lists don't.
+        let listed = rows::listed_rows(&package_rows);
         let featured_rows = catalogue
-            .map(|c| rows::featured_rows(&package_rows, c))
+            .map(|c| rows::featured_rows(&listed, c))
             .unwrap_or_default();
-        let recent_rows = rows::recent_rows(&package_rows);
+        let recent_rows = rows::recent_rows(&listed);
         let shown_rows = rows::filter_rows(&package_rows, &self.search_text.to_string());
         let (category_rows, collection_rows, browse_rows) = catalogue
             .map(|c| {
                 let (kind, id) = &self.core.browse;
                 (
-                    rows::category_rows(c, &package_rows),
-                    rows::collection_rows(c, &package_rows),
-                    rows::browse_rows(c, &package_rows, kind, id),
+                    rows::category_rows(c, &listed),
+                    rows::collection_rows(c, &listed),
+                    rows::browse_rows(c, &listed, kind, id),
                 )
             })
             .unwrap_or_default();

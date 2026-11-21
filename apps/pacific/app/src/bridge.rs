@@ -301,9 +301,17 @@ pub mod qobject {
         // ---- Reader mode --------------------------------------------------
 
         /// Extracts the article of `html` (the page at `url`) and writes the
-        /// reader page; answers with `readerReady(tab, ok, fileUrl, json)`.
+        /// reader page in the colours and typeface of `theme_json`
+        /// (`reader::Theme`); answers with `readerReady(tab, ok, fileUrl, json)`.
         #[qinvokable]
-        fn reader(self: &Pacific, tab: i64, url: &QString, html: &QString, minutes_label: &QString);
+        fn reader(
+            self: &Pacific,
+            tab: i64,
+            url: &QString,
+            html: &QString,
+            minutes_label: &QString,
+            theme_json: &QString,
+        );
 
         // ---- Downloads ----------------------------------------------------
 
@@ -1761,20 +1769,22 @@ impl qobject::Pacific {
         });
     }
 
-    fn reader(&self, tab: i64, url: &QString, html: &QString, minutes_label: &QString) {
+    fn reader(
+        &self,
+        tab: i64,
+        url: &QString,
+        html: &QString,
+        minutes_label: &QString,
+        theme_json: &QString,
+    ) {
         let (url, html, label) = (url.to_string(), html.to_string(), minutes_label.to_string());
+        let theme: reader::Theme =
+            serde_json::from_str(&theme_json.to_string()).unwrap_or_default();
         let s = self.settings_cache.clone();
         let thread = self.qt_thread();
         worker::run(move |c| {
             let out = reader::extract(&html, &url).and_then(|a| {
-                let page = reader::render(
-                    &a,
-                    &url,
-                    reader::Theme::parse(&s.reader_theme),
-                    s.reader_font_px,
-                    s.reader_serif,
-                    &label,
-                );
+                let page = reader::render(&a, &url, &theme, s.reader_font_px, &label);
                 let path = c.dirs.reader().join(format!("tab-{tab}.html"));
                 pacific_core::util::write_atomic(&path, page.as_bytes())?;
                 Ok((worker::file_url(&path), a))

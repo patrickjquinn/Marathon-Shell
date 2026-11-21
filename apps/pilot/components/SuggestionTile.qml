@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-// One suggestion on the home: a glass tile with an icon and the question,
-// asked with one tap.
+// One suggestion on the home or in the overlay: a row with an icon and the
+// question, asked with one tap. An answer's action is lit in the highlight.
 
 import QtQuick
 import Sailfish.Silica 1.0
@@ -13,6 +13,7 @@ BackgroundItem {
 
     property string text
     property string icon            // pilotd's key: calendar, news, weather-day, ...
+    property bool action: false
 
     Accessible.name: tile.text
 
@@ -33,38 +34,33 @@ BackgroundItem {
             return "image://theme/icon-m-alarm";
         case "reminder":
             return "image://theme/icon-m-note";
+        case "summary":
+            return "image://theme/icon-m-document";
+        case "explore":
+            return "image://theme/icon-m-navigate";
+        case "reply":
+            return "image://theme/icon-m-reply";
+        case "explain":
+            return "image://theme/icon-m-about";
+        case "points":
+            return "image://theme/icon-m-menu";
+        case "website":
+            return "image://theme/icon-m-website";
+        case "ask":
+            return "image://theme/icon-m-message";
+        case "open":
+            return "image://theme/icon-m-up";
         default:
             return "image://theme/icon-m-timer";
         }
-    }
-
-    // Room for the icon and two lines of the question below it at the
-    // person's text size: every tile the same height, and a question that
-    // wraps never runs into its icon, and as much room below the question
-    // as above the icon (lines measured with their leading, as drawn).
-    readonly property real _textTop: Theme.paddingLarge + Theme.iconSizeMedium + Theme.paddingSmall
-    height: Math.max(Theme.itemSizeExtraLarge, _textTop + 2 * questionMetrics.lineSpacing + Theme.paddingLarge)
-    FontMetrics {
-        id: questionMetrics
-        font.pixelSize: Theme.fontSizeSmall
-    }
-    _backgroundColor: "transparent"
-    highlightedColor: "transparent"
-
-    Rectangle {
-        anchors.fill: parent
-        radius: Theme.paddingLarge
-        color: tile.down ? Theme.rgba(Theme.highlightBackgroundColor, 0.30) : Theme.rgba(Theme.primaryColor, 0.06)
-        border.width: 1
-        border.color: Theme.rgba(Theme.primaryColor, 0.10)
     }
 
     // Weather icons are drawn in colour; the rest take the theme colour.
     Image {
         objectName: "tileIcon"
         visible: tile.icon.indexOf("weather") === 0
-        x: Theme.paddingLarge
-        y: Theme.paddingLarge
+        x: Theme.horizontalPageMargin
+        anchors.verticalCenter: parent.verticalCenter
         width: Theme.iconSizeMedium
         height: width
         sourceSize.width: width
@@ -73,22 +69,19 @@ BackgroundItem {
     Icon {
         objectName: "tileIcon"
         visible: tile.icon.indexOf("weather") !== 0
-        x: Theme.paddingLarge
-        y: Theme.paddingLarge
+        x: Theme.horizontalPageMargin
+        anchors.verticalCenter: parent.verticalCenter
         source: visible ? tile.source() : ""
-        color: Theme.primaryColor
+        highlighted: tile.highlighted || tile.action
     }
 
     Label {
         objectName: "question"
-        x: Theme.paddingLarge
-        y: tile._textTop
-        width: parent.width - 2 * Theme.paddingLarge
+        x: Theme.horizontalPageMargin + Theme.iconSizeMedium + Theme.paddingLarge
+        anchors.verticalCenter: parent.verticalCenter
+        width: parent.width - x - Theme.horizontalPageMargin
         text: tile.text
-        wrapMode: Text.Wrap
-        maximumLineCount: 2
         truncationMode: TruncationMode.Fade
-        font.pixelSize: Theme.fontSizeSmall
-        color: tile.down ? Theme.highlightColor : Theme.primaryColor
+        color: tile.highlighted || tile.action ? Theme.highlightColor : Theme.primaryColor
     }
 }

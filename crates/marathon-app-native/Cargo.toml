@@ -40,6 +40,8 @@ signal-hook = { version = "0.4.5", default-features = false, features = ["iterat
 serde_json = "1.0.154"
 walkdir = "2.5.0"
 zbus = { version = "=6.1.0", default-features = false, features = ["default-rt", "proxy", "service"] }
+base64 = "0.23.1"
+qrcode = { version = "0.15.0", default-features = false, features = ["svg"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"

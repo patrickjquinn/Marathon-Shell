@@ -66,6 +66,7 @@ pub const PACKAGE_ROLES: &[&str] = &[
     "jobPercent",
     "jobError",
     "blocked",
+    "desktopOnly",
 ];
 
 /// How many apps the home page's "New and updated" row shows.
@@ -125,6 +126,9 @@ pub struct PackageRow {
     pub job_error: String,
     /// This phone cannot run it (`sources::android_issues` blocks).
     pub blocked: bool,
+    /// Says nothing of fitting a phone: search finds it, marked, and no
+    /// other list shows it.
+    pub desktop_only: bool,
 }
 
 impl PackageRow {
@@ -153,6 +157,7 @@ impl PackageRow {
             Value::Int(i64::from(self.job_percent)),
             self.job_error.as_str().into(),
             self.blocked.into(),
+            self.desktop_only.into(),
         ]
     }
 }
@@ -239,7 +244,7 @@ pub fn is_new(added: Option<&str>, today: i64) -> bool {
 pub fn filter_rows(rows: &[PackageRow], query: &str) -> Vec<PackageRow> {
     let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
     if words.is_empty() {
-        return rows.to_vec();
+        return listed_rows(rows);
     }
     let mut scored: Vec<(u32, usize)> = rows
         .iter()
@@ -332,6 +337,12 @@ pub fn one_edit(a: &str, b: &str) -> bool {
 
 /// `recentModel`: the most recently updated rows, newest first (by
 /// `updated`; rows without a date left out), at most [`RECENT_COUNT`].
+/// The rows the store lists: all but the desktop-only ones, which only a
+/// search shows.
+pub fn listed_rows(rows: &[PackageRow]) -> Vec<PackageRow> {
+    rows.iter().filter(|r| !r.desktop_only).cloned().collect()
+}
+
 pub fn recent_rows(rows: &[PackageRow]) -> Vec<PackageRow> {
     let mut recent: Vec<PackageRow> = rows
         .iter()
@@ -582,6 +593,7 @@ pub fn package_rows(
                 job_percent: -1,
                 job_error: String::new(),
                 blocked: false,
+                desktop_only: e.package.desktop_only,
             }
         })
         .collect();
@@ -1105,6 +1117,7 @@ mod tests {
             job_percent: -1,
             job_error: String::new(),
             blocked: false,
+            desktop_only: false,
         };
         // Rows are what this phone is shown: "hidden" is not among them.
         let rows = [
@@ -1184,6 +1197,48 @@ mod tests {
     }
 
     #[test]
+    fn only_a_search_shows_a_desktop_app() {
+        let row = |name: &str, title: &str, desktop_only: bool| PackageRow {
+            name: name.into(),
+            title: title.into(),
+            summary: String::new(),
+            category: "Social".into(),
+            version: String::new(),
+            install_state: "not_installed",
+            installed_version: String::new(),
+            licence_model: "free",
+            licensed: false,
+            publisher: String::new(),
+            icon_path: String::new(),
+            featured: false,
+            is_new: false,
+            updated: "2026-11-20".into(),
+            hero_path: String::new(),
+            keywords: Vec::new(),
+            category_label: String::new(),
+            source: "flathub",
+            handler_id: String::new(),
+            job_state: String::new(),
+            job_percent: -1,
+            job_error: String::new(),
+            blocked: false,
+            desktop_only,
+        };
+        let rows = [
+            row("org.telegram.desktop", "Telegram Desktop", true),
+            row("im.dino.Dino", "Dino", false),
+        ];
+        let names = |r: Vec<PackageRow>| -> Vec<String> { r.into_iter().map(|r| r.name).collect() };
+        assert_eq!(names(filter_rows(&rows, "")), ["im.dino.Dino"]);
+        assert_eq!(names(listed_rows(&rows)), ["im.dino.Dino"]);
+        assert_eq!(names(recent_rows(&listed_rows(&rows))), ["im.dino.Dino"]);
+        assert_eq!(
+            names(filter_rows(&rows, "telegram")),
+            ["org.telegram.desktop"]
+        );
+    }
+
+    #[test]
     fn search_ranks_and_forgives_one_typo() {
         let row = |name: &str, title: &str, summary: &str, keywords: &[&str]| PackageRow {
             name: name.into(),
@@ -1209,6 +1264,7 @@ mod tests {
             job_percent: -1,
             job_error: String::new(),
             blocked: false,
+            desktop_only: false,
         };
         let rows = [
             row("notes", "Notes", "Write down a browser link", &[]),
@@ -1265,6 +1321,7 @@ mod tests {
             job_percent: -1,
             job_error: String::new(),
             blocked: false,
+            desktop_only: false,
         };
         let rows = [
             row("Keys", "2026-10-08"),

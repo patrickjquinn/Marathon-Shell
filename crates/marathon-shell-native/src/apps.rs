@@ -89,6 +89,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "findById"]
         fn find_by_id(self: &Apps, app_id: &QString) -> QMap_QString_QVariant;
+        /// As `findById`, or from its desktop file for an app kept off the
+        /// grid (a desktop app launched from the Store).
+        #[qinvokable]
+        #[cxx_name = "findEntry"]
+        fn find_entry(self: &Apps, app_id: &QString) -> QMap_QString_QVariant;
         #[qinvokable]
         #[cxx_name = "getAppAtIndex"]
         fn get_app_at_index(self: &Apps, index: i32) -> QMap_QString_QVariant;
@@ -370,6 +375,20 @@ impl Apps {
     fn find_by_id(&self, app_id: &QString) -> QMap<QMapPair_QString_QVariant> {
         let id = app_id.to_string();
         self.apps.iter().find(|a| a.id == id).map_or_default(to_map)
+    }
+
+    fn find_entry(&self, app_id: &QString) -> QMap<QMapPair_QString_QVariant> {
+        let id = app_id.to_string();
+        if let Some(app) = self.apps.iter().find(|a| a.id == id) {
+            return to_map(app);
+        }
+        crate::desktop::find(&id)
+            .and_then(|path| {
+                from_desktop(&crate::desktop::parse(&QString::from(
+                    &*path.to_string_lossy(),
+                )))
+            })
+            .map_or_default(|app| to_map(&app))
     }
 
     fn get_app_at_index(&self, index: i32) -> QMap<QMapPair_QString_QVariant> {

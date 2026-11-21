@@ -22,8 +22,6 @@ Glass {
     property bool approved: false
     signal answer(bool approved)
 
-    accent: !answered
-
     Row {
         spacing: Theme.paddingMedium
         Icon {

@@ -1,15 +1,16 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-// Pilot's home, before anything is asked: a greeting and the date, what
-// is running (timers counting down, the next alarm, reminders), what is
-// next in the calendar, what needs the person (triage), and questions
-// that fit the moment, one tap each; for a new user, the getting-started
-// guide first. All of it read on the phone
-// (pilotd's Now), so it is there as soon as the app opens.
+// Pilot's home, before anything is asked: what is running (timers
+// counting down, the next alarm, reminders), what is next in the calendar,
+// what needs the person (triage), and questions that fit the moment, one
+// tap each; for a new user, the getting-started guide first. All of it
+// read on the phone (pilotd's Now), so it is there as soon as the app
+// opens. The greeting and the date are the page's header.
 
 import QtQuick
 import Sailfish.Silica 1.0
+import Marathon.Silica 1.0
 
 Column {
     id: now
@@ -35,29 +36,6 @@ Column {
     width: parent ? parent.width : 0
     spacing: Theme.paddingLarge
     bottomPadding: Theme.paddingLarge
-
-    // The greeting, large and light, as the stock apps' first screens.
-    Column {
-        x: Theme.horizontalPageMargin
-        width: parent.width - 2 * x
-        topPadding: Theme.itemSizeLarge
-        bottomPadding: Theme.paddingMedium
-        Label {
-            objectName: "nowGreeting"
-            width: parent.width
-            text: now.snapshot.greeting || ""
-            wrapMode: Text.Wrap
-            font.pixelSize: Theme.fontSizeHuge
-            font.family: Theme.fontFamilyHeading
-            color: Theme.primaryColor
-        }
-        Label {
-            width: parent.width
-            text: now.snapshot.offline ? qsTr("%1 · Offline").arg(now.snapshot.date || "") : (now.snapshot.date || "")
-            font.pixelSize: Theme.fontSizeMedium
-            color: Theme.secondaryColor
-        }
-    }
 
     // Getting to know Pilot, until every skill has been tried or the
     // guide is put away.
@@ -103,7 +81,6 @@ Column {
     // Needs you: triage that is due now or today.
     Glass {
         visible: now.attention.length > 0
-        accent: true
         Row {
             spacing: Theme.paddingMedium
             Icon {
@@ -137,34 +114,21 @@ Column {
         }
     }
 
-    // Try asking: four tiles, two by two.
     Column {
         visible: now.suggestions.length > 0
-        x: Theme.horizontalPageMargin
-        width: parent.width - 2 * x
-        spacing: Theme.paddingMedium
-        topPadding: Theme.paddingMedium
-        Label {
+        width: parent.width
+        SectionHeader {
             text: qsTr("Try asking")
-            font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryColor
         }
-        Grid {
-            id: tiles
-            width: parent.width
-            columns: 2
-            spacing: Theme.paddingMedium
-            Repeater {
-                model: now.suggestions
-                delegate: SuggestionTile {
-                    id: suggestion
-                    required property var modelData
-                    objectName: "suggestion"
-                    width: parent ? (parent.width - Theme.paddingMedium) / 2 : 0
-                    text: suggestion.modelData.text
-                    icon: suggestion.modelData.icon
-                    onClicked: now.ask(suggestion.modelData.text)
-                }
+        Repeater {
+            model: now.suggestions
+            delegate: SuggestionTile {
+                id: suggestion
+                required property var modelData
+                objectName: "suggestion"
+                text: suggestion.modelData.text
+                icon: suggestion.modelData.icon
+                onClicked: now.ask(suggestion.modelData.text)
             }
         }
     }

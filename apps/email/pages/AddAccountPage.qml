@@ -153,7 +153,7 @@ Page {
                 text: qsTr("Use Other (IMAP) for Fastmail, iCloud, Yahoo and any other provider.")
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
             }
         }
 

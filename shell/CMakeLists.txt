@@ -102,7 +102,6 @@ endif()
 set(QML_FILES
     qml/Main.qml
     qml/MarathonShell.qml
-    qml/components/AppBackdropBlur.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonNightshade.qml
     qml/components/MarathonAppGrid.qml
@@ -195,15 +194,13 @@ set(QML_FILES
     qml/theme/MRadius.qml
     qml/theme/MElevation.qml
     qml/theme/MMotion.qml
-    qml/theme/MBlur.qml
     qml/ui/GlyphIcon.qml
     qml/ui/MApp.qml
     qml/ui/MAppIcon.qml
     qml/ui/MCircularIconButton.qml
     qml/ui/MEntrance.qml
-    qml/ui/MGlass.qml
-    qml/ui/MGlassBackdrop.qml
-    qml/ui/MGlassPlatter.qml
+    qml/ui/MGlowLine.qml
+    qml/ui/MPressHighlight.qml
     qml/ui/MHaptics.qml
     qml/ui/MHubRow.qml
     qml/ui/MMarathonMark.qml
@@ -281,7 +278,6 @@ set(SINGLETON_FILES
     qml/theme/MRadius.qml
     qml/theme/MElevation.qml
     qml/theme/MMotion.qml
-    qml/theme/MBlur.qml
     qml/ui/MHaptics.qml
     qml/ui/MPhoneNumber.qml
 )
@@ -341,7 +337,6 @@ qt_add_resources(marathon-shell "shell_shaders"
     FILES
         shaders/windowcorner.vert.qsb
         shaders/windowcorner.frag.qsb
-        shaders/glassplatter.frag.qsb
         shaders/nightlight.vert.qsb
         shaders/nightlight.frag.qsb
 )

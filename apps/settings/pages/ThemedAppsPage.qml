@@ -55,7 +55,7 @@ Page {
                 topPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Apps that are already open may keep their colours until they restart.")
             }
             SectionHeader {

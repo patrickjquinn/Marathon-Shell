@@ -1,0 +1,119 @@
+From 3fcd82803689a503934b5d9cb9547e82e83ec8cf Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 20 Nov 2026 19:14:22 +0000
+Subject: [PATCH] mtk-ccci: list calls over IMS (VoLTE) as voice calls
+
+The modem lists a call over IMS with MediaTek's +CLCC mode 20 where
+3GPP TS 27.007 has 0 (voice). The generic parser skips modes other than
+voice ones, so a VoLTE call vanished from the call list seconds after
+dialling and ModemManager marked it terminated while it rang. Read +CLCC
+in the plugin and report mode 20 as voice.
+---
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.c    | 74 ++++++++++++++++++-
+ 1 file changed, 73 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index 832add3..58963aa 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -22,6 +22,7 @@
+ #include "mm-base-modem-at.h"
+ #include "mm-bearer-list.h"
+ #include "mm-iface-modem.h"
++#include "mm-iface-modem-voice.h"
+ #include "mm-log.h"
+ #include "mm-modem-helpers.h"
+ #include "mm-broadband-modem-mtk-ccci.h"
+@@ -35,10 +36,12 @@
+ #include <net/if.h>
+ 
+ static void iface_modem_init (MMIfaceModemInterface *iface);
++static void iface_modem_voice_init (MMIfaceModemVoiceInterface *iface);
+ static void netagent_pdn_down (MMBroadbandModemMtkCcci *self, guint id);
+ 
+ G_DEFINE_TYPE_EXTENDED (MMBroadbandModemMtkCcci, mm_broadband_modem_mtk_ccci, MM_TYPE_BROADBAND_MODEM, 0,
+-                        G_IMPLEMENT_INTERFACE (MM_TYPE_IFACE_MODEM, iface_modem_init))
++                        G_IMPLEMENT_INTERFACE (MM_TYPE_IFACE_MODEM, iface_modem_init)
++                        G_IMPLEMENT_INTERFACE (MM_TYPE_IFACE_MODEM_VOICE, iface_modem_voice_init))
+ 
+ struct _MMBroadbandModemMtkCcciPrivate {
+     GRegex *eif_ifdown_regex;
+@@ -642,6 +645,75 @@ modem_power_down (MMIfaceModem        *self,
+     efun (self, FALSE, callback, user_data);
+ }
+ 
++/*****************************************************************************/
++/* Call list (Voice interface)
++ *
++ * The modem lists a call over IMS (VoLTE) with MediaTek's +CLCC mode 20
++ * where 3GPP TS 27.007 has 0 (voice); the generic parser skips any mode
++ * but voice ones and so dropped the call while it rang. Report it as
++ * voice. */
++
++static GRegex *ims_voice_mode_regex;
++
++static gboolean
++load_call_list_finish (MMIfaceModemVoice  *self,
++                       GAsyncResult       *res,
++                       GList             **out_call_info_list,
++                       GError            **error)
++{
++    GList  *list;
++    GError *inner_error = NULL;
++
++    list = g_task_propagate_pointer (G_TASK (res), &inner_error);
++    if (inner_error) {
++        g_propagate_error (error, inner_error);
++        return FALSE;
++    }
++    *out_call_info_list = list;
++    return TRUE;
++}
++
++static void
++clcc_ready (MMBaseModem  *self,
++            GAsyncResult *res,
++            GTask        *task)
++{
++    const gchar      *response;
++    g_autofree gchar *normalized = NULL;
++    GList            *list = NULL;
++    GError           *error = NULL;
++
++    response = mm_base_modem_at_command_finish (self, res, &error);
++    if (response)
++        normalized = g_regex_replace (ims_voice_mode_regex, response, -1, 0, "\\1,0,", 0, &error);
++    if (!normalized || !mm_3gpp_parse_clcc_response (normalized, self, &list, &error))
++        g_task_return_error (task, error);
++    else
++        g_task_return_pointer (task, list, (GDestroyNotify) mm_3gpp_call_info_list_free);
++    g_object_unref (task);
++}
++
++static void
++load_call_list (MMIfaceModemVoice   *self,
++                GAsyncReadyCallback  callback,
++                gpointer             user_data)
++{
++    mm_base_modem_at_command (MM_BASE_MODEM (self), "+CLCC", 5, FALSE,
++                              (GAsyncReadyCallback) clcc_ready,
++                              g_task_new (self, NULL, callback, user_data));
++}
++
++static void
++iface_modem_voice_init (MMIfaceModemVoiceInterface *iface)
++{
++    /* +CLCC: <id>,<dir>,<stat>,20, */
++    if (!ims_voice_mode_regex)
++        ims_voice_mode_regex = g_regex_new ("(\\+CLCC:\\s*\\d+\\s*,\\s*\\d+\\s*,\\s*\\d+)\\s*,\\s*20\\s*,",
++                                            G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    iface->load_call_list = load_call_list;
++    iface->load_call_list_finish = load_call_list_finish;
++}
++
+ /*****************************************************************************/
+ 
+ MMBroadbandModemMtkCcci *
+-- 
+2.55.0
+

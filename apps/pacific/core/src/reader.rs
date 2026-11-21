@@ -131,30 +131,31 @@ pub fn extract(html: &str, url: &str) -> Result<Article> {
     })
 }
 
-/// Reader appearance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Theme {
-    Light,
-    Sepia,
-    Dark,
+/// The reader's colours and typeface, from the UI's Silica `Theme`. Colours
+/// are Qt colour names (`#rrggbb` or `#aarrggbb`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Theme {
+    pub background: String,
+    pub primary: String,
+    pub secondary: String,
+    pub highlight: String,
+    pub font_family: String,
 }
 
-impl Theme {
-    pub fn parse(s: &str) -> Self {
-        match s {
-            "sepia" => Self::Sepia,
-            "dark" => Self::Dark,
-            _ => Self::Light,
-        }
+/// A Qt colour name as CSS (`#aarrggbb` becomes `#rrggbbaa`); empty, so
+/// the declaration is dropped, for anything else.
+fn css_colour(qt: &str) -> String {
+    let Some(hex) = qt.strip_prefix('#') else {
+        return String::new();
+    };
+    if !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return String::new();
     }
-
-    fn colours(self) -> (&'static str, &'static str, &'static str) {
-        match self {
-            Self::Light => ("#ffffff", "#1b1b1b", "#0b57d0"),
-            Self::Sepia => ("#f4ecd8", "#3b2f22", "#7a4b12"),
-            Self::Dark => ("#121417", "#e3e3e3", "#8ab4f8"),
-        }
+    match hex.len() {
+        6 => format!("#{hex}"),
+        8 => format!("#{}{}", &hex[2..], &hex[..2]),
+        _ => String::new(),
     }
 }
 
@@ -164,21 +165,30 @@ pub const READER_CSP: &str =
      media-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'";
 
 /// The reader page for `article` from `url`. `font_px` is the body text
-/// size, `serif` the typeface family, and `minutes_label` the localised
-/// "%1 min read" text from the UI.
+/// size and `minutes_label` the localised "%1 min read" text from the UI.
 pub fn render(
     article: &Article,
     url: &str,
-    theme: Theme,
+    theme: &Theme,
     font_px: u32,
-    serif: bool,
     minutes_label: &str,
 ) -> String {
-    let (bg, fg, link) = theme.colours();
-    let font = if serif {
-        "Georgia, 'Noto Serif', serif"
+    let [bg, fg, secondary, link] = [
+        &theme.background,
+        &theme.primary,
+        &theme.secondary,
+        &theme.highlight,
+    ]
+    .map(|c| css_colour(c));
+    let family: String = theme
+        .font_family
+        .chars()
+        .filter(|c| c.is_alphanumeric() || matches!(c, ' ' | '-' | '_'))
+        .collect();
+    let font = if family.is_empty() {
+        "sans-serif".to_owned()
     } else {
-        "'Sail Sans Pro', 'Noto Sans', sans-serif"
+        format!("'{family}', sans-serif")
     };
     let host = crate::util::display_host(url);
     let mut meta = Vec::new();
@@ -210,11 +220,12 @@ pub fn render(
 <meta name=\"referrer\" content=\"no-referrer\">\
 <title>{title}</title><style>\
 html{{background:{bg};color:{fg};-webkit-text-size-adjust:100%}}\
-body{{margin:0 auto;max-width:42em;padding:1.2em 1.1em 4em;font:{font_px}px/1.6 {font};word-wrap:break-word}}\
+body{{margin:0 auto;max-width:42em;padding:1.2em 1.1em 4em;font:300 {font_px}px/1.6 {font};word-wrap:break-word}}\
 h1{{font-size:1.6em;line-height:1.25;margin:0.3em 0}}\
-.meta{{opacity:0.7;font-size:0.85em;margin-bottom:1.6em}}\
+.meta,figcaption{{color:{secondary}}}.meta{{font-size:0.85em;margin-bottom:1.6em}}\
 a{{color:{link}}}img,video,figure{{max-width:100%;height:auto}}figure{{margin:1em 0}}\
-pre,code{{white-space:pre-wrap;font-size:0.9em}}blockquote{{margin:1em 0;padding-left:1em;border-left:3px solid {link}}}\
+pre,code{{white-space:pre-wrap;font-size:0.9em}}\
+blockquote{{margin:1em 0;padding-left:1em;border-left:2px solid {link};color:{secondary}}}\
 table{{display:block;overflow-x:auto;border-collapse:collapse}}td,th{{padding:0.2em 0.5em}}\
 </style></head><body><article><h1>{title}</h1><div class=\"meta\">{meta}</div>{content}</article></body></html>\n",
         lang = html_escape(&lang),
@@ -289,22 +300,24 @@ mod tests {
             words: 1,
             minutes: 1,
         };
-        let page = render(
-            &a,
-            "https://www.example.com/x",
-            Theme::Dark,
-            18,
-            true,
-            "%1 min read",
-        );
+        let theme = Theme {
+            background: "#0a0a0f".into(),
+            primary: "#ffffff".into(),
+            secondary: "#99ffffff".into(),
+            highlight: "#7ff0fe".into(),
+            font_family: "Source Sans 3'}</style>".into(),
+        };
+        let page = render(&a, "https://www.example.com/x", &theme, 18, "%1 min read");
         assert!(page.contains("script-src") || page.contains("default-src 'none'"));
         assert!(page.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(page.contains("A &amp; B \u{b7} example.com \u{b7} 1 min read"));
         assert!(page.contains("lang=\"fi\""));
-        assert!(page.contains("#121417"));
+        assert!(page.contains("html{background:#0a0a0f;color:#ffffff;"));
+        assert!(page.contains("border-left:2px solid #7ff0fe;color:#ffffff99"));
+        assert!(page.contains("font:300 18px/1.6 'Source Sans 3style', sans-serif"));
         assert!(page.contains("<p>Hello</p>"));
-        assert_eq!(Theme::parse("sepia"), Theme::Sepia);
-        assert_eq!(Theme::parse("?"), Theme::Light);
+        assert_eq!(css_colour("red"), "");
+        assert_eq!(css_colour("#12345g"), "");
     }
 
     #[test]

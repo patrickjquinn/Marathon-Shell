@@ -24,7 +24,7 @@ Dialog {
             bottomPadding: Theme.paddingLarge
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryHighlightColor
+            color: Theme.secondaryColor
             text: dialog.dataLocked ? qsTr("You'll unlock with your system password, and your phone will start without asking for a PIN, so anyone who has it can read your data. Enter your password to confirm.") : qsTr("You'll unlock with your system password. Enter it to confirm.")
         }
         PasswordField {

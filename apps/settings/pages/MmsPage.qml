@@ -119,7 +119,7 @@ Page {
                 topPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("These are usually set for your carrier automatically. Change them only if picture messages don't send or arrive; pull down to edit.")
             }
         }

@@ -125,4 +125,45 @@ TestCase {
         pinScreen.switchToPINMode();
         tryCompare(title, "text", "Enter PIN");
     }
+
+    SignalSpy {
+        id: cancelledSpy
+
+        target: pinScreen
+        signalName: "cancelled"
+    }
+
+    function test_numberKeysTypeWithoutAlt() {
+        keyClick(Qt.Key_W);
+        keyClick(Qt.Key_E);
+        keyClick(Qt.Key_R);
+        keyClick(Qt.Key_0);
+        compare(pinScreen.pin, "1230");
+        keyClick(Qt.Key_Q);
+        compare(pinScreen.pin, "1230");
+    }
+
+    function test_backspaceDeletesOneDigit() {
+        type("1234");
+        keyClick(Qt.Key_Backspace);
+        compare(pinScreen.pin, "123");
+    }
+
+    function test_escapeCancels() {
+        cancelledSpy.clear();
+        keyClick(Qt.Key_Escape);
+        compare(cancelledSpy.count, 1);
+    }
+
+    function test_cancelAndEmergencyApartBelowTheKeypad() {
+        const cancel = findChild(pinScreen, "pinCancel");
+        const emergency = findChild(pinScreen, "pinEmergency");
+        const zero = findChild(pinScreen, "key0");
+        const c = cancel.mapToItem(null, 0, 0);
+        const e = emergency.mapToItem(null, 0, 0);
+        verify(c.x < win.width / 4, "Cancel at the left edge");
+        verify(e.x + emergency.width > win.width * 3 / 4, "Emergency call at the right edge");
+        verify(c.x + cancel.width < e.x, "apart");
+        verify(c.y > zero.mapToItem(null, 0, 0).y + zero.height, "below the keypad");
+    }
 }

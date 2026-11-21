@@ -1,0 +1,11 @@
+[Unit]
+Description=Q25 IMS: SIP stack (volte_stack)
+Requires=q25-ims-runtime.service
+Wants=q25-ims-logd.service q25-ims-propd.service
+After=q25-ims-logd.service q25-ims-propd.service 
+PartOf=q25-modem.target
+
+[Service]
+ExecStart=/usr/libexec/q25-modem/q25-ims-runtime run +CAP_NET_ADMIN -- /q25-ims-exec -s volte_stack:stream:660 -- /vendor/bin/volte_stack
+Restart=always
+RestartSec=2

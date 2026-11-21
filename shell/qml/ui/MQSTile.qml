@@ -2,28 +2,32 @@ import QtQuick
 import MarathonOS.Shell
 import Sailfish.Silica 1.0 as Silica
 
-// Quick Settings switch: a glass ring lit with the ambience highlight when
-// on, its label beneath. Sized from Silica's units, so it grows with
-// the density and the user's interface size.
+// Quick Settings switch, as BB10's: a disc with the glyph at the left, lit
+// when on; what it is and how it stands at the right ("SKYZMTGV" over
+// "Wi-Fi · good"). A tap switches it; holding it opens its settings page.
 Item {
     id: tile
 
     property string iconName: "square"
     property string label: ""
+    property string status: ""
     property bool on: false
-    // One-shot actions (Screenshot, Power) are buttons, not switches.
+    // One-shot actions (Screenshot, Camera) are buttons, not switches.
     property bool checkable: true
-    // The backend is switching: pulse the ring as Silica's Switch.busy does.
+    // Its settings page, if it has one: holding the tile opens it.
+    property bool hasPage: false
+    // The backend is switching: pulse the disc as Silica's Switch.busy does.
     property bool busy: false
 
     signal toggled
     signal held
+    signal opened
 
-    implicitWidth: Silica.Theme.itemSizeExtraLarge
-    implicitHeight: circle.height + Silica.Theme.paddingSmall + labelText.height
+    implicitWidth: Silica.Theme.itemSizeExtraLarge * 2
+    implicitHeight: Math.max(Silica.Theme.itemSizeSmall, textColumn.implicitHeight + Silica.Theme.paddingMedium * 2)
 
     Accessible.role: Accessible.Button
-    Accessible.name: label
+    Accessible.name: status !== "" ? label + ", " + status : label
     Accessible.checkable: checkable
     Accessible.checked: checkable && on
     Accessible.onPressAction: toggled()
@@ -33,63 +37,71 @@ Item {
     Keys.onEnterPressed: toggled()
     Keys.onSpacePressed: toggled()
 
+    MPressHighlight {
+        anchors.fill: parent
+        down: tileMouse.pressed
+    }
+
+    // A keyboard-focused tile wears a ring.
     Rectangle {
-        id: circle
+        anchors.fill: parent
+        visible: tile.activeFocus
+        radius: Silica.Theme.paddingMedium
+        color: "transparent"
+        border.width: Math.max(2, Math.round(Silica.Theme.paddingSmall / 2))
+        border.color: Silica.Theme.highlightColor
+    }
+
+    Rectangle {
+        id: disc
+
+        readonly property bool lit: tile.checkable && tile.on
+        readonly property bool pressed: tile.busy && busyPulse.bright
 
         objectName: "ring"
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: Silica.Theme.itemSizeSmall
+        x: Silica.Theme.paddingMedium
+        anchors.verticalCenter: parent.verticalCenter
+        width: Silica.Theme.itemSizeExtraSmall * 0.75
         height: width
         radius: width / 2
-        scale: tileMouse.pressed ? 0.96 : 1.0
-        // A glass ring, filled with the highlight when on.
-        color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.12 : 0)
-        // A keyboard-focused tile wears a thicker ring.
-        border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4)) * (tile.activeFocus ? 2 : 1)
-        border.color: tile.activeFocus ? Silica.Theme.highlightColor : tile.busy ? Silica.Theme.rgba(Silica.Theme.highlightColor, busyPulse.bright ? 1 : Silica.Theme.opacityLow) : tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
-
-        Behavior on border.color {
-            enabled: tile.busy && !MMotion.reduceMotion
-            ColorAnimation {
-                duration: busyPulse.interval - 50
-                easing.type: Easing.InOutQuad
-            }
-        }
-        Behavior on color {
-            enabled: !MMotion.reduceMotion
-            ColorAnimation {
-                duration: MMotion.quick
-            }
-        }
-        Behavior on scale {
-            enabled: !MMotion.reduceMotion
-            NumberAnimation {
-                duration: MMotion.quick
-                easing.type: Easing.OutQuad
-            }
-        }
+        color: lit ? MColors.accentFill : MColors.controlFill
+        opacity: pressed ? 0.6 : 1
 
         GlyphIcon {
             anchors.centerIn: parent
             name: tile.iconName
             size: Silica.Theme.iconSizeSmall
-            color: tile.on || tileMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            color: "white"
         }
     }
 
-    Text {
-        id: labelText
+    Column {
+        id: textColumn
 
-        anchors.top: circle.bottom
-        anchors.topMargin: Silica.Theme.paddingSmall
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: tile.width
-        text: tile.label
-        color: tile.on ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
-        font.family: Silica.Theme.fontFamily
-        font.pixelSize: Silica.Theme.fontSizeTiny
-        horizontalAlignment: Text.AlignHCenter
-        elide: Text.ElideRight
+        anchors.left: disc.right
+        anchors.leftMargin: Silica.Theme.paddingLarge
+        anchors.right: parent.right
+        anchors.rightMargin: Silica.Theme.paddingSmall
+        anchors.verticalCenter: parent.verticalCenter
+
+        Text {
+            width: parent.width
+            text: tile.label
+            color: Silica.Theme.primaryColor
+            font.family: Silica.Theme.fontFamily
+            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+            elide: Text.ElideRight
+        }
+        Text {
+            objectName: "status"
+            width: parent.width
+            visible: text !== ""
+            text: tile.status
+            color: Silica.Theme.secondaryColor
+            font.family: Silica.Theme.fontFamily
+            font.pixelSize: Silica.Theme.fontSizeTiny
+            elide: Text.ElideRight
+        }
     }
 
     Timer {
@@ -110,6 +122,7 @@ Item {
 
         anchors.fill: parent
         onClicked: tile.toggled()
-        onPressAndHold: tile.held()
+        // Held: its settings page, or what `held` does where it has none.
+        onPressAndHold: tile.hasPage ? tile.opened() : tile.held()
     }
 }

@@ -138,7 +138,7 @@ Page {
                 bottomPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.highlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Anyone with this password who can reach your phone over USB or a network can read and change everything on it, and the password unlocks your phone too. Turn remote connection off when you're not using it.")
             }
 
@@ -163,7 +163,7 @@ Page {
                 visible: page.remoteOn
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: page.addresses.length > 0 ? qsTr("On the computer, run ssh %1@%2").arg(page.user).arg(page.addresses[0].address) : qsTr("Connect a USB cable or join a Wi-Fi network to get an address.")
             }
 
@@ -177,7 +177,7 @@ Page {
                 bottomPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: page.reportPath !== "" ? qsTr("Saved in Documents as %1").arg(page.reportPath.split("/").pop()) : qsTr("Puts the system, kernel and Android logs in one file in Documents for you to share. Logs can include network and app names, and phone numbers.")
             }
             Button {

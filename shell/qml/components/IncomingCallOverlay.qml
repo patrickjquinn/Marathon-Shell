@@ -11,10 +11,10 @@ Item {
     property string callerNumber: ""
     property string callerName: ""
     property bool isRinging: false
-    property bool answeredHere: false
+    property bool answered: false
     property bool pinShown: false
     // Answered while locked: the call stays here and the session stays locked.
-    readonly property bool inCall: answeredHere && SessionStore.isLocked && Modem.callState !== "idle" && Modem.callState !== "terminated"
+    readonly property bool inCall: answered && SessionStore.isLocked && Modem.callState !== "idle" && Modem.callState !== "terminated"
     readonly property string title: callerName || MPhoneNumber.format(callerNumber) || qsTr("Unknown caller")
     readonly property string initials: {
         const words = callerName.trim().split(/\s+/).filter(w => w.length > 0);
@@ -33,7 +33,7 @@ Item {
     function show(number, name) {
         callerNumber = number;
         callerName = name || "";
-        answeredHere = false;
+        answered = false;
         isRinging = true;
         AudioManagerCpp.playRingtone();
         HapticManager.vibrate(1000);
@@ -50,13 +50,19 @@ Item {
     function answer() {
         Logger.info("IncomingCallOverlay", "Call answered");
         HapticManager.heavy();
-        answeredHere = true;
+        connected();
+        // Last: the call state change can unload this overlay.
+        Modem.answer();
+    }
+
+    // The call is up, answered here or elsewhere (a headset, another client):
+    // Phone shows it, and so does this overlay while locked.
+    function connected() {
+        answered = true;
         answeredAt = Date.now();
         elapsed = 0;
         hide();
         UIStore.openApp("phone", qsTr("Phone"), "");
-        // Last: the call state change can unload this overlay.
-        Modem.answer();
     }
 
     function decline() {

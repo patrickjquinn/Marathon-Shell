@@ -93,7 +93,30 @@ carrier_apn() {
 		sed -n 's/.* apn="\([^"]*\)".*/\1/p' | head -n 1
 }
 
+# IMS, as the stock RIL sets it up before the radio comes on: the ims APN in
+# the modem's APN table (the modem brings its PDN up itself), registration
+# and VoPS reports, and IMS PDN notifications. ModemManager's mtk-ccci
+# plugin then sends the IMS configuration (ID_MM_MTK_CCCI_IMS_CFG), so IMS
+# starts once its PDN events are handled there.
+ims_setup() {
+	cmd 'AT+EAPNLOCK=1'
+	cmd 'AT+EAPNSET="ims",1,"",""'
+	cmd 'AT+EAPNSET="ims",2,"type=ims;protocol=IPV4V6;roaming_protocol=IPV4V6;authtype=0;carrier_enabled=1;max_conns=0;max_conns_time=0;wait_time=0;bearer_bitmask=0;inactive_timer=0"'
+	cmd 'AT+EAPNLOCK=0'
+	cmd 'AT+CIREG=2'
+	cmd 'AT+CIREP=1'
+	cmd 'AT+ECFGSET="report_eimsreginfo_urc","1"'
+	cmd 'AT+EIMSPDN="onoff",1'
+	cmd 'AT+EIMS=1'
+}
+
+# Dynamic SBP: the modem picks the operator profile for the SIM itself. The
+# stock RIL sends the vendor build.prop value at start (updateSupportDSBP).
+dsbp=$(sed -n 's/^persist\.vendor\.radio\.mtk_dsbp_support=//p' /etc/q25-modem/properties)
+cmd "AT+EDSBP=${dsbp:-0}"
+
 [ -n "$IA_APN" ] && set_apn "$IA_APN"
+ims_setup
 radio_on
 # Without an attach APN the modem stays on 2G, and it reads one only at
 # radio power-on. With none configured, take the carrier's, as Android's
@@ -105,10 +128,18 @@ if [ -z "$IA_APN" ] && apn=$(carrier_apn) && [ -n "$apn" ]; then
 	set_apn "$apn"
 	radio_on
 fi
-# Incoming calls wait for the host to allow them (+EAIC), as with the stock
-# RIL; ModemManager's mtk-ccci plugin answers each. Call progress (+ECPI)
-# stays off: nothing reads it.
+# Call control as the stock RIL sets it up (RmcCallControlCommonRequestHandler):
+# call waiting, every call progress report (+ECPI; ModemManager's mtk-ccci
+# plugin consumes them), incoming calls waiting for the host to allow them
+# (+EAIC, which the plugin answers), voice codec and call cause reports.
+cmd 'ATS0=0'
+cmd 'AT+CCWA=1'
+cmd 'AT+ECPI=4294967295'
 cmd 'AT+EAIC=2'
-cmd 'AT+ECPI=0'
+cmd 'AT+EVOCD=1'
+cmd 'AT+ECCP=1'
+cmd 'AT+EECCFC=1'
 cmd 'AT+CPIN?'
+# Phone activity at bring-up (+CPAS: 0 ready, 4 call in progress).
+cmd 'AT+CPAS'
 exit 0

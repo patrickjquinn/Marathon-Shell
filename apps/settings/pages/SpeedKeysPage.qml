@@ -44,7 +44,7 @@ Page {
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("On the home screen, hold a letter on the keyboard to open its app. A tap still starts a search.")
             }
             Repeater {

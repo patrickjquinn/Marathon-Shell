@@ -26,6 +26,8 @@ ListItem {
     required property string iconPath
     required property bool isNew
     required property string source
+    // Says nothing of fitting a phone: only a search finds it.
+    required property bool desktopOnly
     required property string jobState
     required property int jobPercent
 
@@ -88,7 +90,7 @@ ListItem {
         }
         Label {
             width: parent.width
-            text: [row.isNew && row.installState === "not_installed" ? qsTr("New") : "", row.source === "fdroid" ? qsTr("Android") : "", row.categoryLabel, row.publisher !== "Shipwright" ? row.publisher : ""].filter(function (s) {
+            text: [row.isNew && row.installState === "not_installed" ? qsTr("New") : "", row.source === "fdroid" ? qsTr("Android") : "", row.desktopOnly ? qsTr("Desktop app") : "", row.categoryLabel, row.publisher !== "Shipwright" ? row.publisher : ""].filter(function (s) {
                 return s.length > 0;
             }).join(" · ")
             // Plain like the rest of the row: an update waiting (on the

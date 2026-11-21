@@ -41,7 +41,6 @@ Item {
     // The running app surface to blur behind the lock chrome, if any.
     // Set by MarathonShell.qml to appWindowContainer when an app is
     // open; null otherwise (the wallpaper renders through normally).
-    property Item appBackdrop: null
 
     property real swipeProgress: 0
     // The app whose notification stack is open; the others show their newest.
@@ -80,7 +79,7 @@ Item {
         idleTimer.rearm();
     }
 
-    // Relative-time formatter for notification cards.
+    // Relative-time formatter for notifications.
     // Returns 'now' / 'Nm' / 'Nh' / clock-time for older today.
     function relativeTime(ts) {
         if (!ts)
@@ -292,31 +291,10 @@ Item {
 
             anchors.fill: parent
             source: SettingsManagerCpp.wallpaperPath
+            // The home screen's size too, so both share one decoded image.
+            sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-        }
-
-        MGlassBackdrop {
-            id: glassBackdrop
-
-            anchors.fill: parent
-        }
-
-        AppBackdropBlur {
-            anchors.fill: parent
-            source: lockScreen.appBackdrop
-            blurAmount: 1.0
-            // 24 instead of 64 — see AppBackdropBlur.qml. A wider kernel
-            // is invisible past ~24 on a 540×1140 screen but quadruples
-            // fillrate on etnaviv.
-            blurMax: MBlur.xl
-            saturation: 0.4
-            brightness: -0.15
-            tint: Qt.rgba(0, 0, 0, 0.25)
-            // The lock screen sits over an app that has been frozen by
-            // AppLifecycleManager — its surface texture does not change.
-            // Sample once, then stop.
-            live: false
         }
     }
 
@@ -564,16 +542,18 @@ Item {
                     Silica.Label {
                         id: lockClock
 
+                        readonly property int clockSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
+
                         objectName: "lockClock"
                         text: SystemStatusStore.timeString
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
                         fontSizeMode: Text.HorizontalFit
-                        font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
+                        font.pixelSize: clockSize
                         font.weight: Font.ExtraLight
                         // Display sizes set tighter; figures of one width, so the clock never shifts.
-                        font.letterSpacing: -0.02 * lockClock.font.pixelSize
+                        font.letterSpacing: -0.02 * clockSize
                         font.features: ({
                                 "tnum": 1
                             })
@@ -663,14 +643,12 @@ Item {
                             readonly property bool expanded: lockScreen.expandedApp === appId
                             // The top of a closed stack stands for all of it.
                             readonly property bool stacked: stackSize > 1 && !expanded
-                            readonly property int peeks: stacked ? Math.min(2, stackSize - 1) : 0
-                            readonly property real peekStep: Silica.Theme.paddingSmall * 1.5
                             readonly property real headerHeight: expanded && stackIndex === 0 && stackSize > 1 ? lessLabel.implicitHeight + Silica.Theme.paddingMedium : 0
                             // Swiped right it goes, as in the Hub.
                             property real collapse: 1
 
                             width: notificationColumn.width
-                            height: (headerHeight + cardBody.height + peeks * peekStep) * collapse
+                            height: (headerHeight + cardBody.height) * collapse
                             visible: stackIndex === 0 || expanded
                             clip: collapse < 1
 
@@ -728,52 +706,41 @@ Item {
                                 }
                             }
 
-                            // The edges of the ones beneath.
-                            Repeater {
-                                model: notifCard.peeks
-
-                                MGlassPlatter {
-                                    required property int index
-                                    readonly property real inset: (index + 1) * Silica.Theme.paddingMedium
-
-                                    x: cardBody.x + inset
-                                    y: cardBody.y + (index + 1) * notifCard.peekStep
-                                    z: -1 - index
-                                    width: cardBody.width - 2 * inset
-                                    height: cardBody.height
-                                    opacity: 0.7 - index * 0.25
-                                    backdrop: glassBackdrop.texture
-                                }
-                            }
-
                             Item {
                                 id: cardBody
 
                                 y: notifCard.headerHeight
                                 width: parent.width
-                                height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
+                                height: cardContent.implicitHeight + Silica.Theme.paddingMedium * 2
 
-                                MGlassPlatter {
+                                // On the ambience, as in the Hub: pressed, a rounded inset highlight.
+                                MPressHighlight {
                                     anchors.fill: parent
-                                    backdrop: glassBackdrop.texture
-                                    pressed: notifArea.pressed && !notifArea.swiping
+                                    anchors.leftMargin: -Silica.Theme.paddingSmall
+                                    anchors.rightMargin: -Silica.Theme.paddingSmall
+                                    down: notifArea.pressed && !notifArea.swiping
                                 }
 
                                 Row {
                                     id: cardContent
                                     anchors.left: parent.left
                                     anchors.right: parent.right
-                                    anchors.leftMargin: Silica.Theme.paddingLarge
-                                    anchors.rightMargin: Silica.Theme.paddingLarge
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: Silica.Theme.paddingLarge
 
-                                    GlyphIcon {
+                                    Rectangle {
                                         id: notifIcon
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        name: notifCard.icon
-                                        size: Silica.Theme.iconSizeSmall
-                                        color: Silica.Theme.highlightColor
+                                        width: Silica.Theme.iconSizeMedium
+                                        height: width
+                                        radius: width / 2
+                                        color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.16)
+
+                                        GlyphIcon {
+                                            anchors.centerIn: parent
+                                            name: notifCard.icon
+                                            size: Silica.Theme.iconSizeExtraSmall
+                                            color: Silica.Theme.highlightColor
+                                        }
                                     }
 
                                     Column {

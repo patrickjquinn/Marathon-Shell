@@ -27,12 +27,29 @@ const ANDROID_HANDOFF_GRACE: Duration = Duration::from_secs(45);
 /// A second tap within this of the first starts no second copy.
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
+/// Flatpak hands a sandbox the accessibility bus, and Qt then runs as if a
+/// screen reader were on (Telegram's "Screen Reader mode").
+const FLATPAK_RUN: &str = "flatpak run --no-a11y-bus ";
+
 /// A Flatpak left on its toolkit's own colours: no generated gtk.css or KDE
 /// palette, no KDE platform theme, libadwaita's own accent. The portal still
 /// gives it the light or dark scheme.
-const UNTHEMED_FLATPAK: &str = "flatpak run --nofilesystem=xdg-config/gtk-4.0 \
+const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --nofilesystem=xdg-config/gtk-4.0 \
     --nofilesystem=xdg-config/kdeglobals --nofilesystem=xdg-data/color-schemes \
     --unset-env=QT_QPA_PLATFORMTHEME --env=ADW_DEBUG_ACCENT_COLOR=blue ";
+
+/// The command a Flatpak's desktop entry runs, with Marathon's options.
+fn flatpak_exec(exec: &str, themed: bool) -> String {
+    exec.replacen(
+        "flatpak run ",
+        if themed {
+            FLATPAK_RUN
+        } else {
+            UNTHEMED_FLATPAK
+        },
+        1,
+    )
+}
 
 /// Android desktop files are rewritten during a session cutover. The
 /// catalogue may still hold the old launcher until Shell restarts.
@@ -135,12 +152,7 @@ pub(super) fn descends_from(pid: i64, ancestor: i64) -> bool {
 /// An entry kept off the grid (Waydroid's stock Android apps) still
 /// launches by its id.
 fn desktop_entry(app_id: &str) -> Option<App> {
-    let dirs =
-        std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
-    let found = std::iter::once(marathon_rt::dirs::data())
-        .chain(dirs.split(':').map(std::path::PathBuf::from))
-        .map(|d| d.join("applications").join(format!("{app_id}.desktop")))
-        .find(|p| p.is_file())?;
+    let found = desktop::find(app_id)?;
     let map = desktop::parse(&QString::from(&*found.to_string_lossy()));
     let text = |k: &str| {
         map.get(&q(k))
@@ -574,8 +586,8 @@ impl Tasks {
         }
         let exec = if is_android_app_id(&app.id) {
             android_exec(app)
-        } else if app.kind == "flatpak" && !crate::settings::themed(&app.id) {
-            app.exec.replacen("flatpak run ", UNTHEMED_FLATPAK, 1)
+        } else if app.kind == "flatpak" {
+            flatpak_exec(&app.exec, crate::settings::themed(&app.id))
         } else {
             app.exec.clone()
         };
@@ -1358,9 +1370,21 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        discard_app_windows, is_android_app_id, is_foreground_flatpak_run, AndroidHandoff,
-        ForegroundLaunches,
+        discard_app_windows, flatpak_exec, is_android_app_id, is_foreground_flatpak_run,
+        AndroidHandoff, ForegroundLaunches,
     };
+
+    #[test]
+    fn a_flatpak_runs_without_the_accessibility_bus() {
+        let exec =
+            "flatpak run --branch=stable --arch=aarch64 --command=Telegram org.telegram.desktop";
+        let themed = flatpak_exec(exec, true);
+        assert!(themed.starts_with("flatpak run --no-a11y-bus --branch=stable"));
+        let unthemed = flatpak_exec(exec, false);
+        assert!(unthemed.starts_with("flatpak run --no-a11y-bus --nofilesystem"));
+        assert!(unthemed.ends_with("--command=Telegram org.telegram.desktop"));
+        assert!(is_foreground_flatpak_run(&themed) && is_foreground_flatpak_run(&unthemed));
+    }
 
     #[test]
     fn stopped_android_session_discards_only_its_old_surfaces() {

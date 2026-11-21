@@ -215,24 +215,6 @@ Page {
                 text: qsTr("Reader mode")
             }
 
-            ComboBox {
-                label: qsTr("Colours")
-                currentIndex: ["light", "sepia", "dark"].indexOf(page.s.reader_theme)
-                menu: ContextMenu {
-                    MenuItem {
-                        text: qsTr("Light")
-                        onClicked: page.set("reader_theme", "light")
-                    }
-                    MenuItem {
-                        text: qsTr("Sepia")
-                        onClicked: page.set("reader_theme", "sepia")
-                    }
-                    MenuItem {
-                        text: qsTr("Dark")
-                        onClicked: page.set("reader_theme", "dark")
-                    }
-                }
-            }
             Slider {
                 width: parent.width
                 label: qsTr("Text size")
@@ -242,11 +224,6 @@ Page {
                 value: page.s.reader_font_px
                 valueText: Math.round(value) + " px"
                 onReleased: page.set("reader_font_px", Math.round(value))
-            }
-            TextSwitch {
-                text: qsTr("Serif typeface")
-                checked: page.s.reader_serif
-                onClicked: page.set("reader_serif", checked)
             }
 
             SectionHeader {
@@ -280,7 +257,7 @@ Page {
                 width: parent.width - 2 * x
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("To open links from other apps in Pacific, choose it in Settings > Apps > Default apps.")
             }
         }

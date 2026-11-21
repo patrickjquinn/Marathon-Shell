@@ -24,6 +24,8 @@ Glass {
     // cloud), listed as they happened.
     property var how: []
     property bool showHow: false
+    // In the overlay's sheet: the pages and the next questions as rows.
+    property bool sheet: false
     signal ask(string question)
 
     function provenance() {
@@ -108,7 +110,7 @@ Glass {
     }
 
     Flow {
-        visible: card.sources.length > 0
+        visible: card.sources.length > 0 && !card.sheet
         width: parent.width
         spacing: Theme.paddingSmall
         Repeater {
@@ -199,7 +201,7 @@ Glass {
 
     // The next questions: full-width rows, one tap each.
     Column {
-        visible: card.followups.length > 0
+        visible: card.followups.length > 0 && !card.sheet
         width: parent.width
         topPadding: Theme.paddingSmall
         Repeater {
@@ -234,6 +236,38 @@ Glass {
                     source: "image://theme/icon-m-right"
                     color: Theme.primaryColor
                 }
+            }
+        }
+    }
+
+    // Edge to edge, as a list's rows.
+    Column {
+        objectName: "answerActions"
+        visible: card.sheet && card.sources.length + card.followups.length > 0
+        x: -Theme.horizontalPageMargin
+        width: card.width
+        Repeater {
+            model: card.sheet ? card.sources : []
+            delegate: SuggestionTile {
+                id: source
+                required property var modelData
+                width: parent ? parent.width : 0
+                icon: "website"
+                action: true
+                text: source.modelData.site
+                onClicked: Pilot.openUrl(source.modelData.url)
+            }
+        }
+        Repeater {
+            model: card.sheet ? card.followups : []
+            delegate: SuggestionTile {
+                id: next
+                required property string modelData
+                width: parent ? parent.width : 0
+                icon: "ask"
+                action: true
+                text: next.modelData
+                onClicked: card.ask(next.modelData)
             }
         }
     }

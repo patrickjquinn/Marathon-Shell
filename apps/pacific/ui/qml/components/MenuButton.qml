@@ -20,6 +20,7 @@ BackgroundItem {
     property bool checked
 
     width: parent ? parent.width : implicitWidth
+    implicitWidth: label.anchors.leftMargin + label.implicitWidth + (checkable ? toggle.width + toggle.anchors.rightMargin : Theme.horizontalPageMargin)
     height: Theme.itemSizeSmall
     opacity: enabled ? 1.0 : Theme.opacityLow
 

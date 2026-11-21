@@ -4,13 +4,13 @@
 // Pilot over any app: what the system-wide gesture brings up. A second
 // window of the app (PilotApp.qml), titled keel:dialog:pilot so that the
 // compositor shows it above the app the person is in, which stays on screen
-// behind a soft veil. The edges glow, the field and the mic wait at the
-// bottom with the keyboard up, and what that app shows is the context
-// ("summarise this"), with one-tap questions that fit it. Answers rise
-// above the field, the turns since the overlay opened; the whole
-// conversation is the app's (Conversation.qml), and "Open Pilot" carries
-// on there. A tap on the veil, the close button or a swipe down puts the
-// person back in their app.
+// behind the shell's backdrop. The edges glow, and a sheet rises from the
+// bottom on the ambience, as the shell's own sheets do: what Pilot sees in
+// its header, one-tap questions that fit it, then the field and the mic
+// with the keyboard up. Answers grow the sheet upwards, the turns since the
+// overlay opened; the whole conversation is the app's (Conversation.qml),
+// and "Open Pilot" carries on there. A tap above the sheet, back or a swipe
+// down puts the person back in their app.
 //
 // From the main QML: `show()` and `hide()`; `shown` says which.
 
@@ -82,12 +82,21 @@ Item {
         Conversation.listen();
     }
 
+    // Swiping the sheet down closes the overlay, except over the answers,
+    // which scroll.
+    component SwipeDown: DragHandler {
+        target: null
+        xAxis.enabled: false
+        onActiveTranslationChanged: if (activeTranslation.y > Theme.itemSizeMedium)
+            overlay.hide()
+    }
+
     // Escape, or the system back the shell sends the window as a key,
     // puts the person back in their app.
     Keys.onEscapePressed: overlay.hide()
     Keys.onBackPressed: overlay.hide()
 
-    // The window goes once the veil has faded.
+    // The window goes once the overlay has faded.
     Timer {
         id: hideLater
         interval: 220
@@ -121,6 +130,7 @@ Item {
         }
         filterOnGroup: "recent"
         delegate: Cards {
+            sheet: true
             onLook: overlay.expand()
             onOpenSettings: overlay.expand()
         }
@@ -161,42 +171,13 @@ Item {
 
         readonly property real keyboard: Qt.inputMethod.visible ? (landscape ? Qt.inputMethod.keyboardRectangle.width : Qt.inputMethod.keyboardRectangle.height) : 0
 
-        // The shell blurs and darkens the app behind a dialog window; this
-        // only deepens it behind the answers and the field, so they read
-        // over any page.
-        Rectangle {
-            anchors {
-                left: parent.left
-                right: parent.right
-                bottom: parent.bottom
-            }
-            height: parent.height - stack.y + Theme.itemSizeLarge
-            gradient: Gradient {
-                GradientStop {
-                    position: 0.0
-                    color: Theme.rgba(Theme.overlayBackgroundColor, 0)
-                }
-                GradientStop {
-                    position: 0.12
-                    color: Theme.rgba(Theme.overlayBackgroundColor, 0.82)
-                }
-                GradientStop {
-                    position: 1.0
-                    color: Theme.rgba(Theme.overlayBackgroundColor, 0.94)
-                }
-            }
-            Behavior on height {
-                enabled: !Conversation.reduceMotion
-                NumberAnimation {
-                    duration: 180
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
         // A tap on the app's part puts the person back in it.
         MouseArea {
             objectName: "veil"
             anchors.fill: parent
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("Close")
+            Accessible.onPressAction: overlay.hide()
             onClicked: overlay.hide()
         }
 
@@ -206,25 +187,102 @@ Item {
             intense: overlay.busy
         }
 
-        // Answers above, then the questions that fit, then the field.
-        Column {
-            id: stack
+        // The sheet, edge to edge on the ambience: the header, the answers,
+        // the questions that fit, then the field.
+        Item {
+            id: sheet
+            objectName: "overlaySheet"
+            // A strip of the app is left to tap.
+            readonly property real maximumHeight: content.height - content.keyboard - Theme.itemSizeLarge
             anchors {
                 left: parent.left
                 right: parent.right
                 bottom: parent.bottom
-                bottomMargin: content.keyboard + Theme.paddingMedium
+                bottomMargin: content.keyboard
             }
-            spacing: Theme.paddingMedium
+            height: header.height + (turnsView.visible ? turnsView.height : 0) + lower.height
+            Behavior on height {
+                enabled: !Conversation.reduceMotion
+                NumberAnimation {
+                    duration: 180
+                    easing.type: Easing.OutCubic
+                }
+            }
 
-            // Sized to the cards (the few since it opened), up to most of
-            // the screen above the field, with a strip of the app left to
-            // tap. The newest card is shown from its top: a long answer is
-            // read from its start, and scrolled for the rest.
+            // Taps on the sheet stay in it.
+            MouseArea {
+                anchors.fill: parent
+            }
+
+            Item {
+                anchors.fill: parent
+                clip: true
+                Rectangle {
+                    anchors.fill: parent
+                    visible: ambience.status !== Image.Ready
+                    color: Theme.highlightDimmerColor
+                }
+                // The slice of the ambience behind the sheet, toned as the
+                // shell tones it behind apps.
+                Image {
+                    id: ambience
+                    readonly property bool light: Theme.colorScheme === Theme.DarkOnLight
+                    y: -sheet.y
+                    width: content.width
+                    height: content.height
+                    smooth: true
+                    cache: true
+                    asynchronous: true
+                    source: Theme._backgroundImage !== "" && width > 0 && height > 0 ? "image://keelambience/" + encodeURIComponent(Theme._backgroundImage) + "?w=" + Math.round(width) + "&h=" + Math.round(height) + (light ? "&tone=0.45&light=1" : "&tone=0.62&dim=" + Theme.highlightDimmerColor.toString().slice(1)) : ""
+                }
+            }
+            Rectangle {
+                width: parent.width
+                height: Math.max(2, Math.round(Theme.paddingSmall / 4))
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop {
+                        position: 0
+                        color: "transparent"
+                    }
+                    GradientStop {
+                        position: 0.3
+                        color: Theme.rgba(Theme.highlightColor, 0.3)
+                    }
+                    GradientStop {
+                        position: 0.7
+                        color: Theme.rgba(Theme.highlightColor, 0.3)
+                    }
+                    GradientStop {
+                        position: 1
+                        color: "transparent"
+                    }
+                }
+            }
+
+            PageHeader {
+                id: header
+                objectName: "overlayContext"
+                title: qsTr("Pilot")
+                description: overlay.onScreen.length > 0 ? qsTr("Sees %1").arg(overlay.onScreen) : ""
+                Orb {
+                    parent: header.extraContent
+                    y: header.topMargin + (header.titleHeight - height) / 2
+                    width: Theme.iconSizeSmallPlus
+                    height: width
+                    mode: Pilot.busy ? "thinking" : "idle"
+                }
+                SwipeDown {}
+            }
+
+            // Sized to the turns since it opened, up to the room left. The
+            // newest is shown from its question: a long answer is read from
+            // its start, and scrolled for the rest.
             SilicaFlickable {
                 id: turnsView
+                anchors.top: header.bottom
                 width: parent.width
-                height: Math.min(turnsColumn.height, content.height * 0.72 - content.keyboard - bar.height - Theme.paddingLarge)
+                height: Math.max(0, Math.min(turnsColumn.height, sheet.maximumHeight - header.height - lower.height))
                 visible: turns.count > 0
                 clip: true
                 contentHeight: turnsColumn.height
@@ -246,7 +304,6 @@ Item {
                 Column {
                     id: turnsColumn
                     width: parent.width
-                    spacing: Theme.paddingMedium
                     Repeater {
                         id: turns
                         objectName: "overlayTurns"
@@ -256,179 +313,133 @@ Item {
                 VerticalScrollDecorator {}
             }
 
-            StageLine {
-                objectName: "overlayStage"
-                width: parent.width
-                visible: Pilot.busy && !Conversation.listening
-                running: visible
-                stage: Conversation.stage
-                detail: Conversation.stageDetail
-                partial: Conversation.partial
-                read: Conversation.read
-                readLeft: Conversation.readLeft
-            }
-
-            // While the microphone is open: the orb, and what is happening.
             Column {
+                id: lower
+                anchors.bottom: parent.bottom
                 width: parent.width
-                visible: Conversation.listening
-                spacing: Theme.paddingSmall
-                Orb {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: Theme.itemSizeHuge
-                    height: width
-                    mode: Conversation.transcribing ? "thinking" : "listening"
-                    level: Conversation.level
-                }
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Conversation.transcribing ? qsTr("Got it…") : qsTr("Listening…")
-                    font.pixelSize: Theme.fontSizeLarge
-                    font.family: Theme.fontFamilyHeading
-                    color: Theme.primaryColor
-                }
-            }
+                bottomPadding: Theme.paddingSmall
+                SwipeDown {}
 
-            // Questions that fit what is on screen, before the first one.
-            Flow {
-                objectName: "overlayQuickAsks"
-                x: Theme.horizontalPageMargin
-                width: parent.width - 2 * x
-                spacing: Theme.paddingSmall
-                visible: turns.count === 0 && !Conversation.listening && !Pilot.busy
-                Repeater {
-                    model: overlay.quickAsks()
-                    delegate: Chip {
-                        required property string modelData
-                        text: modelData
-                        onClicked: overlay.send(modelData)
-                    }
-                }
-            }
-
-            // The field: what Pilot sees, the words, and the mic.
-            Rectangle {
-                id: bar
-                x: Theme.horizontalPageMargin
-                width: parent.width - 2 * x
-                height: barColumn.height + 2 * Theme.paddingSmall
-                radius: Theme.paddingLarge
-                color: Theme.rgba(Theme.highlightBackgroundColor, 0.18)
-                border.width: 1
-                border.color: Theme.rgba(Theme.highlightColor, 0.35)
-
-                // Swiping the field down closes the overlay (the answers
-                // above scroll).
-                DragHandler {
-                    target: null
-                    yAxis.enabled: true
-                    xAxis.enabled: false
-                    onActiveChanged: if (!active && translation.y > Theme.itemSizeMedium)
-                        overlay.hide()
-                }
-
-                Column {
-                    id: barColumn
-                    y: Theme.paddingSmall
+                StageLine {
+                    objectName: "overlayStage"
                     width: parent.width
+                    visible: Pilot.busy && !Conversation.listening
+                    running: visible
+                    stage: Conversation.stage
+                    detail: Conversation.stageDetail
+                    partial: Conversation.partial
+                    read: Conversation.read
+                    readLeft: Conversation.readLeft
+                }
 
-                    Row {
-                        x: Theme.paddingMedium
-                        width: parent.width - 2 * x
-                        height: Theme.itemSizeSmall
-                        spacing: Theme.paddingSmall
-                        Orb {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.iconSizeSmallPlus
-                            height: width
-                            mode: Pilot.busy ? "thinking" : "idle"
-                        }
-                        Label {
-                            objectName: "overlayContext"
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.iconSizeSmallPlus - 2 * Theme.itemSizeSmall - 3 * Theme.paddingSmall
-                            truncationMode: TruncationMode.Fade
-                            font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.primaryColor
-                            text: overlay.onScreen.length > 0 ? qsTr("Pilot · sees %1").arg(overlay.onScreen) : qsTr("Pilot")
-                        }
-                        IconButton {
-                            objectName: "overlayExpand"
-                            Accessible.name: qsTr("Open Pilot")
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.itemSizeSmall
-                            height: Theme.itemSizeSmall
-                            icon.source: "image://theme/icon-m-up"
-                            onClicked: overlay.expand()
-                        }
-                        IconButton {
-                            objectName: "overlayClose"
-                            Accessible.name: qsTr("Close")
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.itemSizeSmall
-                            height: Theme.itemSizeSmall
-                            icon.source: "image://theme/icon-m-clear"
-                            onClicked: overlay.hide()
+                // While the microphone is open: the orb, and what is happening.
+                Column {
+                    width: parent.width
+                    visible: Conversation.listening
+                    spacing: Theme.paddingSmall
+                    Orb {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: Theme.itemSizeHuge
+                        height: width
+                        mode: Conversation.transcribing ? "thinking" : "listening"
+                        level: Conversation.level
+                    }
+                    Label {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: Conversation.transcribing ? qsTr("Got it…") : qsTr("Listening…")
+                        font.pixelSize: Theme.fontSizeLarge
+                        font.family: Theme.fontFamilyHeading
+                        color: Theme.primaryColor
+                    }
+                }
+
+                // Questions that fit what is on screen, before the first one.
+                Column {
+                    objectName: "overlayQuickAsks"
+                    width: parent.width
+                    visible: turns.count === 0 && !Conversation.listening && !Pilot.busy
+                    Repeater {
+                        model: overlay.quickAsks()
+                        delegate: SuggestionTile {
+                            id: quickAsk
+                            required property var modelData
+                            objectName: "overlayQuickAsk"
+                            width: parent ? parent.width : 0
+                            text: quickAsk.modelData.text
+                            icon: quickAsk.modelData.icon
+                            onClicked: overlay.send(quickAsk.modelData.text)
                         }
                     }
+                }
 
-                    Row {
-                        width: parent.width
-                        // Grows with the question, then scrolls; no label band.
-                        TextArea {
-                            id: input
-                            objectName: "overlayInput"
-                            width: parent.width - (sendButton.visible ? sendButton.width : 0) - (stopButton.visible ? stopButton.width : 0) - (mic.visible ? mic.width : 0) - Theme.paddingSmall
-                            height: Math.min(implicitHeight, Screen.height / 4)
-                            placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything") : qsTr("Ask Pilot")
-                            labelVisible: false
-                            // Enter sends and its key also gave a new line: an empty field
-                            // with the cursor on its second. Only blank, it is empty.
-                            onTextChanged: if (text.length > 0 && text.trim() === "")
-                                text = ""
-                            EnterKey.iconSource: "image://theme/icon-m-enter-accept"
-                            EnterKey.onClicked: overlay.send(text)
-                            // Enter sends; Shift+Enter is a new line.
-                            Keys.onReturnPressed: function (event) {
-                                event.accepted = !(event.modifiers & Qt.ShiftModifier);
-                                if (event.accepted)
-                                    overlay.send(text);
-                            }
-                            Keys.onUpPressed: function (event) {
-                                event.accepted = text === "" && Conversation.lastQuestion() !== "";
-                                if (event.accepted)
-                                    text = Conversation.lastQuestion();
-                            }
+                // Carries on in Pilot.
+                SuggestionTile {
+                    objectName: "overlayExpand"
+                    width: parent.width
+                    visible: turns.count > 0 && !Conversation.listening
+                    text: qsTr("Open Pilot")
+                    icon: "open"
+                    onClicked: overlay.expand()
+                }
+
+                // The words, and the mic.
+                Row {
+                    width: parent.width
+                    rightPadding: Theme.paddingMedium
+                    // Grows with the question, then scrolls; no label band.
+                    TextArea {
+                        id: input
+                        objectName: "overlayInput"
+                        width: parent.width - parent.rightPadding - (sendButton.visible ? sendButton.width : 0) - (stopButton.visible ? stopButton.width : 0) - (mic.visible ? mic.width : 0)
+                        height: Math.min(implicitHeight, Screen.height / 4)
+                        placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything") : qsTr("Ask Pilot")
+                        labelVisible: false
+                        // Enter sends and its key also gave a new line: an empty field
+                        // with the cursor on its second. Only blank, it is empty.
+                        onTextChanged: if (text.length > 0 && text.trim() === "")
+                            text = ""
+                        EnterKey.iconSource: "image://theme/icon-m-enter-accept"
+                        EnterKey.onClicked: overlay.send(text)
+                        // Enter sends; Shift+Enter is a new line.
+                        Keys.onReturnPressed: function (event) {
+                            event.accepted = !(event.modifiers & Qt.ShiftModifier);
+                            if (event.accepted)
+                                overlay.send(text);
                         }
-                        IconButton {
-                            id: sendButton
-                            objectName: "overlaySend"
-                            Accessible.name: qsTr("Send")
-                            visible: input.text.trim().length > 0
-                            anchors.bottom: input.bottom
-                            icon.source: "image://theme/icon-m-send"
-                            onClicked: overlay.send(input.text)
+                        Keys.onUpPressed: function (event) {
+                            event.accepted = text === "" && Conversation.lastQuestion() !== "";
+                            if (event.accepted)
+                                text = Conversation.lastQuestion();
                         }
-                        StopButton {
-                            id: stopButton
-                            objectName: "overlayStop"
-                            visible: Pilot.busy && !Conversation.listening
-                            anchors.bottom: input.bottom
-                            onClicked: Pilot.stop()
-                        }
-                        Orb {
-                            id: mic
-                            objectName: "overlayMic"
-                            visible: Conversation.voiceAvailable
-                            width: Theme.itemSizeMedium
-                            height: Theme.itemSizeMedium
-                            anchors.bottom: input.bottom
-                            enabled: !Pilot.offline
-                            glyph: true
-                            mode: Conversation.listening && !Conversation.transcribing ? "listening" : Pilot.busy ? "thinking" : "idle"
-                            level: Conversation.level
-                            onClicked: overlay.listen()
-                        }
+                    }
+                    IconButton {
+                        id: sendButton
+                        objectName: "overlaySend"
+                        Accessible.name: qsTr("Send")
+                        visible: input.text.trim().length > 0
+                        anchors.bottom: input.bottom
+                        icon.source: "image://theme/icon-m-send"
+                        onClicked: overlay.send(input.text)
+                    }
+                    StopButton {
+                        id: stopButton
+                        objectName: "overlayStop"
+                        visible: Pilot.busy && !Conversation.listening
+                        anchors.bottom: input.bottom
+                        onClicked: Pilot.stop()
+                    }
+                    Orb {
+                        id: mic
+                        objectName: "overlayMic"
+                        visible: Conversation.voiceAvailable
+                        width: Theme.itemSizeMedium
+                        height: Theme.itemSizeMedium
+                        anchors.bottom: input.bottom
+                        enabled: !Pilot.offline
+                        glyph: true
+                        mode: Conversation.listening && !Conversation.transcribing ? "listening" : Pilot.busy ? "thinking" : "idle"
+                        level: Conversation.level
+                        onClicked: overlay.listen()
                     }
                 }
             }
@@ -439,13 +450,42 @@ Item {
     function quickAsks() {
         var app = onScreen.toLowerCase();
         if (app.length === 0)
-            return (now.suggestions || []).slice(0, 3).map(function (s) {
-                return s.text;
-            });
+            return (now.suggestions || []).slice(0, 3);
         if (app.indexOf("messages") >= 0 || app.indexOf("mail") >= 0)
-            return [qsTr("Reply to this"), qsTr("Summarise this")];
+            return [
+                {
+                    text: qsTr("Reply to this"),
+                    icon: "reply"
+                },
+                {
+                    text: qsTr("Summarise this"),
+                    icon: "summary"
+                }
+            ];
         if (app.indexOf("pacific") >= 0 || app.indexOf("browser") >= 0)
-            return [qsTr("Summarise this"), qsTr("Explain this simply"), qsTr("What are the key points?")];
-        return [qsTr("Summarise this"), qsTr("What can I do here?")];
+            return [
+                {
+                    text: qsTr("Summarise this"),
+                    icon: "summary"
+                },
+                {
+                    text: qsTr("Explain this simply"),
+                    icon: "explain"
+                },
+                {
+                    text: qsTr("What are the key points?"),
+                    icon: "points"
+                }
+            ];
+        return [
+            {
+                text: qsTr("Summarise this"),
+                icon: "summary"
+            },
+            {
+                text: qsTr("What can I do here?"),
+                icon: "explore"
+            }
+        ];
     }
 }

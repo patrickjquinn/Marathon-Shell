@@ -69,34 +69,43 @@ MouseArea {
     onExited: dialer._buttonExited()
 
     width: dialer._buttonWidth
-    height: dialer._buttonHeight
+    height: dialer._rowHeight // Modified by Marathon: square cells
 
     preventStealing: down && dialer.preventStealing
     onPreventStealingChanged: if (preventStealing) dialerButton.DragFilter.end()
 
-    Label {
-        id: numberLabel
-
-        anchors {
-            centerIn: parent
-            verticalCenterOffset: dialer.vanityDialNumbersVisible ? -(vanityLabel.font.pixelSize / 2) : 0
-        }
-        font.pixelSize: Theme.fontSizeExtraLarge
-        color: dialerButton.down ? dialer.pressedTextColor : dialer.textColor
-        text: dialerButton.text
+    // Modified by Marathon: a flat disc, as Button's fill
+    Rectangle {
+        anchors.centerIn: parent
+        width: dialer._discSize
+        height: width
+        radius: width / 2
+        color: Theme.rgba(Theme.primaryColor, 0.08)
     }
 
-    Label {
-        id: vanityLabel
+    // Modified by Marathon: the digit and its letters centred together on the
+    // disc, a digit without letters on its own
+    Column {
+        anchors.centerIn: parent
+        spacing: -Theme.paddingSmall
 
-        anchors {
-            horizontalCenter: parent.horizontalCenter
-            top: numberLabel.bottom
-            topMargin: -Theme.paddingSmall
+        Label {
+            id: numberLabel
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            font.pixelSize: Theme.fontSizeExtraLarge
+            color: dialerButton.down ? dialer.pressedTextColor : dialer.textColor
+            text: dialerButton.text
         }
-        font.pixelSize: Theme.fontSizeExtraSmall
-        visible: dialer.vanityDialNumbersVisible
-        color: dialerButton.down ? dialer.pressedSecondaryTextColor : dialer.secondaryTextColor
-        text: dialerButton.secondaryText
+
+        Label {
+            id: vanityLabel
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            font.pixelSize: Theme.fontSizeExtraSmall
+            visible: dialer.vanityDialNumbersVisible && text !== ""
+            color: dialerButton.down ? dialer.pressedSecondaryTextColor : dialer.secondaryTextColor
+            text: dialerButton.secondaryText
+        }
     }
 }

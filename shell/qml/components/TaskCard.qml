@@ -234,8 +234,7 @@ Item {
             anchors.left: parent.left
             width: Math.floor(taskCard.coverSize.width)
             height: Math.floor(taskCard.coverSize.height)
-            // Neutral dark glass: the highlight colours only mark text and state.
-            color: Qt.rgba(0, 0, 0, 0.55)
+            color: cardRoot.pressed ? Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity) : MColors.controlFill
             radius: Theme.paddingMedium
             antialiasing: true
             visible: !taskCard.docking
@@ -318,17 +317,6 @@ Item {
                     swipe.settleTo(0);
                 swiping = false;
             }
-        }
-
-        Rectangle {
-            anchors.fill: glass
-            anchors.margins: 1
-            z: 3
-            radius: glass.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: cardRoot.pressed ? Theme.highlightColor : Theme.rgba(Theme.primaryColor, 0.1)
-            visible: !taskCard.docking
         }
 
         // The cover is laid out at the glass's size; a live preview fills it,

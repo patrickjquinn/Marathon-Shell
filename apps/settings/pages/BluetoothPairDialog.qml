@@ -117,7 +117,7 @@ Dialog {
                 text: SettingsController.bluetoothHelpText(dialog.mode)
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
             }
         }
     }

@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Effects
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
@@ -27,7 +26,7 @@ Item {
     // Compact sizes target real screen pixels: the scale factor on these
     // screens varies with how the panel's size is reported.
     readonly property real compactUnit: Constants.screenHeight / 720 / Constants.scaleFactor
-    readonly property real keyButtonSize: compactLayout ? Math.round(64 * compactUnit) : 56
+    readonly property real keyButtonSize: compactLayout ? Math.round(72 * compactUnit) : 64
     readonly property real keyCellPadding: compactLayout ? 6 * compactUnit : 12
     readonly property real keypadRowSpacing: compactLayout ? 6 * compactUnit : 12
     readonly property real keypadColumnSpacing: compactLayout ? 14 * compactUnit : 16
@@ -35,6 +34,27 @@ Item {
 
     signal pinCorrect
     signal cancelled
+
+    // A word to tap, hugging its text, as Silica's text buttons read.
+    component FooterAction: MouseArea {
+        id: action
+
+        property alias text: label.text
+        property color color
+
+        width: label.implicitWidth + 2 * Silica.Theme.paddingLarge
+        height: Silica.Theme.itemSizeSmall
+        Accessible.role: Accessible.Button
+        Accessible.name: text
+        Accessible.onPressAction: clicked(null)
+
+        Silica.Label {
+            id: label
+
+            anchors.centerIn: parent
+            color: action.pressed ? Silica.Theme.highlightColor : action.color
+        }
+    }
 
     function handleInput(digit) {
         if (pin.length < 6 && !Security.isLockedOut) {
@@ -163,17 +183,34 @@ Item {
             Logger.info("PinScreen", "PIN screen hidden - showing clock in status bar");
         }
     }
+    // A BlackBerry keyboard's number keys type their digit here without Alt.
+    readonly property var numberKeys: ({
+            [Qt.Key_W]: "1",
+            [Qt.Key_E]: "2",
+            [Qt.Key_R]: "3",
+            [Qt.Key_S]: "4",
+            [Qt.Key_D]: "5",
+            [Qt.Key_F]: "6",
+            [Qt.Key_Z]: "7",
+            [Qt.Key_X]: "8",
+            [Qt.Key_C]: "9"
+        })
     Keys.onPressed: function (event) {
         if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
-            var digit = String.fromCharCode(event.key);
-            handleInput(digit);
+            handleInput(String.fromCharCode(event.key));
+            event.accepted = true;
+        } else if (numberKeys[event.key] !== undefined) {
+            handleInput(numberKeys[event.key]);
             event.accepted = true;
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             submitPin();
             event.accepted = true;
         } else if (event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) {
-            pin = "";
+            pin = pin.slice(0, -1);
             error = "";
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Escape) {
+            cancelled();
             event.accepted = true;
         }
     }
@@ -219,71 +256,22 @@ Item {
         target: Security
     }
 
-    Image {
-        id: wallpaperSource
-
+    // The ambience behind the lock code: the same cached, toned image the
+    // apps draw on, not a blur of the wallpaper made for this screen.
+    KeelAmbienceBackground {
         anchors.fill: parent
-        source: SettingsManagerCpp.wallpaperPath
-        sourceSize: Qt.size(width, height)
-        asynchronous: true
-        retainWhileLoading: true
-        fillMode: Image.PreserveAspectCrop
-        cache: true
-        smooth: true
         z: 0
-    }
-
-    Rectangle {
-        id: glassRect
-
-        anchors.fill: parent
-        color: MColors.background
-        opacity: 0.95
-        z: 1
-
-        ShaderEffectSource {
-            id: wallpaperCapture
-
-            anchors.fill: parent
-            sourceItem: wallpaperSource
-            sourceRect: Qt.rect(0, 0, width, height)
-            visible: false
-            // Wallpaper is a static image — sample once. Skipping per-vsync
-            // sampling cuts render-thread cost on the PIN screen by half on
-            // etnaviv GPUs.
-            live: false
-        }
-
-        MultiEffect {
-            anchors.fill: parent
-            source: wallpaperCapture
-            // The capture is static (live: false); render the blur into a
-            // layer once instead of re-running the full-screen effect
-            // shader on every frame of PIN entry.
-            layer.enabled: true
-            blurEnabled: true
-            blur: 1
-            // 24 instead of 64 — the kernel growing beyond ~24 produces no
-            // perceived blur difference on a 540×1140 panel, just fillrate.
-            blurMax: MBlur.lg
-            blurMultiplier: 1.4
-            saturation: 0.3
-            brightness: -0.2
-        }
-    }
-
-    // The ambience, blurred and dimmed, behind the lock code.
-    Rectangle {
-        anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.45)
-        z: 2
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     Column {
         anchors.centerIn: parent
         // Rises into place as the pad fades in.
         scale: 0.94 + 0.06 * pinScreen.opacity
-        anchors.verticalCenterOffset: pinScreen.compactLayout ? Math.round((Constants.statusBarHeight - Constants.navBarHeight) / 2) : Math.round(-20 * Constants.scaleFactor)
+        anchors.verticalCenterOffset: pinScreen.compactLayout ? Math.round((Constants.statusBarHeight - Constants.navBarHeight - footer.height) / 2) : Math.round(-20 * Constants.scaleFactor)
         spacing: Math.round(pinScreen.columnSpacing * Constants.scaleFactor)
         z: 100
         // layer.enabled removed — see note at the root pinScreen Item.
@@ -670,12 +658,29 @@ Item {
                 pinScreen.startBiometric();
             }
         }
+    }
 
-        Silica.Button {
-            anchors.horizontalCenter: parent.horizontalCenter
+    // Apart, at the bottom corners, clear of the keypad.
+    Item {
+        id: footer
+
+        objectName: "pinFooter"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingLarge
+        anchors.rightMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingLarge
+        anchors.bottomMargin: Constants.navBarHeight
+        height: cancelButton.height
+        z: 100
+
+        FooterAction {
+            id: cancelButton
+
+            objectName: "pinCancel"
+            anchors.left: parent.left
             //: Button that leaves the PIN screen
             text: qsTr("Cancel")
-            backgroundColor: "transparent"
             color: Silica.Theme.secondaryColor
             onClicked: {
                 HapticManager.light();
@@ -687,11 +692,11 @@ Item {
         // without authentication (FCC E911 / EU Article 109). Launches the
         // phone app in --emergency-only mode; the modem itself enforces
         // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).
-        Silica.Button {
-            anchors.horizontalCenter: parent.horizontalCenter
+        FooterAction {
+            objectName: "pinEmergency"
+            anchors.right: parent.right
             text: qsTr("Emergency call")
             visible: typeof Modem === "undefined" || Modem.modemAvailable
-            backgroundColor: "transparent"
             color: Silica.Theme.errorColor
             onClicked: {
                 HapticManager.medium();

@@ -1,7 +1,7 @@
 #!/usr/sbin/nft -f
 # Default-deny inbound. A packet must pass every table's chain on a hook,
 # so what Deckard's and NetworkManager's own rules accept is accepted here
-# too. Mobile data (ccmni*) gets no service at all.
+# too. Mobile data (ccmni*) gets no service but IMS signalling.
 table inet marathon
 delete table inet marathon
 
@@ -34,6 +34,12 @@ table inet marathon {
 		iifname "wlan*" tcp dport 22 accept
 		iifname "eth*" tcp dport 22 accept
 		iifname "en*" tcp dport 22 accept
+
+		# IMS signalling from the P-CSCF (incoming VoLTE calls, messages):
+		# ESP on mobile data, which the kernel drops without a matching
+		# IMS-AKA SA, and the SIP it carries.
+		iifname "ccmni*" meta l4proto esp accept
+		meta secpath exists accept
 	}
 
 	# Deckard turns on IPv4 forwarding: forward only Android's and the

@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-// A note above the toolbar that does not block the page, on the browser's
-// glass: a login form could be filled from Shoal Keys, Pilot is browsing.
+// A note above the toolbar that does not block the page, a band of the
+// toolbar's flat surface: a login form could be filled from Shoal Keys,
+// Pilot is browsing.
 // (A site's questions that need an answer are Dialogs: SitePromptDialog.)
 
 pragma ComponentBehavior: Bound
@@ -25,11 +26,8 @@ Rectangle {
     height: column.height + 2 * Theme.paddingMedium
     color: Theme.rgba(Theme.overlayBackgroundColor, 1.0)
 
-    // The glass's top edge.
-    Rectangle {
+    GlowLine {
         width: parent.width
-        height: Theme.paddingSmall / 4
-        color: Theme.rgba(Theme.primaryColor, Theme.opacityFaint)
     }
 
     Column {

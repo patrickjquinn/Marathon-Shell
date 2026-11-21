@@ -154,7 +154,7 @@ Dialog {
                 text: qsTr("If your provider uses two-step sign-in, create an app password on their website and use it here.")
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.highlightColor
+                color: Theme.secondaryColor
             }
             ComboBox {
                 id: providerBox

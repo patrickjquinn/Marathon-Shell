@@ -249,7 +249,7 @@ Page {
                 topPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: (page.app.permissions || []).length === 0 ? qsTr("This app doesn't use any permissions.") : page.app.isProtected ? qsTr("System apps always have these permissions.") : qsTr("Apps ask for these permissions the first time they need them.")
             }
         }

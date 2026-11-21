@@ -68,6 +68,10 @@ SilicaControl {
     property int _buttonHeight: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.itemSizeExtraLarge : Theme.itemSizeLarge // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     property int _horizontalSpacing: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.paddingLarge : 0 // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     property int _horizontalPadding: Math.max((width - column.implicitWidth) / 2, 0)
+    // Modified by Marathon: keys are flat discs on an even grid: rows as far
+    // apart as columns, the same gap between discs either way.
+    property int _rowHeight: Math.max(_buttonHeight, _buttonWidth + _horizontalSpacing)
+    property int _discSize: _buttonWidth + _horizontalSpacing - Theme.paddingLarge
 
     signal pressed(string number)
     signal released(string number)
@@ -135,10 +139,10 @@ SilicaControl {
     Rectangle {
         id: pressedButtonBackground
 
-        width: dialer._buttonWidth
-        height: dialer._buttonHeight + 2*Theme.paddingSmall // make highlight more square
+        width: dialer._discSize // Modified by Marathon: the press tints the key's disc
+        height: width
         visible: false
-        radius: 4
+        radius: width / 2
 
         // same as BackgroundItem
         color: Theme.rgba(dialer.palette.highlightBackgroundColor, Theme.highlightBackgroundOpacity)

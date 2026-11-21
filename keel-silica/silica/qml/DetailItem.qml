@@ -80,7 +80,7 @@ SilicaItem {
         // colours are: unqualified, the lookup goes through the context
         // object, whose properties are already gone while the item is being
         // destroyed ("Cannot read property of undefined").
-        color: detailItem.palette.secondaryHighlightColor
+        color: detailItem.palette.secondaryColor // Modified by Marathon: label quiet, value plain
         font.pixelSize: Theme.fontSizeSmall
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
@@ -102,7 +102,7 @@ SilicaItem {
             rightMargin: detailItem.rightMargin
         }
         horizontalAlignment: Text.AlignLeft
-        color: detailItem.palette.highlightColor
+        color: detailItem.palette.primaryColor // Modified by Marathon
         linkColor: detailItem.palette.primaryColor
         font.pixelSize: Theme.fontSizeSmall
         textFormat: Text.PlainText

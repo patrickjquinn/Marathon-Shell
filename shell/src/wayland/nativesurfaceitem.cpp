@@ -2,6 +2,9 @@
 
 #include "src/wayland/nativeinput.h"
 
+#include <QGuiApplication>
+#include <QLineF>
+#include <QStyleHints>
 #include <QTouchEvent>
 #include <QWheelEvent>
 #include <QWaylandCompositor>
@@ -16,6 +19,14 @@ NativeSurfaceItem::NativeSurfaceItem(QQuickItem *parent)
     // the popup tree so configured geometry, client scale and input policy are
     // shared with the parent surface.
     setAutoCreatePopupItems(false);
+    m_holdTimer.setSingleShot(true);
+    connect(&m_holdTimer, &QTimer::timeout, this, [this] {
+        QWaylandSeat *seat = compositor() ? compositor()->defaultSeat() : nullptr;
+        if (seat && m_pointerTouchId >= 0 && m_touchPointer == TouchPointer::Pending) {
+            m_touchPointer = TouchPointer::Held;
+            seat->sendMousePressEvent(Qt::LeftButton);
+        }
+    });
     connect(this, &QWaylandQuickShellSurfaceItem::shellSurfaceChanged, this,
             &NativeSurfaceItem::setupShellSurface);
 }
@@ -38,6 +49,13 @@ void NativeSurfaceItem::setApplicationTerms(const QStringList &terms) {
 void NativeSurfaceItem::touchEvent(QTouchEvent *event) {
     if (!m_pointerFallback) {
         QWaylandQuickShellSurfaceItem::touchEvent(event);
+        // Qt moves the pointer onto the surface with a touch; left there, it
+        // reads as a hover to GTK, which opens tooltips under the finger.
+        if (event->type() == QEvent::TouchEnd || event->type() == QEvent::TouchCancel) {
+            QWaylandSeat *seat = compositor() ? compositor()->defaultSeat() : nullptr;
+            if (seat && seat->mouseFocus() == view())
+                seat->setMouseFocus(nullptr);
+        }
         return;
     }
 
@@ -48,18 +66,45 @@ void NativeSurfaceItem::touchEvent(QTouchEvent *event) {
     }
 
     for (const QEventPoint &point : event->points()) {
+        const QPointF surfacePos = mapToSurface(point.position());
         if (point.state() == QEventPoint::State::Pressed && m_pointerTouchId < 0 &&
             inputRegionContains(point.position())) {
             m_pointerTouchId = point.id();
+            m_touchPointer   = TouchPointer::Pending;
+            m_touchStart     = surfacePos;
             sendMouseMoveEvent(point.position(), seat);
             if (focusOnClick())
                 takeFocus(seat);
-            seat->sendMousePressEvent(Qt::LeftButton);
+            m_holdTimer.start(QGuiApplication::styleHints()->mousePressAndHoldInterval());
         } else if (point.id() == m_pointerTouchId && point.state() == QEventPoint::State::Updated) {
-            sendMouseMoveEvent(point.position(), seat);
+            if (m_touchPointer == TouchPointer::Pending &&
+                QLineF(mapFromSurface(m_touchStart), point.position()).length() >
+                    QGuiApplication::styleHints()->startDragDistance()) {
+                m_holdTimer.stop();
+                m_touchPointer = TouchPointer::Dragging;
+                seat->sendTouchPointEvent(surface(), 0, m_touchStart, Qt::TouchPointPressed);
+                seat->sendTouchFrameEvent(surface()->client());
+            }
+            if (m_touchPointer == TouchPointer::Dragging) {
+                seat->sendTouchPointEvent(surface(), 0, surfacePos, Qt::TouchPointMoved);
+                seat->sendTouchFrameEvent(surface()->client());
+            } else if (m_touchPointer == TouchPointer::Held) {
+                sendMouseMoveEvent(point.position(), seat);
+            }
         } else if (point.id() == m_pointerTouchId &&
                    point.state() == QEventPoint::State::Released) {
+            m_holdTimer.stop();
+            if (m_touchPointer == TouchPointer::Dragging) {
+                seat->sendTouchPointEvent(surface(), 0, surfacePos, Qt::TouchPointReleased);
+                seat->sendTouchFrameEvent(surface()->client());
+                m_pointerTouchId = -1;
+                continue;
+            }
             sendMouseMoveEvent(point.position(), seat);
+            if (m_touchPointer == TouchPointer::Pending) {
+                seat->sendMousePressEvent(Qt::LeftButton);
+                m_touchPointer = TouchPointer::Held;
+            }
             releasePointer();
         }
     }
@@ -85,10 +130,14 @@ void NativeSurfaceItem::wheelEvent(QWheelEvent *event) {
 }
 
 void NativeSurfaceItem::releasePointer() {
+    m_holdTimer.stop();
     if (m_pointerTouchId < 0)
         return;
-    if (QWaylandSeat *seat = compositor() ? compositor()->defaultSeat() : nullptr)
+    QWaylandSeat *seat = compositor() ? compositor()->defaultSeat() : nullptr;
+    if (seat && m_touchPointer == TouchPointer::Held)
         seat->sendMouseReleaseEvent(Qt::LeftButton);
+    if (seat && m_touchPointer == TouchPointer::Dragging && surface() && surface()->client())
+        seat->sendTouchCancelEvent(surface()->client());
     m_pointerTouchId = -1;
 }
 

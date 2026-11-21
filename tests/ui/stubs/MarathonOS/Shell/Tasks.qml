@@ -20,6 +20,8 @@ QtObject {
     }
     function closeApp(appId, skipNativeClose) {
     }
+    function wakeApp(appId) {
+    }
     function registerApp(appId, info) {
     }
     function unregisterApp(appId) {

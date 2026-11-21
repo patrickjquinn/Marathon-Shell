@@ -5,6 +5,7 @@
 
 #include <QPointer>
 #include <QGuiApplication>
+#include <QQmlComponent>
 #include <QQmlEngine>
 #include <QScreen>
 #include <QtMath>
@@ -35,10 +36,15 @@ void KeelTheme::attach()
 {
     if (!m_engine)
         return;
-    // A C++ singleton has no imports of its own (Theme.qml imported Keel):
-    // qmlTypeId() loads the Keel module when this process has not yet, once.
-    static const int ambienceId = qmlTypeId("Keel", 1, 0, "Ambience");
-    static const int shellId = qmlTypeId("Keel", 1, 0, "Shell");
+    // A C++ singleton has no imports of its own (Theme.qml imported Keel), and
+    // qmlTypeId() finds Keel's types only once some engine has imported it.
+    int ambienceId = qmlTypeId("Keel", 1, 0, "Ambience");
+    if (ambienceId < 0) {
+        QQmlComponent importKeel(m_engine);
+        importKeel.setData("import QtQml\nimport Keel 1.0\nQtObject {}", QUrl());
+        ambienceId = qmlTypeId("Keel", 1, 0, "Ambience");
+    }
+    const int shellId = qmlTypeId("Keel", 1, 0, "Shell");
     QObject *ambience = ambienceId >= 0 ? m_engine->singletonInstance<QObject *>(ambienceId) : nullptr;
     if (!ambience) {
         qWarning("Sailfish.Silica Theme: Keel.Ambience not found");

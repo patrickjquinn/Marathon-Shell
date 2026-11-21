@@ -67,7 +67,7 @@ Column {
         bottomPadding: Theme.paddingMedium
         wrapMode: Text.Wrap
         font.pixelSize: Theme.fontSizeSmall
-        color: Theme.secondaryHighlightColor
+        color: Theme.secondaryColor
         text: (details.app.permissions || []).length === 0 ? qsTr("This app doesn't use any permissions.") : qsTr("Apps ask for these permissions the first time they need them.")
     }
 

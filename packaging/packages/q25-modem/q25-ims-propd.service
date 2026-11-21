@@ -1,0 +1,9 @@
+[Unit]
+Description=Q25 IMS: Android's property service for the IMS daemons
+Requires=q25-ims-runtime.service
+After=q25-ims-runtime.service
+PartOf=q25-modem.target
+
+[Service]
+ExecStart=/usr/libexec/q25-modem/q25-ims-props serve /run/q25-ims/properties /run/q25-ims/socket/property_service
+Restart=on-failure

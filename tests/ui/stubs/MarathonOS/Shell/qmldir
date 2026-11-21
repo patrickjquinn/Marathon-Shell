@@ -2,7 +2,6 @@ module MarathonOS.Shell
 ShellStub 1.0 ShellStub.qml
 singleton MTypography 1.0 ../../../../../shell/qml/theme/MTypography.qml
 singleton MColors 1.0 ../../../../../shell/qml/theme/MColors.qml
-singleton MBlur 1.0 ../../../../../shell/qml/theme/MBlur.qml
 singleton MHaptics 1.0 ../../../../../shell/qml/ui/MHaptics.qml
 singleton MMotion 1.0 MMotion.qml
 singleton Constants 1.0 Constants.qml
@@ -25,8 +24,8 @@ singleton PermissionManager 1.0 PermissionManager.qml
 GlyphIcon 1.0 GlyphIcon.qml
 MCircularIconButton 1.0 ../../../../../shell/qml/ui/MCircularIconButton.qml
 MHubRow 1.0 ../../../../../shell/qml/ui/MHubRow.qml
-MGlassBackdrop 1.0 ../../../../../shell/qml/ui/MGlassBackdrop.qml
-MGlassPlatter 1.0 ../../../../../shell/qml/ui/MGlassPlatter.qml
+MGlowLine 1.0 ../../../../../shell/qml/ui/MGlowLine.qml
+MPressHighlight 1.0 ../../../../../shell/qml/ui/MPressHighlight.qml
 NotificationIcon 1.0 ../../../../../shell/qml/ui/NotificationIcon.qml
 NotificationActions 1.0 ../../../../../shell/qml/ui/NotificationActions.qml
 singleton Router 1.0 Router.qml
@@ -44,6 +43,7 @@ MAppIcon 1.0 MAppIcon.qml
 singleton SystemControlStore 1.0 SystemControlStore.qml
 singleton Modem 1.0 Modem.qml
 singleton FlashlightManagerCpp 1.0 FlashlightManagerCpp.qml
+singleton BluetoothManagerCpp 1.0 BluetoothManagerCpp.qml
 singleton MPRIS2Controller 1.0 MPRIS2Controller.qml
 MQSTile 1.0 ../../../../../shell/qml/ui/MQSTile.qml
 MQSSlider 1.0 ../../../../../shell/qml/ui/MQSSlider.qml
@@ -71,3 +71,6 @@ FileChooserModel 1.0 FileChooserModel.qml
 BackdropProbe 1.0 BackdropProbe.qml
 NativeSurfaceItem 1.0 NativeSurfaceItem.qml
 singleton Privacy 1.0 Privacy.qml
+singleton PilotClient 1.0 PilotClient.qml
+singleton UnifiedSearchService 1.0 UnifiedSearchService.qml
+singleton Platform 1.0 Platform.qml

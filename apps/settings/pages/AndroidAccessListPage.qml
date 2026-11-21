@@ -46,7 +46,7 @@ Page {
                 bottomPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("What Android apps may do beyond their permissions. Only apps that ask for it are listed.")
             }
             Repeater {

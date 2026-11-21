@@ -431,6 +431,20 @@ Page {
                 bottomPadding: Theme.paddingMedium
             }
 
+            // A desktop app found by search: it says nothing of fitting a phone.
+            Label {
+                objectName: "desktopOnly"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: page.row.desktopOnly === true
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                color: Theme.secondaryHighlightColor
+                font.pixelSize: Theme.fontSizeExtraSmall
+                text: qsTr("A desktop app: it may not fit this screen or work well by touch.")
+                bottomPadding: Theme.paddingMedium
+            }
+
             // An app Marathon has no way to install (a Sailfish package).
             Label {
                 objectName: "notInstallable"
@@ -470,7 +484,7 @@ Page {
                 visible: page.buying && page.canBuy
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 text: qsTr("Finish the purchase in the browser. Reef adds the licence when you come back.")
                 bottomPadding: Theme.paddingMedium

@@ -139,6 +139,12 @@ impl App {
         self.exec.starts_with("FLATPAK:")
     }
 
+    /// On the grid: with `phone_only`, an app that fits a phone, or a Flatpak,
+    /// which someone installed (from the Store, phone-ready or not).
+    fn listed(&self, phone_only: bool, phone_apps: &HashSet<String>) -> bool {
+        self.shown && (!phone_only || self.is_flatpak() || self.fits_a_phone(phone_apps))
+    }
+
     fn fits_a_phone(&self, phone_apps: &HashSet<String>) -> bool {
         let has = |list: &[String], words: &[&str]| {
             list.iter()
@@ -195,13 +201,23 @@ fn scan(paths: &QStringList, phone_only: bool) -> QList<QVariant> {
     let phone_apps = read_phone_apps(&cached_phone_apps());
     let mut icons = Icons::new();
     scan_apps(&paths, &mut icons)
-        .filter(|app| app.shown && (!phone_only || app.fits_a_phone(&phone_apps)))
+        .filter(|app| app.listed(phone_only, &phone_apps))
         .map(|app| QVariant::from(&app.to_qt()))
         .collect()
 }
 
 pub(crate) fn parse(path: &QString) -> QMap<QMapPair_QString_QVariant> {
     read_app(Path::new(&path.to_string()), &mut Icons::new()).map_or_default(|app| app.to_qt())
+}
+
+/// The desktop file for an app id, even one kept off the grid.
+pub(crate) fn find(app_id: &str) -> Option<PathBuf> {
+    let dirs =
+        std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
+    std::iter::once(marathon_rt::dirs::data())
+        .chain(dirs.split(':').map(PathBuf::from))
+        .map(|d| d.join("applications").join(format!("{app_id}.desktop")))
+        .find(|p| p.is_file())
 }
 
 fn phone_apps_path() -> QString {
@@ -653,6 +669,17 @@ mod tests {
             ]
         );
         assert_eq!(scan_apps(&paths, &mut icons).count(), 7);
+        entry(
+            dir.path(),
+            "org.telegram.desktop.desktop",
+            "[Desktop Entry]\nType=Application\nName=Telegram\nExec=flatpak run org.telegram.desktop\nCategories=Chat;\n",
+        );
+        let listed: Vec<String> = scan_apps(&paths, &mut icons)
+            .filter(|a| a.listed(true, &phone))
+            .map(|a| a.id)
+            .collect();
+        assert!(listed.iter().any(|id| id == "org.telegram.desktop"));
+        assert!(!listed.iter().any(|id| id == "desk"));
         assert_eq!(
             read_phone_apps(&dir.path().join("missing.json")),
             HashSet::new()

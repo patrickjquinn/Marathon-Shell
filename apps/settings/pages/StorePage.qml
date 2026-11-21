@@ -113,7 +113,7 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 text: qsTr("Turning a source off hides its apps in the Store. Apps you installed stay.")
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.Wrap
             }

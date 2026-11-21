@@ -1,0 +1,64 @@
+#!/bin/sh
+# q25-ims-runtime: MediaTek's IMS daemons from the phone's own stock
+# Android, unmodified, each in a bubblewrap sandbox (docs/hardware/mt6789-ims.md).
+#   prepare             mount stock system, vendor and the runtime APEX
+#                       read-only from super; write the property area
+#   run [+CAP...] DEVS -- CMD...
+#                       run CMD in the sandbox with /dev/DEVS passed through
+#                       and only the capabilities named (as the stock init
+#                       .rc grants them)
+set -eu
+R=/run/q25-ims
+SUPER=/dev/disk/by-partlabel/super
+X=/usr/libexec/q25-modem
+
+# mount_lp NAME DIR: a logical partition of super, read-only
+mount_lp() {
+	mountpoint -q "$2" && return 0
+	mkdir -p "$2"
+	set -- "$1" "$2" $("$X/q25-lp-map" "$SUPER" "$1")
+	mount -t ext4 -o ro,loop,offset="$3",sizelimit="$4" "$SUPER" "$2"
+}
+
+prepare() {
+	mount_lp system_a "$R/system"
+	mount_lp vendor_a "$R/vendor"
+	# The APEX stores its ext4 payload uncompressed as the first zip entry.
+	apex=$R/system/system/apex/com.android.runtime.apex
+	if ! mountpoint -q "$R/runtime"; then
+		mkdir -p "$R/runtime"
+		set -- $(od -An -tu2 -j26 -N4 "$apex")
+		mount -t ext4 -o ro,loop,offset=$((30 + $1 + $2)) "$apex" "$R/runtime"
+	fi
+	mkdir -p "$R/socket" "$R/data" "$R/radio"
+	chmod 0700 "$R/data"
+	"$X/q25-ims-props" "$R/properties" "$R/system/system/build.prop" \
+		"$R/vendor/build.prop" /usr/share/q25-modem/ims.prop
+}
+
+run() {
+	devs= caps=
+	while [ "$1" != -- ]; do
+		case $1 in
+		+*) caps="$caps --cap-add ${1#+}" ;;
+		*) devs="$devs --dev-bind /dev/$1 /dev/$1" ;;
+		esac
+		shift
+	done
+	shift
+	# shellcheck disable=SC2086 # word-split device and capability lists
+	exec bwrap --die-with-parent --unshare-ipc --unshare-uts --unshare-cgroup-try \
+		--new-session --cap-drop ALL $caps \
+		--ro-bind "$R/system/system" /system --ro-bind "$R/vendor" /vendor \
+		--ro-bind "$R/runtime" /apex/com.android.runtime \
+		--dev /dev --dev-bind /dev/pts /dev/pts --bind "$R/radio" /dev/radio \
+		--bind "$R/socket" /dev/socket --ro-bind "$R/properties" /dev/__properties__ \
+		--proc /proc --ro-bind /sys/kernel/ccci /sys/kernel/ccci --bind "$R/data" /data \
+		--ro-bind "$X/q25-ims-exec" /q25-ims-exec $devs "$@"
+}
+
+case "${1:-}" in
+prepare) prepare ;;
+run) shift; run "$@" ;;
+*) echo "usage: q25-ims-runtime prepare | run DEVS -- CMD..." >&2; exit 2 ;;
+esac

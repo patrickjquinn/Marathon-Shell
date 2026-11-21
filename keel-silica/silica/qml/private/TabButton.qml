@@ -142,11 +142,11 @@ SilicaMouseArea {
 
         sourceComponent: Component {
             Rectangle {
-                color: root.palette.highlightBackgroundColor
+                color: root.palette.highlightColor // Modified by Marathon: the system's count badge (round, highlight)
                 width: bubbleLabel.text ? Math.max(bubbleLabel.implicitWidth + Theme.paddingSmall*2, height)
                                         : Theme.paddingMedium + Theme.paddingSmall
                 height: bubbleLabel.text ? bubbleLabel.implicitHeight : Theme.paddingMedium + Theme.paddingSmall
-                radius: Theme.dp(2)
+                radius: height / 2
 
                 Label {
                     id: bubbleLabel
@@ -164,6 +164,7 @@ SilicaMouseArea {
                     anchors.centerIn: parent
                     font.pixelSize: Theme.fontSizeTiny
                     font.bold: true
+                    color: Theme.darkPrimaryColor // Modified by Marathon
                 }
             }
         }

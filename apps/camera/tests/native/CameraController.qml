@@ -2,6 +2,12 @@ import QtQuick
 
 // The C++ CameraController's QML surface, with a back and a front camera.
 QtObject {
+    enum FocusState {
+        FocusUnlocked,
+        FocusSearching,
+        FocusLocked
+    }
+
     property QtObject videoSink: null
     property bool discovered: false
     property bool active: false
@@ -34,6 +40,8 @@ QtObject {
     readonly property bool takingStill: false
     property bool squarePhotos: false
     property var photos: []
+    readonly property bool focusSupported: false
+    property int focusState: CameraController.FocusUnlocked
 
     signal readyChanged
     signal errorOccurred(string message)
@@ -67,5 +75,8 @@ QtObject {
         isRecording = false;
     }
     function focusOnPoint(x, y) {
+    }
+    function unlockFocus() {
+        focusState = CameraController.FocusUnlocked;
     }
 }

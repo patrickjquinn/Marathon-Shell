@@ -133,7 +133,7 @@ TestCase {
         call.show("+14155550142", "");
         Modem.callState = "incoming";
         verify(call.visible);
-        call.answeredHere = true;
+        call.answered = true;
         Modem.answer();
         call.hide();
         verify(SessionStore.isLocked);
@@ -150,7 +150,7 @@ TestCase {
     function test_answerWhileUnlockedLeavesToThePhoneApp() {
         call.show("+14155550142", "");
         verify(call.visible);
-        call.answeredHere = true;
+        call.answered = true;
         Modem.answer();
         call.hide();
         verify(!call.inCall);

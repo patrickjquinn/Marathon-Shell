@@ -59,7 +59,7 @@ Page {
                 visible: apps.count > 0
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Switch an app off to hide its notifications")
             }
             Repeater {

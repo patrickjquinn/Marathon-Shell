@@ -43,6 +43,8 @@ struct FlathubApp {
     released: u64,
     #[serde(default)]
     phone_first: bool,
+    #[serde(default)]
+    desktop_only: bool,
 }
 
 #[derive(Deserialize)]
@@ -72,7 +74,8 @@ struct FdroidApp {
     anti_features: Vec<String>,
 }
 
-/// Flathub's phone-fit apps; icons are files in the listing's `icons`.
+/// Flathub's apps (phone-fit, and desktop-only for search); icons are files
+/// in the listing's `icons`.
 pub fn flathub(json: &[u8]) -> Vec<Package> {
     let Ok(listing) = serde_json::from_slice::<Listing<FlathubApp>>(json) else {
         return Vec::new();
@@ -104,6 +107,7 @@ pub fn flathub(json: &[u8]) -> Vec<Package> {
                 .collect();
             p.updated = day(a.released);
             p.phone_first = a.phone_first;
+            p.desktop_only = a.desktop_only;
             p
         })
         .collect()
@@ -491,6 +495,7 @@ pub fn blank(name: &str, title: String, origin: Origin) -> Package {
         origin,
         android: None,
         phone_first: false,
+        desktop_only: false,
     }
 }
 

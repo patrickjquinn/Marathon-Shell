@@ -21,7 +21,6 @@ Item {
 
     // What the shade frosts, bottom to top: the open app, or the wallpaper
     // and the home screen.
-    property list<Item> backdrops
 
     signal closed
     signal launchApp(var app)
@@ -38,25 +37,17 @@ Item {
     // follows the finger.
     readonly property real openProgress: Math.min(1, height / Math.max(1, maxHeight))
 
-    // Backdrop: what is behind the shade, frosted. It keeps the open shade's
-    // size while the shade animates and the shade clips it, so a drag does
-    // not re-blur at every height. A solid floor keeps the shade opaque.
-    Rectangle {
-        anchors.fill: parent
-        color: MColors.elev0
-    }
-    AppBackdropBlur {
+    // The ambience, flat, at the open shade's size so a drag doesn't reload it;
+    // the shade clips it.
+    KeelAmbienceBackground {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: quickSettings.maxHeight
-        sources: quickSettings.backdrops
-        sourceRect: Qt.rect(0, quickSettings.y, width, height)
-        blurAmount: 1.0
-        blurMax: MBlur.xl
-        saturation: 0.8
-        brightness: -0.05
-        tint: Qt.rgba(0, 0, 0, 0.5)
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     // The drawn height: follows UIStore while a finger drags the shade and
@@ -166,28 +157,50 @@ Item {
         return list.filter(tile => enabled.indexOf(tile.id) >= 0);
     }
 
+    function onOff(on) {
+        return on ? qsTr("On") : qsTr("Off");
+    }
+    function signalWord(percent) {
+        return percent >= 75 ? qsTr("strong") : percent >= 50 ? qsTr("good") : percent >= 25 ? qsTr("fair") : qsTr("weak");
+    }
+    readonly property var bluetoothDevice: BluetoothManagerCpp.pairedDevices.find(d => d.connected) || null
+
     // Hardware tiles only when the hardware exists: without it they control nothing.
+    // `route` is the Settings page holding a tile opens. The order is the pages'.
     readonly property var tiles: {
+        const wifiOn = SystemControlStore.shown("wifi", SystemControlStore.isWifiOn);
+        const wifiJoined = wifiOn && SystemStatusStore.wifiConnected && SystemStatusStore.wifiNetwork !== "";
         var t = [
             {
                 id: "wifi",
                 icon: "wifi-high",
-                label: qsTr("Wi-Fi"),
-                on: SystemControlStore.shown("wifi", SystemControlStore.isWifiOn)
+                route: "wifi",
+                label: wifiJoined ? SystemStatusStore.wifiNetwork : qsTr("Wi-Fi"),
+                //: Quick settings Wi-Fi tile status, e.g. "Wi-Fi · strong"
+                status: wifiJoined ? qsTr("Wi-Fi · %1").arg(signalWord(SystemStatusStore.wifiStrength)) : wifiOn ? qsTr("Not connected") : qsTr("Off"),
+                on: wifiOn
             }
         ];
-        if (Modem.modemAvailable)
+        if (Modem.modemAvailable) {
+            const dataOn = SystemControlStore.shown("cellular", SystemControlStore.isCellularDataOn);
             t.push({
                 id: "cellular",
                 icon: "cell-signal-high",
-                label: qsTr("Mobile"),
-                on: SystemControlStore.shown("cellular", SystemControlStore.isCellularDataOn)
+                route: "cellular",
+                label: SystemStatusStore.carrier || qsTr("Mobile"),
+                //: Quick settings mobile tile status: network type and signal, e.g. "LTE · good"
+                status: dataOn ? (SystemStatusStore.dataType ? qsTr("%1 · %2").arg(SystemStatusStore.dataType).arg(signalWord(SystemStatusStore.cellularStrength)) : signalWord(SystemStatusStore.cellularStrength)) : qsTr("Data off"),
+                on: dataOn
             });
+        }
+        const btOn = SystemControlStore.shown("bluetooth", SystemControlStore.isBluetoothOn);
         t.push({
             id: "bluetooth",
             icon: "bluetooth",
-            label: qsTr("Bluetooth"),
-            on: SystemControlStore.shown("bluetooth", SystemControlStore.isBluetoothOn)
+            route: "bluetooth",
+            label: btOn && bluetoothDevice ? (bluetoothDevice.alias || bluetoothDevice.name) : qsTr("Bluetooth"),
+            status: !btOn ? qsTr("Off") : bluetoothDevice ? qsTr("Connected") : qsTr("On · no device"),
+            on: btOn
         }, {
             id: "airplane",
             icon: "airplane-tilt",
@@ -195,6 +208,7 @@ Item {
             on: SystemControlStore.shown("airplane", SystemControlStore.isAirplaneModeOn)
         }, {
             id: "dnd",
+            route: "notifications",
             icon: "bell-slash",
             label: qsTr("Silent"),
             on: SystemControlStore.isDndMode
@@ -207,17 +221,18 @@ Item {
                 on: SystemControlStore.isFlashlightOn
             });
         t.push({
-            id: "location",
-            icon: "map-pin",
-            label: qsTr("Location"),
-            on: SystemControlStore.isLocationOn
-        }, {
             id: "hotspot",
             icon: "broadcast",
             label: qsTr("Hotspot"),
             on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
         }, {
+            id: "location",
+            icon: "map-pin",
+            label: qsTr("Location"),
+            on: SystemControlStore.isLocationOn
+        }, {
             id: "nightlight",
+            route: "display",
             icon: "moon",
             label: qsTr("Night"),
             on: SystemControlStore.isNightLightOn
@@ -225,38 +240,67 @@ Item {
         if (Display.rotationAvailable)
             t.push({
                 id: "rotation",
+                route: "display",
                 icon: "device-rotate",
-                label: qsTr("Auto-rotate"),
+                label: qsTr("Rotate"),
+                status: SystemControlStore.isRotationLocked ? qsTr("Locked") : qsTr("Auto"),
                 on: !SystemControlStore.isRotationLocked
             });
         if (Display.lightAvailable)
             t.push({
                 id: "autobrightness",
+                route: "display",
                 icon: "sun",
-                label: qsTr("Auto"),
+                label: qsTr("Brightness"),
+                //: Quick settings brightness tile status, e.g. "Auto · 24%"
+                status: (SystemControlStore.isAutoBrightnessOn ? qsTr("Auto · %1%") : qsTr("Manual · %1%")).arg(Math.round(SystemControlStore.brightness)),
                 on: SystemControlStore.isAutoBrightnessOn
             });
         t.push({
             id: "lowpower",
+            route: "battery",
             icon: "battery-low",
             label: qsTr("Saver"),
             on: SystemControlStore.isLowPowerMode
         });
-        if (typeof TrackpadInput !== "undefined" && TrackpadInput.available)
-            t.push({
-                id: "trackpad",
-                icon: "cursor",
-                label: qsTr("Pointer"),
-                on: SettingsManagerCpp.trackpadMode === "mouse"
-            });
         if (HapticManager.available)
             t.push({
                 id: "vibration",
+                route: "sound",
                 icon: "vibrate",
                 label: qsTr("Vibrate"),
                 on: SystemControlStore.isVibrationOn
             });
+        if (typeof TrackpadInput !== "undefined" && TrackpadInput.available)
+            t.push({
+                id: "trackpad",
+                route: "trackpad",
+                icon: "cursor",
+                label: qsTr("Pointer"),
+                on: SettingsManagerCpp.trackpadMode === "mouse"
+            });
         return enabledOnly(t);
+    }
+    // Switches in pages of three across by three. Paged by id: statuses change
+    // every few seconds, and a page made of the tiles themselves would rebuild
+    // every tile on it each time.
+    readonly property int tileColumns: 3
+    readonly property int tilesPerPage: 3 * tileColumns
+    readonly property var tileIds: tiles.map(t => t.id)
+    property var tilePages: []
+    onTileIdsChanged: repage()
+    Component.onCompleted: repage()
+    function repage() {
+        const ids = tileIds;
+        if (JSON.stringify(ids) === JSON.stringify([].concat(...tilePages)))
+            return;
+        const pages = [];
+        for (let i = 0; i < ids.length; i += tilesPerPage)
+            pages.push(ids.slice(i, i + tilesPerPage));
+        tilePages = pages;
+    }
+    function tileById(id) {
+        return tiles.find(x => x.id === id) || null;
     }
     readonly property bool powerShown: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf("power") >= 0
 
@@ -284,6 +328,7 @@ Item {
         }
     ]
 
+    // A one-shot action: a flat disc with its glyph, the name under it.
     component QSShortcut: Item {
         id: shortcut
 
@@ -291,7 +336,6 @@ Item {
         property string label
         signal activated
 
-        width: Silica.Theme.itemSizeExtraLarge
         height: shortcutColumn.height
         Accessible.role: Accessible.Button
         Accessible.name: label
@@ -303,11 +347,19 @@ Item {
             width: parent.width
             spacing: Silica.Theme.paddingSmall
 
-            GlyphIcon {
+            Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
-                name: shortcut.iconName
-                size: Silica.Theme.iconSizeSmall
-                color: shortcutMouse.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                width: Silica.Theme.itemSizeExtraSmall * 0.75
+                height: width
+                radius: width / 2
+                color: shortcutMouse.pressed ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    name: shortcut.iconName
+                    size: Silica.Theme.iconSizeSmall
+                    color: Silica.Theme.primaryColor
+                }
             }
             Text {
                 width: parent.width
@@ -392,8 +444,10 @@ Item {
         interactive: quickSettings.maxHeight > 0 && contentHeight > quickSettings.maxHeight
 
         // The shade is hidden, not destroyed: reopen at the top.
-        onVisibleChanged: if (!visible)
-            contentY = 0
+        onVisibleChanged: if (!visible) {
+            contentY = 0;
+            tilePager.positionViewAtBeginning();
+        }
 
         // A tap off the controls dismisses. An item beneath them, not a
         // handler over them: a control that takes the press keeps the tap.
@@ -410,9 +464,11 @@ Item {
             x: Silica.Theme.horizontalPageMargin
             y: Silica.Theme.paddingMedium
             width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
-            spacing: quickSettings.compactLayout ? Silica.Theme.paddingLarge : Silica.Theme.paddingLarge * 2
+            spacing: Silica.Theme.paddingMedium
 
-            layer.enabled: true
+            // Flattened only while it fades, so it fades as one piece; open,
+            // a slider drag doesn't re-render an offscreen copy every frame.
+            layer.enabled: opacity < 1
 
             // Gesture-coupled reveal: fade + a small settle-up as the shade
             // opens; both collapse to a no-op under reduceMotion.
@@ -436,6 +492,17 @@ Item {
                     truncationMode: Silica.TruncationMode.Fade
                     color: Silica.Theme.secondaryHighlightColor
                     font.pixelSize: Silica.Theme.fontSizeSmall
+
+                    Silica.Label {
+                        objectName: "batteryLine"
+                        anchors.left: parent.left
+                        anchors.leftMargin: parent.contentWidth + Silica.Theme.paddingSmall
+                        anchors.baseline: parent.baseline
+                        //: Quick settings date line battery, e.g. "· 98% charging"
+                        text: (SystemStatusStore.isCharging ? qsTr("· %1% charging") : qsTr("· %1%")).arg(SystemStatusStore.batteryLevel)
+                        color: Silica.Theme.secondaryColor
+                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                    }
                 }
                 Row {
                     id: headerButtons
@@ -460,27 +527,78 @@ Item {
                 }
             }
 
-            // ── Switches, four across ────────────────────────────
-            Grid {
-                id: tileGrid
+            // ── Switches: pages swiped sideways, as on BB10 ──
+            ListView {
+                id: tilePager
 
-                objectName: "tileGrid"
+                objectName: "tilePager"
                 width: parent.width
-                columns: 4
-                rowSpacing: quickSettings.compactLayout ? Silica.Theme.paddingMedium : Silica.Theme.paddingLarge
-                readonly property real cellWidth: width / columns
+                height: contentItem.childrenRect.height
+                orientation: ListView.Horizontal
+                snapMode: ListView.SnapOneItem
+                highlightRangeMode: ListView.StrictlyEnforceRange
+                boundsBehavior: Flickable.StopAtBounds
+                // Every page stays built: few, and switches off-screen keep their state.
+                cacheBuffer: Math.max(1, width) * quickSettings.tilePages.length
+                // The neighbouring pages would show in the page margins.
+                clip: true
+                // The page count, not the pages: live statuses rebuild the
+                // tiles every few seconds, and a new model would reset the page.
+                model: quickSettings.tilePages.length
+
+                delegate: Grid {
+                    id: page
+
+                    required property int index
+                    width: tilePager.width
+                    columns: quickSettings.tileColumns
+                    spacing: Silica.Theme.paddingSmall
+
+                    Repeater {
+                        model: quickSettings.tilePages[page.index] || []
+                        delegate: MQSTile {
+                            required property var modelData
+                            // Its live state, rebound in place as it changes.
+                            readonly property var t: quickSettings.tileById(modelData) || ({})
+                            width: (page.width - (page.columns - 1) * page.spacing) / page.columns
+                            iconName: t.icon || ""
+                            label: t.label || ""
+                            status: t.status !== undefined ? t.status : t.id === "hotspot" && t.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(t.on)
+                            hasPage: t.route !== undefined
+                            on: t.on === true
+                            busy: SystemControlStore.pendingSwitches.indexOf(modelData) >= 0
+                            onToggled: quickSettings.toggle(modelData)
+                            onHeld: quickSettings.hold(modelData)
+                            onOpened: quickSettings.openSettings(t.route)
+                        }
+                    }
+                }
+            }
+
+            // Which page: a dot for each, the current one lit; a tap goes there.
+            Row {
+                objectName: "tilePageDots"
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Silica.Theme.paddingMedium
+                visible: quickSettings.tilePages.length > 1
 
                 Repeater {
-                    model: quickSettings.tiles
-                    delegate: MQSTile {
-                        required property var modelData
-                        width: tileGrid.cellWidth
-                        iconName: modelData.icon
-                        label: modelData.label
-                        on: modelData.on === true
-                        busy: SystemControlStore.pendingSwitches.indexOf(modelData.id) >= 0
-                        onToggled: quickSettings.toggle(modelData.id)
-                        onHeld: quickSettings.hold(modelData.id)
+                    model: quickSettings.tilePages.length
+                    delegate: MouseArea {
+                        id: dot
+
+                        required property int index
+                        width: Silica.Theme.paddingLarge
+                        height: width
+                        onClicked: tilePager.currentIndex = index
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: Math.round(Silica.Theme.paddingSmall * 1.2)
+                            height: width
+                            radius: width / 2
+                            color: dot.index === tilePager.currentIndex ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.3)
+                        }
                     }
                 }
             }
@@ -506,6 +624,7 @@ Item {
             // ── Brightness and volume ────────────────────────────
             Column {
                 width: parent.width
+                spacing: Silica.Theme.paddingSmall
 
                 MQSSlider {
                     objectName: "brightnessSlider"
@@ -568,11 +687,15 @@ Item {
 
             // ── Shortcuts, on the switch columns ─────────────────
             Row {
+                objectName: "shortcutsRow"
+                width: parent.width
+                topPadding: Silica.Theme.paddingLarge
+
                 Repeater {
                     model: quickSettings.shortcuts
                     delegate: QSShortcut {
                         required property var modelData
-                        width: tileGrid.cellWidth
+                        width: parent.width / quickSettings.shortcuts.length
                         iconName: modelData.icon
                         label: modelData.label
                         onActivated: quickSettings.doAction(modelData.id)
@@ -635,6 +758,16 @@ Item {
             });
             break;
         }
+    }
+
+    // Holding a tile opens its page in Settings.
+    function openSettings(route) {
+        quickSettings.closed();
+        quickSettings.launchApp({
+            "id": "settings",
+            "name": "Settings",
+            "route": route
+        });
     }
 
     function hold(id) {

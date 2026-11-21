@@ -3,13 +3,16 @@
 # (mtk-ccci plugin) patches. Never tag ccci_fs/ccci_rpc/ccci_monitor/ccci_aud.
 # The physdev must be the bound driver_modem device (/soc/mddriver, reg 0xd0cf000):
 # with no driver on the physdev, MM filters the mtk-ccci plugin and falls back to generic.
+# ID_MM_MTK_CCCI_IMS_CFG is AT+EIMSCFG's <volte>,<vilte>,<vowifi>,<viwifi>,<sms>,<ims>:
+# VoLTE and SMS over IMS on; the mtk-ccci plugin sends it on enabling and radio power-up.
 SUBSYSTEM=="ccci_node", KERNEL=="ttyC0", \
 	ENV{ID_MM_CANDIDATE}="1", \
 	ENV{ID_MM_CCCI_AT_PORT}="1", \
 	ENV{ID_MM_MTK_CCCI}="1", \
 	ENV{ID_MM_PORT_TYPE_AT_PRIMARY}="1", \
 	ENV{ID_MM_PHYSDEV_SYSFS_PATH}="/sys/devices/platform/soc/d0cf000.mddriver", \
-	ENV{ID_MM_PHYSDEV_UID}="q25-md1"
+	ENV{ID_MM_PHYSDEV_UID}="q25-md1", \
+	ENV{ID_MM_MTK_CCCI_IMS_CFG}="1,0,0,0,1,1"
 
 SUBSYSTEM=="net", ACTION=="add|change|move", KERNEL=="ccmni[0-9]", \
 	ENV{ID_MM_CANDIDATE}="1", \

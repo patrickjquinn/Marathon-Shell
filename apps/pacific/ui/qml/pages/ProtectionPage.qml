@@ -112,7 +112,7 @@ Page {
                 bottomPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Still preparing %n filter list(s). Some ads and trackers may get through until then.", "", page.browser.missingFilters.length)
             }
 

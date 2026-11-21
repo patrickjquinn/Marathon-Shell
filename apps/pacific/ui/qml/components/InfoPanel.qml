@@ -22,7 +22,7 @@ Rectangle {
     signal secondaryClicked
 
     // Opaque: the page behind must not show through.
-    color: Theme.highlightDimmerColor
+    color: Theme.rgba(Theme.overlayBackgroundColor, 1.0)
 
     SilicaFlickable {
         anchors.fill: parent

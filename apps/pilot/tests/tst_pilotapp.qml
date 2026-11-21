@@ -27,6 +27,7 @@ TestCase {
         Pilot.reset();
         Conversation.model.clear();
         Conversation.loadSettings();
+        Conversation.now = {};
     }
 
     function settle(app) {
@@ -261,6 +262,94 @@ TestCase {
         overlay.send("summarise this");
         verify(!findChild(overlay, "overlayInput").activeFocus);
         keyClick(Qt.Key_Escape);
+        verify(!overlay.shown);
+    }
+
+    function showOverlay() {
+        const overlay = createTemporaryObject(overlayComponent, testCase);
+        overlay.show();
+        waitForRendering(overlay);
+        return overlay;
+    }
+
+    function rows(column) {
+        return column.children.filter(c => c.objectName !== "" && c.visible && c.height > 0);
+    }
+
+    function test_overlaySheetOffersQuickAsksAsRows() {
+        Conversation.now = {
+            on_screen: "Settings"
+        };
+        const overlay = showOverlay();
+        compare(findChild(overlay, "overlayContext").description, "Sees Settings");
+        const asks = rows(findChild(overlay, "overlayQuickAsks"));
+        compare(asks.map(r => r.text), ["Summarise this", "What can I do here?"]);
+        verify(!asks[0].action);
+        verify(!findChild(overlay, "overlayExpand").visible);
+        mouseClick(asks[0]);
+        compare(Pilot.asked, ["Summarise this"]);
+        verify(overlay.shown);
+    }
+
+    function test_overlayAnswerOffersItsActionsAsRows() {
+        const overlay = showOverlay();
+        overlay.send("what is new");
+        Pilot.finish(JSON.stringify({
+            route: "answer",
+            cards: [
+                {
+                    kind: "answer",
+                    text: "Not much.",
+                    sources: [
+                        {
+                            site: "example.org",
+                            url: "https://example.org"
+                        }
+                    ],
+                    followups: ["And tomorrow?"]
+                }
+            ]
+        }));
+        verify(!findChild(overlay, "overlayQuickAsks").visible);
+        waitForRendering(overlay);
+        const turns = findChild(overlay, "overlayTurns");
+        compare(turns.count, 2);
+        compare(turns.itemAt(0).stamp, "");
+        compare(String(findChild(turns.itemAt(0), "cardText").color), String(Theme.secondaryColor));
+        const actions = findChild(turns.itemAt(1), "answerActions");
+        verify(actions.visible);
+        const tiles = actions.children.filter(c => c.text !== undefined);
+        compare(tiles.map(t => t.text), ["example.org", "And tomorrow?"]);
+        verify(tiles.every(t => t.action));
+        mouseClick(tiles[1]);
+        compare(Pilot.asked, ["what is new", "And tomorrow?"]);
+
+        const expand = findChild(overlay, "overlayExpand");
+        verify(expand.visible);
+        let expanded = 0;
+        overlay.expandRequested.connect(() => expanded++);
+        mouseClick(expand);
+        compare(expanded, 1);
+        verify(!overlay.shown);
+    }
+
+    function test_onlyATapAboveTheSheetClosesTheOverlay() {
+        const overlay = showOverlay();
+        const sheet = findChild(overlay, "overlaySheet");
+        verify(sheet.y > 0);
+        mouseClick(sheet, sheet.width / 2, Theme.paddingSmall);
+        verify(overlay.shown);
+        mouseClick(overlay, overlay.width / 2, sheet.y / 2);
+        verify(!overlay.shown);
+    }
+
+    function test_swipingTheSheetDownClosesTheOverlay() {
+        const overlay = showOverlay();
+        const header = findChild(overlay, "overlayContext");
+        mousePress(header, header.width / 2, Theme.paddingLarge);
+        for (let y = 1; y <= 10; ++y)
+            mouseMove(header, header.width / 2, Theme.paddingLarge + y * Theme.itemSizeMedium / 5);
+        mouseRelease(header, header.width / 2, Theme.paddingLarge + 2 * Theme.itemSizeMedium);
         verify(!overlay.shown);
     }
 

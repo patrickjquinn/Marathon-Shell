@@ -37,7 +37,7 @@ Glass {
         }
         Label {
             anchors.verticalCenter: parent.verticalCenter
-            width: card.width - 2 * (Theme.horizontalPageMargin + card.padding) - Theme.iconSizeSmallPlus - Theme.paddingMedium
+            width: card.width - 2 * Theme.horizontalPageMargin - Theme.iconSizeSmallPlus - Theme.paddingMedium
             text: card.text
             wrapMode: Text.Wrap
             color: Theme.primaryColor

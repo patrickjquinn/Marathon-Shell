@@ -16,6 +16,8 @@ pub mod qobject {
         type QString = cxx_qt_lib::QString;
         include!("cxx-qt-lib/qlist.h");
         type QList_QVariant = cxx_qt_lib::QList<cxx_qt_lib::QVariant>;
+        include!("cxx-qt-lib/qmap.h");
+        type QMap_QString_QVariant = cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant>;
     }
 
     extern "RustQt" {
@@ -125,6 +127,27 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "isHotspotActive"]
         fn is_hotspot_active(self: &Network) -> bool;
+        /// Saved Wi-Fi networks, most recently used first: `ssid`, `lastUsed`.
+        #[qinvokable]
+        #[cxx_name = "savedNetworks"]
+        fn saved_networks(self: &Network) -> QList_QVariant;
+        /// A saved network's settings, and its addresses while in use.
+        #[qinvokable]
+        #[cxx_name = "networkDetails"]
+        fn network_details(self: &Network, ssid: &QString) -> QMap_QString_QVariant;
+        /// `autoJoin`, `privateAddress`, `ipv4` or `dns`; "" once done.
+        #[qinvokable]
+        #[cxx_name = "setNetworkOption"]
+        fn set_network_option(
+            self: &Network,
+            ssid: &QString,
+            key: &QString,
+            value: &QString,
+        ) -> QString;
+        /// A Wi-Fi join code (the `WIFI:` QR payload) as an SVG data URL.
+        #[qinvokable]
+        #[cxx_name = "wifiQr"]
+        fn wifi_qr(self: &Network, ssid: &QString, password: &QString) -> QString;
     }
 
     impl cxx_qt::Threading for Network {}
@@ -270,5 +293,58 @@ impl Network {
     }
     crate::shell::asks! { NETWORK;
         is_hotspot_active() -> bool => "IsHotspotActive";
+        saved_networks() -> QList<QVariant> => "SavedNetworks";
+        network_details(ssid: &QString) -> cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant> => "NetworkDetails";
+        set_network_option(ssid: &QString, key: &QString, value: &QString) -> QString => "SetNetworkOption";
+    }
+
+    fn wifi_qr(&self, ssid: &QString, password: &QString) -> QString {
+        let payload = wifi_payload(&ssid.to_string(), &password.to_string());
+        let Ok(code) = qrcode::QrCode::new(payload.as_bytes()) else {
+            return QString::default();
+        };
+        let svg = code
+            .render::<qrcode::render::svg::Color<'_>>()
+            .quiet_zone(true)
+            .min_dimensions(256, 256)
+            .build();
+        QString::from(&format!(
+            "data:image/svg+xml;base64,{}",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, svg)
+        ))
+    }
+}
+
+/// The join code phones' cameras read: `WIFI:T:WPA;S:<ssid>;P:<key>;;`,
+/// with `\ ; , : "` escaped.
+fn wifi_payload(ssid: &str, password: &str) -> String {
+    let escape = |s: &str| {
+        s.chars().fold(String::new(), |mut out, c| {
+            if matches!(c, '\\' | ';' | ',' | ':' | '"') {
+                out.push('\\');
+            }
+            out.push(c);
+            out
+        })
+    };
+    if password.is_empty() {
+        format!("WIFI:T:nopass;S:{};;", escape(ssid))
+    } else {
+        format!("WIFI:T:WPA;S:{};P:{};;", escape(ssid), escape(password))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wifi_payload;
+
+    #[test]
+    fn join_codes_escape_what_the_format_reserves() {
+        assert_eq!(
+            wifi_payload("Home", "hunter22"),
+            "WIFI:T:WPA;S:Home;P:hunter22;;"
+        );
+        assert_eq!(wifi_payload("Cafe;1", ""), "WIFI:T:nopass;S:Cafe\\;1;;");
+        assert_eq!(wifi_payload("A", "p:w\"q"), "WIFI:T:WPA;S:A;P:p\\:w\\\"q;;");
     }
 }

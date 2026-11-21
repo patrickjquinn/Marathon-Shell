@@ -18,6 +18,7 @@ QtObject {
     readonly property real safeAreaTop: 0
     readonly property real safeAreaLeft: 0
     readonly property real safeAreaRight: 0
+    readonly property real safeAreaBottom: 0
     readonly property int zIndexBackground: 0
     readonly property int zIndexLockScreen: 1000
     readonly property int zIndexModalOverlay: 2000

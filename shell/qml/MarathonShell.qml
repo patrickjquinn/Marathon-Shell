@@ -1356,7 +1356,7 @@ Item {
         anchors.fill: parent
         source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
         fillMode: Image.Tile
-        opacity: shell.wallpaperCovered ? 0 : 0.04
+        opacity: shell.wallpaperCovered || shell.appCoversWallpaper ? 0 : 0.04
         smooth: false
         cache: true
         visible: DeviceProfile.panelDither
@@ -1790,7 +1790,6 @@ Item {
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
-        backdrops: UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
 
         // The Hub and Quick Settings never outlive a lock or an app launch.
         Connections {
@@ -2091,14 +2090,6 @@ Item {
 
                 Binding {
                     target: dockCorners.app
-                    property: "texturesRequested"
-                    value: dockCorners.active
-                    when: dockCorners.app !== null && dockCorners.app.drawnByTexture !== undefined
-                    restoreMode: Binding.RestoreBindingOrValue
-                }
-
-                Binding {
-                    target: dockCorners.app
                     property: "drawnByTexture"
                     value: dockCorners.active && dockCorners.ready
                     when: dockCorners.app !== null && dockCorners.app.drawnByTexture !== undefined
@@ -2217,12 +2208,15 @@ Item {
         visible: drawnHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
-        // Over the lock screen it blurs the lock screen, not the home behind it.
-        backdrops: SessionStore.isLocked ? [lockScreen] : UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
         onClosed: {
             UIStore.closeQuickSettings();
         }
-        onLaunchApp: app => shell.launchUnlocked(typeof app === "string" ? app : app.id, app.name || "")
+        onLaunchApp: app => {
+            if (app.route && !SessionStore.isLocked)
+                Tasks.launchAppWithRoute(app.id, app.route, "{}");
+            else
+                shell.launchUnlocked(typeof app === "string" ? app : app.id, app.name || "");
+        }
         onPowerRequested: shell.showPowerMenu()
         // The screen changed size while open (rotation).
         onMaxHeightChanged: if (UIStore.quickSettingsOpen && !UIStore.quickSettingsDragging)
@@ -2338,7 +2332,6 @@ Item {
 
         anchors.fill: parent
         z: Constants.zIndexLockScreen
-        appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
         comboLength: comboEntry.combo.length
         onIdleExpired: reason => nightshade.idle(reason)
         onUnlockRequested: {
@@ -2474,8 +2467,6 @@ Item {
 
     NotificationToast {
         id: notificationToast
-
-        backdropSource: UIStore.appWindowOpen ? appWindowContainer : null
 
         Connections {
             function onNotificationReceived(notification) {
@@ -3385,7 +3376,10 @@ Item {
             if (state !== "active")
                 Display.turnScreenOn("call " + state);
             if (shell.incomingCallOverlay) {
-                shell.incomingCallOverlay.hide();
+                if (state === "active" && shell.incomingCallOverlay.isRinging)
+                    shell.incomingCallOverlay.connected();
+                else
+                    shell.incomingCallOverlay.hide();
                 if (shell.incomingCallOverlay.inCall)
                     return;
             }

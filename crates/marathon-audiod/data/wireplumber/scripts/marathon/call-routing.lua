@@ -2,17 +2,29 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 --
--- WirePlumber selects a card's call profile while ModemManager has a voice
--- call (device/find-voice-call-profile.lua). This narrows that choice by the
--- marathon.call.speakerphone setting: among call profiles that differ by
--- output (or the two a device names in marathon.call.profile and
--- marathon.call.speaker-profile), and among a call profile's output routes.
+-- While ModemManager has a voice call this selects a card's call profile
+-- (in place of WirePlumber's device/find-voice-call-profile.lua, which
+-- 60-marathon-call.conf disables), chosen by the marathon.call.speakerphone
+-- setting: among call profiles that differ by output (or the two a device
+-- names in marathon.call.profile and marathon.call.speaker-profile), and
+-- among a call profile's output routes.
+--
+-- The card follows the call only once it has held still for SETTLE_MS. A
+-- dial the modem refuses starts and stops a call within milliseconds, and
+-- WirePlumber's own script switched the profile on each: the two switches
+-- overlapped, which left PipeWire on HiFi with a Voice Call node behind
+-- whose UCM verb had turned the speaker path off (no sound until the
+-- profile was set again). One timer for every switch keeps them apart.
 
 cutils = require ("common-utils")
 devinfo = require ("device-info-cache")
 log = Log.open_topic ("s-device")
 
+-- What ModemManager says, and what the card is set for.
 in_call = false
+routed = false
+SETTLE_MS = 500
+settle = nil
 
 alsa_devs_om = ObjectManager {
   Interest {
@@ -41,36 +53,54 @@ end
 function publishCall ()
   local metadata = cutils.get_default_metadata_object ()
   if metadata then
-    metadata:set (0, "marathon.call.active", "Spa:String:JSON", tostring (in_call))
+    metadata:set (0, "marathon.call.active", "Spa:String:JSON", tostring (routed))
   end
+end
+
+-- Switch once the call has held still; `force` reselects within a call
+-- (the speakerphone setting changed).
+function schedule (force)
+  if settle then
+    settle:destroy ()
+  end
+  local pending = force or false
+  settle = Core.timeout_add (SETTLE_MS, function ()
+    settle = nil
+    if routed ~= in_call or (pending and routed) then
+      routed = in_call
+      publishCall ()
+      reselect ()
+    end
+    return false
+  end)
 end
 
 mm = Plugin.find ("modem-manager")
 mm:connect ("voice-call-start", function ()
   in_call = true
-  publishCall ()
+  schedule ()
 end)
 mm:connect ("voice-call-stop", function ()
   in_call = false
-  publishCall ()
+  schedule ()
 end)
 
 Settings.subscribe ("marathon.call.speakerphone", function ()
   if in_call then
-    reselect ()
+    schedule (true)
   end
 end)
 
 SimpleEventHook {
   name = "marathon/find-call-profile",
-  before = "device/find-calling-profile",
+  before = "device/find-stored-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-profile" },
     },
   },
   execute = function (event)
-    if not in_call or event:get_data ("selected-profile") then
+    if not routed or event:get_data ("selected-profile") then
       return
     end
 
@@ -79,6 +109,9 @@ SimpleEventHook {
     local named = device.properties [speaker and "marathon.call.speaker-profile"
         or "marathon.call.profile"]
     local best = nil
+    -- Any call profile, as WirePlumber's own script chose, where none
+    -- differs by output.
+    local any = nil
 
     for p in device:iterate_params ("EnumProfile") do
       local profile = cutils.parseParam (p, "EnumProfile")
@@ -87,14 +120,19 @@ SimpleEventHook {
           if profile.name == named then
             best = profile
           end
-        elseif string.find (profile.name, "^Voice Call") and
-            isSpeaker (profile.name) == speaker and
-            (best == nil or profile.priority > best.priority) then
-          best = profile
+        elseif string.find (profile.name, "^Voice Call") then
+          if isSpeaker (profile.name) == speaker and
+              (best == nil or profile.priority > best.priority) then
+            best = profile
+          end
+          if any == nil or profile.priority > any.priority then
+            any = profile
+          end
         end
       end
     end
 
+    best = best or any
     if best then
       log:info (device, "call profile " .. best.name)
       event:set_data ("selected-profile", best)
@@ -113,7 +151,7 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if not in_call then
+    if not routed then
       return
     end
 
@@ -151,7 +189,7 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if not in_call then
+    if not routed then
       return
     end
 

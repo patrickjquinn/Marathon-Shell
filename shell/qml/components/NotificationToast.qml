@@ -1,6 +1,5 @@
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Effects
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
@@ -9,7 +8,6 @@ Item {
 
     property var toastQueue: []
     property var currentToast: null
-    onCurrentToastChanged: appCapture.scheduleUpdate()
     property bool showInlineReply: false
     // Only a sender that advertised inline-reply can receive the text.
     readonly property bool canReply: {
@@ -23,7 +21,6 @@ Item {
     property bool shown: false
     property real dragOffset: 0
     // The open app, blurred behind the banner; the wallpaper otherwise.
-    property Item backdropSource: null
 
     // In arrival order; a critical one goes ahead of all but earlier
     // critical ones.
@@ -100,60 +97,11 @@ Item {
         }
     }
 
-    MGlassBackdrop {
-        id: wallpaperGlass
-
-        anchors.fill: parent
-        visible: toast.visible && !toastContainer.backdropSource
-    }
-
-    ShaderEffectSource {
-        id: appCapture
-
-        width: toast.width
-        height: toast.height
-        sourceItem: toast.visible ? toastContainer.backdropSource : null
-        // Where the toast lands, captured once per toast, not each frame it
-        // slides or the app under it draws.
-        sourceRect: Qt.rect(toast.x, Constants.statusBarHeight, toast.width, toast.height)
-        textureSize: Qt.size(Math.max(1, Math.round(toast.width / 2)), Math.max(1, Math.round(toast.height / 2)))
-        live: false
-        onSourceItemChanged: scheduleUpdate()
-        onSourceRectChanged: scheduleUpdate()
-        visible: false
-    }
-
-    MultiEffect {
-        id: appBlur
-
-        width: toast.width
-        height: toast.height
-        source: appCapture
-        autoPaddingEnabled: false
-        blurEnabled: !MMotion.reduceBlur
-        blur: 1.0
-        blurMax: 32
-        saturation: 0.3
-        brightness: -0.02
-        visible: false
-    }
-
-    ShaderEffectSource {
-        id: appGlass
-
-        width: toast.width
-        height: toast.height
-        sourceItem: toastContainer.backdropSource && toast.visible ? appBlur : null
-        hideSource: true
-        visible: false
-    }
-
     Item {
         id: toast
 
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: Silica.Theme.paddingSmall
         y: (toastContainer.shown ? Constants.statusBarHeight : -height) + toastContainer.dragOffset
         // Derived from the row it has to hold, not a fixed 72/140. The
         // title and body are scaled type tokens while these heights were
@@ -162,10 +110,17 @@ Item {
         height: body.implicitHeight + Silica.Theme.paddingLarge * 2
         visible: false
 
-        MGlassPlatter {
+        // An edge-to-edge band of the ambience, lit along its lower edge
+        // in the highlight, as Sailfish's banners were.
+        Rectangle {
             anchors.fill: parent
-            backdrop: toastContainer.backdropSource ? appGlass : wallpaperGlass.texture
-            screenSpaceLookup: !toastContainer.backdropSource
+            color: Silica.Theme.rgba(Silica.Theme.highlightDimmerColor, 0.95)
+        }
+        MGlowLine {
+            objectName: "bannerGlow"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
         }
 
         Column {
@@ -174,7 +129,9 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Silica.Theme.paddingLarge
+            anchors.topMargin: Silica.Theme.paddingLarge
+            anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            anchors.rightMargin: Silica.Theme.horizontalPageMargin
             spacing: Silica.Theme.paddingSmall
 
             Row {
@@ -185,14 +142,22 @@ Item {
                 height: Math.max(iconTile.height, textColumn.implicitHeight)
                 spacing: Silica.Theme.paddingLarge
 
-                NotificationIcon {
+                Rectangle {
                     id: iconTile
-                    objectName: "bannerIcon"
-                    source: (toastContainer.currentToast && toastContainer.currentToast.icon) || ""
-                    category: (toastContainer.currentToast && toastContainer.currentToast.category) || ""
-                    size: Silica.Theme.iconSizeSmallPlus
-                    color: Silica.Theme.highlightColor
+                    width: Silica.Theme.iconSizeMedium
+                    height: width
+                    radius: width / 2
+                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.18)
                     anchors.verticalCenter: parent.verticalCenter
+
+                    NotificationIcon {
+                        objectName: "bannerIcon"
+                        anchors.centerIn: parent
+                        source: (toastContainer.currentToast && toastContainer.currentToast.icon) || ""
+                        category: (toastContainer.currentToast && toastContainer.currentToast.category) || ""
+                        size: Silica.Theme.iconSizeExtraSmall
+                        color: Silica.Theme.highlightColor
+                    }
                 }
 
                 Column {

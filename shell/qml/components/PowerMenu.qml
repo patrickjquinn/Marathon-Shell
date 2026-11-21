@@ -87,7 +87,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: action.label
             font.pixelSize: Silica.Theme.fontSizeSmall
-            color: action.emphasised ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            color: Silica.Theme.primaryColor
         }
     }
 
@@ -122,6 +122,8 @@ Item {
         scale: 0.9
 
         Column {
+            id: choices
+
             anchors.centerIn: parent
             width: parent.width - 2 * Silica.Theme.horizontalPageMargin
             spacing: Silica.Theme.paddingLarge
@@ -197,7 +199,6 @@ Item {
             Silica.Button {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: qsTr("Cancel")
-                backgroundColor: "transparent"
                 onClicked: {
                     HapticManager.light();
                     root.cancel();

@@ -51,6 +51,7 @@ P.TabBar {
     FontMetrics {
         id: mediumMetrics
 
+        font.family: S.Theme.fontFamily
         font.pixelSize: S.Theme.fontSizeMedium
     }
 

@@ -29,23 +29,24 @@ TestCase {
         verify(src.indexOf("w=360") > 0 && src.indexOf("h=720") > 0);
     }
 
+    // The tone and dimmer are baked into the image Keel makes: they are asked for.
     function test_darkSchemeDimsTowardsBlack() {
         bg.light = false;
         tryVerify(() => bg.ready, 5000);
-        const tone = findChild(bg, "tone");
-        compare(tone.color, Qt.color("black"));
-        compare(tone.opacity, 0.62);
-        verify(findChild(bg, "dimmer").visible);
+        compare(bg.tone, 0.62);
+        const src = findChild(bg, "wallpaper").source.toString();
+        verify(src.indexOf("tone=0.620") > 0, src);
+        verify(src.indexOf("&dim=") > 0 && src.indexOf("light=1") < 0, src);
     }
 
     function test_lightSchemeWashesTowardsWhite() {
         bg.light = true;
         bg.darkest = 0.6;
         tryVerify(() => bg.ready, 5000);
-        const tone = findChild(bg, "tone");
-        compare(tone.color, Qt.color("white"));
-        compare(tone.opacity, 0.45);
-        verify(!findChild(bg, "dimmer").visible);
+        compare(bg.tone, 0.45);
+        const src = findChild(bg, "wallpaper").source.toString();
+        verify(src.indexOf("tone=0.450") > 0 && src.indexOf("light=1") > 0, src);
+        verify(src.indexOf("&dim=") < 0, src);
         bg.light = false;
         bg.darkest = 0;
     }
@@ -73,10 +74,10 @@ TestCase {
         bg.toneOpacity = 0.4;
         bg.brightest = data.brightest;
         const v = Math.pow(data.brightest, 1 / 2.4) * 1.055 - 0.055;
-        const under = luminance(v * (1 - findChild(bg, "tone").opacity));
+        const under = luminance(v * (1 - bg.tone));
         verify(contrast(1, under) >= 4.5);
         verify(contrast(luminance(0xba / 255), under) >= 3);
-        verify(findChild(bg, "tone").opacity >= 0.4);
+        verify(bg.tone >= 0.4);
         bg.brightest = 1;
         bg.toneOpacity = Qt.binding(() => bg.light ? 0.45 : 0.62);
     }
@@ -92,7 +93,7 @@ TestCase {
         bg.light = true;
         bg.darkest = data.darkest;
         const v = data.darkest <= 0.0031308 ? 12.92 * data.darkest : Math.pow(data.darkest, 1 / 2.4) * 1.055 - 0.055;
-        const a = findChild(bg, "tone").opacity;
+        const a = bg.tone;
         const under = luminance(v * (1 - a) + a);
         verify(contrast(0, under) >= 4.5);
         verify(contrast(luminance(0x45 / 255), under) >= 3);
@@ -104,7 +105,7 @@ TestCase {
         bg.light = false;
         bg.toneOpacity = 0.4;
         bg.brightest = 0.1;
-        compare(findChild(bg, "tone").opacity, 0.4);
+        compare(bg.tone, 0.4);
         bg.brightest = 1;
         bg.toneOpacity = Qt.binding(() => bg.light ? 0.45 : 0.62);
     }
@@ -145,7 +146,8 @@ TestCase {
     function test_noWallpaperDrawsNothingButTheBase() {
         bg.wallpaper = "";
         verify(!bg.ready);
-        verify(!findChild(bg, "tone").visible);
+        verify(findChild(bg, "base").visible);
+        compare(findChild(bg, "wallpaper").source.toString(), "");
         bg.wallpaper = Qt.resolvedUrl("../../shell/resources/wallpapers/dawn.svg");
     }
 }

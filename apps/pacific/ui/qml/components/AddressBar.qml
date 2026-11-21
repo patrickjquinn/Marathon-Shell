@@ -5,10 +5,10 @@
 //
 //   [tabs] [back] [lock n]  site name  [reader | stop] [menu]
 //
-// On the browser's glass (Theme.overlayBackgroundColor, the stock
-// toolbar's opacity). The tab button is Silica's tab icon with the count
-// in it (the incognito icon for private tabs). Back appears when there is
-// a page to go back to. The lock (a warning for an insecure page) carries
+// On the flat system surface (Theme.overlayBackgroundColor, opaque),
+// whatever the page's colours. The tab button is the count in a flat
+// rounded square (the incognito icon for private tabs). Back appears when
+// there is a page to go back to. The lock (a warning for an insecure page) carries
 // the count of what was blocked and opens the site's page. The site name
 // is the registrable domain; tapping it opens the address entry. While a
 // page loads the bar fills with the highlight gradient from the left and
@@ -73,18 +73,11 @@ SilicaItem {
     // The stock browser's toolbar height (108 px at pixel ratio 1).
     height: Math.round(108 * Theme.pixelRatio)
 
-    // The glass: frosted over what is behind it (`backdrop`, the pages),
-    // the stock opaque glass without one.
-    property Item backdrop
-    property real backdropY: 0
-    property bool frosted: true
-    FrostedGlass {
+    Rectangle {
         anchors.fill: parent
-        backdrop: bar.backdrop
-        backdropY: bar.backdropY
-        active: bar.frosted
+        color: Theme.rgba(Theme.overlayBackgroundColor, 1.0)
     }
-    // Private tabs: the glass takes a highlight tint.
+    // Private tabs: the surface takes a highlight tint.
     Rectangle {
         anchors.fill: parent
         visible: bar.privateTab
@@ -148,13 +141,14 @@ SilicaItem {
         }
         height: bar.height
 
-        // Silica's tab icon with the count inside it.
+        // The count in a flat rounded square; for private tabs, the
+        // incognito icon with the count inside it.
         IconButton {
             id: tabsButton
             objectName: "tabsButton"
             width: bar.buttonWidth
             height: parent.height
-            icon.source: bar.privateTab ? (bar.tabCount > 0 ? "image://theme/icon-m-incognito-selected" : "image://theme/icon-m-incognito") : "image://theme/icon-m-tabs"
+            icon.source: bar.privateTab ? (bar.tabCount > 0 ? "image://theme/icon-m-incognito-selected" : "image://theme/icon-m-incognito") : ""
             onClicked: bar.tabsClicked()
             onPressAndHold: bar.tabsHeld()
 
@@ -183,7 +177,7 @@ SilicaItem {
             }
             RotationAnimator {
                 id: turn
-                target: tabsButton.icon
+                target: bar.privateTab ? tabsButton.icon : tabSquare
                 duration: 500
                 easing.type: Easing.OutCubic
             }
@@ -203,6 +197,15 @@ SilicaItem {
                     duration: 260
                     easing.type: Easing.OutBack
                 }
+            }
+            Rectangle {
+                id: tabSquare
+                anchors.centerIn: parent
+                visible: !bar.privateTab
+                width: Theme.iconSizeSmallPlus
+                height: width
+                radius: Theme.paddingSmall
+                color: Theme.rgba(Theme.primaryColor, 0.08)
             }
             Label {
                 id: countLabel
@@ -256,7 +259,7 @@ SilicaItem {
                     Icon {
                         id: lockIcon
                         source: bar.insecure ? "image://theme/icon-s-filled-warning" : "image://theme/icon-s-outline-secure"
-                        color: bar.insecure ? Theme.errorColor : (siteButton.highlighted ? Theme.highlightColor : Theme.primaryColor)
+                        color: bar.insecure ? Theme.errorColor : (siteButton.highlighted ? Theme.highlightColor : Theme.secondaryColor)
                     }
                     Label {
                         id: blockedCount

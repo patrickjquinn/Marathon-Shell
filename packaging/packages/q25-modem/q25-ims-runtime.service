@@ -1,0 +1,10 @@
+[Unit]
+Description=Q25 IMS: the stock IMS runtime, read-only from super
+Requires=dev-disk-by\x2dpartlabel-super.device
+After=dev-disk-by\x2dpartlabel-super.device local-fs.target
+PartOf=q25-modem.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/q25-modem/q25-ims-runtime prepare

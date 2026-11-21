@@ -203,12 +203,16 @@ TestCase {
         return seen;
     }
 
-    // At the overflowing height the sliders start below the fold; leave
-    // room above them so a scroll is observable.
+    // At the overflowing height the sliders start below the fold: bring them
+    // to the middle of the view, leaving room to scroll either way, or scroll
+    // to the end.
     function revealSliders(toEnd) {
         const f = scroll();
-        if (f.interactive)
-            f.contentY = (f.contentHeight - f.height) / (toEnd ? 1 : 2);
+        if (!f.interactive)
+            return;
+        const end = f.contentHeight - f.height;
+        const y = brightnessSlider().mapToItem(f.contentItem, 0, 0).y;
+        f.contentY = toEnd ? end : Math.max(0, Math.min(end - 1, y - f.height / 2));
     }
 
     function test_sliderDrags_data() {
@@ -243,6 +247,16 @@ TestCase {
         for (let i = 1; i < seen.length; ++i)
             verify(seen[i] >= seen[i - 1], "monotonic: " + seen);
         verify(seen[seen.length / 2] > 30 && seen[seen.length / 2] < 70, "continuous: " + seen);
+    }
+
+    // Live statuses rebuild the tiles every few seconds; the page stays put.
+    function test_tilePageSurvivesStatusUpdates() {
+        const pager = findChild(qs, "tilePager");
+        verify(pager.count > 1, "more than one page");
+        pager.currentIndex = 1;
+        SystemControlStore.brightness = 10;
+        SystemControlStore.brightness = 60;
+        compare(pager.currentIndex, 1);
     }
 
     // The value shown, the value set and the OSD's percentage agree.

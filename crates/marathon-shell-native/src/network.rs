@@ -788,6 +788,46 @@ impl Network1 {
         ipc::on_gui(&self.qt, |obj| obj.open_portal()).await
     }
 
+    /// Saved Wi-Fi networks, the one used most recently first: `ssid`,
+    /// `lastUsed`.
+    async fn saved_networks(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<OwnedValue>> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        Ok(
+            crate::wifi_details::saved_networks(&io::system_bus().await?)
+                .await
+                .into_iter()
+                .map(value)
+                .collect(),
+        )
+    }
+
+    /// A saved network's settings, and its live addresses while in use.
+    async fn network_details(
+        &self,
+        ssid: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<State> {
+        ipc::admit(&h, "Network", &["system"]).await?;
+        Ok(crate::wifi_details::details(&io::system_bus().await?, &ssid).await)
+    }
+
+    /// Changes `autoJoin`, `privateAddress`, `ipv4` or `dns`; "" once done,
+    /// else what was wrong.
+    async fn set_network_option(
+        &self,
+        ssid: String,
+        key: String,
+        value: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<String> {
+        ipc::admit(&h, "Network", &["system"]).await?;
+        let bus = io::system_bus().await?;
+        Ok(crate::wifi_details::set_option(&bus, &ssid, &key, &value)
+            .await
+            .err()
+            .unwrap_or_default())
+    }
+
     async fn is_hotspot_active(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
         ipc::admit(&h, "Network", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, |obj| obj.is_hotspot_active()).await
@@ -948,6 +988,20 @@ fn wifi_settings<'a>(
             ]),
         );
     }
+    settings
+}
+
+/// A visible network's profile with the password alone, as `nmcli device
+/// wifi connect` makes it: `NetworkManager` completes the key management
+/// from the access point it activates on (WPA2's PSK, WPA3's SAE, or a
+/// transition network's). A fixed WPA-PSK failed a WPA3-only network at
+/// once, read as a wrong password.
+fn visible_wifi_settings<'a>(ssid: &'a str, password: &'a str) -> Settings<'a> {
+    let mut settings = wifi_settings(ssid, None, password, false);
+    settings.insert(
+        "802-11-wireless-security",
+        HashMap::from([("psk", Value::from(password))]),
+    );
     settings
 }
 
@@ -1751,8 +1805,11 @@ impl Actor {
         }
         // A new password replaces the saved profile instead of adding another.
         self.forget(&ssid).await;
-        let key_mgmt = (secured && !password.is_empty()).then_some("wpa-psk");
-        let settings = wifi_settings(&ssid, key_mgmt, password, false);
+        let settings = if secured && !password.is_empty() {
+            visible_wifi_settings(&ssid, password)
+        } else {
+            wifi_settings(&ssid, None, password, false)
+        };
         let Ok(ap_path) = ObjectPath::try_from(ap_path.as_str()) else {
             return;
         };
@@ -2188,7 +2245,7 @@ pub(crate) fn set_rfkill(types: &[&str], block: bool) -> usize {
 mod tests {
     use super::{
         activation_error, connectivity_name, deactivation_error, device_failure, merge, security,
-        AccessPoint,
+        visible_wifi_settings, wifi_settings, AccessPoint, Value,
     };
 
     #[test]
@@ -2231,6 +2288,15 @@ mod tests {
             .map(|n| (n.ssid.as_str(), n.strength))
             .collect();
         assert_eq!(shown, [("Home", 30), ("Cafe", 70)]);
+    }
+
+    #[test]
+    fn a_visible_network_leaves_the_key_management_to_networkmanager() {
+        let settings = visible_wifi_settings("Home", "hunter22");
+        let security = &settings["802-11-wireless-security"];
+        assert!(!security.contains_key("key-mgmt"));
+        assert_eq!(security["psk"], Value::from("hunter22"));
+        assert!(!wifi_settings("Cafe", None, "", false).contains_key("802-11-wireless-security"));
     }
 
     #[test]

@@ -6,6 +6,9 @@ Dialog {
     id: dialog
 
     property alias pin: pinField.text
+    property string title: qsTr("Remote connection")
+    property string message: qsTr("Enter your PIN to let a computer log in with this password.")
+    property string acceptText: qsTr("Allow")
 
     canAccept: pin.length >= 4
 
@@ -13,8 +16,8 @@ Dialog {
         width: parent.width
 
         DialogHeader {
-            acceptText: qsTr("Allow")
-            title: qsTr("Remote connection")
+            acceptText: dialog.acceptText
+            title: dialog.title
         }
         Label {
             x: Theme.horizontalPageMargin
@@ -22,8 +25,8 @@ Dialog {
             bottomPadding: Theme.paddingLarge
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeSmall
-            color: Theme.secondaryHighlightColor
-            text: qsTr("Enter your PIN to let a computer log in with this password.")
+            color: Theme.secondaryColor
+            text: dialog.message
         }
         PasswordField {
             id: pinField

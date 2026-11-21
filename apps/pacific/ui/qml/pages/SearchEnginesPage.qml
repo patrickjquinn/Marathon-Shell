@@ -30,7 +30,7 @@ Page {
                 bottomPadding: Theme.paddingLarge
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.secondaryHighlightColor
+                color: Theme.secondaryColor
                 text: qsTr("Tap an engine to make it the default. To use another one once, type its keyword and a space before your search.")
             }
         }

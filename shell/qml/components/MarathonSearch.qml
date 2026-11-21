@@ -59,9 +59,19 @@ Item {
             searchResults = [];
             return;
         }
-        var results = UnifiedSearchService.search(searchQuery);
-        searchResults = results.slice(0, 20);
+        const results = UnifiedSearchService.search(searchQuery).slice(0, 20);
+        // Grouped by section, the sections in the order of their best result.
+        const sections = [];
+        for (const result of results) {
+            if (sections.indexOf(sectionOf(result)) < 0)
+                sections.push(sectionOf(result));
+        }
+        searchResults = [].concat(...sections.map(section => results.filter(result => sectionOf(result) === section)));
         Logger.info("Search", "Search performed: '" + searchQuery + "' - " + searchResults.length + " results");
+    }
+
+    function sectionOf(result) {
+        return result.type === "app" ? qsTr("Apps") : result.data.appName;
     }
 
     // Enter opens the result the query names, by the start of its title or
@@ -371,134 +381,167 @@ Item {
                 }
             }
 
-            header: Item {
+            header: Column {
+                objectName: "pilotSection"
                 width: resultsList.width
-                height: searchOverlay.pilotOffered ? pilotContent.height + 2 * Silica.Theme.paddingLarge : 0
+                height: searchOverlay.pilotOffered ? implicitHeight : 0
                 visible: searchOverlay.pilotOffered
-                Accessible.role: Accessible.Button
-                //: %1 is what the person typed into search
-                Accessible.name: qsTr("Ask Pilot: %1").arg(searchOverlay.searchQuery)
-                Accessible.onPressAction: searchOverlay.activatePilot()
+                // The list otherwise keeps its place and a grown header runs off the top.
+                onHeightChanged: resultsList.positionViewAtBeginning()
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: pilotMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+                Item {
+                    width: parent.width
+                    height: pilotLabel.height
+
+                    // Pilot's mark.
+                    Silica.GlassItem {
+                        x: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingLarge
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: pilotLabel.topPadding / 2
+                        color: Silica.Theme.lightPrimaryColor
+                    }
+
+                    Silica.SectionHeader {
+                        id: pilotLabel
+
+                        text: qsTr("Pilot")
+                    }
                 }
 
-                GlyphIcon {
-                    id: pilotGlyph
+                Item {
+                    objectName: "pilotBody"
+                    width: parent.width
+                    height: Math.max(pilotText.height, pilotBusy.visible ? pilotBusy.height : 0) + 2 * Silica.Theme.paddingMedium
+                    Accessible.role: Accessible.Button
+                    //: %1 is what the person typed into search
+                    Accessible.name: searchOverlay.pilotAnswer.length > 0 ? searchOverlay.pilotAnswer : qsTr("Ask Pilot: %1").arg(searchOverlay.searchQuery)
+                    Accessible.onPressAction: searchOverlay.activatePilot()
 
-                    x: Silica.Theme.horizontalPageMargin + (Silica.Theme.iconSizeMedium - width) / 2
-                    y: Silica.Theme.paddingLarge
-                    name: "message-circle"
-                    size: Silica.Theme.iconSizeSmall
-                    color: Silica.Theme.highlightColor
-                }
+                    Rectangle {
+                        anchors.fill: parent
+                        color: pilotMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+                    }
 
-                Column {
-                    id: pilotContent
+                    Silica.BusyIndicator {
+                        id: pilotBusy
 
-                    x: Silica.Theme.horizontalPageMargin + Silica.Theme.iconSizeMedium + Silica.Theme.paddingLarge
-                    y: Silica.Theme.paddingLarge
-                    width: parent.width - x - Silica.Theme.horizontalPageMargin
-                    spacing: Silica.Theme.paddingSmall
-
-                    Text {
-                        width: parent.width
-                        text: searchOverlay.pilotBusy ? qsTr("Asking Pilot\u2026") : searchOverlay.pilotAnswer.length > 0 ? qsTr("Pilot") : qsTr("Ask Pilot")
-                        color: Silica.Theme.highlightColor
-                        font.pixelSize: Silica.Theme.fontSizeSmall
-                        font.family: Silica.Theme.fontFamily
+                        objectName: "pilotBusy"
+                        x: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        size: Silica.BusyIndicatorSize.Small
+                        running: searchOverlay.pilotBusy
+                        visible: running
                     }
 
                     Text {
-                        width: parent.width
-                        text: searchOverlay.pilotAnswer.length > 0 ? searchOverlay.pilotAnswer : "\u201c" + searchOverlay.searchQuery.trim() + "\u201d" // i18n: literal
-                        color: Silica.Theme.primaryColor
+                        id: pilotText
+
+                        objectName: "pilotText"
+                        x: pilotBusy.visible ? pilotBusy.x + pilotBusy.width + Silica.Theme.paddingLarge : Silica.Theme.horizontalPageMargin
+                        width: parent.width - x - Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: {
+                            const query = searchOverlay.searchQuery.trim();
+                            if (searchOverlay.pilotAnswer.length > 0)
+                                return searchOverlay.pilotAnswer;
+                            if (searchOverlay.pilotBusy)
+                                return "\u201c" + query + "\u201d"; // i18n: literal
+                            return qsTr("Ask \u201c%1\u201d").arg(query);
+                        }
+                        color: pilotMouseArea.pressed ? Silica.Theme.highlightColor : searchOverlay.pilotBusy ? Silica.Theme.secondaryColor : Silica.Theme.primaryColor
                         font.pixelSize: Silica.Theme.fontSizeMedium
                         font.family: Silica.Theme.fontFamily
                         wrapMode: Text.Wrap
                         maximumLineCount: 8
                         elide: Text.ElideRight
                     }
-                }
 
-                MouseArea {
-                    id: pilotMouseArea
+                    MouseArea {
+                        id: pilotMouseArea
 
-                    anchors.fill: parent
-                    onClicked: searchOverlay.activatePilot()
+                        anchors.fill: parent
+                        onClicked: searchOverlay.activatePilot()
+                    }
                 }
             }
 
-            delegate: Rectangle {
+            delegate: Column {
                 id: resultDelegate
 
                 required property var modelData
                 required property int index
 
+                readonly property string section: searchOverlay.sectionOf(modelData)
                 readonly property bool down: resultMouseArea.pressed || resultsList.currentIndex === index && resultsList.activeFocus
 
                 width: resultsList.width
-                height: Silica.Theme.itemSizeMedium
-                color: down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
-                Accessible.role: Accessible.Button
-                Accessible.name: modelData.title
-                Accessible.onPressAction: searchOverlay.selectResult(modelData)
 
-                MAppIcon {
-                    id: resultIcon
-
-                    x: Silica.Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: resultDelegate.modelData.icon
-                    size: resultDelegate.modelData.type === "app" ? Silica.Theme.iconSizeMedium : Silica.Theme.iconSizeSmall
-                    width: Silica.Theme.iconSizeMedium
-                    height: width
+                Silica.SectionHeader {
+                    objectName: "resultSection"
+                    text: resultDelegate.section
+                    visible: resultDelegate.index === 0 || searchOverlay.sectionOf(searchOverlay.searchResults[resultDelegate.index - 1]) !== resultDelegate.section
                 }
 
-                Column {
-                    anchors.left: resultIcon.right
-                    anchors.leftMargin: Silica.Theme.paddingLarge
-                    anchors.right: parent.right
-                    anchors.rightMargin: Silica.Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
+                Rectangle {
+                    width: parent.width
+                    height: Silica.Theme.itemSizeMedium
+                    color: resultDelegate.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+                    Accessible.role: Accessible.Button
+                    Accessible.name: resultDelegate.modelData.title
+                    Accessible.onPressAction: searchOverlay.selectResult(resultDelegate.modelData)
 
-                    Text {
-                        width: parent.width
-                        text: resultDelegate.modelData.title
-                        color: resultDelegate.down ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-                        font.pixelSize: Silica.Theme.fontSizeMedium
-                        font.family: Silica.Theme.fontFamily
-                        elide: Text.ElideRight
+                    MAppIcon {
+                        id: resultIcon
+
+                        x: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: resultDelegate.modelData.icon
+                        size: resultDelegate.modelData.type === "app" ? Silica.Theme.iconSizeMedium : Silica.Theme.iconSizeSmall
+                        width: Silica.Theme.iconSizeMedium
+                        height: width
                     }
 
-                    Text {
-                        width: parent.width
-                        text: {
-                            const type = resultDelegate.modelData.type === "app" ? qsTr("App") : resultDelegate.modelData.type === "deeplink" ? qsTr("Page") : qsTr("Setting");
-                            return resultDelegate.modelData.subtitle ? type + " · " + resultDelegate.modelData.subtitle : type;
+                    Column {
+                        anchors.left: resultIcon.right
+                        anchors.leftMargin: Silica.Theme.paddingLarge
+                        anchors.right: parent.right
+                        anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            width: parent.width
+                            text: resultDelegate.modelData.title
+                            color: resultDelegate.down ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                            font.pixelSize: Silica.Theme.fontSizeMedium
+                            font.family: Silica.Theme.fontFamily
+                            elide: Text.ElideRight
                         }
-                        color: resultDelegate.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
-                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                        font.family: Silica.Theme.fontFamily
-                        elide: Text.ElideRight
+
+                        Text {
+                            width: parent.width
+                            visible: text.length > 0
+                            text: resultDelegate.modelData.subtitle
+                            color: resultDelegate.down ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
+                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                            font.family: Silica.Theme.fontFamily
+                            elide: Text.ElideRight
+                        }
                     }
-                }
 
-                MouseArea {
-                    id: resultMouseArea
+                    MouseArea {
+                        id: resultMouseArea
 
-                    anchors.fill: parent
-                    onClicked: {
-                        resultsList.currentIndex = resultDelegate.index;
-                        searchOverlay.selectResult(resultDelegate.modelData);
+                        anchors.fill: parent
+                        onClicked: {
+                            resultsList.currentIndex = resultDelegate.index;
+                            searchOverlay.selectResult(resultDelegate.modelData);
+                        }
                     }
-                }
 
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 150
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 150
+                        }
                     }
                 }
             }

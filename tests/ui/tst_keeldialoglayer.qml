@@ -121,21 +121,17 @@ TestCase {
         verify(!findChild(layer, "keelDialogBackdrop").visible);
     }
 
-    function test_frostsTheAppAtQuarterResolution() {
+    function test_dimsTheAppBehind() {
         layer.backdropSource = app;
         layer._showing = true;
-        const backdrop = findChild(layer, "keelDialogBackdrop");
-        tryCompare(backdrop, "opacity", 1);
-        const snapshot = findChild(layer, "keelDialogSnapshot");
-        compare(snapshot.sourceItem, app);
-        verify(!snapshot.live);
-        compare(snapshot.textureSize, Qt.size(90, 150));
-        compare(snapshot.sourceRect, Qt.rect(0, 40, 360, 600));
+        tryCompare(findChild(layer, "keelDialogBackdrop"), "opacity", 1);
+        verify(findChild(layer, "keelDialogDim").visible);
     }
 
-    function test_noCaptureOverHome() {
+    function test_ambienceOverHome() {
+        layer.backdropSource = null;
         layer._showing = true;
         tryCompare(findChild(layer, "keelDialogBackdrop"), "opacity", 1);
-        compare(findChild(layer, "keelDialogSnapshot").sourceItem, null);
+        verify(!findChild(layer, "keelDialogDim").visible);
     }
 }

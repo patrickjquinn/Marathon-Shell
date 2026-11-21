@@ -509,27 +509,37 @@ fn app_of_pid(pid: u32) -> Option<String> {
 
 /// The installed app the first candidate names, by id or by name.
 fn installed(candidates: &[&str]) -> Option<String> {
-    let all = apps::all();
-    candidates
-        .iter()
-        .map(|c| c.trim().trim_end_matches(".desktop"))
-        .filter(|c| !c.is_empty())
-        .find_map(|c| {
-            apps::get(c).map(|a| a.id).or_else(|| {
+    installed_in(&apps::all(), candidates)
+}
+
+/// A candidate is an id, a desktop file's name, or an app's name; an id can
+/// itself end in ".desktop" (Telegram's org.telegram.desktop).
+fn installed_in(all: &[apps::App], candidates: &[&str]) -> Option<String> {
+    let find = |c: &str| {
+        all.iter()
+            .find(|a| a.id == c)
+            .or_else(|| {
                 all.iter()
                     .find(|a| a.id.eq_ignore_ascii_case(c) || a.name.eq_ignore_ascii_case(c))
-                    .map(|a| a.id.clone())
             })
-        })
+            .map(|a| a.id.clone())
+    };
+    candidates
+        .iter()
+        .map(|c| c.trim())
+        .filter(|c| !c.is_empty())
+        .find_map(|c| find(c).or_else(|| c.strip_suffix(".desktop").and_then(find)))
 }
 
 /// Which app a notification is from: its desktop entry or the sender's own
 /// scope when either is installed, else the name the sender gave.
 fn app_of(provided: &str, entry: &str, sender_app: Option<&str>) -> String {
-    let entry = entry.trim_end_matches(".desktop");
     installed(&[entry, sender_app.unwrap_or_default(), provided])
         .or_else(|| (!provided.is_empty()).then(|| provided.to_owned()))
-        .or_else(|| (!entry.is_empty()).then(|| entry.to_owned()))
+        .or_else(|| {
+            let entry = entry.strip_suffix(".desktop").unwrap_or(entry);
+            (!entry.is_empty()).then(|| entry.to_owned())
+        })
         .unwrap_or_else(|| "unknown".to_owned())
 }
 
@@ -1129,7 +1139,12 @@ fn open(row: &Row) {
         }
         _ => {}
     }
-    if let Some(app) = installed(&[&row.app_id]) {
+    let entry = row
+        .hint("desktop-entry")
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    if let Some(app) = installed(&[&row.app_id, &entry]) {
         return deep_link(&app, "", &json!({}));
     }
     // An Android or desktop app the catalogue does not list: its window, or
@@ -1453,9 +1468,38 @@ fn edits(old: &[Row], new: &[Row]) -> Option<Vec<Edit>> {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::{
-        app_from_cgroup, edits, retain_source_name, source_summaries, Edit, Row, SOURCE_NAME,
+        app_from_cgroup, edits, installed_in, retain_source_name, source_summaries, Edit, Row,
+        SOURCE_NAME,
     };
+    use crate::apps::App;
     use serde_json::json;
+
+    #[test]
+    fn an_id_ending_in_desktop_is_found_as_it_is() {
+        let app = |id: &str, name: &str| App {
+            id: id.into(),
+            name: name.into(),
+            ..App::default()
+        };
+        let all = [
+            app("org.telegram.desktop", "Telegram"),
+            app("org.gnome.Fractal", "Fractal"),
+        ];
+        let found = |c: &[&str]| installed_in(&all, c);
+        assert_eq!(
+            found(&["org.telegram.desktop"]).as_deref(),
+            Some("org.telegram.desktop")
+        );
+        assert_eq!(
+            found(&["org.gnome.Fractal.desktop"]).as_deref(),
+            Some("org.gnome.Fractal")
+        );
+        assert_eq!(
+            found(&["", "fractal"]).as_deref(),
+            Some("org.gnome.Fractal")
+        );
+        assert_eq!(found(&["Telegram Desktop"]), None);
+    }
 
     #[test]
     fn rows_change_in_place_without_a_reset() {

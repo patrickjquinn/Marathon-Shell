@@ -59,7 +59,7 @@ Page {
                         text: qsTr("Folders appear after the first sync")
                         wrapMode: Text.Wrap
                         font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.secondaryHighlightColor
+                        color: Theme.secondaryColor
                     }
                     Repeater {
                         model: account.modelData.folders

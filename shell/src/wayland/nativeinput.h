@@ -5,11 +5,12 @@
 
 namespace NativeInput {
 
-    // libcosmic/iced binds wl_touch but does not activate widgets from it.
-    // Keep this compatibility path toolkit-scoped.
+    // libcosmic/iced and Telegram Desktop bind wl_touch but do not activate
+    // widgets from it. Keep this compatibility path toolkit-scoped.
     inline bool needsPointerFallback(const QStringList &desktopTerms) {
         for (const QString &term : desktopTerms) {
-            if (term.compare(QStringLiteral("cosmic"), Qt::CaseInsensitive) == 0)
+            if (term.compare(QStringLiteral("cosmic"), Qt::CaseInsensitive) == 0 ||
+                term.compare(QStringLiteral("tdesktop"), Qt::CaseInsensitive) == 0)
                 return true;
         }
         return false;

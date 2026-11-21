@@ -861,18 +861,10 @@ int main(int argc, char *argv[]) {
 
     ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
 
-    // MARATHON_LAYER_SAMPLES → QML Constants.layerSamples. Default 4 (the
-    // QML design system was authored against), env override 0 on GPUs
-    // without HW multisample renderbuffers (etnaviv GC7000Lite on the
-    // i.MX 8M Quad). Without this gate every layer-wrapped QML item
-    // tries to allocate a 4× MSAA renderbuffer, the alloc fails, Qt logs
-    // "Layer requested 4 samples but multisample renderbuffers are not
-    // supported" at ~100 lines/sec during animations. See memory
-    // [Etnaviv MSAA trap].
-    bool      samplesOk       = false;
-    const int envLayerSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &samplesOk);
-    const int layerSamples    = samplesOk ? envLayerSamples : 4;
-    ctx->setContextProperty("MARATHON_LAYER_SAMPLES", layerSamples);
+    // Constants.layerSamples: the device profile's MSAA, as for the window
+    // (MARATHON_LAYER_SAMPLES overrides both). Etnaviv has no multisample
+    // renderbuffers, and a 4× layer there drew at 2 fps.
+    ctx->setContextProperty("MARATHON_LAYER_SAMPLES", marathon::device::profile().hw_msaa_samples);
 
     // MARATHON_GPU_HDR → QML Constants.gpuHdr. Default false. When true,
     // AppBackdropBlur (and other halo / glow primitives) requests an

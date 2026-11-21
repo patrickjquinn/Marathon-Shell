@@ -51,8 +51,6 @@ Glass {
         }
     ]
 
-    accent: true
-
     Item {
         width: parent.width
         height: Math.max(heading.height, hide.height)

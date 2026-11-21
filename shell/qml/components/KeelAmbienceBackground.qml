@@ -23,11 +23,13 @@ Item {
         return Math.max(toneOpacity, needed);
     }
     readonly property bool ready: image.status === Image.Ready || previous.visible
-
-    layer.enabled: ready
+    // The image itself, to sample as a texture: the tone is baked into it.
+    readonly property Item textureSource: image
 
     Rectangle {
+        objectName: "base"
         anchors.fill: parent
+        visible: !root.ready
         color: root.light ? "#e9eff2" : "#060b12"
     }
 
@@ -39,7 +41,9 @@ Item {
         smooth: true
         cache: true
         asynchronous: true
-        source: root.visible && root.wallpaper !== "" && width > 0 && height > 0 ? "image://keelambience/" + encodeURIComponent(root.wallpaper) + "?w=" + Math.round(width) + "&h=" + Math.round(height) : ""
+        // The tone and, on a dark ambience, the dimmer come baked in, so the
+        // image is opaque: one quad, no layer to flatten them.
+        source: root.visible && root.wallpaper !== "" && width > 0 && height > 0 ? "image://keelambience/" + encodeURIComponent(root.wallpaper) + "?w=" + Math.round(width) + "&h=" + Math.round(height) + "&tone=" + root.tone.toFixed(3) + (root.light ? "&light=1" : "&dim=" + Theme.highlightDimmerColor.toString().slice(1)) : ""
 
         // Another ambience's wallpaper cross-fades in, as Keel's own window
         // and Silica's wallpaper window do; a resize swaps in place.
@@ -81,21 +85,5 @@ Item {
             easing.type: Easing.InOutQuad
             onFinished: previous.source = ""
         }
-    }
-
-    Rectangle {
-        objectName: "tone"
-        anchors.fill: parent
-        visible: root.ready
-        color: root.light ? "white" : "black"
-        opacity: root.tone
-    }
-
-    Rectangle {
-        objectName: "dimmer"
-        anchors.fill: parent
-        visible: root.ready && !root.light
-        color: Theme.highlightDimmerColor
-        opacity: 0.12
     }
 }

@@ -234,9 +234,9 @@ Item {
 
                         objectName: "oobeKeyName" + modelData
                         x: keypad._horizontalPadding + (index % 3) * pad.step
-                        y: Math.floor(index / 3) * keypad._buttonHeight
+                        y: Math.floor(index / 3) * keypad._rowHeight
                         width: keypad._buttonWidth
-                        height: keypad._buttonHeight
+                        height: keypad._rowHeight
                         visible: modelData !== ""
                         Accessible.role: Accessible.Button
                         Accessible.name: modelData
@@ -248,7 +248,7 @@ Item {
                     objectName: "oobeDelete"
                     // Right-hand column of the bottom row, beside 0.
                     x: (pad.width - 3 * keypad._buttonWidth - 2 * keypad._horizontalSpacing) / 2 + 2 * pad.step + (keypad._buttonWidth - width) / 2
-                    y: pad.height - keypad._buttonHeight + (keypad._buttonHeight - height) / 2
+                    y: pad.height - keypad._rowHeight + (keypad._rowHeight - height) / 2
                     enabled: root.currentPin.length > 0
                     icon.source: "image://theme/icon-m-backspace"
                     Accessible.name: qsTr("Delete")

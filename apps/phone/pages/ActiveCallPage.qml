@@ -98,6 +98,8 @@ Page {
     }
 
     Row {
+        id: controls
+
         visible: root.endedAt === 0
         anchors {
             top: info.bottom
@@ -142,6 +144,9 @@ Page {
             bottomMargin: Theme.paddingLarge
         }
         visible: root.keypadOpen
+        // Shrinks to fit between the call controls and End call.
+        scale: Math.min(1, (endCallButton.y - controls.y - controls.height - 2 * Theme.paddingLarge) / implicitHeight)
+        transformOrigin: Item.Bottom
         vanityDialNumbersVisible: false
         onClicked: number => root.sendTone(number)
     }
