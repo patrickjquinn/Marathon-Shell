@@ -951,6 +951,20 @@ fn wifi_settings<'a>(
     settings
 }
 
+/// A visible network's profile with the password alone, as `nmcli device
+/// wifi connect` makes it: `NetworkManager` completes the key management
+/// from the access point it activates on (WPA2's PSK, WPA3's SAE, or a
+/// transition network's). A fixed WPA-PSK failed a WPA3-only network at
+/// once, read as a wrong password.
+fn visible_wifi_settings<'a>(ssid: &'a str, password: &'a str) -> Settings<'a> {
+    let mut settings = wifi_settings(ssid, None, password, false);
+    settings.insert(
+        "802-11-wireless-security",
+        HashMap::from([("psk", Value::from(password))]),
+    );
+    settings
+}
+
 fn hotspot_settings<'a>(ssid: &'a str, password: &'a str) -> Settings<'a> {
     let mut settings = HashMap::from([
         (
@@ -1751,8 +1765,11 @@ impl Actor {
         }
         // A new password replaces the saved profile instead of adding another.
         self.forget(&ssid).await;
-        let key_mgmt = (secured && !password.is_empty()).then_some("wpa-psk");
-        let settings = wifi_settings(&ssid, key_mgmt, password, false);
+        let settings = if secured && !password.is_empty() {
+            visible_wifi_settings(&ssid, password)
+        } else {
+            wifi_settings(&ssid, None, password, false)
+        };
         let Ok(ap_path) = ObjectPath::try_from(ap_path.as_str()) else {
             return;
         };
@@ -2188,7 +2205,7 @@ pub(crate) fn set_rfkill(types: &[&str], block: bool) -> usize {
 mod tests {
     use super::{
         activation_error, connectivity_name, deactivation_error, device_failure, merge, security,
-        AccessPoint,
+        visible_wifi_settings, wifi_settings, AccessPoint, Value,
     };
 
     #[test]
@@ -2231,6 +2248,15 @@ mod tests {
             .map(|n| (n.ssid.as_str(), n.strength))
             .collect();
         assert_eq!(shown, [("Home", 30), ("Cafe", 70)]);
+    }
+
+    #[test]
+    fn a_visible_network_leaves_the_key_management_to_networkmanager() {
+        let settings = visible_wifi_settings("Home", "hunter22");
+        let security = &settings["802-11-wireless-security"];
+        assert!(!security.contains_key("key-mgmt"));
+        assert_eq!(security["psk"], Value::from("hunter22"));
+        assert!(!wifi_settings("Cafe", None, "", false).contains_key("802-11-wireless-security"));
     }
 
     #[test]
