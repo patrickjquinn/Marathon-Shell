@@ -31,7 +31,11 @@ class NativeSurfaceItem : public QWaylandQuickShellSurfaceItem {
   private:
     // A pointer-fallback touch: a tap clicks, a hold presses, and a drag
     // goes to the app as touch, which these apps do scroll from.
-    enum class TouchPointer { Pending, Dragging, Held };
+    enum class TouchPointer {
+        Pending,
+        Dragging,
+        Held
+    };
 
     void                       releasePointer();
     void                       setupShellSurface();
