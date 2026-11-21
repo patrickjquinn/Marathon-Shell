@@ -27,6 +27,7 @@ TestCase {
     function init() {
         Modem.reset();
         Network.reset();
+        Security.reset();
         Bluetooth.reset();
         SettingsController.reset();
     }
@@ -158,6 +159,95 @@ TestCase {
         mouseClick(findChild(menu, "forgetItem"));
         verify(!Network.calls.some(c => c[0] === "forget"));
         tryVerify(() => Network.calls.some(c => c[0] === "forget" && c[1] === "Home"), 10000);
+    }
+
+    function openHome() {
+        Network.wifiConnected = true;
+        Network.wifiSsid = "Home";
+        Network.wifiSignalStrength = 80;
+        Network.details = {
+            saved: true,
+            connected: true,
+            secured: true,
+            autoJoin: true,
+            privateAddress: "fixed",
+            macAddress: "ea:68:64:62:8c:a2",
+            ipv4Address: "192.168.68.62",
+            subnetMask: "255.255.252.0",
+            router: "192.168.68.1",
+            dns: "192.168.68.1"
+        };
+        const s = open("wifi");
+        child(s.page, "currentNetwork").clicked(null);
+        tryVerify(() => s.app.pageStack.currentPage.ssid === "Home");
+        const page = s.app.pageStack.currentPage;
+        tryCompare(page, "status", PageStatus.Active);
+        return {
+            app: s.app,
+            page: page
+        };
+    }
+
+    function test_networkPageShowsTheLink() {
+        const s = openHome();
+        compare(child(s.page, "ipAddress").value, "192.168.68.62");
+        compare(child(s.page, "macAddress").value, "EA:68:64:62:8C:A2");
+        compare(child(s.page, "privateAddressBox").currentIndex, 1);
+        verify(!child(s.page, "manualIp").visible);
+        child(s.page, "autoJoinSwitch").clicked(null);
+        compare(Network.calls[Network.calls.length - 1], ["option", "Home", "autoJoin", "false"]);
+    }
+
+    function test_manualIpFieldsFollowTheChoice() {
+        const s = openHome();
+        const fields = child(s.page, "manualIp");
+        verify(!fields.visible);
+        s.page.editIp = true;
+        verify(fields.visible);
+        compare(child(s.page, "addressField").text, "192.168.68.62");
+        compare(child(s.page, "maskField").text, "255.255.252.0");
+        s.page.editIp = false;
+        verify(!fields.visible);
+    }
+
+    function test_networkPasswordNeedsThePin() {
+        const s = openHome();
+        compare(child(s.page, "passwordText").text, "Tap to show");
+        verify(!child(s.page, "shareCode").visible);
+        child(s.page, "passwordItem").clicked(null);
+        let dialog = activeDialog(s.app);
+        dialog.pin = "9999";
+        dialog.accept();
+        tryCompare(s.app.pageStack, "currentPage", s.page);
+        compare(child(s.page, "passwordText").text, "Tap to show");
+        child(s.page, "passwordItem").clicked(null);
+        dialog = activeDialog(s.app);
+        dialog.pin = "1234";
+        dialog.accept();
+        tryCompare(s.app.pageStack, "currentPage", s.page);
+        compare(child(s.page, "passwordText").text, "hunter22");
+        verify(child(s.page, "shareCode").visible);
+        compare(Security.calls[Security.calls.length - 1], ["wifiPassword", "Home", "1234"]);
+    }
+
+    function test_savedNetworksListsAndOpens() {
+        Network.saved = [
+            {
+                ssid: "Home",
+                lastUsed: 2
+            },
+            {
+                ssid: "Office",
+                lastUsed: 1
+            }
+        ];
+        const s = open("wifi");
+        child(s.page, "savedNetworksItem").clicked();
+        tryVerify(() => findChild(s.app.pageStack.currentPage, "saved-Office") !== null);
+        const list = s.app.pageStack.currentPage;
+        tryCompare(list, "status", PageStatus.Active);
+        child(list, "saved-Office").clicked(null);
+        tryVerify(() => s.app.pageStack.currentPage.ssid === "Office");
     }
 
     function test_hiddenNetwork() {

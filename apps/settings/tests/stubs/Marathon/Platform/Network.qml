@@ -12,6 +12,8 @@ QtObject {
     property string portalUrl: ""
     property var availableNetworks: []
     property var calls: []
+    property var saved: []
+    property var details: ({})
 
     signal connectionSuccess
     signal connectionFailed(string message)
@@ -26,6 +28,8 @@ QtObject {
         connectivity = "full";
         availableNetworks = [];
         calls = [];
+        saved = [];
+        details = ({});
     }
     function record(call) {
         calls = calls.concat([call]);
@@ -57,6 +61,21 @@ QtObject {
     function disconnectWifi() {
         record(["disconnect"]);
         wifiConnected = false;
+    }
+    function savedNetworks() {
+        return saved;
+    }
+    function networkDetails(ssid) {
+        return Object.assign({
+            ssid: ssid
+        }, details);
+    }
+    function setNetworkOption(ssid, key, value) {
+        record(["option", ssid, key, value]);
+        return "";
+    }
+    function wifiQr(ssid, password) {
+        return "";
     }
     function setAirplaneMode(on) {
         record(["airplane", on]);

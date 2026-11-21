@@ -39,6 +39,12 @@ Page {
             SettingsController.showWifiDialog(network.ssid, network.strength, network.security || "Open", !!network.secured);
     }
 
+    function openNetwork(ssid) {
+        pageStack.push(Qt.resolvedUrl("NetworkPage.qml"), {
+            ssid: ssid
+        });
+    }
+
     function showDialog() {
         if (!dialogWanted || status !== PageStatus.Active)
             return;
@@ -84,6 +90,11 @@ Page {
         PullDownMenu {
             busy: page.scanning
 
+            MenuItem {
+                objectName: "savedNetworksItem"
+                text: qsTr("Saved networks")
+                onClicked: pageStack.push(Qt.resolvedUrl("SavedNetworksPage.qml"))
+            }
             MenuItem {
                 objectName: "addNetworkItem"
                 text: qsTr("Add network")
@@ -204,7 +215,7 @@ Page {
                         }
                     }
                 }
-                onClicked: current.portal ? Network.openPortal() : openMenu()
+                onClicked: current.portal ? Network.openPortal() : page.openNetwork(Network.wifiSsid)
 
                 Icon {
                     id: currentIcon
@@ -268,6 +279,11 @@ Page {
                         id: forgetMenu
 
                         ContextMenu {
+                            MenuItem {
+                                objectName: "detailsItem"
+                                text: qsTr("Details")
+                                onClicked: page.openNetwork(item.modelData.ssid)
+                            }
                             MenuItem {
                                 objectName: "forgetItem"
                                 text: qsTr("Forget network")

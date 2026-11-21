@@ -50,6 +50,10 @@ QtObject {
     function eraseAllContent(secret) {
         calls = calls.concat([["erase", secret]]);
     }
+    function wifiPassword(ssid, secret) {
+        calls = calls.concat([["wifiPassword", ssid, secret]]);
+        return secret === "1234" ? "hunter22" : "";
+    }
     function setRemoteConnection(on, password, pin) {
         calls = calls.concat([["remote", on, password, pin]]);
     }
