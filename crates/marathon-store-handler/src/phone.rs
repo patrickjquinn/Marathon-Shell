@@ -63,14 +63,22 @@ pub struct App {
     pub released: u64,
     /// Made for a phone first; the Store's banner prefers these.
     pub phone_first: bool,
+    /// Says nothing that fits a phone, nor rules one out (Telegram Desktop):
+    /// the Store finds it in search, marked, and lists it nowhere else.
+    pub desktop_only: bool,
 }
 
 const MAX_SCREENSHOTS: usize = 5;
 /// Changes when `flathub.json` does, so a cache from before is read again.
-const ROWS_FORMAT: u64 = 2;
+const ROWS_FORMAT: u64 = 3;
 const MAX_DESCRIPTION: usize = 4000;
 
 impl Component {
+    /// An application that does not require a bigger screen than a phone's.
+    fn listable(&self) -> bool {
+        self.app && !self.required_too_big
+    }
+
     fn phone_ready(&self) -> bool {
         self.app && !self.required_too_big && (self.mobile || (self.fits && self.touch))
     }
@@ -120,11 +128,22 @@ fn phone_apps(source: impl BufRead) -> io::Result<Vec<String>> {
 }
 
 /// The apps in an `AppStream` catalogue that fit a phone, by id.
+#[cfg(test)]
+fn fitting(source: impl BufRead) -> io::Result<Vec<App>> {
+    Ok(applications(source)?
+        .into_iter()
+        .filter(|a| !a.desktop_only)
+        .collect())
+}
+
+/// The applications in an `AppStream` catalogue that do not require a bigger
+/// screen than a phone's, by id; those that don't say they fit one are
+/// `desktop_only`.
 #[allow(
     clippy::too_many_lines,
     reason = "one pass over the catalogue's events"
 )]
-pub fn fitting(source: impl BufRead) -> io::Result<Vec<App>> {
+pub fn applications(source: impl BufRead) -> io::Result<Vec<App>> {
     // Untrimmed: "&amp;" splits text, and trimming each piece lost the
     // spaces around it. Every value is trimmed where it is read.
     let mut reader = Reader::from_reader(source);
@@ -200,8 +219,9 @@ pub fn fitting(source: impl BufRead) -> io::Result<Vec<App>> {
                 let parent = path.last().map_or_default(String::as_str);
                 let in_component = path.len() >= 2 && path[1] == "component";
                 if !in_component && name == "component" && path.len() == 1 {
-                    if component.phone_ready() && !component.details.id.is_empty() {
+                    if component.listable() && !component.details.id.is_empty() {
                         component.details.phone_first = component.phone_first();
+                        component.details.desktop_only = !component.phone_ready();
                         out.push(std::mem::take(&mut component.details));
                     }
                 } else if in_component && !foreign {
@@ -332,13 +352,13 @@ fn modified(path: &Path) -> u64 {
         .map_or(0, |d| d.as_secs())
 }
 
-/// The phone apps of a catalogue file, gzip or plain.
+/// The applications of a catalogue file, gzip or plain (see [`applications`]).
 pub fn read_catalogue(path: &Path) -> io::Result<Vec<App>> {
     let file = BufReader::new(File::open(path)?);
     if path.extension().is_some_and(|e| e == "gz") {
-        fitting(BufReader::new(flate2::bufread::GzDecoder::new(file)))
+        applications(BufReader::new(flate2::bufread::GzDecoder::new(file)))
     } else {
-        fitting(file)
+        applications(file)
     }
 }
 
@@ -364,7 +384,11 @@ pub fn publish(state: &StateDir) -> io::Result<()> {
         record
     } else {
         let apps = read_catalogue(&source)?;
-        let ids: Vec<&str> = apps.iter().map(|a| a.id.as_str()).collect();
+        let ids: Vec<&str> = apps
+            .iter()
+            .filter(|a| !a.desktop_only)
+            .map(|a| a.id.as_str())
+            .collect();
         let record = json!({ "source": stamp, "format": ROWS_FORMAT, "apps": ids, "ts": now() });
         // Reef's Flathub rows, icons from the catalogue's own cache.
         let icons = source.with_file_name("icons").join("128x128");
@@ -442,6 +466,26 @@ mod tests {
     }
 
     #[test]
+    fn apps_that_say_nothing_are_kept_for_search() {
+        let apps = applications(FIXTURE.as_bytes()).unwrap();
+        let desktop: Vec<&str> = apps
+            .iter()
+            .filter(|a| a.desktop_only)
+            .map(|a| a.id.as_str())
+            .collect();
+        // Black Box has no touch and GIMP says nothing: found in search only.
+        assert_eq!(desktop, ["com.raggesilver.BlackBox", "org.gimp.GIMP"]);
+        // An app that requires a bigger screen is never offered.
+        for id in [
+            "app.freelens.Freelens",
+            "app.legcord.Legcord",
+            "codes.loers.Karlender",
+        ] {
+            assert!(!apps.iter().any(|a| a.id == id), "{id}");
+        }
+    }
+
+    #[test]
     fn a_bigger_recommended_screen_is_not_phone_first() {
         // RustConn's: fits and expects touch, but recommends 768 px.
         let xml = r#"<components><component type="desktop-application"><id>io.github.totoshko88.RustConn</id>
@@ -496,8 +540,13 @@ mod tests {
         let path = PathBuf::from(std::env::var_os("MARATHON_APPSTREAM").unwrap());
         let start = std::time::Instant::now();
         let apps = read_catalogue(&path).unwrap();
-        eprintln!("{} phone apps in {:?}", apps.len(), start.elapsed());
-        assert!(apps.len() > 100);
+        let fit = apps.iter().filter(|a| !a.desktop_only).count();
+        eprintln!(
+            "{fit} phone apps of {} in {:?}",
+            apps.len(),
+            start.elapsed()
+        );
+        assert!(fit > 100);
     }
 
     #[test]
@@ -543,6 +592,7 @@ mod tests {
                 version: "2.1".into(),
                 released: 1_700_000_000,
                 phone_first: true,
+                desktop_only: false,
             }]
         );
     }
@@ -558,6 +608,9 @@ mod tests {
         );
         gz.write_all(FIXTURE.as_bytes()).unwrap();
         gz.finish().unwrap();
-        assert_eq!(read_catalogue(&path).unwrap().len(), 5);
+        let apps = read_catalogue(&path).unwrap();
+        // Five that fit a phone, two desktop-only for search.
+        assert_eq!(apps.iter().filter(|a| !a.desktop_only).count(), 5);
+        assert_eq!(apps.len(), 7);
     }
 }

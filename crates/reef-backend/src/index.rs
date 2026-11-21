@@ -207,6 +207,7 @@ pub fn parse_index(bytes: &[u8], arch: &str) -> Result<(Catalogue, u64), Catalog
             origin: Origin::Reef,
             android: None,
             phone_first: false,
+            desktop_only: false,
         })
         .collect();
     let components = index

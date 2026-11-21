@@ -185,6 +185,7 @@ pub struct Change {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools, reason = "one flag per catalogue hint")]
 pub struct Package {
     /// RPM name.
     pub name: String,
@@ -310,6 +311,10 @@ pub struct Package {
     /// handler reads it): the banner prefers these.
     #[serde(skip)]
     pub phone_first: bool,
+    /// A Flathub app that says nothing of fitting a phone: search finds it,
+    /// marked, and nothing else lists it.
+    #[serde(skip)]
+    pub desktop_only: bool,
 }
 
 /// What an Android app needs and does, from F-Droid's catalogue.
