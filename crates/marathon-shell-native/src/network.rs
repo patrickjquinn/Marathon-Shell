@@ -788,6 +788,46 @@ impl Network1 {
         ipc::on_gui(&self.qt, |obj| obj.open_portal()).await
     }
 
+    /// Saved Wi-Fi networks, the one used most recently first: `ssid`,
+    /// `lastUsed`.
+    async fn saved_networks(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<OwnedValue>> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        Ok(
+            crate::wifi_details::saved_networks(&io::system_bus().await?)
+                .await
+                .into_iter()
+                .map(value)
+                .collect(),
+        )
+    }
+
+    /// A saved network's settings, and its live addresses while in use.
+    async fn network_details(
+        &self,
+        ssid: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<State> {
+        ipc::admit(&h, "Network", &["system"]).await?;
+        Ok(crate::wifi_details::details(&io::system_bus().await?, &ssid).await)
+    }
+
+    /// Changes `autoJoin`, `privateAddress`, `ipv4` or `dns`; "" once done,
+    /// else what was wrong.
+    async fn set_network_option(
+        &self,
+        ssid: String,
+        key: String,
+        value: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<String> {
+        ipc::admit(&h, "Network", &["system"]).await?;
+        let bus = io::system_bus().await?;
+        Ok(crate::wifi_details::set_option(&bus, &ssid, &key, &value)
+            .await
+            .err()
+            .unwrap_or_default())
+    }
+
     async fn is_hotspot_active(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
         ipc::admit(&h, "Network", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, |obj| obj.is_hotspot_active()).await

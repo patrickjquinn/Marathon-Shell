@@ -75,4 +75,5 @@ pub mod usb;
 mod variant;
 mod wake_timer;
 pub mod weather;
+mod wifi_details;
 pub mod words;

@@ -925,6 +925,23 @@ impl Security1 {
         Ok(())
     }
 
+    /// A saved Wi-Fi network's password, once `secret` is the owner's quick
+    /// PIN (the system password without one).
+    async fn wifi_password(
+        &self,
+        ssid: String,
+        secret: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<String> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        confirm_owner(&self.qt, secret)
+            .await
+            .map_err(fdo::Error::AccessDenied)?;
+        crate::wifi_details::password(&io::system_bus().await?, &ssid)
+            .await
+            .map_err(fdo::Error::Failed)
+    }
+
     /// Gathers the system's logs into a file in Documents. Answers with
     /// `BugReportCreated` and its path, or `BugReportFailed` saying why not.
     async fn create_bug_report(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {

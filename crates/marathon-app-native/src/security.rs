@@ -100,6 +100,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "currentUsername"]
         fn current_username(self: &Security) -> QString;
+        /// A saved Wi-Fi network's password once `secret` is the owner's PIN;
+        /// "" when refused.
+        #[qinvokable]
+        #[cxx_name = "wifiPassword"]
+        fn wifi_password(self: &Security, ssid: &QString, secret: &QString) -> QString;
         /// Answers only by `eraseFailed`: on success the device restarts.
         #[qinvokable]
         #[cxx_name = "eraseAllContent"]
@@ -235,6 +240,7 @@ impl Security {
     crate::shell::asks! { SECURITY;
         is_biometric_enrolled(kind: i32) -> bool => "IsBiometricEnrolled";
         current_username() -> QString => "CurrentUsername";
+        wifi_password(ssid: &QString, secret: &QString) -> QString => "WifiPassword";
     }
 
     fn erase_all_content(&self, secret: &QString) {
