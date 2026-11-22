@@ -3014,8 +3014,11 @@ void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended)
         states << kStateSuspended;
 
     // Keep the size the client already has; a different one would relayout it on every resume.
+    // That is the size it was last configured to: a surface's destination is
+    // its buffer's size without a viewport, and Element's Chromium, at 1.5,
+    // was told 720x633 for 480x422 and drawn half again too wide.
     QWaylandSurface *surface = toplevel->xdgSurface()->surface();
-    QSize            size    = surface->destinationSize();
+    QSize            size    = ToplevelConfigure::lastSize(toplevel);
     if (size.isEmpty())
         size = appConfigureSize(surface);
     toplevel->sendConfigure(size, states);
