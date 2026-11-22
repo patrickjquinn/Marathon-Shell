@@ -11,15 +11,15 @@ Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
 diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
 --- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
 +++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
-@@ -1053,6 +1053,8 @@
-     description: Changzhou Milianke Electronic Technology Co., Ltd
-   "^milkv,.*":
+@@ -1055,6 +1055,8 @@
      description: MilkV Technology Co., Ltd
-+  "^minimal,.*":
-+    description: The Minimal Company
    "^miniand,.*":
      description: Miniand Tech
++  "^minimal,.*":
++    description: The Minimal Company
    "^minix,.*":
+     description: MINIX Technology Ltd.
+   "^mips,.*":
 -- 
 2.47.0
 
