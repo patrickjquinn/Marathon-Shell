@@ -1,0 +1,39 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wmt: log expected states at debug level
+
+wmt_plat_wake_lock_ctrl() warned on every nested wake lock get and put
+("wakelock status(n), counter(m)"), which is the normal case whenever
+more than one CONNSYS function holds the lock; only the first get and
+the last put change anything, and those already log at debug.
+
+wmt_ctrl_get_rom_patch_info() logged "NULL patchinfo pointer" as an
+error for each patch type the firmware has no ROM patch for, although
+it returns 1 for that case and mtk_wcn_soc_rom_patch_dwn() treats 1 as
+"nothing to download" and logs it itself. A SOC2_2 CONNSYS has ROM
+patches for BT, Wi-Fi and the MCU only, so FM and GNSS logged an error
+on every power-up.
+
+Log both at debug level.
+---
+--- a/wmt_drv/common_main/core/wmt_ctrl.c
++++ b/wmt_drv/common_main/core/wmt_ctrl.c
+@@ -696,7 +696,7 @@
+ 			WMT_DBG_FUNC("get 4 address bytes is 0x%2x,0x%2x,0x%2x,0x%2x",
+ 					pAbuf[0], pAbuf[1], pAbuf[2], pAbuf[3]);
+ 		} else {
+-			WMT_ERR_FUNC("NULL patchinfo pointer\n");
++			WMT_DBG_FUNC("no rom patch of type %u\n", type);
+ 			ret = 1;
+ 		}
+ 	} else {
+--- a/wmt_drv/common_main/platform/wmt_plat_alps.c
++++ b/wmt_drv/common_main/platform/wmt_plat_alps.c
+@@ -1623,7 +1623,7 @@
+ 		WMT_DBG_FUNC("WMT-PLAT: after wake_unlock(%d), counter(%d)\n",
+ 				osal_wake_lock_count(&wmt_wake_lock), counter);
+ 	} else {
+-		WMT_WARN_FUNC("WMT-PLAT: wakelock status(%d), counter(%d)\n",
++		WMT_DBG_FUNC("WMT-PLAT: wakelock status(%d), counter(%d)\n",
+ 				osal_wake_lock_count(&wmt_wake_lock), counter);
+ 	}
+ 
