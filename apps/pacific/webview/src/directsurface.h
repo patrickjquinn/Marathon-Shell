@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <QMetaObject>
 #include <QRect>
 #include <QSize>
 #include <array>
@@ -138,6 +139,7 @@ class DirectSurface {
     wl_subsurface                                           *m_subsurface    = nullptr;
     wl_egl_window                                           *m_eglWindow     = nullptr;
     wl_callback                                             *m_frameCallback = nullptr;
+    QMetaObject::Connection                                  m_parentDestroyed;
 
     void                                                    *m_eglDisplay = nullptr;
     void                                                    *m_eglContext = nullptr;
