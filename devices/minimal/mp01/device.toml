@@ -1,0 +1,70 @@
+# Minimal Phone MP01 (board Z10) bring-up policy; README.md has the state of
+# each subsystem and the bring-up checklist.
+schema = 1
+vendor = "minimal"
+codename = "mp01"
+id = "minimal-mp01"
+name = "Minimal Phone MP01"
+manufacturer = "Minimal Company"
+soc = "mt6789"
+status = "bring-up"
+package = "device-minimal-mp01-marathon"
+
+# mkosi builds a GPT disk image (ESP and root) for userdata, as for the
+# OnePlus 6.
+[build]
+target = "minimal-mp01"
+bootloader = "systemd-boot"
+
+# Proposed, not proven: the stock LK stays in lk_a/lk_b and loads a U-Boot
+# packed as boot_a's kernel; U-Boot maps the image in userdata with blkmap
+# and starts systemd-boot from its ESP.
+[boot]
+method = "android-u-boot"
+partition_table = "gpt"
+
+# Release 7.0.0-mp01, from the MT6789 tree the Q25's kernel uses.
+[kernel]
+package = "linux-minimal-mp01"
+version = "7.0.0"
+
+[display]
+panel = "Z10 e-paper (z10,eink,vdo) behind a Pango CPLD on i2c7 0x4b"
+interface = "dsi"
+width = 600
+height = 800
+diagonal_in = 4.3
+# UI policy: stock Android's density (ro.sf.lcd_density), 1.125x.
+scale_dpi = 180
+quirks = [
+  "scanout is 800x600: the panel is mounted at 270 degrees (MTK_LCM_PHYSICAL_ROTATION) and the shell has no base rotation",
+  "the stock panel driver swaps DSI lanes 2 and 3; mainline mtk_dsi has no lane map",
+  "visible grey levels and the CPLD's refresh modes (partial, full, clear) are unknown",
+]
+
+[input]
+touch = "FocalTech on i2c0 0x38, 600x800 in the portrait frame"
+keyboard = "AW9523B 6x6 key matrix on i2c6 0x5b (gpio-matrix-keypad)"
+quirks = [
+  "no trackpad: stock's ff_key arrows and enter are the fingerprint sensor's navigation",
+]
+
+[hardware]
+modem = "MT6789 MD1 over ECCCI, LTE; its image is on the phone's md1img partition"
+gps = "CONNSYS GNSS, L1 and L5"
+wifi = "CONNSYS gen4m (wlan_drv_gen4m_6789); A-die probed at boot"
+bluetooth = "CONNSYS"
+battery = "MT6366 coulomb counter; MT6375 charger and USB-C TCPC"
+nfc = "NXP PN8x (nxp,nxpnfc) on i2c3 0x28; its enable shares GPIO12 with the panel"
+cameras = "unknown: S5K3P3SP main, BF2553L front and a third sensor in the stock DT"
+sensors = []
+quirks = [
+  "CPS4021 wireless charging receiver on i2c5 0x30",
+  "accelerometer, light and proximity sensors sit behind the SCP, not on the AP",
+]
+
+[profile]
+display_technology = "epd"
+force_dpi = 180
+# The true pitch, 1000 px of diagonal over 4.3 in, for the wl_output size.
+panel_dpi = 233

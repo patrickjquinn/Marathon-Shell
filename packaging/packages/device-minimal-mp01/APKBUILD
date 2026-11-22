@@ -1,0 +1,38 @@
+# MP01 deviceinfo, initramfs modules and kernel command line. The kernel is
+# its own aport; scripts/build-minimal-mp01-image.sh names it from here.
+pkgname=device-minimal-mp01
+pkgdesc="Minimal Phone MP01"
+pkgver=1
+pkgrel=0
+url="https://github.com/patrickjquinn/Marathon-Shell"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+# Kernel release 7.0.0-mp01; its out-of-tree modules carry that vermagic.
+_kernel=linux-minimal-mp01
+depends="
+	$_kernel>=7.0.0
+	postmarketos-base
+	make-dynpart-mappings
+	systemd-boot
+"
+makedepends="devicepkg-dev"
+source="
+	deviceinfo
+	kernel-cmdline.conf
+	modules-initfs
+"
+
+build() {
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+}
+
+sha512sums="
+ea3cebeb208a6ff93ca33bc864285351331048f161a10631e556a839b2f348a7056ea54efb70e18804214a03c9a40ff77ef82c59ca4ca0991d89e77570205f9a  deviceinfo
+f83afec7116192a97cfca6107105a8d98f9b0a0f9c1a0b5eae51444ab9e18d07fa792766bdbac64f09da789feabcd6a712f5b7ac72825e1c371de73503832b34  kernel-cmdline.conf
+7954584fb56ea448d5f3242affc5f4dc43f72c65b96ff2b91b456ec5f9bdc24faffb73019b36b8de06197faf1abe5f57162ea4edf536d03cefa006950b19197e  modules-initfs
+"

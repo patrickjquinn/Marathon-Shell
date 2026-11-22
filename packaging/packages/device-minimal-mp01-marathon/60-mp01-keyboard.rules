@@ -1,0 +1,5 @@
+# The AW9523B key matrix, scanned by gpio-matrix-keypad with its keymap in
+# the DT, has no Esc, digit row, Tab or Ctrl, so udev's input_id calls it
+# a key device, not a keyboard. It is the phone's built-in QWERTY.
+ACTION!="remove", SUBSYSTEM=="input", KERNEL=="event*", DRIVERS=="matrix-keypad", \
+	ENV{ID_INPUT_KEYBOARD}="1", ENV{LIBINPUT_ATTR_KEYBOARD_INTEGRATION}="internal"

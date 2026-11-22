@@ -1,0 +1,2 @@
+# The e-paper panel's KMS device, whichever card number it gets next to Panfrost's.
+SUBSYSTEM=="drm", KERNEL=="card[0-9]*", DRIVERS=="mediatek-drm", SYMLINK+="dri/mp01-display"

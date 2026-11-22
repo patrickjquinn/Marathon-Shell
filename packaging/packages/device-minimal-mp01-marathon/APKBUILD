@@ -1,0 +1,38 @@
+# MP01 session, UI profile and board policy; the SoC's shared services are
+# mt6789-platform's, and the kernel, firmware and image layout are separate.
+pkgname=device-minimal-mp01-marathon
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Minimal Phone MP01 Marathon session, UI profile and board policy"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0"
+options="!check"
+# Marathon's Mesa, as the Q25's: Panfrost without importing every client
+# buffer into mediatek-drm.
+depends="device-minimal-mp01 marathon-base-config marathon-shell greetd mt6789-platform
+ mesa=26.2.6-r100 mesa-dri-gallium=26.2.6-r100 alsa-ucm-conf alsa-utils"
+source="device-profile.conf mp01-shell-session greetd-mp01.toml 50-mp01-session.conf eglfs-kms.json
+ 60-mp01-display.rules 60-mp01-keyboard.rules mp01-mt6366.conf HiFi.conf"
+package() {
+    install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
+    install -Dm755 "$srcdir/mp01-shell-session" "$pkgdir/usr/libexec/marathon/mp01-shell-session"
+    install -Dm644 "$srcdir/greetd-mp01.toml" "$pkgdir/etc/greetd/mp01-config.toml"
+    install -Dm644 "$srcdir/50-mp01-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-mp01-session.conf"
+    install -Dm644 "$srcdir/eglfs-kms.json" "$pkgdir/etc/mp01/eglfs-kms.json"
+    install -Dm644 "$srcdir/60-mp01-display.rules" "$pkgdir/usr/lib/udev/rules.d/60-mp01-display.rules"
+    install -Dm644 "$srcdir/60-mp01-keyboard.rules" "$pkgdir/usr/lib/udev/rules.d/60-mp01-keyboard.rules"
+    install -Dm644 "$srcdir/mp01-mt6366.conf" "$pkgdir/usr/share/alsa/ucm2/conf.d/mp01-mt6366/mp01-mt6366.conf"
+    install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Minimal/MP01/HiFi.conf"
+}
+sha512sums="
+0597b87ef7a46d00ab91c8367e16115710308e26adde9c2a4165db725f2d6542b8b6f04ad80bba810991773df706628f7979c77912e1c282daf0c7d50f465f53  device-profile.conf
+7dfa68c34cb08166fab41f6221a60c8f9d80865849b7a4748e40ce9aabc28bb218e8d7cb53cc171f01d2b37749372cc9150d66b291251dedaba5069b5a035b4f  mp01-shell-session
+506c8a4ea8cccb9c73279f6ccaa54896afb9400ab9fb4d7e1fc2be52f0abcd18641fc2cc51de64e25de6c21bc1e909f7a22e3b9e8b35f668fde853df942d83a0  greetd-mp01.toml
+a61995c47c5ca8457ab7fbfb7ca3e000a6f2f72575ba4497f02518b94e67d5b0d58c49cc79e90e7ef20a85f7521bcb66fd5f9a08dbee5fe181d25fdc20c58ec1  50-mp01-session.conf
+36e6d1dfae22c38181fdb837e6bd86ccf445564273f27574494f64addc1e83685a43771035083b22bf7da4d6ce5a05c72cf7b69e89f115dd50d3127bbcf15577  eglfs-kms.json
+eb4d52b9098085d471d0627cb9b67c567be1d081868d1eabb6fe2349a6c653e3d0e8b490ddb5f8700159f64cddd10f81263b1a1819bf9c90db385ec1e60868f9  60-mp01-display.rules
+e48926d8dd273c24bf97204afc1ded644867fe682e9932f1d52955c58b20c12250bff4a7fbc6740fdb67efa543543d71e74a2e7a8733348c763c6b8a28ceb120  60-mp01-keyboard.rules
+e82aa0b8cb191833a4b53e8e4d6fe3206ffc10f9664ccafe303d752e64ea39154bf9471cbf8dddad0c51c0d8c0c44d2963990aec4368ad721836bb1a98899b20  mp01-mt6366.conf
+2094ed471ac8b08016adb8f45685aab88cfde6e6514895377bae8dbf5bd48a891bb2f9d4817638b07ad22ed20d0bf76a863ea796cb162d9d94d10a6b4a70c12e  HiFi.conf
+"
