@@ -1198,8 +1198,39 @@ void WaylandCompositor::configureCover(QWaylandXdgToplevel *toplevel) const {
                             QList<QWaylandXdgToplevel::State>());
 }
 
+bool WaylandCompositor::laysOutForDesktop(const QString &appId) const {
+    if (appId.isEmpty())
+        return false;
+    auto it = m_laysOutForDesktop.constFind(appId);
+    if (it == m_laysOutForDesktop.cend())
+        it = m_laysOutForDesktop.insert(appId, marathon::desktop::lays_out_for_desktop(appId));
+    return *it;
+}
+
+// A Flatpak's id, from its sandbox: known before its window names itself.
+static QString flatpakAppId(QWaylandClient *client) {
+    QFile info(QStringLiteral("/proc/%1/root/.flatpak-info").arg(client ? client->processId() : 0));
+    if (!client || !info.open(QIODevice::ReadOnly))
+        return {};
+    while (!info.atEnd()) {
+        const QByteArray line = info.readLine().trimmed();
+        if (line.startsWith("name="))
+            return QString::fromUtf8(line.mid(5));
+    }
+    return {};
+}
+
+bool WaylandCompositor::laysOutForDesktop(QWaylandSurface *surface) const {
+    return surface && laysOutForDesktop(flatpakAppId(surface->client()));
+}
+
+qreal WaylandCompositor::configureScale(QWaylandSurface *surface) const {
+    return laysOutForDesktop(surface) ? 1.0 :
+                                        m_nativeClientScale->scaleFor(surface->client()->client());
+}
+
 QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
-    const qreal scale = m_nativeClientScale->scaleFor(surface->client()->client());
+    const qreal scale = configureScale(surface);
     if (m_appViewportSize.width() > 0 && m_appViewportSize.height() > 0)
         return NativeClientScale::toLogical(m_appViewportSize, scale);
     return NativeClientScale::toLogical(
@@ -1207,7 +1238,7 @@ QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
 }
 
 QSize WaylandCompositor::fullOutputConfigureSize(QWaylandSurface *surface) const {
-    const qreal scale = m_nativeClientScale->scaleFor(surface->client()->client());
+    const qreal scale = configureScale(surface);
     const QSize physical =
         (m_output && m_output->window()) ? m_output->window()->size() : m_window->size();
     return NativeClientScale::toLogical(physical, scale);

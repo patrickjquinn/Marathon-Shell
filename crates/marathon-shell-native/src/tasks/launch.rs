@@ -51,27 +51,19 @@ const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --unset-env=GBM_BACKEN
 const ELECTRON_DESKTOP: &str =
     "--env=XDG_CURRENT_DESKTOP=marathon:GNOME --env=SIGNAL_PASSWORD_STORE=gnome-libsecret ";
 
-/// Electron apps lay out for a desktop: at the phone's scale Element's
-/// welcome card and Signal's link instructions ran off the right edge. At
-/// scale 1 they get the panel's full width in CSS pixels.
-const ELECTRON_SCALE: &str = "--force-device-scale-factor=1";
-
 /// The command a Flatpak's desktop entry runs, with Marathon's options.
-fn flatpak_exec(exec: &str, app_id: &str, themed: bool, electron: bool) -> String {
+fn flatpak_exec(exec: &str, themed: bool, electron: bool) -> String {
     let run = if themed {
         FLATPAK_RUN
     } else {
         UNTHEMED_FLATPAK
     };
-    if !electron {
-        return exec.replacen("flatpak run ", run, 1);
-    }
-    exec.replacen("flatpak run ", &format!("{run}{ELECTRON_DESKTOP}"), 1)
-        .replacen(
-            &format!(" {app_id}"),
-            &format!(" {app_id} {ELECTRON_SCALE}"),
-            1,
-        )
+    let run = if electron {
+        format!("{run}{ELECTRON_DESKTOP}")
+    } else {
+        run.to_owned()
+    };
+    exec.replacen("flatpak run ", &run, 1)
 }
 
 /// Whether a Flatpak's `metadata` builds it on Electron's base app.
@@ -83,7 +75,7 @@ fn electron_base(metadata: &str) -> bool {
 }
 
 /// The installed Flatpak's metadata, the user's installation first.
-fn is_electron_flatpak(app_id: &str) -> bool {
+pub(crate) fn is_electron_flatpak(app_id: &str) -> bool {
     [
         marathon_rt::dirs::home().join(".local/share/flatpak/app"),
         Path::new("/var/lib/flatpak/app").to_path_buf(),
@@ -631,7 +623,6 @@ impl Tasks {
         } else if app.kind == "flatpak" {
             flatpak_exec(
                 &app.exec,
-                &app.id,
                 crate::settings::themed(&app.id),
                 is_electron_flatpak(&app.id),
             )
@@ -1425,11 +1416,11 @@ mod tests {
     fn a_flatpak_runs_without_the_accessibility_bus() {
         let exec =
             "flatpak run --branch=stable --arch=aarch64 --command=Telegram org.telegram.desktop";
-        let themed = flatpak_exec(exec, "org.telegram.desktop", true, false);
+        let themed = flatpak_exec(exec, true, false);
         assert!(themed.starts_with(
             "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH --branch=stable"
         ));
-        let unthemed = flatpak_exec(exec, "org.telegram.desktop", false, false);
+        let unthemed = flatpak_exec(exec, false, false);
         assert!(unthemed
             .starts_with("flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH --nofilesystem"));
         assert!(unthemed.ends_with("--command=Telegram org.telegram.desktop"));
@@ -1441,15 +1432,13 @@ mod tests {
         let signal = "[Application]\nname=org.signal.Signal\nruntime=org.freedesktop.Platform/aarch64/26.08\nbase=app/org.electronjs.Electron2.BaseApp/aarch64/26.08\ncommand=signal-desktop\n";
         let shortwave = "[Application]\nname=de.haeckerfelix.Shortwave\nruntime=org.gnome.Platform/aarch64/51\n";
         assert!(electron_base(signal) && !electron_base(shortwave));
-        let exec =
-            "flatpak run --command=signal-desktop --file-forwarding org.signal.Signal @@u %U @@";
-        let run = flatpak_exec(exec, "org.signal.Signal", true, true);
+        let exec = "flatpak run --command=signal-desktop org.signal.Signal";
+        let run = flatpak_exec(exec, true, true);
         assert!(run.starts_with(
             "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH \
              --env=XDG_CURRENT_DESKTOP=marathon:GNOME \
              --env=SIGNAL_PASSWORD_STORE=gnome-libsecret --command"
         ));
-        assert!(run.ends_with("org.signal.Signal --force-device-scale-factor=1 @@u %U @@"));
         assert!(is_foreground_flatpak_run(&run));
     }
 
