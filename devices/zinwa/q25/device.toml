@@ -63,10 +63,6 @@ cpu_governor = "schedutil"
 brightness_floor = 0.05
 # The bias floor (4.0 V) is still bright: the slider's bottom fifth dims the frame to 35%.
 brightness_dim = 0.35
-gpu_stack = "mesa-panfrost"
-# PanVK rejects the Mali-G57, so the loader finds no Vulkan device and GTK 4
-# renders with GL instead of on the CPU through lavapipe.
-vulkan_driver = "panfrost"
 # 12 GB: a warm spare runner for apps with the media folders and one for
 # apps without (~180 MB RSS each). With one, an app of the other kind
 # started cold: Calculator after Notes, 0.9 s to its first frame, 0.23 s
