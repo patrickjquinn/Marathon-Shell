@@ -15,6 +15,12 @@ the DPM firmware that keeps DRAM in self-refresh. Without the SPM
 firmware BL31 falls back to a cluster power-down, so the states are
 harmless on a bootloader that does not load it.
 
+The stock tree gives the system-bus state a 4000 us minimum residency,
+less than its 1300 us entry plus 2800 us exit latency, and cpuidle
+warns that its target residency is too low. Use 4100 us, the state's
+wake-up latency, instead. It is the deepest state, so the order of the
+states does not change.
+
 Tested on a Zinwa Q25 with both firmwares loaded: the phone boots and
 stays up, and at idle the cores spend 75-86% of their time in the
 system-bus state.
@@ -138,7 +144,7 @@ index 59c30e37..9c2df072 100644
 +				local-timer-stop;
 +				entry-latency-us = <1300>;
 +				exit-latency-us = <2800>;
-+				min-residency-us = <4000>;
++				min-residency-us = <4100>;
 +			};
  		};
  
