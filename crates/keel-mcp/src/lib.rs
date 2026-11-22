@@ -80,9 +80,10 @@ pub async fn watch(
     }
 }
 
-/// A file written, replaced, moved or removed, or the directory itself
-/// going.
+/// A file written, replaced, moved or removed, a mode changed, or the
+/// directory itself going.
 const WATCHED: WatchMask = WatchMask::CREATE
+    .union(WatchMask::ATTRIB)
     .union(WatchMask::DELETE)
     .union(WatchMask::MODIFY)
     .union(WatchMask::MOVED_FROM)
@@ -98,7 +99,13 @@ fn follow(inotify: &mut Inotify, dirs: &[PathBuf]) -> std::io::Result<()> {
         for candidate in dir.ancestors() {
             match inotify.watches().add(candidate, WATCHED) {
                 Ok(_) => break,
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                // Missing, or for now unreadable (tar makes a directory 0700
+                // until it is done with it): its parent sees it change.
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied
+                    ) => {}
                 Err(e) => return Err(e),
             }
         }
@@ -129,7 +136,9 @@ fn watch_dirs(dirs: &[PathBuf]) -> mpsc::Receiver<()> {
             if let Err(mpsc::error::TrySendError::Closed(())) = tx.try_send(()) {
                 return Ok(());
             }
-            follow(&mut inotify, &dirs)?;
+            if let Err(e) = follow(&mut inotify, &dirs) {
+                eprintln!("keel-mcp: cannot follow the manifest directories: {e}");
+            }
         }
     };
     let watcher = std::thread::Builder::new()

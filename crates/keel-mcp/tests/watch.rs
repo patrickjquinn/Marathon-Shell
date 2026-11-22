@@ -143,6 +143,43 @@ async fn manifest_files_are_followed() {
     .await;
 }
 
+#[tokio::test]
+async fn an_unreadable_directory_does_not_stop_the_watch() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("actions");
+    std::fs::create_dir(&dir).unwrap();
+    let apps = Arc::new(Apps::default());
+    let server = KeelMcp::new(Arc::<Apps>::clone(&apps), false);
+    tokio::spawn(keel_mcp::watch(
+        server.clone(),
+        apps,
+        vec![dir.clone()],
+        None,
+    ));
+    let write = |app: &str| {
+        std::fs::write(
+            dir.join(format!("{app}.json")),
+            manifest(app, app).to_string(),
+        )
+        .unwrap();
+    };
+    write("org.example.a");
+    until(&server, |c| c.apps.contains_key("org.example.a")).await;
+
+    // An installer leaves the directory unreadable while it works (GNU tar
+    // makes a directory it extracts into 0700 until it is done).
+    let mode = |m| std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(m)).unwrap();
+    // Writable but unreadable: a file lands, and the watch is set again on a
+    // directory inotify may not read.
+    mode(0o300);
+    write("org.example.b");
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    mode(0o755);
+    write("org.example.c");
+    until(&server, |c| c.apps.contains_key("org.example.c")).await;
+}
+
 #[tokio::test(start_paused = true)]
 async fn running_apps_are_asked_only_when_they_change() {
     let apps = Arc::new(Apps::default());
