@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 20:10:00 +0000
+Subject: [PATCH] dt-bindings: display: mediatek: dsi: Describe the data lane
+ order
+
+Some boards route the DSI data lanes out of order. The Minimal Phone MP01
+(MT6789) swaps lanes 2 and 3 between the SoC and its display module,
+which MediaTek's own kernel describes with a per-panel lane_swap table.
+
+Allow the standard video-interfaces data-lanes property on the output
+endpoint, numbered the same way: the clock lane is 0 and the data lanes
+are 1 to 4. That board then says data-lanes = <1 2 4 3>. Without the
+property the lanes stay in order, as before.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml |  26 ++++++++++++++++++++++++--
+ 1 file changed, 24 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
+@@ -72,7 +72,7 @@
+       - const: dphy
+ 
+   port:
+-    $ref: /schemas/graph.yaml#/properties/port
++    $ref: '#/$defs/output-port'
+     description:
+       Output port node. This port should be connected to the input
+       port of an attached DSI panel or DSI-to-eDP encoder chip.
+@@ -89,13 +89,35 @@
+         description: DSI input port, usually from DITHER, DSC or MERGE
+ 
+       port@1:
+-        $ref: /schemas/graph.yaml#/properties/port
++        $ref: '#/$defs/output-port'
+         description:
+           DSI output to an attached DSI panel, or a DSI-to-X encoder chip
+ 
+     required:
+       - port@0
+       - port@1
++
++$defs:
++  output-port:
++    $ref: /schemas/graph.yaml#/$defs/port-base
++    unevaluatedProperties: false
++
++    properties:
++      endpoint:
++        $ref: /schemas/media/video-interfaces.yaml#
++        unevaluatedProperties: false
++
++        properties:
++          data-lanes:
++            description:
++              The physical data lane, 1 to 4, that carries each logical
++              data lane, for boards that route the lanes out of order.
++              Without it the lanes are in order.
++            minItems: 1
++            maxItems: 4
++            uniqueItems: true
++            items:
++              enum: [1, 2, 3, 4]
+ 
+ required:
+   - compatible
+-- 
+2.55.0

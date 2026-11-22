@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 20:40:00 +0000
+Subject: [PATCH] drm/mediatek: dsi: Take the data lane order from the
+ endpoint
+
+Read the board's data lane order from the output endpoint's data-lanes
+when a peripheral attaches, and give it to the PHY. The property has to
+name exactly the lanes the peripheral uses. A short list, or a PHY that
+cannot route lanes, fails the attach rather than lighting the wrong
+lanes. Without the property nothing changes.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c |  49 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -9,6 +9,7 @@
+ #include <linux/iopoll.h>
+ #include <linux/irq.h>
+ #include <linux/of.h>
++#include <linux/of_graph.h>
+ #include <linux/of_platform.h>
+ #include <linux/phy/phy.h>
+ #include <linux/platform_device.h>
+@@ -1014,6 +1015,49 @@
+ 	.unbind = mtk_dsi_unbind,
+ };
+ 
++/* Tell the PHY the board's data lane order, if the output endpoint has one. */
++static int mtk_dsi_set_data_lanes(struct mtk_dsi *dsi)
++{
++	union phy_configure_opts opts = { .mipi_dphy.lanes = dsi->lanes };
++	struct device *dev = dsi->host.dev;
++	u32 map[ARRAY_SIZE(opts.mipi_dphy.data_lanes)];
++	struct device_node *ep;
++	int i, n, ret;
++
++	ep = of_graph_get_endpoint_by_regs(dev->of_node, 1, -1);
++	if (!ep)
++		ep = of_graph_get_endpoint_by_regs(dev->of_node, 0, -1);
++
++	n = of_property_count_u32_elems(ep, "data-lanes");
++	if (n == -EINVAL) {
++		of_node_put(ep);
++		return 0;
++	}
++
++	if (n != dsi->lanes)
++		ret = -EINVAL;
++	else
++		ret = of_property_read_u32_array(ep, "data-lanes", map, n);
++	of_node_put(ep);
++	if (ret)
++		return dev_err_probe(dev, ret, "data-lanes must list all %u lanes\n",
++				     dsi->lanes);
++
++	for (i = 0; i < n; i++) {
++		if (map[i] < 1 || map[i] > ARRAY_SIZE(map))
++			return dev_err_probe(dev, -EINVAL,
++					     "Invalid data lane %u\n", map[i]);
++		opts.mipi_dphy.data_lanes[i] = map[i];
++	}
++
++	ret = phy_configure(dsi->phy, &opts);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "Failed to set the data lane order\n");
++
++	return 0;
++}
++
+ static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
+ 			       struct mipi_dsi_device *device)
+ {
+@@ -1025,6 +1069,11 @@
+ 	dsi->format = device->format;
+ 	dsi->mode_flags = device->mode_flags;
+ 	dsi->hs_rate = device->hs_rate;
++
++	ret = mtk_dsi_set_data_lanes(dsi);
++	if (ret)
++		return ret;
++
+ 	dsi->next_bridge = devm_drm_of_get_bridge(dev, dev->of_node, 1, 0);
+ 	if (IS_ERR(dsi->next_bridge)) {
+ 		ret = PTR_ERR(dsi->next_bridge);
+-- 
+2.55.0
