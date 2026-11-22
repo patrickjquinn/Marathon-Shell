@@ -1929,7 +1929,7 @@ Item {
                 Logger.info("Shell", "Tasks is launching " + UIStore.currentAppId + " - skipping redundant show()");
                 return;
             }
-            Logger.warn("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
+            Logger.info("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
             if (task && task.appType === "native" && shell.compositor) {
                 var surface = shell.compositor.shellSurfaceById(task.surfaceId);
                 if (surface) {
