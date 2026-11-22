@@ -3,7 +3,6 @@
 #include <memory>
 #include <QQuickWindow>
 #include <QScreen>
-#include "services/textinputfocus.h"
 #include "services/touchresampler.h"
 #include "services/translations.h"
 #include <QSGRendererInterface>
@@ -401,7 +400,6 @@ int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName("marathon-app-runner");
     QCoreApplication::setOrganizationName("Marathon OS");
-    TextInputFocus::follow(&app);
 
     // Mirror the shell's choice: force QtRendering globally so every Text
     // resolves Sora via the FontLoader instead of fontconfig (which falls
