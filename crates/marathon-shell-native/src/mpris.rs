@@ -400,6 +400,46 @@ const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
 
 type Qt = cxx_qt::CxxQtThread<Mpris>;
 
+/// Closing an app stops its players, as its process ending would: a player
+/// outside it (a daemon playing for it) is its by process or desktop entry.
+pub(crate) async fn stop_players_of(bus: &zbus::Connection, app_id: &str, pids: &[u32]) {
+    let Ok(dbus) = DBusProxy::new(bus).await else {
+        return;
+    };
+    for name in dbus.list_names().await.unwrap_or_default() {
+        let name = name.as_str();
+        if !name.starts_with(PREFIX) {
+            continue;
+        }
+        let Ok(bus_name) = zbus::names::BusName::try_from(name) else {
+            continue;
+        };
+        let pid = dbus.get_connection_unix_process_id(bus_name).await.ok();
+        if !pid.is_some_and(|p| pids.contains(&p)) {
+            let mut player = Player::new(name);
+            let get = bus.call_method(
+                Some(name),
+                PATH,
+                Some(PROPERTIES),
+                "Get",
+                &(ROOT, "DesktopEntry"),
+            );
+            if let Some(Ok(reply)) = io::timeout(Duration::from_secs(2), get).await {
+                if let Ok(entry) = reply.body().deserialize::<OwnedValue>() {
+                    player.set("DesktopEntry", &entry);
+                }
+            }
+            if player.desktop_entry != app_id {
+                continue;
+            }
+        }
+        let stop = bus.call_method(Some(name), PATH, Some(PLAYER), "Stop", &());
+        if let Some(Err(e)) = io::timeout(Duration::from_secs(2), stop).await {
+            log::warn("mpris", format_args!("{name} Stop: {e}"));
+        }
+    }
+}
+
 enum Event {
     Command(Command),
     Closed,
@@ -664,9 +704,13 @@ impl Actor {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use std::collections::HashMap;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
 
+    use marathon_rt::testing::PrivateBus;
     use zbus::Variant as Value;
 
     use super::Player;
@@ -707,6 +751,71 @@ mod tests {
         );
         p.set("Metadata", &metadata(Value::from("Solo"), 0));
         assert_eq!(p.track.artist, "Solo");
+    }
+
+    struct Root(&'static str);
+
+    #[zbus::interface(name = "org.mpris.MediaPlayer2")]
+    impl Root {
+        #[zbus(property)]
+        fn desktop_entry(&self) -> &str {
+            self.0
+        }
+    }
+
+    struct Stops(Arc<AtomicUsize>);
+
+    #[zbus::interface(name = "org.mpris.MediaPlayer2.Player")]
+    impl Stops {
+        fn stop(&self) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    async fn player(
+        bus: &PrivateBus,
+        name: &str,
+        entry: &'static str,
+    ) -> (zbus::Connection, Arc<AtomicUsize>) {
+        let stops = Arc::new(AtomicUsize::new(0));
+        let conn = zbus::connection::Builder::address(bus.address.as_str())
+            .name(name)
+            .serve_at(super::PATH, Root(entry))
+            .serve_at(super::PATH, Stops(Arc::clone(&stops)))
+            .build()
+            .await
+            .unwrap();
+        (conn, stops)
+    }
+
+    #[test]
+    fn closing_an_app_stops_its_players_wherever_they_run() {
+        let Some(bus) = PrivateBus::start() else {
+            return;
+        };
+        async_io::block_on(async {
+            let (_radiod, radio) = player(&bus, "org.mpris.MediaPlayer2.radio", "radio").await;
+            let (_music, music) = player(&bus, "org.mpris.MediaPlayer2.music", "music").await;
+            let shell = bus.connect().await.unwrap();
+
+            super::stop_players_of(&shell, "radio", &[]).await;
+            assert_eq!(
+                (radio.load(Ordering::SeqCst), music.load(Ordering::SeqCst)),
+                (1, 0)
+            );
+
+            super::stop_players_of(&shell, "notes", &[]).await;
+            assert_eq!(
+                (radio.load(Ordering::SeqCst), music.load(Ordering::SeqCst)),
+                (1, 0)
+            );
+
+            super::stop_players_of(&shell, "other", &[std::process::id()]).await;
+            assert_eq!(
+                (radio.load(Ordering::SeqCst), music.load(Ordering::SeqCst)),
+                (2, 1)
+            );
+        });
     }
 
     #[test]

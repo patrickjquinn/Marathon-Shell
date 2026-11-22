@@ -414,7 +414,9 @@ impl Tasks {
     }
 
     pub(super) fn prepare_close(self: Pin<&mut Self>, app_id: &QString) {
-        self.prepare(&app_id.to_string());
+        let id = app_id.to_string();
+        self.stop_media(&id);
+        self.prepare(&id);
     }
 
     fn prepare(mut self: Pin<&mut Self>, app_id: &str) {
@@ -424,10 +426,30 @@ impl Tasks {
         }
     }
 
+    /// Closed by the user, its playing stops; an app that closed its own
+    /// window may still play in the background.
+    fn stop_media(&self, app_id: &str) {
+        let pids: Vec<u32> = self
+            .pid_to_app
+            .iter()
+            .filter(|(_, a)| *a == app_id)
+            .filter_map(|(p, _)| u32::try_from(*p).ok())
+            .collect();
+        let id = app_id.to_owned();
+        io::spawn(async move {
+            if let Ok(bus) = io::session_bus().await {
+                crate::mpris::stop_players_of(&bus, &id, &pids).await;
+            }
+        });
+    }
+
     pub(super) fn close_app(mut self: Pin<&mut Self>, app_id: &QString, skip_native_close: bool) {
         let id = app_id.to_string();
         if id.is_empty() {
             return;
+        }
+        if !skip_native_close {
+            self.stop_media(&id);
         }
         self.as_mut().prepare(&id);
         self.as_mut().close_task_of(&id);
