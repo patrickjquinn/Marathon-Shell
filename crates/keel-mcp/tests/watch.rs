@@ -2,14 +2,18 @@
 // SPDX-License-Identifier: MIT
 
 //! [`keel_mcp::watch`]: the catalogue follows manifest files as they are
-//! created, changed and removed.
+//! created, changed and removed, and running apps as they start and stop,
+//! without polling. The bus test starts a private bus (skipped without
+//! `dbus-daemon`).
 
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "tests")]
 
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use keel_mcp::backend::{Backend, BoxFuture, CallError, CallResult};
+use futures_util::StreamExt;
+use keel_mcp::backend::{Backend, BoxFuture, Bus, CallError, CallResult};
 use keel_mcp::catalogue::Catalogue;
 use keel_mcp::KeelMcp;
 use serde_json::{json, Value};
@@ -31,12 +35,30 @@ async fn until(server: &KeelMcp, what: impl Fn(&Catalogue) -> bool) {
     .expect("the catalogue did not change");
 }
 
-/// No apps run.
-struct Apps;
+/// Running apps as a test sets them, with a count of how often keel-mcp
+/// asked.
+#[derive(Default)]
+struct Apps {
+    running: Mutex<Vec<Value>>,
+    asked: AtomicUsize,
+    changed: tokio::sync::Notify,
+}
+
+impl Apps {
+    fn set(&self, running: Vec<Value>) {
+        *self.running.lock().unwrap() = running;
+        self.changed.notify_one();
+    }
+}
 
 impl Backend for Apps {
     fn running_manifests(&self) -> BoxFuture<'_, Vec<Value>> {
-        Box::pin(async { Vec::new() })
+        self.asked.fetch_add(1, Ordering::SeqCst);
+        let running = self.running.lock().unwrap().clone();
+        Box::pin(async move { running })
+    }
+    fn running_changed(&self) -> BoxFuture<'_, ()> {
+        Box::pin(self.changed.notified())
     }
     fn invoke<'a>(
         &'a self,
@@ -75,12 +97,13 @@ async fn manifest_files_are_followed() {
     let root = tempfile::tempdir().unwrap();
     // Neither directory exists yet: watched through the temporary one.
     let dir = root.path().join("keel/actions");
-    let server = KeelMcp::new(Arc::new(Apps), false);
+    let apps = Arc::new(Apps::default());
+    let server = KeelMcp::new(Arc::<Apps>::clone(&apps), false);
     tokio::spawn(keel_mcp::watch(
         server.clone(),
-        Arc::new(Apps),
+        apps,
         vec![dir.clone()],
-        Duration::from_secs(3600),
+        None,
     ));
 
     std::fs::create_dir_all(&dir).unwrap();
@@ -118,4 +141,77 @@ async fn manifest_files_are_followed() {
         description(c, "org.example.a").as_deref() == Some("three")
     })
     .await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn running_apps_are_asked_only_when_they_change() {
+    let apps = Arc::new(Apps::default());
+    let server = KeelMcp::new(Arc::<Apps>::clone(&apps), false);
+    tokio::spawn(keel_mcp::watch(
+        server.clone(),
+        Arc::<Apps>::clone(&apps),
+        Vec::new(),
+        None,
+    ));
+
+    tokio::time::sleep(Duration::from_secs(3600)).await;
+    assert_eq!(
+        apps.asked.load(Ordering::SeqCst),
+        1,
+        "asked at start, then not for an hour without a change"
+    );
+
+    apps.set(vec![manifest("org.example.r", "running")]);
+    until(&server, |c| c.apps.contains_key("org.example.r")).await;
+    apps.set(Vec::new());
+    until(&server, |c| c.apps.is_empty()).await;
+    assert_eq!(apps.asked.load(Ordering::SeqCst), 3);
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_safety_net_asks_on_its_interval() {
+    let apps = Arc::new(Apps::default());
+    let server = KeelMcp::new(Arc::<Apps>::clone(&apps), false);
+    tokio::spawn(keel_mcp::watch(
+        server.clone(),
+        Arc::<Apps>::clone(&apps),
+        Vec::new(),
+        Some(Duration::from_secs(60)),
+    ));
+    tokio::time::sleep(Duration::from_secs(150)).await;
+    assert_eq!(apps.asked.load(Ordering::SeqCst), 3);
+}
+
+const APP: &str = "org.example.watched";
+
+/// An app on the real bus: it appears when it takes its name and goes when
+/// it gives it up.
+#[tokio::test]
+async fn apps_on_the_bus_are_followed() {
+    let Some(bus) = marathon_rt::testing::PrivateBus::start() else {
+        return;
+    };
+    let backend: Arc<dyn Backend> = Arc::new(Bus::on(bus.connect().await.unwrap()).await.unwrap());
+    let server = KeelMcp::new(Arc::clone(&backend), false);
+    tokio::spawn(keel_mcp::watch(server.clone(), backend, Vec::new(), None));
+
+    let app = bus.connect().await.unwrap();
+    let mut calls = zbus::MessageStream::from(&app);
+    let replies = app.clone();
+    tokio::spawn(async move {
+        let describe = manifest(APP, "on the bus").to_string();
+        while let Some(Ok(message)) = calls.next().await {
+            let header = message.header();
+            if header.message_type() == zbus::message::Type::MethodCall
+                && header.member().is_some_and(|m| m.as_str() == "Describe")
+            {
+                replies.reply(&header, &describe).await.unwrap();
+            }
+        }
+    });
+
+    app.request_name(APP).await.unwrap();
+    until(&server, |c| c.apps.contains_key(APP)).await;
+    app.release_name(APP).await.unwrap();
+    until(&server, |c| !c.apps.contains_key(APP)).await;
 }

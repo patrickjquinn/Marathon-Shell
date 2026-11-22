@@ -25,18 +25,19 @@ use tokio::sync::mpsc;
 pub use server::KeelMcp;
 
 /// How long changes must have stopped before the catalogue is rebuilt: an
-/// install writes a file in several steps.
+/// install writes a file in several steps, an app may claim several names.
 const SETTLE: Duration = Duration::from_millis(250);
 
-/// Keeps `server`'s catalogue current: rebuilds it when a file in `dirs`
-/// appears, changes or goes (inotify), and asks running apps for their
-/// manifests every `probe` interval.
+/// Keeps `server`'s catalogue current without polling: rebuilds it when a
+/// file in `dirs` appears, changes or goes (inotify) and when a running app
+/// may have started or stopped ([`backend::Backend::running_changed`]).
+/// `safety_net`, if given, also rescans and asks running apps that often.
 #[allow(clippy::print_stderr, reason = "journald collects stderr")]
 pub async fn watch(
     server: KeelMcp,
     backend: Arc<dyn backend::Backend>,
     dirs: Vec<PathBuf>,
-    probe: Duration,
+    safety_net: Option<Duration>,
 ) {
     let mut dir_changes = watch_dirs(&dirs);
     let mut files = None;
@@ -65,7 +66,16 @@ pub async fn watch(
                 while matches!(tokio::time::timeout(SETTLE, dir_changes.recv()).await, Ok(Some(()))) {}
                 false
             }
-            () = tokio::time::sleep(probe) => true,
+            () = backend.running_changed() => {
+                while tokio::time::timeout(SETTLE, backend.running_changed()).await.is_ok() {}
+                true
+            }
+            () = async {
+                match safety_net {
+                    Some(every) => tokio::time::sleep(every).await,
+                    None => std::future::pending().await,
+                }
+            } => true,
         };
     }
 }
