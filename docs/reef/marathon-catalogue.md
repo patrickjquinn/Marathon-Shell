@@ -7,8 +7,9 @@ also has: its title, screenshots, licence and price are shown instead.
 
 ## Where Reef reads it
 
-`https://patrickjquinn.github.io/marathon-updates/reef/<arch>/catalogue.json`,
-where `<arch>` is the phone's processor as Rust names it: `aarch64` or
+`https://patrickjquinn.github.io/marathon-updates/reef/<arch>/catalogue-full.json`,
+or `catalogue.json` (the same without `marathon` entries, for older Reefs)
+where the store has no full catalogue, where `<arch>` is the phone's processor as Rust names it: `aarch64` or
 `x86_64`. That is GitHub Pages for
 [patrickjquinn/marathon-updates](https://github.com/patrickjquinn/marathon-updates),
 whose `site/` it serves. Icons and screenshots are paths relative to that
@@ -35,13 +36,12 @@ accepted can refuse a replayed older catalogue.
 | sign | `tools/reef-catalogue sign site/reef/<arch>/catalogue.json --gnupghome ~/.marathon-secrets/reef/gnupg`: checks the catalogue, stamps `generated_at` and a higher `revision`, signs |
 | check | `tools/reef-catalogue verify site/reef/*/catalogue.json`, run by marathon-updates' CI on every push; the Pages deploy runs it first and publishes nothing that fails |
 
-Reef does not check the signature yet: it trusts HTTPS to GitHub Pages, as
-it trusted HTTPS to reefstore.app. Checking it means shipping the key
-dearmored in the shipwright-reef package (gpgv reads no armored keys) with
-`gpgv` as a dependency, fetching `catalogue.json.asc` beside the catalogue in
-`jobs::refresh`, refusing the catalogue on a bad signature or a lower
-`revision` than the one kept beside the cache, and signing the `file://`
-stores in its tests.
+Reef checks it: beside the catalogue it fetches `<catalogue>.asc` and runs
+`gpgv` against the key the shipwright-reef package ships dearmored
+(`/usr/share/shipwright-reef/marathon-reef.gpg`, from `apps/reef/keys/`),
+and it refuses a catalogue whose `revision` is lower than the one it last
+accepted (kept beside its cache as `catalogue-revision`). A local `file://`
+store, for tests and development, is taken unsigned.
 
 ## Catalogue
 
@@ -107,7 +107,8 @@ notes: [...]}]`, newest first), `keywords`, `screenshots` (at most 5) and
 
 ## Reef-updated Marathon apps
 
-Not built yet. This is the plan for the apps the image ships but Reef updates
+Built, and tested end to end on the Q25 from a local store; nothing is
+published yet. This is how it works for the apps the image ships but Reef updates
 ([docs/OTA.md, "What updates how"](../OTA.md#what-updates-how)): Maps, Music,
 Notes, Calendar, Mail, Gallery, Pilot, Pacific and the other apps that are not
 the system's own.
@@ -176,11 +177,11 @@ on an image at least as new as `min_image`. Reef shows a newer package for an
 older image as "update the phone first". Packages for Reef are built from the
 stable image's package set.
 
-**Older Reefs.** `Install` is an internally tagged enum, so a Reef that
-doesn't know `marathon` rejects the whole catalogue. Reef therefore needs to
-learn to skip unknown kinds, and that Reef must be in every image the feeds
-serve, before any `marathon` entry is published. Until then, marathon-updates'
-validator accepts only `flatpak` and `android`.
+**Older Reefs.** A Reef that doesn't know `marathon` rejects the whole
+catalogue, so `catalogue.json` leaves those entries out and Reef reads
+`catalogue-full.json`. The shell reads the apps again when a copy is
+installed or removed in the home directory, so an update runs at the app's
+next start.
 
 **Closed and system pieces.**
 

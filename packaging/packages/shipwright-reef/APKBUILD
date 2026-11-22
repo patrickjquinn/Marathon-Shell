@@ -6,18 +6,20 @@
 # and it follows a branch.
 pkgname=shipwright-reef
 pkgver=0.1.0
-pkgrel=5
+pkgrel=6
 pkgdesc="Reef app store for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND CC-BY-4.0"
 depends="
+	gpgv
 	keel-silica
 	qt6-qtdeclarative
 	"
 makedepends="
 	cargo
 	clang
+	gpg
 	keel-silica-dev
 	qt6-qtbase-dev
 	qt6-qtbase-private-dev
@@ -39,6 +41,10 @@ package() {
 	local a=apps/reef
 	install -Dm755 $a/target/release/libshipwright_reef.so "$pkgdir"/usr/bin/shipwright-reef
 	install -d "$pkgdir"/usr/share/shipwright-reef/qml
+	# The catalogue's key, dearmored: gpgv reads no armored keys.
+	install -d -m700 "$srcdir"/gnupg
+	gpg --homedir "$srcdir"/gnupg --dearmor < $a/keys/marathon-reef.asc \
+		> "$pkgdir"/usr/share/shipwright-reef/marathon-reef.gpg
 	cp -R $a/ui/. "$pkgdir"/usr/share/shipwright-reef/qml/
 	install -Dm644 $a/shipwright-reef.desktop "$pkgdir"/usr/share/applications/shipwright-reef.desktop
 	local s
