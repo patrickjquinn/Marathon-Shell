@@ -28,13 +28,17 @@ const ANDROID_HANDOFF_GRACE: Duration = Duration::from_secs(45);
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
 /// Flatpak hands a sandbox the accessibility bus, and Qt then runs as if a
-/// screen reader were on (Telegram's "Screen Reader mode").
-const FLATPAK_RUN: &str = "flatpak run --no-a11y-bus ";
+/// screen reader were on (Telegram's "Screen Reader mode"). The shell's
+/// GBM_BACKENDS_PATH names the host's /usr/lib/gbm, which in a runtime is
+/// the runtime's own: Element's Chromium found no GBM backend there and
+/// never opened a window.
+const FLATPAK_RUN: &str = "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH ";
 
 /// A Flatpak left on its toolkit's own colours: no generated gtk.css or KDE
 /// palette, no KDE platform theme, libadwaita's own accent. The portal still
 /// gives it the light or dark scheme.
-const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --nofilesystem=xdg-config/gtk-4.0 \
+const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH \
+    --nofilesystem=xdg-config/gtk-4.0 \
     --nofilesystem=xdg-config/kdeglobals --nofilesystem=xdg-data/color-schemes \
     --unset-env=QT_QPA_PLATFORMTHEME --env=ADW_DEBUG_ACCENT_COLOR=blue ";
 
@@ -1413,9 +1417,12 @@ mod tests {
         let exec =
             "flatpak run --branch=stable --arch=aarch64 --command=Telegram org.telegram.desktop";
         let themed = flatpak_exec(exec, true, false);
-        assert!(themed.starts_with("flatpak run --no-a11y-bus --branch=stable"));
+        assert!(themed.starts_with(
+            "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH --branch=stable"
+        ));
         let unthemed = flatpak_exec(exec, false, false);
-        assert!(unthemed.starts_with("flatpak run --no-a11y-bus --nofilesystem"));
+        assert!(unthemed
+            .starts_with("flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH --nofilesystem"));
         assert!(unthemed.ends_with("--command=Telegram org.telegram.desktop"));
         assert!(is_foreground_flatpak_run(&themed) && is_foreground_flatpak_run(&unthemed));
     }
@@ -1428,7 +1435,8 @@ mod tests {
         let exec = "flatpak run --command=signal-desktop org.signal.Signal";
         let run = flatpak_exec(exec, true, true);
         assert!(run.starts_with(
-            "flatpak run --no-a11y-bus --env=XDG_CURRENT_DESKTOP=marathon:GNOME \
+            "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH \
+             --env=XDG_CURRENT_DESKTOP=marathon:GNOME \
              --env=SIGNAL_PASSWORD_STORE=gnome-libsecret --command"
         ));
         assert!(is_foreground_flatpak_run(&run));
