@@ -72,10 +72,31 @@ pub fn package(app_dir: &Path, archive: &Path) -> Result<(), String> {
         }
     }
     let entry = manifest["entryPoint"].as_str().unwrap_or_default();
-    if !app_dir.join(entry).exists() {
+    if !app_dir.join(entry).exists() && !compiled_in(app_dir, entry) {
         return Err(format!("Entry point file not found: {entry}"));
     }
     create(app_dir, archive)
+}
+
+/// Whether `entry` is compiled into the app's QML module, as the image's
+/// apps are: a `MarathonApp/<Name>/qmldir` declares its component, and the
+/// runner loads it from there (`entry_wrapper`).
+fn compiled_in(app_dir: &Path, entry: &str) -> bool {
+    let Some(component) = Path::new(entry).file_stem().and_then(|s| s.to_str()) else {
+        return false;
+    };
+    fs::read_dir(app_dir.join("MarathonApp"))
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .filter_map(|d| fs::read_to_string(d.path().join("qmldir")).ok())
+        .any(|qmldir| {
+            qmldir.lines().any(|l| {
+                l.trim()
+                    .strip_prefix(component)
+                    .is_some_and(|rest| rest.starts_with(' '))
+            })
+        })
 }
 
 /// Extracts `archive` into `dest_dir`. An archive holding a symlink, or an
@@ -103,6 +124,30 @@ mod tests {
     use super::*;
     use std::io::Write;
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn an_app_compiled_into_its_module_packages() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = dir.path().join("notes");
+        fs::create_dir_all(app.join("MarathonApp/Notes")).unwrap();
+        fs::write(
+            app.join("manifest.json"),
+            br#"{"id":"notes","name":"Notes","version":"1.0.0.1","entryPoint":"NotesApp.qml","icon":"assets/icon.svg"}"#,
+        )
+        .unwrap();
+        fs::write(
+            app.join("MarathonApp/Notes/qmldir"),
+            "module MarathonApp.Notes\nNotesApp 1.0 NotesApp.qml\n",
+        )
+        .unwrap();
+        package(&app, &dir.path().join("notes.marathon")).unwrap();
+        fs::write(
+            app.join("MarathonApp/Notes/qmldir"),
+            "module MarathonApp.Notes\nNotesAppX 1.0 x.qml\n",
+        )
+        .unwrap();
+        assert!(package(&app, &dir.path().join("x.marathon")).is_err());
+    }
 
     fn app(dir: &Path) {
         fs::create_dir_all(dir.join("qml/pages")).unwrap();
