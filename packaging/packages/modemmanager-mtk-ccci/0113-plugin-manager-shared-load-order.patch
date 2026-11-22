@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] plugin-manager: load shared utils that need others after them
+
+A shared utils module may use another's symbols: libmm-shared-mtk uses
+libmm-shared-fibocom's. The modules are opened in directory order with
+immediate binding (musl has no lazy binding at all), so when the MTK one
+comes first it fails with "symbol not found", and the plugins that need
+it (mtk, mtk-legacy, rolling) fail after it.
+
+Retry the modules that could not be opened while a pass still opens
+something, and only then report the ones that are left.
+---
+diff --git a/src/mm-plugin-manager.c b/src/mm-plugin-manager.c
+index 23bb281..cd77224 100644
+--- a/src/mm-plugin-manager.c
++++ b/src/mm-plugin-manager.c
+@@ -1873,9 +1873,10 @@ out:
+     return plugin;
+ }
+ 
+-static void
++static gboolean
+ load_external_shared (MMPluginManager *self,
+-                      const gchar     *path)
++                      const gchar     *path,
++                      gboolean         report)
+ {
+     GModule      *module;
+     gchar        *path_display;
+@@ -1883,13 +1884,16 @@ load_external_shared (MMPluginManager *self,
+     gint         *major_shared_version;
+     gint         *minor_shared_version;
+     gboolean      success =  FALSE;
++    gboolean      opened;
+ 
+     /* Get printable UTF-8 string of the path */
+     path_display = g_filename_display_name (path);
+ 
+     module = g_module_open (path, 0);
++    opened = !!module;
+     if (!module) {
+-        mm_obj_warn (self, "could not load shared '%s': %s", path_display, g_module_error ());
++        if (report)
++            mm_obj_warn (self, "could not load shared '%s': %s", path_display, g_module_error ());
+         goto out;
+     }
+ 
+@@ -1928,6 +1932,9 @@ out:
+         g_module_close (module);
+ 
+     g_free (path_display);
++
++    /* Only a module that could not be opened may load on a later try */
++    return opened;
+ }
+ 
+ static gboolean
+@@ -1971,9 +1978,28 @@ load_external_plugins (MMPluginManager  *self,
+             plugin_paths = g_list_prepend (plugin_paths, g_module_build_path (self->priv->plugin_dir, fname));
+     }
+ 
+-    /* Load all shared utils */
++    /* Load all shared utils. One may use another's symbols, and without lazy
++     * binding (musl has none) it only loads once that one has: retry those
++     * that failed while a pass still loads something, and report what is
++     * left. */
++    for (;;) {
++        GList    *pending = NULL;
++        gboolean  progress = FALSE;
++
++        for (l = shared_paths; l; l = g_list_next (l)) {
++            if (load_external_shared (self, (const gchar *)(l->data), FALSE)) {
++                g_free (l->data);
++                progress = TRUE;
++            } else
++                pending = g_list_prepend (pending, l->data);
++        }
++        g_list_free (shared_paths);
++        shared_paths = g_list_reverse (pending);
++        if (!shared_paths || !progress)
++            break;
++    }
+     for (l = shared_paths; l; l = g_list_next (l))
+-        load_external_shared (self, (const gchar *)(l->data));
++        load_external_shared (self, (const gchar *)(l->data), TRUE);
+ 
+     /* Load all plugins */
+     subsystems = g_ptr_array_new ();

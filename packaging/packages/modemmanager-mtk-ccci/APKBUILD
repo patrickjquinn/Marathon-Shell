@@ -50,6 +50,7 @@ source="https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/$
 	0110-mtk-ccci-volte-calls.patch
 	0111-mtk-ccci-ims-call-progress-reports.patch
 	0112-mtk-ccci-ims-state-reports.patch
+	0113-plugin-manager-shared-load-order.patch
 	"
 builddir="$srcdir"/ModemManager-$_commit
 
@@ -96,4 +97,5 @@ bc6b2648bd4f5f35db80d17f250455c5a5a383ea5e74cfc92b8cb15fc6ec0e801ad0f48604cdf0b3
 068c049639b3e68bd03ec812c3217d59f97110c3cced064afd7d80123e611d0a2367a1fc9918f75895b71edbb5c00f4f1c69703a8f91aaf2c5f65c2da82b8af7  0110-mtk-ccci-volte-calls.patch
 38507b63856bedfe54838b1cf364b3a9d964191d838d948f6630db106b9bd1fe4186265b4461e10b919559637000b1af3d40d62a41b42be2422d3f80d1e53283  0111-mtk-ccci-ims-call-progress-reports.patch
 b98a79cd94f3143f81e22a622249b68fd49a6ed3cfdf8f8aa33299367467850edd9f65ebec679f3a7be89a5efce7f6aaa79680c7f873e6075d4ea98cf19967ac  0112-mtk-ccci-ims-state-reports.patch
+f911e0fc542c8442b6b461e69eda529b3a873c7e66356579f765dac1bef9b450b43d8b11b1657b04c2e86de28cc0061cd09634a74ed5395d38407067296bd5b4  0113-plugin-manager-shared-load-order.patch
 "
