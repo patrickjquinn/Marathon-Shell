@@ -1,0 +1,136 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wmt: log info and debug messages at their own levels
+
+The WMT, HIF-SDIO and STP log macros sent their info ([I]), debug ([D]),
+loud ([L]) and trace lines through osal_warn_print(), so every routine
+"[WMT-CORE][I]" or "[HIF-SDIO][I]" line reached the console at
+KERN_WARNING, and turning the debug level up flooded it the same way.
+
+Add osal_info_print() next to osal_dbg_print() and route the macros by
+their tag: info lines at KERN_INFO, debug, loud and trace lines through
+pr_debug. The macros' own runtime level gates are unchanged; warnings
+and errors keep their levels.
+---
+--- a/include/drivers/misc/mediatek/connectivity/common/common_main/include/wmt_exp.h
++++ b/include/drivers/misc/mediatek/connectivity/common/common_main/include/wmt_exp.h
+@@ -44,12 +44,12 @@
+ #define WMT_LOUD_FUNC(fmt, arg...) \
+ do { \
+ 	if (gWmtDbgLvl >= WMT_LOG_LOUD) \
+-		osal_warn_print(DFT_TAG "[L]%s:"  fmt, __func__, ##arg); \
++		osal_dbg_print(DFT_TAG "[L]%s:"  fmt, __func__, ##arg); \
+ } while (0)
+ #define WMT_INFO_FUNC(fmt, arg...)  \
+ do { \
+ 	if (gWmtDbgLvl >= WMT_LOG_INFO) \
+-		osal_warn_print(DFT_TAG "[I]%s:"  fmt, __func__, ##arg); \
++		osal_info_print(DFT_TAG "[I]%s:"  fmt, __func__, ##arg); \
+ } while (0)
+ #define WMT_WARN_FUNC(fmt, arg...) \
+ do { \
+@@ -64,12 +64,12 @@
+ #define WMT_DBG_FUNC(fmt, arg...) \
+ do { \
+ 	if (gWmtDbgLvl >= WMT_LOG_DBG) \
+-		osal_warn_print(DFT_TAG "[D]%s:"  fmt, __func__, ##arg); \
++		osal_dbg_print(DFT_TAG "[D]%s:"  fmt, __func__, ##arg); \
+ } while (0)
+ #define WMT_TRC_FUNC(f) \
+ do { \
+ 	if (gWmtDbgLvl >= WMT_LOG_DBG) \
+-		osal_warn_print(DFT_TAG "<%s> <%d>\n", __func__, __LINE__); \
++		osal_dbg_print(DFT_TAG "<%s> <%d>\n", __func__, __LINE__); \
+ } while (0)
+ 
+ #endif
+--- a/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include/osal.h
++++ b/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include/osal.h
+@@ -302,6 +302,7 @@
+ INT32 osal_snprintf(PINT8 buf, UINT32 len, const PINT8 fmt, ...);
+ INT32 osal_err_print(const PINT8 str, ...);
+ INT32 osal_dbg_print(const PINT8 str, ...);
++INT32 osal_info_print(const PINT8 str, ...);
+ INT32 osal_warn_print(const PINT8 str, ...);
+ 
+ INT32 osal_dbg_assert(INT32 expr, const PINT8 file, INT32 line);
+--- a/wmt_drv/common_main/core/include/stp_core.h
++++ b/wmt_drv/common_main/core/include/stp_core.h
+@@ -58,12 +58,12 @@
+ 
+ #define STP_DBG_FUNC(fmt, arg...)    do {\
+ 	if (gStpDbgLvl >= STP_LOG_DBG)\
+-		osal_warn_print(PFX "%s: " fmt, __func__, ##arg);\
++		osal_dbg_print(PFX "%s: " fmt, __func__, ##arg);\
+ } while (0)
+ 
+ #define STP_INFO_FUNC(fmt, arg...)   do {\
+ 	if (gStpDbgLvl >= STP_LOG_INFO)\
+-		osal_warn_print(PFX "%s:[I] " fmt, __func__, ##arg);\
++		osal_info_print(PFX "%s:[I] " fmt, __func__, ##arg);\
+ } while (0)
+ 
+ #define STP_WARN_RATELIMITED_FUNC(fmt, arg...)   do {\
+@@ -84,7 +84,7 @@
+ 
+ #define STP_TRC_FUNC(f)              do {\
+ 	if (gStpDbgLvl >= STP_LOG_DBG)\
+-		osal_warn_print(PFX "<%s> <%d>\n", __func__, __LINE__);\
++		osal_dbg_print(PFX "<%s> <%d>\n", __func__, __LINE__);\
+ } while (0)
+ 
+ #define STP_DUMP_PACKET_HEAD(a, b, c)     do {\
+@@ -94,7 +94,7 @@
+ 
+ #define STP_TRACE_FUNC(fmt, arg...)       do {\
+ 	if (gStpDbgLvl >= STP_LOG_DBG)\
+-		osal_warn_print(PFX "%s: " fmt, __func__, ##arg);\
++		osal_dbg_print(PFX "%s: " fmt, __func__, ##arg);\
+ } while (0)
+ 
+ #define STP_MODE_BIT(x) (0x1UL << x)
+--- a/wmt_drv/common_main/linux/include/hif_sdio.h
++++ b/wmt_drv/common_main/linux/include/hif_sdio.h
+@@ -249,15 +249,15 @@
+ 
+ #define HIF_SDIO_LOUD_FUNC(fmt, arg...)	\
+ do { if (gHifSdioDbgLvl >= HIF_SDIO_LOG_LOUD)	\
+-	osal_warn_print(DFT_TAG"[L]%s:"  fmt, __func__, ##arg);	\
++	osal_dbg_print(DFT_TAG"[L]%s:"  fmt, __func__, ##arg);	\
+ } while (0)
+ #define HIF_SDIO_DBG_FUNC(fmt, arg...)	\
+ do { if (gHifSdioDbgLvl >= HIF_SDIO_LOG_DBG)	\
+-	osal_warn_print(DFT_TAG"[D]%s:"  fmt, __func__, ##arg);	\
++	osal_dbg_print(DFT_TAG"[D]%s:"  fmt, __func__, ##arg);	\
+ } while (0)
+ #define HIF_SDIO_INFO_FUNC(fmt, arg...)	\
+ do { if (gHifSdioDbgLvl >= HIF_SDIO_LOG_INFO)	\
+-	osal_warn_print(DFT_TAG"[I]%s:"  fmt, __func__, ##arg);	\
++	osal_info_print(DFT_TAG"[I]%s:"  fmt, __func__, ##arg);	\
+ } while (0)
+ #define HIF_SDIO_WARN_FUNC(fmt, arg...)	\
+ do { if (gHifSdioDbgLvl >= HIF_SDIO_LOG_WARN)	\
+--- a/wmt_drv/common_main/linux/osal.c
++++ b/wmt_drv/common_main/linux/osal.c
+@@ -219,6 +219,22 @@
+ 	return ret;
+ }
+ 
++INT32 osal_info_print(const PINT8 str, ...)
++{
++	va_list args;
++	INT32 ret;
++	INT8 tempString[DBG_LOG_STR_SIZE];
++
++	va_start(args, str);
++	ret = vsnprintf(tempString, DBG_LOG_STR_SIZE, str, args);
++	va_end(args);
++
++	if (ret > 0)
++		pr_info("%s", tempString);
++
++	return ret;
++}
++
+ INT32 osal_warn_print(const PINT8 str, ...)
+ {
+ 	va_list args;
