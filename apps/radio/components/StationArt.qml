@@ -1,5 +1,6 @@
 import QtQuick
 import Sailfish.Silica 1.0
+import "Logos.js" as Logos
 
 // A station's logo, or its initials on a tile when it has none (many
 // stations' logos are missing, tiny or gone).
@@ -8,7 +9,7 @@ Rectangle {
 
     property var station: null
     readonly property string _name: station ? station.name : ""
-    readonly property string _logo: station && station.favicon && station.favicon.indexOf("http") === 0 ? station.favicon : ""
+    readonly property string _logo: station && station.favicon && Logos.usable(station.favicon) ? station.favicon : ""
 
     // A station's mark: a short code in its name ("R1", "2FM", "104"),
     // else the first letters of its first two telling words.
@@ -56,5 +57,9 @@ Rectangle {
         cache: true
         smooth: true
         visible: status === Image.Ready
+        onStatusChanged: {
+            if (status === Image.Error)
+                Logos.fail(art._logo);
+        }
     }
 }
