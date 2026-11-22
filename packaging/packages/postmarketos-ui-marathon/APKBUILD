@@ -10,7 +10,7 @@
 maintainer="Patrick Quinn <patrick@jquinn.com>"
 pkgname=postmarketos-ui-marathon
 pkgver=1.0.0
-pkgrel=17
+pkgrel=18
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -49,6 +49,8 @@ depends="
 	xdg-desktop-portal-wlr
 	flatpak
 	p11-kit-server
+	xwayland
+	xwayland-satellite
 	"
 
 source="
@@ -61,6 +63,9 @@ source="
 	marathon-flatpak-prewarm.service
 	marathon-flatpak-prewarm.timer
 	marathon-deckard-first-run.service
+	marathon-xwayland.socket
+	marathon-xwayland.service
+	marathon-x11.conf
 	"
 options="!check pmb:drm pmb:systemd"
 install="$pkgname.post-install"
@@ -108,6 +113,17 @@ package() {
 		"$pkgdir/usr/lib/systemd/user/marathon-deckard-first-run.service"
 	ln -sf ../marathon-deckard-first-run.service \
 		"$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/marathon-deckard-first-run.service"
+
+	# X11 apps (VLC): xwayland-satellite starts rootless Xwayland on the
+	# first connection to :0; the session sets DISPLAY.
+	install -Dm644 "$srcdir/marathon-xwayland.socket" \
+		"$pkgdir/usr/lib/systemd/user/marathon-xwayland.socket"
+	install -Dm644 "$srcdir/marathon-xwayland.service" \
+		"$pkgdir/usr/lib/systemd/user/marathon-xwayland.service"
+	ln -sf ../marathon-xwayland.socket \
+		"$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/marathon-xwayland.socket"
+	install -Dm644 "$srcdir/marathon-x11.conf" \
+		"$pkgdir/usr/lib/tmpfiles.d/marathon-x11.conf"
 }
 sha512sums="
 SKIP  flathub.flatpakrepo
@@ -119,4 +135,7 @@ SKIP  marathon-geoclue.conf
 SKIP  marathon-flatpak-prewarm.service
 SKIP  marathon-flatpak-prewarm.timer
 SKIP  marathon-deckard-first-run.service
+SKIP  marathon-xwayland.socket
+SKIP  marathon-xwayland.service
+SKIP  marathon-x11.conf
 "

@@ -49,6 +49,9 @@ fi
 export XDG_SESSION_TYPE=wayland
 export XDG_SESSION_DESKTOP=marathon
 export XDG_CURRENT_DESKTOP=marathon
+# X11 apps (VLC) reach rootless Xwayland through xwayland-satellite, which
+# marathon-xwayland.socket starts on the first connection to :0.
+[ -x /usr/bin/xwayland-satellite ] && export DISPLAY=:0
 # Alpine/musl otherwise starts graphical sessions in the ASCII C locale.
 # Toolkits then redo locale fallbacks and mishandle Unicode filenames.
 export LANG="${LANG:-C.UTF-8}"
