@@ -49,6 +49,9 @@ fi
 export XDG_SESSION_TYPE=wayland
 export XDG_SESSION_DESKTOP=marathon
 export XDG_CURRENT_DESKTOP=marathon
+# X11 apps (VLC) reach rootless Xwayland through xwayland-satellite, which
+# marathon-xwayland.socket starts on the first connection to :0.
+[ -x /usr/bin/xwayland-satellite ] && export DISPLAY=:0
 # Alpine/musl otherwise starts graphical sessions in the ASCII C locale.
 # Toolkits then redo locale fallbacks and mishandle Unicode filenames.
 export LANG="${LANG:-C.UTF-8}"
@@ -601,7 +604,8 @@ if command -v systemctl >/dev/null 2>&1; then
             sleep 0.5
         done
         systemctl --user set-environment WAYLAND_DISPLAY="$socket" \
-            XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" XDG_SESSION_TYPE=wayland
+            XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" XDG_SESSION_TYPE=wayland \
+            ${DISPLAY:+DISPLAY="$DISPLAY"}
         systemctl --user start marathon-session.target
         # A hot shell replacement keeps the user manager alive. Rebind portal
         # processes which inherited the previous compositor socket instead of

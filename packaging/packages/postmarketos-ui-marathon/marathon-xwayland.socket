@@ -1,0 +1,10 @@
+[Unit]
+Description=Display for X11 apps, started on demand
+ConditionPathExists=/usr/bin/xwayland-satellite
+ConditionUser=!root
+PartOf=graphical-session.target
+
+[Socket]
+ListenStream=/tmp/.X11-unix/X0
+SocketMode=0777
+RemoveOnStop=yes

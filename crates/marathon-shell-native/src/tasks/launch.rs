@@ -1143,7 +1143,12 @@ impl Tasks {
         self.refill_after_map();
         let (sandboxed, title) = (sandbox_app_id.to_string(), title.to_string());
         let xdg = if sandboxed.is_empty() {
-            xdg_app_id.to_string()
+            let id = xdg_app_id.to_string();
+            if apps::get(&id).is_none() {
+                crate::desktop::by_wm_class(&id).unwrap_or(id)
+            } else {
+                id
+            }
         } else {
             sandboxed.clone()
         };

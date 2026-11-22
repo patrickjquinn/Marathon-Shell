@@ -222,6 +222,46 @@ pub(crate) fn find(app_id: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+/// The app whose desktop file names `class` as its `StartupWMClass`: an X11
+/// window (through xwayland-satellite) carries its window class as its app
+/// id, VLC's "VLC" for `org.videolan.VLC`.
+pub(crate) fn by_wm_class(class: &str) -> Option<String> {
+    if class.is_empty() {
+        return None;
+    }
+    let dirs =
+        std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
+    std::iter::once(marathon_rt::dirs::data())
+        .chain(dirs.split(':').map(PathBuf::from))
+        .filter_map(|d| std::fs::read_dir(d.join("applications")).ok())
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|x| x == "desktop"))
+        .find(|p| {
+            std::fs::read_to_string(p)
+                .ok()
+                .and_then(|text| wm_class_of(&text).map(|c| c.eq_ignore_ascii_case(class)))
+                .unwrap_or(false)
+        })
+        .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().into_owned()))
+}
+
+/// The `StartupWMClass` of a desktop file's main entry.
+fn wm_class_of(text: &str) -> Option<&str> {
+    let mut in_entry = false;
+    for line in text.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_entry = line == "[Desktop Entry]";
+        } else if in_entry {
+            if let Some(class) = line.strip_prefix("StartupWMClass=") {
+                return Some(class.trim());
+            }
+        }
+    }
+    None
+}
+
 fn phone_apps_path() -> QString {
     QString::from(cached_phone_apps().to_string_lossy().as_ref())
 }
@@ -520,6 +560,16 @@ mod tests {
         let path = dir.join(file);
         fs::write(&path, text).unwrap();
         path
+    }
+
+    #[test]
+    fn the_window_class_is_read_from_the_main_entry() {
+        let vlc = "[Desktop Entry]\nName=VLC\nStartupWMClass=VLC\n\n[Desktop Action Play]\nStartupWMClass=other\n";
+        assert_eq!(super::wm_class_of(vlc), Some("VLC"));
+        assert_eq!(
+            super::wm_class_of("[Desktop Action A]\nStartupWMClass=x\n"),
+            None
+        );
     }
 
     fn app(text: &str) -> Option<App> {
