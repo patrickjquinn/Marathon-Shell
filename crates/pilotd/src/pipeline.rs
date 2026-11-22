@@ -2301,6 +2301,9 @@ impl Pipeline {
             }
             None => scope,
         };
+        if on_screen.is_some() {
+            log::debug!("about the screen: {:?}", answers.get(SCREEN_QUESTION));
+        }
         let screen = on_screen.filter(|_| about_screen(&answers));
         // Opened over an app with actions, about what it shows: its tools
         // come first, and a request that would be a clarifying question
@@ -2314,10 +2317,14 @@ impl Pipeline {
                     .any(|e| e.available && e.spec.domain == o.app) =>
             {
                 let mut s = scope.unwrap_or_default();
+                // Only an app that showed Pilot its screen holds an answer
+                // to its tools: over Calendar, which shows nothing, "what is
+                // the boiling point of water" was answered, sent back, and
+                // replaced by "I don't have access".
+                insist |= !o.context.is_empty();
                 if !s.contains(&o.app) {
                     s.insert(0, o.app);
                 }
-                insist = true;
                 let route = match route {
                     Route::Clarify { .. } => Route::Qwen,
                     Route::Handler { intent } if intent == "camera_vision" => Route::Qwen,
@@ -4313,10 +4320,13 @@ fn screen_question(app: &str) -> Question {
             format!(
                 "About what {app} shows now: this page, this message, this article, this \
                  photo, this setting or item; summarise it, explain it, translate it, reply to \
-                 it, change it."
+                 it, change it.\n\"Summarise this\", \"what does this say?\", \"reply to this\", \
+                 \"translate this page\"."
             ),
             "Not about the screen: a general question about the world, facts, advice, \
-             writing, sums, or a phone action that needs nothing on screen."
+             writing, sums, or a phone action that needs nothing on screen.\n\"What is the \
+             capital of Japan?\", \"how far away is the moon?\", \"who wrote Hamlet?\", \
+             \"set a timer for ten minutes\"."
                 .into(),
         ],
     }
