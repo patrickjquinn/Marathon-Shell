@@ -50,8 +50,10 @@ KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
 cp "${KEY_PRIV}.pub" /etc/apk/keys/
 printf 'PACKAGER_PRIVKEY=%s\nREPODEST=/root/packages\n' "$KEY_PRIV" > /etc/abuild.conf
 
+# All of them: an aport may take sources from a sibling (linux-minimal-mp01
+# takes the MT6789 series from linux-zinwa-q25).
 mkdir -p /work/aports
-rsync -a --checksum --no-times "/aports-src/$PKG/" "/work/aports/$PKG/"
+rsync -a --checksum --no-times /aports-src/ /work/aports/
 cd "/work/aports/$PKG"
 abuild -F checksum >/dev/null
 # abuild -d installs nothing; the compilers and makedepends still have to be there.
