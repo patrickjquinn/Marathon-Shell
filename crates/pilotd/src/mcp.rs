@@ -748,8 +748,6 @@ mod tests {
         );
         let command = [
             bin.to_string_lossy().into_owned(),
-            "--probe-seconds".into(),
-            "0".into(),
             "--actions-dir".into(),
             dir.into(),
         ];

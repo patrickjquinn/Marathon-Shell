@@ -623,7 +623,7 @@ async fn spawns_the_keel_mcp_program() {
         return;
     };
     let mut cmd = tokio::process::Command::new(&bin);
-    cmd.args(["--stdio", "--probe-seconds", "0", "--actions-dir"])
+    cmd.args(["--stdio", "--actions-dir"])
         .arg(golden())
         .env("DBUS_SESSION_BUS_ADDRESS", &bus.address);
     let client =
