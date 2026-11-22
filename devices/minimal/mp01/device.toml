@@ -14,6 +14,7 @@ package = "device-minimal-mp01-marathon"
 # OnePlus 6.
 [build]
 target = "minimal-mp01"
+wrapper = "scripts/build-minimal-mp01-image.sh"
 bootloader = "systemd-boot"
 
 # Proposed, not proven: the stock LK stays in lk_a/lk_b and loads a U-Boot
