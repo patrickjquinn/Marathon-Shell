@@ -94,6 +94,44 @@ static bool appLogsAllEnabled() {
     return envBool("MARATHON_APP_LOGS_ALL", false);
 }
 
+namespace {
+    // wl_output 4 names the output: xwayland-satellite unwraps that name. Qt
+    // sends nothing past version 2, so a client's v4 output hears it here, as
+    // it is created and before Qt's bind sends done.
+    struct OutputNamer {
+        wl_listener created{};
+        wl_listener destroyed{};
+    };
+    QByteArray g_outputName;
+
+    void       nameOutput(wl_listener *, void *data) {
+        auto *resource = static_cast<wl_resource *>(data);
+        if (qstrcmp(wl_resource_get_class(resource), "wl_output") != 0 ||
+            wl_resource_get_version(resource) < WL_OUTPUT_NAME_SINCE_VERSION)
+            return;
+        wl_output_send_name(resource, g_outputName.constData());
+        wl_output_send_description(resource, "Marathon display");
+    }
+
+    void forgetClient(wl_listener *listener, void *) {
+        OutputNamer *namer = wl_container_of(listener, namer, destroyed);
+        wl_list_remove(&namer->created.link);
+        wl_list_remove(&namer->destroyed.link);
+        delete namer;
+    }
+
+    void watchClient(wl_listener *, void *data) {
+        auto *client            = static_cast<wl_client *>(data);
+        auto *namer             = new OutputNamer;
+        namer->created.notify   = nameOutput;
+        namer->destroyed.notify = forgetClient;
+        wl_client_add_resource_created_listener(client, &namer->created);
+        wl_client_add_destroy_listener(client, &namer->destroyed);
+    }
+
+    wl_listener g_clientCreated{{}, watchClient};
+} // namespace
+
 WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     : m_window(window)
     , m_nextSurfaceId(1)
@@ -505,44 +543,6 @@ WaylandCompositor::~WaylandCompositor() {
         process->deleteLater();
     }
 }
-
-namespace {
-    // wl_output 4 names the output: xwayland-satellite unwraps that name. Qt
-    // sends nothing past version 2, so a client's v4 output hears it here, as
-    // it is created and before Qt's bind sends done.
-    struct OutputNamer {
-        wl_listener created{};
-        wl_listener destroyed{};
-    };
-    QByteArray g_outputName;
-
-    void       nameOutput(wl_listener *, void *data) {
-        auto *resource = static_cast<wl_resource *>(data);
-        if (qstrcmp(wl_resource_get_class(resource), "wl_output") != 0 ||
-            wl_resource_get_version(resource) < WL_OUTPUT_NAME_SINCE_VERSION)
-            return;
-        wl_output_send_name(resource, g_outputName.constData());
-        wl_output_send_description(resource, "Marathon display");
-    }
-
-    void forgetClient(wl_listener *listener, void *) {
-        OutputNamer *namer = wl_container_of(listener, namer, destroyed);
-        wl_list_remove(&namer->created.link);
-        wl_list_remove(&namer->destroyed.link);
-        delete namer;
-    }
-
-    void watchClient(wl_listener *, void *data) {
-        auto *client            = static_cast<wl_client *>(data);
-        auto *namer             = new OutputNamer;
-        namer->created.notify   = nameOutput;
-        namer->destroyed.notify = forgetClient;
-        wl_client_add_resource_created_listener(client, &namer->created);
-        wl_client_add_destroy_listener(client, &namer->destroyed);
-    }
-
-    wl_listener g_clientCreated{{}, watchClient};
-} // namespace
 
 bool WaylandCompositor::filterGlobal(const wl_client *client, const wl_global *global, void *data) {
     auto *self = static_cast<WaylandCompositor *>(data);
