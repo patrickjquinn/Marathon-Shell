@@ -47,9 +47,11 @@ const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --unset-env=GBM_BACKEN
 /// makes it use the Secret Service. Only those apps get it: Qt picks its
 /// platform theme from the same variable. Signal's Flatpak passes its own
 /// store, plain text unless `SIGNAL_PASSWORD_STORE` says otherwise, and first
-/// shows a dialog warning of it.
-const ELECTRON_DESKTOP: &str =
-    "--env=XDG_CURRENT_DESKTOP=marathon:GNOME --env=SIGNAL_PASSWORD_STORE=gnome-libsecret ";
+/// shows a dialog warning of it. Element's wrapper asks Chromium to pick
+/// its platform, and with X11 there it picked X11, through Xwayland at the
+/// wrong scale: Electron apps run on Wayland only.
+const ELECTRON_DESKTOP: &str = "--env=XDG_CURRENT_DESKTOP=marathon:GNOME \
+    --env=SIGNAL_PASSWORD_STORE=gnome-libsecret --nosocket=x11 ";
 
 /// Electron apps lay out for a desktop: at the phone's scale Element's
 /// welcome card and Signal's link instructions ran off the right edge. At
@@ -1447,7 +1449,7 @@ mod tests {
         assert!(run.starts_with(
             "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH \
              --env=XDG_CURRENT_DESKTOP=marathon:GNOME \
-             --env=SIGNAL_PASSWORD_STORE=gnome-libsecret --command"
+             --env=SIGNAL_PASSWORD_STORE=gnome-libsecret --nosocket=x11 --command"
         ));
         assert!(run.ends_with("org.signal.Signal --force-device-scale-factor=1 @@u %U @@"));
         assert!(is_foreground_flatpak_run(&run));
