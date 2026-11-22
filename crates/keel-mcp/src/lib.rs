@@ -19,10 +19,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use inotify::{Inotify, WatchMask};
+use tokio::sync::mpsc;
+
 pub use server::KeelMcp;
 
-/// Keeps `server`'s catalogue current: rescans `dirs` every 2 s (rebuilding
-/// when a file appears, changes or goes) and asks running apps for their
+/// How long changes must have stopped before the catalogue is rebuilt: an
+/// install writes a file in several steps.
+const SETTLE: Duration = Duration::from_millis(250);
+
+/// Keeps `server`'s catalogue current: rebuilds it when a file in `dirs`
+/// appears, changes or goes (inotify), and asks running apps for their
 /// manifests every `probe` interval.
 #[allow(clippy::print_stderr, reason = "journald collects stderr")]
 pub async fn watch(
@@ -31,28 +38,99 @@ pub async fn watch(
     dirs: Vec<PathBuf>,
     probe: Duration,
 ) {
-    let mut last_files = None;
-    let mut last_running = Vec::new();
-    let mut next_probe = tokio::time::Instant::now();
+    let mut dir_changes = watch_dirs(&dirs);
+    let mut files = None;
+    let mut running = Vec::new();
+    let mut asking = true;
     loop {
-        let files = catalogue::scan(&dirs);
-        let mut changed = last_files.as_ref() != Some(&files);
-        if tokio::time::Instant::now() >= next_probe {
-            let running = backend.running_manifests().await;
-            changed |= running != last_running;
-            last_running = running;
-            next_probe = tokio::time::Instant::now() + probe;
+        let scanned = catalogue::scan(&dirs);
+        let mut changed = files.as_ref() != Some(&scanned);
+        if asking {
+            let now = backend.running_manifests().await;
+            changed |= now != running;
+            running = now;
         }
         if changed {
-            let built = catalogue::Catalogue::build(catalogue::load(&files), last_running.clone());
+            let built = catalogue::Catalogue::build(catalogue::load(&scanned), running.clone());
             eprintln!(
                 "keel-mcp: {} app(s), {} tool(s)",
                 built.apps.len(),
                 built.tools.len()
             );
             server.set_catalogue(built);
-            last_files = Some(files);
         }
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        files = Some(scanned);
+        asking = tokio::select! {
+            Some(()) = dir_changes.recv() => {
+                while matches!(tokio::time::timeout(SETTLE, dir_changes.recv()).await, Ok(Some(()))) {}
+                false
+            }
+            () = tokio::time::sleep(probe) => true,
+        };
     }
+}
+
+/// A file written, replaced, moved or removed, or the directory itself
+/// going.
+const WATCHED: WatchMask = WatchMask::CREATE
+    .union(WatchMask::DELETE)
+    .union(WatchMask::MODIFY)
+    .union(WatchMask::MOVED_FROM)
+    .union(WatchMask::MOVED_TO)
+    .union(WatchMask::CLOSE_WRITE)
+    .union(WatchMask::DELETE_SELF)
+    .union(WatchMask::MOVE_SELF);
+
+/// Watches each of `dirs`, or its nearest existing ancestor while it does
+/// not exist, so that it is watched itself once it appears.
+fn follow(inotify: &mut Inotify, dirs: &[PathBuf]) -> std::io::Result<()> {
+    for dir in dirs {
+        for candidate in dir.ancestors() {
+            match inotify.watches().add(candidate, WATCHED) {
+                Ok(_) => break,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Ticks when something may have changed in `dirs`; the watches are in
+/// place on return. inotify blocks a thread of its own.
+#[allow(clippy::print_stderr, reason = "journald collects stderr")]
+fn watch_dirs(dirs: &[PathBuf]) -> mpsc::Receiver<()> {
+    let (tx, rx) = mpsc::channel(1);
+    let dirs: Vec<PathBuf> = dirs
+        .iter()
+        .filter_map(|d| std::path::absolute(d).ok())
+        .collect();
+    let mut inotify = match Inotify::init().and_then(|mut i| follow(&mut i, &dirs).map(|()| i)) {
+        Ok(i) => i,
+        Err(e) => {
+            eprintln!("keel-mcp: not watching the manifest directories: {e}");
+            return rx;
+        }
+    };
+    let mut wait = move || -> std::io::Result<()> {
+        let mut buffer = [0; 4096];
+        loop {
+            inotify.read_events_blocking(&mut buffer)?;
+            if let Err(mpsc::error::TrySendError::Closed(())) = tx.try_send(()) {
+                return Ok(());
+            }
+            follow(&mut inotify, &dirs)?;
+        }
+    };
+    let watcher = std::thread::Builder::new()
+        .name("keel-mcp-watch".into())
+        .spawn(move || {
+            if let Err(e) = wait() {
+                eprintln!("keel-mcp: stopped watching the manifest directories: {e}");
+            }
+        });
+    if let Err(e) = watcher {
+        eprintln!("keel-mcp: not watching the manifest directories: {e}");
+    }
+    rx
 }
