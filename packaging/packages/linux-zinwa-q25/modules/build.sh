@@ -73,6 +73,7 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0005-wlan-gen4m-proc-owner.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0006-wlan-gen4m-failed-roam-disconnects.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0008-wlan-gen4m-no-trace-printk.patch")
+(cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0012-wlan-gen4m-mt6789-no-emi-mpu-warning.patch")
 
 rm -rf "$out/src/fm"
 cp -r "$fmradio" "$out/src/fm"

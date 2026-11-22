@@ -1,0 +1,28 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wlan: gen4m: mt6789: no EMI MPU change around firmware load
+
+The MT6789 platform code implements kalSetEmiMpuProtection() as an
+empty function, but only under CONFIG_MTK_EMI. Without MediaTek's EMI
+driver the weak default in gl_kal.c ran instead and logged "EMI MPU
+function is not defined" with a WARN class on every firmware download
+and power-up.
+
+MediaTek's MT6789 implementation does nothing even when its EMI driver
+is present, so there is nothing missing to warn about. Build it
+unconditionally.
+---
+--- a/wlan_drv_gen4m_6789/os/linux/plat/mt6789/plat_priv.c
++++ b/wlan_drv_gen4m_6789/os/linux/plat/mt6789/plat_priv.c
+@@ -201,11 +201,11 @@
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_MTK_EMI
+ void kalSetEmiMpuProtection(phys_addr_t emiPhyBase, bool enable)
+ {
+ }
+ 
++#ifdef CONFIG_MTK_EMI
+ void kalSetDrvEmiMpuProtection(phys_addr_t emiPhyBase, uint32_t offset,
+ 			       uint32_t size)
+ {
