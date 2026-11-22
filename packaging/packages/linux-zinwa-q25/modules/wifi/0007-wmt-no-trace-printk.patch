@@ -1,0 +1,23 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wmt: log the ftrace debug channel with pr_debug
+
+osal_ftrace_print() wrote WMT's optional systrace markers with
+trace_printk(). Any module that contains a trace_printk() call makes the
+kernel allocate the trace_printk buffers and print the "trace_printk()
+being used ... unsafe for production" notice when it loads, although
+this channel is off unless the WMT debug interface turns it on.
+
+Use pr_debug(): the channel stays available through dynamic debug, and
+the module no longer carries a trace_printk format.
+---
+--- a/wmt_drv/common_main/linux/osal.c
++++ b/wmt_drv/common_main/linux/osal.c
+@@ -1550,7 +1550,7 @@
+ 		va_end(args);
+ 
+ 		if (ret > 0)
+-			trace_printk("%s\n", tempString);
++			pr_debug("%s\n", tempString);
+ 	}
+ #endif
+ 	return ret;

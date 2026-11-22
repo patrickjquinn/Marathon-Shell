@@ -65,9 +65,11 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0001-wmt-btif-connadp-q25.patch")
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0003-wmt-populate-consys-children.patch")
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0004-wmt-btif-no-sleep-in-atomic-paths.patch")
+(cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0007-wmt-no-trace-printk.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0005-wlan-gen4m-proc-owner.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0006-wlan-gen4m-failed-roam-disconnects.patch")
+(cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0008-wlan-gen4m-no-trace-printk.patch")
 
 rm -rf "$out/src/fm"
 cp -r "$fmradio" "$out/src/fm"

@@ -1,0 +1,23 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wlan: gen4m: log the systrace markers with pr_debug
+
+tracing_mark_write() wrote the driver's systrace markers with
+trace_printk(). Any module that contains a trace_printk() call makes the
+kernel allocate the trace_printk buffers and print the "trace_printk()
+being used ... unsafe for production" notice when it loads, although
+the markers are off unless the TRACE debug class is set.
+
+Use pr_debug(): the markers stay available through dynamic debug, and
+the module no longer carries a trace_printk format.
+---
+--- a/wlan_drv_gen4m_6789/os/linux/gl_kal.c
++++ b/wlan_drv_gen4m_6789/os/linux/gl_kal.c
+@@ -308,7 +308,7 @@
+ 
+ #undef __BUFFER_SIZE
+ 
+-	trace_printk("%s", buf);
++	pr_debug("%s", buf);
+ }
+ #endif
+ 

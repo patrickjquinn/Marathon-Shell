@@ -16,8 +16,9 @@ tree (`build.sh`, run from its APKBUILD) and ships as `q25-kernel-modules`.
 | `wifi` | `connadp`, `btif_drv`, `wmt_drv`, `wmt_chrdev_wifi`, `wlan_drv_gen4m_6789` | iasnezhkov/android_kernel_ikko_mindone `9cd73c15` `mindone/modules`, plus the patches |
 
 `wifi/wmt-files.txt` lists the donor files that form the WMT/BTIF/connadp
-tree before `0001`, `0003` and `0004`; `0002` applies to the donor's
-`wlan_drv_gen4m_6789` and `wmt_chrdev_wifi` directories.
+tree before `0001`, `0003`, `0004` and `0007`; `0002`, `0005`, `0006` and
+`0008` apply to the donor's `wlan_drv_gen4m_6789` and `wmt_chrdev_wifi`
+directories.
 
 `MT6789_SOUND=DIR build.sh KSRC KOBJ DONOR OUT` builds all of them; the
 kernel APKBUILD fetches the two donor trees (mindone `9cd73c15` and the
