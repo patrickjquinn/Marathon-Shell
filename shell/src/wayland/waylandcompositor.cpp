@@ -544,27 +544,13 @@ WaylandCompositor::~WaylandCompositor() {
     }
 }
 
-// The client is xwayland-satellite, by its executable.
-static bool isXwaylandSatellite(wl_client *client) {
-    pid_t pid = 0;
-    wl_client_get_credentials(client, &pid, nullptr, nullptr);
-    return pid > 0 &&
-        QFileInfo(QStringLiteral("/proc/%1/exe").arg(pid)).symLinkTarget() ==
-        QLatin1String("/usr/bin/xwayland-satellite");
-}
-
 bool WaylandCompositor::filterGlobal(const wl_client *client, const wl_global *global, void *data) {
     auto *self = static_cast<WaylandCompositor *>(data);
-    // xwayland-satellite gets xdg_wm_base 2 and a named wl_output 4; every
-    // other client keeps Qt's 1 and 2 (Chromium drew 1.5 times too large
-    // with output 4).
-    const char *name   = wl_global_get_interface(global)->name;
-    const int   wanted = qstrcmp(name, "xdg_wm_base") == 0 && self->m_xdgShellV2 ? 2 :
-        qstrcmp(name, "wl_output") == 0 && self->m_outputV4                      ? 4 :
-                                                                                   0;
-    if (wanted &&
-        (wl_global_get_version(global) == uint32_t(wanted)) !=
-            isXwaylandSatellite(const_cast<wl_client *>(client)))
+    if (self->m_xdgShellV2 && wl_global_get_version(global) == 1 &&
+        qstrcmp(wl_global_get_interface(global)->name, "xdg_wm_base") == 0)
+        return false;
+    if (self->m_outputV4 && wl_global_get_version(global) == 2 &&
+        qstrcmp(wl_global_get_interface(global)->name, "wl_output") == 0)
         return false;
     return self->m_securityContextManager->allowsGlobal(client, global) &&
         self->m_nativeClientScale->allowsGlobal(client, global) &&
