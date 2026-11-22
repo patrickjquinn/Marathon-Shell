@@ -925,13 +925,12 @@ fn answer_so_far(text: &str) -> &str {
     text.trim_end()
 }
 
-/// Where the last follow-up label is, and where its text starts: the
+/// Where the first follow-up label is, and where its text starts: the
 /// model writes it "FOLLOWUPS:", "Follow-ups:", "Follow ups:" and
 /// "FOLUPS:", so a word that is "fol", then l, o and w, then "up" or
 /// "ups", and a colon.
 fn followup_marker(text: &str) -> Option<(usize, usize)> {
     let lower = text.to_ascii_lowercase();
-    let mut found = None;
     for (i, _) in lower.match_indices("fol") {
         if lower[..i]
             .chars()
@@ -956,10 +955,10 @@ fn followup_marker(text: &str) -> Option<(usize, usize)> {
             .strip_suffix("ups")
             .or_else(|| letters.strip_suffix("up"));
         if core.is_some_and(|m| m.starts_with("fol") && m[3..].chars().all(|c| "low".contains(c))) {
-            found = Some((i, i + colon + 1));
+            return Some((i, i + colon + 1));
         }
     }
-    found
+    None
 }
 
 /// Splits Qwen's "FOLLOWUPS: a | b | c" last line off an answer; a small
@@ -968,13 +967,21 @@ pub fn split_followups(text: &str) -> (String, Vec<String>) {
     let Some((i, after)) = followup_marker(text) else {
         return (text.trim().to_owned(), Vec::new());
     };
+    // The model may write the label twice, or number its questions.
     let follow = text[after..]
         .split(['|', '\n'])
         .map(|f| {
-            f.trim()
-                .trim_start_matches(['-', '*', '•'])
-                .trim()
-                .to_owned()
+            let f = match followup_marker(f) {
+                Some((start, after)) if f[..start].trim().is_empty() => &f[after..],
+                _ => f,
+            };
+            let f = f.trim().trim_start_matches(['-', '*', '•']).trim();
+            let digits = f.len() - f.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+            match f[digits..].strip_prefix(['.', ')']) {
+                Some(rest) if digits > 0 => rest.trim(),
+                _ => f,
+            }
+            .to_owned()
         })
         .filter(|f| (2..=60).contains(&f.chars().count()))
         .take(3)
@@ -1125,11 +1132,11 @@ const INTENT_DESCRIPTIONS: [(&str, &str); 17] = [
     ("message", "Send someone a text or chat message."),
     (
         "calendar_add",
-        "Put an event or appointment in the calendar.",
+        "Put an event or appointment in the calendar.\n\"Add lunch with Sam on Friday at 1\", \"put the dentist in my calendar for Tuesday\".",
     ),
     (
         "calendar_query",
-        "Ask what is in the calendar, or when the next event is.",
+        "Ask what is in the calendar, or when the next event is.\n\"What's on my calendar today?\", \"what do I have tomorrow?\", \"am I free on Friday?\", \"when is my next meeting?\".",
     ),
     (
         "media",
@@ -2294,6 +2301,9 @@ impl Pipeline {
             }
             None => scope,
         };
+        if on_screen.is_some() {
+            log::debug!("about the screen: {:?}", answers.get(SCREEN_QUESTION));
+        }
         let screen = on_screen.filter(|_| about_screen(&answers));
         // Opened over an app with actions, about what it shows: its tools
         // come first, and a request that would be a clarifying question
@@ -2307,10 +2317,14 @@ impl Pipeline {
                     .any(|e| e.available && e.spec.domain == o.app) =>
             {
                 let mut s = scope.unwrap_or_default();
+                // Only an app that showed Pilot its screen holds an answer
+                // to its tools: over Calendar, which shows nothing, "what is
+                // the boiling point of water" was answered, sent back, and
+                // replaced by "I don't have access".
+                insist |= !o.context.is_empty();
                 if !s.contains(&o.app) {
                     s.insert(0, o.app);
                 }
-                insist = true;
                 let route = match route {
                     Route::Clarify { .. } => Route::Qwen,
                     Route::Handler { intent } if intent == "camera_vision" => Route::Qwen,
@@ -2333,9 +2347,19 @@ impl Pipeline {
         // A trip or places to go: searched first, so the plan names real
         // places in the right county (from memory it did not).
         let place_plan = !weather && intents::place_plan(text);
+        // About the phone's own things (its calendar, notes, contacts): no
+        // search first. "What is on my calendar today" searched Dublin's
+        // events, and the model listed them as the person's.
+        let own_area = top
+            .as_deref()
+            .is_some_and(|d| !d.contains('.') && d != GENERAL && d != "web")
+            && answers.get("domain").is_some_and(|a| {
+                matches!(a, crate::jev::Answer::Choice { confidence, .. } if *confidence >= INSIST_FROM)
+            });
         let web_first = place_plan
             || (decision.intent != "weather"
                 && !weather
+                && !own_area
                 && matches!(
                     answers.get("needs_web"),
                     Some(crate::jev::Answer::Noul { p }) if *p >= self.thresholds.web_first
@@ -4296,10 +4320,13 @@ fn screen_question(app: &str) -> Question {
             format!(
                 "About what {app} shows now: this page, this message, this article, this \
                  photo, this setting or item; summarise it, explain it, translate it, reply to \
-                 it, change it."
+                 it, change it.\n\"Summarise this\", \"what does this say?\", \"reply to this\", \
+                 \"translate this page\"."
             ),
             "Not about the screen: a general question about the world, facts, advice, \
-             writing, sums, or a phone action that needs nothing on screen."
+             writing, sums, or a phone action that needs nothing on screen.\n\"What is the \
+             capital of Japan?\", \"how far away is the moon?\", \"who wrote Hamlet?\", \
+             \"set a timer for ten minutes\"."
                 .into(),
         ],
     }
@@ -4456,6 +4483,16 @@ mod answer_tests {
             let (text, f) = split_followups(&format!("It is sunny.\n{label} Wind? | Rain?"));
             assert_eq!((text.as_str(), f.len()), ("It is sunny.", 2), "{label}");
         }
+        // The model wrote the label twice and numbered its questions.
+        let (text, f) = split_followups(
+            "Nothing today.\nFOLLOWUPS:\n1. Which event?\n2. Add anything?\n\nFOLLOWUPS: What time? | Reminders?",
+        );
+        assert_eq!(text, "Nothing today.");
+        assert_eq!(f, ["Which event?", "Add anything?", "What time?"]);
+        assert_eq!(
+            answer_so_far("Nothing today.\nFOLLOWUPS:\n1. Which?\nFOLLOWUPS: When?"),
+            "Nothing today."
+        );
         for not in ["Folding up: the map.", "Scaffolding up: soon", "fold: up"] {
             assert!(split_followups(not).1.is_empty(), "{not}");
         }

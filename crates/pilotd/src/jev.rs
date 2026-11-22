@@ -583,6 +583,12 @@ impl JevClient for LocalJev {
             {
                 (top.clone(), *p, 0.0)
             }
+            // Reading the calendar changes nothing, so the meaning alone may
+            // ask for it: "am I free tomorrow" names no calendar, and the
+            // model without its tools said it had no access to one.
+            (None, Some((top, p))) if top == "calendar_query" && *p >= 0.4 => {
+                (top.clone(), *p, 0.0)
+            }
             _ => ("open_ended".to_owned(), 0.5, 1.0),
         };
         log::debug!("intent {intent} at {confidence:.2}");

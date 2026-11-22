@@ -73,7 +73,7 @@ const NAME: &str = "org.shipwright.Pilot";
     default_path = "/org/shipwright/Pilot"
 )]
 trait Pilot {
-    fn show_sheet_for(&self, pid: u32) -> zbus::Result<()>;
+    fn show_sheet_for(&self, pid: u32) -> zbus::Result<String>;
     fn show_sheet(&self) -> zbus::Result<()>;
     fn listen_for(&self, pid: u32) -> zbus::Result<String>;
     fn ask(&self, question: &str, spoken: bool) -> zbus::Result<String>;
@@ -173,7 +173,7 @@ impl PilotClient {
                     {
                         pilot.show_sheet().await
                     }
-                    shown => shown,
+                    shown => shown.map(drop),
                 }
             };
             if let Err(e) = shown.await {
@@ -191,7 +191,7 @@ impl PilotClient {
                     Err(zbus::Error::FDO(error))
                         if matches!(*error, zbus::fdo::Error::UnknownMethod(_)) =>
                     {
-                        pilot.show_sheet_for(pid).await
+                        pilot.show_sheet_for(pid).await.map(drop)
                     }
                     shown => shown.map(drop),
                 }
