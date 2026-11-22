@@ -1132,11 +1132,11 @@ const INTENT_DESCRIPTIONS: [(&str, &str); 17] = [
     ("message", "Send someone a text or chat message."),
     (
         "calendar_add",
-        "Put an event or appointment in the calendar.",
+        "Put an event or appointment in the calendar.\n\"Add lunch with Sam on Friday at 1\", \"put the dentist in my calendar for Tuesday\".",
     ),
     (
         "calendar_query",
-        "Ask what is in the calendar, or when the next event is.",
+        "Ask what is in the calendar, or when the next event is.\n\"What's on my calendar today?\", \"what do I have tomorrow?\", \"am I free on Friday?\", \"when is my next meeting?\".",
     ),
     (
         "media",
