@@ -30,6 +30,10 @@ that are not visible from the vendor sources:
   minimal,z10-eink binding of the panel driver series). The board crosses
   data lanes 2 and 3, which the DSI output endpoint describes with
   data-lanes.
+- The module scans out 800x600 and is held in portrait. LK, and a
+  U-Boot it chain-loads, turn their text by 270 degrees to read it, so
+  the panel's rotation is 270 (left side up), which turns fbcon the
+  same way.
 - The reserved memory follows the MT6789 LK layout the Zinwa Q25 and the
   Daylight DC-1 share; the regions LK places at boot are covered by
   windows that span both boards' layouts.
@@ -912,7 +916,7 @@ new file mode 100644
 +		vdd33-supply = <&epd_3v3>;
 +		reset-gpios = <&pio 85 GPIO_ACTIVE_LOW>;
 +		backlight = <&frontlight>;
-+		rotation = <90>;
++		rotation = <270>;
 +
 +		port {
 +			eink_in: endpoint {

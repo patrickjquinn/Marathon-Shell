@@ -44,8 +44,9 @@ The board DT follows the bindings of the e-paper series in this package
   `vdd12-supply`, `vdd18-supply`, `vdd33-supply` (fixed regulators on GPIO158,
   GPIO43 and GPIO159, the vendor's `v12_en`, `v18_en`, `v33_en`, boot-on
   because LK leaves its picture up), `reset-gpios` (GPIO85, active low),
-  `backlight` (the frontlight), `rotation = <90>` (from that binding's
-  example; to be checked on the phone) and a `port` to the DSI output; its
+  `backlight` (the frontlight), `rotation = <270>` (left side up: LK and
+  the chain-loaded U-Boot turn their text that way on the phone, and DRM
+  turns fbcon to match, as `fbcon=rotate:3` does) and a `port` to the DSI output; its
   driver registers the DSI device on that host;
 - 4 data lanes, RGB888, video mode, 800x600 (vendor driver: `dsi->lanes = 4`,
   HFP/HSA/HBP 20/16/20, VFP/VSA/VBP 54/10/10, 34617 kHz);

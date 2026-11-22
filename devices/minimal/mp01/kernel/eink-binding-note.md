@@ -65,7 +65,7 @@ not a bridge followed by a panel.
 		vdd33-supply = <&eink_vdd33>;
 		reset-gpios = <&pio 85 GPIO_ACTIVE_LOW>;
 		backlight = <&frontlight>;	/* optional, see below */
-		rotation = <90>;		/* or 270: check the LK logo */
+		rotation = <270>;
 
 		port {
 			eink_in: endpoint {
@@ -116,8 +116,11 @@ not a bridge followed by a panel.
   The count in `data-lanes` must match the four that the driver asks for,
   otherwise the DSI host refuses to attach.
 - **Rotation.** The picture is scanned out as 800x600 landscape on a
-  600x800 portrait panel, and LK rotates its text. Pick 90 or 270 to
-  match LK's text direction.
+  600x800 portrait panel. LK turns its text with the tops towards x = 0,
+  and the chain-loaded U-Boot reads right on the phone with its console
+  at rot 3 (270 degrees). `rotation = <270>` is left side up, which DRM
+  turns into a 90-degree plane rotation and fbcon's `rotate:3`, the same
+  direction.
 - **Frontlight.** `mtk_leds` drives "lcd-backlight" through `disp_pwm`.
   A `pwm-backlight` on `&disp_pwm` with `backlight = <&frontlight>`
   makes DRM switch it off on blank. The warm-light PWM is a second LED
