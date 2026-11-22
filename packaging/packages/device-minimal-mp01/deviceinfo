@@ -11,14 +11,16 @@ deviceinfo_arch="aarch64"
 deviceinfo_chassis="handset"
 
 # Device related
+# The board DT alone: the vendor DTB is for images with mp01-kernel-modules.
+deviceinfo_dtb="mediatek/mt6789-minimal-mp01"
 deviceinfo_drm="true"
 deviceinfo_external_storage="true"
 deviceinfo_rootfs_image_sector_size="4096"
 
-# U-Boot, loaded from boot_a by the stock LK, boots systemd-boot through its
+# U-Boot, loaded from boot_b by the stock LK, boots systemd-boot through its
 # EFI implementation.
 deviceinfo_boot_filesystem="fat32"
-# No flasher until the boot chain is proven (devices/minimal/mp01/README.md).
+# Flashed with scripts/flash/flash-minimal-mp01.sh (FLASHING.md), not pmbootstrap.
 deviceinfo_flash_method="none"
 deviceinfo_flash_pagesize="4096"
 deviceinfo_flash_sparse="true"
