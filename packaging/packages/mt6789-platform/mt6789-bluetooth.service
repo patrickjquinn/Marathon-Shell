@@ -1,7 +1,7 @@
 [Unit]
-Description=Q25 Bluetooth HCI (CONNSYS over WMT/STP)
-Requires=q25-wmt-launcher.service
-After=q25-wmt-launcher.service
+Description=MT6789 Bluetooth HCI (CONNSYS over WMT/STP)
+Requires=mt6789-wmt-launcher.service
+After=mt6789-wmt-launcher.service
 Before=bluetooth.service
 
 [Service]

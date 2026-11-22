@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 /*
- * q25-wmt: native stand-in for MediaTek's Android wmt_loader/wmt_launcher on
- * the Zinwa Q25 (MT6789 CONNSYS, SOC2_1X1). No Android HAL or properties.
+ * mt6789-wmt: native stand-in for MediaTek's Android wmt_loader/wmt_launcher on
+ * MT6789 phones (CONNSYS SOC2_1X1). No Android HAL or properties.
  * Protocol and patch-header layout follow NikuzoKO/pmos-moto-g06-lagos
  * lagos-wmt.c (MIT, 0d678342) and the joint wmt_drv source.
  *
- *   q25-wmt init
+ *   mt6789-wmt init
  *       /dev/wmtdetect: CONNSYS_SOC_HW_INIT, GET_SOC_CHIP_ID (must be 0x6789),
  *       SET_CHIP_ID, DO_MODULE_INIT. DO_MODULE_INIT runs the WMT A-die probe,
  *       which powers CONN on and off once. The detected A-die is written to
- *       /run/q25-wmt.adie ("6631", "6635" or "unknown").
- *   q25-wmt launch [-p firmware-dir]
+ *       /run/mt6789-wmt.adie ("6631", "6635" or "unknown").
+ *   mt6789-wmt launch [-p firmware-dir]
  *       Stay resident on /dev/stpwmt and answer the WMT "srh_rom_patch"
  *       up-call with soc2_2_ram_*_1<flavor>_1_hdr.bin for the detected A-die
  *       (6631 -> d, 6635 -> e). With no detected A-die every request fails.
- *   q25-wmt wifi-on [nvram-file]
+ *   mt6789-wmt wifi-on [nvram-file]
  *       Optionally hand the Wi-Fi NVRAM blob to the driver, then write "S"
  *       (station mode) to /dev/wmtWifi.
- *   q25-wmt wifi-off
+ *   mt6789-wmt wifi-off
  *       Write "0" to /dev/wmtWifi.
  */
 #include <dirent.h>
@@ -49,8 +49,8 @@
 /* (UART baud << 8) | (FM mode << 4) | STP mode: BTIF (3), FM common (2) */
 #define STP_MODE_BTIF_FM_COMMON 0x23
 
-#define Q25_SOC_CHIP_ID 0x6789
-#define ADIE_STATE_FILE "/run/q25-wmt.adie"
+#define MT6789_SOC_CHIP_ID 0x6789
+#define ADIE_STATE_FILE "/run/mt6789-wmt.adie"
 #define PATCH_NAME_MAX 256
 /* header: build time[16], platform[4], hw ver[2], sw ver[2], info[8] */
 #define PATCH_INFO_OFFSET 24
@@ -104,9 +104,9 @@ static int detect_init(void)
 		goto fail;
 	}
 	chip_id = ioctl(fd, COMBO_IOCTL_GET_SOC_CHIP_ID, 0);
-	if (chip_id != Q25_SOC_CHIP_ID) {
+	if (chip_id != MT6789_SOC_CHIP_ID) {
 		fprintf(stderr, "unexpected connsys SoC chip id 0x%x (want 0x%x)\n",
-			chip_id, Q25_SOC_CHIP_ID);
+			chip_id, MT6789_SOC_CHIP_ID);
 		goto fail;
 	}
 	printf("connsys chip id 0x%04x\n", chip_id);
@@ -278,7 +278,7 @@ static int launch(void)
 		if (!strcmp(command, "srh_rom_patch"))
 			result = answer_rom_patch_search(wmt_fd);
 		else if (!strcmp(command, "srh_patch"))
-			/* Q25 ships no soc2_2_patch_* ROM patch files. */
+			/* The stock firmware has no soc2_2_patch_* ROM patch files. */
 			result = -1;
 
 		response = result ? "fail" : "ok";

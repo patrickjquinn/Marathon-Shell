@@ -1,7 +1,7 @@
 [Unit]
-Description=Q25 FM radio receiver (CONNSYS over WMT)
-Requires=q25-wmt-launcher.service
-After=q25-wmt-launcher.service
+Description=MT6789 FM radio receiver (CONNSYS over WMT)
+Requires=mt6789-wmt-launcher.service
+After=mt6789-wmt-launcher.service
 
 [Service]
 Type=oneshot
