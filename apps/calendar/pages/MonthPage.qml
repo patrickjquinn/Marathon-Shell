@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Keel.Actions 1.0
 import "../CalendarLogic.js" as Logic
 import "../components"
 
@@ -12,6 +13,12 @@ Page {
     property alias date: picker.date
     readonly property var dayEvents: Logic.eventsOn(app.events, date)
     readonly property bool showingToday: Logic.dateKey(date) === Logic.dateKey(new Date())
+
+    KeelContext {
+        purpose: "looking at a day in the calendar"
+        text: Logic.contextText(page.showingToday ? qsTr("Today") : Format.formatDate(page.date, Formatter.DateLong), page.dayEvents)
+        active: page.status === PageStatus.Active
+    }
 
     function showDate(d) {
         picker.date = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
