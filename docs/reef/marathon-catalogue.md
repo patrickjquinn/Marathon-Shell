@@ -36,13 +36,12 @@ accepted can refuse a replayed older catalogue.
 | sign | `tools/reef-catalogue sign site/reef/<arch>/catalogue.json --gnupghome ~/.marathon-secrets/reef/gnupg`: checks the catalogue, stamps `generated_at` and a higher `revision`, signs |
 | check | `tools/reef-catalogue verify site/reef/*/catalogue.json`, run by marathon-updates' CI on every push; the Pages deploy runs it first and publishes nothing that fails |
 
-Reef does not check the signature yet: it trusts HTTPS to GitHub Pages, as
-it trusted HTTPS to reefstore.app. Checking it means shipping the key
-dearmored in the shipwright-reef package (gpgv reads no armored keys) with
-`gpgv` as a dependency, fetching `catalogue.json.asc` beside the catalogue in
-`jobs::refresh`, refusing the catalogue on a bad signature or a lower
-`revision` than the one kept beside the cache, and signing the `file://`
-stores in its tests.
+Reef checks it: beside the catalogue it fetches `<catalogue>.asc` and runs
+`gpgv` against the key the shipwright-reef package ships dearmored
+(`/usr/share/shipwright-reef/marathon-reef.gpg`, from `apps/reef/keys/`),
+and it refuses a catalogue whose `revision` is lower than the one it last
+accepted (kept beside its cache as `catalogue-revision`). A local `file://`
+store, for tests and development, is taken unsigned.
 
 ## Catalogue
 

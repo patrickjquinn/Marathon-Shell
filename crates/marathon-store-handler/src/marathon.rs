@@ -35,9 +35,9 @@ struct Offer {
     size: u64,
 }
 
-/// The Marathon packages in Reef's cached catalogue. Reef does not check
-/// the catalogue's signature yet; each package's own signature by a system
-/// key is what `install_package` checks.
+/// The Marathon packages in Reef's cached catalogue, which Reef writes once
+/// the catalogue's signature checked out; each package's own signature by a
+/// system key is what `install_package` checks.
 fn offers() -> Vec<Offer> {
     let path = marathon_rt::dirs::cache().join("shipwright-reef/catalogue.json");
     let catalogue: Value = fs::read(path)

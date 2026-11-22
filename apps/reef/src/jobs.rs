@@ -344,17 +344,24 @@ pub fn refresh(input: &RefreshInput) -> RefreshOutput {
     // The full catalogue lists Marathon's own apps; `catalogue.json` is
     // the same without them, for Reefs that don't know them, and was all
     // this one read, so it never offered them.
-    let fetched = match fetch(&format!("{base}catalogue-full.json")) {
-        Err(FetchError::Status(404)) => fetch(&format!("{base}catalogue.json")),
-        full => full,
+    let full = format!("{base}catalogue-full.json");
+    let (url, fetched) = match fetch(&full) {
+        Err(FetchError::Status(404)) => {
+            let plain = format!("{base}catalogue.json");
+            let f = fetch(&plain);
+            (plain, f)
+        }
+        f => (full, f),
     };
     match fetched {
-        Ok(f) => match Catalogue::parse(&f.body, &input.arch) {
+        Ok(f) => match check_signature(input, &url, &f.body)
+            .and_then(|()| Catalogue::parse(&f.body, &input.arch).map_err(|e| e.to_string()))
+        {
             Ok(mut c) => {
                 cache_catalogue(input, base, &mut c);
                 out.catalogue = Some(c);
             }
-            Err(e) => out.errors.push(e.to_string()),
+            Err(e) => out.errors.push(e),
         },
         Err(FetchError::Status(404)) => out
             .errors
@@ -373,6 +380,28 @@ pub fn refresh(input: &RefreshInput) -> RefreshOutput {
         }
     }
     out
+}
+
+/// A catalogue from the network is signed by the key Reef ships, and no
+/// older than one already accepted, whose revision is kept beside the
+/// cache. A local store (`file://`: tests, and a session that can point Reef
+/// at a file can already change it) is taken as it is.
+fn check_signature(input: &RefreshInput, url: &str, body: &[u8]) -> Result<(), String> {
+    if url.starts_with("file://") {
+        return Ok(());
+    }
+    let signature = fetch(&format!("{url}.asc"))
+        .map_err(|e| format!("the catalogue's signature could not be fetched: {e}"))?;
+    reef_backend::signed::verify(body, &signature.body, Path::new(reef_backend::signed::KEY))
+        .map_err(|e| e.to_string())?;
+    if let Some(cache) = &input.cache_path {
+        reef_backend::signed::accept_revision(
+            &cache.with_file_name("catalogue-revision"),
+            reef_backend::signed::revision(body),
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// Writes the catalogue cache atomically (a temporary file, then rename),
