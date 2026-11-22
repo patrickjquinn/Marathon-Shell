@@ -4,7 +4,7 @@
 # ECCCI modules are built with the kernel and ship in q25-kernel-modules.
 pkgname=q25-modem
 pkgver=1.0.0
-pkgrel=24
+pkgrel=25
 pkgdesc="Zinwa Q25 MD1 modem stack: CCCI daemons and services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
