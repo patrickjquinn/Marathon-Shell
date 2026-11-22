@@ -1,0 +1,706 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 21:10:00 +0000
+Subject: [PATCH] drm/panel: Add the Minimal Z10 e-paper display driver
+
+Add a driver for the Minimal Phone MP01's e-paper display: a Pango
+PGC4KL CPLD that takes 800x600 DSI video and updates the panel wherever
+the frames change. The driver registers the DSI device on the host found
+through the graph, runs the vendor's timing and power sequence, and
+exposes the CPLD's two controls.
+
+The vendor driver for this CPLD reprograms its flash from an embedded
+bitstream at probe whenever the firmware is older than it expects, and
+on a sysfs write. This driver reaches the CPLD only through a regmap
+whose access tables cover the display registers 0x80-0x8f. Only the
+waveform (0x8c, 0-3) and the clear command (0x8e = 0x05) are writable,
+and the flash and configuration opcodes (0x10-0x71, 0xa1-0xa5, 0xff)
+cannot be addressed at all. Reads use a separate write and read, as the
+vendor's do, rather than a repeated start.
+
+refresh_mode selects the waveform by behaviour: quality, clean, text or
+fast. full_refresh runs the vendor's clear: clear, waveform 2, then the
+selected waveform again 100 ms later. Both are interim sysfs until DRM
+has a connector property for e-paper refresh.
+
+The CPLD's power follows runtime PM. If the supplies are on at probe,
+the bootloader is showing a picture, and the first prepare takes that
+over without resetting the CPLD, as the vendor driver does. The panel
+keeps its picture with the CPLD powered off.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/ABI/testing/sysfs-driver-panel-minimal-z10-eink |  28 ++++++++++++++++++++++++++++
+ MAINTAINERS                                                   |   7 +++++++
+ drivers/gpu/drm/panel/Kconfig                                 |  12 ++++++++++++
+ drivers/gpu/drm/panel/Makefile                                |   1 +
+ drivers/gpu/drm/panel/panel-minimal-z10-eink.c                | 575 ++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 623 insertions(+)
+ create mode 100644 Documentation/ABI/testing/sysfs-driver-panel-minimal-z10-eink
+ create mode 100644 drivers/gpu/drm/panel/panel-minimal-z10-eink.c
+
+diff --git a/Documentation/ABI/testing/sysfs-driver-panel-minimal-z10-eink b/Documentation/ABI/testing/sysfs-driver-panel-minimal-z10-eink
+new file mode 100644
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-driver-panel-minimal-z10-eink
+@@ -0,0 +1,28 @@
++What:		/sys/bus/i2c/devices/<bus>-<addr>/refresh_mode
++Date:		November 2026
++KernelVersion:	7.0
++Contact:	Patrick Quinn <patrick.jm.quinn@gmail.com>
++Description:
++		(RW) The waveform the Minimal Z10 e-paper module drives
++		changes with. Reading lists the modes with the current one
++		in brackets; writing one of them selects it:
++
++		=======	=================================================
++		quality	full greyscale, slowest, least ghosting
++		clean	greyscale with less ghosting than quality;
++			switching to it flashes the panel twice
++		text	nearly two-level: crisp text, images lose greys
++		fast	fastest, most ghosting
++		=======	=================================================
++
++		The choice is kept while the display is off and applied
++		when it is next turned on.
++
++What:		/sys/bus/i2c/devices/<bus>-<addr>/full_refresh
++Date:		November 2026
++KernelVersion:	7.0
++Contact:	Patrick Quinn <patrick.jm.quinn@gmail.com>
++Description:
++		(WO) Writing 1 clears the panel with a full flashing refresh
++		that removes ghosting, then restores refresh_mode. Fails with
++		-EAGAIN while the display is off.
+diff --git a/MAINTAINERS b/MAINTAINERS
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8093,6 +8093,13 @@
+ F:	Documentation/devicetree/bindings/display/multi-inno,mi0283qt.txt
+ F:	drivers/gpu/drm/tiny/mi0283qt.c
+ 
++DRM DRIVER FOR MINIMAL Z10 E-PAPER DISPLAY
++M:	Patrick Quinn <patrick.jm.quinn@gmail.com>
++S:	Maintained
++F:	Documentation/ABI/testing/sysfs-driver-panel-minimal-z10-eink
++F:	Documentation/devicetree/bindings/display/panel/minimal,z10-eink.yaml
++F:	drivers/gpu/drm/panel/panel-minimal-z10-eink.c
++
+ DRM DRIVER FOR MIPI DBI compatible panels
+ S:	Orphan
+ W:	https://github.com/notro/panel-mipi-dbi/wiki
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -464,6 +464,18 @@
+ 	  has a resolution of 720x1440 pixels, a built in backlight and touch
+ 	  controller.
+ 
++config DRM_PANEL_MINIMAL_Z10_EINK
++	tristate "Minimal Company Z10 e-paper display"
++	depends on OF && I2C
++	depends on DRM_MIPI_DSI
++	depends on BACKLIGHT_CLASS_DEVICE
++	select REGMAP
++	help
++	  Say Y here if you want to enable support for the 4.3" 600x800
++	  e-paper display of the Minimal Phone MP01 (Z10): a DSI video
++	  input to a Pango CPLD that drives the panel, controlled over
++	  I2C. To compile this driver as a module, choose M here.
++
+ config DRM_PANEL_NEC_NL8048HL11
+ 	tristate "NEC NL8048HL11 RGB panel"
+ 	depends on GPIOLIB && OF && SPI
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -45,6 +45,7 @@
+ obj-$(CONFIG_DRM_PANEL_LG_LG4573) += panel-lg-lg4573.o
+ obj-$(CONFIG_DRM_PANEL_LG_SW43408) += panel-lg-sw43408.o
+ obj-$(CONFIG_DRM_PANEL_MAGNACHIP_D53E6EA8966) += panel-magnachip-d53e6ea8966.o
++obj-$(CONFIG_DRM_PANEL_MINIMAL_Z10_EINK) += panel-minimal-z10-eink.o
+ obj-$(CONFIG_DRM_PANEL_NEC_NL8048HL11) += panel-nec-nl8048hl11.o
+ obj-$(CONFIG_DRM_PANEL_NEWVISION_NV3051D) += panel-newvision-nv3051d.o
+ obj-$(CONFIG_DRM_PANEL_NEWVISION_NV3052C) += panel-newvision-nv3052c.o
+diff --git a/drivers/gpu/drm/panel/panel-minimal-z10-eink.c b/drivers/gpu/drm/panel/panel-minimal-z10-eink.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/gpu/drm/panel/panel-minimal-z10-eink.c
+@@ -0,0 +1,575 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Minimal Company Z10 (MP01) e-paper display module.
++ *
++ * A Pango PGC4KL CPLD takes 800x600 DSI video and drives a 600x800 e-paper
++ * panel, updating it wherever the incoming frames change. The CPLD's I2C
++ * port selects the waveform and clears the panel.
++ *
++ * The same I2C address also answers the CPLD's configuration commands,
++ * which erase and reprogram its flash. This driver only ever sends the
++ * register addresses in the access tables below; the configuration opcodes
++ * (0x10-0x71, 0xa1-0xa5, 0xff) are outside them and are never sent.
++ *
++ * Copyright (C) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/i2c.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/of_graph.h>
++#include <linux/pm_runtime.h>
++#include <linux/regmap.h>
++#include <linux/regulator/consumer.h>
++#include <linux/sysfs.h>
++#include <linux/workqueue.h>
++
++#include <drm/drm_mipi_dsi.h>
++#include <drm/drm_modes.h>
++#include <drm/drm_panel.h>
++#include <drm/drm_probe_helper.h>
++
++/* Read-only */
++#define Z10_REG_FW_VERSION	0x80
++#define Z10_REG_WF_VERSION	0x84
++#define Z10_REG_CPLD_ID		0x88
++#define Z10_REG_DISPLAY		0x89
++#define Z10_REG_VCOM		0x8a
++#define Z10_REG_CLEAN		0x8b
++#define Z10_REG_REFRESH		0x8d
++#define Z10_REG_NTC		0x8f
++/* Read-write: the waveform, 0-3 */
++#define Z10_REG_WAVEFORM	0x8c
++/* Write-only: Z10_CLEAR clears the panel */
++#define Z10_REG_COMMAND		0x8e
++#define Z10_CLEAR		0x05
++
++/* The vendor's full refresh: clear, then this waveform for this long. */
++#define Z10_CLEAR_WAVEFORM	2
++#define Z10_CLEAR_SETTLE_MS	100
++
++enum z10_waveform {
++	Z10_WF_QUALITY,
++	Z10_WF_CLEAN,
++	Z10_WF_TEXT,
++	Z10_WF_FAST,
++};
++
++static const char * const z10_waveform_names[] = {
++	[Z10_WF_QUALITY] = "quality",
++	[Z10_WF_CLEAN] = "clean",
++	[Z10_WF_TEXT] = "text",
++	[Z10_WF_FAST] = "fast",
++};
++
++static const char * const z10_supply_names[] = {
++	"vdd12", "vdd33", "vdd18",
++};
++
++struct z10_eink {
++	struct drm_panel panel;
++	struct device *dev;
++	struct i2c_client *client;
++	struct regmap *regmap;
++	struct mipi_dsi_device *dsi;
++	struct regulator_bulk_data supplies[ARRAY_SIZE(z10_supply_names)];
++	struct gpio_desc *reset_gpio;
++	enum drm_panel_orientation orientation;
++
++	/* Serialises the waveform and clear sequences. */
++	struct mutex lock;
++	enum z10_waveform waveform;
++	struct delayed_work restore_work;
++
++	/* The bootloader left the module running and we hold its reference. */
++	bool boot_on;
++};
++
++static inline struct z10_eink *to_z10_eink(struct drm_panel *panel)
++{
++	return container_of(panel, struct z10_eink, panel);
++}
++
++static const struct regmap_range z10_rd_ranges[] = {
++	regmap_reg_range(Z10_REG_FW_VERSION, Z10_REG_FW_VERSION),
++	regmap_reg_range(Z10_REG_WF_VERSION, Z10_REG_WF_VERSION),
++	regmap_reg_range(Z10_REG_CPLD_ID, Z10_REG_REFRESH),
++	regmap_reg_range(Z10_REG_NTC, Z10_REG_NTC),
++};
++
++static const struct regmap_access_table z10_rd_table = {
++	.yes_ranges = z10_rd_ranges,
++	.n_yes_ranges = ARRAY_SIZE(z10_rd_ranges),
++};
++
++static const struct regmap_range z10_wr_ranges[] = {
++	regmap_reg_range(Z10_REG_WAVEFORM, Z10_REG_WAVEFORM),
++	regmap_reg_range(Z10_REG_COMMAND, Z10_REG_COMMAND),
++};
++
++static const struct regmap_access_table z10_wr_table = {
++	.yes_ranges = z10_wr_ranges,
++	.n_yes_ranges = ARRAY_SIZE(z10_wr_ranges),
++};
++
++/*
++ * The vendor driver reads with a write and a read as two transfers, never
++ * a repeated start, so do the same.
++ */
++static int z10_reg_read(void *context, unsigned int reg, unsigned int *val)
++{
++	struct z10_eink *ctx = context;
++	u8 addr = reg, data;
++	int ret;
++
++	ret = pm_runtime_get_if_active(ctx->dev);
++	if (ret <= 0)
++		return ret ?: -EAGAIN;
++
++	ret = i2c_master_send(ctx->client, &addr, 1);
++	if (ret >= 0)
++		ret = i2c_master_recv(ctx->client, &data, 1);
++	pm_runtime_put(ctx->dev);
++	if (ret < 0)
++		return ret;
++
++	*val = data;
++	return 0;
++}
++
++static int z10_reg_write(void *context, unsigned int reg, unsigned int val)
++{
++	struct z10_eink *ctx = context;
++	u8 buf[2] = { reg, val };
++	int ret;
++
++	ret = pm_runtime_get_if_active(ctx->dev);
++	if (ret <= 0)
++		return ret ?: -EAGAIN;
++
++	ret = i2c_master_send(ctx->client, buf, sizeof(buf));
++	pm_runtime_put(ctx->dev);
++
++	return ret < 0 ? ret : 0;
++}
++
++static const struct regmap_config z10_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.max_register = Z10_REG_NTC,
++	.rd_table = &z10_rd_table,
++	.wr_table = &z10_wr_table,
++	.reg_read = z10_reg_read,
++	.reg_write = z10_reg_write,
++	.cache_type = REGCACHE_NONE,
++};
++
++static int z10_power_on(struct z10_eink *ctx)
++{
++	int i, ret;
++
++	/* The vendor's order: 1.2 V, 3.3 V, then 1.8 V. */
++	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
++		ret = regulator_enable(ctx->supplies[i].consumer);
++		if (ret) {
++			while (--i >= 0)
++				regulator_disable(ctx->supplies[i].consumer);
++			return ret;
++		}
++	}
++
++	usleep_range(10000, 15000);
++	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++	usleep_range(10000, 15000);
++	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++	usleep_range(10000, 15000);
++
++	return 0;
++}
++
++static void z10_power_off(struct z10_eink *ctx)
++{
++	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++	regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
++}
++
++static int z10_prepare(struct drm_panel *panel)
++{
++	struct z10_eink *ctx = to_z10_eink(panel);
++	int ret;
++
++	/* Take over the bootloader's reference rather than reset the CPLD. */
++	if (ctx->boot_on) {
++		ctx->boot_on = false;
++		return 0;
++	}
++
++	ret = pm_runtime_resume_and_get(ctx->dev);
++	if (ret)
++		return ret;
++
++	mutex_lock(&ctx->lock);
++	ret = regmap_write(ctx->regmap, Z10_REG_WAVEFORM, ctx->waveform);
++	mutex_unlock(&ctx->lock);
++	if (ret)
++		dev_warn(ctx->dev, "Failed to restore the waveform: %d\n", ret);
++
++	return 0;
++}
++
++static int z10_unprepare(struct drm_panel *panel)
++{
++	struct z10_eink *ctx = to_z10_eink(panel);
++
++	cancel_delayed_work_sync(&ctx->restore_work);
++
++	/* The panel keeps its picture with the CPLD off. */
++	pm_runtime_put(ctx->dev);
++
++	return 0;
++}
++
++/* The bootloader's and the vendor's timing: 34.6 MHz, 60 Hz. */
++static const struct drm_display_mode z10_mode = {
++	.clock = 34617,
++	.hdisplay = 800,
++	.hsync_start = 800 + 20,
++	.hsync_end = 800 + 20 + 16,
++	.htotal = 800 + 20 + 16 + 20,
++	.vdisplay = 600,
++	.vsync_start = 600 + 54,
++	.vsync_end = 600 + 54 + 10,
++	.vtotal = 600 + 54 + 10 + 10,
++	.width_mm = 87,
++	.height_mm = 65,
++	.type = DRM_MODE_TYPE_DRIVER,
++};
++
++static int z10_get_modes(struct drm_panel *panel,
++			 struct drm_connector *connector)
++{
++	struct z10_eink *ctx = to_z10_eink(panel);
++	int count;
++
++	count = drm_connector_helper_get_modes_fixed(connector, &z10_mode);
++	drm_connector_set_panel_orientation(connector, ctx->orientation);
++
++	return count;
++}
++
++static enum drm_panel_orientation z10_get_orientation(struct drm_panel *panel)
++{
++	return to_z10_eink(panel)->orientation;
++}
++
++static const struct drm_panel_funcs z10_panel_funcs = {
++	.prepare = z10_prepare,
++	.unprepare = z10_unprepare,
++	.get_modes = z10_get_modes,
++	.get_orientation = z10_get_orientation,
++};
++
++static void z10_restore_work(struct work_struct *work)
++{
++	struct z10_eink *ctx = container_of(to_delayed_work(work),
++					    struct z10_eink, restore_work);
++	int ret;
++
++	mutex_lock(&ctx->lock);
++	ret = regmap_write(ctx->regmap, Z10_REG_WAVEFORM, ctx->waveform);
++	mutex_unlock(&ctx->lock);
++	if (ret)
++		dev_warn(ctx->dev, "Failed to restore the waveform: %d\n", ret);
++}
++
++static ssize_t refresh_mode_show(struct device *dev,
++				 struct device_attribute *attr, char *buf)
++{
++	struct z10_eink *ctx = dev_get_drvdata(dev);
++	ssize_t len = 0;
++	int i;
++
++	mutex_lock(&ctx->lock);
++	for (i = 0; i < ARRAY_SIZE(z10_waveform_names); i++)
++		len += sysfs_emit_at(buf, len, i == ctx->waveform ? "[%s] " : "%s ",
++				     z10_waveform_names[i]);
++	mutex_unlock(&ctx->lock);
++	buf[len - 1] = '\n';
++
++	return len;
++}
++
++static ssize_t refresh_mode_store(struct device *dev,
++				  struct device_attribute *attr,
++				  const char *buf, size_t count)
++{
++	struct z10_eink *ctx = dev_get_drvdata(dev);
++	int wf, ret = 0;
++
++	wf = sysfs_match_string(z10_waveform_names, buf);
++	if (wf < 0)
++		return wf;
++
++	mutex_lock(&ctx->lock);
++	ctx->waveform = wf;
++	/* A pending restore applies it; powered off, the next prepare does. */
++	if (!delayed_work_pending(&ctx->restore_work))
++		ret = regmap_write(ctx->regmap, Z10_REG_WAVEFORM, wf);
++	mutex_unlock(&ctx->lock);
++	if (ret == -EAGAIN)
++		ret = 0;
++
++	return ret ?: count;
++}
++static DEVICE_ATTR_RW(refresh_mode);
++
++static ssize_t full_refresh_store(struct device *dev,
++				  struct device_attribute *attr,
++				  const char *buf, size_t count)
++{
++	struct z10_eink *ctx = dev_get_drvdata(dev);
++	bool go;
++	int ret;
++
++	ret = kstrtobool(buf, &go);
++	if (ret)
++		return ret;
++	if (!go)
++		return count;
++
++	ret = pm_runtime_get_if_active(dev);
++	if (ret <= 0)
++		return ret ?: -EAGAIN;
++
++	mutex_lock(&ctx->lock);
++	ret = regmap_write(ctx->regmap, Z10_REG_COMMAND, Z10_CLEAR);
++	if (!ret)
++		ret = regmap_write(ctx->regmap, Z10_REG_WAVEFORM,
++				   Z10_CLEAR_WAVEFORM);
++	if (!ret)
++		mod_delayed_work(system_wq, &ctx->restore_work,
++				 msecs_to_jiffies(Z10_CLEAR_SETTLE_MS));
++	mutex_unlock(&ctx->lock);
++	pm_runtime_put(dev);
++
++	return ret ?: count;
++}
++static DEVICE_ATTR_WO(full_refresh);
++
++static struct attribute *z10_attrs[] = {
++	&dev_attr_refresh_mode.attr,
++	&dev_attr_full_refresh.attr,
++	NULL
++};
++ATTRIBUTE_GROUPS(z10);
++
++static int z10_runtime_suspend(struct device *dev)
++{
++	z10_power_off(dev_get_drvdata(dev));
++
++	return 0;
++}
++
++static int z10_runtime_resume(struct device *dev)
++{
++	return z10_power_on(dev_get_drvdata(dev));
++}
++
++static DEFINE_RUNTIME_DEV_PM_OPS(z10_pm_ops, z10_runtime_suspend,
++				 z10_runtime_resume, NULL);
++
++static int z10_register_dsi(struct z10_eink *ctx)
++{
++	const struct mipi_dsi_device_info info = {
++		.type = "z10-eink",
++		.channel = 0,
++	};
++	struct device *dev = ctx->dev;
++	struct mipi_dsi_host *host;
++	struct device_node *np;
++
++	np = of_graph_get_remote_node(dev->of_node, 0, 0);
++	if (!np)
++		return dev_err_probe(dev, -ENODEV, "No DSI host in the graph\n");
++
++	host = of_find_mipi_dsi_host_by_node(np);
++	of_node_put(np);
++	if (!host)
++		return dev_err_probe(dev, -EPROBE_DEFER, "DSI host not ready\n");
++
++	ctx->dsi = devm_mipi_dsi_device_register_full(dev, host, &info);
++	if (IS_ERR(ctx->dsi))
++		return dev_err_probe(dev, PTR_ERR(ctx->dsi),
++				     "Failed to create the DSI device\n");
++
++	ctx->dsi->lanes = 4;
++	ctx->dsi->format = MIPI_DSI_FMT_RGB888;
++	ctx->dsi->mode_flags = MIPI_DSI_MODE_VIDEO |
++			       MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
++			       MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
++			       MIPI_DSI_CLOCK_NON_CONTINUOUS;
++
++	return 0;
++}
++
++static bool z10_supplies_on(struct z10_eink *ctx)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++)
++		if (regulator_is_enabled(ctx->supplies[i].consumer) <= 0)
++			return false;
++
++	return true;
++}
++
++static int z10_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct z10_eink *ctx;
++	unsigned int val;
++	int i, ret;
++
++	ctx = devm_drm_panel_alloc(dev, struct z10_eink, panel,
++				   &z10_panel_funcs, DRM_MODE_CONNECTOR_DSI);
++	if (IS_ERR(ctx))
++		return PTR_ERR(ctx);
++
++	ctx->dev = dev;
++	ctx->client = client;
++	i2c_set_clientdata(client, ctx);
++	INIT_DELAYED_WORK(&ctx->restore_work, z10_restore_work);
++
++	ret = devm_mutex_init(dev, &ctx->lock);
++	if (ret)
++		return ret;
++
++	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++)
++		ctx->supplies[i].supply = z10_supply_names[i];
++	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(ctx->supplies),
++				      ctx->supplies);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to get supplies\n");
++
++	/*
++	 * Supplies that are on at probe (regulator-boot-on) mean the
++	 * bootloader left the module showing its picture: do not reset it.
++	 */
++	ctx->boot_on = z10_supplies_on(ctx);
++	ctx->reset_gpio = devm_gpiod_get(dev, "reset", ctx->boot_on ?
++					 GPIOD_OUT_LOW : GPIOD_OUT_HIGH);
++	if (IS_ERR(ctx->reset_gpio))
++		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
++				     "Failed to get reset-gpios\n");
++
++	ctx->regmap = devm_regmap_init(dev, NULL, ctx, &z10_regmap_config);
++	if (IS_ERR(ctx->regmap))
++		return dev_err_probe(dev, PTR_ERR(ctx->regmap),
++				     "Failed to init regmap\n");
++
++	ret = of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to get orientation\n");
++
++	ret = drm_panel_of_backlight(&ctx->panel);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to get backlight\n");
++
++	/* Defer before taking over the supplies: giving them back powers off. */
++	ret = z10_register_dsi(ctx);
++	if (ret)
++		return ret;
++
++	if (ctx->boot_on) {
++		ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies),
++					    ctx->supplies);
++		if (ret)
++			return ret;
++		pm_runtime_get_noresume(dev);
++		ret = pm_runtime_set_active(dev);
++		if (ret)
++			goto err_boot_on;
++	}
++
++	ret = devm_pm_runtime_enable(dev);
++	if (ret)
++		goto err_boot_on;
++
++	if (ctx->boot_on) {
++		ret = regmap_read(ctx->regmap, Z10_REG_FW_VERSION, &val);
++		if (ret) {
++			dev_err_probe(dev, ret, "No answer from the CPLD\n");
++			goto err_boot_on;
++		}
++		dev_info(dev, "CPLD firmware %#x\n", val);
++
++		ret = regmap_read(ctx->regmap, Z10_REG_WAVEFORM, &val);
++		if (ret) {
++			dev_err_probe(dev, ret, "Failed to read the waveform\n");
++			goto err_boot_on;
++		}
++		ctx->waveform = min_t(unsigned int, val, Z10_WF_FAST);
++	}
++
++	drm_panel_add(&ctx->panel);
++
++	ret = mipi_dsi_attach(ctx->dsi);
++	if (ret) {
++		dev_err_probe(dev, ret, "Failed to attach to the DSI host\n");
++		drm_panel_remove(&ctx->panel);
++		goto err_boot_on;
++	}
++
++	return 0;
++
++err_boot_on:
++	if (ctx->boot_on) {
++		pm_runtime_put_noidle(dev);
++		regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
++	}
++	return ret;
++}
++
++static void z10_remove(struct i2c_client *client)
++{
++	struct z10_eink *ctx = i2c_get_clientdata(client);
++
++	mipi_dsi_detach(ctx->dsi);
++	drm_panel_remove(&ctx->panel);
++	cancel_delayed_work_sync(&ctx->restore_work);
++	if (ctx->boot_on)
++		pm_runtime_put(ctx->dev);
++}
++
++static const struct of_device_id z10_of_match[] = {
++	{ .compatible = "minimal,z10-eink" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, z10_of_match);
++
++static const struct i2c_device_id z10_i2c_id[] = {
++	{ "z10-eink" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(i2c, z10_i2c_id);
++
++static struct i2c_driver z10_driver = {
++	.probe = z10_probe,
++	.remove = z10_remove,
++	.id_table = z10_i2c_id,
++	.driver = {
++		.name = "panel-minimal-z10-eink",
++		.of_match_table = z10_of_match,
++		.dev_groups = z10_groups,
++		.pm = pm_ptr(&z10_pm_ops),
++	},
++};
++module_i2c_driver(z10_driver);
++
++MODULE_AUTHOR("Patrick Quinn <patrick.jm.quinn@gmail.com>");
++MODULE_DESCRIPTION("Minimal Company Z10 e-paper display module driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0

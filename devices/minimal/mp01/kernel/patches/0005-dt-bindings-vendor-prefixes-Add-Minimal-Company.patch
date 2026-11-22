@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 20:50:00 +0000
+Subject: [PATCH] dt-bindings: vendor-prefixes: Add Minimal Company
+
+The Minimal Company makes the Minimal Phone MP01 (codename Z10), an
+e-paper keyboard phone built on the MediaTek Helio G99 (MT6789).
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/vendor-prefixes.yaml |   2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -1055,6 +1055,8 @@
+     description: MilkV Technology Co., Ltd
+   "^miniand,.*":
+     description: Miniand Tech
++  "^minimal,.*":
++    description: The Minimal Company
+   "^minix,.*":
+     description: MINIX Technology Ltd.
+   "^mips,.*":
+-- 
+2.55.0
