@@ -2340,9 +2340,19 @@ impl Pipeline {
         // A trip or places to go: searched first, so the plan names real
         // places in the right county (from memory it did not).
         let place_plan = !weather && intents::place_plan(text);
+        // About the phone's own things (its calendar, notes, contacts): no
+        // search first. "What is on my calendar today" searched Dublin's
+        // events, and the model listed them as the person's.
+        let own_area = top
+            .as_deref()
+            .is_some_and(|d| !d.contains('.') && d != GENERAL && d != "web")
+            && answers.get("domain").is_some_and(|a| {
+                matches!(a, crate::jev::Answer::Choice { confidence, .. } if *confidence >= INSIST_FROM)
+            });
         let web_first = place_plan
             || (decision.intent != "weather"
                 && !weather
+                && !own_area
                 && matches!(
                     answers.get("needs_web"),
                     Some(crate::jev::Answer::Noul { p }) if *p >= self.thresholds.web_first
