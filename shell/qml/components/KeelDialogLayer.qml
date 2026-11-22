@@ -139,7 +139,9 @@ Item {
             property string appId
             property bool wasShown: false
 
-            anchors.fill: parent
+            // Sized as an app window is: in the client's logical pixels, then
+            // scaled. Filling the layer and then scaling drew a GTK modal
+            // dialog (Tuba's "Add Account") 1.5 times too wide.
             hasSentInitialSize: true
             // Shown once it has drawn; the item's placeholder is opaque.
             visible: hasFirstFrame
