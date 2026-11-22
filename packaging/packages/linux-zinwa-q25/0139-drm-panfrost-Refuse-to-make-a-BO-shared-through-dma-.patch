@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 20:50:00 +0000
+Subject: [PATCH] drm/panfrost: Refuse to make a BO shared through dma-buf
+ purgeable
+
+panfrost_ioctl_madvise() lets a file mark a BO purgeable only when its
+own mapping is the BO's only one, as a BO other users map must stay
+resident. A BO exported or imported as a dma-buf has users the mappings
+list does not show: another device, or a file that will import it
+later. Its exporter can mark it DONTNEED, and when another file then
+imports it with DRM_IOCTL_PRIME_FD_TO_HANDLE, panfrost_gem_open() warns:
+
+  WARNING: drivers/gpu/drm/panfrost/panfrost_gem.c:213 at panfrost_gem_open
+
+The shrinker does not purge such a BO while any handle to it remains,
+as drm_gem_shmem_is_purgeable() skips objects with a dma_buf or an
+import attachment. But obj->dma_buf only lasts as long as the object's
+handles: once those are closed while the dma-buf lives on, a BO left
+DONTNEED becomes purgeable, and a later import of the dma-buf gets an
+object whose contents are gone.
+
+Refuse DONTNEED for a BO that has a dma_buf or is imported, the objects
+the shmem helper will not purge, so a BO's madvise state matches what
+the shrinker does with it.
+
+Fixes: bdefca2d8dc0 ("drm/panfrost: Add the panfrost_gem_mapping concept")
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/panfrost/panfrost_drv.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_drv.c b/drivers/gpu/drm/panfrost/panfrost_drv.c
+--- a/drivers/gpu/drm/panfrost/panfrost_drv.c
++++ b/drivers/gpu/drm/panfrost/panfrost_drv.c
+@@ -494,9 +494,13 @@ static int panfrost_ioctl_madvise(struct
+ 		 * when all its users have marked it purgeable, but globally
+ 		 * visible/shared BOs are likely to never be marked purgeable
+ 		 * anyway, so let's not bother.
++		 * A BO shared through a dma-buf has users that are not in the
++		 * mappings list, including importers that have yet to open it.
+ 		 */
+ 		if (!list_is_singular(&bo->mappings.list) ||
+-		    WARN_ON_ONCE(first->mmu != priv->mmu)) {
++		    WARN_ON_ONCE(first->mmu != priv->mmu) ||
++		    bo->base.base.dma_buf ||
++		    drm_gem_is_imported(&bo->base.base)) {
+ 			ret = -EINVAL;
+ 			goto out_unlock_mappings;
+ 		}
+--
+2.55.0
+

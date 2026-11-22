@@ -199,6 +199,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0136-media-i2c-s5kjn1-Write-runs-of-data-port-registers-i.patch
 	0137-xfrm-use-compat-translator-only-for-u64-alignment-mismatch.patch
 	0138-media-i2c-dw9714-Move-the-lens-gradually-to-a-new-fo.patch
+	0139-drm-panfrost-Refuse-to-make-a-BO-shared-through-dma-.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -424,6 +425,7 @@ d7f3296d6902859b69a1703e0524e6003979c24890f35797336f06e9ab50a71f48ac8c35a974fe6e
 52369c49c6739673887cdfc25d153a82beadc053bf05649d31756687b56882584a270f04c4656ce19c5e73ece6d2ae3a606d1121f0785af667b33071f6d9edd2  0136-media-i2c-s5kjn1-Write-runs-of-data-port-registers-i.patch
 67ec788e00b900c9723ae5ced6b8e900d14b8d07b15b6b44e01615d1a530b1c1a65d10be5752edd19e12807bb9c3e51056309e8eb2efc03829e62c87b956895d  0137-xfrm-use-compat-translator-only-for-u64-alignment-mismatch.patch
 5c782d28215bbe824a0da5e14b712b5743e819fa6a66c221eb11ac6ebdfd34dddf4058439a78e5db4f1bcb6a9ab0efe6f819afcd1e5dbd0e0f107a648144e4ea  0138-media-i2c-dw9714-Move-the-lens-gradually-to-a-new-fo.patch
+ccbd130c95fa258e6d42ee302e726dacc8fea32de22ae7f53a619ffe4a4d324a200c6a7966a781a54fd8e30094b8f6b4b5776938e939fbe84728c3018233ea19  0139-drm-panfrost-Refuse-to-make-a-BO-shared-through-dma-.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
