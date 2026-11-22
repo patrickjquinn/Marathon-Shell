@@ -925,13 +925,12 @@ fn answer_so_far(text: &str) -> &str {
     text.trim_end()
 }
 
-/// Where the last follow-up label is, and where its text starts: the
+/// Where the first follow-up label is, and where its text starts: the
 /// model writes it "FOLLOWUPS:", "Follow-ups:", "Follow ups:" and
 /// "FOLUPS:", so a word that is "fol", then l, o and w, then "up" or
 /// "ups", and a colon.
 fn followup_marker(text: &str) -> Option<(usize, usize)> {
     let lower = text.to_ascii_lowercase();
-    let mut found = None;
     for (i, _) in lower.match_indices("fol") {
         if lower[..i]
             .chars()
@@ -956,10 +955,10 @@ fn followup_marker(text: &str) -> Option<(usize, usize)> {
             .strip_suffix("ups")
             .or_else(|| letters.strip_suffix("up"));
         if core.is_some_and(|m| m.starts_with("fol") && m[3..].chars().all(|c| "low".contains(c))) {
-            found = Some((i, i + colon + 1));
+            return Some((i, i + colon + 1));
         }
     }
-    found
+    None
 }
 
 /// Splits Qwen's "FOLLOWUPS: a | b | c" last line off an answer; a small
@@ -968,13 +967,21 @@ pub fn split_followups(text: &str) -> (String, Vec<String>) {
     let Some((i, after)) = followup_marker(text) else {
         return (text.trim().to_owned(), Vec::new());
     };
+    // The model may write the label twice, or number its questions.
     let follow = text[after..]
         .split(['|', '\n'])
         .map(|f| {
-            f.trim()
-                .trim_start_matches(['-', '*', '•'])
-                .trim()
-                .to_owned()
+            let f = match followup_marker(f) {
+                Some((start, after)) if f[..start].trim().is_empty() => &f[after..],
+                _ => f,
+            };
+            let f = f.trim().trim_start_matches(['-', '*', '•']).trim();
+            let digits = f.len() - f.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+            match f[digits..].strip_prefix(['.', ')']) {
+                Some(rest) if digits > 0 => rest.trim(),
+                _ => f,
+            }
+            .to_owned()
         })
         .filter(|f| (2..=60).contains(&f.chars().count()))
         .take(3)
@@ -4456,6 +4463,16 @@ mod answer_tests {
             let (text, f) = split_followups(&format!("It is sunny.\n{label} Wind? | Rain?"));
             assert_eq!((text.as_str(), f.len()), ("It is sunny.", 2), "{label}");
         }
+        // The model wrote the label twice and numbered its questions.
+        let (text, f) = split_followups(
+            "Nothing today.\nFOLLOWUPS:\n1. Which event?\n2. Add anything?\n\nFOLLOWUPS: What time? | Reminders?",
+        );
+        assert_eq!(text, "Nothing today.");
+        assert_eq!(f, ["Which event?", "Add anything?", "What time?"]);
+        assert_eq!(
+            answer_so_far("Nothing today.\nFOLLOWUPS:\n1. Which?\nFOLLOWUPS: When?"),
+            "Nothing today."
+        );
         for not in ["Folding up: the map.", "Scaffolding up: soon", "fold: up"] {
             assert!(split_followups(not).1.is_empty(), "{not}");
         }
