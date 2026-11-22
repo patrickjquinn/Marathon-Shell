@@ -33,6 +33,8 @@ mod ffi {
         fn phone_apps_path() -> QString;
         /// The command runs a Keel app under `marathon-keel-host`.
         fn is_keel_hosted(command: &QString) -> bool;
+        /// The app lays out for a desktop: an Electron Flatpak.
+        fn lays_out_for_desktop(app_id: &QString) -> bool;
     }
 }
 
@@ -228,6 +230,11 @@ const KEEL_HOST: &str = "marathon-keel-host ";
 
 pub(crate) fn is_keel_hosted(command: &QString) -> bool {
     command.to_string().starts_with(KEEL_HOST)
+}
+
+fn lays_out_for_desktop(app_id: &QString) -> bool {
+    let id = app_id.to_string();
+    !id.is_empty() && crate::tasks::launch::is_electron_flatpak(&id)
 }
 
 fn scan_apps<'a>(paths: &'a [PathBuf], icons: &'a mut Icons) -> impl Iterator<Item = App> + 'a {

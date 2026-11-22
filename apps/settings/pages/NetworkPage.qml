@@ -34,7 +34,7 @@ Page {
         else if (key === "dns")
             editDns = false;
         load();
-        if (key !== "autoJoin")
+        if (key !== "autoJoin" && key !== "lowData")
             reload.restart();
     }
 
@@ -123,6 +123,15 @@ Page {
                 automaticCheck: false
                 checked: page.details.autoJoin !== false
                 onClicked: page.apply("autoJoin", checked ? "false" : "true")
+            }
+
+            TextSwitch {
+                objectName: "lowDataSwitch"
+                text: qsTr("Low Data Mode")
+                description: qsTr("On this network, system and app updates, Pilot's downloads and background work wait for another network")
+                automaticCheck: false
+                checked: page.details.lowData === true
+                onClicked: page.apply("lowData", checked ? "false" : "true")
             }
 
             ListItem {

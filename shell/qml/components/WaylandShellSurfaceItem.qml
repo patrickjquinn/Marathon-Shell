@@ -30,12 +30,14 @@ NativeSurfaceItem {
     readonly property size availableSize: parent ? Qt.size(Math.round(parent.width / clientScale), Math.round(parent.height / clientScale)) : Qt.size(0, 0)
     // An app whose minimum size is bigger than the screen is scaled down to
     // fit, as Phosh's scale-to-fit does, and sized to fill it once scaled.
+    // An Electron app lays out for a desktop: it gets the panel's width.
     readonly property real fitScale: {
         var toplevel = _toplevelFromObj(surfaceObj);
         var min = toplevel ? toplevel.minSize : undefined;
         if (isPreview || !min || availableSize.width <= 0 || availableSize.height <= 0)
             return 1;
-        return Math.min(1, min.width > 0 ? availableSize.width / min.width : 1, min.height > 0 ? availableSize.height / min.height : 1);
+        var desktop = launchCompositor && launchCompositor.laysOutForDesktop(surface) ? 1 / clientScale : 1;
+        return Math.min(desktop, min.width > 0 ? availableSize.width / min.width : 1, min.height > 0 ? availableSize.height / min.height : 1);
     }
     readonly property size configureSize: Qt.size(Math.round(availableSize.width / fitScale), Math.round(availableSize.height / fitScale))
     applicationTerms: {

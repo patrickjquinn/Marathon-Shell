@@ -115,7 +115,7 @@ fn fetch_and_install(offer: &Offer, mut on_progress: impl FnMut(i32)) -> io::Res
         let sig = crate::fdroid::http()
             .get(&format!("{}.minisig", offer.url))
             .call()
-            .map_err(io::Error::other)?
+            .map_err(crate::fdroid::readable)?
             .body_mut()
             .with_config()
             .limit(64 * 1024)

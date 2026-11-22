@@ -28,6 +28,7 @@
 #include <QFileInfo>
 #include <QTextStream>
 #include <QCoreApplication>
+#include <QWaylandXdgDecorationManagerV1>
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 #include <QWaylandXdgPopup>
@@ -114,6 +115,13 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     wl_display_set_default_max_buffer_size(static_cast<wl_display *>(display()), 1024 * 1024);
 
     m_xdgShell = new QWaylandXdgShell(this);
+    // Apps that draw a title bar (Electron's, Qt's) drop it when asked to
+    // leave decorations to the compositor; Marathon's windows have none.
+    auto *decorations = new QWaylandXdgDecorationManagerV1;
+    decorations->setParent(this);
+    decorations->setExtensionContainer(this);
+    decorations->initialize();
+    decorations->setPreferredMode(QWaylandXdgToplevel::ServerSideDecoration);
 #ifdef HAVE_WAYLAND_PRIVATE
     // Qt's xdg-shell activates the toplevel with keyboard focus (and resends
     // on every focus loss). A client the shell did not launch keeps the state
@@ -1190,8 +1198,39 @@ void WaylandCompositor::configureCover(QWaylandXdgToplevel *toplevel) const {
                             QList<QWaylandXdgToplevel::State>());
 }
 
+bool WaylandCompositor::laysOutForDesktop(const QString &appId) const {
+    if (appId.isEmpty())
+        return false;
+    auto it = m_laysOutForDesktop.constFind(appId);
+    if (it == m_laysOutForDesktop.cend())
+        it = m_laysOutForDesktop.insert(appId, marathon::desktop::lays_out_for_desktop(appId));
+    return *it;
+}
+
+// A Flatpak's id, from its sandbox: known before its window names itself.
+static QString flatpakAppId(QWaylandClient *client) {
+    QFile info(QStringLiteral("/proc/%1/root/.flatpak-info").arg(client ? client->processId() : 0));
+    if (!client || !info.open(QIODevice::ReadOnly))
+        return {};
+    while (!info.atEnd()) {
+        const QByteArray line = info.readLine().trimmed();
+        if (line.startsWith("name="))
+            return QString::fromUtf8(line.mid(5));
+    }
+    return {};
+}
+
+bool WaylandCompositor::laysOutForDesktop(QWaylandSurface *surface) const {
+    return surface && laysOutForDesktop(flatpakAppId(surface->client()));
+}
+
+qreal WaylandCompositor::configureScale(QWaylandSurface *surface) const {
+    return laysOutForDesktop(surface) ? 1.0 :
+                                        m_nativeClientScale->scaleFor(surface->client()->client());
+}
+
 QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
-    const qreal scale = m_nativeClientScale->scaleFor(surface->client()->client());
+    const qreal scale = configureScale(surface);
     if (m_appViewportSize.width() > 0 && m_appViewportSize.height() > 0)
         return NativeClientScale::toLogical(m_appViewportSize, scale);
     return NativeClientScale::toLogical(
@@ -1199,7 +1238,7 @@ QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
 }
 
 QSize WaylandCompositor::fullOutputConfigureSize(QWaylandSurface *surface) const {
-    const qreal scale = m_nativeClientScale->scaleFor(surface->client()->client());
+    const qreal scale = configureScale(surface);
     const QSize physical =
         (m_output && m_output->window()) ? m_output->window()->size() : m_window->size();
     return NativeClientScale::toLogical(physical, scale);
@@ -3006,8 +3045,11 @@ void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended)
         states << kStateSuspended;
 
     // Keep the size the client already has; a different one would relayout it on every resume.
+    // That is the size it was last configured to: a surface's destination is
+    // its buffer's size without a viewport, and Element's Chromium, at 1.5,
+    // was told 720x633 for 480x422 and drawn half again too wide.
     QWaylandSurface *surface = toplevel->xdgSurface()->surface();
-    QSize            size    = surface->destinationSize();
+    QSize            size    = ToplevelConfigure::lastSize(toplevel);
     if (size.isEmpty())
         size = appConfigureSize(surface);
     toplevel->sendConfigure(size, states);

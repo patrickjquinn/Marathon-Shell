@@ -81,6 +81,14 @@ function eventsOn(events, date) {
     return (events || []).filter(e => occursOn(e, date)).sort(byTime);
 }
 
+// What the person sees for a day, for Pilot: the day, then each event.
+function contextText(dayLabel, events) {
+    const list = events || [];
+    if (list.length === 0)
+        return dayLabel + ": no events.";
+    return dayLabel + ":\n" + list.map(e => [e.allDay ? "All day" : String(e.time || ""), String(e.title || ""), e.location ? "(" + e.location + ")" : ""].filter(v => v !== "").join(" ")).join("\n");
+}
+
 function sorted(events) {
     return (events || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)) || byTime(a, b));
 }

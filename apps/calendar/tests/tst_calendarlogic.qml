@@ -5,6 +5,21 @@ import "../CalendarLogic.js" as Logic
 TestCase {
     name: "CalendarLogic"
 
+    function test_contextForPilot() {
+        compare(Logic.contextText("Today", []), "Today: no events.");
+        compare(Logic.contextText("Today", [
+            {
+                title: "Design review",
+                time: "14:00",
+                location: "Room 2"
+            },
+            {
+                title: "Holiday",
+                allDay: true
+            }
+        ]), "Today:\n14:00 Design review (Room 2)\nAll day Holiday");
+    }
+
     function test_dateKeys() {
         compare(Logic.dateKey(new Date(2026, 0, 5)), "2026-01-05");
         const d = Logic.parseDate("2026-10-12");

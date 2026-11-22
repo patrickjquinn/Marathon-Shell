@@ -28,27 +28,61 @@ const ANDROID_HANDOFF_GRACE: Duration = Duration::from_secs(45);
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
 /// Flatpak hands a sandbox the accessibility bus, and Qt then runs as if a
-/// screen reader were on (Telegram's "Screen Reader mode").
-const FLATPAK_RUN: &str = "flatpak run --no-a11y-bus ";
+/// screen reader were on (Telegram's "Screen Reader mode"). The shell's
+/// `GBM_BACKENDS_PATH` names the host's `/usr/lib/gbm`, which in a runtime is
+/// the runtime's own: Element's Chromium found no GBM backend there and
+/// never opened a window.
+const FLATPAK_RUN: &str = "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH ";
 
 /// A Flatpak left on its toolkit's own colours: no generated gtk.css or KDE
 /// palette, no KDE platform theme, libadwaita's own accent. The portal still
 /// gives it the light or dark scheme.
-const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --nofilesystem=xdg-config/gtk-4.0 \
+const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH \
+    --nofilesystem=xdg-config/gtk-4.0 \
     --nofilesystem=xdg-config/kdeglobals --nofilesystem=xdg-data/color-schemes \
     --unset-env=QT_QPA_PLATFORMTHEME --env=ADW_DEBUG_ACCENT_COLOR=blue ";
 
+/// Chromium keeps its keys in plain text on a desktop it doesn't know, so an
+/// Electron app (Signal, Element) said it found no keyring; GNOME's name
+/// makes it use the Secret Service. Only those apps get it: Qt picks its
+/// platform theme from the same variable. Signal's Flatpak passes its own
+/// store, plain text unless `SIGNAL_PASSWORD_STORE` says otherwise, and first
+/// shows a dialog warning of it.
+const ELECTRON_DESKTOP: &str =
+    "--env=XDG_CURRENT_DESKTOP=marathon:GNOME --env=SIGNAL_PASSWORD_STORE=gnome-libsecret ";
+
 /// The command a Flatpak's desktop entry runs, with Marathon's options.
-fn flatpak_exec(exec: &str, themed: bool) -> String {
-    exec.replacen(
-        "flatpak run ",
-        if themed {
-            FLATPAK_RUN
-        } else {
-            UNTHEMED_FLATPAK
-        },
-        1,
-    )
+fn flatpak_exec(exec: &str, themed: bool, electron: bool) -> String {
+    let run = if themed {
+        FLATPAK_RUN
+    } else {
+        UNTHEMED_FLATPAK
+    };
+    let run = if electron {
+        format!("{run}{ELECTRON_DESKTOP}")
+    } else {
+        run.to_owned()
+    };
+    exec.replacen("flatpak run ", &run, 1)
+}
+
+/// Whether a Flatpak's `metadata` builds it on Electron's base app.
+fn electron_base(metadata: &str) -> bool {
+    metadata
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("base="))
+        .any(|base| base.split('/').nth(1) == Some("org.electronjs.Electron2.BaseApp"))
+}
+
+/// The installed Flatpak's metadata, the user's installation first.
+pub(crate) fn is_electron_flatpak(app_id: &str) -> bool {
+    [
+        marathon_rt::dirs::home().join(".local/share/flatpak/app"),
+        Path::new("/var/lib/flatpak/app").to_path_buf(),
+    ]
+    .iter()
+    .find_map(|dir| std::fs::read_to_string(dir.join(app_id).join("current/active/metadata")).ok())
+    .is_some_and(|m| electron_base(&m))
 }
 
 /// Android desktop files are rewritten during a session cutover. The
@@ -587,7 +621,11 @@ impl Tasks {
         let exec = if is_android_app_id(&app.id) {
             android_exec(app)
         } else if app.kind == "flatpak" {
-            flatpak_exec(&app.exec, crate::settings::themed(&app.id))
+            flatpak_exec(
+                &app.exec,
+                crate::settings::themed(&app.id),
+                is_electron_flatpak(&app.id),
+            )
         } else {
             app.exec.clone()
         };
@@ -1370,20 +1408,38 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        discard_app_windows, flatpak_exec, is_android_app_id, is_foreground_flatpak_run,
-        AndroidHandoff, ForegroundLaunches,
+        discard_app_windows, electron_base, flatpak_exec, is_android_app_id,
+        is_foreground_flatpak_run, AndroidHandoff, ForegroundLaunches,
     };
 
     #[test]
     fn a_flatpak_runs_without_the_accessibility_bus() {
         let exec =
             "flatpak run --branch=stable --arch=aarch64 --command=Telegram org.telegram.desktop";
-        let themed = flatpak_exec(exec, true);
-        assert!(themed.starts_with("flatpak run --no-a11y-bus --branch=stable"));
-        let unthemed = flatpak_exec(exec, false);
-        assert!(unthemed.starts_with("flatpak run --no-a11y-bus --nofilesystem"));
+        let themed = flatpak_exec(exec, true, false);
+        assert!(themed.starts_with(
+            "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH --branch=stable"
+        ));
+        let unthemed = flatpak_exec(exec, false, false);
+        assert!(unthemed
+            .starts_with("flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH --nofilesystem"));
         assert!(unthemed.ends_with("--command=Telegram org.telegram.desktop"));
         assert!(is_foreground_flatpak_run(&themed) && is_foreground_flatpak_run(&unthemed));
+    }
+
+    #[test]
+    fn an_electron_flatpak_is_told_a_desktop_chromium_keeps_keys_on() {
+        let signal = "[Application]\nname=org.signal.Signal\nruntime=org.freedesktop.Platform/aarch64/26.08\nbase=app/org.electronjs.Electron2.BaseApp/aarch64/26.08\ncommand=signal-desktop\n";
+        let shortwave = "[Application]\nname=de.haeckerfelix.Shortwave\nruntime=org.gnome.Platform/aarch64/51\n";
+        assert!(electron_base(signal) && !electron_base(shortwave));
+        let exec = "flatpak run --command=signal-desktop org.signal.Signal";
+        let run = flatpak_exec(exec, true, true);
+        assert!(run.starts_with(
+            "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH \
+             --env=XDG_CURRENT_DESKTOP=marathon:GNOME \
+             --env=SIGNAL_PASSWORD_STORE=gnome-libsecret --command"
+        ));
+        assert!(is_foreground_flatpak_run(&run));
     }
 
     #[test]

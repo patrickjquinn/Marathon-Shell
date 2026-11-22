@@ -506,6 +506,23 @@ fn run_job(
     Err(io::Error::other("deckardd went away"))
 }
 
+/// A failed request as Reef shows it ("Couldn't finish: …"), not as ureq
+/// words it ("http status: 404").
+pub(crate) fn readable(e: ureq::Error) -> io::Error {
+    io::Error::other(match e {
+        ureq::Error::StatusCode(404 | 410) => "the store no longer has this download".to_owned(),
+        ureq::Error::StatusCode(code) if code >= 500 => {
+            format!("the store is not answering (error {code}); try again later")
+        }
+        ureq::Error::StatusCode(code) => format!("the store refused the download (error {code})"),
+        ureq::Error::Io(_) | ureq::Error::HostNotFound | ureq::Error::ConnectionFailed => {
+            "no connection to the store".to_owned()
+        }
+        ureq::Error::Timeout(_) => "the download timed out".to_owned(),
+        other => other.to_string(),
+    })
+}
+
 /// Downloads into `to`, checking size (when known: not 0) and SHA-256 as it
 /// goes.
 pub(crate) fn download(
@@ -518,7 +535,7 @@ pub(crate) fn download(
     let mut reader = http()
         .get(url)
         .call()
-        .map_err(io::Error::other)?
+        .map_err(readable)?
         .into_body()
         .into_reader();
     if let Some(dir) = to.parent() {
@@ -859,6 +876,17 @@ fn refresh(state: &StateDir) -> io::Result<()> {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_downloads_read_as_people_see_them() {
+        let say = |e| readable(e).to_string();
+        assert_eq!(
+            say(ureq::Error::StatusCode(404)),
+            "the store no longer has this download"
+        );
+        assert!(say(ureq::Error::StatusCode(503)).contains("not answering"));
+        assert_eq!(say(ureq::Error::HostNotFound), "no connection to the store");
+    }
 
     const INDEX: &str = r#"{
       "repo": {"name": {"en-US": "F-Droid"}, "timestamp": 1},

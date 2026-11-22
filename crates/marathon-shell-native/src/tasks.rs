@@ -17,7 +17,7 @@
 mod dbus;
 mod keel;
 pub(crate) use dbus::{playback_changed, uninstalled};
-mod launch;
+pub(crate) mod launch;
 mod lifecycle;
 mod pool;
 

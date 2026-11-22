@@ -115,6 +115,9 @@ class WaylandCompositor : public QWaylandCompositor {
     // The user touched or typed in the last ms milliseconds.
     bool             recentUserInput(int ms) const;
     Q_INVOKABLE bool usesNativeScale(QWaylandSurface *surface) const;
+    // An app that lays out for a desktop is sized to the panel in its own
+    // pixels and scaled to fit.
+    Q_INVOKABLE bool laysOutForDesktop(QWaylandSurface *surface) const;
     // The shell took a gesture from item mid-touch: its client gets wl_touch.cancel.
     Q_INVOKABLE void     cancelTouch(QQuickItem *item);
     Q_INVOKABLE QObject *getSurfaceById(int surfaceId);
@@ -299,9 +302,12 @@ class WaylandCompositor : public QWaylandCompositor {
         QPointer<QWaylandXdgPopup> popup;
         QPointer<QWaylandSurface>  surface;
     };
-    QList<TrackedPopup> m_popups;
-    QSize               appConfigureSize(QWaylandSurface *surface) const;
-    QSize               fullOutputConfigureSize(QWaylandSurface *surface) const;
+    QList<TrackedPopup>          m_popups;
+    QSize                        appConfigureSize(QWaylandSurface *surface) const;
+    qreal                        configureScale(QWaylandSurface *surface) const;
+    bool                         laysOutForDesktop(const QString &appId) const;
+    mutable QHash<QString, bool> m_laysOutForDesktop;
+    QSize                        fullOutputConfigureSize(QWaylandSurface *surface) const;
     // Frames of vsync free-run remaining before the compositor idles back to
     // 0fps. Refreshed on every client commit (QWaylandSurface::redraw),
     // decremented each frameSwapped. Touched from render + GUI threads.
