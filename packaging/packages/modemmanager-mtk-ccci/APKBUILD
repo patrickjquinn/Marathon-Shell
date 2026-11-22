@@ -5,14 +5,15 @@
 # 0104 (PDN state from +EIF events, no polling), 0105 (low power),
 # 0106 (reuse the LTE attach PDN beside IMS's), 0107 (+CHUP for a call not
 # yet up), 0108 (NetAgent for the modem's own PDNs, IMS), 0109 (the plugin
-# starts IMS; renumbered IMS PDNs), 0110 (VoLTE calls in +CLCC) and 0111
-# (IMS call progress reports are not command replies).
+# starts IMS; renumbered IMS PDNs), 0110 (VoLTE calls in +CLCC), 0111
+# (IMS call progress reports are not command replies) and 0112 (nor are
+# IMS state reports).
 # It provides modemmanager, so installing it (q25-modem depends on it)
 # replaces Alpine's daemon; nothing else pulls it in. libmm-glib stays
 # Alpine's. Keep pkgver and _commit in sync with Alpine's modemmanager.
 pkgname=modemmanager-mtk-ccci
 pkgver=1.25.95_git20261005
-pkgrel=13
+pkgrel=14
 _commit=7f0bf17ab518cd78925cf7e53cc0d5c42f88b41a
 pkgdesc="ModemManager with MediaTek CCCI (SoC modem) support"
 url="https://www.freedesktop.org/wiki/Software/ModemManager"
@@ -48,6 +49,7 @@ source="https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/$
 	0109-mtk-ccci-ims-config-and-renumbering.patch
 	0110-mtk-ccci-volte-calls.patch
 	0111-mtk-ccci-ims-call-progress-reports.patch
+	0112-mtk-ccci-ims-state-reports.patch
 	"
 builddir="$srcdir"/ModemManager-$_commit
 
@@ -93,4 +95,5 @@ c74b8d1d01d26e9a6560a94a2218421e3660a2fee0b68f78150f1aa05399bc588e911aa68979da28
 bc6b2648bd4f5f35db80d17f250455c5a5a383ea5e74cfc92b8cb15fc6ec0e801ad0f48604cdf0b37117c277155e1941d1bbad5caa50f7086a25b8483e44eca2  0109-mtk-ccci-ims-config-and-renumbering.patch
 068c049639b3e68bd03ec812c3217d59f97110c3cced064afd7d80123e611d0a2367a1fc9918f75895b71edbb5c00f4f1c69703a8f91aaf2c5f65c2da82b8af7  0110-mtk-ccci-volte-calls.patch
 38507b63856bedfe54838b1cf364b3a9d964191d838d948f6630db106b9bd1fe4186265b4461e10b919559637000b1af3d40d62a41b42be2422d3f80d1e53283  0111-mtk-ccci-ims-call-progress-reports.patch
+b98a79cd94f3143f81e22a622249b68fd49a6ed3cfdf8f8aa33299367467850edd9f65ebec679f3a7be89a5efce7f6aaa79680c7f873e6075d4ea98cf19967ac  0112-mtk-ccci-ims-state-reports.patch
 "
