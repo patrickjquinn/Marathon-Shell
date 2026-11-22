@@ -180,6 +180,56 @@ impl cxx_qt::Initialize for Apps {
             .await;
             qt.queue(move |obj| obj.set_registry(found)).ok();
         });
+        let qt = self.qt_thread();
+        std::thread::Builder::new()
+            .name("apps-watch".into())
+            .spawn(move || {
+                if let Err(e) = watch_user_installs(&qt) {
+                    crate::log::warn("apps", format_args!("not watching user installs: {e}"));
+                }
+            })
+            .ok();
+    }
+}
+
+/// Reads the apps again when one is installed, updated or removed beside
+/// the OS's: Reef's store handler and marathon-dev do it from their own
+/// processes, and an update Reef installed ran only after a restart.
+fn watch_user_installs(qt: &cxx_qt::CxxQtThread<Apps>) -> std::io::Result<()> {
+    use inotify::{Inotify, WatchMask};
+    let root = marathon_apps::paths::user_installs();
+    std::fs::create_dir_all(&root)?;
+    let mut inotify = Inotify::init()?;
+    let mask = WatchMask::CREATE
+        | WatchMask::DELETE
+        | WatchMask::MOVED_FROM
+        | WatchMask::MOVED_TO
+        | WatchMask::CLOSE_WRITE;
+    // Each app's directory too: an update rewrites its files and receipt.
+    let watch = |inotify: &mut Inotify| -> std::io::Result<()> {
+        inotify.watches().add(&root, mask)?;
+        for app in std::fs::read_dir(&root)?.flatten() {
+            inotify.watches().add(app.path(), mask).ok();
+        }
+        Ok(())
+    };
+    watch(&mut inotify)?;
+    let mut buffer = [0_u8; 4096];
+    loop {
+        inotify.read_events_blocking(&mut buffer)?;
+        // An install writes its files, then its receipt: one scan for it.
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            if !inotify
+                .read_events(&mut buffer)
+                .is_ok_and(|mut more| more.next().is_some())
+            {
+                break;
+            }
+        }
+        watch(&mut inotify)?;
+        let found = marathon_apps::apps::scan();
+        qt.queue(move |obj| obj.set_registry(found)).ok();
     }
 }
 
