@@ -13,6 +13,10 @@ TestCase {
         compare(Logic.pageFile("scale"), "DisplayPage.qml");
         compare(Logic.pageFile("ambience"), "AmbiencePage.qml");
         compare(Logic.pageFile("wallpaper"), "AmbiencePage.qml");
+        compare(Logic.pageFile("savednetworks"), "SavedNetworksPage.qml");
+        compare(Logic.pageFile("apn"), "ApnPage.qml");
+        compare(Logic.pageFile("timezone"), "TimeZonePage.qml");
+        compare(Logic.pageFile("speedkeys"), "SpeedKeysPage.qml");
         compare(Logic.pageFile("nope"), "");
         compare(Logic.pageFile(""), "");
         compare(Logic.pageFile(undefined), "");
