@@ -55,7 +55,7 @@ def package(args, root, app_id, out):
     archive = out / f"{app_id}-{version}.marathon"
     subprocess.run([args.marathon_dev, "package", str(stage), str(archive), "--key", args.key],
                    check=True, stdout=subprocess.DEVNULL)
-    return manifest, archive
+    return manifest, archive, stage
 
 
 def upload(repo, tag, files):
@@ -68,7 +68,22 @@ def upload(repo, tag, files):
     subprocess.run(["gh", "release", "upload", tag, "--repo", repo, *map(str, files)], check=True)
 
 
-def entry(manifest, archive, url, min_image):
+def icon(manifest, stage, assets):
+    """The app's icon as a PNG beside the catalogue: Reef shows PNG and JPEG only."""
+    source = stage / manifest.get("icon", "")
+    if not source.is_file():
+        return None
+    assets.mkdir(parents=True, exist_ok=True)
+    png = assets / f"{manifest['id']}-{manifest['version']}.png"
+    if source.suffix == ".png":
+        shutil.copyfile(source, png)
+    else:
+        subprocess.run(["rsvg-convert", "-w", "256", "-h", "256", "-o", str(png), str(source)],
+                       check=True)
+    return f"assets/{png.name}"
+
+
+def entry(manifest, archive, url, min_image, icon_path):
     return {
         "name": manifest["id"],
         "version": manifest["version"],
@@ -79,6 +94,7 @@ def entry(manifest, archive, url, min_image):
         "publisher": "Marathon",
         "licence": {"model": "free"},
         "size": archive.stat().st_size,
+        **({"icon": icon_path} if icon_path else {}),
         "install": {"kind": "marathon", "app_id": manifest["id"], "url": url,
                     "sha256": sha256(archive), "min_image": min_image},
     }
@@ -113,16 +129,17 @@ def main():
         out.mkdir(parents=True, exist_ok=True)
         built = [package(args, root, app_id, out) for app_id in args.apps]
         if args.github:
-            files = [f for _, a in built for f in (a, a.with_name(a.name + ".minisig"))]
+            files = [f for _, a, _ in built for f in (a, a.with_name(a.name + ".minisig"))]
             upload(args.github, f"apps/{arch}", files)
         packages = catalogue.setdefault("packages", [])
-        for manifest, archive in built:
-            new = entry(manifest, archive, base + archive.name, args.min_image)
+        for manifest, archive, stage in built:
+            png = icon(manifest, stage, catalogue_path.parent / "assets")
+            new = entry(manifest, archive, base + archive.name, args.min_image, png)
             old = next((p for p in packages if p["name"] == new["name"]), None)
             if old is None:
                 packages.append(new)
             else:
-                old.update({k: new[k] for k in ("version", "size", "install")})
+                old.update({k: new[k] for k in ("version", "size", "install", "icon") if k in new})
             print(f"{manifest['id']} {manifest['version']}: {base}{archive.name}")
     catalogue_path.write_text(json.dumps(catalogue, indent=2, ensure_ascii=False) + "\n")
     print(f"updated {catalogue_path}; sign it with tools/reef-catalogue sign")
