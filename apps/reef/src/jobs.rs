@@ -341,7 +341,14 @@ fn cache_catalogue(input: &RefreshInput, base: &str, c: &mut Catalogue) {
 pub fn refresh(input: &RefreshInput) -> RefreshOutput {
     let mut out = RefreshOutput::default();
     let base = &input.store_url;
-    match fetch(&format!("{base}catalogue.json")) {
+    // The full catalogue lists Marathon's own apps; `catalogue.json` is
+    // the same without them, for Reefs that don't know them, and was all
+    // this one read, so it never offered them.
+    let fetched = match fetch(&format!("{base}catalogue-full.json")) {
+        Err(FetchError::Status(404)) => fetch(&format!("{base}catalogue.json")),
+        full => full,
+    };
+    match fetched {
         Ok(f) => match Catalogue::parse(&f.body, &input.arch) {
             Ok(mut c) => {
                 cache_catalogue(input, base, &mut c);
@@ -856,6 +863,32 @@ mod tests {
             .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
             .collect();
         assert!(leftovers.is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn refresh_prefers_the_full_catalogue() {
+        let dir = scratch("full");
+        let repo = dir.join("store/aarch64");
+        std::fs::create_dir_all(&repo).unwrap();
+        std::fs::write(
+            repo.join("catalogue.json"),
+            br#"{"schema":1,"release":"marathon","arch":"aarch64","packages":[]}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            repo.join("catalogue-full.json"),
+            br#"{"schema":1,"release":"full","arch":"aarch64","packages":[]}"#,
+        )
+        .unwrap();
+        let out = refresh(&RefreshInput {
+            store_url: format!("file://{}/", repo.display()),
+            arch: "aarch64".into(),
+            licence_dir: None,
+            licence_server: String::new(),
+            cache_path: Some(dir.join("cache.json")),
+        });
+        assert_eq!(out.catalogue.expect("catalogue").release, "full");
         std::fs::remove_dir_all(dir).unwrap();
     }
 
