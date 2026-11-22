@@ -143,8 +143,16 @@ Item {
             // scaled. Filling the layer and then scaling drew a GTK modal
             // dialog (Tuba's "Add Account") 1.5 times too wide.
             hasSentInitialSize: true
+            // Keel's dialogs (Pilot's overlay) float over any app; an app's own
+            // modal window (Tuba's "Add Account") only over that app: closing
+            // Tuba left it over every app after.
+            readonly property bool keelDialog: {
+                const toplevel = _toplevelFromObj(surfaceObj);
+                return !!toplevel && String(toplevel.title).startsWith("keel:dialog");
+            }
+
             // Shown once it has drawn; the item's placeholder is opaque.
-            visible: hasFirstFrame
+            visible: hasFirstFrame && (keelDialog || (UIStore.appWindowOpen && UIStore.currentAppId === appId))
             onVisibleChanged: root._updateShowing()
             onHasFirstFrameChanged: {
                 if (hasFirstFrame) {

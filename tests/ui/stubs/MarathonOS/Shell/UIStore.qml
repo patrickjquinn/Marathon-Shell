@@ -14,6 +14,7 @@ QtObject {
     property real quickSettingsThreshold: 400
     property bool searchOpen: false
     property bool appWindowOpen: false
+    property string currentAppId: ""
     property bool settingsOpen: false
     property var shellRef: null
     function openQuickSettings() {

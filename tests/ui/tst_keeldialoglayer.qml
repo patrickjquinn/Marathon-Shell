@@ -58,6 +58,7 @@ TestCase {
             }
             property QtObject toplevel: QtObject {
                 property int closes: 0
+                property string title: "keel:dialog"
 
                 function sendClose() {
                     closes++;
@@ -115,6 +116,20 @@ TestCase {
         compare(xdg.toplevel.closes, 0);
         compositor.nativeBackUnhandled(7);
         compare(xdg.toplevel.closes, 1);
+    }
+
+    // An app's own modal window shows over that app only.
+    function test_anAppsDialogShowsOnlyOverItsApp() {
+        const xdg = createTemporaryObject(xdgSurface, testCase);
+        xdg.toplevel.title = "Add Account";
+        UIStore.appWindowOpen = true;
+        UIStore.currentAppId = "dev.geopjr.Tuba";
+        layer.add("dev.geopjr.Tuba", xdg, 9);
+        tryVerify(() => layer.front() !== null);
+        UIStore.currentAppId = "de.haeckerfelix.Shortwave";
+        tryVerify(() => layer.front() === null);
+        UIStore.appWindowOpen = false;
+        UIStore.currentAppId = "";
     }
 
     function test_hiddenWithoutADialog() {
