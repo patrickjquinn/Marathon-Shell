@@ -697,6 +697,10 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     }
 
     env.insert("WAYLAND_DISPLAY", socketName());
+    // X11 apps (VLC) reach xwayland-satellite; the session sets DISPLAY only
+    // when it is installed.
+    if (const QString x11 = qEnvironmentVariable("DISPLAY"); !x11.isEmpty())
+        env.insert("DISPLAY", x11);
     env.insert("XDG_RUNTIME_DIR", runtimeDir);
     env.insert("QT_QPA_PLATFORM", "wayland");
     env.insert("QT_WAYLAND_SHELL_INTEGRATION", "xdg-shell");
