@@ -115,6 +115,8 @@
         "wifi": {"type": "string", "minLength": 1},
         "bluetooth": {"type": "string", "minLength": 1},
         "battery": {"type": "string", "minLength": 1},
+        "nfc": {"description": "NFC controller, or \"none\".", "type": "string", "minLength": 1},
+        "cameras": {"description": "Camera sensors and how far they work, or \"none\".", "type": "string", "minLength": 1},
         "sensors": {"$ref": "#/$defs/strings"},
         "quirks": {"$ref": "#/$defs/strings"}
       }
