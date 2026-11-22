@@ -1,0 +1,111 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] Input: matrix_keypad - Switch the row interrupts outside the lock
+
+With its rows on a GPIO expander, such as the AW9523 that scans the
+Minimal Phone MP01's keyboard, the keypad sleeps in atomic context: the
+expander's interrupt chip implements irq_bus_lock with a mutex, and
+disable_irq_nosync() and enable_irq() take it, while the driver calls
+them with its spinlock held, from both the interrupt handler and the
+scan work.
+
+Keep scan_pending and stopped under the lock and switch the row
+interrupts after dropping it. The disable depth stays balanced: every
+transition of scan_pending to true is followed by exactly one
+disable_row_irqs() and every scan ends with exactly one
+enable_row_irqs(). An interrupt that arrives while a scan re-enables
+the rows only raises their depth for the next scan to lower again.
+
+The handler and the end of the scan shared the scheduling code; it is
+now one function.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/drivers/input/keyboard/matrix_keypad.c b/drivers/input/keyboard/matrix_keypad.c
+--- a/drivers/input/keyboard/matrix_keypad.c
++++ b/drivers/input/keyboard/matrix_keypad.c
+@@ -115,6 +115,30 @@
+ }
+ 
+ /*
++ * The row interrupts are switched outside the lock: on a GPIO expander they
++ * take the irqchip's bus lock, which sleeps. Every scan_pending transition to
++ * true disables them once and every scan enables them once, so their disable
++ * depth stays balanced.
++ */
++static void matrix_keypad_schedule_scan(struct matrix_keypad *keypad)
++{
++	/*
++	 * See if another IRQ beaten us to it and scheduled the
++	 * scan already. In that case we should not try to
++	 * disable IRQs again.
++	 */
++	scoped_guard(spinlock_irqsave, &keypad->lock) {
++		if (unlikely(keypad->scan_pending || keypad->stopped))
++			return;
++		keypad->scan_pending = true;
++	}
++
++	disable_row_irqs(keypad);
++	schedule_delayed_work(&keypad->work,
++			      msecs_to_jiffies(keypad->debounce_ms));
++}
++
++/*
+  * This gets the keys from keyboard and reports it to input subsystem
+  */
+ static void matrix_keypad_scan(struct work_struct *work)
+@@ -173,44 +197,20 @@
+ 	activate_all_cols(keypad, true);
+ 
+ 	/* Enable IRQs again */
+-	scoped_guard(spinlock_irq, &keypad->lock) {
++	scoped_guard(spinlock_irq, &keypad->lock)
+ 		keypad->scan_pending = false;
+-		enable_row_irqs(keypad);
+-	}
++	enable_row_irqs(keypad);
+ 
+ 	/* read new row state and detect if value has changed */
+ 	new_row_state = read_row_state(keypad);
+-	if (init_row_state != new_row_state) {
+-		guard(spinlock_irq)(&keypad->lock);
+-		if (unlikely(keypad->scan_pending || keypad->stopped))
+-			return;
+-		disable_row_irqs(keypad);
+-		keypad->scan_pending = true;
+-		schedule_delayed_work(&keypad->work,
+-				      msecs_to_jiffies(keypad->debounce_ms));
+-	}
++	if (init_row_state != new_row_state)
++		matrix_keypad_schedule_scan(keypad);
+ }
+ 
+ static irqreturn_t matrix_keypad_interrupt(int irq, void *id)
+ {
+-	struct matrix_keypad *keypad = id;
+-
+-	guard(spinlock_irqsave)(&keypad->lock);
+-
+-	/*
+-	 * See if another IRQ beaten us to it and scheduled the
+-	 * scan already. In that case we should not try to
+-	 * disable IRQs again.
+-	 */
+-	if (unlikely(keypad->scan_pending || keypad->stopped))
+-		goto out;
+-
+-	disable_row_irqs(keypad);
+-	keypad->scan_pending = true;
+-	schedule_delayed_work(&keypad->work,
+-			      msecs_to_jiffies(keypad->debounce_ms));
++	matrix_keypad_schedule_scan(id);
+ 
+-out:
+ 	return IRQ_HANDLED;
+ }
+ 
+-- 
+2.47.0
+
