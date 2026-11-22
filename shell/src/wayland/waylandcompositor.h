@@ -277,6 +277,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QMap<int, QPointer<QWaylandXdgSurface>> m_xdgSurfaceMap;
     QPointer<QWaylandSurface>               m_activeFocus;
     bool                                    m_xdgShellV2 = false;
+    bool                                    m_outputV4   = false;
     QMap<QProcess *, QString>               m_processes;
     QMap<qint64, int>                       m_pidToSurfaceId;
     QMap<int, qint64>                       m_surfaceIdToPid;

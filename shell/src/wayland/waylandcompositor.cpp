@@ -52,6 +52,8 @@
 #include <private/qwaylandpresentationtime_p.h>
 #endif
 #include <QtWaylandCompositor/private/qwaylandxdgshell_p.h>
+#include <QtWaylandCompositor/private/qwaylandoutput_p.h>
+#include <wayland-server-protocol.h>
 
 #include "diag/frametiming.h"
 #include "androidappid.h"
@@ -128,6 +130,17 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
             // 2, which adds only the tiled states. Version 1 is hidden.
             QWaylandXdgShellPrivate::get(m_xdgShell)->init(static_cast<wl_display *>(display()), 2);
             m_xdgShellV2 = true;
+            g_outputName = m_output && m_output->window() && m_output->window()->screen() ?
+                m_output->window()->screen()->name().toUtf8() :
+                QByteArray();
+            if (g_outputName.isEmpty())
+                g_outputName = QByteArrayLiteral("Marathon-1");
+            wl_display_add_client_created_listener(static_cast<wl_display *>(display()),
+                                                   &g_clientCreated);
+            if (m_output) {
+                QWaylandOutputPrivate::get(m_output)->init(static_cast<wl_display *>(display()), 4);
+                m_outputV4 = true;
+            }
             if (!disconnect(defaultSeat(),
                             SIGNAL(keyboardFocusChanged(QWaylandSurface *, QWaylandSurface *)),
                             m_xdgShell, nullptr))
@@ -493,10 +506,51 @@ WaylandCompositor::~WaylandCompositor() {
     }
 }
 
+namespace {
+    // wl_output 4 names the output: xwayland-satellite unwraps that name. Qt
+    // sends nothing past version 2, so a client's v4 output hears it here, as
+    // it is created and before Qt's bind sends done.
+    struct OutputNamer {
+        wl_listener created{};
+        wl_listener destroyed{};
+    };
+    QByteArray g_outputName;
+
+    void       nameOutput(wl_listener *, void *data) {
+        auto *resource = static_cast<wl_resource *>(data);
+        if (qstrcmp(wl_resource_get_class(resource), "wl_output") != 0 ||
+            wl_resource_get_version(resource) < WL_OUTPUT_NAME_SINCE_VERSION)
+            return;
+        wl_output_send_name(resource, g_outputName.constData());
+        wl_output_send_description(resource, "Marathon display");
+    }
+
+    void forgetClient(wl_listener *listener, void *) {
+        OutputNamer *namer = wl_container_of(listener, namer, destroyed);
+        wl_list_remove(&namer->created.link);
+        wl_list_remove(&namer->destroyed.link);
+        delete namer;
+    }
+
+    void watchClient(wl_listener *, void *data) {
+        auto *client            = static_cast<wl_client *>(data);
+        auto *namer             = new OutputNamer;
+        namer->created.notify   = nameOutput;
+        namer->destroyed.notify = forgetClient;
+        wl_client_add_resource_created_listener(client, &namer->created);
+        wl_client_add_destroy_listener(client, &namer->destroyed);
+    }
+
+    wl_listener g_clientCreated{{}, watchClient};
+} // namespace
+
 bool WaylandCompositor::filterGlobal(const wl_client *client, const wl_global *global, void *data) {
     auto *self = static_cast<WaylandCompositor *>(data);
     if (self->m_xdgShellV2 && wl_global_get_version(global) == 1 &&
         qstrcmp(wl_global_get_interface(global)->name, "xdg_wm_base") == 0)
+        return false;
+    if (self->m_outputV4 && wl_global_get_version(global) == 2 &&
+        qstrcmp(wl_global_get_interface(global)->name, "wl_output") == 0)
         return false;
     return self->m_securityContextManager->allowsGlobal(client, global) &&
         self->m_nativeClientScale->allowsGlobal(client, global) &&
