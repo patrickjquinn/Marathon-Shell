@@ -9,6 +9,7 @@ matching `build-*-image.sh` has produced an image artifact.
 | Purism Librem 5 | `flash-librem5.sh` | **Ready, hardware-unverified** | `dd` to SD, or `uuu` SDP→Fastboot to eMMC |
 | HackberryPi CM5 | `flash-hackberry-cm5.sh` | **Ready, hardware-unverified** | `dd` to microSD |
 | Zinwa Q25 | `flash-zinwa-q25.sh` | **Ready, hardware-unverified** | fastboot from the stock bootloader (userdata + U-Boot in lk_a/lk_b), or mtkclient in BROM |
+| Minimal Phone MP01 | `flash-minimal-mp01.sh` | **Ready, hardware-unverified** | fastboot from the stock LK only: U-Boot in boot_a/boot_b + userdata; `--restore-stock` puts the stock boot images back (devices/minimal/mp01/FLASHING.md) |
 | PINE64 PinePhone | `flash-pinephone.sh` | **Ready, hardware-unverified** | `dd` to microSD, or to eMMC through JumpDrive |
 | Other Hackberry variants | `flash-hackberry-pi.sh` | **Wrapper** — dispatches to CM5; other variants not supported yet | n/a |
 
