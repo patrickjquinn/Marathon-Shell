@@ -24,7 +24,8 @@ rename once both boards boot, and the MP01's new SoC patches below go with it.
 | Shared SoC/PMIC series (62) | `linux-zinwa-q25/0001`…`0139`, listed in `$_mt6789` | DRM/DSI, clocks, power domains, watchdog, UFS, idle states, SMI, MUSB, MT6358 gauge and clock buffers, PSI, panfrost. Applied without their hunks to the Q25's board DT (only `0110` has one). |
 | Not taken from the Q25 | | Its board DT patches, panel and bias, BBQ keyboard, ST21NFCD, HX32062SE, ICM-42607, MMC5633, bq256xx, camera sensors, `0011`'s MD1 owner. `0040` and `0119` are Q25-DT-only; `0119`'s clock parent is `mp01-0007` here. |
 | New, SoC-level | `mp01-0003`…`0008` | dither unit address; MT6789 entries in the display and mutex bindings; the five display processors in `mt6789.dtsi` (the Q25 board DT carries copies); I2C from MAINPLL in `mt6789.dtsi`; `matrix_keypad` with rows on a sleeping irqchip. They belong in the shared series and move there with it. |
-| Board | `mp01-0001`, `0002`, `0009`, `config-minimal-mp01.fragment`, `mp01-*.dtso` | vendor prefix, compatible, `mt6789-minimal-mp01.dts`, config delta, vendor-driver overlays |
+| New, SoC-level: DSI lane order | `mp01-0009`…`0012` | `data-lanes` on the DSI output endpoint, routed through the MIPI TX; does nothing without the property. Moves to the shared series with the rest (`eink-series.md`). |
+| Board | `mp01-0001`, `0002`, `0013`, `0014`, `0015`, `config-minimal-mp01.fragment`, `mp01-*.dtso` | vendor prefix, compatible, the `minimal,z10-eink` binding and driver, `mt6789-minimal-mp01.dts`, config delta, vendor-driver overlays |
 | Config | `config-zinwa-q25.aarch64` + the fragment (`merge_config.sh`) | the fragment holds only the MP01's differences |
 | Out-of-tree modules | `linux-zinwa-q25/modules`, `BOARD=mp01` | see below |
 
@@ -34,9 +35,9 @@ sources resolve.
 
 ## The DT contract with the panel and DSI work
 
-The panel driver and the DSI lane-map patch are written separately. The board
-DT follows that work's binding as it stands in its build tree
-(`minimal,z10-eink.yaml`, the `data-lanes` addition to `mediatek,dsi.yaml`):
+The board DT follows the bindings of the e-paper series in this package
+(`mp01-0013`'s `minimal,z10-eink.yaml`, `mp01-0009`'s `data-lanes` addition to
+`mediatek,dsi.yaml`):
 
 - the panel module is the I2C device at I2C7 0x4b (the Pango controller, bus
   at the factory 1 MHz), compatible `minimal,z10-eink`, with
@@ -51,9 +52,6 @@ DT follows that work's binding as it stands in its build tree
 - the lane map as `data-lanes = <1 2 4 3>` on the DSI output endpoint: the
   physical lane, 1 to 4, carrying each logical lane. The vendor's `lane_swap`
   table crosses lanes 2 and 3, which reads the same in either direction;
-- both series add the `minimal` vendor prefix: `mp01-0001` here and one in
-  the panel series, identical. Keep one when the panel patches join this
-  package.
 
 ## GPIO decisions
 

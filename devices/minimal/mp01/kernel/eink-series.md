@@ -1,30 +1,28 @@
-This directory holds the series that drives the Minimal Phone MP01's
-e-paper display. It is a `git format-patch`-style series that applies with
-`patch -p1` on top of `packaging/packages/linux-zinwa-q25`: ellyq's
-`mtk_g99-mainline` at `978b8b67` plus that package's 138 patches. It also
-applies, as a dry run, to the `linux-minimal-mp01` tree being built on
-another branch. No package carries it yet, so it has only been
-compile-tested (see below). When `linux-minimal-mp01` takes it, drop 0005:
-that package's `mp01-0001` adds the same `minimal` vendor prefix.
+# MP01 e-paper series
+
+These patches drive the Minimal Phone MP01's e-paper display. They are
+`mp01-0009` to `mp01-0014` in `packaging/packages/linux-minimal-mp01`,
+applied after that package's shared MT6789 series and before the board
+DTS (`mp01-0015`), with `CONFIG_DRM_PANEL_MINIMAL_Z10_EINK=m` in
+`config-minimal-mp01.fragment`. The series also carried a `minimal`
+vendor prefix; `mp01-0001` already adds it, so that copy was dropped.
 
 | Patch | What | Class | Where it goes |
 |---|---|---|---|
-| 0001 `dt-bindings: display: mediatek: dsi: Describe the data lane order` | `data-lanes` on the DSI output endpoint | SoC-common | the shared MT6789 series, then linux-mediatek |
-| 0002 `phy: Add the data lane order to the MIPI D-PHY configuration` | `data_lanes[]` in `phy_configure_opts_mipi_dphy` | generic | the shared MT6789 series, then linux-phy |
-| 0003 `phy: mediatek: mipi-dsi: Route the data lanes in the configured order` | MIPITX_PHY_SEL0-3 pad routing from `phy_configure()` | SoC-common, DT-guarded | the shared MT6789 series, then linux-phy |
-| 0004 `drm/mediatek: dsi: Take the data lane order from the endpoint` | mtk_dsi reads `data-lanes` and configures the PHY | SoC-common, DT-guarded | the shared MT6789 series, then linux-mediatek |
-| 0005 `dt-bindings: vendor-prefixes: Add Minimal Company` | `minimal,` | device | devicetree |
-| 0006 `dt-bindings: display: panel: Add the Minimal Z10 e-paper display` | `minimal,z10-eink` | device-class-optional | dri-devel |
-| 0007 `drm/panel: Add the Minimal Z10 e-paper display driver` | `panel-minimal-z10-eink` | device-class-optional | dri-devel |
+| mp01-0009 `dt-bindings: display: mediatek: dsi: Describe the data lane order` | `data-lanes` on the DSI output endpoint | SoC-common | the shared MT6789 series, then linux-mediatek |
+| mp01-0010 `phy: Add the data lane order to the MIPI D-PHY configuration` | `data_lanes[]` in `phy_configure_opts_mipi_dphy` | generic | the shared MT6789 series, then linux-phy |
+| mp01-0011 `phy: mediatek: mipi-dsi: Route the data lanes in the configured order` | MIPITX_PHY_SEL0-3 pad routing from `phy_configure()` | SoC-common, DT-guarded | the shared MT6789 series, then linux-phy |
+| mp01-0012 `drm/mediatek: dsi: Take the data lane order from the endpoint` | mtk_dsi reads `data-lanes` and configures the PHY | SoC-common, DT-guarded | the shared MT6789 series, then linux-mediatek |
+| mp01-0013 `dt-bindings: display: panel: Add the Minimal Z10 e-paper display` | `minimal,z10-eink` | device-class-optional | dri-devel |
+| mp01-0014 `drm/panel: Add the Minimal Z10 e-paper display driver` | `panel-minimal-z10-eink` | device-class-optional | dri-devel |
 
-0001-0004 are SoC-common. They do nothing unless a board's DSI endpoint
-has `data-lanes`, so the Q25 is unaffected. They live here rather than in
-`linux-zinwa-q25` because the shared MT6789 series that
-`~/q25-build/mt6789-research/common-vs-board.md` proposes does not exist
-yet, and adding them there would change the Q25 kernel package for no Q25
+mp01-0009 to 0012 are SoC-common. They do nothing unless a board's DSI
+endpoint has `data-lanes`, so the Q25 is unaffected. They are in the MP01
+package rather than `linux-zinwa-q25` because the shared MT6789 series
+that `research/mt6789/common-vs-board.md` proposes does not exist yet,
+and adding them there would change the Q25 kernel package for no Q25
 benefit. When the shared series is split out, move them into it in this
-order. 0005-0007 belong only to an MP01 kernel; enable
-`CONFIG_DRM_PANEL_MINIMAL_Z10_EINK=m` in its config.
+order. mp01-0013 and 0014 belong only to an MP01 kernel.
 
 Notes for the board DTS and the design:
 

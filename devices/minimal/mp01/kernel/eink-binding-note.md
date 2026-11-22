@@ -1,10 +1,11 @@
 # MP01 e-paper display: binding for the board DTS
 
 The binding is `Documentation/devicetree/bindings/display/panel/minimal,z10-eink.yaml`
-from `patches/0006-dt-bindings-display-panel-Add-the-Minimal-Z10-e-pape.patch`
-(vendor prefix `minimal` from 0005). The DSI lane order uses `data-lanes`
-on the DSI output endpoint, from
-`patches/0001-dt-bindings-display-mediatek-dsi-Describe-the-data-la.patch`.
+from `linux-minimal-mp01`'s
+`mp01-0013-dt-bindings-display-panel-Add-the-Minimal-Z10-e-pape.patch`
+(vendor prefix `minimal` from `mp01-0001`). The DSI lane order uses
+`data-lanes` on the DSI output endpoint, from
+`mp01-0009-dt-bindings-display-mediatek-dsi-Describe-the-data-la.patch`.
 This note says what the board DTS has to write.
 
 ## The model
