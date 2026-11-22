@@ -1404,8 +1404,8 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        discard_app_windows, flatpak_exec, is_android_app_id, is_foreground_flatpak_run,
-        AndroidHandoff, ForegroundLaunches,
+        discard_app_windows, electron_base, flatpak_exec, is_android_app_id,
+        is_foreground_flatpak_run, AndroidHandoff, ForegroundLaunches,
     };
 
     #[test]
