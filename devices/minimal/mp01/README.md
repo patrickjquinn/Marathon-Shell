@@ -111,7 +111,7 @@ None of the Q25's battery values apply.
   compositor honour the DRM panel-orientation property (DT
   `rotation = <270>`), or should a profile key set a base rotation?
   Either is a shell change and needs testing on the phone.
-- **E-paper refresh policy.** `DISPLAY_TECHNOLOGY=epd` only reduces
+- **E-paper refresh policy.** `DISPLAY_TECHNOLOGY=epaper` only reduces
   motion. A refresh-mode key needs a consumer first: an e-paper service
   or compositor hook, which doesn't exist yet.
 - **CONNSYS firmware.** The MP01's `connsys_*` partitions are empty, so the

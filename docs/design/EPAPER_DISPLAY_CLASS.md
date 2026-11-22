@@ -16,10 +16,11 @@ How the shell learns the display class, in order of preference:
 1. **The DRM connector says so.** This needs a future upstream
    `panel type` / EPD connector property. Probe it at output creation,
    as the shell already probes for HDR and VRR capability.
-2. **DeviceProfile until then.** Add `display_class = "epaper"` to the
-   manifest's `[profile]`, exposed as `DeviceProfile.displayClass`. The
-   trait cannot be probed before the first frame, which is exactly what
-   seam 2 is for. Default: `"emissive"`.
+2. **DeviceProfile until then.** The manifest's `[profile]` sets
+   `display_technology = "epaper"`, exposed as
+   `DeviceProfile.displayTechnology`. The trait cannot be probed before
+   the first frame, which is exactly what seam 2 is for. Default: `"lcd"`;
+   `"oled"` is the other emissive value.
 3. **Refresh controls are probed separately.** The interim kernel ABI is
    a `refresh_mode` and a `full_refresh` attribute on the panel's device.
    Find it by walking from the DRM connector's graph to the panel device,
@@ -29,7 +30,7 @@ How the shell learns the display class, in order of preference:
    controls still gets the rendering policy, and simply never triggers a
    refresh.
 
-## What changes when `displayClass == "epaper"`
+## What changes when `displayTechnology == "epaper"`
 
 ### Motion
 
@@ -132,14 +133,14 @@ state machine in the compositor, driven by what it renders:
 
 ## Implementation sketch (for later)
 
-- `DeviceProfile.displayClass` plus an `EpaperController` service
+- `DeviceProfile.displayTechnology` plus an `EpaperController` service
   (C++) that owns the attribute files, the rate limit, the clear
   coalescing and the moving/resting state. It is fed by the compositor's
   frame-commit and page-flip signals, using `QQuickWindow::frameSwapped`
   only as a fallback. All writes go to the kernel interface; no daemon is
   involved (rules H1 and B12).
 - `MMotion.instant` and the theme overrides are keyed off
-  `displayClass`.
+  `displayTechnology`.
 - Settings > Display gets a "Refresh" section (mode, auto-clear) when
   the class is `epaper`.
 - When the upstream KMS property exists, the controller sets the mode in

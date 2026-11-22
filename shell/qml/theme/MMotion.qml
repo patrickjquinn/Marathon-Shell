@@ -142,7 +142,7 @@ QtObject {
 
     // Settings → Accessibility → Reduce motion, always on e-paper, which
     // ghosts under animation. Components go through dur().
-    property bool reduceMotion: (typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "epd") || (typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true))
+    property bool reduceMotion: (typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "epaper") || (typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true))
 
     function dur(token) {
         return reduceMotion ? micro : token;

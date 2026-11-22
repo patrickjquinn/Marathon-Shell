@@ -57,7 +57,7 @@ mod ffi {
         touch_filter: bool,
         /// Extra evdevtouch parameters, e.g. "rotate=90:invertx".
         touch_params: QString,
-        /// "lcd", "oled" or "epd" (e-paper).
+        /// "lcd", "oled" or "epaper".
         display_technology: QString,
     }
 
@@ -128,7 +128,7 @@ impl Values {
 
     pub fn display_technology(&self) -> String {
         let t = self.text("MARATHON_DISPLAY_TECHNOLOGY", "DISPLAY_TECHNOLOGY", "lcd");
-        if matches!(t.as_str(), "lcd" | "oled" | "epd") {
+        if matches!(t.as_str(), "lcd" | "oled" | "epaper") {
             t
         } else {
             "lcd".to_owned()
@@ -320,8 +320,8 @@ mod tests {
             "lcd"
         );
         assert_eq!(
-            values(&[("DISPLAY_TECHNOLOGY", "epd")]).display_technology(),
-            "epd"
+            values(&[("DISPLAY_TECHNOLOGY", "epaper")]).display_technology(),
+            "epaper"
         );
     }
 }

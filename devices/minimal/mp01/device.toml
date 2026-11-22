@@ -65,7 +65,7 @@ quirks = [
 ]
 
 [profile]
-display_technology = "epd"
+display_technology = "epaper"
 force_dpi = 180
 # The true pitch, 1000 px of diagonal over 4.3 in, for the wl_output size.
 panel_dpi = 233
