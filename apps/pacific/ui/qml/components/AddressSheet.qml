@@ -66,8 +66,14 @@ Item {
         _open = false;
         openAnim.stop();
         closeAnim.restart();
-        // Without focus the field gives up the keyboard.
-        field.focus = false;
+        // The page takes the keys, as a browser's does. Focus left on
+        // nothing kept the app's text input on, so the trackpad moved a
+        // caret instead of scrolling until the page was tapped.
+        var tab = browser ? browser.currentTab : null;
+        if (tab && tab.webView)
+            tab.webView.forceActiveFocus();
+        else
+            field.focus = false;
     }
     NumberAnimation {
         id: openAnim
