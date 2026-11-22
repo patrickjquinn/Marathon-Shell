@@ -252,6 +252,11 @@ pub(crate) async fn details(bus: &zbus::Connection, ssid: &str) -> State {
         .and_then(|c| c.get("autoconnect"))
         .and_then(|v| bool::try_from(v).ok())
         .unwrap_or(true);
+    // NetworkManager's connection.metered: 1 is yes; 0 (unknown) lets it guess.
+    let low_data = section("connection")
+        .and_then(|c| c.get("metered"))
+        .and_then(|v| i32::try_from(v).ok())
+        == Some(1);
     let key_mgmt = text(section("802-11-wireless-security"), "key-mgmt");
     let ipv4 = section("ipv4");
     let manual = text(ipv4, "method").as_deref() == Some("manual");
@@ -262,6 +267,7 @@ pub(crate) async fn details(bus: &zbus::Connection, ssid: &str) -> State {
         .unwrap_or(false);
     out.insert("saved".into(), value(true));
     out.insert("autoJoin".into(), value(auto_join));
+    out.insert("lowData".into(), value(low_data));
     out.insert("secured".into(), value(key_mgmt.is_some()));
     out.insert(
         "privateAddress".into(),
@@ -410,12 +416,23 @@ pub(crate) async fn set_option(
         }
     }
     let mut rejoin = true;
+    let mut reapply = false;
     match key {
         "autoJoin" => {
             all.entry("connection".into())
                 .or_default()
                 .insert("autoconnect".into(), value(v == "true"));
             rejoin = false;
+        }
+        // Updates, Reef's and Pilot's downloads and background work wait on a
+        // metered network; Reapply takes it without dropping the connection.
+        "lowData" => {
+            all.entry("connection".into()).or_default().insert(
+                "metered".into(),
+                value(if v == "true" { 1_i32 } else { 0_i32 }),
+            );
+            rejoin = false;
+            reapply = true;
         }
         "privateAddress" => {
             let mac = cloned_mac_for(v).ok_or_else(|| v.to_owned())?;
@@ -461,6 +478,25 @@ pub(crate) async fn set_option(
         _ => return Err(key.to_owned()),
     }
     c.update(borrowed(&all)?).await.map_err(|e| e.to_string())?;
+    if reapply {
+        if let Some((device, Some(active))) = wifi_link(bus).await {
+            if active == s.path {
+                bus.call_method(
+                    Some("org.freedesktop.NetworkManager"),
+                    &device,
+                    Some("org.freedesktop.NetworkManager.Device"),
+                    "Reapply",
+                    &(
+                        HashMap::<String, HashMap<String, OwnedValue>>::new(),
+                        0_u64,
+                        0_u32,
+                    ),
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+            }
+        }
+    }
     if rejoin {
         if let Some((device, Some(active))) = wifi_link(bus).await {
             if active == s.path {

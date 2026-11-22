@@ -198,6 +198,14 @@ TestCase {
         compare(Network.calls[Network.calls.length - 1], ["option", "Home", "autoJoin", "false"]);
     }
 
+    function test_lowDataModeSetsTheNetworkMetered() {
+        const s = openHome();
+        const low = child(s.page, "lowDataSwitch");
+        verify(!low.checked);
+        low.clicked(null);
+        compare(Network.calls[Network.calls.length - 1], ["option", "Home", "lowData", "true"]);
+    }
+
     function test_manualIpFieldsFollowTheChoice() {
         const s = openHome();
         const fields = child(s.page, "manualIp");
