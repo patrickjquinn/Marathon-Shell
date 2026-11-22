@@ -68,6 +68,7 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0007-wmt-no-trace-printk.patch")
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0009-wmt-log-levels.patch")
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0010-wmt-expected-states-debug.patch")
+(cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0011-wmt-fm-lna-only-when-described.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0005-wlan-gen4m-proc-owner.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0006-wlan-gen4m-failed-roam-disconnects.patch")

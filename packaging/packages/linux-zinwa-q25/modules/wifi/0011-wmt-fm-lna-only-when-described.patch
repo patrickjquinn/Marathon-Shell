@@ -1,0 +1,24 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wmt: drive the FM LNA only when the board describes one
+
+The FM LNA hook (an ODM addition) reads the LNA pin from the CONSYS
+node's pinctrl-4 and leaves fm_lna_pin_num at 0xffffffff when there is
+none. wmt_func_fm_pre_ctrl() treats any non-zero pin number as "host
+pin used for fm lna", so on a board without one every FM power-up and
+power-down went to wmt_plat_fm_lna_ctrl(), which then failed to find
+the fm_lna_state_* pin states and logged "Cannot find fm lna pin init
+state!" as an error.
+
+Start fm_lna_pin_num at 0, the "no pin" value its user checks for.
+---
+--- a/wmt_drv/common_main/platform/mtk_wcn_consys_hw.c
++++ b/wmt_drv/common_main/platform/mtk_wcn_consys_hw.c
+@@ -95,7 +95,7 @@
+ 
+ UINT32 gps_lna_pin_num = 0xffffffff;
+ /* end ,prize-lifenfen-20181211, add FM_LNA_EN */
+-UINT32 fm_lna_pin_num = 0xffffffff;
++UINT32 fm_lna_pin_num;
+ /* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+ 
+ INT32 chip_reset_status = -1;
