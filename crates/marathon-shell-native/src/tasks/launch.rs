@@ -29,7 +29,7 @@ const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
 /// Flatpak hands a sandbox the accessibility bus, and Qt then runs as if a
 /// screen reader were on (Telegram's "Screen Reader mode"). The shell's
-/// GBM_BACKENDS_PATH names the host's /usr/lib/gbm, which in a runtime is
+/// `GBM_BACKENDS_PATH` names the host's `/usr/lib/gbm`, which in a runtime is
 /// the runtime's own: Element's Chromium found no GBM backend there and
 /// never opened a window.
 const FLATPAK_RUN: &str = "flatpak run --no-a11y-bus --unset-env=GBM_BACKENDS_PATH ";
@@ -46,7 +46,7 @@ const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --unset-env=GBM_BACKEN
 /// Electron app (Signal, Element) said it found no keyring; GNOME's name
 /// makes it use the Secret Service. Only those apps get it: Qt picks its
 /// platform theme from the same variable. Signal's Flatpak passes its own
-/// store, plain text unless SIGNAL_PASSWORD_STORE says otherwise, and first
+/// store, plain text unless `SIGNAL_PASSWORD_STORE` says otherwise, and first
 /// shows a dialog warning of it.
 const ELECTRON_DESKTOP: &str =
     "--env=XDG_CURRENT_DESKTOP=marathon:GNOME --env=SIGNAL_PASSWORD_STORE=gnome-libsecret ";

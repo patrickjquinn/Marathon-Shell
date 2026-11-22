@@ -427,10 +427,9 @@ pub(crate) async fn set_option(
         // Updates, Reef's and Pilot's downloads and background work wait on a
         // metered network; Reapply takes it without dropping the connection.
         "lowData" => {
-            all.entry("connection".into()).or_default().insert(
-                "metered".into(),
-                value(if v == "true" { 1_i32 } else { 0_i32 }),
-            );
+            all.entry("connection".into())
+                .or_default()
+                .insert("metered".into(), value(i32::from(v == "true")));
             rejoin = false;
             reapply = true;
         }
@@ -478,9 +477,20 @@ pub(crate) async fn set_option(
         _ => return Err(key.to_owned()),
     }
     c.update(borrowed(&all)?).await.map_err(|e| e.to_string())?;
+    apply_live(bus, &s.path, reapply, rejoin).await
+}
+
+/// A changed profile on the network it is joined to: reapplied in place
+/// (metered), or joined again (addresses, DNS, private address).
+async fn apply_live(
+    bus: &zbus::Connection,
+    path: &OwnedObjectPath,
+    reapply: bool,
+    rejoin: bool,
+) -> Result<(), String> {
     if reapply {
         if let Some((device, Some(active))) = wifi_link(bus).await {
-            if active == s.path {
+            if active == *path {
                 bus.call_method(
                     Some("org.freedesktop.NetworkManager"),
                     &device,
@@ -499,10 +509,10 @@ pub(crate) async fn set_option(
     }
     if rejoin {
         if let Some((device, Some(active))) = wifi_link(bus).await {
-            if active == s.path {
+            if active == *path {
                 let nm = NmProxy::new(bus).await.map_err(|e| e.to_string())?;
                 nm.activate_connection(
-                    &s.path,
+                    path,
                     &device,
                     &ObjectPath::try_from("/").map_err(|e| e.to_string())?,
                 )
