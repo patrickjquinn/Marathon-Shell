@@ -124,6 +124,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     QMetaObject::invokeMethod(
         this,
         [this]() {
+            // Qt advertises xdg_wm_base 1; xwayland-satellite (X11 apps) needs
+            // 2, which adds only the tiled states. Version 1 is hidden.
+            QWaylandXdgShellPrivate::get(m_xdgShell)->init(static_cast<wl_display *>(display()), 2);
+            m_xdgShellV2 = true;
             if (!disconnect(defaultSeat(),
                             SIGNAL(keyboardFocusChanged(QWaylandSurface *, QWaylandSurface *)),
                             m_xdgShell, nullptr))
@@ -491,6 +495,9 @@ WaylandCompositor::~WaylandCompositor() {
 
 bool WaylandCompositor::filterGlobal(const wl_client *client, const wl_global *global, void *data) {
     auto *self = static_cast<WaylandCompositor *>(data);
+    if (self->m_xdgShellV2 && wl_global_get_version(global) == 1 &&
+        qstrcmp(wl_global_get_interface(global)->name, "xdg_wm_base") == 0)
+        return false;
     return self->m_securityContextManager->allowsGlobal(client, global) &&
         self->m_nativeClientScale->allowsGlobal(client, global) &&
         self->m_marathonSurfaceManager->allowsGlobal(client, global);
