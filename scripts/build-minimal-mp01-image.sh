@@ -3,8 +3,9 @@
 #
 # Output: the GPT disk image (ESP and root) for the phone's userdata, in
 # $MARATHON_BUILD_DIR/duranium/mkosi.output/minimal-mp01_marathon_edge/.
-# Nothing composes the U-Boot boot image for boot_a yet, and there is no
-# flash script: the MP01's boot chain is unproven.
+# The U-Boot boot image for boot_b is built outside this tree, and nothing
+# turns this output into the userdata image scripts/flash/flash-minimal-mp01.sh
+# writes yet (devices/minimal/mp01/FLASHING.md).
 #
 # Needs the kernel aport device-minimal-mp01 names (linux-minimal-mp01).
 # Arguments go to scripts/build-image.sh.

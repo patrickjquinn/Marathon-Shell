@@ -18,8 +18,8 @@ declares it but stock loads no driver for it.
 | Subsystem | Part | State | Notes |
 |---|---|---|---|
 | SoC, UFS, PMIC | MT6789, UFS at 11270000, MT6366 | untested | Same addresses, PSCI states and UFS clocks as the Q25 |
-| Display | Z10 e-paper on DSI0, Pango CPLD on i2c7 0x4b | blocked | Needs an MP01 panel driver. Stock swaps DSI lanes 2/3 and mainline `mtk_dsi` can't remap lanes. Never use the CPLD's firmware-update registers |
-| Display orientation | panel mounted at 270° | blocked | `MTK_LCM_PHYSICAL_ROTATION = 270`, so scanout is 800x600 while touch and the UI are 600x800. The shell has no base rotation (see open questions) |
+| Display | Z10 e-paper on DSI0, Pango CPLD on i2c7 0x4b | untested | `panel-minimal-z10-eink` and the DSI `data-lanes` order (lanes 2/3 crossed) are in `linux-minimal-mp01`. The driver cannot address the CPLD's firmware-update registers |
+| Display orientation | panel mounted at 270° | blocked | `MTK_LCM_PHYSICAL_ROTATION = 270`, so scanout is 800x600 while touch and the UI are 600x800. The DT says `rotation = <270>` and fbcon follows it; the shell has no base rotation (see open questions) |
 | Frontlight, warm light | `disp_pwm` lcd-backlight, `pwm_warmlight` | untested | Two LED or backlight devices, not shell code |
 | Touch | FocalTech on i2c0 0x38 (IRQ GPIO9, reset GPIO152) | untested | Reports 0–600 x 0–800 in the portrait frame, so no `touch_params`. Stock also has three virtual keys (back, home, switcher) |
 | Keyboard | AW9523B 6x6 matrix on i2c6 0x5b | untested | Keymap goes in the DT (`linux,keymap` on `gpio-matrix-keypad` over `pinctrl-aw9523`). `60-mp01-keyboard.rules` marks it as the built-in keyboard. Symbol layer: open question |
@@ -83,13 +83,14 @@ None of the Q25's battery values apply.
 1. [ ] Unlock: the inventoried phone reports `vbmeta.device_state = locked`.
    Find an unlock that keeps `md1img`, `nvdata`, `nvram` and `proinfo`.
    Back up every partition first.
-2. [ ] Boot chain: prove that the stock LK loads a U-Boot from `boot_a`
-   (boot header v4 with `vendor_boot` and `init_boot`) while slot `_b`
-   still boots stock. If it can't, change `[boot]`.
+2. [ ] Boot chain: the stock LK loads a U-Boot from `boot_b` while slot
+   `_a` still boots stock (FLASHING.md; U-Boot itself has run). Prove it
+   starts systemd-boot and a Marathon kernel from userdata.
 3. [ ] Kernel: `linux-minimal-mp01` (release 7.0.0-mp01) boots to a USB
    shell. Its modules carry that vermagic, never the Q25's.
-4. [ ] `scripts/build-minimal-mp01-image.sh` builds. Then add the boot_a
-   composer and a flash script gated on checks done on the phone.
+4. [ ] `scripts/build-minimal-mp01-image.sh` builds, and a composer turns
+   its output into the userdata image `scripts/flash/flash-minimal-mp01.sh`
+   writes.
 5. [ ] Display: DSI link with the lane swap fixed in the host or PHY,
    `mediatek-drm` scanout, `/dev/dri/mp01-display`, read-only CPLD
    control (no firmware writes). Then refresh modes and clear.
