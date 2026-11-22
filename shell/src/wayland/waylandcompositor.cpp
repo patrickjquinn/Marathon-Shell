@@ -28,6 +28,7 @@
 #include <QFileInfo>
 #include <QTextStream>
 #include <QCoreApplication>
+#include <QWaylandXdgDecorationManagerV1>
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 #include <QWaylandXdgPopup>
@@ -114,6 +115,13 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     wl_display_set_default_max_buffer_size(static_cast<wl_display *>(display()), 1024 * 1024);
 
     m_xdgShell = new QWaylandXdgShell(this);
+    // Apps that draw a title bar (Electron's, Qt's) drop it when asked to
+    // leave decorations to the compositor; Marathon's windows have none.
+    auto *decorations = new QWaylandXdgDecorationManagerV1;
+    decorations->setParent(this);
+    decorations->setExtensionContainer(this);
+    decorations->initialize();
+    decorations->setPreferredMode(QWaylandXdgToplevel::ServerSideDecoration);
 #ifdef HAVE_WAYLAND_PRIVATE
     // Qt's xdg-shell activates the toplevel with keyboard focus (and resends
     // on every focus loss). A client the shell did not launch keeps the state
