@@ -1,6 +1,7 @@
 //! The systemd user manager, as the shell calls it, and the system manager
 //! it asks about units.
 
+use futures_lite::StreamExt as _;
 use zbus::{OwnedObjectPath, Variant as Value};
 
 #[zbus::proxy(
@@ -18,6 +19,17 @@ pub trait SystemdManager {
     ) -> zbus::Result<OwnedObjectPath>;
 
     fn stop_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
+
+    fn subscribe(&self) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    fn job_removed(
+        &self,
+        id: u32,
+        job: OwnedObjectPath,
+        unit: String,
+        result: String,
+    ) -> zbus::Result<()>;
 
     fn set_unit_properties(
         &self,
@@ -37,4 +49,22 @@ pub trait SystemdManager {
         names: &[String],
         assignments: &[String],
     ) -> zbus::Result<()>;
+}
+
+/// Stops the graphical session and waits for it: the services `PartOf` it
+/// (the X11 bridge, the portals) leave while the compositor still serves
+/// them, rather than losing it under them.
+pub(crate) async fn end_graphical_session() -> zbus::Result<()> {
+    let manager = SystemdManagerProxy::new(&crate::io::session_bus().await?).await?;
+    manager.subscribe().await?;
+    let mut removed = manager.receive_job_removed().await?;
+    let job = manager
+        .stop_unit("graphical-session.target", "replace")
+        .await?;
+    while let Some(signal) = removed.next().await {
+        if signal.args()?.job == job {
+            break;
+        }
+    }
+    Ok(())
 }

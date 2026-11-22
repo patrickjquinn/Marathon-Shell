@@ -9,9 +9,10 @@ use std::time::{Duration, Instant};
 
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QString, QStringList};
+use futures_lite::future;
 
 use super::{dbus, later, launch::serves_keel_actions, q, Map, Tasks};
-use crate::{app_ids, cgroup, io, log};
+use crate::{app_ids, cgroup, io, log, systemd};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(i32)]
@@ -730,7 +731,21 @@ impl Tasks {
         let qt = self.qt_thread();
         let grace = Duration::from_millis(u64::try_from(grace_ms.max(0)).unwrap_or(0));
         io::spawn(async move {
-            let killed = blocking::unblock(move || stop_processes(&pids, grace)).await;
+            let session = future::or(
+                async {
+                    if let Err(e) = systemd::end_graphical_session().await {
+                        log::warn("tasks", format_args!("stopping the graphical session: {e}"));
+                    }
+                },
+                async {
+                    async_io::Timer::after(grace).await;
+                },
+            );
+            let (killed, ()) = future::zip(
+                blocking::unblock(move || stop_processes(&pids, grace)),
+                session,
+            )
+            .await;
             if killed > 0 {
                 log::warn(
                     "tasks",
