@@ -41,8 +41,11 @@ const UNTHEMED_FLATPAK: &str = "flatpak run --no-a11y-bus --nofilesystem=xdg-con
 /// Chromium keeps its keys in plain text on a desktop it doesn't know, so an
 /// Electron app (Signal, Element) said it found no keyring; GNOME's name
 /// makes it use the Secret Service. Only those apps get it: Qt picks its
-/// platform theme from the same variable.
-const ELECTRON_DESKTOP: &str = "--env=XDG_CURRENT_DESKTOP=marathon:GNOME ";
+/// platform theme from the same variable. Signal's Flatpak passes its own
+/// store, plain text unless SIGNAL_PASSWORD_STORE says otherwise, and first
+/// shows a dialog warning of it.
+const ELECTRON_DESKTOP: &str =
+    "--env=XDG_CURRENT_DESKTOP=marathon:GNOME --env=SIGNAL_PASSWORD_STORE=gnome-libsecret ";
 
 /// The command a Flatpak's desktop entry runs, with Marathon's options.
 fn flatpak_exec(exec: &str, themed: bool, electron: bool) -> String {
@@ -1425,7 +1428,8 @@ mod tests {
         let exec = "flatpak run --command=signal-desktop org.signal.Signal";
         let run = flatpak_exec(exec, true, true);
         assert!(run.starts_with(
-            "flatpak run --no-a11y-bus --env=XDG_CURRENT_DESKTOP=marathon:GNOME --command"
+            "flatpak run --no-a11y-bus --env=XDG_CURRENT_DESKTOP=marathon:GNOME \
+             --env=SIGNAL_PASSWORD_STORE=gnome-libsecret --command"
         ));
         assert!(is_foreground_flatpak_run(&run));
     }
