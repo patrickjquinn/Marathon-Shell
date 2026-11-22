@@ -140,8 +140,9 @@ QtObject {
     readonly property int tapTimeout: 100
     readonly property real pagerFlickVelocity: 10000
 
-    // Settings → Accessibility → Reduce motion. Components go through dur().
-    property bool reduceMotion: typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true)
+    // Settings → Accessibility → Reduce motion, always on e-paper, which
+    // ghosts under animation. Components go through dur().
+    property bool reduceMotion: (typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "epd") || (typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true))
 
     function dur(token) {
         return reduceMotion ? micro : token;

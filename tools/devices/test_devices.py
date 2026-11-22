@@ -70,6 +70,10 @@ class Check(unittest.TestCase):
         self.edit("devices/qemu/aarch64/device.toml", 'status = "working"', 'status = "great"')
         self.assertError("status: 'great' is not one of")
 
+    def test_display_technology_outside_the_enum(self):
+        self.edit("devices/hackberrypi/cm5/device.toml", "[profile]\n", '[profile]\ndisplay_technology = "plasma"\n')
+        self.assertError("display_technology: 'plasma' is not one of")
+
     def test_directory_mismatch(self):
         self.edit("devices/oneplus/enchilada/device.toml", 'codename = "enchilada"', 'codename = "fajita"')
         self.assertError("vendor/codename must match the directory path")

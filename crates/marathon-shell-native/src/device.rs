@@ -57,6 +57,8 @@ mod ffi {
         touch_filter: bool,
         /// Extra evdevtouch parameters, e.g. "rotate=90:invertx".
         touch_params: QString,
+        /// "lcd", "oled" or "epd" (e-paper).
+        display_technology: QString,
     }
 
     #[namespace = "marathon::device"]
@@ -124,6 +126,15 @@ impl Values {
         })
     }
 
+    pub fn display_technology(&self) -> String {
+        let t = self.text("MARATHON_DISPLAY_TECHNOLOGY", "DISPLAY_TECHNOLOGY", "lcd");
+        if matches!(t.as_str(), "lcd" | "oled" | "epd") {
+            t
+        } else {
+            "lcd".to_owned()
+        }
+    }
+
     pub fn runner_size(&self) -> (i32, i32) {
         (
             self.number("MARATHON_APP_WIDTH", "RUNNER_WIDTH", 540, |n| *n > 0),
@@ -188,6 +199,7 @@ fn profile() -> Profile {
         runner_pool: v.runner_pool(),
         touch_filter: v.flag("MARATHON_TOUCH_FILTER", "TOUCH_FILTER", false),
         touch_params: q(v.text("MARATHON_TOUCH_PARAMS", "TOUCH_PARAMS", "")),
+        display_technology: q(v.display_technology()),
     }
 }
 
@@ -285,4 +297,31 @@ fn wait_for_drm_master(timeout_ms: i32) -> i32 {
         std::thread::sleep(Duration::from_millis(100));
     }
     i32::try_from(started.elapsed().as_millis()).unwrap_or(i32::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn values(pairs: &[(&str, &str)]) -> Values {
+        Values {
+            raw: pairs
+                .iter()
+                .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn display_technology_defaults_to_lcd() {
+        assert_eq!(values(&[]).display_technology(), "lcd");
+        assert_eq!(
+            values(&[("DISPLAY_TECHNOLOGY", "plasma")]).display_technology(),
+            "lcd"
+        );
+        assert_eq!(
+            values(&[("DISPLAY_TECHNOLOGY", "epd")]).display_technology(),
+            "epd"
+        );
+    }
 }
