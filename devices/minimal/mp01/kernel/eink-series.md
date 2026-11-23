@@ -15,6 +15,7 @@ vendor prefix; `mp01-0001` already adds it, so that copy was dropped.
 | mp01-0012 `drm/mediatek: dsi: Take the data lane order from the endpoint` | mtk_dsi reads `data-lanes` and configures the PHY | SoC-common, DT-guarded | the shared MT6789 series, then linux-mediatek |
 | mp01-0013 `dt-bindings: display: panel: Add the Minimal Z10 e-paper display` | `minimal,z10-eink` | device-class-optional | dri-devel |
 | mp01-0014 `drm/panel: Add the Minimal Z10 e-paper display driver` | `panel-minimal-z10-eink` | device-class-optional | dri-devel |
+| mp01-0016 `drm/mediatek: dsi: Meet the D-PHY clock lane minimums` | clock-lane trail and zero times at low data rates | SoC-common | the shared MT6789 series, then linux-mediatek |
 
 mp01-0009 to 0012 are SoC-common. They do nothing unless a board's DSI
 endpoint has `data-lanes`, so the Q25 is unaffected. They are in the MP01
