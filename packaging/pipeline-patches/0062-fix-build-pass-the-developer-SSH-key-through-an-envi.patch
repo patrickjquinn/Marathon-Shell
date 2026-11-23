@@ -1,0 +1,52 @@
+From 63c720f4caafd7b44a5975ac456791fbd5ce12ad Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 18:58:27 +0000
+Subject: [PATCH] fix(build): pass the developer SSH key through an environment
+ file
+
+mkosi splits --environment values on spaces, so MARATHON_DEV_SSH_KEY
+reached the image as 'ssh-ed25519' alone: the MP01's first developer
+image wrote a 12-byte authorized_keys and refused its builder's key. An
+environment file is read a line at a time; build-image.py writes one for
+the variables it forwards and removes it after mkosi.
+---
+ scripts/build-image.py | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index 8f09223..7d34de6 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -148,13 +148,25 @@ def build_image(components: List[str], extra_args: List[str]):
+             f"--environment=PMOS_VARIANT={ui_name}",
+         ] + extra_args
+         # PassEnvironment forwards only mkosi's own environment, not ours.
+-        for var in ("MARATHON_IMAGE_LAYOUT", "MARATHON_DEV_SSH_KEY"):
+-            if value := os.environ.get(var):
+-                mkosi_cmd.insert(len(mkosi_cmd) - len(extra_args), f"--environment={var}={value}")
++        # mkosi splits --environment on spaces, which cut an SSH public key
++        # to its first word; an environment file is read a line at a time.
++        env_lines = [f"{var}={value}" for var in ("MARATHON_IMAGE_LAYOUT", "MARATHON_DEV_SSH_KEY")
++                     if (value := os.environ.get(var))]
++        env_file = None
++        if env_lines:
++            import tempfile
++            with tempfile.NamedTemporaryFile("w", prefix="marathon-env.", suffix=".env", delete=False) as f:
++                f.write("\n".join(env_lines) + "\n")
++                env_file = f.name
++            mkosi_cmd.insert(len(mkosi_cmd) - len(extra_args), f"--env-file={env_file}")
+ 
+         print(f"Executing: {' '.join(mkosi_cmd)}")
+ 
+-        subprocess.run(mkosi_cmd, check=True)
++        try:
++            subprocess.run(mkosi_cmd, check=True)
++        finally:
++            if env_file:
++                os.unlink(env_file)
+ 
+         # Pi 5 BootROM on shipped CM5 EEPROMs reads MBR, not GPT. mkosi emits
+         # a pure GPT layout (protective MBR slot 1 is type 0xEE, no bootable
+-- 
+2.55.0
+
