@@ -10,6 +10,7 @@
     "Entertainment"
   ],
   "author": "Marathon OS",
+  "dbus": { "talk": ["org.marathonos.Radio"] },
   "permissions": [
     "network",
     "location"

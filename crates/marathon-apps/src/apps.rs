@@ -39,12 +39,22 @@ pub struct App {
     /// For a copy Reef installs of an OS app: the oldest `IMAGE_VERSION`
     /// whose libraries it runs with (the image it was built against).
     pub min_image: String,
+    /// Session bus names it talks to and owns beyond the platform's; only an
+    /// OS app's count.
+    pub dbus: BusNames,
     /// The app's directory.
     #[serde(skip)]
     pub path: PathBuf,
     /// Installed by the OS, or signed with a system key.
     #[serde(skip)]
     pub is_system: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]
+#[serde(default)]
+pub struct BusNames {
+    pub talk: Vec<String>,
+    pub own: Vec<String>,
 }
 
 impl App {

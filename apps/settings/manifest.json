@@ -7,6 +7,7 @@
   "entryPoint": "SettingsApp.qml",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
+  "dbus": { "talk": ["org.marathonos.Deckard", "org.ofono.mms"] },
   "permissions": ["system", "network", "storage"],
   "permissionReasons": {
     "system": "Changes device settings such as Wi-Fi, display, sound and default apps",

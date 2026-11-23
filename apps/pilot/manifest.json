@@ -7,6 +7,7 @@
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
   "description": "Marathon's assistant: ask, and let it act in your apps.",
+  "dbus": { "talk": ["org.shipwright.Pilot"] },
   "permissions": ["camera", "storage"],
   "permissionReasons": {
     "camera": "Takes the photo you ask Pilot about, only when you press the shutter",
