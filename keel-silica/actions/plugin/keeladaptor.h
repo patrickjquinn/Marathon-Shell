@@ -10,6 +10,8 @@
 #define KEEL_ACTIONS_ADAPTOR_H
 
 #include <QDBusMessage>
+#include <QDBusServiceWatcher>
+#include <QHash>
 #include <QObject>
 #include <QTimer>
 #include <QVariantMap>
@@ -25,6 +27,7 @@ class KeelActionsAdaptor : public QObject
 public:
     static constexpr const char *Path = "/org/shipwright/Keel/Actions";
     static constexpr int DefaultIdleMs = 30000;
+    static constexpr int ShellTimeoutMs = 2000;
 
     explicit KeelActionsAdaptor(KeelActionRegistry *registry);
 
@@ -40,12 +43,17 @@ public Q_SLOTS:
     QString GetContext();
 
 private:
+    bool speaksForPerson(const QString &sender);
+    QVariantMap trustedOptions(const QVariantMap &options, const QDBusMessage &message);
     void answer(KeelCall *call, const QDBusMessage &message);
     void touch();
 
     KeelActionRegistry *m_registry;
     QTimer m_idle;
     int m_inFlight = 0;
+    // The shell's answers by caller, and the callers whose leaving clears them.
+    QHash<QString, bool> m_vouched;
+    QDBusServiceWatcher m_callers;
 };
 
 #endif

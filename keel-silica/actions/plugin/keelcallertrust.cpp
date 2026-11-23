@@ -71,6 +71,14 @@ std::optional<uint> privilegedGid()
     return group ? std::optional<uint>(group->gr_gid) : std::nullopt;
 }
 
+bool inInitialPidNamespace()
+{
+    // PROC_PID_INIT_INO (include/linux/proc_ns.h), fixed by the kernel.
+    constexpr ino_t initialPidNamespace = 0xEFFFFFFCU;
+    struct stat ns {};
+    return ::stat("/proc/self/ns/pid", &ns) == 0 && ns.st_ino == initialPidNamespace;
+}
+
 bool isTrusted(qint64 pid)
 {
     if (pid <= 0)

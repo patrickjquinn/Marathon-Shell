@@ -32,25 +32,6 @@ QString errorName(const QString &code)
     return QStringLiteral("org.shipwright.Keel.Actions.Error.") + code;
 }
 
-// The options the app acts on, as far as the caller may give them:
-// userInitiated only from a trusted sender (keelcallertrust.h), identified
-// by the bus, never by the call.
-QVariantMap trustedOptions(const QVariantMap &options, const QDBusMessage &message)
-{
-    QVariantMap out;
-    if (!options.value(QStringLiteral("userInitiated")).toBool())
-        return out;
-    const QDBusReply<uint> pid = QDBusConnection::sessionBus().interface()->servicePid(message.service());
-    if (pid.isValid() && KeelCallerTrust::isTrusted(pid.value())) {
-        out.insert(QStringLiteral("userInitiated"), true);
-    } else {
-        qInfo().noquote() << "Keel.Actions: userInitiated from" << message.service()
-                          << (pid.isValid() ? QStringLiteral("(pid %1)").arg(pid.value()) : QStringLiteral("(no pid)"))
-                          << "is not believed: only Pilot, keel-mcp and the app itself may say the person started a request";
-    }
-    return out;
-}
-
 } // namespace
 
 KeelActionsAdaptor::KeelActionsAdaptor(KeelActionRegistry *registry)
@@ -70,6 +51,12 @@ KeelActionsAdaptor::KeelActionsAdaptor(KeelActionRegistry *registry)
         QCoreApplication::quit();
     });
     connect(registry, &KeelActionRegistry::activity, this, &KeelActionsAdaptor::touch);
+    m_callers.setConnection(QDBusConnection::sessionBus());
+    m_callers.setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
+    connect(&m_callers, &QDBusServiceWatcher::serviceUnregistered, this, [this](const QString &name) {
+        m_callers.removeWatchedService(name);
+        m_vouched.remove(name);
+    });
     // app.show made the app an ordinary one: it no longer quits when idle.
     connect(registry, &KeelActionRegistry::headlessChanged, this, [this]() {
         if (!m_registry->headless())
@@ -105,6 +92,56 @@ void KeelActionsAdaptor::touch()
 {
     if (m_registry->headless())
         m_idle.start();
+}
+
+// Whether `sender` may say the person started a request (keelcallertrust.h).
+// A sandboxed app cannot inspect the sender's process, so the shell answers,
+// once per name.
+bool KeelActionsAdaptor::speaksForPerson(const QString &sender)
+{
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (sender == bus.baseService())
+        return true;
+    if (KeelCallerTrust::inInitialPidNamespace()) {
+        const QDBusReply<uint> pid = bus.interface()->servicePid(sender);
+        return pid.isValid() && KeelCallerTrust::isTrusted(pid.value());
+    }
+    const auto known = m_vouched.constFind(sender);
+    if (known != m_vouched.cend())
+        return *known;
+    // Watched before asking, so a name that leaves meanwhile is still forgotten.
+    m_callers.addWatchedService(sender);
+    QDBusMessage ask = QDBusMessage::createMethodCall(QStringLiteral("org.marathonos.Shell"),
+                                                      QStringLiteral("/org/marathonos/Shell/Permissions"),
+                                                      QStringLiteral("org.marathonos.Shell.Permissions1"),
+                                                      QStringLiteral("SpeaksForPerson"));
+    ask << sender;
+    const QDBusReply<bool> vouched = bus.call(ask, QDBus::Block, ShellTimeoutMs);
+    if (!vouched.isValid()) {
+        qWarning().noquote() << "Keel.Actions: the shell cannot say whether" << sender
+                             << "speaks for the person:" << vouched.error().message();
+        m_callers.removeWatchedService(sender);
+        return false;
+    }
+    m_vouched.insert(sender, vouched.value());
+    return vouched.value();
+}
+
+// The options the app acts on, as far as the caller may give them:
+// userInitiated only from a sender that speaks for the person, identified
+// by the bus, never by the call.
+QVariantMap KeelActionsAdaptor::trustedOptions(const QVariantMap &options, const QDBusMessage &message)
+{
+    QVariantMap out;
+    if (!options.value(QStringLiteral("userInitiated")).toBool())
+        return out;
+    if (speaksForPerson(message.service())) {
+        out.insert(QStringLiteral("userInitiated"), true);
+    } else {
+        qInfo().noquote() << "Keel.Actions: userInitiated from" << message.service()
+                          << "is not believed: only Pilot, keel-mcp and the app itself may say the person started a request";
+    }
+    return out;
 }
 
 void KeelActionsAdaptor::answer(KeelCall *call, const QDBusMessage &message)

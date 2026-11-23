@@ -20,16 +20,13 @@
 // reaches the app with userInitiated false. A process that cannot be
 // inspected is not trusted.
 //
-// On the phone, inside Sailjail, this check cannot pass (Jolla Phone,
-// 5.2.0.18, 11 October 2026): Firejail gives each sandboxed app its own PID
-// namespace, so the host PID the bus daemon reports for the caller (keel-mcp
-// included) names no process the app can see, and the app's own getpid() is
-// not the host PID either. Sandboxed apps therefore always get userInitiated
-// false: safe (it fails closed), and no Shoal app acts on the flag today,
-// but no app may rely on it. The trust that holds on the device is
-// keel-mcp's (peer.rs: it runs unsandboxed and checks its parent, pilotd);
-// the fix for apps is a confirmation token minted by the on-device UI
-// (docs: shipwright-assessment, Keel item 2).
+// This check needs the system's view of processes. An app in a PID
+// namespace of its own (bubblewrap on Marathon, Firejail under Sailjail)
+// sees none of them: the bus daemon's process id names no process there,
+// or one of the app's own. Such an app asks the Marathon shell instead
+// (Permissions1.SpeaksForPerson, keeladaptor.cpp), which recognises pilotd
+// by its unit and executable and keel-mcp as pilotd's child. Without a
+// shell to ask (Sailjail) a sandboxed app believes only itself.
 #ifndef KEEL_ACTIONS_CALLERTRUST_H
 #define KEEL_ACTIONS_CALLERTRUST_H
 
@@ -45,6 +42,11 @@ QStringList trustedExecutables();
 
 // Whether process `pid` may say the person started a request.
 bool isTrusted(qint64 pid);
+
+// Whether this process sees the system's processes: false in a sandbox
+// with a PID namespace of its own, where the bus daemon's process ids name
+// no process this one can inspect.
+bool inInitialPidNamespace();
 
 // Whether process `pid` runs one of `paths` (the same file).
 bool runsOneOf(qint64 pid, const QStringList &paths);
