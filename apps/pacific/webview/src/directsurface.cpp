@@ -9,6 +9,7 @@
 #include <QGuiApplication>
 #include <QWindow>
 #include <qpa/qplatformnativeinterface.h>
+#include <qpa/qplatformwindow_p.h>
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -206,6 +207,7 @@ DirectSurface::DirectSurface(std::function<void()>                              
     , m_releaseImage(std::move(releaseImage)) {}
 
 DirectSurface::~DirectSurface() {
+    QObject::disconnect(m_parentDestroyed);
     destroy();
 }
 
@@ -325,10 +327,10 @@ bool DirectSurface::ensureCreated(QWindow *window) {
     QPlatformNativeInterface *native = QGuiApplication::platformNativeInterface();
     if (!native)
         return false;
-    m_display = static_cast<wl_display *>(
+    auto *waylandWindow = window->nativeInterface<QNativeInterface::Private::QWaylandWindow>();
+    m_display           = static_cast<wl_display *>(
         native->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
-    m_parent = static_cast<wl_surface *>(
-        native->nativeResourceForWindow(QByteArrayLiteral("surface"), window));
+    m_parent = waylandWindow ? waylandWindow->surface() : nullptr;
     if (!m_display || !m_parent || !bindGlobals()) {
         qWarning("Pacific direct: no Wayland subsurfaces here; frames go through Qt");
         destroy();
@@ -350,6 +352,15 @@ bool DirectSurface::ensureCreated(QWindow *window) {
         destroy();
         return false;
     }
+    // Qt destroys the window's wl_surface with the window (an accepted close
+    // does, before the items go): the subsurface goes too, and frames stay on
+    // Qt's path.
+    m_parentDestroyed = QObject::connect(
+        waylandWindow, &QNativeInterface::Private::QWaylandWindow::surfaceDestroyed, waylandWindow,
+        [this] {
+            destroy();
+            m_parent = nullptr;
+        });
     m_valid   = true;
     m_applied = m_geometry;
     applyPosition();
