@@ -28,6 +28,12 @@ TestCase {
         signalName: "resultSelected"
     }
 
+    SignalSpy {
+        id: closedSpy
+        target: search
+        signalName: "closed"
+    }
+
     function result(type, title, appName) {
         return {
             type: type,
@@ -99,6 +105,34 @@ TestCase {
 
         mouseClick(find("pilotBody"));
         compare(PilotClient.sheetsShown, 1);
+    }
+
+    function test_anAppPilotOpensIsShown() {
+        UIStore.appWindowOpen = false;
+        UIStore.currentAppId = "";
+        const question = "open mobile network settings";
+        search.appendToSearch(question);
+        keyClick(Qt.Key_Return);
+        compare(PilotClient.asked, [question]);
+        closedSpy.clear();
+        UIStore.currentAppId = "settings";
+        UIStore.appWindowOpen = true;
+        PilotClient.answered(question, "Settings is open at mobile network.");
+        compare(closedSpy.count > 0, true);
+        UIStore.appWindowOpen = false;
+        UIStore.currentAppId = "";
+    }
+
+    function test_anAnswerWithoutAnAppStays() {
+        UIStore.appWindowOpen = false;
+        UIStore.currentAppId = "";
+        const question = "how far is the moon";
+        search.appendToSearch(question);
+        keyClick(Qt.Key_Return);
+        closedSpy.clear();
+        PilotClient.answered(question, "About 384,400 km.");
+        compare(closedSpy.count, 0);
+        compare(find("pilotText").text, "About 384,400 km.");
     }
 
     function test_enterOpensTheResultTheQueryNames() {

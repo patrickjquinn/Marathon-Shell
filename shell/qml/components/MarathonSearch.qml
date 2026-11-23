@@ -15,6 +15,10 @@ Item {
     property string pilotAnswer: ""
     property bool pilotBusy: false
     readonly property bool pilotOffered: PilotClient.available && searchQuery.trim().length > 0
+    // The app in front when Pilot was asked. Another coming to the front
+    // while the question or its answer is up is one Pilot opened: the
+    // overlay steps aside so the person sees it.
+    property string _askedOver: ""
 
     signal closed
     signal resultSelected(var result)
@@ -90,6 +94,7 @@ Item {
             return;
         pilotAnswer = "";
         pilotBusy = true;
+        _askedOver = UIStore.appWindowOpen ? UIStore.currentAppId : "";
         PilotClient.ask(searchQuery.trim());
     }
 
@@ -558,9 +563,25 @@ Item {
                 return;
             searchOverlay.pilotBusy = false;
             searchOverlay.pilotAnswer = text.length > 0 ? text : qsTr("Pilot couldn\u2019t answer that.");
+            searchOverlay._showOpenedApp();
         }
 
         target: PilotClient
+    }
+
+    Connections {
+        function onCurrentAppIdChanged() {
+            searchOverlay._showOpenedApp();
+        }
+
+        target: UIStore
+    }
+
+    function _showOpenedApp() {
+        if (!pilotBusy && pilotAnswer.length === 0)
+            return;
+        if (UIStore.appWindowOpen && UIStore.currentAppId !== "" && UIStore.currentAppId !== _askedOver)
+            close();
     }
 
     Behavior on opacity {
