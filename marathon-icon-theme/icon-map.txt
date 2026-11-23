@@ -104,6 +104,7 @@ file-vcard identification-card
 file-video file-video
 filled-warning warning
 filter funnel
+fingerprint fingerprint
 flash lightning
 flash-off lightning-slash
 folder folder
