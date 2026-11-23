@@ -64,7 +64,8 @@ sandbox for each launch and for the warm runner pool (`tasks/pool.rs`):
   `~/.cache/marathon-apps/<app>`; the user directories only with the
   `storage` permission.
 - `$XDG_RUNTIME_DIR` is a private tmpfs (mode 0700) holding only the
-  session bus (`bus`), PipeWire (`pipewire-0`, not `pipewire-0-manager`),
+  app's bus proxy (below; `bus` links to it), PipeWire (`pipewire-0`, not
+  `pipewire-0-manager`),
   PulseAudio (`pulse/native`), dconf's change flag (`dconf/`) and the
   app's own Wayland socket (layer 3). Apps with `system` (Settings) and
   pool spares also see the Store handler's `marathon-store-state/`
@@ -74,21 +75,42 @@ sandbox for each launch and for the warm runner pool (`tasks/pool.rs`):
   sockets and every other socket there are out of sight. A Keel app's
   host socket stays in its own tmpfs.
 - `--die-with-parent`, `--new-session`.
+- The buses only through an `xdg-dbus-proxy` of the app's own
+  (`crates/marathon-shell-native/src/bus_proxy.rs`), listening in
+  `$XDG_RUNTIME_DIR/marathon-bus/<sandbox>/`, which the sandbox sees as
+  `$XDG_RUNTIME_DIR/marathon-bus` with `$XDG_RUNTIME_DIR/bus` and
+  `/run/dbus/system_bus_socket` linked into it. `/run/dbus` is not bound.
+  On the session bus every app talks to `org.marathonos.Shell`,
+  `org.freedesktop.Notifications`, `ca.desrt.dconf` and
+  `org.sailfishos.share`, and owns `org.marathonos.AppRunner.<id>` and
+  `org.marathonos.<id>`; "telephony" or "sms" adds
+  `org.marathonos.Telephony`, "contacts" or "system" `org.marathonos.Dav`,
+  "storage" `org.marathonos.MediaLibrary`; an OS app's manifest `dbus`
+  adds the services it alone uses (Mail, Radio, Pilot, Deckard, mmsd) and
+  names it owns (Music's MPRIS player). On the system bus every app talks
+  only to the shell's NGF, "system" adds UPower and "location" GeoClue.
+  Nothing else is visible: not systemd's managers, other apps' names, the
+  keyring, portals or the accessibility bus. No proxy, no launch.
+  Services see the proxy's pid; the shell registers it as the app's and
+  moves it into the app's cgroup with the app, so the gate (layer 5),
+  pilotd and the notification and MPRIS attribution still name the app.
+  A pool spare starts before its app is known, with a proxy of its own
+  that reaches only dconf's writer (`marathon-bus/spare`): its warm-up
+  opens one bus connection, dconf's, which never reconnects. Its app's
+  proxy starts when it is adopted, and the adoption points
+  `DBUS_SESSION_BUS_ADDRESS` there, so every later connection (Qt's, zbus's)
+  has the app's policy. The Keel host follows the ambience from then, and
+  `AT_SPI_BUS_ADDRESS` keeps Qt's accessibility bridge off the bus.
 
 `MARATHON_DISABLE_SANDBOX=1` (or a missing `bwrap`) runs apps without any
 of this, and the shell logs a warning for every such launch.
 
 Gaps:
 
-- There is no `xdg-dbus-proxy`: an app can call any session bus service,
-  and any system bus service its policy allows (`/run/dbus` is bound). The
-  shell's own services check the caller (layer 5); other services do not
-  know which app is calling: an app can, for example, read every Secret
-  Service item or write any dconf key.
-- A session bus anywhere but `$XDG_RUNTIME_DIR/bus` (the
-  `dbus-run-session` fallback in `marathon-shell-session`) is not bound;
-  apps reach it only if it is an abstract socket and they share the
-  network namespace, as before.
+- dconf's writer takes any key from any app: an app can change another
+  app's or the shell's dconf settings.
+- `marathon-keel-host`'s Sailjail sandbox binds the whole
+  `$XDG_RUNTIME_DIR` and `/run/dbus`, with no proxy.
 - Screen readers cannot see Marathon apps: the accessibility bus is not
   bound, because unfiltered it would let an app read every other app's
   accessible text.

@@ -148,17 +148,27 @@ impl Tasks {
             app_id.clone_into(&mut self.as_mut().rust_mut().lifecycle.foreground);
         }
         let state = self.state_of(app_id);
-        cgroup::set_oom_score_adj(pid, state.oom_score());
-        let cgroup = cgroup::cgroup_of_pid(pid);
-        self.as_mut().rust_mut().lifecycle.cgroups.adopt(
-            app_id,
-            pid,
-            &cgroup,
-            cgroup::Placement {
-                frozen: state == State::Frozen,
-                foreground: state == State::Foreground,
-            },
-        );
+        let placement = cgroup::Placement {
+            frozen: state == State::Frozen,
+            foreground: state == State::Foreground,
+        };
+        // The app's bus proxy lives, freezes and is reclaimed with it.
+        let proxies: Vec<i64> = self
+            .bus_proxies
+            .values()
+            .flatten()
+            .filter(|p| p.app_id == app_id)
+            .map(|p| p.pid)
+            .collect();
+        for pid in std::iter::once(pid).chain(proxies) {
+            cgroup::set_oom_score_adj(pid, state.oom_score());
+            let cgroup = cgroup::cgroup_of_pid(pid);
+            self.as_mut()
+                .rust_mut()
+                .lifecycle
+                .cgroups
+                .adopt(app_id, pid, &cgroup, placement);
+        }
     }
 
     pub(super) fn pid_gone(mut self: Pin<&mut Self>, app_id: &str) {

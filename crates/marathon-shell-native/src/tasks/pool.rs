@@ -14,7 +14,7 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
 
 use super::{Launch, Map, Qt, Tasks};
-use crate::{io, log, sandbox};
+use crate::{bus_proxy, io, log, sandbox};
 
 /// A spare alive this long had finished starting and was warm.
 const HEALTHY: Duration = Duration::from_secs(30);
@@ -142,6 +142,20 @@ impl Tasks {
             return false;
         };
         runner.wayland_socket = socket;
+        match bus_proxy::start_spare(&instance) {
+            Ok(proxy) => {
+                runner.bus_dir = bus_proxy::dir(&instance).to_string_lossy().into_owned();
+                self.as_mut()
+                    .rust_mut()
+                    .bus_proxies
+                    .insert(instance.clone(), vec![proxy]);
+            }
+            Err(e) => {
+                log::warn("tasks", format_args!("spare runner's bus proxy: {e}"));
+                self.as_mut().close_sandbox(&instance);
+                return false;
+            }
+        }
         let command = sandbox::argv(&runner, &runner_path());
         let Some((program, args)) = command.split_first() else {
             return false;
@@ -180,8 +194,7 @@ impl Tasks {
             Ok(child) => child,
             Err(e) => {
                 log::warn("tasks", format_args!("spare runner: {e}"));
-                self.as_mut()
-                    .sandbox_socket_closed(&QString::from(&instance));
+                self.as_mut().close_sandbox(&instance);
                 return false;
             }
         };
@@ -222,8 +235,7 @@ impl Tasks {
                     if healthy { "healthy" } else { "early" }
                 ),
             );
-            self.as_mut()
-                .sandbox_socket_closed(&QString::from(&spare.instance));
+            self.as_mut().close_sandbox(&spare.instance);
             let mut delay = Duration::from_secs(5);
             let mut rust = self.as_mut().rust_mut();
             if healthy {
@@ -236,8 +248,7 @@ impl Tasks {
             }
             refill_later(self.qt_thread(), delay);
         } else if let Some(instance) = self.as_mut().rust_mut().pool.retired.remove(&pid) {
-            self.as_mut()
-                .sandbox_socket_closed(&QString::from(&instance));
+            self.as_mut().close_sandbox(&instance);
             refill_later(self.qt_thread(), REFILL_DELAY);
         } else {
             self.app_closed(pid);
@@ -271,6 +282,7 @@ impl Tasks {
         mut self: Pin<&mut Self>,
         storage: bool,
         mut launch: Launch,
+        permissions: &[String],
         env: &Map,
     ) -> bool {
         self.as_mut().note_launch_shape(storage);
@@ -278,6 +290,16 @@ impl Tasks {
             return false;
         };
         let (pid, instance) = (spare.pid, spare.instance.clone());
+        if let Err(e) = self
+            .as_mut()
+            .start_bus_proxy(&launch.app_id, permissions, &instance)
+        {
+            log::warn(
+                "tasks",
+                format_args!("no bus proxy for {}: {e}", launch.app_id),
+            );
+            return false;
+        }
         let mut grants = serde_json::Map::new();
         grants.insert(
             "MARATHON_USER_SCALE".into(),
@@ -287,6 +309,12 @@ impl Tasks {
         for key in ["LANG", "LANGUAGE"] {
             grants.insert(key.into(), std::env::var(key).unwrap_or_default().into());
         }
+        // Every connection from now on goes through the app's proxy; the
+        // spare's own keeps only dconf's warm-up connection.
+        grants.insert(
+            "DBUS_SESSION_BUS_ADDRESS".into(),
+            sandbox::session_bus_address().into(),
+        );
         for (key, value) in env {
             let key = key.to_string();
             if key.starts_with("MARATHON_PERM_") {
@@ -325,6 +353,7 @@ impl Tasks {
                 format_args!("pool adopt write failed for {app_id}"),
             );
             rust.active_by_pid.remove(&pid);
+            rust.bus_proxies.remove(&instance);
             return false;
         }
         if let Some(spare) = rust.pool.spares[slot(storage)].take() {

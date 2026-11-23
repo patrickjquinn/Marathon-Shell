@@ -13,7 +13,7 @@ use cxx_qt_lib::{QString, QVariant};
 
 use super::{dbus, later, pool, q, Launch, Map, Tasks};
 use crate::apps::{self, App};
-use crate::{app_ids, desktop, io, log, sandbox};
+use crate::{app_ids, bus_proxy, desktop, io, log, sandbox};
 
 /// A launcher process (`deckard-launch app launch`) is not the app: its window
 /// may come this long after it exits.
@@ -301,8 +301,19 @@ impl Tasks {
         self.pid_for(&app_id.to_string())
     }
 
+    /// The app behind a runner's pid, or its bus proxy's.
     pub(super) fn app_for_pid(&self, pid: i64) -> String {
-        self.pid_to_app.get(&pid).cloned().unwrap_or_default()
+        self.pid_to_app
+            .get(&pid)
+            .or_else(|| {
+                self.bus_proxies
+                    .values()
+                    .flatten()
+                    .find(|p| p.pid == pid)
+                    .map(|p| &p.app_id)
+            })
+            .cloned()
+            .unwrap_or_default()
     }
 
     pub(super) fn app_id_for_pid(&self, pid: i64) -> QString {
@@ -738,6 +749,7 @@ impl Tasks {
             requires_qt: Vec::new(),
             storage_spare,
             wayland_socket: String::new(),
+            bus_dir: String::new(),
             render_node: d.render_node.clone(),
             gpu_webgl: d.gpu_webgl,
             thumbnails: d.thumbnails.clone(),
@@ -764,6 +776,39 @@ impl Tasks {
         path.exists().then(|| path.to_string_lossy().into_owned())
     }
 
+    /// The bus proxy for `app_id` in sandbox `instance`, listening.
+    pub(super) fn start_bus_proxy(
+        mut self: Pin<&mut Self>,
+        app_id: &str,
+        permissions: &[String],
+        instance: &str,
+    ) -> std::io::Result<()> {
+        let names = marathon_apps::apps::find(app_id)
+            .filter(|a| a.is_system)
+            .map(|a| a.dbus);
+        let policy = bus_proxy::Policy {
+            app_id,
+            permissions,
+            names: names.as_ref(),
+        };
+        let proxy = bus_proxy::start(&policy, instance)?;
+        let mut rust = self.as_mut().rust_mut();
+        let proxies = rust.bus_proxies.entry(instance.to_owned()).or_default();
+        for spare in proxies.iter_mut() {
+            spare.adopt(app_id);
+        }
+        proxies.push(proxy);
+        Ok(())
+    }
+
+    /// A sandbox ended, or never started: its Wayland socket and its bus
+    /// proxy go.
+    pub(super) fn close_sandbox(mut self: Pin<&mut Self>, instance: &str) {
+        self.as_mut().sandbox_socket_closed(&q(instance));
+        self.as_mut().rust_mut().bus_proxies.remove(instance);
+        bus_proxy::remove(instance);
+    }
+
     fn launch_marathon(mut self: Pin<&mut Self>, app: &App, foreground_generation: u64) -> bool {
         if !self.background_launches.contains(&app.id) {
             self.as_mut().open(app, false);
@@ -788,7 +833,10 @@ impl Tasks {
                 foreground_generation,
                 ..Launch::default()
             };
-            if self.as_mut().adopt_spare(storage, launch, &env) {
+            if self
+                .as_mut()
+                .adopt_spare(storage, launch, &app.permissions, &env)
+            {
                 let qt = self.qt_thread();
                 let id = app.id.clone();
                 later(qt, LAUNCH_HOLD, move |mut obj| {
@@ -812,6 +860,18 @@ impl Tasks {
                 self.app_launch_failed(&q(&app.id), &q(&app.name), &q("No sandbox Wayland socket"));
                 return false;
             }
+            // No proxy, no launch: the app never gets the unfiltered bus.
+            if let Err(e) = self
+                .as_mut()
+                .start_bus_proxy(&app.id, &app.permissions, &instance)
+            {
+                log::warn("tasks", format_args!("no bus proxy for {}: {e}", app.id));
+                self.as_mut().close_sandbox(&instance);
+                self.as_mut().rust_mut().launching.remove(&app.id);
+                self.app_launch_failed(&q(&app.id), &q(&app.name), &q("No bus proxy"));
+                return false;
+            }
+            runner.bus_dir = bus_proxy::dir(&instance).to_string_lossy().into_owned();
         }
         let mut command = sandbox::command_line(&sandbox::argv(&runner, &pool::runner_path()));
         if let Some((route, params)) = self.as_mut().take_route() {
@@ -896,8 +956,7 @@ impl Tasks {
             return;
         };
         if !launch.sandbox_instance.is_empty() {
-            self.as_mut()
-                .sandbox_socket_closed(&q(&launch.sandbox_instance));
+            self.as_mut().close_sandbox(&launch.sandbox_instance);
         }
         // The app's pid may be the sandbox's inner runner (matched by its
         // window), which died with the sandbox.
