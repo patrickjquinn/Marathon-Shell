@@ -200,8 +200,8 @@ Board-specific inputs these need, none of which may come from the Q25:
 
 ## Checks done
 
-- The full series (62 shared + 9 MP01) applies with the APKBUILD's own loop to
-  a fresh extract, and the build tree matches it.
+- The full series (62 shared + 15 MP01, the e-paper patches included) applies
+  with the APKBUILD's own loop to a fresh extract.
 - `mt6789-minimal-mp01.dtb` builds with `W=1` with one warning, the UFS PHY
   above; the vicky and Q25 DTBs still build in this tree.
 - `dt-validate` (dtschema 2026.9) against this tree's bindings plus the panel
@@ -215,6 +215,11 @@ Board-specific inputs these need, none of which may come from the Q25:
   abuild against this checkout (clang 22, aarch64 host): `Image`,
   `vmlinuz.efi`, all in-tree modules and the 18 out-of-tree ones build, every
   module's vermagic is `7.0.0-mp01`, and the module count matches the list.
+- The package builds under abuild with `scripts/qemu/lib/build-aport-apk.sh`
+  (Alpine edge container): `linux-minimal-mp01` and `mp01-kernel-modules`
+  7.0.0-r0, with `panel-minimal-z10-eink.ko`, and a board DTB carrying
+  `data-lanes = <1 2 4 3>` and `rotation = <270>`. `../READY.md` lists the
+  hashes.
 
 ## First boot, in order
 
