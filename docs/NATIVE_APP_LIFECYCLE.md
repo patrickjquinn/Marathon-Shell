@@ -129,6 +129,11 @@ MPRIS stays BackgroundActive; a sandboxed player is matched by its MPRIS
 A frozen Flatpak's D-Bus proxy is frozen with it, so a call to the app waits
 until it is thawed. The shell's own calls to apps (MPRIS) are asynchronous.
 
+Closing an app from its card (or `CloseApp`) sends MPRIS `Stop` to every
+player that is the app's, by its process or its `DesktopEntry`, so a player
+outside the app (Radio's `marathon-radiod`) stops with it. An app that
+closes its own window keeps playing in the background.
+
 ### xdg_toplevel `suspended`
 
 xdg-shell v6 adds `suspended` (state 9); GTK 4 stops its frame clock on it

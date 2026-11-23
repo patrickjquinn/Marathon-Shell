@@ -56,6 +56,9 @@ i18n-embed = { version = "0.16.0", features = ["fluent-system"] }
 i18n-embed-fl = "0.10.1"
 rust-embed = "8.13.0"
 
+[dev-dependencies]
+marathon-rt = { path = "../marathon-rt", features = ["testing"] }
+
 [lints]
 workspace = true
 
