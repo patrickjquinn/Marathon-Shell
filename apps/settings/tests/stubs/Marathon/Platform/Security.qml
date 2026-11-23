@@ -14,6 +14,11 @@ QtObject {
     property int authMode: 0
     property bool hasQuickPIN: false
     property bool fingerprintAvailable: false
+    property bool hasFingerprintReader: false
+    property var enrolledFingers: []
+    property int fingerprintStages: 0
+    property string fingerprintScanType: "press"
+    property string fingerprintBlocked: ""
     property bool isLockedOut: false
     property int lockoutSecondsRemaining: 0
     property int failedAttempts: 0
@@ -29,11 +34,20 @@ QtObject {
     signal remoteConnectionFailed(string reason)
     signal bugReportCreated(string path)
     signal bugReportFailed(string reason)
+    signal fingerprintEnrollStatus(string result, int passed, int stages)
+    signal fingerprintEnrolled(string finger)
+    signal fingerprintDeleted(string finger)
+    signal fingerprintFailed(string reason)
 
     function reset() {
         authMode = 0;
         hasQuickPIN = false;
         fingerprintAvailable = false;
+        hasFingerprintReader = false;
+        enrolledFingers = [];
+        fingerprintStages = 0;
+        fingerprintScanType = "press";
+        fingerprintBlocked = "";
         isLockedOut = false;
         failedAttempts = 0;
         canEraseAllContent = false;
@@ -59,6 +73,15 @@ QtObject {
     }
     function createBugReport() {
         calls = calls.concat([["bugReport"]]);
+    }
+    function enrollFingerprint(finger, pin) {
+        calls = calls.concat([["enroll", finger, pin]]);
+    }
+    function cancelFingerprintEnroll() {
+        calls = calls.concat([["cancelEnroll"]]);
+    }
+    function deleteFingerprint(finger, pin) {
+        calls = calls.concat([["deleteFinger", finger, pin]]);
     }
     function currentUsername() {
         return "user";
