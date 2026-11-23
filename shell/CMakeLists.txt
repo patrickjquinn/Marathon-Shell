@@ -9,6 +9,7 @@ set(SOURCES
     src/managers/marathoninputmethodengine.cpp
     src/managers/marathoninputcontext.cpp
     src/services/inputboost.h
+    src/services/einkinput.h
     src/services/touchresampler.h
     src/services/touchresampler.cpp
     src/services/wakeonkeyfilter.h

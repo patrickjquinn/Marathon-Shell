@@ -45,3 +45,11 @@ SUBSYSTEM=="bluetooth", TAG+="uaccess"
 # GPS devices
 KERNEL=="ttyUSB*", TAG+="uaccess"
 KERNEL=="ttyACM*", TAG+="uaccess"
+
+# E-paper refresh controls (the panel driver's interim ABI): the shell's
+# waveform policy writes refresh_mode and full_refresh. Group video, which
+# the session user is in; nobody else. Matched by the attributes, not the
+# driver, so any e-paper panel with this ABI gets the same access.
+ACTION=="add|bind", SUBSYSTEM=="i2c", TEST=="refresh_mode", TEST=="full_refresh", \
+	RUN+="/bin/chgrp video /sys%p/refresh_mode /sys%p/full_refresh", \
+	RUN+="/bin/chmod 0664 /sys%p/refresh_mode", RUN+="/bin/chmod 0220 /sys%p/full_refresh"

@@ -34,6 +34,7 @@ image = { version = "0.25.10", default-features = false, features = ["png"] }
 mime_guess = "2.0.5"
 libc = "0.2.191"
 marathon-apps = { path = "../marathon-apps" }
+marathon-eink = { path = "../marathon-eink" }
 marathon-i18n = { version = "0.1.0", path = "../marathon-i18n" }
 marathon-permissions = { path = "../marathon-permissions" }
 marathon-qt = { path = "../marathon-qt" }

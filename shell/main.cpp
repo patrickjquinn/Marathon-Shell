@@ -66,6 +66,7 @@
 #include "src/services/wakeonkeyfilter.h"
 #include "marathon-shell-native/src/pilot.cxxqt.h"
 #include "marathon-shell-native/src/weather.cxxqt.h"
+#include "src/services/einkinput.h"
 #include "src/services/inputboost.h"
 #include "src/services/touchresampler.h"
 #include "marathon-shell-native/src/audio.cxxqt.h"
@@ -975,6 +976,8 @@ int main(int argc, char *argv[]) {
         {"nightLightTo", &marathon::Display::nightLightToChanged},
         {"nightLightSchedule", &marathon::Display::nightLightScheduleChanged},
         {"learnedCurve", &marathon::Display::learnedCurveChanged},
+        {"restingRefreshMode", &marathon::Display::restingRefreshModeChanged},
+        {"autoClear", &marathon::Display::autoClearChanged},
     };
     for (const auto &setting : displaySettings) {
         const char   *name    = setting.first;
@@ -1208,6 +1211,8 @@ int main(int argc, char *argv[]) {
     // Full CPU clock while the user interacts; the power key counts, since
     // waking the display is the slowest thing a press does.
     app.installEventFilter(new InputBoost(&app));
+    if (display->getRefreshControls())
+        app.installEventFilter(new EinkInput(&app));
     QObject::connect(power, &Power::powerKeyPressed, &app, [] { marathon::boost::input(); });
     if (device.wake_on_key) {
         app.installEventFilter(new WakeOnKeyFilter(
@@ -1520,6 +1525,22 @@ int main(int argc, char *argv[]) {
                 },
                 Qt::SingleShotConnection);
             break;
+        }
+    }
+
+    // E-paper: frames pace to the panel's fast waveform and count as
+    // motion (eink.rs). Both run on the render thread.
+    if (display->getRefreshControls()) {
+        for (QObject *root : roots) {
+            if (auto *win = qobject_cast<QQuickWindow *>(root)) {
+                QObject::connect(
+                    win, &QQuickWindow::beforeFrameBegin, win, [] { marathon::eink::pace(); },
+                    Qt::DirectConnection);
+                QObject::connect(
+                    win, &QQuickWindow::frameSwapped, win, [] { marathon::eink::frame(); },
+                    Qt::DirectConnection);
+                break;
+            }
         }
     }
 

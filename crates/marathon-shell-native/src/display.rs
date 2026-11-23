@@ -27,7 +27,8 @@ use zbus::message::Header;
 use crate::io::{self, read};
 use crate::ipc::{self, value, State};
 use crate::night_light::{self, Plan, Schedule};
-use crate::{flashlight, log};
+use crate::{eink, flashlight, log};
+use marathon_eink::Waveform;
 
 #[cxx_qt::bridge(namespace = "marathon")]
 pub mod qobject {
@@ -96,6 +97,14 @@ pub mod qobject {
         /// The screen is on as Nightshade's bedside clock: the backlight held
         /// at its lowest level, auto-brightness paused.
         #[qproperty(bool, nightshade, READ, WRITE = set_nightshade, NOTIFY)]
+        /// An e-paper panel whose waveform the shell picks (eink.rs).
+        #[qproperty(bool, refresh_controls, cxx_name = "refreshControls", READ, CONSTANT)]
+        /// The waveform the panel is in: quality, text or fast.
+        #[qproperty(QString, refresh_mode, cxx_name = "refreshMode", READ, NOTIFY)]
+        /// Where it rests once still: quality or text.
+        #[qproperty(QString, resting_refresh_mode, cxx_name = "restingRefreshMode", READ, WRITE = set_resting_refresh_mode, NOTIFY)]
+        /// Clears the still screen's ghosts after enough fast drawing.
+        #[qproperty(bool, auto_clear, cxx_name = "autoClear", READ, WRITE = set_auto_clear, NOTIFY)]
         type Display = super::DisplayRust;
 
         /// Every turn on or off, so the compositor re-asserts the panel's
@@ -118,6 +127,10 @@ pub mod qobject {
         fn set_night_light_to(self: Pin<&mut Display>, minutes: i32);
         #[cxx_name = "setNightshade"]
         fn set_nightshade(self: Pin<&mut Display>, on: bool);
+        #[cxx_name = "setRestingRefreshMode"]
+        fn set_resting_refresh_mode(self: Pin<&mut Display>, mode: &QString);
+        #[cxx_name = "setAutoClear"]
+        fn set_auto_clear(self: Pin<&mut Display>, on: bool);
 
         /// The backlight under `backlight_dir`, the iio sensors under
         /// `iio_dir`, the lowest duty the panel is visible at, and the light
@@ -160,6 +173,15 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "keyboardUsed"]
         fn keyboard_used(self: Pin<&mut Display>);
+        /// The e-paper panel's flashing clear, once the screen is at rest.
+        #[qinvokable]
+        #[cxx_name = "fullRefresh"]
+        fn full_refresh(self: &Display);
+        /// Most of the screen changed at once (an app switch, unlock, Home):
+        /// it counts toward the next automatic clear.
+        #[qinvokable]
+        #[cxx_name = "contentReplaced"]
+        fn content_replaced(self: &Display);
     }
 
     impl cxx_qt::Threading for Display {}
@@ -217,6 +239,10 @@ pub struct DisplayRust {
     nightshade: bool,
     /// The brightness to come back to after Nightshade.
     day_brightness: f64,
+    refresh_controls: bool,
+    refresh_mode: QString,
+    resting_refresh_mode: QString,
+    auto_clear: bool,
 }
 
 impl Default for DisplayRust {
@@ -256,6 +282,10 @@ impl Default for DisplayRust {
             lessons: 0,
             nightshade: false,
             day_brightness: 0.5,
+            refresh_controls: false,
+            refresh_mode: QString::from("quality"),
+            resting_refresh_mode: QString::from("quality"),
+            auto_clear: true,
         }
     }
 }
@@ -341,6 +371,10 @@ impl Display {
         dim: f64,
     ) {
         DISPLAY.set(self.qt_thread()).ok();
+        if crate::device::VALUES.display_technology() == "epaper" {
+            self.as_mut().rust_mut().refresh_controls =
+                eink::start(Path::new("/sys/bus/i2c/devices"));
+        }
         if let Some(class) = Path::new(&backlight_dir.to_string()).parent() {
             self.as_mut().rust_mut().leds_dir = class.join("leds");
         }
@@ -392,6 +426,10 @@ impl Display {
         self.as_mut().on_night_light_from_changed(push).release();
         self.as_mut().on_night_light_to_changed(push).release();
         self.as_mut().on_screen_on_changed(push).release();
+        self.as_mut()
+            .on_resting_refresh_mode_changed(push)
+            .release();
+        self.as_mut().on_auto_clear_changed(push).release();
         self.as_mut()
             .on_proximity_near_changed(|obj| {
                 ipc::signal("Sensor", "ProximityChanged", (obj.proximity_near,));
@@ -506,6 +544,35 @@ impl Display {
     fn set_rotation_locked(mut self: Pin<&mut Self>, locked: bool) {
         set!(self, rotation_locked, rotation_locked_changed, locked);
         self.want_sensors();
+    }
+
+    fn set_resting_refresh_mode(mut self: Pin<&mut Self>, mode: &QString) {
+        // Only quality and text can rest: clean flashes on every return.
+        let Some(w) = Waveform::parse(&mode.to_string())
+            .filter(|w| matches!(w, Waveform::Quality | Waveform::Text))
+        else {
+            return;
+        };
+        eink::set_resting(w);
+        set!(
+            self,
+            resting_refresh_mode,
+            resting_refresh_mode_changed,
+            QString::from(w.name())
+        );
+    }
+
+    fn set_auto_clear(mut self: Pin<&mut Self>, on: bool) {
+        eink::set_auto_clear(on);
+        set!(self, auto_clear, auto_clear_changed, on);
+    }
+
+    fn full_refresh(&self) {
+        eink::refresh();
+    }
+
+    fn content_replaced(&self) {
+        eink::replaced();
     }
 
     fn set_auto_brightness(mut self: Pin<&mut Self>, enabled: bool) {
@@ -632,6 +699,7 @@ impl Display {
         }
         set!(self, screen_on, screen_on_changed, on);
         SCREEN_ON.store(on, Ordering::Relaxed);
+        eink::screen(on);
         if on {
             self.as_mut().keyboard_used();
         }
@@ -1155,6 +1223,21 @@ async fn rotation(qt: cxx_qt::CxxQtThread<Display>, wanted: Receiver<bool>) {
     }
 }
 
+/// The policy thread put the panel in `w`.
+pub(crate) fn panel_waveform(w: Waveform) {
+    if let Some(qt) = DISPLAY.get() {
+        qt.queue(move |mut obj| {
+            set!(
+                obj,
+                refresh_mode,
+                refresh_mode_changed,
+                QString::from(w.name())
+            )
+        })
+        .ok();
+    }
+}
+
 fn state(display: &Display) -> State {
     State::from([
         ("available".to_owned(), value(display.available)),
@@ -1187,6 +1270,15 @@ fn state(display: &Display) -> State {
         ),
         ("nightLightFrom".to_owned(), value(display.night_light_from)),
         ("nightLightTo".to_owned(), value(display.night_light_to)),
+        (
+            "refreshControls".to_owned(),
+            value(display.refresh_controls),
+        ),
+        (
+            "restingRefreshMode".to_owned(),
+            value(display.resting_refresh_mode.to_string()),
+        ),
+        ("autoClear".to_owned(), value(display.auto_clear)),
     ])
 }
 
@@ -1292,6 +1384,31 @@ impl Display1 {
             }
         })
         .await
+    }
+
+    /// quality or text; e-paper only.
+    async fn set_resting_refresh_mode(
+        &self,
+        mode: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.set_resting_refresh_mode(&QString::from(&mode));
+        })
+        .await
+    }
+
+    async fn set_auto_clear(&self, on: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_auto_clear(on)).await
+    }
+
+    /// Clears an e-paper panel's ghosts once the screen is still.
+    async fn full_refresh(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        eink::refresh();
+        Ok(())
     }
 
     /// As the power key does: the lock screen still guards what's behind it.

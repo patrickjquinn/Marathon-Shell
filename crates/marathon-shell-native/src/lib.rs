@@ -28,6 +28,7 @@ pub mod contacts;
 mod desktop;
 pub mod device;
 pub mod display;
+mod eink;
 pub mod file_model;
 pub mod flashlight;
 mod foreign_focus;

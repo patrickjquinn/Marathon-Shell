@@ -3536,6 +3536,7 @@ dependencies = [
  "inotify",
  "libc",
  "marathon-apps",
+ "marathon-eink",
  "marathon-i18n",
  "marathon-permissions",
  "marathon-qt",

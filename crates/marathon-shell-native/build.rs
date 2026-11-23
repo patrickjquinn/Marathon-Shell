@@ -15,6 +15,7 @@ fn main() {
         .file("src/desktop.rs")
         .file("src/device.rs")
         .file("src/display.rs")
+        .file("src/eink.rs")
         .file("src/file_model.rs")
         .file("src/flashlight.rs")
         .file("src/foreign_focus.rs")
