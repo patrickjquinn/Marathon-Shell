@@ -364,9 +364,13 @@ fn controls_a_private_pipewire_session() {
     eventually("Speakerphone to follow", || {
         property::<bool>(&audio, "Speakerphone")
     });
-    assert!(session
-        .output("wpctl", &["settings", "marathon.call.speakerphone"])
-        .is_some_and(|out| out.contains("Value: true")));
+    // The property follows audiod's own state; WirePlumber stores the
+    // setting a moment later.
+    eventually("WirePlumber's speakerphone setting", || {
+        session
+            .output("wpctl", &["settings", "marathon.call.speakerphone"])
+            .is_some_and(|out| out.contains("Value: true"))
+    });
     let wp_log = fs::read_to_string(session.dir.join("logs/wireplumber.log")).unwrap();
     assert!(wp_log.contains("enabling plugin 'script:marathon/call-routing.lua'"));
 
