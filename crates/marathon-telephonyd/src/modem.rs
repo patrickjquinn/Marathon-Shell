@@ -362,7 +362,7 @@ pub async fn watch(core: &Core) {
             }
         }
         let signal = futures_lite::future::or(async { added.next().await.unwrap_or(()) }, async {
-            owner_changed.next().await.unwrap_or(())
+            owner_changed.next().await.unwrap_or(());
         });
         if present {
             futures_lite::future::or(signal, async {
