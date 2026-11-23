@@ -14,6 +14,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QtTest>
 
 namespace {
@@ -21,6 +22,8 @@ namespace {
 const QString Service = QStringLiteral("org.example.notes");
 const QString Path = QStringLiteral("/org/shipwright/Keel/Actions");
 const QString Interface = QStringLiteral("org.shipwright.Keel.Actions");
+const QJsonObject Yes{{QStringLiteral("result"), true}};
+const QJsonObject No{{QStringLiteral("result"), false}};
 
 QJsonObject object(const QString &json)
 {
@@ -28,6 +31,27 @@ QJsonObject object(const QString &json)
 }
 
 } // namespace
+
+// The shell's Permissions1.SpeaksForPerson, vouching for the bus names in
+// `vouched`.
+class FakeShell : public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Permissions1")
+
+public:
+    using QObject::QObject;
+
+    QStringList vouched;
+    QStringList asked;
+
+public Q_SLOTS:
+    bool SpeaksForPerson(const QString &sender)
+    {
+        asked << sender;
+        return vouched.contains(sender);
+    }
+};
 
 class TestDBus : public QObject
 {
@@ -43,6 +67,56 @@ class TestDBus : public QObject
     QDBusMessage invoke(const QString &action, const QString &args)
     {
         return call(QStringLiteral("Invoke"), {action, args, QVariantMap{{QStringLiteral("userInitiated"), true}}});
+    }
+
+    FakeShell *m_shell = nullptr;
+
+    FakeShell *shell()
+    {
+        if (!m_shell) {
+            m_shell = new FakeShell(this);
+            QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("shell"));
+            bus.registerObject(QStringLiteral("/org/marathonos/Shell/Permissions"), m_shell,
+                               QDBusConnection::ExportAllSlots);
+            bus.registerService(QStringLiteral("org.marathonos.Shell"));
+        }
+        return m_shell;
+    }
+
+    // The test app serving `service`; in a PID namespace of its own, as apps
+    // run in bubblewrap on the phone, when `sandboxed`.
+    void startInitiatedHost(QProcess &host, const QString &service, bool sandboxed)
+    {
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert(QStringLiteral("KEEL_ACTIONS_DBUS"), QStringLiteral("1"));
+        env.insert(QStringLiteral("KEEL_ACTIONS_APP_ID"), service);
+        host.setProcessEnvironment(env);
+        host.setProcessChannelMode(QProcess::ForwardedChannels);
+        QString program = QStringLiteral(KEEL_ACTIONS_TEST_HOST);
+        QStringList args{QStringLiteral("--no-env-manifest"), QStringLiteral(KEEL_ACTIONS_INITIATED_APP)};
+        if (sandboxed) {
+            args = QStringList{QStringLiteral("--dev-bind"), QStringLiteral("/"), QStringLiteral("/"),
+                               QStringLiteral("--unshare-pid"), QStringLiteral("--proc"), QStringLiteral("/proc"),
+                               QStringLiteral("--die-with-parent"), QStringLiteral("--"), program}
+                + args;
+            program = QStandardPaths::findExecutable(QStringLiteral("bwrap"));
+        }
+        host.start(program, args);
+        QVERIFY(host.waitForStarted());
+        QTRY_VERIFY_WITH_TIMEOUT(QDBusConnection::sessionBus().interface()->isServiceRegistered(service), 10000);
+    }
+
+    // What the test app heard about a call from `bus` that claims
+    // `claimed`: {"result": <whether the person started it>}.
+    QJsonObject heard(const QString &service, const QDBusConnection &bus, bool claimed)
+    {
+        QDBusInterface probe(service, Path, Interface, bus);
+        probe.setTimeout(10000);
+        // With an event loop: the stand-in shell answers from this thread.
+        const QDBusMessage reply = probe.call(QDBus::BlockWithGui, QStringLiteral("Invoke"),
+                                              QStringLiteral("probe.initiated"), QStringLiteral("{}"),
+                                              QVariantMap{{QStringLiteral("userInitiated"), claimed}});
+        return object(reply.arguments().value(0).toString());
     }
 
 private Q_SLOTS:
@@ -139,30 +213,46 @@ private Q_SLOTS:
     // userInitiated is the sender's to prove, not to claim: this test process
     // is neither Pilot, keel-mcp nor the app, so the app hears false
     // (keel/actions/plugin/keelcallertrust.h; the trusted side is covered by
-    // tst_keel_actions_callertrust).
+    // tst_keel_actions_callertrust). An app outside a sandbox sees the
+    // caller's process itself and does not take the shell's word for it.
     void userInitiatedFromAnUntrustedCaller()
     {
         const QString service = QStringLiteral("org.example.initiated");
+        shell()->vouched = {QDBusConnection::sessionBus().baseService()};
         QProcess host;
-        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-        env.insert(QStringLiteral("KEEL_ACTIONS_DBUS"), QStringLiteral("1"));
-        env.insert(QStringLiteral("KEEL_ACTIONS_APP_ID"), service);
-        host.setProcessEnvironment(env);
-        host.setProcessChannelMode(QProcess::ForwardedChannels);
-        host.start(QStringLiteral(KEEL_ACTIONS_TEST_HOST),
-                   {QStringLiteral("--no-env-manifest"), QStringLiteral(KEEL_ACTIONS_INITIATED_APP)});
-        QVERIFY(host.waitForStarted());
-        QTRY_VERIFY_WITH_TIMEOUT(QDBusConnection::sessionBus().interface()->isServiceRegistered(service), 10000);
+        startInitiatedHost(host, service, false);
+        for (const bool claimed : {true, false})
+            QCOMPARE(heard(service, QDBusConnection::sessionBus(), claimed), No);
+        host.terminate();
+        if (!host.waitForFinished(5000))
+            host.kill();
+    }
 
-        QDBusInterface probe(service, Path, Interface);
-        probe.setTimeout(10000);
-        for (const bool claimed : {true, false}) {
-            const QDBusMessage reply = probe.call(QStringLiteral("Invoke"), QStringLiteral("probe.initiated"),
-                                                  QStringLiteral("{}"),
-                                                  QVariantMap{{QStringLiteral("userInitiated"), claimed}});
-            QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
-            QCOMPARE(object(reply.arguments().value(0).toString()), QJsonObject({{QStringLiteral("result"), false}}));
-        }
+    // A sandboxed app cannot see the caller's process (another PID
+    // namespace), so it asks the shell, and believes whom the shell vouches
+    // for: Pilot and keel-mcp on the phone, here this test's own name.
+    void userInitiatedInASandboxIsTheShellsToVouch()
+    {
+        if (QStandardPaths::findExecutable(QStringLiteral("bwrap")).isEmpty())
+            QSKIP("bubblewrap is not installed");
+        const QString service = QStringLiteral("org.example.initiated.sandboxed");
+        const QString me = QDBusConnection::sessionBus().baseService();
+        QDBusConnection stranger = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("stranger"));
+        shell()->vouched = {me};
+        shell()->asked.clear();
+        QProcess host;
+        startInitiatedHost(host, service, true);
+        QCOMPARE(heard(service, QDBusConnection::sessionBus(), true), Yes);
+        QCOMPARE(heard(service, QDBusConnection::sessionBus(), false), No);
+        QCOMPARE(heard(service, stranger, true), No);
+        // Asked once per caller: the answer is kept while the name lives.
+        QCOMPARE(heard(service, QDBusConnection::sessionBus(), true), Yes);
+        QCOMPARE(shell()->asked, QStringList({me, stranger.baseService()}));
+        // Without a shell to ask (Sailfish OS), nobody else is believed.
+        QVERIFY(QDBusConnection(QStringLiteral("shell")).unregisterService(QStringLiteral("org.marathonos.Shell")));
+        QDBusConnection other = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("other"));
+        shell()->vouched << other.baseService();
+        QCOMPARE(heard(service, other, true), No);
         host.terminate();
         if (!host.waitForFinished(5000))
             host.kill();

@@ -1143,6 +1143,21 @@ impl Permissions1 {
         }
         Ok(())
     }
+
+    /// Whether the bus name `sender` may tell an app that the person started
+    /// a request (Keel Actions' `userInitiated`), for a sandboxed app that
+    /// cannot see the sender's process.
+    async fn speaks_for_person(
+        &self,
+        sender: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<bool> {
+        let asker = h.sender().map_or_default(ToString::to_string);
+        if !gate::in_window(&asker, "SpeaksForPerson") {
+            return Err(fdo::Error::LimitsExceeded("Rate limit exceeded".into()));
+        }
+        Ok(pid_of(&sender).await.is_some_and(gate::speaks_for_person))
+    }
 }
 
 #[cfg(test)]

@@ -14,10 +14,11 @@
 //! `--socket`. It is trusted when it runs `/usr/bin/pilotd` (compared by
 //! file, device and inode, so neither `argv[0]` nor a lookalike path passes)
 //! or runs with Sailfish OS's `privileged` group as its effective group, the
-//! platform's mark of a system component. pilotd is installed setgid
-//! `privileged`, which also makes it non-dumpable: its `/proc/<pid>/exe`
-//! cannot be read by keel-mcp, so on a device the group is what recognises
-//! it.
+//! platform's mark of a system component. On Sailfish OS pilotd is installed
+//! setgid `privileged`, which also makes it non-dumpable: its
+//! `/proc/<pid>/exe` cannot be read by keel-mcp, so there the group is what
+//! recognises it. Marathon has no such group and ships pilotd 0755, so it is
+//! recognised by its file.
 
 use std::io;
 use std::os::unix::fs::MetadataExt;

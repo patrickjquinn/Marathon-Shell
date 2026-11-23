@@ -34,6 +34,8 @@ mod ffi {
 
 const SERVICES: &str = "/usr/share/marathon-shell/services";
 const SERVICE: &str = "service:";
+const SPEAK_FOR_PERSON: &str = "speak-for-person";
+const KEEL_MCP: &str = "/usr/bin/keel-mcp";
 const TEST_CALLER: &str = "_marathon_test_caller";
 const MAX_CALLS: usize = 30;
 const WINDOW: Duration = Duration::from_secs(1);
@@ -204,6 +206,23 @@ fn declared_by_service(caller: &str, permissions: &[String], dir: &Path) -> bool
     })
 }
 
+/// Whether process `pid` may tell an app that the person started a request
+/// (Keel Actions' `userInitiated`): a declared service holding
+/// "speak-for-person" (pilotd), or keel-mcp started by one.
+pub fn speaks_for_person(pid: u32) -> bool {
+    speaks_for_person_in(pid, Path::new(SERVICES), Path::new(KEEL_MCP))
+}
+
+fn speaks_for_person_in(pid: u32, dir: &Path, keel_mcp: &Path) -> bool {
+    let holds = |pid| {
+        service(pid, dir)
+            .is_some_and(|s| declared_by_service(&s, &[SPEAK_FOR_PERSON.to_owned()], dir))
+    };
+    holds(pid)
+        || (running_exe(pid).is_some_and(|exe| fs::canonicalize(keel_mcp).is_ok_and(|k| k == exe))
+            && parent(pid).is_some_and(holds))
+}
+
 pub(crate) fn in_window(sender: &str, area: &str) -> bool {
     let now = Instant::now();
     let mut calls = lock(&CALLS);
@@ -321,6 +340,99 @@ mod tests {
             &["contacts".into()],
             dir.path()
         ));
+    }
+
+    fn main_pid(unit: &str) -> Option<u32> {
+        let out = std::process::Command::new("systemctl")
+            .args(["--user", "show", "-p", "MainPID", "--value", unit])
+            .output()
+            .ok()?;
+        String::from_utf8(out.stdout)
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+            .filter(|&p| p > 0)
+    }
+
+    fn first_child(pid: u32) -> Option<u32> {
+        fs::read_to_string(format!("/proc/{pid}/task/{pid}/children"))
+            .ok()?
+            .split_whitespace()
+            .next()?
+            .parse()
+            .ok()
+    }
+
+    struct Unit(String);
+
+    impl Drop for Unit {
+        fn drop(&mut self) {
+            std::process::Command::new("systemctl")
+                .args(["--user", "stop", &self.0])
+                .status()
+                .ok();
+        }
+    }
+
+    #[test]
+    fn pilotd_and_the_keel_mcp_it_starts_speak_for_the_person() {
+        let dir = tempfile::tempdir().unwrap();
+        let (agent, helper) = (dir.path().join("agent"), dir.path().join("helper"));
+        fs::copy("/bin/sh", &agent).unwrap();
+        fs::copy("/bin/sleep", &helper).unwrap();
+        let unit = format!("marathon-gate-test-{}.service", std::process::id());
+        let started = std::process::Command::new("systemd-run")
+            .args(["--user", "--quiet", "--collect", &format!("--unit={unit}")])
+            .arg(&agent)
+            .args(["-c", &format!("{} 30 & wait", helper.display())])
+            .status();
+        // Without a systemd user manager (a CI container) there is no unit.
+        if !started.is_ok_and(|s| s.success()) {
+            return;
+        }
+        let _unit = Unit(unit.clone());
+        let mut pids = None;
+        for _ in 0..50 {
+            pids = main_pid(&unit).and_then(|m| Some((m, first_child(m)?)));
+            if pids.is_some() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let (agent_pid, helper_pid) = pids.unwrap();
+        let declare = |permission: &str| {
+            fs::write(
+                dir.path().join(format!("{unit}.json")),
+                format!(
+                    r#"{{"exec":"{}","permissions":["{permission}"]}}"#,
+                    agent.display()
+                ),
+            )
+            .unwrap();
+        };
+        let speaks = |pid| speaks_for_person_in(pid, dir.path(), &helper);
+
+        declare("contacts");
+        assert!(!speaks(agent_pid), "a service without the permission");
+        assert!(!speaks(helper_pid), "keel-mcp started by it");
+
+        declare(SPEAK_FOR_PERSON);
+        assert!(speaks(agent_pid), "the service");
+        assert!(speaks(helper_pid), "keel-mcp started by it");
+        assert!(
+            !speaks_for_person_in(helper_pid, dir.path(), Path::new("/bin/true")),
+            "another program it started"
+        );
+        let mut stray = std::process::Command::new(&helper)
+            .arg("30")
+            .spawn()
+            .unwrap();
+        assert!(!speaks(stray.id()), "keel-mcp started by anyone else");
+        stray.kill().unwrap();
+        stray.wait().unwrap();
+        assert!(!speaks(std::process::id()));
+        assert!(!speaks(0));
     }
 
     #[test]
