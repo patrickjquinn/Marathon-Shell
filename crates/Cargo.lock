@@ -3354,6 +3354,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-eink"
+version = "0.1.0"
+
+[[package]]
 name = "marathon-gnssd"
 version = "0.1.0"
 dependencies = [
