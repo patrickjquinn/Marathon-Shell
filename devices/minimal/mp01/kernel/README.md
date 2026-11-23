@@ -97,26 +97,23 @@ slot that swaps the FDT and copies `/chosen/bootargs`, the initrd and
 prepends its `mblock-N-*` reserved regions only to its own tree. So this DT
 describes its reserved memory itself:
 
-- regions at fixed addresses, identical on the Q25 (12 GiB) and the DC-1
-  (8 GiB) under the same LK: BL31, crypto, AEE, TEE, CONSYS EMI, TEE secmem,
-  GenieZone, MCUPM, log store, EMI MBIST, modem shared memory, SCP shared,
-  SSPM, Wi-Fi;
-- windows over what LK places at boot, spanning both boards' layouts:
-  `0xbf600000` +10 MiB (CCCI tag, SCP, ATF log), `0xdc000000` +128 MiB (the
-  four MD1 regions of the stock layout), `0xfd000000` +48 MiB (debug dump,
-  logo framebuffer, rank 0's last page), and rank 1's last page for 6 GiB.
+- regions at fixed addresses: BL31, crypto, AEE, ramoops, TEE, CONSYS EMI,
+  TEE secmem, GenieZone, MCUPM, log store, EMI MBIST, modem shared memory,
+  SCP shared, SSPM, MET, Wi-Fi;
+- windows over what LK places at boot: `0xbf600000` +10 MiB (SCP, ATF log,
+  CCCI tag, rank 0's last page), `0xde000000` +128 MiB (the four MD1
+  regions, the DSP image last at `0xe5200000`), `0xfd000000` +48 MiB (debug
+  dump, logo framebuffer), and rank 1's last page.
 
-**Before any flash**, read the MP01's own map from stock (read-only, no root
-needed for these files):
-
-    adb shell 'for n in /proc/device-tree/reserved-memory/*/; do echo "$n $(xxd -p "$n/reg" 2>/dev/null)"; done'
-    adb shell cat /proc/iomem
-    adb shell cat /proc/cmdline
-
-and check every `mblock-*` region lies inside a reserved node here; a missed
-EMI-MPU-protected region is an SError at first touch. The framebuffer
-(`mblock-13`) address is also what a `simple-framebuffer` node needs; none is
-described until it is known.
+The addresses are the MP01's own, from the `mblock` table its stock LK prints
+at every boot (kept in the `expdb` partition; Android's
+`/proc/device-tree/reserved-memory/*/reg` needs root). Every one of LK's
+regions lies inside a node here, checked against an unlocked (orange) and a
+locked boot: unlocked, LK adds `debug_met_res-ram` at `0x9f670000` and
+moves `sspm_ap-shared` from `0x9fd60000` to `0x9f560000`; the nodes cover
+both. A missed EMI-MPU-protected region is an
+SError at first touch. The DT has no `simple-framebuffer`: U-Boot adds one for
+LK's buffer at `0xffa23000`.
 
 `/memory` is a 6 GiB placeholder for the boot chain to overwrite. There is no
 `stdout-path`: the phone has no UART, and DC-1 found an early console on a
@@ -226,8 +223,8 @@ Board-specific inputs these need, none of which may come from the Q25:
 
 ## First boot, in order
 
-1. Read the reserved-memory map and cmdline from stock (above); fix any region
-   this DT misses. Decide the boot path; keep slot A on stock.
+1. Reserved memory: checked against the stock LK's map (above). Decide the
+   boot path; keep slot A on stock.
 2. Boot to the initramfs with UFS read-only and the USB gadget (ACM/NCM) as
    the console; ramoops for anything earlier. Check `pstore` after a failed
    boot from stock Android (same ramoops layout).
