@@ -227,7 +227,8 @@ QImage KeelThemeImageProvider::requestImage(const QString &id, QSize *size, cons
         }
     }
     if (image.isNull()) {
-        {
+        // Keel draws the busy ring itself: no theme ships it, nothing is missing.
+        if (!name.startsWith(QLatin1String("graphic-busyindicator-"))) {
             QMutexLocker lock(&m_mutex);
             if (!m_warned.contains(name)) {
                 m_warned.insert(name);

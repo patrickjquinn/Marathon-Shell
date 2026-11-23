@@ -13,6 +13,7 @@
 
 #include <QDir>
 #include <QImage>
+#include <QLoggingCategory>
 #include <QPainter>
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -90,6 +91,24 @@ private slots:
         provider.setPixelRatio(1.5);
         QCOMPARE(provider.requestImage(QStringLiteral("icon-m-nothing-like-this"), &size, QSize()).size(),
                  QSize(96, 96));
+    }
+
+    void busyRingIsDrawnQuietly()
+    {
+        static QStringList logged;
+        logged.clear();
+        QLoggingCategory::setFilterRules(QStringLiteral("keel.icons.info=true"));
+        const QtMessageHandler previous = qInstallMessageHandler(
+                [](QtMsgType, const QMessageLogContext &, const QString &msg) { logged << msg; });
+        KeelThemeImageProvider provider;
+        QSize size;
+        const QImage ring = provider.requestImage(QStringLiteral("graphic-busyindicator-medium"), &size, QSize());
+        provider.requestImage(QStringLiteral("icon-m-nothing-like-this"), &size, QSize());
+        qInstallMessageHandler(previous);
+        QLoggingCategory::setFilterRules(QString());
+        QCOMPARE(ring.size(), QSize(64, 64));
+        QCOMPARE(logged.size(), 1);
+        QVERIFY(logged.first().contains(QStringLiteral("icon-m-nothing-like-this")));
     }
 
     void substitutes()
