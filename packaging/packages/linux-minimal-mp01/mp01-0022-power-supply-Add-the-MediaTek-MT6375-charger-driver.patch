@@ -1,0 +1,663 @@
+From 93eea7ee79eb457063f6f373b4a546653c4490da Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 22:00:00 +0000
+Subject: [PATCH 4/5] power: supply: Add the MediaTek MT6375 charger driver
+
+The MT6375's charger charges on its own once it is set up: it regulates
+its input current and voltage, charges at the programmed current and
+voltage, terminates and recharges. The driver sets it up from the
+monitored battery and refuses to probe without the battery's charge
+voltage, charge current and termination current.
+
+It also fixes what the bootloader may have left: no I2C watchdog (it
+would reset the settings if the kernel stopped kicking it), no IR
+compensation (it raises the regulation voltage above the battery's), a
+10 hour fast charge timer, termination on, high impedance off and the
+buck and charging on. VBUS over-voltage is set to 6.5 V instead of
+14.5 V, as nothing asks a charger for more than 5 V without a PD or
+Pump Express driver.
+
+The input current limit starts at 500 mA on every attach and is raised
+from the chip's BC1.2 result: 1.5 A for a CDP or a dedicated charger,
+1 A for an Apple 5 W charger, 500 mA for anything else. A CDP can be
+read as a DCP while the USB controller pulls D+ up, which 1.5 A covers.
+The SoC's PHY is not switched away from D+/D- during detection, as
+MediaTek's own driver does; that needs a PHY interface mainline does
+not have.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/power/supply/Kconfig          |  12 +
+ drivers/power/supply/Makefile         |   1 +
+ drivers/power/supply/mt6375-charger.c | 584 ++++++++++++++++++++++++++
+ 3 files changed, 597 insertions(+)
+ create mode 100644 drivers/power/supply/mt6375-charger.c
+
+diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
+index c98f0af..6b047f6 100644
+--- a/drivers/power/supply/Kconfig
++++ b/drivers/power/supply/Kconfig
+@@ -719,6 +719,18 @@ config CHARGER_MT6370
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called "mt6370-charger".
+ 
++config CHARGER_MT6375
++	tristate "MediaTek MT6375 Charger Driver"
++	depends on MFD_MT6375
++	select LINEAR_RANGES
++	help
++	  Say Y here to enable the charger of the MediaTek MT6375 SubPMIC.
++	  It charges the battery within the limits of its monitored battery
++	  and sets the input current limit from BC1.2 detection.
++
++	  This driver can also be built as a module. If so, the module
++	  will be called "mt6375-charger".
++
+ config CHARGER_QCOM_SMBB
+ 	tristate "Qualcomm Switch-Mode Battery Charger and Boost"
+ 	depends on MFD_SPMI_PMIC || COMPILE_TEST
+diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
+index 40e5c2b..1636b17 100644
+--- a/drivers/power/supply/Makefile
++++ b/drivers/power/supply/Makefile
+@@ -94,6 +94,7 @@ obj-$(CONFIG_CHARGER_MAX8998)	+= max8998_charger.o
+ obj-$(CONFIG_CHARGER_MP2629)	+= mp2629_charger.o
+ obj-$(CONFIG_CHARGER_MT6360)	+= mt6360_charger.o
+ obj-$(CONFIG_CHARGER_MT6370)	+= mt6370-charger.o
++obj-$(CONFIG_CHARGER_MT6375)	+= mt6375-charger.o
+ obj-$(CONFIG_CHARGER_QCOM_SMBB)	+= qcom_smbb.o
+ obj-$(CONFIG_BATTERY_PM8916_BMS_VM)	+= pm8916_bms_vm.o
+ obj-$(CONFIG_CHARGER_PM8916_LBC)	+= pm8916_lbc.o
+diff --git a/drivers/power/supply/mt6375-charger.c b/drivers/power/supply/mt6375-charger.c
+new file mode 100644
+index 0000000..beb8808
+--- /dev/null
++++ b/drivers/power/supply/mt6375-charger.c
+@@ -0,0 +1,584 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6375 switching charger
++ *
++ * The charger runs on its own once it is set up: it regulates the input
++ * current and voltage, charges at the battery's limits, terminates and
++ * recharges. The driver programs those limits from the monitored battery,
++ * sets the input current limit from the charger's BC1.2 detection and
++ * reports the state.
++ */
++
++#include <linux/bits.h>
++#include <linux/interrupt.h>
++#include <linux/linear_range.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/platform_device.h>
++#include <linux/power_supply.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++
++#define MT6375_REG_CHG_TOP1	0x120
++#define MT6375_REG_CHG_TOP2	0x121
++#define MT6375_REG_CHG_AICR	0x122
++#define MT6375_REG_CHG_MIVR	0x123
++#define MT6375_REG_CHG_VCHG	0x125
++#define MT6375_REG_CHG_ICHG	0x126
++#define MT6375_REG_CHG_TMR	0x127
++#define MT6375_REG_CHG_EOC	0x128
++#define MT6375_REG_CHG_WDT	0x12a
++#define MT6375_REG_BAT_COMP	0x133
++#define MT6375_REG_CHG_STAT	0x134
++#define MT6375_REG_BC12_FUNC	0x150
++#define MT6375_REG_BC12_STAT	0x151
++#define MT6375_REG_CHG_STAT0	0x1e0
++
++#define MT6375_STAT_TRICKLE	2
++#define MT6375_STAT_PRE		3
++#define MT6375_STAT_FAST	4
++#define MT6375_STAT_EOC		5
++#define MT6375_STAT_BKGND	6
++#define MT6375_STAT_DONE	7
++#define MT6375_STAT_FAULT	8
++#define MT6375_STAT_OTG		15
++
++#define MT6375_PORT_APPLE_10W	8
++#define MT6375_PORT_SAMSUNG	9
++#define MT6375_PORT_APPLE_5W	10
++#define MT6375_PORT_APPLE_12W	11
++#define MT6375_PORT_UNKNOWN_TA	12
++#define MT6375_PORT_SDP		13
++#define MT6375_PORT_CDP		14
++#define MT6375_PORT_DCP		15
++
++/* VBUS_OV selector for 6.5 V: nothing on this port asks for more than 5 V. */
++#define MT6375_VBUS_OV_6V5	1
++/* CHG_TMR selector for a 10 hour fast charge timer */
++#define MT6375_CHG_TMR_10H	1
++/* DCDT_SEL selector for a 600 ms data contact detection timeout */
++#define MT6375_DCDT_600MS	2
++
++#define MT6375_MIVR_UV		4400000
++#define MT6375_AICR_USB_UA	500000
++#define MT6375_AICR_APPLE_5W_UA	1000000
++#define MT6375_AICR_HIGH_UA	1500000
++
++enum mt6375_chg_field {
++	F_CHG_EN, F_BUCK_EN, F_HZ,
++	F_VBUS_OV,
++	F_IAICR, F_ILIM_EN,
++	F_VMIVR,
++	F_CV, F_VREC,
++	F_ICHG,
++	F_CHG_TMR, F_CHG_TMR_EN,
++	F_TE, F_IEOC,
++	F_WDT_EN,
++	F_IRCMP_V, F_IRCMP_R,
++	F_IC_STAT,
++	F_DCDT_SEL, F_BC12_EN,
++	F_PORT_STAT,
++	F_PWR_RDY,
++	F_MAX
++};
++
++static const struct reg_field mt6375_chg_reg_fields[F_MAX] = {
++	[F_CHG_EN]	= REG_FIELD(MT6375_REG_CHG_TOP1, 0, 0),
++	[F_BUCK_EN]	= REG_FIELD(MT6375_REG_CHG_TOP1, 1, 1),
++	[F_HZ]		= REG_FIELD(MT6375_REG_CHG_TOP1, 3, 3),
++	[F_VBUS_OV]	= REG_FIELD(MT6375_REG_CHG_TOP2, 0, 1),
++	[F_IAICR]	= REG_FIELD(MT6375_REG_CHG_AICR, 0, 6),
++	[F_ILIM_EN]	= REG_FIELD(MT6375_REG_CHG_AICR, 7, 7),
++	[F_VMIVR]	= REG_FIELD(MT6375_REG_CHG_MIVR, 0, 6),
++	[F_CV]		= REG_FIELD(MT6375_REG_CHG_VCHG, 0, 6),
++	[F_VREC]	= REG_FIELD(MT6375_REG_CHG_VCHG, 7, 7),
++	[F_ICHG]	= REG_FIELD(MT6375_REG_CHG_ICHG, 0, 5),
++	[F_CHG_TMR]	= REG_FIELD(MT6375_REG_CHG_TMR, 4, 5),
++	[F_CHG_TMR_EN]	= REG_FIELD(MT6375_REG_CHG_TMR, 7, 7),
++	[F_TE]		= REG_FIELD(MT6375_REG_CHG_EOC, 1, 1),
++	[F_IEOC]	= REG_FIELD(MT6375_REG_CHG_EOC, 4, 7),
++	[F_WDT_EN]	= REG_FIELD(MT6375_REG_CHG_WDT, 3, 3),
++	[F_IRCMP_V]	= REG_FIELD(MT6375_REG_BAT_COMP, 0, 2),
++	[F_IRCMP_R]	= REG_FIELD(MT6375_REG_BAT_COMP, 4, 6),
++	[F_IC_STAT]	= REG_FIELD(MT6375_REG_CHG_STAT, 0, 3),
++	[F_DCDT_SEL]	= REG_FIELD(MT6375_REG_BC12_FUNC, 4, 5),
++	[F_BC12_EN]	= REG_FIELD(MT6375_REG_BC12_FUNC, 7, 7),
++	[F_PORT_STAT]	= REG_FIELD(MT6375_REG_BC12_STAT, 0, 3),
++	[F_PWR_RDY]	= REG_FIELD(MT6375_REG_CHG_STAT0, 0, 0),
++};
++
++enum mt6375_chg_range {
++	R_AICR, R_MIVR, R_CV, R_ICHG, R_IEOC, R_MAX
++};
++
++static const struct linear_range mt6375_chg_ranges[R_MAX] = {
++	[R_AICR] = LINEAR_RANGE(100000, 2, 127, 25000),
++	[R_MIVR] = LINEAR_RANGE(3900000, 0, 95, 100000),
++	[R_CV]	 = LINEAR_RANGE(3900000, 0, 81, 10000),
++	[R_ICHG] = LINEAR_RANGE(300000, 6, 63, 50000),
++	[R_IEOC] = LINEAR_RANGE(100000, 1, 15, 50000),
++};
++
++struct mt6375_chg {
++	struct device *dev;
++	struct regmap_field *fields[F_MAX];
++	struct power_supply *psy;
++	struct power_supply_battery_info *bat;
++	/* Serialises attach, detach and BC1.2 results. */
++	struct mutex lock;
++	bool online;
++	enum power_supply_usb_type usb_type;
++};
++
++static int mt6375_chg_set(struct mt6375_chg *chg, enum mt6375_chg_field field,
++			  enum mt6375_chg_range range, unsigned int val)
++{
++	unsigned int sel;
++
++	linear_range_get_selector_within(&mt6375_chg_ranges[range], val, &sel);
++	return regmap_field_write(chg->fields[field], sel);
++}
++
++static int mt6375_chg_get(struct mt6375_chg *chg, enum mt6375_chg_field field,
++			  enum mt6375_chg_range range, int *val)
++{
++	unsigned int sel, uval;
++	int ret;
++
++	ret = regmap_field_read(chg->fields[field], &sel);
++	if (ret)
++		return ret;
++
++	ret = linear_range_get_value(&mt6375_chg_ranges[range], sel, &uval);
++	if (ret)
++		return ret;
++
++	*val = uval;
++	return 0;
++}
++
++static int mt6375_chg_get_status(struct mt6375_chg *chg, int *status)
++{
++	unsigned int stat;
++	int ret;
++
++	guard(mutex)(&chg->lock);
++
++	if (!chg->online) {
++		*status = POWER_SUPPLY_STATUS_DISCHARGING;
++		return 0;
++	}
++
++	ret = regmap_field_read(chg->fields[F_IC_STAT], &stat);
++	if (ret)
++		return ret;
++
++	switch (stat) {
++	case MT6375_STAT_TRICKLE:
++	case MT6375_STAT_PRE:
++	case MT6375_STAT_FAST:
++	case MT6375_STAT_EOC:
++	case MT6375_STAT_BKGND:
++		*status = POWER_SUPPLY_STATUS_CHARGING;
++		break;
++	case MT6375_STAT_DONE:
++		*status = POWER_SUPPLY_STATUS_FULL;
++		break;
++	case MT6375_STAT_OTG:
++		*status = POWER_SUPPLY_STATUS_DISCHARGING;
++		break;
++	default:
++		*status = POWER_SUPPLY_STATUS_NOT_CHARGING;
++		break;
++	}
++
++	return 0;
++}
++
++/*
++ * Until BC1.2 says otherwise the port is taken for a USB 2.0 host port.
++ * Detection restarts on every attach.
++ */
++static void mt6375_chg_update_attach(struct mt6375_chg *chg)
++{
++	unsigned int pwr_rdy;
++	int ret;
++
++	scoped_guard(mutex, &chg->lock) {
++		ret = regmap_field_read(chg->fields[F_PWR_RDY], &pwr_rdy);
++		if (ret)
++			break;
++
++		if (pwr_rdy == chg->online)
++			return;
++
++		chg->online = pwr_rdy;
++		chg->usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
++
++		ret = mt6375_chg_set(chg, F_IAICR, R_AICR, MT6375_AICR_USB_UA);
++		if (!ret)
++			ret = regmap_field_write(chg->fields[F_BC12_EN], 0);
++		if (!ret && pwr_rdy)
++			ret = regmap_field_write(chg->fields[F_BC12_EN], 1);
++	}
++
++	if (ret)
++		dev_err(chg->dev, "Failed to handle the attach: %d\n", ret);
++
++	power_supply_changed(chg->psy);
++}
++
++static void mt6375_chg_update_bc12(struct mt6375_chg *chg)
++{
++	unsigned int port = 0, aicr = MT6375_AICR_USB_UA;
++	enum power_supply_usb_type type;
++	int ret;
++
++	scoped_guard(mutex, &chg->lock) {
++		if (!chg->online)
++			return;
++
++		ret = regmap_field_read(chg->fields[F_PORT_STAT], &port);
++		if (ret)
++			break;
++
++		switch (port) {
++		case MT6375_PORT_SDP:
++			type = POWER_SUPPLY_USB_TYPE_SDP;
++			break;
++		case MT6375_PORT_CDP:
++			type = POWER_SUPPLY_USB_TYPE_CDP;
++			aicr = MT6375_AICR_HIGH_UA;
++			break;
++		case MT6375_PORT_APPLE_5W:
++			type = POWER_SUPPLY_USB_TYPE_DCP;
++			aicr = MT6375_AICR_APPLE_5W_UA;
++			break;
++		case MT6375_PORT_APPLE_10W:
++		case MT6375_PORT_APPLE_12W:
++		case MT6375_PORT_SAMSUNG:
++		case MT6375_PORT_DCP:
++			type = POWER_SUPPLY_USB_TYPE_DCP;
++			aicr = MT6375_AICR_HIGH_UA;
++			break;
++		default:
++			type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
++			break;
++		}
++
++		chg->usb_type = type;
++		ret = mt6375_chg_set(chg, F_IAICR, R_AICR, aicr);
++		/* A dedicated charger keeps its D+/D- signature; a host gets the lines back. */
++		if (!ret && type != POWER_SUPPLY_USB_TYPE_DCP)
++			ret = regmap_field_write(chg->fields[F_BC12_EN], 0);
++	}
++
++	if (ret)
++		dev_err(chg->dev, "Failed to apply the BC1.2 result: %d\n", ret);
++	else
++		dev_dbg(chg->dev, "BC1.2 port %u, input limit %u uA\n", port,
++			aicr);
++
++	power_supply_changed(chg->psy);
++}
++
++static irqreturn_t mt6375_chg_attach_irq(int irq, void *data)
++{
++	mt6375_chg_update_attach(data);
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t mt6375_chg_bc12_irq(int irq, void *data)
++{
++	mt6375_chg_update_bc12(data);
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t mt6375_chg_state_irq(int irq, void *data)
++{
++	struct mt6375_chg *chg = data;
++
++	power_supply_changed(chg->psy);
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t mt6375_chg_vbus_ov_irq(int irq, void *data)
++{
++	struct mt6375_chg *chg = data;
++
++	dev_warn(chg->dev, "VBUS over voltage, input off\n");
++	power_supply_changed(chg->psy);
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t mt6375_chg_tout_irq(int irq, void *data)
++{
++	struct mt6375_chg *chg = data;
++
++	dev_warn(chg->dev, "Fast charge timer expired, charging stopped\n");
++	power_supply_changed(chg->psy);
++	return IRQ_HANDLED;
++}
++
++static int mt6375_chg_get_property(struct power_supply *psy,
++				   enum power_supply_property psp,
++				   union power_supply_propval *val)
++{
++	struct mt6375_chg *chg = power_supply_get_drvdata(psy);
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_ONLINE:
++		scoped_guard(mutex, &chg->lock)
++			val->intval = chg->online;
++		return 0;
++	case POWER_SUPPLY_PROP_STATUS:
++		return mt6375_chg_get_status(chg, &val->intval);
++	case POWER_SUPPLY_PROP_USB_TYPE:
++		scoped_guard(mutex, &chg->lock)
++			val->intval = chg->usb_type;
++		return 0;
++	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
++		return mt6375_chg_get(chg, F_IAICR, R_AICR, &val->intval);
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
++		return mt6375_chg_get(chg, F_ICHG, R_ICHG, &val->intval);
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
++		/* Registration reads the properties before probe has the battery. */
++		if (!chg->bat)
++			return -ENODATA;
++		val->intval = chg->bat->constant_charge_current_max_ua;
++		return 0;
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
++		return mt6375_chg_get(chg, F_CV, R_CV, &val->intval);
++	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
++		return mt6375_chg_get(chg, F_IEOC, R_IEOC, &val->intval);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int mt6375_chg_set_property(struct power_supply *psy,
++				   enum power_supply_property psp,
++				   const union power_supply_propval *val)
++{
++	struct mt6375_chg *chg = power_supply_get_drvdata(psy);
++
++	if (!chg->bat)
++		return -ENODATA;
++
++	if (val->intval < 0)
++		return -EINVAL;
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
++		return mt6375_chg_set(chg, F_IAICR, R_AICR, val->intval);
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
++		return mt6375_chg_set(chg, F_ICHG, R_ICHG,
++				      min(val->intval,
++					  chg->bat->constant_charge_current_max_ua));
++	default:
++		return -EINVAL;
++	}
++}
++
++static int mt6375_chg_property_is_writeable(struct power_supply *psy,
++					    enum power_supply_property psp)
++{
++	return psp == POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT ||
++	       psp == POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT;
++}
++
++static const enum power_supply_property mt6375_chg_properties[] = {
++	POWER_SUPPLY_PROP_ONLINE,
++	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_USB_TYPE,
++	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
++	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
++	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
++	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
++	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
++};
++
++static const struct power_supply_desc mt6375_chg_desc = {
++	.name = "mt6375-charger",
++	.type = POWER_SUPPLY_TYPE_USB,
++	.usb_types = BIT(POWER_SUPPLY_USB_TYPE_UNKNOWN) |
++		     BIT(POWER_SUPPLY_USB_TYPE_SDP) |
++		     BIT(POWER_SUPPLY_USB_TYPE_CDP) |
++		     BIT(POWER_SUPPLY_USB_TYPE_DCP),
++	.properties = mt6375_chg_properties,
++	.num_properties = ARRAY_SIZE(mt6375_chg_properties),
++	.get_property = mt6375_chg_get_property,
++	.set_property = mt6375_chg_set_property,
++	.property_is_writeable = mt6375_chg_property_is_writeable,
++};
++
++/*
++ * Charge at the battery's limits with the chip's own termination,
++ * recharge and safety timer, no watchdog and no IR compensation, from a
++ * 500 mA input until BC1.2 has run.
++ */
++static int mt6375_chg_init_hw(struct mt6375_chg *chg)
++{
++	struct power_supply_battery_info *bat = chg->bat;
++	struct regmap_field **f = chg->fields;
++	int ret;
++
++	ret = regmap_field_write(f[F_WDT_EN], 0);
++	if (!ret)
++		ret = regmap_field_write(f[F_VBUS_OV], MT6375_VBUS_OV_6V5);
++	if (!ret)
++		ret = regmap_field_write(f[F_ILIM_EN], 0);
++	if (!ret)
++		ret = mt6375_chg_set(chg, F_IAICR, R_AICR, MT6375_AICR_USB_UA);
++	if (!ret)
++		ret = mt6375_chg_set(chg, F_VMIVR, R_MIVR, MT6375_MIVR_UV);
++	if (!ret)
++		ret = regmap_field_write(f[F_IRCMP_V], 0);
++	if (!ret)
++		ret = regmap_field_write(f[F_IRCMP_R], 0);
++	if (!ret)
++		ret = mt6375_chg_set(chg, F_CV, R_CV,
++				     bat->constant_charge_voltage_max_uv);
++	if (!ret)
++		ret = regmap_field_write(f[F_VREC], 0);
++	if (!ret)
++		ret = mt6375_chg_set(chg, F_ICHG, R_ICHG,
++				     bat->constant_charge_current_max_ua);
++	if (!ret)
++		ret = mt6375_chg_set(chg, F_IEOC, R_IEOC,
++				     bat->charge_term_current_ua);
++	if (!ret)
++		ret = regmap_field_write(f[F_TE], 1);
++	if (!ret)
++		ret = regmap_field_write(f[F_CHG_TMR], MT6375_CHG_TMR_10H);
++	if (!ret)
++		ret = regmap_field_write(f[F_CHG_TMR_EN], 1);
++	if (!ret)
++		ret = regmap_field_write(f[F_DCDT_SEL], MT6375_DCDT_600MS);
++	if (!ret)
++		ret = regmap_field_write(f[F_BC12_EN], 0);
++	if (!ret)
++		ret = regmap_field_write(f[F_HZ], 0);
++	if (!ret)
++		ret = regmap_field_write(f[F_BUCK_EN], 1);
++	if (!ret)
++		ret = regmap_field_write(f[F_CHG_EN], 1);
++
++	return ret;
++}
++
++static int mt6375_chg_request_irqs(struct platform_device *pdev,
++				   struct mt6375_chg *chg)
++{
++	static const struct {
++		const char *name;
++		irq_handler_t handler;
++	} irqs[] = {
++		{ "pwr-rdy", mt6375_chg_attach_irq },
++		{ "detach", mt6375_chg_attach_irq },
++		{ "bc12-dn", mt6375_chg_bc12_irq },
++		{ "rechg", mt6375_chg_state_irq },
++		{ "chg-done", mt6375_chg_state_irq },
++		{ "vbus-ov", mt6375_chg_vbus_ov_irq },
++		{ "chg-tout", mt6375_chg_tout_irq },
++	};
++	int i, irq, ret;
++
++	for (i = 0; i < ARRAY_SIZE(irqs); i++) {
++		irq = platform_get_irq_byname(pdev, irqs[i].name);
++		if (irq < 0)
++			return irq;
++
++		ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
++						irqs[i].handler, IRQF_ONESHOT,
++						irqs[i].name, chg);
++		if (ret)
++			return dev_err_probe(&pdev->dev, ret,
++					     "Failed to request the %s IRQ\n",
++					     irqs[i].name);
++	}
++
++	return 0;
++}
++
++static int mt6375_chg_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct power_supply_config cfg = {};
++	struct power_supply_battery_info *bat;
++	struct mt6375_chg *chg;
++	struct regmap *regmap;
++	int ret;
++
++	chg = devm_kzalloc(dev, sizeof(*chg), GFP_KERNEL);
++	if (!chg)
++		return -ENOMEM;
++
++	chg->dev = dev;
++	chg->usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
++
++	regmap = dev_get_regmap(dev->parent, NULL);
++	if (!regmap)
++		return dev_err_probe(dev, -ENODEV, "Failed to get the regmap\n");
++
++	ret = devm_regmap_field_bulk_alloc(dev, regmap, chg->fields,
++					   mt6375_chg_reg_fields, F_MAX);
++	if (ret)
++		return ret;
++
++	ret = devm_mutex_init(dev, &chg->lock);
++	if (ret)
++		return ret;
++
++	cfg.drv_data = chg;
++	cfg.fwnode = dev_fwnode(dev);
++	chg->psy = devm_power_supply_register(dev, &mt6375_chg_desc, &cfg);
++	if (IS_ERR(chg->psy))
++		return dev_err_probe(dev, PTR_ERR(chg->psy),
++				     "Failed to register the power supply\n");
++
++	ret = power_supply_get_battery_info(chg->psy, &bat);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "Failed to get the battery information\n");
++
++	/* Never charge a battery whose limits are not known. */
++	if (bat->constant_charge_voltage_max_uv <= 0 ||
++	    bat->constant_charge_current_max_ua <= 0 ||
++	    bat->charge_term_current_ua <= 0)
++		return dev_err_probe(dev, -EINVAL,
++				     "The battery's charge voltage, current and termination current are required\n");
++
++	chg->bat = bat;
++
++	ret = mt6375_chg_init_hw(chg);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to set up the charger\n");
++
++	ret = mt6375_chg_request_irqs(pdev, chg);
++	if (ret)
++		return ret;
++
++	mt6375_chg_update_attach(chg);
++
++	return 0;
++}
++
++static const struct of_device_id mt6375_chg_of_match[] = {
++	{ .compatible = "mediatek,mt6375-charger" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6375_chg_of_match);
++
++static struct platform_driver mt6375_chg_driver = {
++	.driver = {
++		.name = "mt6375-charger",
++		.of_match_table = mt6375_chg_of_match,
++	},
++	.probe = mt6375_chg_probe,
++};
++module_platform_driver(mt6375_chg_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6375 charger driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+
