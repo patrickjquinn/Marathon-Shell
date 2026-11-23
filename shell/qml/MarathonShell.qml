@@ -450,6 +450,16 @@ Item {
         service: AmbienceService
         settings: SettingsManagerCpp
     }
+
+    // E-paper: the whole frame on the panel's 16 greys, two levels while it
+    // draws with the fast waveform, so the controller never drives a pixel
+    // for a change it cannot show (eink.frag).
+    layer.enabled: MColors.eink
+    layer.effect: ShaderEffect {
+        readonly property real binary: Display.refreshMode === "fast" ? 1 : 0
+
+        fragmentShader: "qrc:/marathon/shaders/eink.frag.qsb"
+    }
     Timer {
         id: screenshotTimer
         property string path: ""

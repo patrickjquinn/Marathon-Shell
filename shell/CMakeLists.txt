@@ -340,6 +340,7 @@ qt_add_resources(marathon-shell "shell_shaders"
         shaders/windowcorner.frag.qsb
         shaders/nightlight.vert.qsb
         shaders/nightlight.frag.qsb
+        shaders/eink.frag.qsb
 )
 qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"
