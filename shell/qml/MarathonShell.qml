@@ -1324,12 +1324,15 @@ Item {
         id: shellInitialization
     }
 
+    // E-paper: no wallpaper. The panel cannot show a photo's tones while
+    // anything moves over it, so the shell sits on plain paper.
     Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: shell.appCoversWallpaper ? Constants.statusBarHeight : parent.height
         clip: true
+        visible: !MColors.eink
         z: Constants.zIndexBackground
 
         Image {
@@ -1359,7 +1362,7 @@ Item {
         opacity: shell.wallpaperCovered || shell.appCoversWallpaper ? 0 : 0.04
         smooth: false
         cache: true
-        visible: DeviceProfile.panelDither
+        visible: DeviceProfile.panelDither && !MColors.eink
         z: Constants.zIndexBackground + 1
     }
 
@@ -3477,7 +3480,7 @@ Item {
         opacity: (1 << (8 - DeviceProfile.panelDepth)) / 255
         smooth: false
         cache: true
-        visible: DeviceProfile.panelDepth < 8
+        visible: DeviceProfile.panelDepth < 8 && !MColors.eink
         z: 999998
     }
 

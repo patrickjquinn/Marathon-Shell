@@ -42,7 +42,9 @@ Item {
         height: width
         radius: width / 2
         scale: root.down ? 0.94 : 1
-        color: root.variant === "primary" ? MColors.accentFill : root.down ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
+        color: root.variant === "primary" ? MColors.accentFill : root.down ? MColors.whiteOverlay16 : MColors.controlFill
+        border.width: MColors.eink ? 1 : 0
+        border.color: MColors.border
 
         Behavior on scale {
             NumberAnimation {

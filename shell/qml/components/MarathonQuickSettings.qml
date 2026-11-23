@@ -352,7 +352,7 @@ Item {
                 width: Silica.Theme.itemSizeExtraSmall * 0.75
                 height: width
                 radius: width / 2
-                color: shortcutMouse.pressed ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
+                color: shortcutMouse.pressed ? MColors.whiteOverlay16 : MColors.controlFill
 
                 GlyphIcon {
                     anchors.centerIn: parent

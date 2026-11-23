@@ -283,13 +283,15 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: "black"
-            visible: lockWallpaper.status !== Image.Ready
+            color: MColors.eink ? MColors.background : "black"
+            visible: MColors.eink || lockWallpaper.status !== Image.Ready
         }
+        // E-paper shows paper, not the wallpaper.
         Image {
             id: lockWallpaper
 
             anchors.fill: parent
+            visible: !MColors.eink
             source: SettingsManagerCpp.wallpaperPath
             // The home screen's size too, so both share one decoded image.
             sourceSize: Qt.size(width, height)

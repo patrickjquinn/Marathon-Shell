@@ -52,7 +52,8 @@ Rectangle {
         anchors.margins: Math.round(Silica.Theme.paddingSmall / 2)
         radius: Silica.Theme.paddingSmall
         visible: key.pressed || key.isSpecial
-        color: key.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.08)
+        // On e-paper a grey the panel has, not a dither between two.
+        color: key.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : MColors.eink ? MColors.controlFill : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.08)
     }
 
     Item {

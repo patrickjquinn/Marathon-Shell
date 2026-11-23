@@ -1,6 +1,7 @@
 import QtQuick
 import QtTest
 import Keel 1.0
+import MarathonOS.Shell
 import "../../shell/qml/core"
 
 TestCase {
@@ -59,6 +60,22 @@ TestCase {
     function test_textIsNotScaledTwice() {
         fakeService.seedChanged();
         verify(!("/desktop/jolla/theme/font/sizeMultiplier" in fakeService.published));
+    }
+
+    // E-paper: ink on paper whatever the wallpaper, so apps follow too.
+    function test_einkIsInkOnPaper() {
+        MColors.eink = true;
+        fakeService.seedChanged();
+        const m = fakeService.published;
+        compare(m["/desktop/jolla/theme/color_scheme"], "darkonlight");
+        compare(m["/desktop/jolla/theme/color/highlight"], "#000000");
+        compare(m["/desktop/jolla/theme/color/primary"], "#000000");
+        compare(m["/desktop/jolla/theme/wallpaper"], "");
+        compare(Ambience.colorScheme, 1);
+        compare(Qt.color(Ambience.primaryColor), Qt.color("#000000"));
+        MColors.eink = false;
+        fakeService.seedChanged();
+        compare(fakeService.published["/desktop/jolla/theme/color_scheme"], "lightondark");
     }
 
     function test_timeFormatForKeel() {
