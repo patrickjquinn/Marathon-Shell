@@ -460,6 +460,22 @@ Item {
 
         fragmentShader: "qrc:/marathon/shaders/eink.frag.qsb"
     }
+
+    // Most of the screen changes on a state change: it counts toward the
+    // panel's next ghost clear.
+    onStateChanged: {
+        if (MColors.eink)
+            Display.contentReplaced();
+    }
+
+    Connections {
+        function onCurrentAppIdChanged() {
+            Display.contentReplaced();
+        }
+
+        enabled: MColors.eink
+        target: UIStore
+    }
     Timer {
         id: screenshotTimer
         property string path: ""

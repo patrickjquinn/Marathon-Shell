@@ -9,6 +9,19 @@ QtObject {
     property bool lightAvailable: true
     property bool rotationAvailable: true
     property var offReasons: []
+    // E-paper: as display.rs, with what the shell asked of the panel.
+    property bool refreshControls: false
+    property string refreshMode: "quality"
+    property string restingRefreshMode: "quality"
+    property bool autoClear: true
+    property int fullRefreshes: 0
+    property int replacements: 0
+    function fullRefresh() {
+        fullRefreshes++;
+    }
+    function contentReplaced() {
+        replacements++;
+    }
     signal screenStateChanged(bool on)
     function turnScreenOn() {
         screenOn = true;

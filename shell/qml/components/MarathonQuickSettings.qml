@@ -279,7 +279,19 @@ Item {
                 label: qsTr("Pointer"),
                 on: SettingsManagerCpp.trackpadMode === "mouse"
             });
-        return enabledOnly(t);
+        // E-paper's own control, first and always there: the flashing
+        // clear that takes the ghosts away (docs/design/EINK_MODE.md).
+        const refresh = Display.refreshControls ? [
+            {
+                id: "refresh",
+                route: "display",
+                icon: "arrows-clockwise",
+                label: qsTr("Refresh"),
+                status: qsTr("Clear ghosting"),
+                on: false
+            }
+        ] : [];
+        return refresh.concat(enabledOnly(t));
     }
     // Switches in pages of three across by three. Paged by id: statuses change
     // every few seconds, and a page made of the tiles themselves would rebuild
@@ -749,6 +761,11 @@ Item {
             break;
         case "trackpad":
             SettingsManagerCpp.trackpadMode = SettingsManagerCpp.trackpadMode === "mouse" ? "gesture" : "mouse";
+            break;
+        case "refresh":
+            // The clear waits for a still screen, so the shade is gone from it.
+            quickSettings.closed();
+            Display.fullRefresh();
             break;
         case "settings":
             quickSettings.closed();
