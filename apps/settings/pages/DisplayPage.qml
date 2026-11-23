@@ -66,6 +66,66 @@ Page {
                 onClicked: Display.autoBrightnessEnabled = !checked
             }
 
+            // E-paper (docs/design/EINK_MODE.md): the panel moves in its fast
+            // waveform and rests in the one chosen here.
+            SectionHeader {
+                visible: Display.refreshControls
+                text: qsTr("E-paper")
+            }
+            ComboBox {
+                id: restingMode
+
+                readonly property var modes: [
+                    {
+                        id: "quality",
+                        title: qsTr("Quality"),
+                        description: qsTr("All greys, for reading and pictures")
+                    },
+                    {
+                        id: "text",
+                        title: qsTr("Text"),
+                        description: qsTr("Black and white, crisp and quick")
+                    }
+                ]
+
+                objectName: "restingRefreshCombo"
+                visible: Display.refreshControls
+                width: parent.width
+                label: qsTr("When still")
+                description: qsTr("Moving content always draws fast")
+                Binding on currentIndex {
+                    value: Math.max(0, restingMode.modes.findIndex(m => m.id === Display.restingRefreshMode))
+                }
+                menu: ContextMenu {
+                    Repeater {
+                        model: restingMode.modes
+
+                        MenuItem {
+                            required property var modelData
+
+                            text: modelData.title + " · " + modelData.description
+                            onClicked: Display.restingRefreshMode = modelData.id
+                        }
+                    }
+                }
+            }
+            TextSwitch {
+                objectName: "autoClearSwitch"
+                visible: Display.refreshControls
+                text: qsTr("Clear ghosting")
+                description: qsTr("Flashes the screen clean once it is still after a lot of scrolling")
+                automaticCheck: false
+                checked: Display.autoClear
+                onClicked: Display.autoClear = !checked
+            }
+            Button {
+                objectName: "fullRefreshButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: Display.refreshControls
+                text: qsTr("Refresh screen")
+                onClicked: Display.fullRefresh()
+            }
+
             SectionHeader {
                 text: qsTr("Night light")
             }
@@ -248,8 +308,10 @@ Page {
                     }
                 }
             }
+            // E-paper has no motion to reduce.
             TextSwitch {
                 objectName: "reduceMotionSwitch"
+                visible: !Display.refreshControls
                 text: qsTr("Reduce motion")
                 description: qsTr("Replaces slides and springs with fades")
                 automaticCheck: false

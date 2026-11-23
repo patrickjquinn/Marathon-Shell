@@ -13,6 +13,14 @@ QtObject {
     property string nightLightSchedule: "off"
     property int nightLightFrom: 1320
     property int nightLightTo: 420
+    property bool refreshControls: false
+    property string restingRefreshMode: "quality"
+    property bool autoClear: true
+    property int fullRefreshes: 0
+
+    function fullRefresh() {
+        fullRefreshes++;
+    }
 
     function setNightLightTimes(from, to) {
         nightLightFrom = from;
@@ -31,5 +39,9 @@ QtObject {
         nightLightSchedule = "off";
         nightLightFrom = 1320;
         nightLightTo = 420;
+        refreshControls = false;
+        restingRefreshMode = "quality";
+        autoClear = true;
+        fullRefreshes = 0;
     }
 }

@@ -30,6 +30,11 @@ pub mod qobject {
         /// Minutes after midnight, for the custom schedule.
         #[qproperty(i32, night_light_from, cxx_name = "nightLightFrom", READ, NOTIFY = state_changed)]
         #[qproperty(i32, night_light_to, cxx_name = "nightLightTo", READ, NOTIFY = state_changed)]
+        /// An e-paper panel whose waveform the shell picks.
+        #[qproperty(bool, refresh_controls, cxx_name = "refreshControls", READ, NOTIFY = state_changed)]
+        /// quality or text: where the panel rests once still.
+        #[qproperty(QString, resting_refresh_mode, cxx_name = "restingRefreshMode", READ, WRITE = set_resting_refresh_mode, NOTIFY = state_changed)]
+        #[qproperty(bool, auto_clear, cxx_name = "autoClear", READ, WRITE = set_auto_clear, NOTIFY = state_changed)]
         /// False once the shell refuses the system permission.
         #[qproperty(bool, permitted, READ, NOTIFY = state_changed)]
         type Display = super::DisplayRust;
@@ -56,6 +61,14 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setScreenState"]
         fn set_screen_state(self: &Display, on: bool);
+        #[cxx_name = "setRestingRefreshMode"]
+        fn set_resting_refresh_mode(self: Pin<&mut Display>, mode: &QString);
+        #[cxx_name = "setAutoClear"]
+        fn set_auto_clear(self: Pin<&mut Display>, on: bool);
+        /// Clears the e-paper panel's ghosts once the screen is still.
+        #[qinvokable]
+        #[cxx_name = "fullRefresh"]
+        fn full_refresh(self: &Display);
     }
 
     impl cxx_qt::Threading for Display {}
@@ -81,6 +94,9 @@ pub struct DisplayRust {
     night_light_schedule: QString,
     night_light_from: i32,
     night_light_to: i32,
+    refresh_controls: bool,
+    resting_refresh_mode: QString,
+    auto_clear: bool,
     permitted: bool,
 }
 
@@ -105,6 +121,9 @@ impl cxx_qt::Initialize for Display {
                     d.night_light_schedule = get(&s, "nightLightSchedule");
                     d.night_light_from = get(&s, "nightLightFrom");
                     d.night_light_to = get(&s, "nightLightTo");
+                    d.refresh_controls = get(&s, "refreshControls");
+                    d.resting_refresh_mode = get(&s, "restingRefreshMode");
+                    d.auto_clear = get(&s, "autoClear");
                 }
             }
             obj.state_changed();
@@ -116,6 +135,7 @@ impl Display {
     crate::shell::calls! { DISPLAY;
         set_screen_state(on: bool) => "SetScreenState";
         set_night_light_times(from: i32, to: i32) => "SetNightLightTimes";
+        full_refresh() => "FullRefresh";
     }
     crate::shell::calls! { DISPLAY; mut
         set_auto_brightness_enabled(enabled: bool) => "SetAutoBrightness";
@@ -124,5 +144,7 @@ impl Display {
         set_night_light_enabled(enabled: bool) => "SetNightLightEnabled";
         set_night_light_temperature(temperature: i32) => "SetNightLightTemperature";
         set_night_light_schedule(schedule: &QString) => "SetNightLightSchedule";
+        set_resting_refresh_mode(mode: &QString) => "SetRestingRefreshMode";
+        set_auto_clear(on: bool) => "SetAutoClear";
     }
 }
