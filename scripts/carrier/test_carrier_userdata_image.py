@@ -17,6 +17,7 @@ TOOLS = ('debugfs', 'mke2fs', 'e2fsck', 'mkfs.vfat', 'mmd', 'mcopy', 'mtype', 's
 SECTOR = 4096
 ESP = 2048 * SECTOR
 CARRIER = 62464 * SECTOR
+CARRIER_OPTIONS = ('pmos_rootfsopts=defaults', 'systemd.gpt_auto=0', 'systemd.confext=0', 'systemd.sysext=0')
 FILES = {
     'boot/linux.efi': b'zboot kernel',
     'boot/initramfs': b'initramfs',
@@ -108,6 +109,7 @@ class UserdataImage:
         self.assertIn(f'devicetree /dtbs/{self.DTB}\n', entry)
         options = re.search(r'^options (.*)$', entry, re.M).group(1).split()
         package = [w for w in self.cmdline.read_text().split() if not w.startswith('#')]
+        package += [o for o in CARRIER_OPTIONS if o not in package]
         self.assertEqual(options[:len(package)], package)
         self.assertEqual(options[len(package):], [
             f'pmos_boot_uuid={self.blkid(ESP, "UUID")}',
@@ -125,6 +127,12 @@ class UserdataImage:
         self.assertEqual(self.carrier('cat /usr/lib/os-release'),
                          f'NAME="Marathon {self.NAME.upper()} carrier"\nID=marathon-{self.NAME}-carrier\n')
         run('e2fsck', '-fn', f'{self.raw}?offset={CARRIER}')
+
+    def test_carrier_options_once_each(self):
+        entry = self.esp(f'/loader/entries/marathon-{self.NAME}-root-test-1.conf').decode()
+        options = re.search(r'^options (.*)$', entry, re.M).group(1).split()
+        for o in CARRIER_OPTIONS:
+            self.assertEqual(options.count(o), 1, o)
 
     def test_root_is_untouched(self):
         self.assertEqual(self.root.stat().st_mode & 0o777, 0o644)

@@ -74,6 +74,11 @@ take "/boot/dtbs/$DTB" board.dtb
 take /usr/lib/systemd/boot/efi/systemd-bootaa64.efi BOOTAA64.EFI
 take "$CMDLINE_FILE" cmdline.conf
 CMDLINE=$(sed 's/#.*//' "$WORK/cmdline.conf" | xargs)
+# The carrier boot as the Q25 proved it: the root keeps its own /etc
+# rather than the base confext, and is a loop file, not a GPT partition.
+for o in pmos_rootfsopts=defaults systemd.gpt_auto=0 systemd.confext=0 systemd.sysext=0; do
+    case " $CMDLINE " in *" $o "*) ;; *) CMDLINE="$CMDLINE $o" ;; esac
+done
 
 ROOT_UUID=$(cat /proc/sys/kernel/random/uuid)
 BOOT_ID=$(od -An -N4 -tx4 /dev/urandom | tr -d ' ' | tr a-f A-F)
