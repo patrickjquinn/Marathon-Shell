@@ -33,7 +33,9 @@ that are not visible from the vendor sources:
 - The module scans out 800x600 and is held in portrait. LK, and a
   U-Boot it chain-loads, turn their text by 270 degrees to read it, so
   the panel's rotation is 270 (left side up), which turns fbcon the
-  same way.
+  same way. The touchscreen, upright on the phone, reports in that
+  scanout frame (x inverted, then x and y swapped), as touch on a
+  turned panel does, so both turn together.
 - The reserved memory follows the MT6789 LK layout the Zinwa Q25 and the
   Daylight DC-1 share; the regions LK places at boot are covered by
   windows that span both boards' layouts.
@@ -68,7 +70,7 @@ diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/b
 new file mode 100644
 --- /dev/null
 +++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
-@@ -0,0 +1,963 @@
+@@ -0,0 +1,968 @@
 +// SPDX-License-Identifier: GPL-2.0-only OR MIT
 +/*
 + * Minimal Phone MP01 (board "Z10"): MediaTek MT6789 (Helio G99), 6 GiB,
@@ -847,7 +849,10 @@ new file mode 100644
 +	};
 +};
 +
-+/* FocalTech FT5446U, 600x800 in the panel's portrait orientation. */
++/*
++ * FocalTech FT5446U, 600x800 upright; reported in the panel's 800x600
++ * scanout frame, which userspace turns with the panel's rotation.
++ */
 +&i2c0 {
 +	clock-frequency = <100000>;
 +	status = "okay";
@@ -861,6 +866,8 @@ new file mode 100644
 +		reset-gpios = <&pio 152 GPIO_ACTIVE_LOW>;
 +		touchscreen-size-x = <600>;
 +		touchscreen-size-y = <800>;
++		touchscreen-inverted-x;
++		touchscreen-swapped-x-y;
 +	};
 +};
 +

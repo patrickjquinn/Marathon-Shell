@@ -174,7 +174,10 @@ Board-specific inputs these need, none of which may come from the Q25:
   microSD, the FocalTech capacitive keys below the panel (the vendor reports
   them as touches at y=1000; edt-ft5x06 has no key support).
 - The touchscreen compatible is `focaltech,ft5426` for an FT5446U (same
-  register protocol); the driver reads the chip at probe.
+  register protocol); the driver reads the chip at probe. It reports in the
+  panel's scanout frame (`touchscreen-inverted-x`, then
+  `touchscreen-swapped-x-y`), so a compositor that turns the display by the
+  panel orientation turns touch with it.
 - `0111`/`0112` replay the Q25 LK's display SMI setup and `0122` keeps system
   idle off while the CRTC runs; both need checking against the MP01's LK and
   an e-paper refresh policy that may stop the CRTC.

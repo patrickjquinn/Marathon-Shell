@@ -2,7 +2,7 @@
 # mt6789-platform's, and the kernel, firmware and image layout are separate.
 pkgname=device-minimal-mp01-marathon
 pkgver=1.0.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Minimal Phone MP01 Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -26,7 +26,7 @@ package() {
     install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Minimal/MP01/HiFi.conf"
 }
 sha512sums="
-3aecdd518a5cd1c24bba1b8e2f2d35a4aed8e0c68730ba9dbfbea5fc2c979dd90393eab5643b7ca9cc78e2c84f2bf8e3291b6328fa76b9833244ca46ae1d51a9  device-profile.conf
+700b3fbfb5c851604b9ec2c97bb5a4772a945836c4f0a907c4156fb2a2ddbf1e816866237c2d6198c2a14109ab0ececbb16eb63868f2c73fca7f200423a7a886  device-profile.conf
 7dfa68c34cb08166fab41f6221a60c8f9d80865849b7a4748e40ce9aabc28bb218e8d7cb53cc171f01d2b37749372cc9150d66b291251dedaba5069b5a035b4f  mp01-shell-session
 506c8a4ea8cccb9c73279f6ccaa54896afb9400ab9fb4d7e1fc2be52f0abcd18641fc2cc51de64e25de6c21bc1e909f7a22e3b9e8b35f668fde853df942d83a0  greetd-mp01.toml
 a61995c47c5ca8457ab7fbfb7ca3e000a6f2f72575ba4497f02518b94e67d5b0d58c49cc79e90e7ef20a85f7521bcb66fd5f9a08dbee5fe181d25fdc20c58ec1  50-mp01-session.conf

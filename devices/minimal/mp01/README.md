@@ -19,9 +19,9 @@ declares it but stock loads no driver for it.
 |---|---|---|---|
 | SoC, UFS, PMIC | MT6789, UFS at 11270000, MT6366 | untested | Same addresses, PSCI states and UFS clocks as the Q25 |
 | Display | Z10 e-paper on DSI0, Pango CPLD on i2c7 0x4b | untested | `panel-minimal-z10-eink` and the DSI `data-lanes` order (lanes 2/3 crossed) are in `linux-minimal-mp01`. The driver cannot address the CPLD's firmware-update registers |
-| Display orientation | panel mounted at 270° | blocked | `MTK_LCM_PHYSICAL_ROTATION = 270`, so scanout is 800x600 while touch and the UI are 600x800. The DT says `rotation = <270>` and fbcon follows it; the shell has no base rotation (see open questions) |
+| Display orientation | panel mounted at 270° | untested | `MTK_LCM_PHYSICAL_ROTATION = 270`, so scanout is 800x600 while the UI is 600x800. The DT's `rotation = <270>` makes the connector's panel orientation "Left Side Up"; fbcon follows it, and so does the shell's compositor (`panel_orientation = "kms"`), which turns the scene and the `wl_output` |
 | Frontlight, warm light | `disp_pwm` lcd-backlight, `pwm_warmlight` | untested | Two LED or backlight devices, not shell code |
-| Touch | FocalTech on i2c0 0x38 (IRQ GPIO9, reset GPIO152) | untested | Reports 0–600 x 0–800 in the portrait frame, so no `touch_params`. Stock also has three virtual keys (back, home, switcher) |
+| Touch | FocalTech on i2c0 0x38 (IRQ GPIO9, reset GPIO152) | untested | The controller reads 0–600 x 0–800 upright; the DT (`touchscreen-inverted-x`, `touchscreen-swapped-x-y`) reports it in the 800x600 scanout frame, so it turns with the display and needs no `touch_params`. Stock also has three virtual keys (back, home, switcher) |
 | Keyboard | AW9523B 6x6 matrix on i2c6 0x5b | untested | Keymap goes in the DT (`linux,keymap` on `gpio-matrix-keypad` over `pinctrl-aw9523`). `60-mp01-keyboard.rules` marks it as the built-in keyboard. Symbol layer: open question |
 | Keyboard light | AW9523B LED pins | untested | One LED device per pin |
 | Trackpad | — | not fitted | Stock `ff_key` (arrows, enter) is the fingerprint sensor's navigation |
@@ -107,11 +107,11 @@ None of the Q25's battery values apply.
 
 ## Open questions
 
-- **Base rotation.** The scanout is landscape and the UI is portrait. The
-  Qt `eglfs` rotation variable doesn't apply to Qt Quick. Should the
-  compositor honour the DRM panel-orientation property (DT
-  `rotation = <270>`), or should a profile key set a base rotation?
-  Either is a shell change and needs testing on the phone.
+- **Base rotation.** Settled: the compositor follows the connector's DRM
+  panel orientation (DT `rotation = <270>`), behind the profile's
+  `panel_orientation = "kms"`, and touch reports in the scanout frame.
+  Untested on the phone: if the UI comes up upside down, the DT's rotation
+  is 90 and the touch inversion moves to y; nothing in the shell changes.
 - **E-paper refresh policy.** `DISPLAY_TECHNOLOGY=epaper` only reduces
   motion. A refresh-mode key needs a consumer first: an e-paper service
   or compositor hook, which doesn't exist yet.

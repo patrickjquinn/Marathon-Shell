@@ -44,13 +44,13 @@ diagonal_in = 4.3
 # UI policy: stock Android's density (ro.sf.lcd_density), 1.125x.
 scale_dpi = 180
 quirks = [
-  "scanout is 800x600: the panel is mounted at 270 degrees (MTK_LCM_PHYSICAL_ROTATION) and the shell has no base rotation",
+  "scanout is 800x600: the panel is mounted at 270 degrees (MTK_LCM_PHYSICAL_ROTATION); the DT's rotation = <270> gives the connector a panel orientation of left side up, which the shell turns the scene by (profile.panel_orientation)",
   "DSI data lanes 2 and 3 are crossed on the board: data-lanes = <1 2 4 3> (linux-minimal-mp01 mp01-0009 to 0012)",
   "visible grey levels and the CPLD's refresh modes (partial, full, clear) are unknown",
 ]
 
 [input]
-touch = "FocalTech on i2c0 0x38, 600x800 in the portrait frame"
+touch = "FocalTech on i2c0 0x38, 600x800 upright, reported in the 800x600 scanout frame (DT touchscreen-inverted-x, touchscreen-swapped-x-y)"
 keyboard = "AW9523B 6x6 key matrix on i2c6 0x5b (gpio-matrix-keypad)"
 quirks = [
   "no trackpad: stock's ff_key arrows and enter are the fingerprint sensor's navigation",
@@ -75,3 +75,6 @@ display_technology = "epaper"
 force_dpi = 180
 # The true pitch, 1000 px of diagonal over 4.3 in, for the wl_output size.
 panel_dpi = 233
+# The scanout is landscape on a portrait phone: follow the connector's
+# panel orientation, which the panel driver takes from the DT.
+panel_orientation = "kms"
