@@ -274,22 +274,23 @@ impl Radio {
         let fm = self.fm_for(s);
         put(&mut d, "id", s.id.as_str().into());
         put(&mut d, "name", s.name.as_str().into());
-        let logo = if s.favicon.starts_with("http") {
-            Some(s.favicon.clone())
-        } else {
-            self.catalogue
-                .as_ref()
-                .and_then(|c| c.logo_for(s))
-                .map(str::to_owned)
-                .or_else(|| {
-                    let cc = if s.cc.is_empty() {
-                        &self.country
-                    } else {
-                        &s.cc
-                    };
-                    logos::get(&s.name, cc, &s.homepage)
-                })
-        };
+        let logo = Some(s.favicon.as_str())
+            .filter(|f| logos::usable(f))
+            .or_else(|| {
+                self.catalogue
+                    .as_ref()
+                    .and_then(|c| c.logo_for(s))
+                    .filter(|f| logos::usable(f))
+            })
+            .map(str::to_owned)
+            .or_else(|| {
+                let cc = if s.cc.is_empty() {
+                    &self.country
+                } else {
+                    &s.cc
+                };
+                logos::get(&s.name, cc, &s.homepage)
+            });
         put(&mut d, "favicon", logo.as_deref().unwrap_or("").into());
         put(&mut d, "country", s.country.as_str().into());
         put(&mut d, "region", s.state.as_str().into());
@@ -540,7 +541,7 @@ impl Radio {
         put(&mut m, "xesam:title", title.as_str().into());
         put(&mut m, "xesam:artist", vec![artist.as_str()].into());
         put(&mut m, "xesam:album", s.name.as_str().into());
-        let art = if s.favicon.starts_with("http") {
+        let art = if logos::usable(&s.favicon) {
             s.favicon.as_str()
         } else {
             ICON

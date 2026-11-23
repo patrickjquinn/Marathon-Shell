@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 21:10:00 +0000
+Subject: [PATCH] mtk-ccci: keep IMS state reports out of command replies
+
+With IMS up, the modem reports its registration (+CIREGU, +EIREG,
++EIMSREGINFO), VoPS and SRVCC (+CIREPI, +CIREPH), IMS on/off (+EIMS),
++EIMSGEO, +EIRS and Wi-Fi calling PDNs (+EWIFIPDNACT) whenever they
+change. Nothing handled them, so one arriving during a command became
+part of its reply: the SIM swap check's AT+CRSM read
+'+EIMSGEO: ...' before '+CRSM: 144,0,...', failed with "Missing +CRSM
+prefix" on every retry, took the SIM for a new one and re-probed the
+modem, up to three times a boot. +EIREG also arrives with '=' for ':'.
+Consume them all as unsolicited reports.
+---
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -51,6 +51,7 @@
+     GRegex *eaic_regex;
+     GRegex *call_progress_regex;
+     GRegex *no_carrier_regex;
++    GRegex *ims_reports_regex;
+     /* PDN interfaces the modem brought up by itself (IMS), by +EIF id */
+     MMNetagentMtkCcci *netagent;
+     GHashTable        *pdns;
+@@ -433,6 +434,8 @@
+             NULL);
+         mm_port_serial_at_add_unsolicited_msg_handler (ports[i], self->priv->no_carrier_regex,
+                                                        NULL, NULL, NULL);
++        mm_port_serial_at_add_unsolicited_msg_handler (ports[i], self->priv->ims_reports_regex,
++                                                       NULL, NULL, NULL);
+         mm_port_serial_at_enable_unsolicited_msg_handler (ports[i], self->priv->no_carrier_regex,
+                                                           FALSE);
+     }
+@@ -752,6 +755,11 @@
+                                           G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->no_carrier_regex = g_regex_new ("\\r\\nNO CARRIER\\r\\n",
+                                                 G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    /* IMS registration, VoPS, SRVCC and Wi-Fi calling reports nothing here
++     * reads (+EIREG also with '='); unhandled, they end up in the reply of
++     * whichever command is running. */
++    self->priv->ims_reports_regex = g_regex_new ("\\r\\n\\+(CIREGU|CIREPI|CIREPH|EIREG|EIMSREGINFO|EIMS|EIMSGEO|EIRS|EWIFIPDNACT)[:=][^\\r\\n]*\\r\\n",
++                                                 G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->call_progress_regex = g_regex_new ("\\r\\n\\+(ECPI|ESIPCPI|ESPEECH|EIMSVCAP|EVOCD):[^\\r\\n]*\\r\\n",
+                                                    G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     self->priv->eif_ifup_regex = g_regex_new ("\\r\\n\\+EIF:\\s*(\\d+)\\s*,\\s*ifup\\s*,\\s*(\\d+)\\s*,\\s*([0-9A-Fa-f:.]+)[^\\r\\n]*\\r\\n",
+@@ -777,6 +785,7 @@
+     g_regex_unref (self->priv->eaic_regex);
+     g_regex_unref (self->priv->call_progress_regex);
+     g_regex_unref (self->priv->no_carrier_regex);
++    g_regex_unref (self->priv->ims_reports_regex);
+ 
+     G_OBJECT_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->finalize (object);
+ }
+-- 
+2.55.0
+

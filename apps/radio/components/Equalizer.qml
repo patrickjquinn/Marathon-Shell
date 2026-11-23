@@ -22,7 +22,7 @@ Row {
 
             width: Math.max(3, Math.round(Theme.paddingSmall * 0.6))
             height: eq.height * 0.3
-            anchors.bottom: parent.bottom
+            y: eq.height - height
             color: Theme.highlightColor
 
             SequentialAnimation on height {

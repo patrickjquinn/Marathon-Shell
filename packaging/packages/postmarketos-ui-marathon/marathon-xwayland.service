@@ -1,7 +1,7 @@
 [Unit]
 Description=Rootless Xwayland for X11 apps (xwayland-satellite)
 Requires=marathon-xwayland.socket
-After=marathon-xwayland.socket
+After=marathon-xwayland.socket graphical-session.target
 PartOf=graphical-session.target
 
 [Service]

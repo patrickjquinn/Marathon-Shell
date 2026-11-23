@@ -6,6 +6,10 @@
 //! country (Wikipedia's own station logos are non-free: no API gives
 //! them). Found once, in the background, and kept; a station with none is
 //! asked about again after a week.
+//!
+//! The directory's own logo addresses are often no image at all (a
+//! station's site, a playlist, a Facebook post), so each is fetched once
+//! in the background as well, and one that is not an image is not given.
 
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
@@ -29,6 +33,8 @@ struct Found {
 
 #[derive(Default)]
 struct Store {
+    /// By station (name, country and site, tab-separated), or by a logo
+    /// address to check: the address itself when it is an image.
     found: HashMap<String, Found>,
     pending: HashSet<String>,
     work: Option<Sender<String>>,
@@ -65,14 +71,22 @@ pub fn get(name: &str, cc: &str, homepage: &str) -> Option<String> {
     if crate::catalogue::name_key(name).is_empty() {
         return None;
     }
-    let key = format!("{name}\t{cc}\t{homepage}");
+    lookup(format!("{name}\t{cc}\t{homepage}")).filter(|l| !l.is_empty())
+}
+
+/// Whether `url` may be given as a logo: it is not known to be anything
+/// but an image. One not yet known is checked in the background.
+pub fn usable(url: &str) -> bool {
+    url.starts_with("http") && lookup(url.to_owned()).is_none_or(|l| !l.is_empty())
+}
+
+/// What is kept for `key` (empty when there is nothing), or `None` when it
+/// is not known yet or is due another look, which is then queued.
+fn lookup(key: String) -> Option<String> {
     let mut s = store().lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(f) = s.found.get(&key) {
-        if !f.logo.is_empty() {
+        if !f.logo.is_empty() || now().saturating_sub(f.at) < RETRY {
             return Some(f.logo.clone());
-        }
-        if now().saturating_sub(f.at) < RETRY {
-            return None;
         }
     }
     if s.pending.insert(key.clone()) {
@@ -80,26 +94,20 @@ pub fn get(name: &str, cc: &str, homepage: &str) -> Option<String> {
             let (tx, rx) = channel::<String>();
             std::thread::spawn(move || {
                 for key in rx {
-                    let mut parts = key.split('\t');
-                    let (name, cc, page) = (
-                        parts.next().unwrap_or(""),
-                        parts.next().unwrap_or(""),
-                        parts.next().unwrap_or(""),
-                    );
-                    let logo = Some(page)
-                        .filter(|p| p.starts_with("http"))
-                        .and_then(site)
-                        .or_else(|| wikidata(name, cc))
-                        .unwrap_or_default();
+                    let logo = find(&key);
                     let mut s = store().lock().unwrap_or_else(PoisonError::into_inner);
                     s.pending.remove(&key);
-                    s.found.insert(key, Found { logo, at: now() });
-                    if let Ok(json) = serde_json::to_vec(&s.found) {
-                        let file = path();
-                        if let Some(dir) = file.parent() {
-                            std::fs::create_dir_all(dir).ok();
+                    if let Some(logo) = logo {
+                        s.found.insert(key, Found { logo, at: now() });
+                    }
+                    if s.pending.is_empty() {
+                        if let Ok(json) = serde_json::to_vec(&s.found) {
+                            let file = path();
+                            if let Some(dir) = file.parent() {
+                                std::fs::create_dir_all(dir).ok();
+                            }
+                            std::fs::write(file, json).ok();
                         }
-                        std::fs::write(file, json).ok();
                     }
                 }
             });
@@ -108,6 +116,57 @@ pub fn get(name: &str, cc: &str, homepage: &str) -> Option<String> {
         work.send(key).ok();
     }
     None
+}
+
+/// The logo for `key`, empty when there is none; `None` when a logo
+/// address to check could not be reached, so it is asked about again.
+fn find(key: &str) -> Option<String> {
+    let mut parts = key.split('\t');
+    let (Some(name), Some(cc), Some(page)) = (parts.next(), parts.next(), parts.next()) else {
+        return image(key).map(|ok| if ok { key.to_owned() } else { String::new() });
+    };
+    let shown = |url: &String| image(url) == Some(true);
+    Some(
+        Some(page)
+            .filter(|p| p.starts_with("http"))
+            .and_then(site)
+            .filter(shown)
+            .or_else(|| wikidata(name, cc).filter(shown))
+            .unwrap_or_default(),
+    )
+}
+
+/// Whether `url` answers with an image, by its type or its first bytes;
+/// `None` when it could not be reached.
+fn image(url: &str) -> Option<bool> {
+    let resp = match agent().get(url).call() {
+        Ok(resp) => resp,
+        Err(ureq::Error::StatusCode(_)) => return Some(false),
+        Err(_) => return None,
+    };
+    let typed = resp
+        .headers()
+        .get("content-type")
+        .and_then(|t| t.to_str().ok())
+        .is_some_and(|t| t.trim_start().to_ascii_lowercase().starts_with("image/"));
+    let mut head = Vec::new();
+    resp.into_body()
+        .into_reader()
+        .take(16)
+        .read_to_end(&mut head)
+        .ok()?;
+    Some(typed || picture(&head))
+}
+
+/// Whether `head`, a file's first bytes, opens one of the formats logos
+/// come in.
+fn picture(head: &[u8]) -> bool {
+    head.starts_with(b"\x89PNG")
+        || head.starts_with(b"\xff\xd8\xff")
+        || head.starts_with(b"GIF8")
+        || (head.starts_with(b"RIFF") && head.get(8..12) == Some(b"WEBP"))
+        || head.starts_with(b"\0\0\x01\0")
+        || head.starts_with(b"BM")
 }
 
 fn agent() -> ureq::Agent {
@@ -348,7 +407,7 @@ fn absolute(base: &str, href: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{absolute, best_logo};
+    use super::{absolute, best_logo, picture};
 
     #[test]
     fn a_site_s_phone_icon_beats_its_icons() {
@@ -393,5 +452,17 @@ mod tests {
             "https://www.spirit.ie/l.png"
         );
         assert_eq!(absolute(base, "https://x.ie/a.png"), "https://x.ie/a.png");
+    }
+
+    #[test]
+    fn a_page_is_no_picture_but_the_logo_formats_are() {
+        assert!(!picture(b"<!DOCTYPE html>"));
+        assert!(!picture(b"[playlist]\nFile1"));
+        assert!(!picture(b""));
+        assert!(picture(b"\x89PNG\r\n\x1a\n"));
+        assert!(picture(b"\xff\xd8\xff\xe0\0\x10JFIF"));
+        assert!(picture(b"GIF89a"));
+        assert!(picture(b"RIFF\x24\0\0\0WEBPVP8 "));
+        assert!(picture(b"\0\0\x01\0\x01\0"));
     }
 }

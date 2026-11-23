@@ -246,7 +246,7 @@ Rectangle {
     }
 
     function detachCurrentApp() {
-        Logger.warn("AppWindow", "Detaching current app instance");
+        Logger.info("AppWindow", "Detaching current app instance");
         if (appWindow.appContainer && appWindow.appContainer["children"].length > 0) {
             var app = appWindow.appContainer["children"][0];
             if (app) {

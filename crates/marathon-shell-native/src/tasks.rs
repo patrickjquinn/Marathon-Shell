@@ -365,7 +365,8 @@ pub mod qobject {
         #[cxx_name = "killOldestFrozenApp"]
         fn kill_oldest_frozen_app(self: Pin<&mut Tasks>) -> i32;
         /// Thaws and SIGTERMs every app, SIGKILLs what is left after
-        /// `grace_ms`, then `allAppsStopped`.
+        /// `grace_ms`, stops the graphical session meanwhile, then
+        /// `allAppsStopped`.
         #[cxx_name = "stopAllApps"]
         fn stop_all_apps(self: Pin<&mut Tasks>, grace_ms: i32);
         #[qinvokable]

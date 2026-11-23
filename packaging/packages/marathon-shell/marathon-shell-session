@@ -649,9 +649,15 @@ if command -v systemd-run >/dev/null 2>&1 && \
     #
     # On SIGTERM the shell gives its apps 3 s to close before it exits;
     # TimeoutStopSec covers that and bounds a hung shell at shutdown.
+    #
+    # The graphical session lives as long as this compositor: when the scope
+    # goes, crashed or stopped, so does graphical-session.target and every
+    # service PartOf it, and a stop of both stops the session first.
     exec $JOURNAL systemd-run --user --quiet --collect --scope \
         --slice=marathon.slice \
         --unit="marathon-shell-$$" \
+        --property=PropagatesStopTo=graphical-session.target \
+        --property=Before=graphical-session.target \
         --property=TimeoutStopSec=5 \
         --property=IOAccounting=yes \
         --property=IOWeight=100 \
