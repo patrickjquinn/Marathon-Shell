@@ -219,7 +219,7 @@ Item {
             }
 
             PauseAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
             }
 
             ScriptAction {
@@ -798,7 +798,7 @@ Item {
 
         Behavior on closeFade {
             NumberAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
         }
@@ -822,7 +822,7 @@ Item {
         enabled: Constants.enableAnimations
 
         NumberAnimation {
-            duration: 250
+            duration: MMotion.ms(250)
             easing.type: Easing.OutCubic
         }
     }

@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
@@ -13,7 +14,7 @@ Rectangle {
 
     Behavior on opacity {
         OpacityAnimator {
-            duration: root.down ? 0 : 160
+            duration: MMotion.ms(root.down ? 0 : 160)
         }
     }
 }

@@ -641,7 +641,7 @@ Rectangle {
 
     Behavior on height {
         NumberAnimation {
-            duration: 100
+            duration: MMotion.ms(100)
             easing.type: Easing.OutCubic
         }
     }

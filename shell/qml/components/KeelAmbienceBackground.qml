@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0
 
@@ -81,7 +82,7 @@ Item {
 
             running: false
             to: 0
-            duration: 400
+            duration: MMotion.ms(400)
             easing.type: Easing.InOutQuad
             onFinished: previous.source = ""
         }

@@ -331,7 +331,7 @@ Item {
 
                 Behavior on opacity {
                     NumberAnimation {
-                        duration: 150
+                        duration: MMotion.ms(150)
                         easing.type: Easing.OutCubic
                     }
                 }
@@ -387,7 +387,7 @@ Item {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 150
+                    duration: MMotion.ms(150)
                     easing.type: Easing.OutCubic
                 }
             }
@@ -397,27 +397,27 @@ Item {
 
                 NumberAnimation {
                     to: 8
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
 
                 NumberAnimation {
                     to: -8
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
 
                 NumberAnimation {
                     to: 4
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
 
                 NumberAnimation {
                     to: -4
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
 
                 NumberAnimation {
                     to: 0
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
             }
         }
@@ -616,7 +616,7 @@ Item {
 
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: 150
+                            duration: MMotion.ms(150)
                             easing.type: Easing.OutCubic
                         }
                     }

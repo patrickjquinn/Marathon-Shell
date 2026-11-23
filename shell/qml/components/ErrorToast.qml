@@ -161,7 +161,7 @@ Item {
             enabled: !swipeArea.pressed
 
             NumberAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.Bezier
                 easing.bezierCurve: MMotion.easingDecelerateCurve
             }

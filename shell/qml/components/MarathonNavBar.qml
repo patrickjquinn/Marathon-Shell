@@ -221,7 +221,7 @@ Rectangle {
 
                 Behavior on width {
                     NumberAnimation {
-                        duration: MMotion.quick
+                        duration: MMotion.ms(MMotion.quick)
                         easing.type: MMotion.easingFor("tap")
                     }
                 }
@@ -252,7 +252,7 @@ Rectangle {
 
             Behavior on color {
                 ColorAnimation {
-                    duration: MMotion.quick
+                    duration: MMotion.ms(MMotion.quick)
                     easing.type: MMotion.easingFor("hover")
                 }
             }
@@ -283,7 +283,7 @@ Rectangle {
 
             Behavior on color {
                 ColorAnimation {
-                    duration: MMotion.quick
+                    duration: MMotion.ms(MMotion.quick)
                     easing.type: MMotion.easingFor("hover")
                 }
             }
@@ -712,7 +712,7 @@ Rectangle {
             property: "pilotCharge"
             from: 0
             to: 1
-            duration: 250
+            duration: MMotion.ms(250)
             easing.type: Easing.OutCubic
         }
         ScriptAction {

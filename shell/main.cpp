@@ -540,6 +540,9 @@ int main(int argc, char *argv[]) {
             QGuiApplication::primaryScreen()->physicalDotsPerInch();
         QGuiApplication::styleHints()->setStartDragDistance(qMax(10, qRound(8 * dpi / 160)));
         QGuiApplication::styleHints()->setMousePressAndHoldInterval(500);
+        // E-paper: a blinking caret is a panel update twice a second, forever.
+        if (dp.display_technology == QLatin1String("epaper"))
+            QGuiApplication::styleHints()->setCursorFlashTime(0);
     }
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0

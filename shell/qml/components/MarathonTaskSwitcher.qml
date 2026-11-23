@@ -265,7 +265,7 @@ Item {
 
             target: taskGrid
             property: "contentY"
-            duration: MMotion.moderate
+            duration: MMotion.ms(MMotion.moderate)
             easing.type: Easing.OutCubic
         }
 
@@ -304,13 +304,13 @@ Item {
             NumberAnimation {
                 property: "opacity"
                 to: 0
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 property: "scale"
                 to: 0.9
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.OutCubic
             }
         }
@@ -319,13 +319,13 @@ Item {
         displaced: Transition {
             NumberAnimation {
                 properties: "x,y"
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 properties: "opacity,scale"
                 to: 1
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
         }
@@ -367,7 +367,7 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: Constants.animationSlow
+            duration: MMotion.ms(Constants.animationSlow)
             easing.type: Easing.OutCubic
         }
     }

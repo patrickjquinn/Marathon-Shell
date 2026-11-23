@@ -260,14 +260,14 @@ Rectangle {
 
     Behavior on color {
         ColorAnimation {
-            duration: 50
+            duration: MMotion.ms(50)
             easing.type: Easing.Linear
         }
     }
 
     Behavior on scale {
         NumberAnimation {
-            duration: 50
+            duration: MMotion.ms(50)
             easing.type: Easing.OutCubic
         }
     }

@@ -545,7 +545,7 @@ Item {
 
                     Behavior on color {
                         ColorAnimation {
-                            duration: 150
+                            duration: MMotion.ms(150)
                         }
                     }
                 }
@@ -588,7 +588,7 @@ Item {
         enabled: !searchOverlay.active
 
         NumberAnimation {
-            duration: 200
+            duration: MMotion.ms(200)
             easing.type: Easing.OutCubic
         }
     }

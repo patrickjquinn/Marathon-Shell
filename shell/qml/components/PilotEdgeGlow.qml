@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
@@ -29,7 +30,7 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: 320
+            duration: MMotion.ms(320)
             easing.type: Easing.InOutSine
         }
     }

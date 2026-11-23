@@ -46,7 +46,7 @@ Item {
 
         Behavior on scale {
             NumberAnimation {
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.OutCubic
             }
         }

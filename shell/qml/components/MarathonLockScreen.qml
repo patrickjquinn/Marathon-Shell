@@ -508,7 +508,7 @@ Item {
 
                     Behavior on height {
                         NumberAnimation {
-                            duration: MMotion.moderate
+                            duration: MMotion.ms(MMotion.moderate)
                             easing.type: Easing.OutCubic
                         }
                     }
@@ -659,14 +659,14 @@ Item {
                                     target: cardBody
                                     property: "x"
                                     to: notifCard.width
-                                    duration: MMotion.quick
+                                    duration: MMotion.ms(MMotion.quick)
                                     easing.type: Easing.OutCubic
                                 }
                                 NumberAnimation {
                                     target: notifCard
                                     property: "collapse"
                                     to: 0
-                                    duration: MMotion.quick
+                                    duration: MMotion.ms(MMotion.quick)
                                     easing.type: Easing.InOutQuad
                                 }
                                 ScriptAction {
@@ -680,7 +680,7 @@ Item {
                                 target: cardBody
                                 property: "x"
                                 to: 0
-                                duration: MMotion.quick
+                                duration: MMotion.ms(MMotion.quick)
                                 easing.type: Easing.OutCubic
                             }
 
@@ -965,13 +965,13 @@ Item {
 
                     NumberAnimation {
                         to: -Silica.Theme.paddingSmall
-                        duration: 800
+                        duration: MMotion.ms(800)
                         easing.type: Easing.InOutQuad
                     }
 
                     NumberAnimation {
                         to: 0
-                        duration: 800
+                        duration: MMotion.ms(800)
                         easing.type: Easing.InOutQuad
                     }
                 }

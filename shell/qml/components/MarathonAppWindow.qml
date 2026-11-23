@@ -723,7 +723,7 @@ Rectangle {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 300
+                duration: MMotion.ms(300)
                 easing.type: Easing.OutCubic
             }
         }

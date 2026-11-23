@@ -155,14 +155,14 @@ Item {
             target: pageView
             property: "contentX"
             to: nudgeAnimation.peakX
-            duration: 110
+            duration: MMotion.ms(110)
             easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: pageView
             property: "contentX"
             to: nudgeAnimation.fromX
-            duration: 200
+            duration: MMotion.ms(200)
             easing.type: Easing.OutCubic
         }
     }

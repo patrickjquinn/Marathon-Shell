@@ -884,7 +884,7 @@ Item {
                     target: pinScreen
                     property: "opacity"
                     to: 0
-                    duration: Constants.animationNormal
+                    duration: MMotion.ms(Constants.animationNormal)
                     easing.type: Easing.OutCubic
                 }
 
@@ -2100,7 +2100,7 @@ Item {
 
         Behavior on anchors.margins {
             NumberAnimation {
-                duration: 200
+                duration: MMotion.ms(200)
                 easing.type: Easing.OutCubic
             }
         }
@@ -3125,13 +3125,13 @@ Item {
         dim: Display.dim
         Behavior on dim {
             NumberAnimation {
-                duration: 300
+                duration: MMotion.ms(300)
                 easing.type: Easing.OutCubic
             }
         }
         Behavior on temperature {
             NumberAnimation {
-                duration: 2000
+                duration: MMotion.ms(2000)
                 easing.type: Easing.InOutSine
             }
         }
@@ -3226,7 +3226,7 @@ Item {
                 property: "opacity"
                 from: 0
                 to: 0.9
-                duration: 100
+                duration: MMotion.ms(100)
                 easing.type: Easing.OutQuad
             }
 
@@ -3235,7 +3235,7 @@ Item {
                 property: "opacity"
                 from: 0.9
                 to: 0
-                duration: 200
+                duration: MMotion.ms(200)
                 easing.type: Easing.OutQuad
             }
         }
@@ -3571,7 +3571,7 @@ Item {
                 target: bootHandover
                 property: "progress"
                 to: 1
-                duration: 800
+                duration: MMotion.ms(800)
                 easing.type: Easing.OutCubic
             }
             PauseAnimation {
@@ -3581,7 +3581,7 @@ Item {
                 target: bootHandover
                 property: "opacity"
                 to: 0
-                duration: 260
+                duration: MMotion.ms(260)
                 easing.type: Easing.InOutQuad
             }
         }

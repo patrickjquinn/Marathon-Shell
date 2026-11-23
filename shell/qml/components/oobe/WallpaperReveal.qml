@@ -97,7 +97,7 @@ Item {
         property: "progress"
         from: 0
         to: 1
-        duration: root.duration
+        duration: MMotion.ms(root.duration)
         easing.type: Easing.OutCubic
         onFinished: root.finish()
     }

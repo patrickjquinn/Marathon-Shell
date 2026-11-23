@@ -167,7 +167,7 @@ Item {
 
                 Behavior on width {
                     NumberAnimation {
-                        duration: MMotion.quick
+                        duration: MMotion.ms(MMotion.quick)
                         easing.type: MMotion.easingFor("tap")
                     }
                 }

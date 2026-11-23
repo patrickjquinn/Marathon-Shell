@@ -188,13 +188,13 @@ Rectangle {
         displaced: Transition {
             NumberAnimation {
                 property: "y"
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 property: "opacity"
                 to: 1
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
         }
