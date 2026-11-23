@@ -137,13 +137,13 @@ Rectangle {
     // The ambience, or the screen it peeks over, frosted.
     color: "transparent"
 
-    // The window's size, not the hub's: the peek animates the hub's width,
+    // The scene's size, not the hub's: the peek animates the hub's width,
     // and each new size would reload the blurred wallpaper mid-animation.
     KeelAmbienceBackground {
         id: ambience
 
-        width: hub.Window.width
-        height: hub.Window.height
+        width: hub.Window.contentItem ? hub.Window.contentItem.width : 0
+        height: hub.Window.contentItem ? hub.Window.contentItem.height : 0
         wallpaper: AmbienceService.wallpaperUrl
         toneOpacity: 0.4
         light: AmbienceService.light

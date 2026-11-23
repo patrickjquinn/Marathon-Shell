@@ -76,8 +76,8 @@ Item {
     }
 
     KeelAmbienceBackground {
-        width: sheet.Window.width
-        height: sheet.Window.height
+        width: sheet.Window.contentItem ? sheet.Window.contentItem.width : 0
+        height: sheet.Window.contentItem ? sheet.Window.contentItem.height : 0
         wallpaper: sheet.wallpaper
         toneOpacity: 0.62
         light: sheet.lightAmbience

@@ -59,6 +59,9 @@ mod ffi {
         touch_params: QString,
         /// "lcd", "oled" or "epaper".
         display_technology: QString,
+        /// "none", or "kms": the scene turns by the DRM connector's
+        /// "panel orientation", for a panel mounted turned.
+        panel_orientation: QString,
     }
 
     #[namespace = "marathon::device"]
@@ -66,6 +69,9 @@ mod ffi {
         fn profile() -> Profile;
         /// A keyboard with letter keys is attached (MARATHON_FORCE_VKB: none).
         fn has_hardware_keyboard() -> bool;
+        /// Degrees clockwise the scene turns to stand upright on a panel
+        /// whose DRM "panel orientation" is `name`.
+        fn panel_rotation(name: &str) -> i32;
         /// Waits up to `timeout_ms` until no other process is DRM master on
         /// the cards eglfs_kms may open; the ms waited, or -1.
         fn wait_for_drm_master(timeout_ms: i32) -> i32;
@@ -135,6 +141,15 @@ impl Values {
         }
     }
 
+    pub fn panel_orientation(&self) -> String {
+        let o = self.text("MARATHON_PANEL_ORIENTATION", "PANEL_ORIENTATION", "none");
+        if o == "kms" {
+            o
+        } else {
+            "none".to_owned()
+        }
+    }
+
     pub fn runner_size(&self) -> (i32, i32) {
         (
             self.number("MARATHON_APP_WIDTH", "RUNNER_WIDTH", 540, |n| *n > 0),
@@ -200,6 +215,18 @@ fn profile() -> Profile {
         touch_filter: v.flag("MARATHON_TOUCH_FILTER", "TOUCH_FILTER", false),
         touch_params: q(v.text("MARATHON_TOUCH_PARAMS", "TOUCH_PARAMS", "")),
         display_technology: q(v.display_technology()),
+        panel_orientation: q(v.panel_orientation()),
+    }
+}
+
+/// The kernel's names (drm_connector.c) say which side of the scanout is at
+/// the top of the device; the scene turns the other way, as fbcon does.
+fn panel_rotation(name: &str) -> i32 {
+    match name {
+        "Left Side Up" => 270,
+        "Upside Down" => 180,
+        "Right Side Up" => 90,
+        _ => 0,
     }
 }
 
@@ -310,6 +337,28 @@ mod tests {
                 .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
                 .collect(),
         }
+    }
+
+    #[test]
+    fn panel_orientation_defaults_to_none() {
+        assert_eq!(values(&[]).panel_orientation(), "none");
+        assert_eq!(
+            values(&[("PANEL_ORIENTATION", "kms")]).panel_orientation(),
+            "kms"
+        );
+        assert_eq!(
+            values(&[("PANEL_ORIENTATION", "270")]).panel_orientation(),
+            "none"
+        );
+    }
+
+    #[test]
+    fn panel_rotation_turns_against_the_mounting() {
+        assert_eq!(panel_rotation("Normal"), 0);
+        assert_eq!(panel_rotation("Left Side Up"), 270);
+        assert_eq!(panel_rotation("Upside Down"), 180);
+        assert_eq!(panel_rotation("Right Side Up"), 90);
+        assert_eq!(panel_rotation("left side up"), 0);
     }
 
     #[test]

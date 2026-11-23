@@ -236,6 +236,15 @@ class WaylandCompositor : public QWaylandCompositor {
     void        watchTextInputBinds();
     void        setCompositorRealtimePriority();
     void        calculateAndSetPhysicalSize();
+    // The connector's "panel orientation", as degrees the scene turns clockwise.
+    int panelRotation() const;
+    // Turns the window's content item by the panel's and the user's rotation.
+    void applySceneRotation();
+    // The window's size, turned with the scene when the panel is mounted turned.
+    QSize                     sceneSize() const;
+    int                       m_baseRotation  = 0;
+    int                       m_userRotation  = 0;
+    QWaylandOutput::Transform m_userTransform = QWaylandOutput::TransformNormal;
     // DPMS-off/on the primary output (opt-in via MARATHON_DOZE_DPMS).
     // Called from setCompositorActive with render already paused/resumed.
     // Drives the CRTC's ACTIVE property directly via a libdrm atomic
