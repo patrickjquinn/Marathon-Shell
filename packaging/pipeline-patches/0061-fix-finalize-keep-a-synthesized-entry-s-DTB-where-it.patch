@@ -1,0 +1,35 @@
+From ee2cacafd6f1143a69ac6f389d4c04d952aa1da2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 06:00:48 +0000
+Subject: [PATCH] fix(finalize): keep a synthesized entry's DTB where it
+ already is
+
+When pmOS tooling leaves /boot/loader/entries empty, 0007 synthesizes
+an entry whose devicetree line names /dtbs/<deviceinfo_dtb>.dtb, the
+place the kernel package installed it. The UKI step then moved
+/boot/<basename>.dtb to that same place, found no such file and failed
+the build. The Minimal Phone MP01, the first carrier device with a
+deviceinfo_dtb, hit it; the Q25 has none. Leave the DTB where it is
+when it is already there.
+---
+ mkosi.finalize | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 17a7b6d..338d0aa 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -470,7 +470,9 @@ CONFIG
+                 # Use deviceinfo path (e.g., "rockchip/rk3399-pinebook-pro")
+                 DTB_TARGET_DIR=$(dirname "/boot/dtbs/$deviceinfo_dtb")
+                 mkdir -p "$BUILDROOT/$DTB_TARGET_DIR"
+-                mv "$BUILDROOT/boot/$DTB_BASENAME" "$BUILDROOT/boot/dtbs/${deviceinfo_dtb}.dtb"
++                # An entry synthesized above already names it there.
++                [ -f "$BUILDROOT/boot/dtbs/${deviceinfo_dtb}.dtb" ] ||
++                    mv "$BUILDROOT/boot/$DTB_BASENAME" "$BUILDROOT/boot/dtbs/${deviceinfo_dtb}.dtb"
+             else
+                 # No deviceinfo_dtb, just put in /boot/dtbs/
+                 echo "Warning: deviceinfo_dtb not set, placing DTB in /boot/dtbs/ without vendor directory"
+-- 
+2.55.0
+
