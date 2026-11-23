@@ -115,6 +115,7 @@
         "wifi": {"type": "string", "minLength": 1},
         "bluetooth": {"type": "string", "minLength": 1},
         "battery": {"type": "string", "minLength": 1},
+        "fingerprint": {"description": "Fingerprint sensor and how Linux reaches it, or \"none\". Informational: Settings and the lock screen offer a finger only when fprintd finds a reader.", "type": "string", "minLength": 1},
         "sensors": {"$ref": "#/$defs/strings"},
         "quirks": {"$ref": "#/$defs/strings"}
       }
