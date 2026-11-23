@@ -292,6 +292,36 @@ password checks. It is also the password for `sudo` and polkit, which
 treat the `wheel` group, the user's, as administrators. So whoever has
 it has root, as Sailfish's developer password does through `devel-su`.
 
+## Fingerprint
+
+fprintd (libfprint) drives the reader; Settings and the lock screen offer a
+finger only when it has one. The shell's Security service is its only client
+in Marathon:
+
+- **Unlock.** Security verifies over D-Bus while the phone is locked and
+  the screen is on (`MarathonShell.fingerprintListening`), and stops when
+  either ends. The shell's PAM stack stays password-only (`pam.d/marathon-shell`).
+- **The PIN comes first.** A finger can't unlock until the quick PIN or the
+  password has been used once since the shell started (`fingerprintBlocked`
+  `"restart"`), nor after 5 misses until the PIN is used again
+  (`"attempts"`). Misses don't count towards the PIN's lockout, so a
+  pocket can't lock the owner out. The data partition's startup PIN
+  counts as the PIN.
+- **Adding and removing** takes the quick PIN, which Security checks first,
+  then runs `pkexec /usr/libexec/marathon-fingerprint enroll|delete` (polkit
+  action `org.marathonos.shell.fingerprint`, active session only). The
+  helper only touches the caller's own prints (`PKEXEC_UID`). fprintd's own
+  enroll action needs authentication for a user's process; sandboxed apps
+  can reach fprintd on the system bus but can't use pkexec, so no app adds
+  a finger. Removing the quick PIN removes every fingerprint.
+- **Storage.** fprintd keeps the prints in `/var/lib/fprint`, root's only;
+  they never leave the phone.
+
+`sudo` and polkit stay on the password: a finger is a way into the phone,
+not to root. fprintd-pam is installed with linux-pam, so adding
+`auth sufficient pam_fprintd.so` to a service's stack is all it takes, if
+that ever changes.
+
 ## Not covered here
 
 Package signing and install-time verification: `docs/CODE_SIGNING_GUIDE.md`.
