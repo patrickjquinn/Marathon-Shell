@@ -7,9 +7,8 @@ Marathon flash. Nothing here has been written to the phone yet.
 the U-Boot boot image for `boot_b` and a `userdata` image built through
 `scripts/build-image.sh` (no raw mkosi). Nothing of the OS has run on an
 MP01, so the first flash is a test boot on slot `b` with stock Android on
-slot `a` as the fallback. Do the read-only reserved-memory dump first
-(below): it is the one check that can change the DTS before any kernel
-runs.
+slot `a` as the fallback. The board DT's reserved memory has been checked
+against the MP01's own LK map (below).
 
 This is a **developer image**: `MARATHON_DEV_SSH_KEY` gave it the
 builder's `~/.ssh/id_ed25519.pub` for key-only SSH as root and the user
@@ -20,56 +19,56 @@ be published.
 
 ### The image (`/mnt/deckard-build/mp01-build/mp01/`)
 
-Built by `scripts/build-minimal-mp01-image.sh` at `88b3174e8`
-(`MARATHON_BUILD_DIR=/mnt/deckard-build/mp01-build`, pipeline patches
-0001-0061), image version `26112301`. The `userdata` image was remade from
-the same root at `4ef8b84c6`, which adds the carrier boot options
-(`pmos_rootfsopts=defaults systemd.gpt_auto=0 systemd.confext=0
-systemd.sysext=0`) the first one lacked. `…SHA256SUMS` beside them lists
-the same hashes.
+Built by `scripts/build-minimal-mp01-image.sh` at `4e2802974`
+(`MARATHON_BUILD_DIR=/mnt/deckard-build/mp01-build`), image version
+`26112301`, with `linux-minimal-mp01` 7.0.0-r2 (the reserved-memory fix).
+It replaces the `88b3174e8` image, whose files are gone.
+`…SHA256SUMS` beside them lists the same hashes.
 
 | File | sha256 |
 |---|---|
-| `mp01-duranium-20261123-88b3174e8.userdata.img` (Android sparse, for `fastboot flash userdata`) | `21b6881e8da959f1e799a23be17323c3e0e513d263957e656e0cdbeb974447b6` |
-| `mp01-duranium-20261123-88b3174e8.userdata.img.zst` | `1d9f4c3c4bb649fc262ce41b3139a3ff20d29e2c5de61bcec96171be784a75ff` |
-| `mp01-duranium-20261123-88b3174e8.ext4` (the root alone, 8 GiB, 2.1 GiB used) | `4613bd26313d823cc93bac30324a672026fe448119d47e091a27ed12334b043c` |
-| `mp01-duranium-20261123-88b3174e8.ext4.zst` | `0531a488aa53a8b626898f421f85c1d46e2fb3093e43dcb589f54979aaddc064` |
+| `mp01-duranium-20261123-4e2802974.userdata.img` (Android sparse, for `fastboot flash userdata`) | `352b6f65671ae0021e838794a6bff68e82ac391ae13fc2e8665574220155f54d` |
+| `mp01-duranium-20261123-4e2802974.userdata.img.zst` | `1d19aaecfc7ff2ba738037d4a593b1c4780ee0fa9ff01678342333e9c9c62011` |
+| `mp01-duranium-20261123-4e2802974.ext4` (the root alone, 8 GiB, 2.1 GiB used) | `99fe0883731f3b202a5f02c923f98d14369ba77022d546461b7c0a26c69bf585` |
+| `mp01-duranium-20261123-4e2802974.ext4.zst` | `e75e7851e443a6821438b1541882c596f3140832c95b34c7eacc7f46ec55339d` |
 
 The `userdata` image: a GPT with 4 KiB sectors; partition 1 the FAT32 ESP
 (`pmOS_boot`: systemd-boot, `linux.efi`, `initramfs`,
 `dtbs/mediatek/mt6789-minimal-mp01.dtb`, one loader entry), partition 2 the
 ext4 carrier (`pmOS_root`) holding the root as
-`/var/lib/marathon/images/mp01-duranium-20261123-88b3174e8.ext4`. The entry
+`/var/lib/marathon/images/mp01-duranium-20261123-4e2802974.ext4`. The entry
 boots it with `mp01.rootfs_file=`; the initramfs grows the carrier into
 the rest of `userdata` on first boot.
 
-What the root carries, checked in the image:
+What the root carries, checked in the image (the ESP's `linux.efi`,
+`initramfs` and DTB have the same hashes):
 
 | | |
 |---|---|
-| `/boot/linux.efi` | `3bb647ddf8e04b61edbeadbe2efb4209365b098cdff9d33d79b1e323a1f0bd40` (`linux-minimal-mp01` 7.0.0-r1) |
-| `/boot/dtbs/mediatek/mt6789-minimal-mp01.dtb` | `1b6b0e6ca3f9751a330ffb7a67173c04eaf056c5dd7714240563fe74f27df507` (`rotation = <270>`, touch `touchscreen-inverted-x` + `touchscreen-swapped-x-y`) |
+| `/boot/linux.efi` | `1de5b513d787c100cb5df67443751fc82cc01a5e9ecadbb190b238a1901adc28` (`linux-minimal-mp01` 7.0.0-r2) |
+| `/boot/dtbs/mediatek/mt6789-minimal-mp01.dtb` | `d327a41535ef6cd0291bfe1adb145740599c0a1db1bf5144c636aef24f6f97c7` (`rotation = <270>`, touch `touchscreen-inverted-x` + `touchscreen-swapped-x-y`, modem window `md1@de000000`, `ramoops` at `0x48090000`) |
 | `/boot/initramfs` (mkinitfs in the image, with the carrier hook and `carrier.conf`) | `8223b2812adc8a6c3f450b7a32831eda83c55a24faa9ae141e8033ea15e9bf51` |
 | `/usr/share/marathon/carrier.conf` | `CARRIER_NAME=mp01`, the board DTB, `50-device-minimal-mp01.conf` |
 | `/etc/marathon/device-profile.conf` | `DISPLAY_TECHNOLOGY=epaper`, `PANEL_ORIENTATION=kms`, `FORCE_DPI=180` |
-| Command line | `console=tty0 fbcon=rotate:3 loglevel=7`, the carrier options, the UUIDs, `mp01.rootfs_file=` |
+| Command line | `console=tty0 fbcon=rotate:3 loglevel=7`, the carrier options (`pmos_rootfsopts=defaults systemd.gpt_auto=0 systemd.confext=0 systemd.sysext=0`), the UUIDs, `mp01.rootfs_file=` |
 | Packages | `marathon-shell` 1.0.0-r573 built from this branch (panel orientation), `device-minimal-mp01-marathon` 1.0.0-r1, `device-minimal-mp01` 1-r0, `mt6789-platform` 1.0.0-r0, Marathon's `mesa` 26.2.6-r100 and `libcamera` |
 
 ### Packages
 
-In `~/q25-build/test-pkgs/mp01/` (the r1 packages are also in
+In `~/q25-build/test-pkgs/mp01/` (the packages in the image are also in
 `/mnt/deckard-build/mp01-build/duranium/mkosi.packages/`):
 
 | File | sha256 |
 |---|---|
-| `linux-minimal-mp01-7.0.0-r1.apk` (touch in the scanout frame; in the image) | `fc0030e5f175bd2295b41e6ef41e72ac571ddd145ecbb8c241631609d1ecc2cd` |
+| `linux-minimal-mp01-7.0.0-r2.apk` (reserved memory and ramoops from the MP01 LK; in the image) | `3dd2cc5a3de06e62a2510d8a876d697389678a581872e73d95a15c22a66a238b` |
+| `mp01-kernel-modules-7.0.0-r2.apk` (CONNSYS, audio, ECCCI out-of-tree, built against r2; no image pulls it in) | `bfc6f8812ff1451e21036820331d19ca6b9e23f662a2ee697b0de5095c0788bb` |
 | `device-minimal-mp01-marathon-1.0.0-r1.apk` (`PANEL_ORIENTATION=kms`; in the image) | `5bbefbda11b1054d6215e3ea801015b3303224bc23a5ed27880265c6a32eece8` |
 | `device-minimal-mp01-1-r0.apk` (deviceinfo, `deviceinfo_dtb`, cmdline, initramfs modules; in the image) | `d4b485d601f40b78fc897724b7e1f9e115ad59e7486354e35e62ce7887502521` |
 | `mt6789-platform-1.0.0-r0.apk` (shared MT6789 services; in the image) | `436e4c86ec89efa3a970525b2e120bd2dda7ab03c113d20feadccada6581c9f8` |
-| `mp01-kernel-modules-7.0.0-r0.apk` (CONNSYS, audio, ECCCI out-of-tree, built against r0; no image pulls it in) | `f70ddd7231afedb796bfaa4595591a8f5bea2c90e6997ee9aee1410cfe318fdd` |
-| `linux-minimal-mp01-7.0.0-r0.apk`, `device-minimal-mp01-marathon-1.0.0-r0.apk` | superseded by r1 |
+| `linux-minimal-mp01-7.0.0-r1.apk`, `linux-minimal-mp01-7.0.0-r0.apk`, `mp01-kernel-modules-7.0.0-r0.apk`, `device-minimal-mp01-marathon-1.0.0-r0.apk` | superseded |
 
-Build logs: `/mnt/deckard-build/mp01-build/image-build.log` (the image),
+Build logs: `/mnt/deckard-build/mp01-build/image-build-r2.log` (the image),
+`/mnt/deckard-build/mp01-build/kernel-r2-build.log` (the r2 kernel),
 `~/q25-build/test-pkgs/mp01/logs/` (the r0 packages).
 
 ### U-Boot
@@ -91,36 +90,29 @@ nested GPT.
 
 ## Before the first flash
 
-1. The read-only reserved-memory dump below, and any DTS fix it calls for
-   (a fix means rebuilding `linux-minimal-mp01` and the image).
-2. Check the files against the hashes above
-   (`sha256sum -c mp01-duranium-20261123-88b3174e8.SHA256SUMS` in the
+1. Check the files against the hashes above
+   (`sha256sum -c mp01-duranium-20261123-4e2802974.SHA256SUMS` in the
    image directory).
-3. A full battery: nothing charges under Marathon yet.
+2. A full battery: nothing charges under Marathon yet.
 
-## First: the read-only reserved-memory dump
+## Reserved memory: checked against the MP01's LK
 
-This changes nothing on the phone. It must happen before any kernel boot,
-because a reserved region the DT misses is an SError at first touch
-(`kernel/README.md`, "Memory and the boot chain").
+A reserved region the DT misses is an SError at first touch
+(`kernel/README.md`, "Memory and the boot chain"). Android's
+`/proc/device-tree/reserved-memory/*/reg` cannot be read without root, but
+the stock LK prints its whole `mblock` table at every boot, and its
+`expdb` partition (in the private inventory) keeps the log of a locked and
+two unlocked boots. Every region LK hands the kernel lies inside a
+`reserved-memory` node of `mt6789-minimal-mp01.dts`, in both states. The
+check found one gap, now fixed in `linux-minimal-mp01` r2: the modem's DSP
+image, 14 MiB at `0xe5200000`, was outside the modem window, which was
+the Q25's (`0xdc000000`); it is now `0xde000000` +128 MiB.
 
-1. Boot stock Android (slot `a`). Unlocking wiped Android, so re-enable
-   Settings > About phone > tap "Build number" seven times, then
-   Settings > System > Developer options > **USB debugging**, and accept
-   the host's key.
-2. Run, saving the output into the private inventory
-   (`~/q25-build/mp01-inventory/<date>/`), never into this repository:
-
-       adb shell 'for n in /proc/device-tree/reserved-memory/*/; do echo "$n $(xxd -p "$n/reg" 2>/dev/null)"; done'
-       adb shell cat /proc/iomem
-       adb shell cat /proc/cmdline
-
-3. Check that every `mblock-*` region lies inside a `reserved-memory` node
-   of `mt6789-minimal-mp01.dts` (`linux-minimal-mp01`'s `mp01-0015`), and
-   fix the DTS where it doesn't. The `mblock-13` framebuffer should be
-   the `0xffa23000` buffer U-Boot draws in. U-Boot 0018 also copies LK's
-   regions into the OS's tree, and stops the boot if it can't, but the
-   DTS should not depend on that.
+The `mblock-13` framebuffer is `0xffa23000` +`0x5dc000`, the buffer U-Boot
+draws in; the DT keeps it no-map (LK maps it for its vendor kernel), as
+arm64 will not ioremap RAM it has mapped for a `simple-framebuffer`. U-Boot 0018 also copies every LK region into
+the OS's tree and stops the boot if it can't; the DT no longer depends on
+it.
 
 ## Flash commands (first test boot: slot b, fallback to slot a)
 
@@ -131,12 +123,12 @@ From FLASHING.md, with the built files:
     fastboot getvar unlocked     # yes
     scripts/flash/flash-minimal-mp01.sh --slot b \
         ~/q25-build/uboot-chainload/boot/boot-uboot-mp01.img \
-        /mnt/deckard-build/mp01-build/mp01/mp01-duranium-20261123-88b3174e8.userdata.img
+        /mnt/deckard-build/mp01-build/mp01/mp01-duranium-20261123-4e2802974.userdata.img
 
 The script checks for exactly one unlocked `Z10`, asks for `YES`, and then
 runs:
 
-    fastboot flash userdata mp01-duranium-20261123-88b3174e8.userdata.img
+    fastboot flash userdata mp01-duranium-20261123-4e2802974.userdata.img
     fastboot flash boot_b boot-uboot-mp01.img
     fastboot --set-active=b
     fastboot reboot
@@ -197,8 +189,9 @@ First-boot success, in order (`kernel/README.md`, "First boot"):
 - **Nothing of this kernel has run on an MP01.** It compiles, and its
   DTB builds with one known warning (the UFS PHY unit address in
   `mt6789.dtsi`, the same as on the Q25).
-- **Reserved memory** follows the Q25 and Daylight DC-1 LK layout until
-  the dump above confirms it.
+- **Reserved memory** is the MP01 LK's (above), but LK places some regions
+  at boot: a different LK build (slot `a` has a newer one) or modem image
+  could move them. U-Boot 0018's copy of LK's own regions covers that.
 - **The boot path** U-Boot (0016-0019) → systemd-boot → Linux has never
   run.
 - **The DTB builds** (checked by applying the series to `978b8b67` and
