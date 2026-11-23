@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 22:15:00 +0000
+Subject: [PATCH] drm/mediatek: Unbind the display stub driver last
+
+mtk_ddp_comp_init() keeps the register mapping of the postmask and
+dither units in their devices' drvdata, and the stub driver binds those
+devices. platform_unregister_drivers() unbinds in reverse order, so
+unloading the module unbound the stub first, the driver core cleared the
+drvdata, and the CRTC disable that follows in mtk_drm_unbind() oopsed in
+mtk_postmask_stop() (seen on the Minimal Phone MP01, MT6789).
+
+Register the stub first, so that it is unbound after the components that
+use its devices.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_drm_drv.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_drm_drv.c b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+--- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c
++++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+@@ -1357,7 +1357,12 @@
+ 	},
+ };
+ 
++/*
++ * The stub goes first, so that it is unbound last: unbinding it clears the
++ * drvdata that mtk_ddp_comp_init() keeps on its devices.
++ */
+ static struct platform_driver * const mtk_drm_drivers[] = {
++	&mtk_disp_stub_driver,
+ 	&mtk_disp_aal_driver,
+ 	&mtk_disp_ccorr_driver,
+ 	&mtk_disp_color_driver,
+@@ -1372,7 +1377,6 @@
+ 	&mtk_ethdr_driver,
+ 	&mtk_mdp_rdma_driver,
+ 	&mtk_padding_driver,
+-	&mtk_disp_stub_driver,
+ };
+ 
+ static int __init mtk_drm_init(void)
+-- 
+2.47.0

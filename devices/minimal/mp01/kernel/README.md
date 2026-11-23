@@ -26,6 +26,7 @@ rename once both boards boot, and the MP01's new SoC patches below go with it.
 | New, SoC-level | `mp01-0003`…`0008` | dither unit address; MT6789 entries in the display and mutex bindings; the five display processors in `mt6789.dtsi` (the Q25 board DT carries copies); I2C from MAINPLL in `mt6789.dtsi`; `matrix_keypad` with rows on a sleeping irqchip. They belong in the shared series and move there with it. |
 | New, SoC-level: DSI lane order | `mp01-0009`…`0012` | `data-lanes` on the DSI output endpoint, routed through the MIPI TX; does nothing without the property. Moves to the shared series with the rest (`eink-series.md`). |
 | New, SoC-level: D-PHY clock lane | `mp01-0016` | clock-lane trail and zero times held to the D-PHY minimums at low data rates; the Q25's 652 Mbit/s link keeps its timings. Moves to the shared series. |
+| Fix to the shared series | `mp01-0018` | registers `0115`'s display stub driver first, so unloading mediatek-drm no longer oopses in `mtk_postmask_stop()`. Folds into `0115`. |
 | Board | `mp01-0001`, `0002`, `0013`, `0014`, `0015`, `config-minimal-mp01.fragment`, `mp01-*.dtso` | vendor prefix, compatible, the `minimal,z10-eink` binding and driver, `mt6789-minimal-mp01.dts`, config delta, vendor-driver overlays |
 | Config | `config-zinwa-q25.aarch64` + the fragment (`merge_config.sh`) | the fragment holds only the MP01's differences |
 | Out-of-tree modules | `linux-zinwa-q25/modules`, `BOARD=mp01` | see below |
