@@ -303,6 +303,18 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AN
         "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
 
+# A Qt app's text input goes off when focus leaves its field, so the
+# trackpad scrolls it instead of moving a caret
+if(TARGET Qt6::WaylandCompositor)
+    add_executable(test_shell_textinputfocus test_textinputfocus.cpp)
+    target_link_libraries(test_shell_textinputfocus
+        Qt6::Test Qt6::Quick Qt6::Qml Qt6::WaylandCompositor)
+    target_include_directories(test_shell_textinputfocus PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+    add_test(NAME Shell_TextInputFocus COMMAND test_shell_textinputfocus)
+    set_tests_properties(Shell_TextInputFocus PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+endif()
+
 # An idle inhibitor holds the screen on only while its surface is shown
 set(_idle_inhibit_xml ${WAYLAND_PROTOCOLS_DIR}/unstable/idle-inhibit/idle-inhibit-unstable-v1.xml)
 if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AND EXISTS ${_idle_inhibit_xml})

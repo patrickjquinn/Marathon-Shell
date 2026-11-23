@@ -90,6 +90,9 @@ TestCase {
         tryVerify(() => sheet.shown);
         verify(app.handleBack());
         tryVerify(() => !sheet.shown);
+        // The page takes the keys back, not nothing: focus on nothing kept
+        // the app's text input on and the trackpad moved a caret.
+        verify(browser.currentTab.webView.focus);
 
         browser.fullscreen = true;
         verify(app.handleBack());
