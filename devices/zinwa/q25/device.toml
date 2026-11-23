@@ -22,6 +22,12 @@ bootloader = "none"
 method = "uefi"
 partition_table = "gpt"
 
+# The root is a file on the userdata carrier. Installed phones boot by
+# q25.rootfs_file= and keep the carrier at /.q25-carrier/root.
+[boot.carrier]
+name = "q25"
+dtb = "mediatek/mt8781-zinwa-q25.dtb"
+
 # 7.0.0-q25, built from source; every module package is pinned
 # to it.
 [kernel]

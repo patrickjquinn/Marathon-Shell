@@ -218,7 +218,14 @@ validated in isolation.
    RS9116 out-of-tree patch).
 4. **Partition/boot**: add a `mkosi.repart.<device>/` if the layout differs,
    and a `mkosi.finalize` branch + `build-image.py` disk-surgery branch if the
-   device needs raw-kernel boot composition.
+   device needs raw-kernel boot composition. An Android phone whose stock
+   bootloader chain-loads U-Boot (the Q25, the MP01) needs none of these: give
+   the manifest a `[boot.carrier]` (`name`, the board `dtb`) and
+   `bootloader = "none"`. The image is then the root alone, with its own
+   initramfs and the shared hook from `packaging/carrier/`, and
+   `scripts/carrier/carrier-userdata-image.sh` makes the `userdata` image: an
+   ESP from the root's `/boot` and the root as a file on a carrier partition,
+   booted by `<name>.rootfs_file=` (pipeline patch 0060).
 5. **Register selection**: ensure `mkosi-configure.py` recognises the device
    (bootloader type, kernel pin) and that its overlay `.apk` lands in
    `mkosi.packages/`.

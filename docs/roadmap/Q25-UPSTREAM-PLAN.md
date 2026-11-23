@@ -74,7 +74,7 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H15 | `q25-bt-address` (+`.service`) | Derives a Bluetooth address from machine-id and sets it with `btmgmt public-addr`. | Controller reports a placeholder; the nvdata copy is multicast. | Section 4.1 |
 | H16 | `q25-wifi.system-sleep` | rfkill-blocks Wi-Fi around suspend. | gen4m's AXI suspend/resume are stubs. | Section 4 |
 | H17 | `q25-wmt` (`q25-wmt.c`), `q25-connsys`, `q25-wmt-launcher`, `q25-wifi`, `q25-bluetooth` services | Native replacement for Android `wmt_loader`/`wmt_launcher`: ioctls on `/dev/wmtdetect` (SoC init, A-die probe), a resident daemon answering the ROM-patch up-call on `/dev/stpwmt`, writes `S`/`0` to `/dev/wmtWifi`. | Vendor WMT design: firmware selection and function power live in userspace. | Section 4 |
-| H19 | `q25-root-dio.service` | `losetup --direct-io=on` on the loop-mounted root. | Root is an ext4 file on the userdata carrier (`q25-carrier.hook`). Storage layout, not hardware; goes with `docs/roadmap/2026-10-31-storage-erofs-f2fs.md`. | Storage roadmap |
+| H19 | `q25-root-dio.service` | `losetup --direct-io=on` on the loop-mounted root. | Root is an ext4 file on the userdata carrier (`50-marathon-carrier.sh`, `packaging/carrier`). Storage layout, not hardware; goes with `docs/roadmap/2026-10-31-storage-erofs-f2fs.md`. | Storage roadmap |
 
 ### 2.3 Out-of-tree kernel modules: Marathon shims for missing drivers (`pkg/linux-zinwa-q25/modules/`, built into `q25-kernel-modules`)
 
@@ -112,7 +112,7 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H51 | `q25-camera.modprobe.conf`, `q25-camera.modules-load.conf` | Enables H24/H29 by parameter, loads them at boot. | W3, W15 |
 | H52 | `q25-modem.conf.modprobe`, `78-q25-modem.rules` | Blacklists ECCCI until the owner hands off; tags `ttyC0`/`ccmni` for ModemManager with a hard-coded physdev path. | Section 4 |
 
-Not hardware workarounds, so outside H1 (kept): `q25-carrier.hook`, `q25-root-grow`,
+Not hardware workarounds, so outside H1 (kept): the carrier hook (`packaging/carrier`), `q25-root-grow`,
 `q25-home-crypt`, `q25-boot-bless`, `q25-esp-readonly`, `q25-boot-check`, `90-q25-recovery-console.rules`,
 `q25-keyboard-layout.env`/`q25.xkb-symbols` (layout), UCM files (`q25-mt6366.conf`, `HiFi.conf`,
 `VoiceCall.conf`: UCM is the upstream mechanism), `q25-deckard.modules-load.conf` (goes with H41).

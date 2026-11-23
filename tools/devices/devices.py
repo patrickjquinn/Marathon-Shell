@@ -4,6 +4,8 @@
   devices.py check              validate the manifests against their schemas,
                                 the overlay aports and the shell
   devices.py profile <package>  print the package's device-profile.conf
+  devices.py carrier <target>   print the target's carrier.conf, nothing when
+                                its root does not boot from a userdata carrier
 
 Exit: 0 ok, 1 invalid, 2 could not run.
 """
@@ -51,6 +53,22 @@ class Tree:
         ]
         lines += [f"{key.upper()}={_conf_value(merged[key])}" for key in self.profile_keys if key in merged]
         return "\n".join(lines) + "\n"
+
+    def render_carrier(self, target: str) -> str:
+        found = [(where, d) for where, d in self.devices.items()
+                 if d["build"]["target"] == target and "carrier" in d["boot"]]
+        if not found:
+            return ""
+        if len(found) > 1:
+            raise KeyError(f"{len(found)} manifests give target {target!r} a carrier")
+        where, device = found[0]
+        carrier = device["boot"]["carrier"]
+        return "\n".join([
+            f"# Generated from devices/{where}/device.toml by tools/devices/devices.py.",
+            f"CARRIER_NAME={carrier['name']}",
+            f"CARRIER_DTB={carrier['dtb']}",
+            f"CARRIER_CMDLINE=/usr/lib/kernel-cmdline.d/50-device-{device['id']}.conf",
+        ]) + "\n"
 
     def by_package(self, package: str) -> str:
         found = [where for where, d in self.devices.items() if d.get("package") == package]
@@ -156,6 +174,8 @@ class Checker:
             return
 
         build = device["build"]
+        if "carrier" in device["boot"] and build.get("bootloader") != "none":
+            self.error(at, "boot.carrier: the image is the root alone, so build.bootloader must be \"none\"")
         for key in ("wrapper", "flash"):
             if key in build and not (self.root / build[key]).is_file():
                 self.error(at, f"build.{key} {build[key]} does not exist")
@@ -287,8 +307,13 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("check")
     sub.add_parser("profile").add_argument("package")
+    sub.add_parser("carrier").add_argument("target")
     args = parser.parse_args(argv)
     root = args.root.resolve()
+
+    if args.command == "carrier":
+        sys.stdout.write(Tree(root).render_carrier(args.target))
+        return 0
 
     if args.command == "profile":
         tree = Tree(root)

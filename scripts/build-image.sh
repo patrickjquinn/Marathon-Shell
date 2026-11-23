@@ -327,6 +327,29 @@ if [ "$OTA" = 1 ]; then
     echo "==> OTA: updates from $OTA_URL, signed by $(basename "$OTA_PUBKEY")"
 fi
 
+# A root that boots as a file on a userdata carrier (the manifest's
+# boot.carrier) carries its carrier.conf and the initramfs hook that mounts
+# it; mkosi-configure.py and mkosi.finalize give a root with carrier.conf
+# the root-only layout and its own initramfs (pipeline patch 0060).
+EXTRA="$DURANIUM_DIR/mkosi.extra"
+CARRIER_CONF="$EXTRA/usr/share/marathon/carrier.conf"
+rm -f "$CARRIER_CONF" "$EXTRA/usr/share/mkinitfs/hooks-cleanup/50-marathon-carrier.sh" \
+    "$EXTRA/usr/share/mkinitfs/files/50-marathon-carrier.files"
+CARRIER="$(python3 "$MARATHON_SHELL_SRC/tools/devices/devices.py" carrier "$MARATHON_TARGET_DEVICE")"
+if [ -n "$CARRIER" ]; then
+    if [ "$MARATHON_IMAGE_LAYOUT" != single ]; then
+        echo "error: $MARATHON_TARGET_DEVICE boots its root from a userdata carrier, not MARATHON_IMAGE_LAYOUT=$MARATHON_IMAGE_LAYOUT" >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "$CARRIER_CONF")"
+    printf '%s\n' "$CARRIER" > "$CARRIER_CONF"
+    install -Dm755 -t "$EXTRA/usr/share/mkinitfs/hooks-cleanup" \
+        "$MARATHON_IMAGE_SRC/carrier/mkinitfs/hooks-cleanup/50-marathon-carrier.sh"
+    install -Dm644 -t "$EXTRA/usr/share/mkinitfs/files" \
+        "$MARATHON_IMAGE_SRC/carrier/mkinitfs/files/50-marathon-carrier.files"
+    echo "==> userdata carrier: $(sed -n 's/^CARRIER_NAME=//p' "$CARRIER_CONF").rootfs_file="
+fi
+
 if [ "$BUMP" -eq 1 ]; then
     (cd "$DURANIUM_DIR" && PATH="$(dirname "$MKOSI_BIN"):$PATH" "$MKOSI_BIN" bump)
 fi
