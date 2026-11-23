@@ -3014,10 +3014,14 @@ dependencies = [
 name = "keel-mcp"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
+ "inotify",
  "keel-actions-schema",
+ "marathon-rt",
  "rmcp",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "zbus 6.1.0",
 ]

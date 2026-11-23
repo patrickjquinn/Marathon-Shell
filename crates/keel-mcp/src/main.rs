@@ -16,8 +16,10 @@
 //! request; anyone else's calls reach apps as the apps' own requests.
 //! `--external`: serving a paired desktop agent (no sensitive results, no
 //! context). Manifests come from `/usr/share/keel/actions` unless
-//! `--actions-dir` is given, and from running apps every `--probe-seconds`
-//! (default 10; 0 turns it off).
+//! `--actions-dir` is given, and from running apps. The catalogue follows
+//! the directories (inotify) and apps starting and stopping (the bus's
+//! `NameOwnerChanged`); nothing polls unless `--probe-seconds N` asks for a
+//! rescan every N seconds as well (default 0: never).
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -41,7 +43,7 @@ fn parse() -> Result<Args, String> {
         socket: None,
         dirs: Vec::new(),
         external: false,
-        probe: 10,
+        probe: 0,
     };
     let mut it = std::env::args().skip(1).peekable();
     while let Some(a) = it.next() {
@@ -128,11 +130,7 @@ async fn main() -> ExitCode {
     let backend: Arc<dyn Backend> = Arc::new(bus);
     // No client is trusted until its process says so (per connection, below).
     let server = KeelMcp::new(Arc::clone(&backend), args.external).trusting_client(false);
-    let probe = if args.probe == 0 {
-        Duration::MAX / 4
-    } else {
-        Duration::from_secs(args.probe)
-    };
+    let safety_net = (args.probe > 0).then(|| Duration::from_secs(args.probe));
     // The first catalogue before the first client.
     let first = keel_mcp::catalogue::Catalogue::build(
         keel_mcp::catalogue::load(&keel_mcp::catalogue::scan(&args.dirs)),
@@ -143,7 +141,7 @@ async fn main() -> ExitCode {
         server.clone(),
         backend,
         args.dirs.clone(),
-        probe,
+        safety_net,
     ));
 
     let result = match args.socket {

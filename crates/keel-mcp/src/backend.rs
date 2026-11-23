@@ -9,6 +9,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
 
+use futures_util::StreamExt;
 use serde_json::Value;
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -45,6 +46,12 @@ pub trait Backend: Send + Sync + 'static {
     /// Manifests of running apps that serve Keel Actions (for apps without
     /// an installed manifest, e.g. during development).
     fn running_manifests(&self) -> BoxFuture<'_, Vec<Value>>;
+    /// Resolves when an app may have started or stopped, so that
+    /// [`Backend::running_manifests`] could answer differently. Never, unless
+    /// the backend can tell.
+    fn running_changed(&self) -> BoxFuture<'_, ()> {
+        Box::pin(std::future::pending())
+    }
     fn invoke<'a>(
         &'a self,
         app: &'a str,
@@ -78,13 +85,30 @@ pub struct Bus {
     /// time, nearly all to processes that are not Keel apps and answer
     /// with an error, waking them every 10 s).
     described: std::sync::Mutex<std::collections::HashMap<String, (String, Option<Value>)>>,
+    /// `NameOwnerChanged`, subscribed for the connection's lifetime so that
+    /// no change falls between two waits.
+    owners: tokio::sync::Mutex<zbus::fdo::NameOwnerChangedStream>,
+}
+
+/// Whether a bus name can be an app's: well-known and reverse-DNS.
+fn may_be_app(name: &str) -> bool {
+    !name.starts_with(':') && !name.starts_with("org.freedesktop.") && name.contains('.')
 }
 
 impl Bus {
     pub async fn session() -> zbus::Result<Self> {
+        Self::on(zbus::Connection::session().await?).await
+    }
+
+    pub async fn on(connection: zbus::Connection) -> zbus::Result<Self> {
+        let owners = zbus::fdo::DBusProxy::new(&connection)
+            .await?
+            .receive_name_owner_changed()
+            .await?;
         Ok(Self {
-            connection: zbus::Connection::session().await?,
+            connection,
             described: std::sync::Mutex::default(),
+            owners: tokio::sync::Mutex::new(owners),
         })
     }
 
@@ -219,11 +243,7 @@ impl Backend for Bus {
             let mut seen = std::collections::HashMap::new();
             for name in names {
                 let name = name.as_str();
-                // Well-known names only; apps are reverse-DNS.
-                if name.starts_with(':')
-                    || name.starts_with("org.freedesktop.")
-                    || !name.contains('.')
-                {
+                if !may_be_app(name) {
                     continue;
                 }
                 // The bus daemon answers this itself: no app is woken.
@@ -259,6 +279,19 @@ impl Backend for Bus {
                 *d = seen;
             }
             out
+        })
+    }
+
+    fn running_changed(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async move {
+            let mut owners = self.owners.lock().await;
+            while let Some(change) = owners.next().await {
+                if change.args().is_ok_and(|a| may_be_app(a.name().as_str())) {
+                    return;
+                }
+            }
+            // The bus is gone: nothing will change again.
+            std::future::pending::<()>().await;
         })
     }
 
@@ -358,6 +391,14 @@ mod tests {
             sailjail_profile("Exec=/usr/bin/shipwright-reef --keel-actions\n"),
             None
         );
+    }
+
+    #[test]
+    fn only_reverse_dns_well_known_names_may_be_apps() {
+        assert!(may_be_app("org.example.notes"));
+        assert!(!may_be_app(":1.42"));
+        assert!(!may_be_app("org.freedesktop.Notifications"));
+        assert!(!may_be_app("pilot"));
     }
 
     #[test]

@@ -744,12 +744,10 @@ mod tests {
         };
         let dir = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../../keel/actions/codegen/tests/golden/qml-notes"
+            "/../keel-mcp/tests/fixtures/qml-notes"
         );
         let command = [
             bin.to_string_lossy().into_owned(),
-            "--probe-seconds".into(),
-            "0".into(),
             "--actions-dir".into(),
             dir.into(),
         ];
