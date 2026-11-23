@@ -157,6 +157,12 @@ class Carrier(unittest.TestCase):
             "CARRIER_CMDLINE": "/usr/lib/kernel-cmdline.d/50-device-zinwa-q25.conf",
         })
 
+    def test_mp01(self):
+        conf = devices.parse_conf(self.tree.render_carrier("minimal-mp01"))
+        self.assertEqual(conf["CARRIER_NAME"], "mp01")
+        self.assertEqual(conf["CARRIER_DTB"], "mediatek/mt6789-minimal-mp01.dtb")
+        self.assertEqual(conf["CARRIER_CMDLINE"], "/usr/lib/kernel-cmdline.d/50-device-minimal-mp01.conf")
+
     def test_target_without_a_carrier(self):
         self.assertEqual(self.tree.render_carrier("raspberry-pi5"), "")
         self.assertEqual(self.tree.render_carrier("no-such-target"), "")

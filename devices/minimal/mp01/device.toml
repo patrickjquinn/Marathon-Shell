@@ -10,12 +10,13 @@ soc = "mt6789"
 status = "bring-up"
 package = "device-minimal-mp01-marathon"
 
-# mkosi builds a GPT disk image (ESP and root) for userdata, as for the
-# OnePlus 6.
+# mkosi builds the root alone; the wrapper puts it on the userdata carrier
+# beside an ESP made from the root's /boot, as for the Q25.
 [build]
 target = "minimal-mp01"
 wrapper = "scripts/build-minimal-mp01-image.sh"
-bootloader = "systemd-boot"
+flash = "scripts/flash/flash-minimal-mp01.sh"
+bootloader = "none"
 
 # The stock LK stays in lk_a/lk_b and loads a U-Boot packed as boot_b's
 # kernel (FLASHING.md); that much has run on the phone. U-Boot maps the
@@ -24,6 +25,10 @@ bootloader = "systemd-boot"
 [boot]
 method = "android-u-boot"
 partition_table = "gpt"
+
+[boot.carrier]
+name = "mp01"
+dtb = "mediatek/mt6789-minimal-mp01.dtb"
 
 # Release 7.0.0-mp01, from the MT6789 tree the Q25's kernel uses.
 [kernel]
