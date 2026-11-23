@@ -160,11 +160,16 @@ Board-specific inputs these need, none of which may come from the Q25:
 
 ## Not described, or untested
 
-- MT6375 charger, Type-C/PD and ADC: no upstream driver or binding (the DC-1
-  tree has a board-tuned one for its pack, not usable here). Charging runs on
-  what LK leaves programmed; there is no charger `power_supply`, so USB stays
-  device-mode with no VBUS-based suspend, and the gauge has no charger to
-  follow. ETA6937 (no stock driver loaded, likely not fitted) and the CPS4021
+- MT6375 charger (`mp01-0019`…`0023`, untested): an MFD core (PMU bank and
+  interrupt controller only) and a charger driver, `mt6375-charger`. It
+  charges to the battery node's 4.35 V at up to 1.5 A, ends at 150 mA, with
+  a 10 h timer and 6.5 V VBUS over-voltage; input 500 mA until the chip's
+  BC1.2 result raises it (1.5 A CDP/DCP, 1 A Apple 5 W). The stock charger
+  goes to 4.465 V at 2.5 A but stops outside 0-55 C; nothing reads the
+  pack's temperature here yet, which is why the limits are lower. Not
+  described: Type-C/PD (the DC-1 TCPCI backend is the starting point), the
+  ADC, VBUS-based USB role, and the SoC PHY switch MediaTek flips during
+  BC1.2. ETA6937 (no stock driver loaded, likely not fitted) and the CPS4021
   wireless receiver are left out.
 - Fuel gauge: driver and shunt are the Q25's; the battery node uses the
   factory 25 C profile (3112 mAh, 4.465 V CV, 70 mOhm) for an unidentified
@@ -234,7 +239,7 @@ Board-specific inputs these need, none of which may come from the Q25:
    keeps LK's image until then.
 4. Input: keypad and PMIC keys, AW9523 keyboard (confirm the row/column map by
    pressing every key with `evtest`), touch, frontlight.
-5. Power: gauge readings against stock; charging stays on LK's settings until
-   an MT6375 driver exists.
+5. Power: gauge readings against stock; `mt6375-charger` online, charging
+   from a host port and a wall charger, `usb_type` from BC1.2.
 6. CONNSYS with MP01 firmware, then the modem once the MD1 handoff is
    understood, then audio.
