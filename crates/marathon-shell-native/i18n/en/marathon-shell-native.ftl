@@ -102,11 +102,12 @@ fingerprint-unavailable = Fingerprint not available
 fingerprint-not-recognised = Fingerprint not recognized
 fingerprint-busy = Fingerprint device busy
 fingerprint-start-failed = Fingerprint verification failed to start
-fingerprint-place = Place your finger on the sensor
 fingerprint-retry-scan = Scan quality poor, try again
 fingerprint-too-short = Swipe too short, try again
 fingerprint-centre = Center your finger and try again
 fingerprint-remove = Remove finger and try again
+fingerprint-too-many = Too many attempts. Enter your PIN.
+fingerprint-pin-after-restart = Enter your PIN. It's needed once after a restart.
 
 ## Software updates
 

@@ -43,7 +43,11 @@ pub mod qobject {
         #[qobject]
         #[qproperty(i32, auth_mode, cxx_name = "authMode", READ = auth_mode, NOTIFY = auth_mode_changed)]
         #[qproperty(bool, has_quick_pin, cxx_name = "hasQuickPIN", READ, NOTIFY = quick_pin_changed)]
-        #[qproperty(bool, fingerprint_available, cxx_name = "fingerprintAvailable", READ = fingerprint_available, NOTIFY = fingerprint_available_changed)]
+        #[qproperty(bool, fingerprint_available, cxx_name = "fingerprintAvailable", READ = fingerprint_available, NOTIFY = fingerprint_changed)]
+        /// "" while a finger can unlock; "restart" until the PIN or password
+        /// is used once after the shell starts, "attempts" after too many
+        /// misses, until the PIN or password is used.
+        #[qproperty(QString, fingerprint_blocked, cxx_name = "fingerprintBlocked", READ = fingerprint_blocked, NOTIFY = fingerprint_changed)]
         #[qproperty(bool, is_locked_out, cxx_name = "isLockedOut", READ = is_locked_out, NOTIFY = lockout_state_changed)]
         #[qproperty(i32, lockout_seconds_remaining, cxx_name = "lockoutSecondsRemaining", READ = lockout_seconds_remaining, NOTIFY = lockout_state_changed)]
         #[qproperty(i32, failed_attempts, cxx_name = "failedAttempts", READ, NOTIFY = failed_attempts_changed)]
@@ -64,6 +68,8 @@ pub mod qobject {
         fn auth_mode(self: &Security) -> i32;
         #[cxx_name = "fingerprintAvailable"]
         fn fingerprint_available(self: &Security) -> bool;
+        #[cxx_name = "fingerprintBlocked"]
+        fn fingerprint_blocked(self: &Security) -> QString;
         #[cxx_name = "isLockedOut"]
         fn is_locked_out(self: &Security) -> bool;
         #[cxx_name = "lockoutSecondsRemaining"]
@@ -82,8 +88,8 @@ pub mod qobject {
         #[cxx_name = "quickPINChanged"]
         fn quick_pin_changed(self: Pin<&mut Self>);
         #[qsignal]
-        #[cxx_name = "fingerprintAvailableChanged"]
-        fn fingerprint_available_changed(self: Pin<&mut Self>);
+        #[cxx_name = "fingerprintChanged"]
+        fn fingerprint_changed(self: Pin<&mut Self>);
         #[qsignal]
         #[cxx_name = "lockoutStateChanged"]
         fn lockout_state_changed(self: Pin<&mut Self>);
@@ -102,6 +108,10 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "biometricPrompt"]
         fn biometric_prompt(self: Pin<&mut Self>, message: &QString);
+        /// A finger that is not enrolled; the sensor keeps listening.
+        #[qsignal]
+        #[cxx_name = "fingerprintMismatch"]
+        fn fingerprint_mismatch(self: Pin<&mut Self>, message: &QString);
 
         #[qinvokable]
         #[cxx_name = "authenticatePassword"]
@@ -117,7 +127,8 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "recordStroke"]
         fn record_stroke(self: Pin<&mut Security>, stroke: &QString);
-        /// `kind` 0 is the fingerprint, the only one there is.
+        /// `kind` 0 is the fingerprint, the only one there is. It listens
+        /// until a finger matches, `cancelAuthentication`, or too many misses.
         #[qinvokable]
         #[cxx_name = "authenticateBiometric"]
         fn authenticate_biometric(self: Pin<&mut Security>, kind: i32);
@@ -153,6 +164,8 @@ pub mod qobject {
 use qobject::Security;
 
 const MAX_ATTEMPTS: i32 = 5;
+/// Misses before a finger can't unlock until the PIN is used.
+const MAX_FINGERPRINT_MISSES: i32 = 5;
 const LOCKOUT: Duration = Duration::from_secs(300);
 const DATA_KEY_HELPER: &str = "/usr/libexec/marathon-data-key";
 const REMOTE_HELPER: &str = "/usr/libexec/marathon-remote-connection";
@@ -169,7 +182,12 @@ const FACTORY_RESET: &str = "/run/marathon/factory-reset.sock";
 )]
 pub struct SecurityRust {
     has_quick_pin: bool,
-    fingerprint: Option<OwnedObjectPath>,
+    /// fprintd's default device, if there is one.
+    reader: Option<OwnedObjectPath>,
+    fingers: Vec<String>,
+    /// The PIN or password checked out since the shell started.
+    pin_entered: bool,
+    fingerprint_misses: i32,
     failed_attempts: i32,
     locked_until: Option<Instant>,
     data_encryption: QString,
@@ -212,9 +230,7 @@ impl cxx_qt::Initialize for Security {
         }
         let push = |obj: Pin<&mut Self>| ipc::signal("Security", "StateChanged", (state(&obj),));
         self.as_mut().on_auth_mode_changed(push).release();
-        self.as_mut()
-            .on_fingerprint_available_changed(push)
-            .release();
+        self.as_mut().on_fingerprint_changed(push).release();
         self.as_mut().on_lockout_state_changed(push).release();
         self.as_mut().on_failed_attempts_changed(push).release();
         self.as_mut().on_data_encryption_changed(push).release();
@@ -240,14 +256,15 @@ impl cxx_qt::Initialize for Security {
         let qt = self.qt_thread();
         ipc::export("Security", Security1 { qt: qt.clone() });
         io::spawn(refresh_remote_connection(qt.clone()));
-        io::spawn(find_fingerprint_reader(qt.clone(), user));
+        io::spawn(refresh_fingerprints(qt.clone(), user));
         if encryption == "pin" {
             // The initramfs leaves a note when the PIN was typed there.
             io::spawn(async move {
                 if run_data_key("consume-boot-unlock", "").await == Some(0) {
                     qt.queue(|mut obj| {
                         obj.as_mut().rust_mut().boot_unlocked = true;
-                        obj.boot_unlocked_changed();
+                        obj.as_mut().boot_unlocked_changed();
+                        obj.pin_checked();
                     })
                     .ok();
                 }
@@ -263,7 +280,17 @@ impl Security {
     }
 
     fn fingerprint_available(&self) -> bool {
-        self.fingerprint.is_some()
+        self.reader.is_some() && !self.fingers.is_empty()
+    }
+
+    fn fingerprint_blocked(&self) -> QString {
+        QString::from(if !self.pin_entered {
+            "restart"
+        } else if self.fingerprint_misses >= MAX_FINGERPRINT_MISSES {
+            "attempts"
+        } else {
+            ""
+        })
     }
 
     fn is_locked_out(&self) -> bool {
@@ -282,7 +309,7 @@ impl Security {
     }
 
     fn is_biometric_enrolled(&self, kind: i32) -> bool {
-        kind == 0 && self.fingerprint.is_some()
+        kind == 0 && self.fingerprint_available()
     }
 
     fn fail(self: Pin<&mut Self>, reason: &str) {
@@ -404,6 +431,11 @@ impl Security {
         };
         if ok {
             self.as_mut().reset_lockout();
+            if matches!(secret, Secret::Fingerprint) {
+                self.as_mut().rust_mut().fingerprint_misses = 0;
+            } else {
+                self.as_mut().pin_checked();
+            }
             audit::log(
                 Severity::Info,
                 &format!("Authentication success: user={} method={method}", self.user),
@@ -425,8 +457,6 @@ impl Security {
                 &format!("Account locked out: user={} duration={seconds}s", self.user),
             );
             fl!("security-locked-for", seconds = seconds)
-        } else if matches!(secret, Secret::Fingerprint) {
-            fl!("fingerprint-not-recognised")
         } else {
             let remaining = MAX_ATTEMPTS - self.failed_attempts;
             if matches!(secret, Secret::Pin) {
@@ -435,6 +465,38 @@ impl Security {
                 fl!("security-wrong-password-left", remaining = remaining)
             }
         })
+    }
+
+    /// The PIN or password checked out: a finger can unlock again.
+    fn pin_checked(mut self: Pin<&mut Self>) {
+        if self.pin_entered && self.fingerprint_misses == 0 {
+            return;
+        }
+        let mut rust = self.as_mut().rust_mut();
+        rust.pin_entered = true;
+        rust.fingerprint_misses = 0;
+        self.fingerprint_changed();
+    }
+
+    /// A finger that is not enrolled. Misses don't count towards the
+    /// lockout, which would also stop the PIN, but enough of them stop the
+    /// fingerprint until the PIN is used.
+    fn fingerprint_missed(mut self: Pin<&mut Self>) {
+        let misses = self.fingerprint_misses + 1;
+        self.as_mut().rust_mut().fingerprint_misses = misses;
+        audit::log(
+            Severity::Warning,
+            &format!(
+                "Authentication failure: user={} reason=Invalid fingerprint source=fprintd",
+                self.user
+            ),
+        );
+        if misses < MAX_FINGERPRINT_MISSES {
+            return self.fingerprint_mismatch(&QString::from(fl!("fingerprint-not-recognised")));
+        }
+        self.as_mut().cancel_authentication();
+        self.as_mut().fingerprint_changed();
+        self.fail(&fl!("fingerprint-too-many"));
     }
 
     fn record_failure(mut self: Pin<&mut Self>) {
@@ -639,9 +701,14 @@ impl Security {
             );
             return self.fail(&refusal);
         }
-        let Some(device) = self.fingerprint.clone() else {
+        let Some(reader) = self.reader.clone().filter(|_| !self.fingers.is_empty()) else {
             return self.fail(&fl!("fingerprint-unavailable"));
         };
+        match self.fingerprint_blocked().to_string().as_str() {
+            "restart" => return self.fail(&fl!("fingerprint-pin-after-restart")),
+            "attempts" => return self.fail(&fl!("fingerprint-too-many")),
+            _ => {}
+        }
         if self.stop_fingerprint.is_some() {
             return;
         }
@@ -649,16 +716,12 @@ impl Security {
         self.as_mut().rust_mut().stop_fingerprint = Some(stop);
         let (qt, user) = (self.qt_thread(), self.user.clone());
         io::spawn(async move {
-            let result = future::or(verify_fingerprint(&qt, device, &user), async {
-                stopped.recv().await.ok();
-                Ok(None)
-            })
-            .await;
+            let result = listen_for_fingerprint(&qt, reader, &user, stopped).await;
             qt.queue(move |mut obj| {
                 obj.as_mut().rust_mut().stop_fingerprint = None;
                 match result {
-                    Ok(Some(ok)) => obj.finish(ok, Secret::Fingerprint),
-                    Ok(None) => {}
+                    Ok(true) => obj.finish(true, Secret::Fingerprint),
+                    Ok(false) => {}
                     Err(message) => obj.fail(&message),
                 }
             })
@@ -689,6 +752,10 @@ fn state(security: &Security) -> State {
         (
             "fingerprintAvailable".to_owned(),
             value(security.fingerprint_available()),
+        ),
+        (
+            "fingerprintBlocked".to_owned(),
+            value(security.fingerprint_blocked().to_string()),
         ),
         ("isLockedOut".to_owned(), value(security.is_locked_out())),
         (
@@ -1448,79 +1515,118 @@ async fn fprint_device(path: OwnedObjectPath) -> zbus::Result<FprintDeviceProxy<
         .await
 }
 
-// A reader with an enrolled finger; none on most devices.
-async fn find_fingerprint_reader(qt: cxx_qt::CxxQtThread<Security>, user: String) {
-    let found = async {
-        let bus = io::system_bus().await.ok()?;
-        let path = FprintManagerProxy::new(&bus)
-            .await
-            .ok()?
+/// What fprintd knows: its default device and the user's fingers on it.
+#[derive(Default)]
+struct Reader {
+    path: Option<OwnedObjectPath>,
+    fingers: Vec<String>,
+}
+
+async fn read_reader(user: &str) -> Reader {
+    let Ok(bus) = io::system_bus().await else {
+        return Reader::default();
+    };
+    let path = async {
+        FprintManagerProxy::new(&bus)
+            .await?
             .get_default_device()
             .await
-            .ok()?;
-        let fingers = fprint_device(path.clone())
-            .await
-            .ok()?
-            .list_enrolled_fingers(&user)
-            .await
-            .ok()?;
-        (!fingers.is_empty()).then_some(path)
-    }
-    .await;
-    if found.is_some() {
-        qt.queue(move |mut obj| {
-            obj.as_mut().rust_mut().fingerprint = found;
-            obj.fingerprint_available_changed();
-        })
-        .ok();
+    };
+    let Ok(path) = path.await else {
+        return Reader::default();
+    };
+    let Ok(device) = fprint_device(path.clone()).await else {
+        return Reader::default();
+    };
+    Reader {
+        // fprintd answers NoEnrolledPrints rather than an empty list.
+        fingers: device.list_enrolled_fingers(user).await.unwrap_or_default(),
+        path: Some(path),
     }
 }
 
-/// One verification: `Some(matched)`, or why it could not start.
-async fn verify_fingerprint(
+async fn refresh_fingerprints(qt: cxx_qt::CxxQtThread<Security>, user: String) {
+    let reader = read_reader(&user).await;
+    qt.queue(move |mut obj| {
+        let mut rust = obj.as_mut().rust_mut();
+        rust.reader = reader.path;
+        rust.fingers = reader.fingers;
+        obj.fingerprint_changed();
+    })
+    .ok();
+}
+
+// One claim on fprintd's device at a time: a new listener waits for the
+// last one to release it.
+static FPRINT_CLAIM: Mutex<()> = Mutex::new(());
+
+/// Listens until an enrolled finger matches (`Ok(true)`) or `stop`
+/// (`Ok(false)`); each miss goes to `fingerprint_missed`.
+async fn listen_for_fingerprint(
     qt: &cxx_qt::CxxQtThread<Security>,
     path: OwnedObjectPath,
     user: &str,
-) -> Result<Option<bool>, String> {
+    stop: async_channel::Receiver<()>,
+) -> Result<bool, String> {
+    let Some(_claim) = future::or(async { Some(FPRINT_CLAIM.lock().await) }, async {
+        stop.recv().await.ok();
+        None
+    })
+    .await
+    else {
+        return Ok(false);
+    };
     let device = fprint_device(path).await.map_err(|e| e.to_string())?;
-    let mut statuses = device
-        .receive_verify_status()
-        .await
-        .map_err(|e| e.to_string())?;
     if let Err(e) = device.claim(user).await {
         log::warn("security", format_args!("fingerprint claim: {e}"));
         return Err(fl!("fingerprint-busy"));
     }
-    if device.verify_start("any").await.is_err() {
-        device.release().await.ok();
-        return Err(fl!("fingerprint-start-failed"));
-    }
-    qt.queue(|obj| obj.biometric_prompt(&QString::from(fl!("fingerprint-place"))))
-        .ok();
-    let mut matched = None;
-    while let Some(status) = statuses.next().await {
-        let Ok(args) = status.args() else { continue };
-        let prompt = match args.result {
-            "verify-match" => {
-                matched = Some(true);
-                break;
-            }
-            "verify-no-match" => {
-                matched = Some(false);
-                break;
-            }
-            "verify-retry-scan" => fl!("fingerprint-retry-scan"),
-            "verify-swipe-too-short" => fl!("fingerprint-too-short"),
-            "verify-finger-not-centered" => fl!("fingerprint-centre"),
-            "verify-remove-and-retry" => fl!("fingerprint-remove"),
-            _ => continue,
-        };
-        qt.queue(move |obj| obj.biometric_prompt(&QString::from(prompt)))
-            .ok();
-    }
+    let matched = future::or(verify_until_match(qt, &device), async {
+        stop.recv().await.ok();
+        Ok(false)
+    })
+    .await;
+    // Also when stopped mid-scan: fprintd keeps a claim until it is released.
     device.verify_stop().await.ok();
     device.release().await.ok();
-    Ok(matched)
+    matched
+}
+
+async fn verify_until_match(
+    qt: &cxx_qt::CxxQtThread<Security>,
+    device: &FprintDeviceProxy<'static>,
+) -> Result<bool, String> {
+    let mut statuses = device
+        .receive_verify_status()
+        .await
+        .map_err(|e| e.to_string())?;
+    loop {
+        if device.verify_start("any").await.is_err() {
+            return Err(fl!("fingerprint-start-failed"));
+        }
+        loop {
+            let Some(status) = statuses.next().await else {
+                return Err(fl!("fingerprint-start-failed"));
+            };
+            let Ok(args) = status.args() else { continue };
+            let prompt = match args.result {
+                "verify-match" => return Ok(true),
+                "verify-no-match" => break,
+                "verify-disconnected" | "verify-unknown-error" => {
+                    return Err(fl!("fingerprint-start-failed"));
+                }
+                "verify-retry-scan" => fl!("fingerprint-retry-scan"),
+                "verify-swipe-too-short" => fl!("fingerprint-too-short"),
+                "verify-finger-not-centered" => fl!("fingerprint-centre"),
+                "verify-remove-and-retry" => fl!("fingerprint-remove"),
+                _ => continue,
+            };
+            qt.queue(move |obj| obj.biometric_prompt(&QString::from(prompt)))
+                .ok();
+        }
+        device.verify_stop().await.ok();
+        qt.queue(Security::fingerprint_missed).ok();
+    }
 }
 
 #[cfg(test)]
