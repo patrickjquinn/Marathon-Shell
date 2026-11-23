@@ -129,6 +129,8 @@ fn main() -> ExitCode {
         }
     };
 
+    host.follow_ambience();
+
     let Some((program, rest)) = args.command.split_first() else {
         return ExitCode::from(2);
     };

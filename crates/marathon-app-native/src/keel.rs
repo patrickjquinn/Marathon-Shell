@@ -23,6 +23,10 @@ pub mod qobject {
         /// Listens in `$XDG_RUNTIME_DIR` and exports the Keel environment;
         /// false when it cannot. SIGTERM becomes `closeRequested`.
         fn start(self: Pin<&mut KeelHost>, dpi: i32) -> bool;
+        /// Reads and follows the shell's ambience: at start, or in a pool
+        /// spare once it is adopted and has its app's bus.
+        #[cxx_name = "followAmbience"]
+        fn follow_ambience(self: &KeelHost);
         #[cxx_name = "setActive"]
         fn set_active(self: &KeelHost, active: bool);
         #[cxx_name = "requestClose"]
@@ -93,6 +97,12 @@ impl KeelHost {
             });
         }
         true
+    }
+
+    fn follow_ambience(&self) {
+        if let Some(host) = host() {
+            host.follow_ambience();
+        }
     }
 
     fn set_active(&self, active: bool) {
