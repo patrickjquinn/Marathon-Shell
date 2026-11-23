@@ -2,7 +2,7 @@
 # mt6789-platform's, and the kernel, firmware and image layout are separate.
 pkgname=device-minimal-mp01-marathon
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Minimal Phone MP01 Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -13,7 +13,8 @@ options="!check"
 depends="device-minimal-mp01 marathon-base-config marathon-shell greetd mt6789-platform
  mesa=26.2.6-r100 mesa-dri-gallium=26.2.6-r100 alsa-ucm-conf alsa-utils"
 source="device-profile.conf mp01-shell-session greetd-mp01.toml 50-mp01-session.conf eglfs-kms.json
- 60-mp01-display.rules 60-mp01-keyboard.rules mp01-mt6366.conf HiFi.conf"
+ 60-mp01-display.rules 60-mp01-keyboard.rules mp01-mt6366.conf HiFi.conf
+ 50-mp01-shutdown.conf"
 package() {
     install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
     install -Dm755 "$srcdir/mp01-shell-session" "$pkgdir/usr/libexec/marathon/mp01-shell-session"
@@ -24,6 +25,10 @@ package() {
     install -Dm644 "$srcdir/60-mp01-keyboard.rules" "$pkgdir/usr/lib/udev/rules.d/60-mp01-keyboard.rules"
     install -Dm644 "$srcdir/mp01-mt6366.conf" "$pkgdir/usr/share/alsa/ucm2/conf.d/mp01-mt6366/mp01-mt6366.conf"
     install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Minimal/MP01/HiFi.conf"
+    local t
+    for t in reboot poweroff halt; do
+        install -Dm644 "$srcdir/50-mp01-shutdown.conf" "$pkgdir/usr/lib/systemd/system/$t.target.d/50-mp01-shutdown.conf"
+    done
 }
 sha512sums="
 700b3fbfb5c851604b9ec2c97bb5a4772a945836c4f0a907c4156fb2a2ddbf1e816866237c2d6198c2a14109ab0ececbb16eb63868f2c73fca7f200423a7a886  device-profile.conf
@@ -35,4 +40,5 @@ eb4d52b9098085d471d0627cb9b67c567be1d081868d1eabb6fe2349a6c653e3d0e8b490ddb5f870
 e48926d8dd273c24bf97204afc1ded644867fe682e9932f1d52955c58b20c12250bff4a7fbc6740fdb67efa543543d71e74a2e7a8733348c763c6b8a28ceb120  60-mp01-keyboard.rules
 e82aa0b8cb191833a4b53e8e4d6fe3206ffc10f9664ccafe303d752e64ea39154bf9471cbf8dddad0c51c0d8c0c44d2963990aec4368ad721836bb1a98899b20  mp01-mt6366.conf
 2094ed471ac8b08016adb8f45685aab88cfde6e6514895377bae8dbf5bd48a891bb2f9d4817638b07ad22ed20d0bf76a863ea796cb162d9d94d10a6b4a70c12e  HiFi.conf
+a1bc3bd426b8500d5050a53e05f6b18a20a355f138718e6978cbacfb61f393ae8115dd7489358f9b91c8b7d16c75f0b4cae82be5767542e5e4cc581f6829b116  50-mp01-shutdown.conf
 "
