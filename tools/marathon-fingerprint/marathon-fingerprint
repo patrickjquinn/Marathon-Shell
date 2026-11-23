@@ -1,0 +1,77 @@
+#!/bin/sh
+# Settings > Security > Fingerprint: adds and removes the fingerprints of
+# the user who runs it, through fprintd. Run as root, through pkexec: the
+# shell asks for the quick PIN first, and sandboxed apps, which can reach
+# fprintd on the system bus but can't use pkexec, can't add a finger.
+#
+#   enroll FINGER    fprintd's result for each touch, one per line, until
+#                    enroll-completed or a failure; closing stdin stops it
+#   delete [FINGER]  removes that finger, or every one
+#
+# FINGER is one of fprintd's names, such as right-index-finger.
+# Exit status: 0 done, 2 usage, 1 any other failure.
+set -u
+
+die() {
+	echo "marathon-fingerprint: $2" >&2
+	exit "$1"
+}
+
+uid=${PKEXEC_UID:-0}
+[ "$uid" -ge 1000 ] 2> /dev/null || die 2 "run through pkexec, as the phone's user"
+user=$(getent passwd "$uid" | cut -d: -f1)
+[ -n "$user" ] || die 1 "no user with uid $uid"
+
+finger() {
+	case $1 in
+	left-thumb | left-index-finger | left-middle-finger | left-ring-finger | left-little-finger) ;;
+	right-thumb | right-index-finger | right-middle-finger | right-ring-finger | right-little-finger) ;;
+	*) die 2 "unknown finger: $1" ;;
+	esac
+}
+
+# fprintd's tools translate what they print.
+export LC_ALL=C
+
+case ${1:-} in
+enroll)
+	[ $# = 2 ] || die 2 "usage: enroll FINGER"
+	finger "$2"
+	dir=$(mktemp -d) || die 1 "cannot make a temporary directory"
+	trap 'rm -rf "$dir"' EXIT
+	mkfifo "$dir/out" || die 1 "cannot make a pipe"
+	fprintd-enroll -f "$2" "$user" > "$dir/out" 2>&1 &
+	enroll=$!
+	# A background job reads /dev/null and ignores SIGINT: the watcher
+	# reads stdin by fd 3 and ends the enrolment with SIGTERM, on which
+	# fprintd sees its client go and stops.
+	exec 3<&0
+	{
+		cat <&3
+		kill "$enroll"
+	} > /dev/null 2>&1 &
+	watcher=$!
+	while IFS= read -r line; do
+		case $line in
+		"Enroll result: "*) echo "${line#Enroll result: }" ;;
+		*) echo "$line" >&2 ;;
+		esac
+	done < "$dir/out"
+	wait "$enroll"
+	status=$?
+	kill "$watcher" 2> /dev/null
+	[ "$status" = 0 ] || exit 1
+	;;
+delete)
+	[ $# -le 2 ] || die 2 "usage: delete [FINGER]"
+	if [ $# = 2 ]; then
+		finger "$2"
+		fprintd-delete "$user" -f "$2" > /dev/null || die 1 "cannot delete $2"
+	else
+		fprintd-delete "$user" > /dev/null || die 1 "cannot delete the fingerprints"
+	fi
+	;;
+*)
+	die 2 "usage: enroll FINGER | delete [FINGER]"
+	;;
+esac
