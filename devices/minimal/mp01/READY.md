@@ -3,41 +3,80 @@
 State of `feat/mp01-integration` for the Minimal Phone MP01's first
 Marathon flash. Nothing here has been written to the phone yet.
 
-**Verdict: not ready for an OS flash.** The kernel and device packages
-build. Nothing turns them into the `userdata` image that
-`flash-minimal-mp01.sh` writes (see "What blocks the flash"). What can
-happen tomorrow without that: the read-only `adb` dump, and a U-Boot-only
-run that keeps `userdata`.
+**Verdict: flashable, untested.** Every artifact the flash needs exists:
+the U-Boot boot image for `boot_b` and a `userdata` image built through
+`scripts/build-image.sh` (no raw mkosi). Nothing of the OS has run on an
+MP01, so the first flash is a test boot on slot `b` with stock Android on
+slot `a` as the fallback. Do the read-only reserved-memory dump first
+(below): it is the one check that can change the DTS before any kernel
+runs.
+
+This is a **developer image**: `MARATHON_DEV_SSH_KEY` gave it the
+builder's `~/.ssh/id_ed25519.pub` for key-only SSH as root and the user
+(root has no password). It is not for anyone else's phone, and must never
+be published.
 
 ## What is built
 
-Packages, built from this branch at `16a33e852` (the kernel package is unchanged since `13a00c196`), in `~/q25-build/test-pkgs/mp01/`:
+### The image (`/mnt/deckard-build/mp01-build/mp01/`)
+
+Built by `scripts/build-minimal-mp01-image.sh` at `88b3174e8`
+(`MARATHON_BUILD_DIR=/mnt/deckard-build/mp01-build`, pipeline patches
+0001-0061), image version `26112301`. The `userdata` image was remade from
+the same root at `4ef8b84c6`, which adds the carrier boot options
+(`pmos_rootfsopts=defaults systemd.gpt_auto=0 systemd.confext=0
+systemd.sysext=0`) the first one lacked. `…SHA256SUMS` beside them lists
+the same hashes.
 
 | File | sha256 |
 |---|---|
-| `linux-minimal-mp01-7.0.0-r0.apk` (kernel, DTBs, in-tree modules) | `8a2e33fbb5895322a7e75d4135414da2279f06528e0fec54645b0e983b8be51d` |
-| `mp01-kernel-modules-7.0.0-r0.apk` (CONNSYS, audio, ECCCI out-of-tree; no image pulls it in) | `f70ddd7231afedb796bfaa4595591a8f5bea2c90e6997ee9aee1410cfe318fdd` |
-| `device-minimal-mp01-1-r0.apk` (deviceinfo, `deviceinfo_dtb`, cmdline, initramfs modules) | `d4b485d601f40b78fc897724b7e1f9e115ad59e7486354e35e62ce7887502521` |
-| `device-minimal-mp01-marathon-1.0.0-r0.apk` (session, profile with `DISPLAY_TECHNOLOGY=epaper`) | `2c20bb12a814f38f885f25c4084c6eb3726eff3af243cac334989d206e9d9ca2` |
-| `mt6789-platform-1.0.0-r0.apk` (shared MT6789 services) | `436e4c86ec89efa3a970525b2e120bd2dda7ab03c113d20feadccada6581c9f8` |
+| `mp01-duranium-20261123-88b3174e8.userdata.img` (Android sparse, for `fastboot flash userdata`) | `21b6881e8da959f1e799a23be17323c3e0e513d263957e656e0cdbeb974447b6` |
+| `mp01-duranium-20261123-88b3174e8.userdata.img.zst` | `1d9f4c3c4bb649fc262ce41b3139a3ff20d29e2c5de61bcec96171be784a75ff` |
+| `mp01-duranium-20261123-88b3174e8.ext4` (the root alone, 8 GiB, 2.1 GiB used) | `4613bd26313d823cc93bac30324a672026fe448119d47e091a27ed12334b043c` |
+| `mp01-duranium-20261123-88b3174e8.ext4.zst` | `0531a488aa53a8b626898f421f85c1d46e2fb3093e43dcb589f54979aaddc064` |
 
-Inside `linux-minimal-mp01` (release `7.0.0-mp01`):
+The `userdata` image: a GPT with 4 KiB sectors; partition 1 the FAT32 ESP
+(`pmOS_boot`: systemd-boot, `linux.efi`, `initramfs`,
+`dtbs/mediatek/mt6789-minimal-mp01.dtb`, one loader entry), partition 2 the
+ext4 carrier (`pmOS_root`) holding the root as
+`/var/lib/marathon/images/mp01-duranium-20261123-88b3174e8.ext4`. The entry
+boots it with `mp01.rootfs_file=`; the initramfs grows the carrier into
+the rest of `userdata` on first boot.
+
+What the root carries, checked in the image:
+
+| | |
+|---|---|
+| `/boot/linux.efi` | `3bb647ddf8e04b61edbeadbe2efb4209365b098cdff9d33d79b1e323a1f0bd40` (`linux-minimal-mp01` 7.0.0-r1) |
+| `/boot/dtbs/mediatek/mt6789-minimal-mp01.dtb` | `1b6b0e6ca3f9751a330ffb7a67173c04eaf056c5dd7714240563fe74f27df507` (`rotation = <270>`, touch `touchscreen-inverted-x` + `touchscreen-swapped-x-y`) |
+| `/boot/initramfs` (mkinitfs in the image, with the carrier hook and `carrier.conf`) | `8223b2812adc8a6c3f450b7a32831eda83c55a24faa9ae141e8033ea15e9bf51` |
+| `/usr/share/marathon/carrier.conf` | `CARRIER_NAME=mp01`, the board DTB, `50-device-minimal-mp01.conf` |
+| `/etc/marathon/device-profile.conf` | `DISPLAY_TECHNOLOGY=epaper`, `PANEL_ORIENTATION=kms`, `FORCE_DPI=180` |
+| Command line | `console=tty0 fbcon=rotate:3 loglevel=7`, the carrier options, the UUIDs, `mp01.rootfs_file=` |
+| Packages | `marathon-shell` 1.0.0-r573 built from this branch (panel orientation), `device-minimal-mp01-marathon` 1.0.0-r1, `device-minimal-mp01` 1-r0, `mt6789-platform` 1.0.0-r0, Marathon's `mesa` 26.2.6-r100 and `libcamera` |
+
+### Packages
+
+In `~/q25-build/test-pkgs/mp01/` (the r1 packages are also in
+`/mnt/deckard-build/mp01-build/duranium/mkosi.packages/`):
 
 | File | sha256 |
 |---|---|
-| `/boot/linux.efi` | `11ec085076f34c05ff6cc07ad7df97cde2f7e33034cc05b7d17f06d75d3a3652` |
-| `/boot/vmlinuz` | `35720949d51e3d372fa7e176eddc02af51443532686aca7833ae26f975ed0b1e` |
-| `/boot/dtbs/mediatek/mt6789-minimal-mp01.dtb` (the one `deviceinfo_dtb` names: `data-lanes = <1 2 4 3>`, `rotation = <270>`) | `ed1b473a73cb34f0e2cf08cd154d5341140fcf3fc8862d57ce9ed903cf3186e2` |
-| `/boot/dtbs/mediatek/mt6789-minimal-mp01-vendor.dtb` (plus the CONNSYS overlay) | `97198420b58fdbaaa3308c225046c4d55ef7f3fb396b865ba52e777074089863` |
+| `linux-minimal-mp01-7.0.0-r1.apk` (touch in the scanout frame; in the image) | `fc0030e5f175bd2295b41e6ef41e72ac571ddd145ecbb8c241631609d1ecc2cd` |
+| `device-minimal-mp01-marathon-1.0.0-r1.apk` (`PANEL_ORIENTATION=kms`; in the image) | `5bbefbda11b1054d6215e3ea801015b3303224bc23a5ed27880265c6a32eece8` |
+| `device-minimal-mp01-1-r0.apk` (deviceinfo, `deviceinfo_dtb`, cmdline, initramfs modules; in the image) | `d4b485d601f40b78fc897724b7e1f9e115ad59e7486354e35e62ce7887502521` |
+| `mt6789-platform-1.0.0-r0.apk` (shared MT6789 services; in the image) | `436e4c86ec89efa3a970525b2e120bd2dda7ab03c113d20feadccada6581c9f8` |
+| `mp01-kernel-modules-7.0.0-r0.apk` (CONNSYS, audio, ECCCI out-of-tree, built against r0; no image pulls it in) | `f70ddd7231afedb796bfaa4595591a8f5bea2c90e6997ee9aee1410cfe318fdd` |
+| `linux-minimal-mp01-7.0.0-r0.apk`, `device-minimal-mp01-marathon-1.0.0-r0.apk` | superseded by r1 |
 
-Build logs are in `~/q25-build/test-pkgs/mp01/logs/`. The earlier kernel
-built outside abuild, in `/mnt/deckard-build/mp01-kbuild/out/`, predates the
-e-paper series and is superseded.
+Build logs: `/mnt/deckard-build/mp01-build/image-build.log` (the image),
+`~/q25-build/test-pkgs/mp01/logs/` (the r0 packages).
 
-U-Boot boot image, built outside this repository by
-`~/q25-build/uboot-chainload/build.sh` (JamiKettunen/u-boot-mt6789 at
-`11b7b36c`, the Q25's U-Boot patches 0001-0007, then MP01 patches
-0008-0019):
+### U-Boot
+
+Built outside this repository by `~/q25-build/uboot-chainload/build.sh`
+(JamiKettunen/u-boot-mt6789 at `11b7b36c`, the Q25's U-Boot patches
+0001-0007, then MP01 patches 0008-0019):
 
 | File | sha256 |
 |---|---|
@@ -46,33 +85,18 @@ U-Boot boot image, built outside this repository by
 Earlier U-Boot builds ran on the phone, up to the UFS bring-up patches.
 This one adds the USB result reporting (0016), the UFS host stop (0017),
 LK's carve-outs and framebuffer for the OS (0018) and the nested ESP boot
-(0019). Those four have not run yet.
+(0019). Those four have not run yet. 0019 looks for exactly what the
+`userdata` image has: `\EFI\BOOT\BOOTAA64.EFI` on partition 1 of the
+nested GPT.
 
-Not built: the Marathon image and the `userdata` image. See below.
+## Before the first flash
 
-## What blocks the flash
-
-1. **No MP01 `userdata` image.** FLASHING.md writes
-   `marathon-mp01.userdata.img`, "the Q25's layout". Nothing in the tree
-   makes one for the MP01:
-   - `scripts/q25/q25-userdata-image.sh` hard-codes the Q25's DTB and
-     command-line file. Its file-on-carrier root needs `q25-carrier.hook`
-     in the initramfs (from `device-zinwa-q25`), the Q25-only `mkinitfs`
-     step in `mkosi.finalize`, and the root-only layout of pipeline patch
-     0053. None of these exist for `minimal-mp01`.
-   - The other way is to `img2simg` the generic GPT image that
-     `scripts/build-minimal-mp01-image.sh` produces, and let the
-     postmarketOS initramfs mount its subpartitions from `userdata`.
-     Nobody has checked that Marathon's generic image boots like that.
-2. **The image was not built.** A Q25-class image needs an ~8 GiB root
-   plus mkosi's workspace and every Marathon package. That is more than
-   the ~15 GB budget: `/mnt/deckard-build` had 16-17 GB free, and `/home`
-   about 7 GB. It needs a run of `scripts/build-minimal-mp01-image.sh` on
-   a disk with room, with its own `MARATHON_BUILD_DIR`. Set
-   `MARATHON_DEV_SSH_KEY` so the test image can be reached over the USB
-   gadget.
-
-Neither blocks the read-only dump or a U-Boot-only run.
+1. The read-only reserved-memory dump below, and any DTS fix it calls for
+   (a fix means rebuilding `linux-minimal-mp01` and the image).
+2. Check the files against the hashes above
+   (`sha256sum -c mp01-duranium-20261123-88b3174e8.SHA256SUMS` in the
+   image directory).
+3. A full battery: nothing charges under Marathon yet.
 
 ## First: the read-only reserved-memory dump
 
@@ -100,19 +124,19 @@ because a reserved region the DT misses is an SError at first touch
 
 ## Flash commands (first test boot: slot b, fallback to slot a)
 
-These are from FLASHING.md. Run them only once a `userdata` image exists.
+From FLASHING.md, with the built files:
 
     adb reboot bootloader
     fastboot getvar product      # Z10
     fastboot getvar unlocked     # yes
     scripts/flash/flash-minimal-mp01.sh --slot b \
         ~/q25-build/uboot-chainload/boot/boot-uboot-mp01.img \
-        marathon-mp01.userdata.img
+        /mnt/deckard-build/mp01-build/mp01/mp01-duranium-20261123-88b3174e8.userdata.img
 
 The script checks for exactly one unlocked `Z10`, asks for `YES`, and then
 runs:
 
-    fastboot flash userdata marathon-mp01.userdata.img
+    fastboot flash userdata mp01-duranium-20261123-88b3174e8.userdata.img
     fastboot flash boot_b boot-uboot-mp01.img
     fastboot --set-active=b
     fastboot reboot
@@ -128,8 +152,8 @@ Marathon's `userdata` and will offer a factory reset. Accepting it erases
 the install. Nothing marks slot `b` successful yet, so run
 `fastboot --set-active=b` again every few boots.
 
-U-Boot only, keeping `userdata` (possible today; a run with Android's
-`userdata` should end in LK's fastboot):
+U-Boot only, keeping `userdata` (a run with Android's `userdata` should
+end in LK's fastboot):
 
     scripts/flash/flash-minimal-mp01.sh --boot-only --slot b \
         ~/q25-build/uboot-chainload/boot/boot-uboot-mp01.img
@@ -159,10 +183,14 @@ First-boot success, in order (`kernel/README.md`, "First boot"):
    read-only until that is trusted.
 3. `mediatek-drm` binds and the e-paper shows the console upright
    (`rotation = <270>` and `fbcon=rotate:3`). If it is upside down, the
-   rotation is 90.
-4. The keypad, the PMIC keys and the AW9523 keyboard work (`evtest`,
-   every key), then touch and the frontlight.
-5. The gauge reads close to stock.
+   rotation is 90, and the touch inversion moves from x to y.
+4. The shell comes up portrait: its log says `panel orientation Left Side
+   Up ... the scene turns 270`. A tap lands under the finger. With the
+   USB network up, `ssh root@172.16.42.1` with the builder's key (the
+   Q25's address; unconfirmed here).
+5. The keypad, the PMIC keys and the AW9523 keyboard work (`evtest`,
+   every key), then the frontlight.
+6. The gauge reads close to stock.
 
 ## Known untested risks
 
@@ -173,6 +201,8 @@ First-boot success, in order (`kernel/README.md`, "First boot"):
   the dump above confirms it.
 - **The boot path** U-Boot (0016-0019) → systemd-boot → Linux has never
   run.
+- **The DTB builds** (checked by applying the series to `978b8b67` and
+  building it); `make dtbs_check` was not run.
 - **E-paper** (`eink-series.md`, "Untested"): the lane routing (2/3
   crossed), whether the CPLD accepts split write/read transfers, the
   power-on order and delays, taking over from the bootloader without a
@@ -187,8 +217,15 @@ First-boot success, in order (`kernel/README.md`, "First boot"):
   battery. PMIC power-off (`0123`/`0125`) assumes the same BL31 as the Q25.
 - **No vendor modules in the image**: no Wi-Fi, Bluetooth, GNSS, modem or
   audio. `mt6789-platform`'s units fail without them.
-- **The shell has no base rotation**: the UI renders onto the 800x600
-  landscape scanout. `display_technology = "epaper"` only reduces motion.
+- **Base rotation and touch** have not run on the phone: the compositor
+  turns the scene and the `wl_output` by the connector's panel
+  orientation, and the DT reports touch in the scanout frame. Neither
+  could be checked without the panel. A sideways or mirrored result is a
+  DT fix (`rotation`, the touchscreen properties), not a shell one.
+  `display_technology = "epaper"` only reduces motion.
+- **The `userdata` image has never booted anywhere.** Its layout, hook and
+  options are the Q25's, made by the same script, but systemd-boot,
+  the carrier hook and the root have not run with this kernel.
 
 ## Back to stock
 

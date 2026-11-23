@@ -30,13 +30,19 @@ preloader -> bl2_ext -> LK (stock, unchanged)
      `\EFI\BOOT\BOOTAA64.EFI` from the nested ESP.
   4. When systemd-boot installs the entry's device tree, U-Boot adds
      LK's reserved regions and the panel's `simple-framebuffer` to it.
-- **userdata.** The image uses the Q25's layout
-  (`scripts/q25/q25-userdata-image.sh`): a GPT with 4 KiB sectors whose
-  first partition is the FAT32 ESP (systemd-boot, kernel, initramfs,
-  DTB) and whose second is the root carrier.
+- **userdata.** The image uses the Q25's layout, made by the shared
+  `scripts/carrier/carrier-userdata-image.sh` from the manifest's
+  `boot.carrier`: a GPT with 4 KiB sectors whose first partition is the
+  FAT32 ESP (systemd-boot, kernel, initramfs, DTB) and whose second is
+  the root carrier. The initramfs mounts the root file named by
+  `mp01.rootfs_file=` and keeps the carrier at `/.mp01-carrier/root`.
+  `scripts/build-minimal-mp01-image.sh` writes it as
+  `mp01-duranium-<date>-<rev>.userdata.img`.
 - **The panel.** It is scanned out at 800x600 and held in portrait. The
   OS's kernel command line needs `fbcon=rotate:3`, so that its console
-  reads the way U-Boot's does.
+  reads the way U-Boot's does. The shell follows the connector's panel
+  orientation (`panel_orientation = "kms"`), and touch reports in the
+  scanout frame.
 
 ## What the phone shows over USB
 
