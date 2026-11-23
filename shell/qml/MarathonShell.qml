@@ -36,6 +36,9 @@ Item {
     // Pilot for the assistant key, waiting for the PIN: "pilot" or "pilot-voice".
     property string pendingAssist: ""
     property bool powerButtonPressed: false
+    // Locked with the screen on, a finger on the sensor unlocks: Security
+    // listens until one matches, the PIN is needed, or this goes false.
+    readonly property bool fingerprintListening: SessionStore.isLocked && Display.screenOn && Security.fingerprintAvailable && Security.fingerprintBlocked === "" && !Security.isLockedOut
 
     // Closes the topmost shell overlay; false when none was open.
     function closeOverlay() {
@@ -341,6 +344,7 @@ Item {
     }
 
     focus: true
+    onFingerprintListeningChanged: fingerprintListening ? Security.authenticateBiometric(0) : Security.cancelAuthentication()
     Component.onCompleted: {
         shell.forceActiveFocus();
         if (Security.bootUnlocked && SessionStore.isLocked)

@@ -44,6 +44,31 @@ TestCase {
         lockScreen.opacity = 1;
         SessionStore.isLocked = false;
         Display.screenOn = true;
+        Security.fingerprintAvailable = false;
+        Security.fingerprintBlocked = "";
+    }
+
+    function test_theSensorIsOfferedWhileAFingerCanUnlock() {
+        const label = findChild(lockScreen, "unlockLabel");
+        const glyph = findChild(lockScreen, "unlockGlyph");
+        compare(label.text, "Swipe up to unlock");
+        compare(glyph.name, "chevron-up");
+        Security.fingerprintAvailable = true;
+        compare(label.text, "Touch the sensor or swipe up");
+        compare(glyph.name, "fingerprint");
+        Security.fingerprintBlocked = "restart";
+        compare(label.text, "Swipe up to unlock");
+        compare(glyph.name, "chevron-up");
+    }
+
+    function test_aMissShowsForAMoment() {
+        Security.fingerprintAvailable = true;
+        const label = findChild(lockScreen, "unlockLabel");
+        Security.fingerprintMismatch("Fingerprint not recognized");
+        compare(label.text, "Fingerprint not recognized");
+        verify(lockScreen.fingerprintMissed);
+        tryCompare(label, "text", "Touch the sensor or swipe up", 4000);
+        verify(!lockScreen.fingerprintMissed);
     }
 
     function test_unlockSwipeEndsWithoutAClick() {

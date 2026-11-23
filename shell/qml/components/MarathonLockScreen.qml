@@ -45,6 +45,11 @@ Item {
     property real swipeProgress: 0
     // The app whose notification stack is open; the others show their newest.
     property string expandedApp: ""
+    // A finger on the sensor unlocks from here (MarathonShell listens).
+    readonly property bool fingerprintReady: Security.fingerprintAvailable && Security.fingerprintBlocked === ""
+    // A miss, or what the sensor asked for, in place of the hint for a moment.
+    property string fingerprintNote: ""
+    property bool fingerprintMissed: false
     // Finger travel that takes swipeProgress from 0 to 1.
     readonly property real swipeTravel: height * 0.15
     // Short/square screens (HackberryPi, Q25) place by height, not design px.
@@ -942,6 +947,7 @@ Item {
         Column {
             id: unlockHint
 
+            objectName: "unlockHint"
             visible: UIStore.quickSettingsHeight === 0 && lockScreen.comboLength === 0
 
             anchors.horizontalCenter: parent.horizontalCenter
@@ -949,18 +955,23 @@ Item {
             anchors.bottomMargin: Silica.Theme.paddingLarge
             spacing: Silica.Theme.paddingSmall
             z: 11
+            transform: Translate {
+                id: missShake
+            }
 
             GlyphIcon {
-                name: "chevron-up"
+                objectName: "unlockGlyph"
+                name: lockScreen.fingerprintReady ? "fingerprint" : "chevron-up"
                 size: Silica.Theme.iconSizeSmall
-                color: hintTone.glyph
+                color: lockScreen.fingerprintMissed ? Silica.Theme.errorColor : hintTone.glyph
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 SequentialAnimation on y {
                     // One bob each time the lock screen appears, then rest: it
                     // is seen on every wake, and any running animation makes
                     // the scene graph redraw the whole screen every frame.
-                    running: MMotion.gate(lockScreen.visible)
+                    // The fingerprint glyph is a place to touch: it stays still.
+                    running: MMotion.gate(lockScreen.visible) && !lockScreen.fingerprintReady
                     loops: 1
 
                     NumberAnimation {
@@ -978,13 +989,77 @@ Item {
             }
 
             Silica.Label {
-                text: qsTr("Swipe up to unlock")
+                objectName: "unlockLabel"
+                text: lockScreen.fingerprintNote || (lockScreen.fingerprintReady ? qsTr("Touch the sensor or swipe up") : qsTr("Swipe up to unlock"))
                 color: hintTone.glyph
                 style: Text.Outline
                 styleColor: hintTone.halo
                 font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 anchors.horizontalCenter: parent.horizontalCenter
             }
+        }
+    }
+
+    Connections {
+        function onFingerprintMismatch(message) {
+            HapticManager.heavy();
+            lockScreen.fingerprintMissed = true;
+            lockScreen.fingerprintNote = message;
+            noteTimer.restart();
+            if (!MMotion.reduceMotion)
+                missShakeAnimation.restart();
+        }
+
+        function onBiometricPrompt(message) {
+            lockScreen.fingerprintMissed = false;
+            lockScreen.fingerprintNote = message;
+            noteTimer.restart();
+        }
+
+        // Too many misses: the PIN is next.
+        function onAuthenticationFailed(reason) {
+            if (!lockScreen.visible)
+                return;
+            lockScreen.fingerprintMissed = true;
+            lockScreen.fingerprintNote = reason;
+            noteTimer.restart();
+        }
+
+        target: Security
+    }
+
+    Timer {
+        id: noteTimer
+
+        interval: 2500
+        onTriggered: {
+            lockScreen.fingerprintNote = "";
+            lockScreen.fingerprintMissed = false;
+        }
+    }
+
+    SequentialAnimation {
+        id: missShakeAnimation
+
+        NumberAnimation {
+            target: missShake
+            property: "x"
+            to: Silica.Theme.paddingSmall
+            duration: 40
+        }
+
+        NumberAnimation {
+            target: missShake
+            property: "x"
+            to: -Silica.Theme.paddingSmall
+            duration: 80
+        }
+
+        NumberAnimation {
+            target: missShake
+            property: "x"
+            to: 0
+            duration: 40
         }
     }
 
