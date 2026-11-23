@@ -31,49 +31,204 @@
   ],
   "deepLinks": {
     "wifi": {
-      "title": "Wi-Fi Settings",
-      "description": "Manage wireless network connections",
-      "keywords": ["network", "internet", "wireless", "connection"]
+      "title": "Wi-Fi",
+      "description": "Networks nearby, and each network's Low Data Mode, auto-join and address",
+      "keywords": ["wifi", "wi-fi", "wlan", "wireless", "network", "internet", "connect", "router", "password", "hidden network", "join", "low data mode", "metered", "auto-join", "private address", "mac address", "ip address", "dns"]
+    },
+    "savednetworks": {
+      "title": "Saved networks",
+      "description": "Wi-Fi networks the phone remembers",
+      "keywords": ["saved", "known networks", "remembered", "forget network", "wifi", "wi-fi", "password"]
     },
     "bluetooth": {
-      "title": "Bluetooth Settings",
-      "description": "Pair and manage Bluetooth devices",
-      "keywords": ["pair", "devices", "wireless", "headphones"]
+      "title": "Bluetooth",
+      "description": "Pair and connect headphones, speakers and other devices",
+      "keywords": ["pair", "pairing", "devices", "headphones", "earbuds", "headset", "speaker", "car", "keyboard", "mouse", "wireless"]
     },
     "cellular": {
-      "title": "Mobile Network",
-      "description": "Manage cellular data settings",
-      "keywords": ["mobile", "data", "4g", "5g", "carrier"]
+      "title": "Mobile network",
+      "description": "Mobile data, roaming, network mode and operator",
+      "keywords": ["mobile data", "cellular", "data", "roaming", "sim", "carrier", "operator", "network mode", "4g", "5g", "lte", "signal"]
+    },
+    "apn": {
+      "title": "Access point (APN)",
+      "description": "The access point mobile data uses",
+      "keywords": ["apn", "access point", "mobile data", "carrier", "internet settings"]
+    },
+    "mms": {
+      "title": "MMS",
+      "description": "Picture and group messages and the carrier's MMS settings",
+      "keywords": ["mms", "picture messages", "group messages", "mmsc", "proxy", "auto download"]
     },
     "display": {
-      "title": "Display & Brightness",
-      "description": "Adjust screen settings",
-      "keywords": ["brightness", "screen", "timeout", "auto-brightness"]
+      "title": "Display",
+      "description": "Brightness, night light, screen timeout, rotation and size",
+      "keywords": ["brightness", "auto-brightness", "automatic brightness", "night light", "blue light", "warmth", "nightshade", "bedside clock", "screen", "screen timeout", "sleep", "auto-rotate", "rotation", "interface size", "text size", "font size", "scale", "reduce motion", "animations"]
+    },
+    "scale": {
+      "title": "Interface size",
+      "description": "How big text and controls are",
+      "keywords": ["interface size", "text size", "font size", "scale", "zoom", "bigger", "smaller", "display size"]
+    },
+    "screentimeout": {
+      "title": "Screen timeout",
+      "description": "How long the screen stays on",
+      "keywords": ["screen timeout", "sleep", "screen off", "stay awake", "keep screen on"]
+    },
+    "ambience": {
+      "title": "Ambience",
+      "description": "Wallpaper and theme",
+      "keywords": ["ambience", "theme", "wallpaper", "background", "colour", "color", "accent", "dark mode", "light mode"]
+    },
+    "wallpaper": {
+      "title": "Wallpaper",
+      "description": "The home and lock screen picture",
+      "keywords": ["wallpaper", "background", "home screen", "lock screen", "picture"]
     },
     "sound": {
-      "title": "Sound Settings",
-      "description": "Adjust volume and ringtones",
-      "keywords": ["volume", "ringtone", "notification", "alarm", "audio"]
+      "title": "Sounds",
+      "description": "Volume, ringtone, alarm and notification sounds, vibration",
+      "keywords": ["volume", "mute", "silent", "ringtone", "ring", "alarm sound", "notification sound", "tones", "vibration", "vibrate", "haptics", "app volume", "audio", "media volume"]
     },
     "notifications": {
       "title": "Notifications",
-      "description": "Manage notification settings",
-      "keywords": ["alerts", "badges", "lock screen", "do not disturb"]
+      "description": "Do not disturb, lock screen and per-app notifications",
+      "keywords": ["alerts", "do not disturb", "dnd", "quiet", "silence", "lock screen", "notification sound", "per-app"]
+    },
+    "quicksettings": {
+      "title": "Quick settings",
+      "description": "Tiles in the top menu",
+      "keywords": ["quick settings", "tiles", "toggles", "shade", "top menu", "control centre", "control center"]
+    },
+    "datetime": {
+      "title": "Date and time",
+      "description": "Time, date, 24-hour clock, units and time zone",
+      "keywords": ["time", "date", "clock", "24-hour", "12-hour", "automatic time", "network time", "units", "metric", "imperial", "celsius", "fahrenheit", "time zone"]
+    },
+    "timezone": {
+      "title": "Time zone",
+      "description": "Choose the time zone by city",
+      "keywords": ["time zone", "timezone", "city", "region", "utc"]
+    },
+    "battery": {
+      "title": "Battery",
+      "description": "Charge, power profile and battery history",
+      "keywords": ["battery", "charge", "charging", "power", "power profile", "power saver", "battery saver", "low power", "performance", "balanced", "battery usage", "history"]
     },
     "storage": {
       "title": "Storage",
-      "description": "View storage usage",
-      "keywords": ["disk", "space", "memory", "usage"]
+      "description": "Space used and free",
+      "keywords": ["storage", "disk", "space", "memory", "free space", "usage", "full"]
     },
-    "about": {
-      "title": "About Device",
-      "description": "Device information and updates",
-      "keywords": ["version", "info", "update", "device name"]
+    "keyboard": {
+      "title": "Keyboard",
+      "description": "Languages, auto-correct, predictions and speed keys",
+      "keywords": ["keyboard", "language", "layout", "auto-correct", "autocorrect", "auto-capitalize", "predictions", "suggestions", "typing", "key vibration", "hardware keyboard"]
+    },
+    "speedkeys": {
+      "title": "Speed keys",
+      "description": "Hold a letter on the home screen to open an app",
+      "keywords": ["speed keys", "shortcuts", "hold letter", "keyboard shortcuts", "launch apps"]
+    },
+    "assistkey": {
+      "title": "Assistant key",
+      "description": "What the key between the volume keys does",
+      "keywords": ["assistant key", "button", "side key", "convenience key", "shortcut", "camera", "pilot", "voice"]
+    },
+    "trackpad": {
+      "title": "Trackpad",
+      "description": "Scroll and navigate or move a pointer",
+      "keywords": ["trackpad", "touchpad", "pointer", "mouse", "cursor", "scroll", "optical"]
+    },
+    "security": {
+      "title": "Security",
+      "description": "Device lock, PIN, fingerprint and encryption",
+      "keywords": ["security", "lock", "device lock", "screen lock", "pin", "quick pin", "password", "passcode", "fingerprint", "biometric", "trackpad unlock", "lock delay", "auto-lock", "encryption", "failed attempts"]
+    },
+    "permissions": {
+      "title": "App permissions",
+      "description": "What apps may use, and the in-use indicator",
+      "keywords": ["permissions", "privacy", "camera", "microphone", "location", "contacts", "calendar", "files", "allow", "deny", "revoke", "in-use indicator"]
+    },
+    "accounts": {
+      "title": "Accounts",
+      "description": "Accounts that sync contacts and calendars",
+      "keywords": ["accounts", "sync", "carddav", "caldav", "nextcloud", "fastmail", "icloud", "contacts", "calendar", "add account"]
     },
     "appmanager": {
-      "title": "App Manager",
-      "description": "Install and manage applications",
-      "keywords": ["apps", "install", "uninstall", "packages"]
+      "title": "Installed apps",
+      "description": "Each app's details, notifications, permissions and uninstalling",
+      "keywords": ["apps", "installed", "uninstall", "remove", "disable", "force stop", "app info", "app manager", "version"]
+    },
+    "android": {
+      "title": "Android apps",
+      "description": "Android, Google services (microG) and push messages",
+      "keywords": ["android", "apk", "google services", "microg", "play services", "push", "start at login", "restart android", "reset android"]
+    },
+    "androidapps": {
+      "title": "Android apps list",
+      "description": "Each Android app's permissions, notifications, battery and storage",
+      "keywords": ["android", "apps", "android permissions", "android notifications"]
+    },
+    "androidaccess": {
+      "title": "Special access",
+      "description": "All files, installing apps, alarms and more for Android apps",
+      "keywords": ["special access", "all files", "install unknown apps", "alarms", "unrestricted battery", "notification access", "usage access", "display over other apps", "picture in picture", "accessibility", "device admin", "android"]
+    },
+    "hiddenapps": {
+      "title": "Hidden apps",
+      "description": "Hide apps from the app grid",
+      "keywords": ["hidden", "hide apps", "app drawer", "app grid"]
+    },
+    "appsort": {
+      "title": "App grid",
+      "description": "Columns, desktop apps, native app search and badges",
+      "keywords": ["app grid", "columns", "layout", "icons", "desktop apps", "native apps", "search", "badges", "notification badges"]
+    },
+    "themedapps": {
+      "title": "Themed apps",
+      "description": "Ambience colours in GTK, KDE, Android and Flatpak apps",
+      "keywords": ["themed apps", "theme", "accent", "colour", "color", "gtk", "gnome", "libadwaita", "kde", "qt", "android", "flatpak"]
+    },
+    "store": {
+      "title": "App Store",
+      "description": "Sources, phone-only apps and automatic app updates",
+      "keywords": ["app store", "store", "flathub", "f-droid", "fdroid", "sources", "anti-features", "app updates", "automatic updates", "metered"]
+    },
+    "updates": {
+      "title": "Software updates",
+      "description": "Check for and install system updates",
+      "keywords": ["software update", "system update", "update", "upgrade", "version", "automatic updates", "developer updates", "beta", "test builds"]
+    },
+    "about": {
+      "title": "About device",
+      "description": "Device name, model, version and legal notices",
+      "keywords": ["about", "device name", "phone name", "model", "version", "build", "kernel", "hardware", "info"]
+    },
+    "licenses": {
+      "title": "Open source licenses",
+      "description": "Licenses of the components in this build",
+      "keywords": ["licenses", "licences", "open source", "legal", "credits"]
+    },
+    "tos": {
+      "title": "Terms of service",
+      "description": "Marathon OS's terms",
+      "keywords": ["terms", "terms of service", "agreement", "warranty", "legal"]
+    },
+    "privacy": {
+      "title": "Privacy policy",
+      "description": "What Marathon OS keeps on the device",
+      "keywords": ["privacy policy", "privacy", "data", "diagnostics", "legal"]
+    },
+    "developer": {
+      "title": "Developer tools",
+      "description": "Remote connection over SSH and bug reports",
+      "keywords": ["developer", "developer mode", "ssh", "remote connection", "usb", "bug report", "logs", "debug"]
+    },
+    "erase": {
+      "title": "Erase all content",
+      "description": "Factory reset: erase everything and start again",
+      "keywords": ["erase", "factory reset", "reset", "wipe", "delete everything", "restore", "sell"]
     }
   },
   "testedOn": { "widths": [540], "inputModes": ["touch", "keyboard"] },

@@ -353,6 +353,27 @@ mod tests {
     }
 
     #[test]
+    fn marathon_settings_pages_are_declared_by_settings() {
+        let manifest: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/settings/keel-actions.json"
+        )))
+        .unwrap();
+        let show = manifest["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == "org.marathonos.settings/app.show")
+            .unwrap();
+        let pages = show["inputSchema"]["properties"]["page"]["enum"]
+            .as_array()
+            .unwrap();
+        for (_, page) in MARATHON_SETTINGS_PAGES {
+            assert!(pages.iter().any(|p| p == page), "{page}");
+        }
+    }
+
+    #[test]
     fn a_note_keeps_its_lines_as_notes_reads_them() {
         let v = vnote("Shopping:\nmilk = 2 litres\nbread — fresh\n\n");
         assert_eq!(
