@@ -36,9 +36,11 @@ that are not visible from the vendor sources:
   same way. The touchscreen, upright on the phone, reports in that
   scanout frame (x inverted, then x and y swapped), as touch on a
   turned panel does, so both turn together.
-- The reserved memory follows the MT6789 LK layout the Zinwa Q25 and the
-  Daylight DC-1 share; the regions LK places at boot are covered by
-  windows that span both boards' layouts.
+- The reserved memory is the MP01 LK's, as its stock boot log lists it
+  in the unlocked (orange) state the phone boots this kernel in. Three
+  windows cover what LK places at boot: SCP, ATF log, CCCI tag and rank
+  0's last page; the modem's four regions; the debug dump and the logo
+  framebuffer.
 
 The MT6375 charger and Type-C controller and the MP01's OCA72390
 configuration have no upstream driver yet; the cameras with their
@@ -70,7 +72,7 @@ diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/b
 new file mode 100644
 --- /dev/null
 +++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
-@@ -0,0 +1,968 @@
+@@ -0,0 +1,965 @@
 +// SPDX-License-Identifier: GPL-2.0-only OR MIT
 +/*
 + * Minimal Phone MP01 (board "Z10"): MediaTek MT6789 (Helio G99), 6 GiB,
@@ -112,13 +114,10 @@ new file mode 100644
 +	};
 +
 +	/*
-+	 * What the boot firmware owns. The fixed regions are at the same
-+	 * addresses on the Zinwa Q25 and the Daylight DC-1 (8 and 12 GiB, the
-+	 * same LK); the ones LK places at boot (SCP, CCCI tag, ATF log, the
-+	 * modem image, the debug dump and the logo framebuffer) are covered by
-+	 * windows spanning both boards' layouts. The MP01 LK lists the same
-+	 * mblock regions by name; their addresses are still to be read off a
-+	 * stock boot.
++	 * What the boot firmware owns: the MP01 LK's mblock regions, unlocked
++	 * (orange), which adds debug-met and moves sspm-ap below it. Windows
++	 * cover the regions LK places at boot (SCP, CCCI tag, ATF log, the
++	 * modem, the debug dump and the logo framebuffer).
 +	 */
 +	reserved-memory {
 +		#address-cells = <2>;
@@ -233,19 +232,19 @@ new file mode 100644
 +			no-map;
 +		};
 +
-+		/* CCCI tag, SCP and ATF log: 0xbf9f0000.. (Q25), 0xbf800000.. (DC-1). */
++		/* SCP, ATF log, CCCI tag and the last page of DRAM rank 0. */
 +		lk-carveouts@bf600000 {
 +			reg = <0 0xbf600000 0 0xa00000>;
 +			no-map;
 +		};
 +
-+		/* The four MD1 regions of the stock MT6789 LK layout. */
-+		md1@dc000000 {
-+			reg = <0 0xdc000000 0 0x8000000>;
++		/* The modem's four regions, the DSP image last at 0xe5200000. */
++		md1@de000000 {
++			reg = <0 0xde000000 0 0x8000000>;
 +			no-map;
 +		};
 +
-+		/* Debug dump, logo framebuffer and the last page of DRAM rank 0. */
++		/* Debug dump and the logo framebuffer. */
 +		lk-top@fd000000 {
 +			reg = <0 0xfd000000 0 0x3000000>;
 +			no-map;
