@@ -19,3 +19,8 @@ CONFIG_PSTORE_CONSOLE=y
 CONFIG_PSTORE_PMSG=y
 # The e-paper module: a Pango CPLD fed over DSI, controlled over I2C.
 CONFIG_DRM_PANEL_MINIMAL_Z10_EINK=m
+# The e-paper scans out landscape on a portrait phone: fbcon follows
+# fbcon=rotate:3 and the panel's orientation only with rotation built in.
+CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y
+# Btrfs's boot-time self-tests are a debug aid; they hold up every boot.
+# CONFIG_BTRFS_FS_RUN_SANITY_TESTS is not set
