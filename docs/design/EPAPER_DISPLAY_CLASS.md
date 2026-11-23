@@ -1,8 +1,11 @@
 # E-paper display class: compositor policy
 
-Status: notes only, nothing implemented. The first device is the Minimal
-Phone MP01, a 600x800 e-paper panel behind a Pango CPLD, but this policy
-must hold for any e-paper panel. Kernel side:
+Status: implemented in part by [EINK_MODE.md](EINK_MODE.md), which
+differs here in three places: the fast waveform starts on input rather
+than on a burst of frames, whole-screen changes count toward a clear
+budget instead of each clearing, and the theme is ink on paper. The
+first device is the Minimal Phone MP01, a 600x800 e-paper panel behind a
+Pango CPLD, but this policy must hold for any e-paper panel. Kernel side:
 `devices/minimal/mp01/kernel/eink-refresh-api.md`.
 
 ## Rule zero: a capability, not a device

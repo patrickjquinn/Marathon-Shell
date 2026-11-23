@@ -74,3 +74,5 @@ singleton Privacy 1.0 Privacy.qml
 singleton PilotClient 1.0 PilotClient.qml
 singleton UnifiedSearchService 1.0 UnifiedSearchService.qml
 singleton Platform 1.0 Platform.qml
+InputContext 1.0 InputContext.qml
+singleton Dictionary 1.0 Dictionary.qml
