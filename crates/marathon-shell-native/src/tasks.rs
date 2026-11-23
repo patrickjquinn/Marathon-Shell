@@ -536,6 +536,7 @@ pub struct TasksRust {
 impl cxx_qt::Initialize for Tasks {
     fn initialize(self: Pin<&mut Self>) {
         QT.set(self.qt_thread()).ok();
+        crate::bus_proxy::remove_all();
         dbus::export(self.qt_thread());
         keel::export(self.qt_thread());
         pool::refill_later(self.qt_thread(), std::time::Duration::from_secs(8));

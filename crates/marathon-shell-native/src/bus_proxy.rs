@@ -151,6 +151,11 @@ pub(crate) fn prepare(instance: &str) -> io::Result<PathBuf> {
     Ok(dir)
 }
 
+/// A previous shell's proxies ended with it: their directories go.
+pub(crate) fn remove_all() {
+    fs::remove_dir_all(runtime().join(SANDBOX_DIR)).ok();
+}
+
 /// The sandbox closed: its sockets go.
 pub(crate) fn remove(instance: &str) {
     if !instance.is_empty() {
