@@ -9,12 +9,12 @@
 //   - a known executable (/usr/bin/pilotd, /usr/bin/keel-mcp), compared by
 //     file (device and inode of /proc/<pid>/exe), so neither argv[0] nor a
 //     lookalike path passes, or
-//   - a process running with Sailfish OS's "privileged" group as its
-//     effective group (/proc/<pid>/status), the platform's own mark of a
-//     system component. pilotd is installed setgid privileged and starts
-//     keel-mcp, which keeps that group; both are then not dumpable, so their
-//     /proc/<pid>/exe cannot be read by an app and this is how they are
-//     recognised on a device.
+//   - on Sailfish OS, a process with the "privileged" group as its
+//     effective or saved group: there pilotd is installed setgid privileged
+//     (which also makes it non-dumpable, so its /proc/<pid>/exe cannot be
+//     read) and keel-mcp keeps the group. Marathon has no such group and
+//     ships pilotd 0755: setgid would make it non-dumpable, and the shell
+//     admits pilotd to its services by reading /proc/<pid>/exe.
 // Anything else (another app, a script, a process that starts keel-mcp
 // itself; keel-mcp in turn believes only pilotd, keel/actions/mcp/src/peer.rs)
 // reaches the app with userInitiated false. A process that cannot be
