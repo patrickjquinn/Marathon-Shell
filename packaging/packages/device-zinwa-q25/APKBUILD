@@ -3,7 +3,7 @@
 pkgname=device-zinwa-q25
 pkgdesc="Zinwa Q25 Pro"
 pkgver=1
-pkgrel=9
+pkgrel=10
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="MIT"
 arch="aarch64"
@@ -20,7 +20,6 @@ source="
 	deviceinfo
 	kernel-cmdline.conf
 	modules-initfs
-	q25-carrier.hook
 "
 
 build() {
@@ -29,13 +28,10 @@ build() {
 
 package() {
 	devicepkg_package $startdir $pkgname
-	install -Dm755 "$srcdir/q25-carrier.hook" \
-		"$pkgdir/usr/share/mkinitfs/hooks-cleanup/50-q25-carrier.sh"
 }
 
 sha512sums="
 f1e3eea0c466a4c3f73613238b9bf85a1c7c35c989c5c7348560a9cc5af5c984c0fc06fe4b8657486a44154027021e8230a06395c2f402c97ed636a234965a10  deviceinfo
 76201a98cab0d9a32891e06a8110606100a4926b66d5fe8c37e117715ecf88ca92596ccd46c3ae144e18ef395948c05ab5fbfcb9e33ca88026fdec3221fa28bd  kernel-cmdline.conf
 943ba538f8b6cb89f5c23aaa9a70f326307b99aeb7a60963c69d0a4cc7582886bf6a4483461c1dd5d87ad66ce57889a20ceee42679892685e3293564b458c589  modules-initfs
-11aeab11d2dc70acd668460038df35cdc7f0d0d7fee5d7d356daf175c4b5863751217d5b206144cee3ca1501c06afa652b2d8ecda18e15a6435ce9f66280eb7d  q25-carrier.hook
 "

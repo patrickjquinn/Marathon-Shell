@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 58 patches. **There is no 0011**: it vendored a loose
+There are 59 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -72,6 +72,7 @@ There are 58 patches. **There is no 0011**: it vendored a loose
 | 0057 | feat(hackberrypi): its own image id, so its own update feed | `build-image.py` names the image after `MARATHON_IMAGE_DEVICE` when set, and `mkosi.finalize` writes it as `IMAGE_ID`; `scripts/build-image.sh` sets `hackberrypi-cm5` for a Pi 5 build with the HackberryPi overlay, so a plain Pi 5 and a HackberryPi never share an update feed. |
 | 0058 | fix(zinwa-q25): an 8 GiB root, so the release fits | `mkosi.repart.root-only/11-root.conf` ships the Q25 root at 8 GiB instead of 5: the release no longer fit (mkfs.ext4 ran out of room copying it in). The phone grows the image file at first boot (`q25-root-grow`). |
 | 0059 | fix(finalize): name the OS Marathon in os-release | `mkosi.finalize` sets `NAME` and `PRETTY_NAME` to Marathon OS: `postmarketos-release` now calls the OS Nura, and Settings showed that as the system name. `ID` stays. |
+| 0060 | feat(carrier): a userdata carrier root from the device manifest | `mkosi-configure.py` and `mkosi.finalize` key 0053's root-only layout, 0053's kept `/etc` and 0055's mkinitfs on `/usr/share/marathon/carrier.conf`, which `build-image.sh` writes into `mkosi.extra` from the manifest's `boot.carrier` with the shared initramfs hook (`packaging/carrier/`), instead of on `zinwa-q25`. The Q25 configures as before; the Minimal Phone MP01 builds the same way. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.
 

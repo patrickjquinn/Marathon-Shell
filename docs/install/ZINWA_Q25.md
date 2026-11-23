@@ -130,4 +130,6 @@ This writes the root, the `userdata` image, U-Boot and `gimme-uboot.py` and a
 `.SHA256SUMS` to `$Q25_IMAGE_OUT` (default `$MARATHON_BUILD_DIR/q25`). U-Boot
 is built with `scripts/q25/build-q25-uboot.sh`, which refuses a build that
 differs by one byte from the U-Boot the phone was tested with. The `userdata`
-image comes from `scripts/q25/q25-userdata-image.sh`.
+image comes from `scripts/carrier/carrier-userdata-image.sh`, which takes the
+board DTB and carrier name from the root's `carrier.conf` (the manifest's
+`boot.carrier`).

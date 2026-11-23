@@ -74,6 +74,14 @@ class Check(unittest.TestCase):
         self.edit("devices/hackberrypi/cm5/device.toml", "[profile]\n", '[profile]\ndisplay_technology = "plasma"\n')
         self.assertError("display_technology: 'plasma' is not one of")
 
+    def test_carrier_on_a_bootable_image(self):
+        self.edit("devices/zinwa/q25/device.toml", 'bootloader = "none"', 'bootloader = "systemd-boot"')
+        self.assertError("build.bootloader must be \"none\"")
+
+    def test_carrier_dtb_outside_the_dtbs(self):
+        self.edit("devices/zinwa/q25/device.toml", 'dtb = "mediatek/mt8781-zinwa-q25.dtb"', 'dtb = "../linux.efi"')
+        self.assertError("boot/carrier/dtb")
+
     def test_directory_mismatch(self):
         self.edit("devices/oneplus/enchilada/device.toml", 'codename = "enchilada"', 'codename = "fajita"')
         self.assertError("vendor/codename must match the directory path")
@@ -136,6 +144,22 @@ class Profile(unittest.TestCase):
         self.tree.devices["raspberry/pi5"]["profile"]["frobnicate"] = True
         with self.assertRaises(ValueError):
             self.tree.render_profile("raspberry/pi5")
+
+
+class Carrier(unittest.TestCase):
+    def setUp(self):
+        self.tree = devices.Tree(ROOT)
+
+    def test_q25_keeps_its_names(self):
+        self.assertEqual(devices.parse_conf(self.tree.render_carrier("zinwa-q25")), {
+            "CARRIER_NAME": "q25",
+            "CARRIER_DTB": "mediatek/mt8781-zinwa-q25.dtb",
+            "CARRIER_CMDLINE": "/usr/lib/kernel-cmdline.d/50-device-zinwa-q25.conf",
+        })
+
+    def test_target_without_a_carrier(self):
+        self.assertEqual(self.tree.render_carrier("raspberry-pi5"), "")
+        self.assertEqual(self.tree.render_carrier("no-such-target"), "")
 
 
 if __name__ == "__main__":

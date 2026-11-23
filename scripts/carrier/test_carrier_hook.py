@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""The Q25 carrier initramfs hook, run against a fake root with mount,
-losetup and mountpoint stubbed out."""
+"""The userdata carrier initramfs hook, run against a fake root with mount,
+losetup and mountpoint stubbed out, under the Q25's carrier name and the
+MP01's."""
 import os
 import shutil
 import subprocess
@@ -8,9 +9,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-HOOK = Path(__file__).resolve().parents[2] / 'packaging/packages/device-zinwa-q25/q25-carrier.hook'
+HOOK = Path(__file__).resolve().parents[2] / 'packaging/carrier/mkinitfs/hooks-cleanup/50-marathon-carrier.sh'
 SHELL = shutil.which('dash') or 'sh'
-IMAGE = '/var/lib/marathon/images/q25-1.ext4'
+IMAGE = '/var/lib/marathon/images/root-1.ext4'
 
 STUB = """#!/bin/sh
 echo "$(basename "$0") $*" >> "$STUB_LOG"
@@ -22,7 +23,9 @@ esac
 """
 
 
-class CarrierHook(unittest.TestCase):
+class CarrierHook:
+    NAME = ''
+
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.root)
@@ -38,9 +41,12 @@ class CarrierHook(unittest.TestCase):
         (self.root / 'proc').mkdir()
         (self.root / f'sysroot{IMAGE}').parent.mkdir(parents=True)
         (self.root / f'sysroot{IMAGE}').touch()
-        self.cmdline(f'console=tty0 q25.rootfs_file={IMAGE} loglevel=4')
+        (self.root / 'usr/share/marathon').mkdir(parents=True)
+        (self.root / 'usr/share/marathon/carrier.conf').write_text(
+            f'CARRIER_NAME={self.NAME}\nCARRIER_DTB=vendor/board.dtb\n')
+        self.cmdline(f'console=tty0 {self.NAME}.rootfs_file={IMAGE} loglevel=4')
         self.env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}",
-                        MARATHON_Q25_TEST_ROOT=str(self.root), STUB_LOG=str(self.log))
+                        MARATHON_CARRIER_TEST_ROOT=str(self.root), STUB_LOG=str(self.log))
 
     def cmdline(self, text):
         (self.root / 'proc/cmdline').write_text(text + '\n')
@@ -59,15 +65,15 @@ class CarrierHook(unittest.TestCase):
         self.assertEqual(rc, 0, calls)
         r = self.root
         self.assertEqual(calls, [
-            f'mount --move {r}/sysroot {r}/q25-carrier',
-            f'losetup --find --show --sector-size 4096 {r}/q25-carrier{IMAGE}',
+            f'mount --move {r}/sysroot {r}/{self.NAME}-carrier',
+            f'losetup --find --show --sector-size 4096 {r}/{self.NAME}-carrier{IMAGE}',
             f'mount -t ext4 -o rw /dev/loop9 {r}/sysroot',
-            f'mountpoint -q {r}/q25-carrier/boot',
-            f'mount --move {r}/q25-carrier/boot {r}/sysroot/boot',
+            f'mountpoint -q {r}/{self.NAME}-carrier/boot',
+            f'mount --move {r}/{self.NAME}-carrier/boot {r}/sysroot/boot',
             f'mount -o remount,ro {r}/sysroot/boot',
-            f'mount --move {r}/q25-carrier {r}/sysroot/.q25-carrier/root',
+            f'mount --move {r}/{self.NAME}-carrier {r}/sysroot/.{self.NAME}-carrier/root',
         ])
-        self.assertEqual((r / 'sysroot/.q25-carrier').stat().st_mode & 0o777, 0o700)
+        self.assertEqual((r / f'sysroot/.{self.NAME}-carrier').stat().st_mode & 0o777, 0o700)
 
     def test_no_esp_mount_is_fine(self):
         rc, calls = self.run_hook(STUB_NO_BOOT='1')
@@ -78,7 +84,7 @@ class CarrierHook(unittest.TestCase):
         for bad in ('/etc/shadow', '/var/lib/marathon/images/../x.ext4',
                     '/var/lib/marathon/images/a b.ext4', '/var/lib/marathon/images/x.img'):
             with self.subTest(bad=bad):
-                self.cmdline(f'q25.rootfs_file={bad}')
+                self.cmdline(f'{self.NAME}.rootfs_file={bad}')
                 rc, calls = self.run_hook()
                 self.assertEqual((rc, calls), (1, []))
 
@@ -92,13 +98,33 @@ class CarrierHook(unittest.TestCase):
         rc, calls = self.run_hook(STUB_MOUNT_RC='32')
         self.assertEqual(rc, 1)
         r = self.root
-        self.assertEqual(calls[-2:], ['losetup -d /dev/loop9', f'mount --move {r}/q25-carrier {r}/sysroot'])
+        self.assertEqual(calls[-2:], ['losetup -d /dev/loop9', f'mount --move {r}/{self.NAME}-carrier {r}/sysroot'])
 
     def test_losetup_failure_puts_the_carrier_back(self):
         rc, calls = self.run_hook(STUB_LOSETUP_FAIL='1')
         self.assertEqual(rc, 1)
-        self.assertEqual(calls[-1], f'mount --move {self.root}/q25-carrier {self.root}/sysroot')
+        self.assertEqual(calls[-1], f'mount --move {self.root}/{self.NAME}-carrier {self.root}/sysroot')
         self.assertNotIn('losetup -d', ' '.join(calls))
+
+
+    def test_ignores_another_carrier_name(self):
+        other = 'mp01' if self.NAME == 'q25' else 'q25'
+        self.cmdline(f'{other}.rootfs_file={IMAGE}')
+        self.assertEqual(self.run_hook(), (0, []))
+
+    def test_refuses_without_a_carrier_name(self):
+        (self.root / 'usr/share/marathon/carrier.conf').write_text('CARRIER_DTB=vendor/board.dtb\n')
+        rc, calls = self.run_hook()
+        self.assertEqual((rc, calls), (1, []))
+        self.assertIn('no CARRIER_NAME', (self.root / 'dev/kmsg').read_text())
+
+
+class Q25(CarrierHook, unittest.TestCase):
+    NAME = 'q25'
+
+
+class MP01(CarrierHook, unittest.TestCase):
+    NAME = 'mp01'
 
 
 if __name__ == '__main__':
