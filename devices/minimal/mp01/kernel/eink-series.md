@@ -16,6 +16,9 @@ vendor prefix; `mp01-0001` already adds it, so that copy was dropped.
 | mp01-0013 `dt-bindings: display: panel: Add the Minimal Z10 e-paper display` | `minimal,z10-eink` | device-class-optional | dri-devel |
 | mp01-0014 `drm/panel: Add the Minimal Z10 e-paper display driver` | `panel-minimal-z10-eink` | device-class-optional | dri-devel |
 | mp01-0016 `drm/mediatek: dsi: Meet the D-PHY clock lane minimums` | clock-lane trail and zero times at low data rates | SoC-common | the shared MT6789 series, then linux-mediatek |
+| mp01-0024 `dt-bindings: display: mediatek: dsi: Add mediatek,vendor-link-timing` | the DT property | SoC-common | the shared MT6789 series, then dri-devel |
+| mp01-0025 `drm/mediatek: dsi: Program the vendor link timing on request` | vendor word counts and data lane timings behind the property | SoC-common, DT-guarded | the shared MT6789 series, then linux-mediatek |
+| mp01-0026 `arm64: dts: mediatek: mp01: Use the vendor DSI link timing` | sets the property | board | with the board DTS |
 
 mp01-0009 to 0012 are SoC-common. They do nothing unless a board's DSI
 endpoint has `data-lanes`, so the Q25 is unaffected. They are in the MP01
