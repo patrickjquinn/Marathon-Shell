@@ -11,12 +11,14 @@ BackdropProbe {
 
     readonly property bool schemeLight: Silica.Theme.colorScheme === Silica.Theme.DarkOnLight
     // Not animated, for images tinted by drawing them again.
-    readonly property color target: light ? Silica.Theme.darkPrimaryColor : Silica.Theme.lightPrimaryColor
+    // E-paper has no wallpaper: ink on paper.
+    readonly property bool onPaper: light || MColors.eink
+    readonly property color target: onPaper ? Silica.Theme.darkPrimaryColor : Silica.Theme.lightPrimaryColor
     property color glyph: target
     readonly property color secondary: Silica.Theme.rgba(glyph, Silica.Theme.opacityHigh)
     // The ambience's highlight where it reads, else the glyph colour.
-    readonly property color accent: light === schemeLight ? Silica.Theme.highlightColor : glyph
-    property color halo: light ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.35)
+    readonly property color accent: onPaper === schemeLight ? Silica.Theme.highlightColor : glyph
+    property color halo: onPaper ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.35)
 
     fallbackLight: schemeLight
 

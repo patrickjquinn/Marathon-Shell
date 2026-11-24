@@ -28,6 +28,13 @@ TestCase {
             maxHeight: 640
         }
 
+        WallpaperTone {
+            id: tone
+
+            width: 100
+            height: 20
+        }
+
         Key {
             id: shiftKey
 
@@ -90,6 +97,15 @@ TestCase {
         compare(MColors.whiteOverlay08.r, 0);
         fuzzyCompare(MColors.whiteOverlay08.a, 1 / 15, 0.005);
         fuzzyCompare(MColors.whiteOverlay16.a, 2 / 15, 0.005);
+    }
+
+    // Home's labels sit on paper, not on a wallpaper the frame reads dark.
+    function test_textOnTheBackdropIsInk() {
+        tone.light = false;
+        compare(tone.target, Silica.Theme.lightPrimaryColor);
+        MColors.eink = true;
+        compare(tone.target, Silica.Theme.darkPrimaryColor);
+        tone.light = Qt.binding(() => tone.fallbackLight);
     }
 
     function test_refreshTileOnlyWithRefreshControls() {

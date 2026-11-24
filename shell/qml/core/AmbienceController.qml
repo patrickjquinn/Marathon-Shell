@@ -63,10 +63,8 @@ QtObject {
         })
 
     function buildMap() {
-        if (MColors.eink)
-            return Object.assign({}, einkMap);
         const scheme = service.light ? 1 : 0;
-        const map = {
+        const map = MColors.eink ? Object.assign({}, einkMap) : {
             "/desktop/jolla/theme/color/highlight": Ambience.highlightFromColor(service.baseColor, scheme),
             "/desktop/jolla/theme/color_scheme": service.light ? "darkonlight" : "lightondark",
             "/desktop/jolla/theme/wallpaper": service.wallpaperUrl
@@ -77,7 +75,8 @@ QtObject {
     }
 
     function apply() {
-        if (!service || !service.baseColor.valid)
+        // E-paper's palette needs no wallpaper seed.
+        if (!service || (!MColors.eink && !service.baseColor.valid))
             return;
         const map = buildMap();
         Ambience.applyForwarded(Object.keys(map).map(k => k + "=" + map[k]).join("\n"));

@@ -30,8 +30,9 @@ float threshold(vec2 frag) {
 // pass unchanged; what lies between is dithered, not rounded.
 void main()
 {
+    // Premultiplied: where nothing is drawn, the paper shows.
     vec4 c = texture(source, qt_TexCoord0);
-    float y = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+    float y = dot(c.rgb + vec3(1.0 - c.a), vec3(0.299, 0.587, 0.114));
     float t = threshold(gl_FragCoord.xy);
     float g = binary > 0.5 ? step(t, y) : floor(y * 15.0 + t) / 15.0;
     fragColor = vec4(vec3(g), 1.0) * qt_Opacity;
