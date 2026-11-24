@@ -129,6 +129,7 @@ _board="
 	mp01-0025-drm-mediatek-dsi-Program-the-vendor-link-timing-on-req.patch
 	mp01-0026-arm64-dts-mediatek-mp01-Use-the-vendor-DSI-link-timing.patch
 	mp01-0027-arm64-dts-mediatek-mp01-Run-the-e-paper-I2C-at-400-kHz.patch
+	mp01-0028-pwm-mtk-disp-Drive-the-MT6789-PWM-as-the-MT8183-s.patch
 	mp01-0030-dt-bindings-pwm-mediatek-mt2712-pwm-Add-MT6789.patch
 	mp01-0031-pwm-mediatek-Add-MT6789-support.patch
 	mp01-0032-arm64-dts-mediatek-mp01-Add-the-warm-front-light.patch
@@ -310,6 +311,7 @@ fdc226b3030640650d5d523a7e978cd550ffb83f7f7165e77fa30b21fe696b66db2cd874f0fded00
 bbea5685a55bb90607ff960bcd76d6bd4957520853189fe31887a3d43ad62830623dc7110d9826f63aaee9b928225b782d535089b7b1f62687916466205bbef1  mp01-0025-drm-mediatek-dsi-Program-the-vendor-link-timing-on-req.patch
 2b14b15839b7d3881cea9a199456d07873b9a502a8c58248c4b0d9b40563eab1c97cfae206bd0c03340a4453699a77dad4110034a537b4bd2c8e553d29939a5d  mp01-0026-arm64-dts-mediatek-mp01-Use-the-vendor-DSI-link-timing.patch
 9697991d2fbaac9a438989a07d570a356dfba33f6966fa255a5b63b758f7bf95c28a8fa9ff710ce6178549279a942b07f165f65e5e534916af115a76bd356470  mp01-0027-arm64-dts-mediatek-mp01-Run-the-e-paper-I2C-at-400-kHz.patch
+326c33c0be65be14e90e3c34d28424dfe13280f06d2818caff3ae9e9694721987647746aeac05bb9189ecf60f9f7d43882df428bf5fd891bf3171fac4e593ea5  mp01-0028-pwm-mtk-disp-Drive-the-MT6789-PWM-as-the-MT8183-s.patch
 684268a9bbaecaff75bd503210dd2f0164a9549e5a8d0a263ce9aaaff883e27ad7f9588d029bd3c20bd7720f5e25fd87c4e572b0c1d3b8caf2b27a299f640a4e  mp01-0030-dt-bindings-pwm-mediatek-mt2712-pwm-Add-MT6789.patch
 607ad67496d4ca8c0fc5085adca2defcc8d15fab8e70c948d8732f0a2d20a25887cba4f1a9f1190279651e48e9f74ba7901e9dca2c93b319cbea7f4f0fa93e6f  mp01-0031-pwm-mediatek-Add-MT6789-support.patch
 6ee8d5653fd62a507e25ba1ff32bd9362a8bcebbea3c68d68f65bca98f00ed059a6f06a9d66c8fc156a26eb399df998dc6db4266da4c17225301685490f41a92  mp01-0032-arm64-dts-mediatek-mp01-Add-the-warm-front-light.patch
