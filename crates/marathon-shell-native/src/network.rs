@@ -1105,6 +1105,17 @@ async fn notice_actions() -> stream::Boxed<Event> {
     }
 }
 
+/// Whether a device state ends the attempt. A new profile passes through
+/// need-auth with no reason before its stored key is tried.
+fn device_state_failure(state: u32, reason: u32) -> Option<String> {
+    const REASON_NONE: u32 = 0;
+    match state {
+        DEVICE_FAILED => Some(device_failure(reason)),
+        DEVICE_NEED_AUTH if reason != REASON_NONE => Some(fl!("network-wrong-password")),
+        _ => None,
+    }
+}
+
 /// A Wi-Fi device's reason for failing a connection, for the person.
 fn device_failure(reason: u32) -> String {
     const IP_CONFIG_UNAVAILABLE: u32 = 5;
@@ -1909,10 +1920,8 @@ impl Actor {
         if self.wifi_device.as_ref() != Some(path) {
             return;
         }
-        let message = match state {
-            DEVICE_FAILED => device_failure(reason),
-            DEVICE_NEED_AUTH => fl!("network-wrong-password"),
-            _ => return,
+        let Some(message) = device_state_failure(state, reason) else {
+            return;
         };
         let Some(active) = self.pending.as_mut().and_then(|p| p.path.take()) else {
             return;
@@ -2244,9 +2253,28 @@ pub(crate) fn set_rfkill(types: &[&str], block: bool) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        activation_error, connectivity_name, deactivation_error, device_failure, merge, security,
-        visible_wifi_settings, wifi_settings, AccessPoint, Value,
+        activation_error, connectivity_name, deactivation_error, device_failure,
+        device_state_failure, merge, security, visible_wifi_settings, wifi_settings, AccessPoint,
+        Value, DEVICE_FAILED, DEVICE_NEED_AUTH,
     };
+
+    #[test]
+    fn a_new_profile_asking_for_secrets_is_not_a_wrong_password() {
+        assert_eq!(device_state_failure(DEVICE_NEED_AUTH, 0), None);
+    }
+
+    #[test]
+    fn a_rejected_key_is_a_wrong_password() {
+        assert_eq!(
+            device_state_failure(DEVICE_NEED_AUTH, 8).as_deref(),
+            Some("Incorrect password")
+        );
+        assert_eq!(
+            device_state_failure(DEVICE_FAILED, 53).as_deref(),
+            Some("Network not found")
+        );
+        assert_eq!(device_state_failure(100, 0), None);
+    }
 
     #[test]
     fn a_failed_device_says_why() {
