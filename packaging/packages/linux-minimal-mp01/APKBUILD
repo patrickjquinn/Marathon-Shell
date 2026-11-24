@@ -7,7 +7,7 @@
 # README.md says what is shared, what is board, and what is untested.
 pkgname=linux-minimal-mp01
 pkgver=7.0.0
-pkgrel=4
+pkgrel=5
 _commit=978b8b672d68e43b08c891132b974255489889aa
 _mindone=9cd73c15f312cfd1e40a22d871de65a2fb2c5791
 _sound=996ec48145f6746ecc664e92c6e5892b6978e3ae
