@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 21:30:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: mp01: Keep the bootloader's display
+ alive
+
+LK leaves the DISP power domain and the display pipeline running, and
+U-Boot hands its framebuffer to Linux as a /chosen simple-framebuffer
+without clocks. The clock framework then gates the pipeline as unused
+under the running engines. The OVL interrupt stays raised with no clock
+to clear it, mediatek-drm's probe takes an interrupt storm ("irq nobody
+cared"), and the phone hung and was reset by the watchdog on most boots
+after a warm reboot.
+
+Describe the framebuffer with the DISP domain and the clocks of the
+OVL0 -> RDMA0 -> COLOR0 -> CCORR0 -> AAL0 -> GAMMA0 -> POSTMASK0 ->
+DITHER0 -> DSI0 path, as the Zinwa Q25 does, so that simpledrm holds
+them until mediatek-drm takes over. U-Boot updates an existing
+simple-framebuffer node instead of adding its own.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+--- a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+@@ -32,6 +32,36 @@
+ 	#address-cells = <2>;
+ 	#size-cells = <2>;
+ 
++	chosen {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		/* LK's 800x600 panel buffer, which U-Boot also draws in. */
++		framebuffer@ffa23000 {
++			compatible = "simple-framebuffer";
++			reg = <0 0xffa23000 0 (3200 * 600)>;
++			width = <800>;
++			height = <600>;
++			stride = <3200>;
++			format = "a8r8g8b8";
++			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++			clocks = <&mmsys CLK_MM_DISP_MUTEX0>,
++				 <&mmsys CLK_MM_APB_BUS>,
++				 <&mmsys CLK_MM_DISP_OVL0>,
++				 <&mmsys CLK_MM_DISP_RDMA0>,
++				 <&mmsys CLK_MM_DISP_COLOR0>,
++				 <&mmsys CLK_MM_DISP_CCORR0>,
++				 <&mmsys CLK_MM_DISP_AAL0>,
++				 <&mmsys CLK_MM_DISP_GAMMA0>,
++				 <&mmsys CLK_MM_DISP_POSTMASK0>,
++				 <&mmsys CLK_MM_DISP_DITHER0>,
++				 <&mmsys CLK_MM_DSI0>,
++				 <&mmsys CLK_MM_DSI0_DSI_CK_DOMAIN>,
++				 <&mmsys CLK_MM_DISP_26M>;
++		};
++	};
++
+ 	/* The bootloader writes the real size; 6 GiB is the shipped part. */
+ 	memory@40000000 {
+ 		device_type = "memory";
+-- 
+2.47.0

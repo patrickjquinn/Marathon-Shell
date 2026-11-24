@@ -116,6 +116,7 @@ _board="
 	mp01-0014-drm-panel-Add-the-Minimal-Z10-e-paper-display-driver.patch
 	mp01-0015-arm64-dts-mediatek-Add-the-Minimal-Phone-MP01.patch
 	mp01-0016-drm-mediatek-dsi-Meet-the-D-PHY-clock-lane-minimums.patch
+	mp01-0017-arm64-dts-mediatek-mp01-Keep-the-bootloader-s-display-alive.patch
 	mp01-0018-drm-mediatek-Unbind-the-display-stub-driver-last.patch
 	mp01-0019-dt-bindings-power-supply-Add-the-MediaTek-MT6375-cha.patch
 	mp01-0020-dt-bindings-mfd-Add-the-MediaTek-MT6375-SubPMIC.patch
@@ -285,6 +286,7 @@ bc4796c5ced115e0e565d24e70ae22016c90c632597ade2f7f094ddd7e79d26842d163080a82c7be
 9bb4e737f6409142ed2a398b711d74555f6d5ae755cc3407e828fea324393e2e83a21e62b950ae0081ed0dce3653a0f8ed79c1d461cb01d47d6ac4b26eeb61f3  mp01-0014-drm-panel-Add-the-Minimal-Z10-e-paper-display-driver.patch
 e2fd05c9bea450636a3a6341d580080c3598291b7e13b2114385d8ca8fd21bb537e660e819820ca438cac7afa93dd33bb01c3043d3fc33e132b210b41ad47e33  mp01-0015-arm64-dts-mediatek-Add-the-Minimal-Phone-MP01.patch
 9dbe360a7bca64dc0281c37460e90256cc17ffd5a2d36b9674ea0b713f119a3c1ea72d53b9896d45734a6cbe301c0e1b956d16e59c831ff64bc67b15885f993e  mp01-0016-drm-mediatek-dsi-Meet-the-D-PHY-clock-lane-minimums.patch
+8367bfa53971b60b1c3a296eff48dce5152f632e30d229f810d95088864818741d3384648043f30e5bdd74128f9811dba7b44ad7458ab4fda1b5fbbef82a9269  mp01-0017-arm64-dts-mediatek-mp01-Keep-the-bootloader-s-display-alive.patch
 8bc991e08f0aba3a51e0966ad3e0258d42467e75fef7fb76dc41b2a788ba17d3541349c646622ed311a98e455408d574e35209e0033b7484568313d5e0dfd451  mp01-0018-drm-mediatek-Unbind-the-display-stub-driver-last.patch
 61aafe10187ce5dc83dce8b9d456e5715a9bbcb8c161209557694db9d64855134a794239c5406ff3d9bd4195533d226e1a6ceb79c6115a937ac3aeaccf5d1b1c  mp01-0019-dt-bindings-power-supply-Add-the-MediaTek-MT6375-cha.patch
 c498516d719328c30b13d02aee03fec7493000fda30469131e04c604c3496660b3dab3fd7772ba12f1e6852069a794ea35f3d8b4b72ac7e6d8b49931c4eb1ebe  mp01-0020-dt-bindings-mfd-Add-the-MediaTek-MT6375-SubPMIC.patch
