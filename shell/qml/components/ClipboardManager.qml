@@ -10,7 +10,7 @@ Rectangle {
     id: clipboardManager
 
     anchors.fill: parent
-    color: Silica.Theme.rgba("black", 0.85)
+    color: MColors.badge
     visible: UIStore.clipboardManagerOpen
     z: 2650
     opacity: visible ? 1 : 0

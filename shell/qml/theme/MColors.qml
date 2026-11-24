@@ -75,6 +75,10 @@ QtObject {
     // A control's resting fill.
     readonly property color controlFill: eink ? "#eeeeee" : Qt.rgba(1, 1, 1, 0.08)
     readonly property color border: borderGlass
+    // Toasts, the HUD and other cards over whatever is behind them: dark
+    // glass, or paper with an ink edge on e-paper, which can only dither it.
+    readonly property color badge: eink ? background : Qt.rgba(0, 0, 0, 0.85)
+    readonly property real badgeEdgeOpacity: eink ? 1 : 0.1
 
     // On paper an overlay darkens, one and two of the panel's grey steps.
     readonly property color whiteOverlay08: eink ? Qt.rgba(0, 0, 0, 1 / 15) : Qt.rgba(1, 1, 1, 0.08)

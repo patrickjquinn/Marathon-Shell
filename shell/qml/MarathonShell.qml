@@ -1581,9 +1581,9 @@ Item {
         width: Math.min(parent.width - 2 * Silica.Theme.horizontalPageMargin, Silica.Theme.itemSizeHuge * 4)
         height: privacyRows.height + 2 * Silica.Theme.paddingLarge
         radius: Silica.Theme.paddingLarge
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.15)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.eink ? 1 : 0.15)
         visible: shown && statusBar.privacyColors.length > 0
         z: Constants.zIndexStatusBarDrag + 1
         onVisibleChanged: if (visible)

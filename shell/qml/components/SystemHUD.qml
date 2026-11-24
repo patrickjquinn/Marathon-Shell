@@ -49,9 +49,9 @@ Item {
         anchors.margins: Silica.Theme.paddingSmall
         height: Silica.Theme.itemSizeSmall
         radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
         opacity: 0
         visible: hudContainer.hudVisible
 

@@ -42,9 +42,9 @@ Item {
         width: Math.round(parent.width / 4) + Silica.Theme.paddingMedium * 2
         height: thumb.height + caption.height + Silica.Theme.paddingMedium * 2 + Silica.Theme.paddingSmall
         radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
         visible: screenshotPreview.showing
         opacity: 0
         Accessible.role: Accessible.Button

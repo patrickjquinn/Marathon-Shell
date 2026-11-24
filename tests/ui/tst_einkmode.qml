@@ -91,6 +91,14 @@ TestCase {
         compare(MColors.tealHalo.a, 0);
     }
 
+    // Toasts and the HUD: paper with an ink edge, not dark glass.
+    function test_badgesAreInkOnPaper() {
+        fuzzyCompare(MColors.badge.a, 0.85, 0.01);
+        MColors.eink = true;
+        compare(MColors.badge, Qt.color("#ffffff"));
+        compare(MColors.badgeEdgeOpacity, 1);
+    }
+
     // On paper an overlay darkens by whole grey steps.
     function test_overlaysDarkenOnPaper() {
         MColors.eink = true;

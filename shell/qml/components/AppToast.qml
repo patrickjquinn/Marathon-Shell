@@ -42,9 +42,9 @@ Item {
         width: Math.min(toastRow.implicitWidth + Silica.Theme.paddingLarge * 2, parent.width - Silica.Theme.horizontalPageMargin * 2)
         height: Math.max(Silica.Theme.itemSizeSmall, toastRow.implicitHeight + Silica.Theme.paddingMedium * 2)
         radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
         visible: appToast.shown || hideTimer.running
 
         Row {
