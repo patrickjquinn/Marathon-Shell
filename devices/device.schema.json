@@ -182,6 +182,7 @@
         "touch_filter": {"description": "Smooth touch with Qt evdevtouch's Kalman filter, one point a frame: even steps, more lag; false = each report as it comes.", "type": "boolean"},
         "display_technology": {"description": "What the panel is: lcd, oled, or epaper (which ghosts under motion).", "enum": ["lcd", "oled", "epaper"]},
         "panel_orientation": {"description": "kms: the compositor turns the scene and the wl_output by the DRM connector's \"panel orientation\", which the panel driver sets from the DT rotation, for a panel mounted turned; none (the default) ignores it.", "enum": ["none", "kms"]},
+        "frontlight_warm": {"description": "The LED class directory of a front light's warm LEDs, which the night light drives instead of tinting the screen.", "type": "string", "pattern": "^/sys/class/leds/[^/]+$"},
         "touch_params": {"description": "Extra Qt evdevtouch parameters for the panel, colon-separated (rotate=90, invertx, inverty, prediction=ms).", "type": "string", "pattern": "^(rotate=(90|180|270)|invertx|inverty|prediction=[0-9]+)(:(rotate=(90|180|270)|invertx|inverty|prediction=[0-9]+))*$"},
         "force_dpi": {"description": "Read by marathon-shell-session: pins the shell's DPI and so its scale.", "type": "number", "exclusiveMinimum": 0},
         "vulkan_driver": {"description": "Read by marathon-shell-session: the one Mesa Vulkan driver apps' loader opens, by ICD manifest name; unset = every installed driver.", "type": "string", "pattern": "^[a-z0-9_]+$"}

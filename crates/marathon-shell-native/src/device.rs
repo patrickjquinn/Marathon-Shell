@@ -150,6 +150,12 @@ impl Values {
         }
     }
 
+    /// The LED that warms a front light, which the night light drives.
+    pub fn frontlight_warm(&self) -> Option<std::path::PathBuf> {
+        self.get("MARATHON_FRONTLIGHT_WARM", "FRONTLIGHT_WARM")
+            .map(std::path::PathBuf::from)
+    }
+
     pub fn runner_size(&self) -> (i32, i32) {
         (
             self.number("MARATHON_APP_WIDTH", "RUNNER_WIDTH", 540, |n| *n > 0),
