@@ -1,12 +1,21 @@
 # SPDX-License-Identifier: Apache-2.0
 RTL := rtl/epd_unpack.v rtl/epd_line_fifo.v rtl/epd_timing.v rtl/epd_bridge_core.v
+CFG := rtl/i2c_slave.v rtl/cfg_bridge.v rtl/por_sync.v
 
-.PHONY: sim lut clean
+.PHONY: sim i2c lut clean
 
 sim: build/tb.vvp build/meta.hex
 	vvp -n build/tb.vvp +frames=build/frames.hex +meta=build/meta.hex \
 		+nframes=$$(wc -l < build/meta.hex) | tee build/sim.log
 	@grep -q '^RESULT: PASS' build/sim.log
+
+i2c: build/tb_i2c.vvp
+	vvp -n build/tb_i2c.vvp +dm=0 | tee build/i2c0.log
+	vvp -n build/tb_i2c.vvp +dm=1 | tee build/i2c1.log
+	@grep -q '^RESULT: PASS' build/i2c0.log && grep -q '^RESULT: PASS' build/i2c1.log
+
+build/tb_i2c.vvp: $(CFG) rtl/epd_stage1_top.v tb/tb_i2c.v tb/ccs_model.v tb/osc_model.v | build
+	iverilog -g2012 -Wall -Wno-timescale -I rtl -s tb_i2c -o $@ tb/tb_i2c.v tb/ccs_model.v tb/osc_model.v $(CFG) rtl/epd_stage1_top.v
 
 build/tb.vvp: $(RTL) rtl/crc16_mcrf4xx.vh tb/tb_bridge.v | build
 	iverilog -g2012 -Wall -Wno-timescale -I rtl -s tb_bridge -o $@ tb/tb_bridge.v $(RTL)
