@@ -39,7 +39,7 @@ declares it but stock loads no driver for it.
 | Cameras | S5K3P3SP main (i2c2, 4 lanes), BF2553L front (i2c4, 2 lanes) | not described | No mainline driver for either sensor; Minimal's `mp01-kernel` has both as MTK imgsensor drivers. Rails are GPIO-switched LDOs, not the Q25's WL2868C. The DT has a third sensor (`main_two`, i2c8) that `ProjectConfig.mk` doesn't list, so it is probably not fitted. Plan in "Cameras" below |
 | Flash | LM3643 (i2c6 0x63), OCP81375 (i2c8 0x64) | untested | |
 | Sensors | accelerometer, gyroscope, light, proximity | untested | Behind the SCP, none on the AP |
-| Fingerprint | FocalTech FP (IRQ GPIO8, reset GPIO10) | untested | |
+| Fingerprint | FocalTech FP on SPI (IRQ GPIO8, reset GPIO10) | not described | Stock `focaltech_fp` is a GPIO/IRQ shim: the SPI traffic and matching run in the tkcore TEE, so there is no Linux driver to port. See "Fingerprint" below |
 | SD card | mmc@11240000, card detect GPIO7 | untested | |
 
 ## Audio
@@ -94,6 +94,21 @@ Not described. Plan, on the Q25's SENINF/CAMSV/libcamera stack:
 Effort: about a week per sensor for a driver that streams, plus 2-3 days
 of DT and bring-up on the Q25 stack. The S5K3P3 (4 lanes, the longer
 register tables) is the larger of the two.
+
+## Fingerprint
+
+FocalTech FP (stock `focaltech_fp`), IRQ GPIO8, reset GPIO10, `ff_vdd`
+regulator, on an SPI bus the TEE owns. Stock builds the driver with
+TrustKernel: the kernel module only does reset, IRQ and power (its
+`ff_spi.o` is left out), and it reads the chip ID through
+`tee_spi_transfer()`. Capture and matching run in the tkcore TEE with
+FocalTech's trusted app. No open driver or matcher for this sensor
+turned up, so a Linux port means a new SPI capture driver
+(protocol from `ff_chip.c`: SFR/SRAM commands 0x08/0x09/0x04/0x05),
+whether the AP can reach that SPI controller at all with the TEE in
+place, and a libfprint driver with its own matching. That is weeks of work
+with no reference to test against. Leave it out until the rest of the
+phone works.
 
 ## Shared and board-specific
 
