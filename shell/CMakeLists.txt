@@ -200,6 +200,7 @@ set(QML_FILES
     qml/ui/MAppIcon.qml
     qml/ui/MAxisDrag.qml
     qml/ui/MCircularIconButton.qml
+    qml/ui/MEinkScroll.qml
     qml/ui/MEinkSwipe.qml
     qml/ui/MEntrance.qml
     qml/ui/MGlowLine.qml

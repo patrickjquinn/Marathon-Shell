@@ -384,9 +384,9 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: Silica.Theme.paddingMedium
-                color: Silica.Theme.rgba("black", 0.85)
+                color: MColors.badge
                 border.width: 1
-                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
 
                 Rectangle {
                     id: callAvatar
@@ -493,8 +493,12 @@ Item {
             anchors.bottomMargin: Silica.Theme.paddingLarge
             contentHeight: lockStack.height
             clip: true
-            interactive: contentHeight > height
+            interactive: contentHeight > height && !MMotion.instant
             boundsBehavior: Flickable.StopAtBounds
+
+            MEinkScroll {
+                flickable: lockScroller
+            }
             z: 10
 
             Column {

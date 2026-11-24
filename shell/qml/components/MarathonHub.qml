@@ -157,6 +157,7 @@ Rectangle {
         objectName: "hubList"
         anchors.fill: parent
         clip: true
+        interactive: !MMotion.instant
         model: shownNotifications
         spacing: 0
         // cacheBuffer must be non-negative — the height transition
@@ -164,6 +165,10 @@ Rectangle {
         // intermediate that Qt complains about. Clamp to 0.
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true
+
+        MEinkScroll {
+            flickable: list
+        }
 
         // At the top it stays at the top: a new row, or the filter chips
         // appearing once a second app posts, grow the list above its first

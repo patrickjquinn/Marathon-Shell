@@ -110,7 +110,8 @@ Item {
         id: dismissDrag
         // Overflowing content scrolls first; the shade closes from its end.
         // Held while active: shrinking the shade moves atYEnd.
-        enabled: active || !shadeScroll.interactive || shadeScroll.atYEnd
+        // E-paper pages the content (einkScroll), which closes past its end.
+        enabled: active || !shadeScroll.overflows || (!MMotion.instant && shadeScroll.atYEnd)
         horizontal: false
         property real startY: 0
         property real startHeight: 0
@@ -464,7 +465,7 @@ Item {
         anchors.fill: parent
         // Clipping forces a scissor and breaks batching across the whole
         // shade, and `content` animates its opacity while the shade opens.
-        clip: interactive
+        clip: overflows
         contentHeight: content.y + content.height + Silica.Theme.paddingLarge
         boundsBehavior: Flickable.StopAtBounds
         flickDeceleration: MMotion.flickDecelerationFast
@@ -472,7 +473,16 @@ Item {
 
         // Gated on the open height, not the animating one, so it does not
         // flip while the shade opens.
-        interactive: quickSettings.maxHeight > 0 && contentHeight > quickSettings.maxHeight
+        readonly property bool overflows: quickSettings.maxHeight > 0 && contentHeight > quickSettings.maxHeight
+        interactive: overflows && !MMotion.instant
+
+        MEinkScroll {
+            flickable: shadeScroll
+            onBeyond: step => {
+                if (step > 0)
+                    UIStore.closeQuickSettings();
+            }
+        }
 
         // The shade is hidden, not destroyed: reopen at the top.
         onVisibleChanged: if (!visible) {

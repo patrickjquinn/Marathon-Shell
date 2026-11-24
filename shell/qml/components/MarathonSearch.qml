@@ -265,10 +265,14 @@ Item {
             height: parent.height - searchBarContainer.height - parent.spacing
             clip: true
             model: searchOverlay.searchResults
-            interactive: true
+            interactive: !MMotion.instant
             flickDeceleration: MMotion.flickDeceleration
             maximumFlickVelocity: MMotion.flickVelocity
             boundsBehavior: Flickable.DragAndOvershootBounds
+
+            MEinkScroll {
+                flickable: resultsList
+            }
             Keys.onUpPressed: {
                 if (currentIndex === 0)
                     searchInput.forceActiveFocus();

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import QtTest
+import Sailfish.Silica 1.0 as Silica
 import MarathonOS.Shell
 import "../../shell/qml/components"
 
@@ -134,6 +135,33 @@ TestCase {
         openAtTheEnd();
         swipe(qs, Qt.point(300, 300), Qt.point(300, 180));
         verify(!UIStore.quickSettingsOpen);
+        MMotion.instant = false;
+    }
+
+    SignalSpy {
+        id: scrollSpy
+
+        signalName: "contentYChanged"
+    }
+
+    // E-paper: overflowing content moves a page, less a row, in one jump.
+    function test_epaperShadePagesOnASidewaysPanel() {
+        MMotion.instant = true;
+        UIStore.openQuickSettings();
+        tryCompare(qs, "drawnHeight", 400);
+        const f = findChild(qs, "shadeScroll");
+        f.contentY = 0;
+        verify(f.overflows);
+        verify(!f.interactive);
+        scrollSpy.target = f;
+        scrollSpy.clear();
+        swipe(qs, Qt.point(300, 300), Qt.point(300, 180));
+        verify(UIStore.quickSettingsOpen);
+        compare(scrollSpy.count, 1);
+        const page = 400 - Silica.Theme.itemSizeSmall;
+        compare(f.contentY, Math.min(page, f.contentHeight - f.height));
+        swipe(qs, Qt.point(300, 180), Qt.point(300, 300));
+        compare(f.contentY, 0);
         MMotion.instant = false;
     }
 
