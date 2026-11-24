@@ -16,6 +16,7 @@ QtObject {
     property bool refreshControls: false
     property string restingRefreshMode: "quality"
     property bool autoClear: true
+    property bool warmLightAvailable: false
     property int fullRefreshes: 0
 
     function fullRefresh() {
@@ -42,6 +43,7 @@ QtObject {
         refreshControls = false;
         restingRefreshMode = "quality";
         autoClear = true;
+        warmLightAvailable = false;
         fullRefreshes = 0;
     }
 }

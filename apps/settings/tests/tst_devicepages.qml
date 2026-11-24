@@ -140,6 +140,16 @@ TestCase {
         verify(!from.visible);
     }
 
+    // A warm front light: the same warmth, as a share of the warm LEDs.
+    function test_nightLightWarmLight() {
+        const s = open("display");
+        const warmth = child(s.page, "nightLightWarmth");
+        compare(warmth.valueText, "3400 K");
+        Display.warmLightAvailable = true;
+        compare(warmth.valueText, "61%");
+        verify(child(s.page, "nightLightSwitch").description.indexOf("front light") >= 0);
+    }
+
     function test_nightshade() {
         const s = open("display");
         const from = child(s.page, "nightshadeFrom");

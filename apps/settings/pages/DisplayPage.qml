@@ -132,7 +132,7 @@ Page {
             TextSwitch {
                 objectName: "nightLightSwitch"
                 text: qsTr("Night light")
-                description: qsTr("Warms the screen's colours, which is easier on your eyes and sleep in the evening")
+                description: Display.warmLightAvailable ? qsTr("Warms the front light, which is easier on your eyes and sleep in the evening") : qsTr("Warms the screen's colours, which is easier on your eyes and sleep in the evening")
                 automaticCheck: false
                 checked: Display.nightLightEnabled
                 onClicked: Display.nightLightEnabled = !checked
@@ -145,7 +145,8 @@ Page {
                 maximumValue: 100
                 stepSize: 1
                 value: Logic.nightLightWarmth(Display.nightLightTemperature)
-                valueText: qsTr("%1 K").arg(Logic.nightLightKelvin(sliderValue))
+                // A warm front light has no colour temperature to show.
+                valueText: Display.warmLightAvailable ? qsTr("%1%").arg(Math.round(sliderValue)) : qsTr("%1 K").arg(Logic.nightLightKelvin(sliderValue))
                 onValueChanged: {
                     if (down)
                         Display.nightLightTemperature = Logic.nightLightKelvin(value);

@@ -35,6 +35,8 @@ pub mod qobject {
         /// quality or text: where the panel rests once still.
         #[qproperty(QString, resting_refresh_mode, cxx_name = "restingRefreshMode", READ, WRITE = set_resting_refresh_mode, NOTIFY = state_changed)]
         #[qproperty(bool, auto_clear, cxx_name = "autoClear", READ, WRITE = set_auto_clear, NOTIFY = state_changed)]
+        /// The night light warms a front light instead of tinting the screen.
+        #[qproperty(bool, warm_light_available, cxx_name = "warmLightAvailable", READ, NOTIFY = state_changed)]
         /// False once the shell refuses the system permission.
         #[qproperty(bool, permitted, READ, NOTIFY = state_changed)]
         type Display = super::DisplayRust;
@@ -97,6 +99,7 @@ pub struct DisplayRust {
     refresh_controls: bool,
     resting_refresh_mode: QString,
     auto_clear: bool,
+    warm_light_available: bool,
     permitted: bool,
 }
 
@@ -124,6 +127,7 @@ impl cxx_qt::Initialize for Display {
                     d.refresh_controls = get(&s, "refreshControls");
                     d.resting_refresh_mode = get(&s, "restingRefreshMode");
                     d.auto_clear = get(&s, "autoClear");
+                    d.warm_light_available = get(&s, "warmLightAvailable");
                 }
             }
             obj.state_changed();
