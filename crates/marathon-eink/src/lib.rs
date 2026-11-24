@@ -144,6 +144,12 @@ pub struct Policy {
     moved_at: Option<Instant>,
     typed_at: Option<Instant>,
     frames: VecDeque<Instant>,
+    /// The last of a run of frames that is motion.
+    animated_at: Option<Instant>,
+    /// A waveform switch not yet drawn: the frame that follows it redraws
+    /// the switch (the shell's output shader follows the waveform), not
+    /// content.
+    redraw: Option<Instant>,
     /// The last input or frame.
     active_at: Option<Instant>,
     /// Ghosting since the last clear, in `fast` frames.
@@ -152,6 +158,9 @@ pub struct Policy {
     clear_asked: bool,
     screen_on: bool,
 }
+
+/// How soon after a switch its redraw is presented.
+const REDRAW: Duration = Duration::from_millis(100);
 
 fn within(since: Option<Instant>, span: Duration, now: Instant) -> bool {
     since.is_some_and(|t| now.saturating_duration_since(t) < span)
@@ -169,6 +178,8 @@ impl Policy {
             moved_at: None,
             typed_at: None,
             frames: VecDeque::new(),
+            animated_at: None,
+            redraw: None,
             active_at: None,
             debt: 0,
             cleared_at: None,
@@ -238,6 +249,13 @@ impl Policy {
                 if self.applied == Some(Waveform::Fast) {
                     self.debt = self.debt.saturating_add(1);
                 }
+                if self
+                    .redraw
+                    .take()
+                    .is_some_and(|t| within(Some(t), REDRAW, now))
+                {
+                    return;
+                }
                 let window = self.tuning.motion_window;
                 while self
                     .frames
@@ -248,7 +266,7 @@ impl Policy {
                 }
                 self.frames.push_back(now);
                 if self.frames.len() >= self.tuning.motion_frames {
-                    self.moved_at = Some(now);
+                    self.animated_at = Some(now);
                 }
             }
             Input::Clear => self.clear_asked = self.screen_on,
@@ -262,17 +280,21 @@ impl Policy {
                     self.moved_at = None;
                     self.typed_at = None;
                     self.frames.clear();
+                    self.animated_at = None;
                     self.clear_asked = false;
                 }
             }
         }
     }
 
-    /// The waveform this moment calls for.
+    /// The waveform this moment calls for. While typing, content that
+    /// changes by itself (a list filtering as the user types) stays in
+    /// `text`: only a finger or a scroll goes fast.
     pub fn want(&self, now: Instant) -> Waveform {
         let typing = self.typing(now);
         let moving = self.touch == Touch::Dragging
             || within(self.moved_at, self.tuning.settle, now)
+            || (!typing && within(self.animated_at, self.tuning.settle, now))
             || (self.touch != Touch::Up && !typing);
         if moving {
             Waveform::Fast
@@ -310,6 +332,7 @@ impl Policy {
         if self.applied != Some(want) && self.switch_ready(now) {
             self.applied = Some(want);
             self.switched_at = Some(now);
+            self.redraw = Some(now);
             actions.push(Action::Waveform(want));
         }
         let at_rest = want == self.resting && self.applied == Some(want) && self.touch == Touch::Up;
@@ -330,6 +353,7 @@ impl Policy {
         let after = |since: Option<Instant>, span: Duration| since.map(|s| s + span);
         let mut candidates = vec![
             after(self.moved_at, t.settle),
+            after(self.animated_at, t.settle),
             after(self.typed_at, t.typing),
         ];
         if self.applied != Some(self.want(now)) {
@@ -496,6 +520,53 @@ mod tests {
         assert!(c.input(1033, Input::Frame).is_empty());
         assert_eq!(c.input(1050, Input::Frame), vec![FAST]);
         assert_eq!(c.run_until(2000), vec![(1400, QUALITY)]);
+    }
+
+    #[test]
+    fn content_changing_while_typing_stays_in_text() {
+        let mut c = Clock::new();
+        assert_eq!(c.input(1000, Input::Key), vec![TEXT]);
+        // The search results redraw for 200 ms after each key.
+        for key in 0..3u64 {
+            let at = 1000 + 400 * key;
+            c.policy.handle(Input::Key, c.at(at));
+            for f in 1..=12 {
+                assert!(c.input(at + 16 * f, Input::Frame).is_empty(), "{at} {f}");
+            }
+        }
+        assert_eq!(c.policy.want(c.at(2300)), Waveform::Text);
+        assert_eq!(c.run_until(5000), vec![(3300, QUALITY)]);
+    }
+
+    #[test]
+    fn frames_go_fast_again_once_typing_ends() {
+        let mut c = Clock::new();
+        assert_eq!(c.input(1000, Input::Key), vec![TEXT]);
+        assert_eq!(c.run_until(2600), vec![(2500, QUALITY)]);
+        for ms in [2700, 2716, 2733] {
+            assert!(c.input(ms, Input::Frame).is_empty());
+        }
+        assert_eq!(c.input(2750, Input::Frame), vec![FAST]);
+    }
+
+    // The settle runs from the last frame of content: the frame that only
+    // redraws the switch to the resting waveform starts no new motion.
+    #[test]
+    fn the_redraw_of_a_switch_is_not_motion() {
+        let mut c = Clock::new();
+        for ms in [1000, 1016, 1033] {
+            assert!(c.input(ms, Input::Frame).is_empty());
+        }
+        assert_eq!(c.input(1050, Input::Frame), vec![FAST]);
+        // The switch to fast redraws: not content.
+        assert!(c.input(1066, Input::Frame).is_empty());
+        for ms in [1360, 1380, 1390] {
+            assert!(c.input(ms, Input::Frame).is_empty());
+        }
+        assert_eq!(c.run_until(1400), vec![(1400, QUALITY)]);
+        // The switch back's redraw would be a fourth frame in the window.
+        assert!(c.input(1410, Input::Frame).is_empty());
+        assert_eq!(c.policy.applied(), Some(Waveform::Quality));
     }
 
     #[test]
