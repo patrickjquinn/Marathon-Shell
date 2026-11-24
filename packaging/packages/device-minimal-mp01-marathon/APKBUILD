@@ -10,7 +10,7 @@ license="Apache-2.0"
 options="!check"
 # Marathon's Mesa, as the Q25's: Panfrost without importing every client
 # buffer into mediatek-drm.
-depends="device-minimal-mp01 mp01-kernel-modules marathon-base-config marathon-shell greetd mt6789-platform
+depends="device-minimal-mp01 mp01-kernel-modules q25-connsys-firmware marathon-base-config marathon-shell greetd mt6789-platform
  mesa=26.2.6-r100 mesa-dri-gallium=26.2.6-r100 alsa-ucm-conf alsa-utils"
 source="device-profile.conf mp01-shell-session greetd-mp01.toml 50-mp01-session.conf eglfs-kms.json
  60-mp01-display.rules 60-mp01-keyboard.rules mp01-mt6366.conf HiFi.conf

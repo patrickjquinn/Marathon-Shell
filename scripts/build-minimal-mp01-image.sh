@@ -16,6 +16,9 @@
 # Arguments go to scripts/build-image.sh.
 #
 # Env:
+#   Q25_CONNSYS_FIRMWARE_DIR  the stock CONNSYS firmware the Q25 and MP01
+#                        share, copied into the q25-connsys-firmware aport
+#                        when it is missing there
 #   MARATHON_BUILD_DIR   as for scripts/build-image.sh
 #   PODMAN               for the userdata image where the host has
 #                        e2fsprogs 1.47.3 (default podman)
@@ -23,6 +26,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$SCRIPT_DIR")"
 DEST="${MP01_IMAGE_OUT:-${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/mp01}"
+
+FW_APORT="$REPO/packaging/packages/q25-connsys-firmware"
+# shellcheck disable=SC1091
+for f in $(set +u; . "$FW_APORT/APKBUILD"; echo "${source:-}"); do
+    [ -f "$FW_APORT/$f" ] || install -m644 "${Q25_CONNSYS_FIRMWARE_DIR:?set Q25_CONNSYS_FIRMWARE_DIR to the stock CONNSYS firmware}/$f" "$FW_APORT/$f"
+done
 
 bash "$SCRIPT_DIR/build-image.sh" minimal-mp01 "$@"
 

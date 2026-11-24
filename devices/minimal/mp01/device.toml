@@ -59,7 +59,7 @@ quirks = [
 [hardware]
 modem = "MT6789 MD1 over ECCCI, LTE; its image is on the phone's md1img partition"
 gps = "CONNSYS GNSS, L1 and L5"
-wifi = "CONNSYS gen4m (wlan_drv_gen4m_6789); A-die probed at boot"
+wifi = "CONNSYS gen4m (wlan_drv_gen4m_6789); A-die MT6631, as the Q25 (stock vendor.connsys.adie.chipid 0x6631)"
 bluetooth = "CONNSYS"
 battery = "MT6366 coulomb counter; MT6375 charger and USB-C TCPC"
 nfc = "NXP PN8x (nxp,nxpnfc) on i2c3 0x28; its enable shares GPIO12 with the panel"
@@ -69,6 +69,13 @@ quirks = [
   "CPS4021 wireless charging receiver on i2c5 0x30",
   "accelerometer, light and proximity sensors sit behind the SCP, not on the AP",
 ]
+
+# The Q25's: same SoC and MT6631 A-die, and the MP01's stock vendor
+# partition holds the same WMT_SOC.cfg and FM files, with the same Wi-Fi/BT
+# RAM code branch (soc2_2-2118, E1 MT6631 MINIROM) in a later build.
+[[firmware]]
+package = "q25-connsys-firmware"
+version = "20261030"
 
 [profile]
 display_technology = "epaper"

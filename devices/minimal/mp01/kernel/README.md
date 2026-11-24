@@ -145,11 +145,11 @@ merged at build time into `mt6789-minimal-mp01-vendor.dtb`; `mp01-modem.dtso` (E
 Q25 minus `q25-md1-owner`) is built and shipped as `mp01-modem.dtbo` but not
 merged.
 
-Board-specific inputs these need, none of which may come from the Q25:
+Board-specific inputs these need:
 
-- CONNSYS ROM patches and Wi-Fi/BT firmware for the MP01's A-die (MT6631 or
-  MT6635, unknown), its NVRAM/MAC. The CONSYS EMI at `0x7e000000` is the stock
-  LK address on both other boards; confirm with the map above.
+- CONNSYS firmware: the A-die is an MT6631, as on the Q25, and
+  `q25-connsys-firmware` serves both (`../README.md`, open questions). The
+  CONSYS EMI at `0x7e000000` is the stock LK address on both other boards.
 - the MD1 image, NV data and the four MD regions from the MP01's own LK. On
   the stock chain LK loads MD1 itself; who powers it afterwards (the Q25's
   owner module did both because its U-Boot replaced LK) is the open question
