@@ -382,11 +382,17 @@ Rectangle {
         }
     }
 
-    // What scrolls up fades out under the status bar.
+    // What scrolls up fades out under the status bar; on e-paper it goes
+    // under flat paper.
     Rectangle {
         width: parent.width
         height: Constants.statusBarHeight + Silica.Theme.paddingLarge
-        gradient: Gradient {
+        color: MColors.background
+        gradient: MColors.eink ? undefined : topFade
+
+        Gradient {
+            id: topFade
+
             GradientStop {
                 position: 0.6
                 color: Silica.Theme.rgba("black", 0.85)
@@ -403,7 +409,12 @@ Rectangle {
         anchors.bottom: parent.bottom
         width: parent.width
         height: Silica.Theme.itemSizeMedium + Silica.Theme.paddingLarge
-        gradient: Gradient {
+        color: MColors.background
+        gradient: MColors.eink ? undefined : bottomFade
+
+        Gradient {
+            id: bottomFade
+
             GradientStop {
                 position: 0.0
                 color: "transparent"

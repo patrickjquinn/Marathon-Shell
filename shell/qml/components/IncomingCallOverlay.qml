@@ -151,9 +151,11 @@ Item {
         darkest: AmbienceService.darkest
     }
 
-    // Darker towards the buttons, so they read over any wallpaper.
+    // Darker towards the buttons, so they read over any wallpaper; e-paper
+    // has none.
     Rectangle {
         anchors.fill: parent
+        visible: !MColors.eink
         gradient: Gradient {
             GradientStop {
                 position: 0

@@ -185,7 +185,7 @@ Rectangle {
             width: Silica.Theme.itemSizeHuge * 1.8
             height: Silica.Theme.itemSizeExtraLarge * 1.6
             radius: width / 2
-            visible: navBar.pilotCharge > 0
+            visible: navBar.pilotCharge > 0 && !MColors.eink
             opacity: navBar.pilotCharge
             scale: 0.6 + 0.4 * navBar.pilotCharge
             transformOrigin: Item.Bottom

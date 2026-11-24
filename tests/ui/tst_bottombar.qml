@@ -39,6 +39,15 @@ TestCase {
         pageSpy.clear();
     }
 
+    // E-paper's home is flat paper: no band behind the dock.
+    function test_noScrimOnPaper() {
+        const scrim = findChild(bar, "dockScrim");
+        verify(scrim.visible);
+        MColors.eink = true;
+        verify(!scrim.visible);
+        MColors.eink = false;
+    }
+
     function test_noRingsAroundTheDock() {
         for (const name of ["dockPhone", "dockCamera"]) {
             const button = findChild(bar, name);

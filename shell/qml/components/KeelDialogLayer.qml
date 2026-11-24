@@ -118,7 +118,8 @@ Item {
         Rectangle {
             objectName: "keelDialogDim"
             anchors.fill: parent
-            visible: !!root.backdropSource
+            // E-paper: no dim, which the panel can only dither.
+            visible: !!root.backdropSource && !MColors.eink
             color: Qt.rgba(0, 0, 0, 0.6)
         }
 

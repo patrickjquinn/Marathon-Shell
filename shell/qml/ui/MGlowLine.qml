@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonOS.Shell
 import Sailfish.Silica 1.0 as Silica
 
 // Sailfish's glow line: the edge of a band or sheet lit in the highlight,
@@ -7,7 +8,13 @@ Rectangle {
     id: root
 
     implicitHeight: Math.max(2, Math.round(Silica.Theme.paddingSmall / 4))
-    gradient: Gradient {
+    // A flat line on e-paper, whose greys would dither the fade.
+    color: Silica.Theme.highlightColor
+    gradient: MColors.eink ? undefined : glow
+
+    Gradient {
+        id: glow
+
         orientation: Gradient.Horizontal
         GradientStop {
             position: 0
