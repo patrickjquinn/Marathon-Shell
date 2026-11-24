@@ -8,10 +8,12 @@ CONFIG_TOUCHSCREEN_EDT_FT5X06=m
 # NXP PN8x NFC controller.
 CONFIG_NFC_NXP_NCI=m
 CONFIG_NFC_NXP_NCI_I2C=m
-# Frontlight on DISP_PWM.
+# Frontlight: the white LEDs on DISP_PWM, the warm ones on the general PWM.
 CONFIG_PWM=y
 CONFIG_PWM_MTK_DISP=m
 CONFIG_BACKLIGHT_PWM=m
+CONFIG_PWM_MEDIATEK=m
+CONFIG_LEDS_PWM=m
 # The phone has no UART and no early display: keep the console in the
 # ramoops region LK reserves, built in so an early crash is caught.
 CONFIG_PSTORE_RAM=y

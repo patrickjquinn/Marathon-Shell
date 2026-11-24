@@ -69,7 +69,7 @@ The board DT follows the bindings of the e-paper series in this package
 | 84 | DISP_PWM (DCT mode 1) | frontlight `pwm-backlight`, 39385 ns as the vendor |
 | 66, 67 | KPCOL0/1 | as the Q25: volume down and the key between the volume keys |
 | 85, 158, 159, 43, 83 | panel reset, EPD rails, DSI TE | panel contract above; TE unused |
-| 68 | PWM_1 (DCT mode 3), the warm light | not described: the SoC PWM (`mediatek,mt6789-pwm`) has no driver match yet |
+| 68 | PWM_1 (DCT mode 3), the warm light | `pwm-leds` LED `amber:frontlight` on channel 1 of the SoC PWM (`mp01-0030`..`0032` add the MT6789 to `pwm-mediatek`); 39385 ns as the white string, stock's 62.5 Hz old-mode clock has no upstream equivalent |
 
 Keyboard: the AW9523B's upstream GPIO/pinctrl driver with
 `gpio-matrix-keypad`. Rows are the inputs P1_2-P1_7 (AW9523 lines 10-15),
