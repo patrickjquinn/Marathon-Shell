@@ -71,6 +71,7 @@ TestCase {
         compare(m["/desktop/jolla/theme/color/highlight"], "#000000");
         compare(m["/desktop/jolla/theme/color/primary"], "#000000");
         compare(m["/desktop/jolla/theme/wallpaper"], "");
+        compare(m["/desktop/sailfish/silica/paged_scrolling"], true);
         compare(m["/desktop/sailfish/silica/theme_pixel_ratio"], 1.25);
         compare(Ambience.colorScheme, 1);
         compare(Qt.color(Ambience.primaryColor), Qt.color("#000000"));

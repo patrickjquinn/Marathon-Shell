@@ -59,7 +59,9 @@ QtObject {
             "/desktop/jolla/theme/color/overlay_background": "#ffffff",
             "/desktop/jolla/theme/color/error": "#000000",
             "/desktop/jolla/theme/color_scheme": "darkonlight",
-            "/desktop/jolla/theme/wallpaper": ""
+            "/desktop/jolla/theme/wallpaper": "",
+            // Keel's lists move a page a swipe instead of following the finger.
+            "/desktop/sailfish/silica/paged_scrolling": true
         })
 
     function buildMap() {
