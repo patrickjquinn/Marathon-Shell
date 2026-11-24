@@ -13,7 +13,7 @@
 #                                     that puts it into the phone's own lk
 #                                     image (scripts/q25/build-q25-uboot.sh)
 #   q25-duranium-<date>-<rev>.SHA256SUMS
-# scripts/flash/flash-zinwa-q25.sh flashes them.
+# scripts/flash/q25-install flashes them.
 #   zinwa-q25_marathon_edge/zinwa-q25_marathon_edge_<IMAGE_VERSION>.ext4, the
 #   root again (a hard link) as the update feed names it, for
 #   scripts/ota/marathon-ota publish --image-dir (docs/OTA.md); the
