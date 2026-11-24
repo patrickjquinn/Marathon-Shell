@@ -29,7 +29,7 @@ declares it but stock loads no driver for it.
 | Wi-Fi, Bluetooth, FM | CONNSYS, `wlan_drv_gen4m_6789`, `wmt_drv`, A-die MT6631 | untested | Same drivers, units and firmware as the Q25 (`mp01-kernel-modules`, `mt6789-platform`, `q25-connsys-firmware`) |
 | GNSS | CONNSYS GNSS, L1 and L5 LNAs | untested | `q25-gnss-firmware` only knows the Q25's `libmnl.so` (sha256 `c0eba0a2…`); the MP01's is another build (`784eb16e…`) whose MT6789 L1 image offset is not yet found |
 | Modem | MD1 over ECCCI, LTE | blocked | `q25-md1-owner` hardcodes the Q25's memory map. The MD1 image is on the phone's own `md1img_a` |
-| Audio | MT6366 codec and AFE, OCA72390 PA (i2c6 0x58) | untested | Card `mp01-mt6366` from the Q25's machine driver (`mp01-audio.dtso`); the PA's Music/Off lists come from the phone's `ocs72xxx_cf.bin`. Stock also loads RT5512 and TFA98xx drivers, which bind nothing |
+| Audio | MT6366 codec and AFE, OCA72390 PA (i2c6 0x58) | binds; reported silent | Card `mp01-mt6366` from the Q25's machine driver (`mp01-audio.dtso`); the PA's Music/Off lists come from the phone's `ocs72xxx_cf.bin`. Stock also loads RT5512 and TFA98xx drivers, which bind nothing. The PA is the card's aux device; DAPM routes DL1 to it through LOL (see "Audio" below) |
 | Headset | MT6358 ACCDET | untested | |
 | Charger | MT6375 (i2c5 0x34), USB-C TCPC | blocked | No mainline driver |
 | Secondary charger | ETA6937 (i2c5 0x6b) | not fitted | |
@@ -41,6 +41,30 @@ declares it but stock loads no driver for it.
 | Sensors | accelerometer, gyroscope, light, proximity | untested | Behind the SCP, none on the AP |
 | Fingerprint | FocalTech FP (IRQ GPIO8, reset GPIO10) | untested | |
 | SD card | mmc@11240000, card detect GPIO7 | untested | |
+
+## Audio
+
+Checked on the phone without playing anything (r7, mixer, DAPM debugfs,
+the PA's registers):
+
+- The PA is part of the card as its aux device: DAPM shows `LINEOUT L` ->
+  `Speaker IN` -> `Speaker SPK PA` -> `Speaker OUT` -> `Speakers`, and the
+  whole route back to DL1 is connected under the UCM's Speaker device
+  (`LOL Mux` Playback, `HPL/HPR Mux` LoudSPK, `Speakers` on, `Lineout
+  Volume` 18 = +8 dB). PipeWire's default sink is that device, at 1.0 and
+  unmuted. The PA has no controls of its own, so `amixer` lists none.
+- The PA answers at i2c6 0x58 with chip ID 0x11 (OCA72390; stock's
+  `oca72xxx` calls it pid_76). Its registers hold neither the Music nor
+  the Off list, so it has not powered up since boot: no stream has opened
+  since WirePlumber's probe.
+- Minimal's `mp01-kernel` (`mt6789-mt6366.c`, `oca72xxx/`, `Z10.dts`)
+  matches ours. The speaker is LOL into the OCA72390, with no reset or
+  enable line. "Music" is written on power-up and "Off" before power-down,
+  register by register. The mainline MT6358 brings up the line-out only
+  through the HP mux's LoudSPK mode, which the UCM selects.
+- Still open: one stream to the Speaker device with the PA's registers
+  read back (Music list = `0x01` 0x0d ... `0x0b` 0x26) settles whether
+  sound leaves the phone.
 
 ## Shared and board-specific
 
