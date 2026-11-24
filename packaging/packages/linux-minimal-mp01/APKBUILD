@@ -53,6 +53,8 @@ _mt6789="
 	0046-drm-mediatek-mtk_dsi-Stop-the-engine-the-bootloader-.patch
 	0047-drm-mediatek-dsi-Register-DSI-host-after-preparing-e.patch
 	0048-drm-mediatek-mtk_dsi-Run-the-link-at-the-peripheral-.patch
+	0060-ASoC-dt-bindings-awinic-aw87390-Add-Orient-Chip-OCA7.patch
+	0061-ASoC-codecs-aw87390-Add-OCA72390-support-for-the-Zin.patch
 	0063-power-supply-core-Fix-supplied_from-for-nodes-with-s.patch
 	0064-dt-bindings-power-supply-Add-MediaTek-MT6358-fuel-ga.patch
 	0065-dt-bindings-mfd-mediatek-mt6397-Add-the-MT6358-fuel-.patch
@@ -129,6 +131,8 @@ _board="
 	mp01-0030-dt-bindings-pwm-mediatek-mt2712-pwm-Add-MT6789.patch
 	mp01-0031-pwm-mediatek-Add-MT6789-support.patch
 	mp01-0032-arm64-dts-mediatek-mp01-Add-the-warm-front-light.patch
+	mp01-0033-ASoC-dt-bindings-awinic-aw87390-Add-the-Minimal-Phon.patch
+	mp01-0034-ASoC-codecs-aw87390-Add-the-Minimal-Phone-MP01-ampli.patch
 "
 _release=7.0.0-mp01
 pkgdesc="Minimal Phone MP01 kernel"
@@ -159,6 +163,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	$_q25/config-zinwa-q25.aarch64
 	config-minimal-mp01.fragment
 	mp01-connsys.dtso
+	mp01-audio.dtso
 	mp01-modem.dtso
 	$_board
 "
@@ -220,13 +225,13 @@ build() {
 _vendor_dtb() {
 	local o="$srcdir/overlays" d
 	mkdir -p "$o"
-	for d in mp01-connsys mp01-modem; do
+	for d in mp01-connsys mp01-audio mp01-modem; do
 		cpp -nostdinc -undef -x assembler-with-cpp -P -I include \
 			"$srcdir/$d.dtso" > "$o/$d.dts"
 		scripts/dtc/dtc -q -@ -I dts -O dtb -o "$o/$d.dtbo" "$o/$d.dts"
 	done
 	fdtoverlay -i arch/arm64/boot/dts/$_dtb -o "$o/mt6789-minimal-mp01-vendor.dtb" \
-		"$o/mp01-connsys.dtbo"
+		"$o/mp01-connsys.dtbo" "$o/mp01-audio.dtbo"
 }
 
 package() {
@@ -275,6 +280,7 @@ sha512sums="
 1660d66c18f7324ebd8a3f342418ea41bf74c97dbb91a65c35150bdf0cc4626302dc99469c128d835e1a2cf3ae2d4f8efe4e89ded9f0d02cd2c69fbd88b6fee6  config-zinwa-q25.aarch64
 c9f2ba720159ea3a55c22d121412a6bec8cc6cbe09ad94126a29ef4c1557d95bc5206ea130d14da98efb302d8fc298c5e0189632c420747a38e8d4f01dcb5186  config-minimal-mp01.fragment
 465f72031dc240ac3a344b8de3a768feb7c83626843e247695232d1db3cdbc306f85af300e61d7a5c5a67ad8ce8db21ce25997ccfcd4d64cada02b915e453ddc  mp01-connsys.dtso
+166d33cfc860799af8f85ac8ec38c0caddd51ec2d8dc5eb348d8a0f92e3d35e53c5f5bacd8510367b33af5f36aa0396e1b496b700b2e43923d6edb5dbc90232d  mp01-audio.dtso
 45618cff8b7d921e557d1079567d530586661a35a5e82d181ba5855b3d3f90c29ab91849be8ba1bf5b7659abfdc4465d0aff212f0ad0dc2a6e863c0ab02b087d  mp01-modem.dtso
 02de4a996ea6a00bda3d0dc4c1fb85d2b2f1add63e6cc0b4a0226baacf9d1ebe4b796ce8976a8544dd5f50d1a439870771e668909fd8f239921f2351701c9f6e  mp01-0001-dt-bindings-vendor-prefixes-Add-The-Minimal-Company.patch
 fb6a687d90bc6b861bcc35569e651119f839bf43014ffc2b4a2d0b448dadc9658d2d97443c09b145d1977ac989945314a0f005e4c5a05f0f5e5c6457f5880382  mp01-0002-dt-bindings-arm-mediatek-Add-the-Minimal-Phone-MP01.patch
@@ -305,6 +311,8 @@ bbea5685a55bb90607ff960bcd76d6bd4957520853189fe31887a3d43ad62830623dc7110d9826f6
 684268a9bbaecaff75bd503210dd2f0164a9549e5a8d0a263ce9aaaff883e27ad7f9588d029bd3c20bd7720f5e25fd87c4e572b0c1d3b8caf2b27a299f640a4e  mp01-0030-dt-bindings-pwm-mediatek-mt2712-pwm-Add-MT6789.patch
 607ad67496d4ca8c0fc5085adca2defcc8d15fab8e70c948d8732f0a2d20a25887cba4f1a9f1190279651e48e9f74ba7901e9dca2c93b319cbea7f4f0fa93e6f  mp01-0031-pwm-mediatek-Add-MT6789-support.patch
 6ee8d5653fd62a507e25ba1ff32bd9362a8bcebbea3c68d68f65bca98f00ed059a6f06a9d66c8fc156a26eb399df998dc6db4266da4c17225301685490f41a92  mp01-0032-arm64-dts-mediatek-mp01-Add-the-warm-front-light.patch
+201c3f9d39bffd07294524ece2f75d529bb42b7d49610afae186d8514c5eaed7181be342a6955060c8ab821cbc54d1a07892002d5fb10ea45d1689746cf25c01  mp01-0033-ASoC-dt-bindings-awinic-aw87390-Add-the-Minimal-Phon.patch
+4b03485c78380165f615b76142a7ce14c677d8b62eea379b5fe74b06d662a8a699c09ea0fa75200567cb5ce60b8e00cb803275d1ada92eb0044d43e2d10467cf  mp01-0034-ASoC-codecs-aw87390-Add-the-Minimal-Phone-MP01-ampli.patch
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
 9f0586dc6ec86a5893e8fcf64e91255a9f64375d33e96d57bc199b15807b38610b2c1b5fd03ade40f8bc787a0a33bc717d0e9d97f167526d471cf000166c85d5  0004-iio-adc-mt6359-auxadc-Include-the-ADC-resolution-in-.patch
@@ -322,6 +330,8 @@ c542777721b20fb01d8f407e88dfe0e6590beadb2e0b0cdec45dc983b8208e550528fe8f19601464
 ab5913bdfebb0a5124ccb4112eadf729de0e619dc9c160bacee6a26db42e2da266ccd2728b06203a5f700fed9ae61279a6919e3e66446cb8bb9ff45b7d476a1f  0046-drm-mediatek-mtk_dsi-Stop-the-engine-the-bootloader-.patch
 a8e4674c2f29d3cd8e1b5d2c508480e9e1282f479345f656aa5fd5a5d4eb500bcf7f7f2a6a6e564270e8c23c3444a325873b7456ebe505852a227049308205d6  0047-drm-mediatek-dsi-Register-DSI-host-after-preparing-e.patch
 a8fa8215b51938cea3445420b142ff4612d3426376d9c7cc4cff0dab0e9a3294babdfaaed5612a33f7ad545eaa6dc1c2e717278c86d56e95d2bb12dfb6fcc491  0048-drm-mediatek-mtk_dsi-Run-the-link-at-the-peripheral-.patch
+6fd50356462ceccb1672c64871256e1e014bdf953b18c50095d55d04f0e2cd3a16060f509e602399d5551c7ded97791c538e9cc74c15f4bcebb8f496fc10fc52  0060-ASoC-dt-bindings-awinic-aw87390-Add-Orient-Chip-OCA7.patch
+017ce5ea8d1746d09b1ae902892f1670aab940e656210e7c5e05979e863e8f2baaeb322c38cdec9a07881e7a07165039b75e7383c1a966b6992fe26f995d6ff9  0061-ASoC-codecs-aw87390-Add-OCA72390-support-for-the-Zin.patch
 04b2ae3b39e10c732354d56016246bb0a180b6449ace9b9d33c669828d90858ffdfe3397b6601c13528ee0e0acc1079149a5877cc249baeba6518c5ab2e7bb9b  0063-power-supply-core-Fix-supplied_from-for-nodes-with-s.patch
 19f87b6a20d145fd94d5e6f034bd3ea72dc8bb4d4d4ea746b81c2f91e0326fab8aaa67e2c4b1cb7724cc40606b228f414ae715a6db498b5dc6ca2da30dd30c41  0064-dt-bindings-power-supply-Add-MediaTek-MT6358-fuel-ga.patch
 8274fabebffd523e5504c35c2e5c4ae0fd4fba229cd38dd87b642d0ff4fee8f18ac7468f4c272e0b3583a000eb7989dd4f6a3ef032c1b1273f9f5258f0f50bc0  0065-dt-bindings-mfd-mediatek-mt6397-Add-the-MT6358-fuel-.patch

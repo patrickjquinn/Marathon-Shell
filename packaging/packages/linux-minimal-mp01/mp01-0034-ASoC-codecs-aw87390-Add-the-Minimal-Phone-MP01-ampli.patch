@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 07:02:03 +0000
+Subject: [PATCH] ASoC: codecs: aw87390: Add the Minimal Phone MP01
+ amplifier
+
+The MP01 ships an Awinic-format configuration for its OCA72390,
+/vendor/firmware/ocs72xxx_cf.bin, for chip "oca72390" with three
+profiles: Music (0), Receiver (10) and Off (11). Its Music list is the
+Q25's with register 0x05 at 0x0c instead of 0x0e, and its Off list is
+the Q25's, so the MP01 writes its own Music list on power-up and the
+Q25's Off list before power-down. The Receiver profile (registers 0x02
+and 0x05 cleared) is left out, as it is for the Q25.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ sound/soc/codecs/aw87390.c | 45 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
+
+diff --git a/sound/soc/codecs/aw87390.c b/sound/soc/codecs/aw87390.c
+index bb535b9..310b4a8 100644
+--- a/sound/soc/codecs/aw87390.c
++++ b/sound/soc/codecs/aw87390.c
+@@ -411,6 +411,43 @@ static const struct snd_soc_dapm_widget zinwa_q25_amp_dapm_widgets[] = {
+ 	SND_SOC_DAPM_OUTPUT("OUT"),
+ };
+ 
++/*
++ * The Minimal Phone MP01's ocs72xxx_cf.bin "Music" profile: the Q25's
++ * list with 0x05 at 0x0c. Its "Off" profile is the Q25's.
++ */
++static const struct reg_sequence minimal_mp01_amp_on[] = {
++	{ 0x01, 0x0d }, { 0x02, 0x1c }, { 0x03, 0x08 }, { 0x04, 0x09 },
++	{ 0x05, 0x0c }, { 0x06, 0x08 }, { 0x07, 0x56 }, { 0x08, 0x87 },
++	{ 0x09, 0x12 }, { 0x0a, 0xca }, { 0x0b, 0x26 },
++};
++
++static int minimal_mp01_amp_drv_event(struct snd_soc_dapm_widget *w,
++				      struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
++	struct aw87390 *aw87390 = snd_soc_component_get_drvdata(component);
++	struct regmap *regmap = aw87390->aw_pa->regmap;
++
++	switch (event) {
++	case SND_SOC_DAPM_POST_PMU:
++		return regmap_multi_reg_write(regmap, minimal_mp01_amp_on,
++					      ARRAY_SIZE(minimal_mp01_amp_on));
++	case SND_SOC_DAPM_PRE_PMD:
++		return regmap_multi_reg_write(regmap, zinwa_q25_amp_off,
++					      ARRAY_SIZE(zinwa_q25_amp_off));
++	default:
++		return -EINVAL;
++	}
++}
++
++static const struct snd_soc_dapm_widget minimal_mp01_amp_dapm_widgets[] = {
++	SND_SOC_DAPM_INPUT("IN"),
++	SND_SOC_DAPM_PGA_E("SPK PA", SND_SOC_NOPM, 0, 0, NULL, 0,
++			   minimal_mp01_amp_drv_event,
++			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
++	SND_SOC_DAPM_OUTPUT("OUT"),
++};
++
+ static const struct snd_soc_dapm_route aw87390_dapm_routes[] = {
+ 	{ "SPK PA", NULL, "IN" },
+ 	{ "OUT", NULL, "SPK PA" },
+@@ -528,6 +565,13 @@ static const struct snd_soc_component_driver soc_codec_dev_zinwa_q25_amp = {
+ 	.num_dapm_routes = ARRAY_SIZE(aw87390_dapm_routes),
+ };
+ 
++static const struct snd_soc_component_driver soc_codec_dev_minimal_mp01_amp = {
++	.dapm_widgets = minimal_mp01_amp_dapm_widgets,
++	.num_dapm_widgets = ARRAY_SIZE(minimal_mp01_amp_dapm_widgets),
++	.dapm_routes = aw87390_dapm_routes,
++	.num_dapm_routes = ARRAY_SIZE(aw87390_dapm_routes),
++};
++
+ static void aw87390_parse_channel_dt(struct aw87390 *aw87390)
+ {
+ 	struct aw_device *aw_dev = aw87390->aw_pa;
+@@ -650,6 +694,7 @@ static int aw87390_i2c_probe(struct i2c_client *i2c)
+ static const struct of_device_id aw87390_of_match[] = {
+ 	{ .compatible = "awinic,aw87390" },
+ 	{ .compatible = "anbernic,rgds-amp", .data = &soc_codec_dev_anbernic_rgds },
++	{ .compatible = "minimal,mp01-amp", .data = &soc_codec_dev_minimal_mp01_amp },
+ 	{ .compatible = "zinwa,q25-amp", .data = &soc_codec_dev_zinwa_q25_amp },
+ 	{},
+ };

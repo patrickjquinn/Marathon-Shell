@@ -133,15 +133,15 @@ firmware), the framebuffer handoff (`0040`, `0046`, `0083`) and the modem.
 `linux-zinwa-q25/modules/build.sh` takes `BOARD=mp01` and builds, against the
 MP01 tree: WMT/BTIF/connadp, `wlan_drv_gen4m_6789`, the STP Bluetooth bridge,
 the CONNSYS GNSS driver, FM, the five ECCCI modules, and the audio set (MT6358
-codec, MT6789 AFE, accdet, and the Q25 machine driver, which binds only to
-`zinwa,q25-mt6366-sound`). Not built: the Q25 MD1 owner (it hardcodes the
+codec, MT6789 AFE, accdet, and the Q25 machine driver, which also binds
+`minimal,mp01-mt6366-sound`). Not built: the Q25 MD1 owner (it hardcodes the
 Q25's `0xdc000000` image base), haptics glue (the MP01 uses upstream
 `regulator-haptic`), cameras and the camera overlay.
 
 Their DT nodes use vendor compatibles, so they are overlays in the kernel
 package, not board DT: `mp01-connsys.dtso` (CONNSYS, Wi-Fi, BTIF, GNSS with
-the MP01's L1 and L5 LNAs) is merged at build time into
-`mt6789-minimal-mp01-vendor.dtb`; `mp01-modem.dtso` (ECCCI, as wired on the
+the MP01's L1 and L5 LNAs) and `mp01-audio.dtso` (AFE, amplifier, card) are
+merged at build time into `mt6789-minimal-mp01-vendor.dtb`; `mp01-modem.dtso` (ECCCI, as wired on the
 Q25 minus `q25-md1-owner`) is built and shipped as `mp01-modem.dtbo` but not
 merged.
 
@@ -154,10 +154,15 @@ Board-specific inputs these need, none of which may come from the Q25:
   the stock chain LK loads MD1 itself; who powers it afterwards (the Q25's
   owner module did both because its U-Boot replaced LK) is the open question
   before the modem overlay is used.
-- a sound card: the MT6366 routes look like the Q25's (analog OCA72390 on
-  LINEOUT, `spk-i2s` is for the RT5512 that is not fitted), but the card needs
-  an MP01 compatible and the amplifier's MP01 register lists from the vendor
-  `oca72xxx` configuration.
+- the sound card is `mp01-audio.dtso`, merged into the vendor DTB: the
+  Q25's AFE node and AUD pin states (the factory DT has the same ten), the
+  OCA72390 on I2C6 0x58 and `minimal,mp01-mt6366-sound`, which the Q25's
+  machine driver binds as card `mp01-mt6366`. The amplifier is the
+  kernel's aw87390 with the Q25's `0060`/`0061` and `mp01-0033`/`0034`,
+  which write the Music and Off lists of the phone's own
+  `/vendor/firmware/ocs72xxx_cf.bin` (chip "oca72390"; Music differs from
+  the Q25's in register 0x05 only). Stock loads RT5512 and TFA98xx drivers
+  too, but only `snd_soc_oca72xxx` is in use. Untested on the phone.
 
 ## Not described, or untested
 
