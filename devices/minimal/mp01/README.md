@@ -36,7 +36,7 @@ declares it but stock loads no driver for it.
 | Wireless charging | CPS4021 (i2c5 0x30) | untested | Stock loads `cps_wls_charger` |
 | Fuel gauge | MT6366 coulomb counter | untested | Calibration in "Charging" below |
 | NFC | NXP PN8x on i2c3 0x28 | untested | Shares GPIO12 with the panel enable and the gate IC |
-| Cameras | S5K3P3SP main, BF2553L front | untested | The DT has a third sensor (`main_two`) that `ProjectConfig.mk` doesn't list, so it is probably not fitted |
+| Cameras | S5K3P3SP main (i2c2, 4 lanes), BF2553L front (i2c4, 2 lanes) | not described | No mainline driver for either sensor; Minimal's `mp01-kernel` has both as MTK imgsensor drivers. Rails are GPIO-switched LDOs, not the Q25's WL2868C. The DT has a third sensor (`main_two`, i2c8) that `ProjectConfig.mk` doesn't list, so it is probably not fitted. Plan in "Cameras" below |
 | Flash | LM3643 (i2c6 0x63), OCP81375 (i2c8 0x64) | untested | |
 | Sensors | accelerometer, gyroscope, light, proximity | untested | Behind the SCP, none on the AP |
 | Fingerprint | FocalTech FP (IRQ GPIO8, reset GPIO10) | untested | |
@@ -65,6 +65,35 @@ the PA's registers):
 - Still open: one stream to the Speaker device with the PA's registers
   read back (Music list = `0x01` 0x0d ... `0x0b` 0x26) settles whether
   sound leaves the phone.
+
+## Cameras
+
+Not described. Plan, on the Q25's SENINF/CAMSV/libcamera stack:
+
+| | Main | Front |
+|---|---|---|
+| Sensor | Samsung S5K3P3SP; stock modes 2304x1728 (capture too) and 1280x720 | BYD BF2553L; stock mode 2592x1944 |
+| Bus | i2c2 (EEPROM 0x51, AF 0x72) | i2c4 (EEPROM 0x51) |
+| CSI | 4 lanes, 24 MHz MCLK on GPIO129 | 2 lanes, 24 MHz MCLK on GPIO126 |
+| Reset, power-down | GPIO22, GPIO21 | GPIO16, GPIO15 |
+| AVDD, DVDD, IOVDD, AFVDD | GPIO49, GPIO47, GPIO46, GPIO48 (and GPIO20) | GPIO42, GPIO45, GPIO46 |
+
+1. DT: enable i2c2 and i2c4. Add `regulator-fixed` rails on those
+   enable GPIOs, the CAMTG clocks for MCLK, and the SENINF ports and
+   lanes. Confirm which CSI port each sensor uses from `mp01-kernel`'s
+   `imgsensor_cfg_table.c` and seninf config before writing the
+   endpoints.
+2. Sensor drivers: neither sensor has a mainline, LKML or postmarketOS
+   driver. Minimal's `mp01-kernel` has both as MediaTek imgsensor drivers
+   (`s5k3p3spmipiraw_Sensor.c`, `bf2553lmipiraw_Sensor.c`). They give the
+   register tables, modes, IDs and power sequences for two new V4L2 sensor
+   drivers in the style of mainline `imx111`.
+3. libcamera: a camera-sensor helper per sensor and the Q25's SoftISP
+   path.
+
+Effort: about a week per sensor for a driver that streams, plus 2-3 days
+of DT and bring-up on the Q25 stack. The S5K3P3 (4 lanes, the longer
+register tables) is the larger of the two.
 
 ## Shared and board-specific
 
