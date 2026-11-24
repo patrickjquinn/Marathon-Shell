@@ -256,6 +256,13 @@ impl Policy {
                 {
                     return;
                 }
+                // Frames while a finger is down or a gesture settles draw
+                // what it did, which its own settle covers; only frames
+                // after it are content changing by itself.
+                if self.touch != Touch::Up || within(self.moved_at, self.tuning.settle, now) {
+                    self.frames.clear();
+                    return;
+                }
                 let window = self.tuning.motion_window;
                 while self
                     .frames
@@ -567,6 +574,23 @@ mod tests {
         // The switch back's redraw would be a fourth frame in the window.
         assert!(c.input(1410, Input::Frame).is_empty());
         assert_eq!(c.policy.applied(), Some(Waveform::Quality));
+    }
+
+    // A swipe's own frames (the page cut, the press going away) settle
+    // with it: quality 350 ms after the release, not after its last frame.
+    #[test]
+    fn frames_a_gesture_draws_settle_with_it() {
+        let mut c = Clock::new();
+        assert_eq!(c.input(1000, Input::Press { x: 0.0, y: 0.0 }), vec![FAST]);
+        for (ms, x) in [(1050, 40.0), (1100, 100.0)] {
+            c.policy.handle(Input::Move { x, y: 0.0 }, c.at(ms));
+            c.policy.handle(Input::Frame, c.at(ms));
+        }
+        assert!(c.input(1200, Input::Release).is_empty());
+        for ms in [1210, 1240, 1270, 1300, 1330] {
+            assert!(c.input(ms, Input::Frame).is_empty());
+        }
+        assert_eq!(c.run_until(3000), vec![(1550, QUALITY)]);
     }
 
     #[test]
