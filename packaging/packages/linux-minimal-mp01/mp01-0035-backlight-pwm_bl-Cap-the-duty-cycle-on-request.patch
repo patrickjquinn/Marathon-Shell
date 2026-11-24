@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 10:00:00 +0000
+Subject: [PATCH] backlight: pwm_bl: Cap the duty cycle on request
+
+Scale the duty cycle by max-duty-cycle-percent when the device has it, so
+the highest brightness level gives that fraction of the PWM period and the
+lower levels keep their proportions below it.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/video/backlight/pwm_bl.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/video/backlight/pwm_bl.c b/drivers/video/backlight/pwm_bl.c
+--- a/drivers/video/backlight/pwm_bl.c
++++ b/drivers/video/backlight/pwm_bl.c
+@@ -11,6 +11,7 @@
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+ #include <linux/platform_device.h>
++#include <linux/property.h>
+ #include <linux/backlight.h>
+ #include <linux/err.h>
+ #include <linux/pwm.h>
+@@ -27,6 +28,7 @@
+ 	struct regulator	*power_supply;
+ 	struct gpio_desc	*enable_gpio;
+ 	unsigned int		scale;
++	unsigned int		max_duty_percent;
+ 	unsigned int		post_pwm_on_delay;
+ 	unsigned int		pwm_off_delay;
+ 	int			(*notify)(struct device *,
+@@ -84,6 +86,10 @@
+ 
+ 	duty_cycle *= state->period - lth;
+ 	do_div(duty_cycle, pb->scale);
++	if (pb->max_duty_percent) {
++		duty_cycle *= pb->max_duty_percent;
++		do_div(duty_cycle, 100);
++	}
+ 
+ 	return duty_cycle + lth;
+ }
+@@ -473,6 +479,15 @@
+ 	pb->notify_after = data->notify_after;
+ 	pb->exit = data->exit;
+ 	pb->dev = &pdev->dev;
++
++	if (!device_property_read_u32(&pdev->dev, "max-duty-cycle-percent",
++				      &pb->max_duty_percent) &&
++	    (!pb->max_duty_percent || pb->max_duty_percent > 100)) {
++		ret = dev_err_probe(&pdev->dev, -EINVAL,
++				    "max-duty-cycle-percent must be 1 to 100\n");
++		goto err_alloc;
++	}
++
+ 	pb->enabled = false;
+ 	pb->post_pwm_on_delay = data->post_pwm_on_delay;
+ 	pb->pwm_off_delay = data->pwm_off_delay;
+-- 
+2.47.0

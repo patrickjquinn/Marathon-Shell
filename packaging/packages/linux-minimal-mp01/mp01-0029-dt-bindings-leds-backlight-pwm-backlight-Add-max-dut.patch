@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 10:00:00 +0000
+Subject: [PATCH] dt-bindings: leds: backlight: pwm-backlight: Add max-duty-cycle-percent
+
+Some front lights must not be driven at a full duty cycle: the vendor
+driver of the Minimal Phone MP01's white front light never goes past a
+quarter of the PWM period. Let the board say so.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/leds/backlight/pwm-backlight.yaml | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/leds/backlight/pwm-backlight.yaml b/Documentation/devicetree/bindings/leds/backlight/pwm-backlight.yaml
+--- a/Documentation/devicetree/bindings/leds/backlight/pwm-backlight.yaml
++++ b/Documentation/devicetree/bindings/leds/backlight/pwm-backlight.yaml
+@@ -49,6 +49,15 @@
+       having to list out every possible value in the brightness-level array.
+     $ref: /schemas/types.yaml#/definitions/uint32
+ 
++  max-duty-cycle-percent:
++    description:
++      The duty cycle the highest brightness gives, for a light that must not
++      be driven harder than a fraction of the PWM period. Lower levels scale
++      down from it. Without it the highest level gives a 100% duty cycle.
++    $ref: /schemas/types.yaml#/definitions/uint32
++    minimum: 1
++    maximum: 100
++
+ dependencies:
+   default-brightness-level: [brightness-levels]
+   num-interpolated-steps: [brightness-levels]
+-- 
+2.47.0
