@@ -289,7 +289,8 @@ Item {
             taskSwitcherVisible: taskSwitcher.visible && taskSwitcher.pageActive
             gridMoving: taskGrid.moving
             gridDragging: taskGrid.dragging
-            swipeClaimsDrag: !taskGrid.interactive || taskGrid.atYEnd
+            // On the last page, or the only one: up anywhere else turns the page.
+            swipeClaimsDrag: taskGrid.pages <= 1 || taskGrid.atYEnd
             onClosed: taskSwitcher.closed()
         }
 
