@@ -2,7 +2,7 @@
 # mt6789-platform's, and the kernel, firmware and image layout are separate.
 pkgname=device-minimal-mp01-marathon
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Minimal Phone MP01 Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -32,7 +32,7 @@ package() {
     done
 }
 sha512sums="
-2dbd8155d576fa90f8d492104d966f81f8972bd4a9ce77961e239e155a89250a0ee5bc6983bd9e25a5b459b464df7c00606aa41653b87f55b0151dad6b482d72  device-profile.conf
+d6959bc0312cce055a64f0db34e9d4502c0bd88cb9e771b387db45ca469ba574097dee4d5ccea8140afadde875007589158fddbb8782f797f2bf8cff9780cedb  device-profile.conf
 7dfa68c34cb08166fab41f6221a60c8f9d80865849b7a4748e40ce9aabc28bb218e8d7cb53cc171f01d2b37749372cc9150d66b291251dedaba5069b5a035b4f  mp01-shell-session
 506c8a4ea8cccb9c73279f6ccaa54896afb9400ab9fb4d7e1fc2be52f0abcd18641fc2cc51de64e25de6c21bc1e909f7a22e3b9e8b35f668fde853df942d83a0  greetd-mp01.toml
 a61995c47c5ca8457ab7fbfb7ca3e000a6f2f72575ba4497f02518b94e67d5b0d58c49cc79e90e7ef20a85f7521bcb66fd5f9a08dbee5fe181d25fdc20c58ec1  50-mp01-session.conf

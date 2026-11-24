@@ -88,3 +88,5 @@ panel_orientation = "kms"
 # A front light, not a backlight: the e-paper reads without it, so the
 # slider runs down to the lowest PWM step instead of the LCD default 28%.
 brightness_floor = 0.0
+# The warm half of the front light (PWM_1), which the night light drives.
+frontlight_warm = "/sys/class/leds/amber:frontlight"
