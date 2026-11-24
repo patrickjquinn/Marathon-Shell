@@ -106,27 +106,25 @@ Item {
     // Drag inside the shade for "follow-finger then snap" close. Grabs
     // the shade chrome (NOT tiles/sliders) and shrinks quickSettingsHeight
     // per-frame as the finger moves up; snaps open/closed on release.
-    DragHandler {
+    MAxisDrag {
         id: dismissDrag
-        target: null
         // Overflowing content scrolls first; the shade closes from its end.
         // Held while active: shrinking the shade moves atYEnd.
         enabled: active || !shadeScroll.interactive || shadeScroll.atYEnd
-        yAxis.enabled: true
-        xAxis.enabled: false
+        horizontal: false
         property real startY: 0
         property real startHeight: 0
         // E-paper: the shade stays put, and closes in one cut once the swipe
         // up passes a share of it.
         function closeOnPaper() {
-            if (UIStore.quickSettingsOpen && startY - centroid.position.y > startHeight * MMotion.swipeShare) {
+            if (UIStore.quickSettingsOpen && startY - along(centroid.scenePosition) > startHeight * MMotion.swipeShare) {
                 UIStore.quickSettingsDragging = false;
                 UIStore.closeQuickSettings();
             }
         }
         onActiveChanged: {
             if (active) {
-                startY = MMotion.instant ? centroid.pressPosition.y : centroid.position.y;
+                startY = along(MMotion.instant ? centroid.scenePressPosition : centroid.scenePosition);
                 // From where the shade is drawn: a settle in flight is caught, not skipped.
                 startHeight = quickSettings.drawnHeight;
                 UIStore.quickSettingsDragging = true;
@@ -135,8 +133,8 @@ Item {
                     closeOnPaper();
             } else {
                 UIStore.quickSettingsDragging = false;
-                const dy = centroid.position.y - startY;
-                const vy = centroid.velocity.y;
+                const dy = along(centroid.scenePosition) - startY;
+                const vy = speed();
                 // E-paper: a swipe up closed it already, or a flick does now.
                 if (MMotion.instant) {
                     if (vy < -800)
@@ -153,7 +151,7 @@ Item {
         onCentroidChanged: {
             if (!active)
                 return;
-            const dy = centroid.position.y - startY;
+            const dy = along(centroid.scenePosition) - startY;
             if (MMotion.instant) {
                 closeOnPaper();
                 return;

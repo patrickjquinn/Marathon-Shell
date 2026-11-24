@@ -4,14 +4,14 @@ import MarathonOS.Shell
 // E-paper's swipe: nothing follows the finger, since every frame of a drag
 // is a panel update. Past `distance` along the axis, or released faster
 // than `speed`, it turns once, and the view cuts to its next state.
-DragHandler {
+MAxisDrag {
     id: root
 
     // The view's extent along the axis; the swipe turns at a share of it.
     property real extent: 0
     readonly property real distance: extent * MMotion.swipeShare
     // px/s, for a short flick.
-    readonly property real speed: 600
+    readonly property real threshold: 600
     property bool turned: false
     property real velocity: 0
 
@@ -19,25 +19,25 @@ DragHandler {
     signal turn(int step)
 
     function measure() {
-        velocity = xAxis.enabled ? centroid.velocity.x : centroid.velocity.y;
-        const moved = xAxis.enabled ? centroid.position.x - centroid.pressPosition.x : centroid.position.y - centroid.pressPosition.y;
+        velocity = speed();
+        const moved = travel();
         if (!turned && Math.abs(moved) >= distance) {
             turned = true;
+            console.debug(log, "turn", moved < 0 ? 1 : -1, "at", moved, "of", distance);
             turn(moved < 0 ? 1 : -1);
         }
     }
 
-    target: null
     enabled: MMotion.instant
-    // Nothing redraws during the swipe, so Qt may hand over the whole
-    // movement in the one update that activates the handler: measured
-    // there too, not only on later moves.
+    // The update that activates the handler can carry the whole movement:
+    // measured there too, not only on later moves.
     onActiveChanged: {
         if (active) {
             turned = false;
             measure();
-        } else if (!turned && Math.abs(velocity) > speed) {
+        } else if (!turned && Math.abs(velocity) > threshold) {
             turned = true;
+            console.debug(log, "turn", velocity < 0 ? 1 : -1, "at", velocity, "px/s");
             turn(velocity < 0 ? 1 : -1);
         }
     }

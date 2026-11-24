@@ -645,12 +645,11 @@ Rectangle {
             }
         }
 
-        DragHandler {
+        MAxisDrag {
             id: apronDrag
 
-            target: null
             acceptedDevices: PointerDevice.TouchScreen
-            xAxis.enabled: false
+            horizontal: false
             grabPermissions: apron.pull > 0 ? PointerHandler.CanTakeOverFromAnything : PointerHandler.ApprovesTakeOverByAnything
             onActiveChanged: {
                 UIStore.quickSettingsDragging = active;

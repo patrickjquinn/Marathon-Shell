@@ -252,7 +252,6 @@ Item {
             id: einkSwipe
 
             extent: pageView.width
-            yAxis.enabled: false
             enabled: MMotion.instant && !pageViewContainer.hubOverlayOpen && !pageViewContainer.appEditing
             onTurn: step => {
                 const page = Math.max(0, Math.min(pageView.count - 1, pageView.currentIndex + step));

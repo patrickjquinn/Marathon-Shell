@@ -264,7 +264,7 @@ Item {
             id: einkPages
 
             extent: taskGrid.pageHeight
-            xAxis.enabled: false
+            horizontal: false
             enabled: MMotion.instant && taskGrid.pages > 1
             onTurn: step => taskGrid.showPage(Math.round((taskGrid.contentY - taskGrid.originY) / taskGrid.pageHeight) + step)
         }

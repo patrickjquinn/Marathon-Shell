@@ -198,6 +198,7 @@ set(QML_FILES
     qml/ui/GlyphIcon.qml
     qml/ui/MApp.qml
     qml/ui/MAppIcon.qml
+    qml/ui/MAxisDrag.qml
     qml/ui/MCircularIconButton.qml
     qml/ui/MEinkSwipe.qml
     qml/ui/MEntrance.qml
