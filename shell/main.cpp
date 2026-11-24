@@ -133,6 +133,10 @@
 #include <QtGui/private/qinputdevicemanager_p_p.h>
 #include <QtInputSupport/private/qevdevtouchhandler_p.h>
 #include <QtInputSupport/private/qevdevutil_p.h>
+#include <linux/input.h>
+#include <qpa/qwindowsysteminterface.h>
+#include <sys/ioctl.h>
+#include "src/wayland/keyrouting.h"
 // Where Qt defines it; outside Qt's build the header declares a global one.
 namespace QtPrivateLogging {
     const QLoggingCategory &qLcEvdevTouch();
@@ -225,6 +229,44 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
 #endif
 
 #ifdef MARATHON_HAVE_INPUT_SUPPORT
+// A touchscreen's keys (the MP01's under the panel): evdevtouch drops them
+// and libinput leaves touchscreens alone, so they're read here and given to
+// the window as libinput would. Null for a touchscreen without keys.
+static std::unique_ptr<QObject> openTouchKeys(const QString &node) {
+    const int fd = ::open(QFile::encodeName(node).constData(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0)
+        return nullptr;
+    constexpr int bitsPerLong = 8 * sizeof(unsigned long);
+    unsigned long bits[KEY_CNT / bitsPerLong + 1] = {};
+    bool          keys = false;
+    if (::ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(bits)), bits) >= 0)
+        for (int code = 0; code < KEY_CNT && !keys; ++code)
+            keys = (bits[code / bitsPerLong] >> (code % bitsPerLong) & 1) &&
+                KeyRouting::touchscreenKey(code) >= 0;
+    if (!keys) {
+        ::close(fd);
+        return nullptr;
+    }
+    auto  reader   = std::make_unique<QObject>();
+    auto *notifier = new QSocketNotifier(fd, QSocketNotifier::Read, reader.get());
+    QObject::connect(notifier, &QObject::destroyed, [fd] { ::close(fd); });
+    QObject::connect(notifier, &QSocketNotifier::activated, notifier, [fd, notifier] {
+        input_event event;
+        ssize_t     n;
+        while ((n = ::read(fd, &event, sizeof event)) == sizeof event) {
+            const int key = KeyRouting::touchscreenKey(event.code);
+            if (event.type != EV_KEY || key < 0)
+                continue;
+            QWindowSystemInterface::handleExtendedKeyEvent(
+                nullptr, event.value ? QEvent::KeyPress : QEvent::KeyRelease, key,
+                Qt::NoModifier, event.code + 8, 0, 0, QString(), event.value == 2);
+        }
+        if (n == 0 || (n < 0 && errno != EAGAIN))
+            notifier->setEnabled(false);
+    });
+    return reader;
+}
+
 // Qt's QEvdevTouchManager, except that a udev "add" for a node already read
 // doesn't open it again.
 static void startTouchInput(const QString &specification) {
@@ -241,6 +283,7 @@ static void startTouchInput(const QString &specification) {
             return std::unique_ptr<QObject>(new QEvdevTouchScreenHandlerThread(node, handlerSpec));
         },
         qApp);
+    const auto keys        = new TouchDevices(openTouchKeys, qApp);
     const auto updateCount = [devices] {
         int registered = 0;
         for (QObject *handler : devices->handlers())
@@ -249,7 +292,8 @@ static void startTouchInput(const QString &specification) {
         QInputDeviceManagerPrivate::get(QGuiApplicationPrivate::inputDeviceManager())
             ->setDeviceCount(QInputDeviceManager::DeviceTypeTouch, registered);
     };
-    const auto add = [devices, updateCount](const QString &node) {
+    const auto add = [devices, keys, updateCount](const QString &node) {
+        keys->add(node);
         if (auto *handler = static_cast<QEvdevTouchScreenHandlerThread *>(devices->add(node)))
             QObject::connect(handler, &QEvdevTouchScreenHandlerThread::touchDeviceRegistered,
                              devices, updateCount);
@@ -267,7 +311,8 @@ static void startTouchInput(const QString &specification) {
         add(node);
     QObject::connect(discovery, &QDeviceDiscovery::deviceDetected, devices, add);
     QObject::connect(discovery, &QDeviceDiscovery::deviceRemoved, devices,
-                     [devices, updateCount](const QString &node) {
+                     [devices, keys, updateCount](const QString &node) {
+                         keys->remove(node);
                          if (devices->remove(node))
                              updateCount();
                      });
