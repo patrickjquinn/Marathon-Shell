@@ -236,9 +236,9 @@ static std::unique_ptr<QObject> openTouchKeys(const QString &node) {
     const int fd = ::open(QFile::encodeName(node).constData(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0)
         return nullptr;
-    constexpr int bitsPerLong = 8 * sizeof(unsigned long);
+    constexpr int bitsPerLong                     = 8 * sizeof(unsigned long);
     unsigned long bits[KEY_CNT / bitsPerLong + 1] = {};
-    bool          keys = false;
+    bool          keys                            = false;
     if (::ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(bits)), bits) >= 0)
         for (int code = 0; code < KEY_CNT && !keys; ++code)
             keys = (bits[code / bitsPerLong] >> (code % bitsPerLong) & 1) &&
@@ -258,8 +258,8 @@ static std::unique_ptr<QObject> openTouchKeys(const QString &node) {
             if (event.type != EV_KEY || key < 0)
                 continue;
             QWindowSystemInterface::handleExtendedKeyEvent(
-                nullptr, event.value ? QEvent::KeyPress : QEvent::KeyRelease, key,
-                Qt::NoModifier, event.code + 8, 0, 0, QString(), event.value == 2);
+                nullptr, event.value ? QEvent::KeyPress : QEvent::KeyRelease, key, Qt::NoModifier,
+                event.code + 8, 0, 0, QString(), event.value == 2);
         }
         if (n == 0 || (n < 0 && errno != EAGAIN))
             notifier->setEnabled(false);
