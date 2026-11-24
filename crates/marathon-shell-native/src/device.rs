@@ -219,7 +219,7 @@ fn profile() -> Profile {
     }
 }
 
-/// The kernel's names (drm_connector.c) say which side of the scanout is at
+/// The kernel's names (`drm_connector.c`) say which side of the scanout is at
 /// the top of the device; the scene turns the other way, as fbcon does.
 fn panel_rotation(name: &str) -> i32 {
     match name {
