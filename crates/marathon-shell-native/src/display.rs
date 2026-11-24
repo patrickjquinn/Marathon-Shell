@@ -54,6 +54,9 @@ pub mod qobject {
         /// the slider on a panel whose dimmest level is still too bright.
         #[qproperty(f64, dim, READ, NOTIFY)]
         #[qproperty(bool, auto_brightness, cxx_name = "autoBrightness", READ, WRITE = set_auto_brightness, NOTIFY)]
+        /// The level the user last chose, kept in settings and applied at
+        /// start (a driver's boot default would win otherwise); -1 for none.
+        #[qproperty(f64, user_brightness, cxx_name = "userBrightness", READ, WRITE, NOTIFY)]
         #[qproperty(bool, rotation_locked, cxx_name = "rotationLocked", READ, WRITE = set_rotation_locked, NOTIFY)]
         #[qproperty(bool, rotation_available, cxx_name = "rotationAvailable", READ, NOTIFY)]
         /// portrait, landscape, portrait-inverted or landscape-inverted.
@@ -235,6 +238,7 @@ pub struct DisplayRust {
     brightness: f64,
     dim: f64,
     auto_brightness: bool,
+    user_brightness: f64,
     rotation_locked: bool,
     rotation_available: bool,
     orientation: QString,
@@ -283,6 +287,7 @@ impl Default for DisplayRust {
             brightness: 0.5,
             dim: 1.0,
             auto_brightness: false,
+            user_brightness: -1.0,
             rotation_locked: false,
             rotation_available: false,
             orientation: QString::from("portrait"),
@@ -514,17 +519,22 @@ impl Display {
         ipc::export("Sensor", Sensor1 { qt });
     }
 
-    /// Once the saved settings are on: the panel lit at the light it had,
-    /// with the night light's warm share, and the warm light following it.
+    /// Once the saved settings are on: the panel lit at the user's last
+    /// level (else the light it had), with the night light's warm share,
+    /// and the warm light following it.
     fn apply_restored(mut self: Pin<&mut Self>) {
         let Some(panel) = &self.panel else { return };
-        if let Some((white, warm)) = self.boot_light {
-            #[allow(clippy::cast_possible_truncation, reason = "at most max_brightness")]
-            let level = (boot_duty(white, warm, self.night_light_enabled) * f64::from(panel.max))
-                .round() as i32;
-            let brightness = panel.user(level.max(1));
+        let start = start_brightness(
+            panel,
+            self.user_brightness,
+            self.boot_light,
+            self.night_light_enabled,
+        );
+        if let Some(brightness) = start {
+            let dim = panel.dim(brightness);
             self.as_mut().rust_mut().brightness = brightness;
             self.as_mut().brightness_changed();
+            self.as_mut().set_dim(dim);
         }
         if self.warm_light_available {
             let mix = |obj: Pin<&mut Self>| obj.mix_front_light();
@@ -561,6 +571,8 @@ impl Display {
 
     fn set_brightness_from_user(mut self: Pin<&mut Self>, brightness: f64) {
         self.as_mut().set_brightness(brightness);
+        let chosen = self.brightness;
+        set!(self, user_brightness, user_brightness_changed, chosen);
         if !self.auto_brightness {
             return;
         }
@@ -1107,6 +1119,23 @@ fn boot_duty(white: f64, warm: f64, night: bool) -> f64 {
     (white + if night { warm } else { 0.0 }).min(1.0)
 }
 
+/// The brightness to start at: the user's last choice, else the light the
+/// panel had (`boot_light`, white and warm duties), else none.
+fn start_brightness(
+    panel: &Panel,
+    user: f64,
+    boot_light: Option<(f64, f64)>,
+    night: bool,
+) -> Option<f64> {
+    if user >= 0.0 {
+        return Some(panel.shown(user.min(1.0)));
+    }
+    let (white, warm) = boot_light?;
+    #[allow(clippy::cast_possible_truncation, reason = "at most max_brightness")]
+    let level = (boot_duty(white, warm, night) * f64::from(panel.max)).round() as i32;
+    Some(panel.user(level.max(1)))
+}
+
 /// Writes the warm LEDs' level, the last of those queued.
 async fn warm_light(dir: PathBuf, levels: Receiver<i32>) {
     let path = dir.join("brightness");
@@ -1637,7 +1666,9 @@ async fn measure(path: PathBuf) -> Option<i32> {
 
 #[cfg(test)]
 mod tests {
-    use super::{boot_duty, collapse, front_light, kelvin, warmth, Command, Curve};
+    use super::{
+        boot_duty, collapse, front_light, kelvin, start_brightness, warmth, Command, Curve, Panel,
+    };
     use crate::night_light::{self, Schedule};
 
     #[test]
@@ -1723,6 +1754,28 @@ mod tests {
         // The driver's default-on warm LEDs with the night light off: the
         // white alone is the light.
         assert!((boot_duty(64.0 / 255.0, 1.0, false) - 64.0 / 255.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_user_level_wins_over_what_the_panel_had() {
+        let (tx, _rx) = async_channel::bounded(1);
+        let panel = Panel {
+            dir: std::path::PathBuf::new(),
+            max: 255,
+            floor: 0.0,
+            dim: 1.0,
+            actor: tx,
+            white: 1.0,
+            warm: None,
+        };
+        // The driver set 30 behind the shell's back; the user chose 50%.
+        let boot = Some((30.0 / 255.0, 0.0));
+        let at = start_brightness(&panel, 0.5, boot, false).unwrap_or(0.0);
+        assert!((at - 0.5).abs() < 0.01, "{at}");
+        // Nothing saved yet: what the panel had.
+        let at = start_brightness(&panel, -1.0, boot, false).unwrap_or(0.0);
+        assert!((at - 30.0 / 255.0).abs() < 0.01, "{at}");
+        assert_eq!(start_brightness(&panel, -1.0, None, false), None);
     }
 
     #[test]

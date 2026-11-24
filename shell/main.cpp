@@ -973,6 +973,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<marathon::Display>("MarathonOS.Shell", 1, 0, "Display", display);
     const std::pair<const char *, void (marathon::Display::*)()> displaySettings[] = {
         {"rotationLocked", &marathon::Display::rotationLockedChanged},
+        {"userBrightness", &marathon::Display::userBrightnessChanged},
         {"nightLightEnabled", &marathon::Display::nightLightEnabledChanged},
         {"nightLightTemperature", &marathon::Display::nightLightTemperatureChanged},
         {"nightLightFrom", &marathon::Display::nightLightFromChanged},
