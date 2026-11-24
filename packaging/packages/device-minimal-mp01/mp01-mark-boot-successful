@@ -1,0 +1,121 @@
+#!/usr/bin/python3 -I
+"""Mark the slot LK booted successful in misc's A/B bootloader_control.
+
+LK falls back to the other slot (stock Android) once a slot's tries run out
+unless successful_boot is set, which Android's boot-control HAL does. This
+touches only the 32 bytes at 0x800 of misc, after checking magic and CRC.
+"""
+
+import argparse
+import os
+import struct
+import sys
+import zlib
+
+OFFSET = 0x800
+SIZE = 32
+MAGIC = 0x42414342  # "BCAB"
+TRIES_MAX = 7
+SCAN = 64 << 20
+
+
+def die(msg):
+    print(f"mp01-mark-boot-successful: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def partition(name):
+    found = []
+    for dev in os.listdir("/sys/class/block"):
+        try:
+            with open(f"/sys/class/block/{dev}/uevent") as f:
+                if f"PARTNAME={name}\n" in f.read():
+                    found.append(f"/dev/{dev}")
+        except OSError:
+            pass
+    if len(found) != 1:
+        die(f"{len(found)} partitions named {name}")
+    return found[0]
+
+
+def parse(raw):
+    suffix, magic, version, nb = struct.unpack_from("<4sIBB", raw)
+    crc = struct.unpack_from("<I", raw, 28)[0]
+    if magic != MAGIC:
+        die(f"bad magic {magic:#010x}")
+    if version != 1:
+        die(f"unknown version {version}")
+    if nb & 7 != 2:
+        die(f"{nb & 7} slots, expected 2")
+    if zlib.crc32(raw[:28]) != crc:
+        die(f"bad CRC {crc:#010x}, computed {zlib.crc32(raw[:28]):#010x}")
+    return [(raw[12 + 2 * i] & 15, raw[12 + 2 * i] >> 4 & 7, raw[12 + 2 * i] >> 7)
+            for i in range(2)]
+
+
+def booted_slot(slots):
+    for word in open("/proc/cmdline").read().split():
+        if word.startswith("androidboot.slot_suffix="):
+            return "ab".index(word[-1])
+    # LK boots the highest-priority slot it still may boot; that slot's boot
+    # partition must also hold the U-Boot that is running, and the other's not.
+    bootable = [i for i, (prio, tries, ok) in enumerate(slots) if prio and (tries or ok)]
+    if not bootable:
+        die("no bootable slot")
+    slot = max(bootable, key=lambda i: slots[i][0])
+    if len(bootable) == 2 and slots[0][0] == slots[1][0]:
+        die("both slots have the same priority")
+    try:
+        version = open("/proc/device-tree/chosen/u-boot,version", "rb").read().strip(b"\0\n")
+    except OSError:
+        die("not started by U-Boot")
+    holds = []
+    for i in range(2):
+        with open(partition("boot_" + "ab"[i]), "rb") as f:
+            holds.append(version in f.read(SCAN))
+    if holds[slot] and not holds[1 - slot]:
+        return slot
+    die(f"U-Boot {version.decode()} is in boot_a={holds[0]} boot_b={holds[1]}, "
+        f"slot {'ab'[slot]} has the priority")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--file", help="work on a copy of misc instead")
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+
+    path = args.file or partition("misc")
+    fd = os.open(path, os.O_RDONLY)
+    raw = os.pread(fd, SIZE, OFFSET)
+    os.close(fd)
+    slots = parse(raw)
+    slot = booted_slot(slots)
+    name = "ab"[slot]
+    print(f"before {raw.hex()}  slot {name}: priority {slots[slot][0]} "
+          f"tries {slots[slot][1]} successful {slots[slot][2]}")
+    if slots[slot][2] and slots[slot][1] == TRIES_MAX:
+        print(f"slot {name} is already marked successful")
+        return
+
+    new = bytearray(raw)
+    new[12 + 2 * slot] = slots[slot][0] | TRIES_MAX << 4 | 1 << 7
+    struct.pack_into("<I", new, 28, zlib.crc32(bytes(new[:28])))
+    print(f"after  {new.hex()}")
+    if args.dry_run:
+        return
+
+    fd = os.open(path, os.O_RDWR | os.O_DSYNC)
+    if os.pread(fd, SIZE, OFFSET) != raw:
+        die("misc changed under us")
+    os.pwrite(fd, bytes(new), OFFSET)
+    os.fsync(fd)
+    back = os.pread(fd, SIZE, OFFSET)
+    os.close(fd)
+    if back != new:
+        die(f"read back {back.hex()}")
+    parse(back)
+    print(f"slot {name} marked successful, tries {TRIES_MAX}")
+
+
+main()
