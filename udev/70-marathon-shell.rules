@@ -21,7 +21,13 @@ SUBSYSTEM=="input", TAG+="uaccess"
 SUBSYSTEM=="backlight", RUN+="/bin/chmod 0666 /sys/class/backlight/%k/brightness /sys/class/backlight/%k/bl_power"
 
 # LEDs (notification LED, torch, etc.)
-SUBSYSTEM=="leds", RUN+="/bin/chmod 0666 /sys/class/leds/%k/brightness"
+SUBSYSTEM=="leds", KERNEL!="*:frontlight", RUN+="/bin/chmod 0666 /sys/class/leds/%k/brightness"
+
+# A front light's LEDs, which the night light drives (FRONTLIGHT_WARM):
+# group video, which the session user is in; nobody else.
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*:frontlight", \
+	RUN+="/bin/chgrp video /sys/class/leds/%k/brightness", \
+	RUN+="/bin/chmod 0664 /sys/class/leds/%k/brightness"
 
 # Video devices (camera)
 SUBSYSTEM=="video4linux", TAG+="uaccess"

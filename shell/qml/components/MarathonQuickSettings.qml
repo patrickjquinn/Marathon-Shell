@@ -647,6 +647,15 @@ Item {
                     onMoved: v => SystemControlStore.setBrightnessFromUser(v)
                 }
                 MQSSlider {
+                    objectName: "warmthSlider"
+                    visible: SystemControlStore.hasWarmLight && SystemControlStore.isNightLightOn
+                    width: parent.width
+                    iconName: "moon"
+                    a11yName: qsTr("Warmth")
+                    value: SystemControlStore.nightLightWarmth
+                    onMoved: v => SystemControlStore.setNightLightWarmth(v)
+                }
+                MQSSlider {
                     objectName: "volumeSlider"
                     width: parent.width
                     iconName: "speaker-high"

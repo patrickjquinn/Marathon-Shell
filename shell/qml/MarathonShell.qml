@@ -3150,7 +3150,8 @@ Item {
     NightLight {
         anchors.fill: parent
         z: 900000
-        temperature: SystemControlStore.isNightLightOn ? Display.nightLightTemperature : 6500
+        // A warm front light warms the light instead.
+        temperature: SystemControlStore.isNightLightOn && !SystemControlStore.hasWarmLight ? Display.nightLightTemperature : 6500
         dim: Display.dim
         Behavior on dim {
             NumberAnimation {

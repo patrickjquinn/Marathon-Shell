@@ -11,6 +11,8 @@ QtObject {
     property bool isLocationOn: false
     property bool isHotspotOn: false
     property bool isNightLightOn: false
+    property bool hasWarmLight: false
+    property int nightLightWarmth: 61
     property bool isRotationLocked: false
     property bool isAutoBrightnessOn: false
     property bool isLowPowerMode: false
@@ -25,6 +27,9 @@ QtObject {
     }
     function setBrightnessFromUser(v) {
         brightness = v;
+    }
+    function setNightLightWarmth(v) {
+        nightLightWarmth = v;
     }
     function setVolume(v) {
         volume = v;

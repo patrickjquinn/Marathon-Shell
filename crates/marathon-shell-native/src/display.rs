@@ -74,6 +74,15 @@ pub mod qobject {
             WRITE,
             NOTIFY
         )]
+        /// nightLightTemperature as the 0 to 100 warmth the sliders show.
+        #[qproperty(
+            i32,
+            night_light_temperature,
+            cxx_name = "nightLightWarmth",
+            READ = night_light_warmth,
+            WRITE = set_night_light_warmth,
+            NOTIFY = night_light_temperature_changed
+        )]
         /// off, sunset (to sunrise) or custom (nightLightFrom to nightLightTo).
         #[qproperty(
             QString,
@@ -105,6 +114,15 @@ pub mod qobject {
         #[qproperty(QString, resting_refresh_mode, cxx_name = "restingRefreshMode", READ, WRITE = set_resting_refresh_mode, NOTIFY)]
         /// Clears the still screen's ghosts after enough fast drawing.
         #[qproperty(bool, auto_clear, cxx_name = "autoClear", READ, WRITE = set_auto_clear, NOTIFY)]
+        /// A front light with warm LEDs (the profile's FRONTLIGHT_WARM): the
+        /// night light warms it instead of tinting the frame.
+        #[qproperty(
+            bool,
+            warm_light_available,
+            cxx_name = "warmLightAvailable",
+            READ,
+            CONSTANT
+        )]
         type Display = super::DisplayRust;
 
         /// Every turn on or off, so the compositor re-asserts the panel's
@@ -119,6 +137,10 @@ pub mod qobject {
         fn set_rotation_locked(self: Pin<&mut Display>, locked: bool);
         #[cxx_name = "setLearnedCurve"]
         fn set_learned_curve(self: Pin<&mut Display>, curve: &QString);
+        #[cxx_name = "nightLightWarmth"]
+        fn night_light_warmth(self: &Display) -> i32;
+        #[cxx_name = "setNightLightWarmth"]
+        fn set_night_light_warmth(self: Pin<&mut Display>, warmth: i32);
         #[cxx_name = "setNightLightSchedule"]
         fn set_night_light_schedule(self: Pin<&mut Display>, schedule: &QString);
         #[cxx_name = "setNightLightFrom"]
@@ -243,6 +265,7 @@ pub struct DisplayRust {
     refresh_mode: QString,
     resting_refresh_mode: QString,
     auto_clear: bool,
+    warm_light_available: bool,
 }
 
 impl Default for DisplayRust {
@@ -286,6 +309,7 @@ impl Default for DisplayRust {
             refresh_mode: QString::from("quality"),
             resting_refresh_mode: QString::from("quality"),
             auto_clear: true,
+            warm_light_available: false,
         }
     }
 }
@@ -303,6 +327,16 @@ struct Panel {
     floor: f64,
     dim: f64,
     actor: Sender<Command>,
+    /// The share of its light the white string keeps; the warm LEDs have
+    /// the rest.
+    white: f64,
+    warm: Option<WarmLight>,
+}
+
+/// A front light's warm LEDs: their `max_brightness` and their writer.
+struct WarmLight {
+    max: i32,
+    actor: Sender<i32>,
 }
 
 impl Panel {
@@ -314,12 +348,20 @@ impl Panel {
         }
     }
 
-    #[allow(clippy::cast_possible_truncation, reason = "at most max_brightness")]
-    fn level(&self, user: f64) -> i32 {
+    fn duty(&self, user: f64) -> f64 {
         let knee = self.knee();
         let user = ((user - knee) / (1.0 - knee)).clamp(0.0, 1.0);
-        let duty = self.floor + (1.0 - self.floor) * user;
+        self.floor + (1.0 - self.floor) * user
+    }
+
+    #[allow(clippy::cast_possible_truncation, reason = "at most max_brightness")]
+    fn step(&self, duty: f64) -> i32 {
         ((duty * f64::from(self.max)).round() as i32).clamp(1, self.max)
+    }
+
+    /// The white string's level for `user`.
+    fn level(&self, user: f64) -> i32 {
+        self.step(self.duty(user) * self.white)
     }
 
     fn user(&self, level: i32) -> f64 {
@@ -344,7 +386,7 @@ impl Panel {
         if user < self.knee() {
             user.max(0.0)
         } else {
-            self.user(self.level(user))
+            self.user(self.step(self.duty(user)))
         }
     }
 
@@ -383,16 +425,37 @@ impl Display {
         if let Some((dir, max, level)) = find_backlight(Path::new(&backlight_dir.to_string())) {
             let (tx, rx) = async_channel::bounded(64);
             io::spawn(backlight(dir.clone(), rx));
+            let warm = crate::device::VALUES.frontlight_warm().and_then(|dir| {
+                let warm_max = read(dir.join("max_brightness")).filter(|m: &i32| *m > 0)?;
+                let lit = read(dir.join("brightness")).unwrap_or(0);
+                let (tx, rx) = async_channel::bounded(16);
+                io::spawn(warm_light(dir, rx));
+                Some((
+                    WarmLight {
+                        max: warm_max,
+                        actor: tx,
+                    },
+                    lit,
+                ))
+            });
+            // A shell gone with the night light on left part of the light warm.
+            #[allow(clippy::cast_possible_truncation, reason = "at most max_brightness")]
+            let warm_part = warm.as_ref().map_or(0, |(w, lit)| {
+                (f64::from(*lit) / f64::from(w.max) * f64::from(max)).round() as i32
+            });
             let panel = Panel {
                 dir,
                 max,
                 floor,
                 dim: dim.clamp(0.05, 1.0),
                 actor: tx,
+                white: 1.0,
+                warm: warm.map(|(w, _)| w),
             };
             let mut rust = self.as_mut().rust_mut();
-            rust.brightness = level.map_or(0.5, |l| panel.user(l));
+            rust.brightness = level.map_or(0.5, |l| panel.user(l + warm_part));
             rust.available = true;
+            rust.warm_light_available = panel.warm.is_some();
             rust.panel = Some(panel);
         }
         if let Some(channels) = find_sensors(Path::new(&iio_dir.to_string())) {
@@ -430,6 +493,17 @@ impl Display {
             .on_resting_refresh_mode_changed(push)
             .release();
         self.as_mut().on_auto_clear_changed(push).release();
+        if self.warm_light_available {
+            let mix = |obj: Pin<&mut Self>| obj.mix_front_light();
+            self.as_mut().on_brightness_changed(mix).release();
+            self.as_mut().on_night_light_enabled_changed(mix).release();
+            self.as_mut()
+                .on_night_light_temperature_changed(mix)
+                .release();
+            self.as_mut().on_screen_on_changed(mix).release();
+            self.as_mut().on_proximity_blanked_changed(mix).release();
+            self.as_mut().mix_front_light();
+        }
         self.as_mut()
             .on_proximity_near_changed(|obj| {
                 ipc::signal("Sensor", "ProximityChanged", (obj.proximity_near,));
@@ -527,6 +601,35 @@ impl Display {
             minutes.rem_euclid(1440)
         );
         self.plan_night_light();
+    }
+
+    fn night_light_warmth(&self) -> i32 {
+        warmth(self.night_light_temperature)
+    }
+
+    fn set_night_light_warmth(mut self: Pin<&mut Self>, warmth: i32) {
+        self.as_mut().set_night_light_temperature(kelvin(warmth));
+    }
+
+    /// The night light's part of the front light, lit with the screen.
+    fn mix_front_light(mut self: Pin<&mut Self>) {
+        let Some(panel) = &self.panel else { return };
+        let Some(warm) = &panel.warm else { return };
+        let night = self
+            .night_light_enabled
+            .then(|| warmth(self.night_light_temperature));
+        let (white, level) = front_light(panel.duty(self.brightness), night, warm.max);
+        let lit = self.screen_on && !self.proximity_blanked;
+        warm.actor.try_send(if lit { level } else { 0 }).ok();
+        if (panel.white - white).abs() > f64::EPSILON {
+            let brightness = self.brightness;
+            let mut rust = self.as_mut().rust_mut();
+            let Some(panel) = rust.panel.as_mut() else {
+                return;
+            };
+            panel.white = white;
+            panel.send(Command::Level(panel.level(brightness)));
+        }
     }
 
     /// Hands the schedule to its timer, which applies it now.
@@ -948,6 +1051,49 @@ impl FromStr for Curve {
     }
 }
 
+/// The night light's warmth, 0 to 100, over 4500 K (mild) to 2700 K
+/// (candlelight), as the Settings app's slider (SettingsLogic.js).
+#[allow(clippy::cast_possible_truncation, reason = "0 to 100")]
+fn warmth(kelvin: i32) -> i32 {
+    ((4500.0 - f64::from(kelvin)) / 18.0)
+        .round()
+        .clamp(0.0, 100.0) as i32
+}
+
+/// Unlike the Settings app's, not rounded to 100 K: each warmth its own.
+fn kelvin(warmth: i32) -> i32 {
+    4500 - warmth.clamp(0, 100) * 18
+}
+
+/// A front light at white `duty` (0 to 1) with the night light on at a
+/// warmth (0 to 100), or off: the white string's share of its light, and
+/// the warm LEDs' level out of `warm_max`. The warm LEDs take what the
+/// white gives up, so the light warms without dimming.
+#[allow(clippy::cast_possible_truncation, reason = "at most warm_max")]
+fn front_light(duty: f64, night: Option<i32>, warm_max: i32) -> (f64, i32) {
+    let warm = f64::from(night.unwrap_or(0).clamp(0, 100)) / 100.0;
+    let level = (duty.clamp(0.0, 1.0) * warm * f64::from(warm_max)).round() as i32;
+    (1.0 - warm, level)
+}
+
+/// Writes the warm LEDs' level, the last of those queued.
+async fn warm_light(dir: PathBuf, levels: Receiver<i32>) {
+    let path = dir.join("brightness");
+    let mut written = None;
+    while let Ok(first) = levels.recv().await {
+        let level = std::iter::from_fn(|| levels.try_recv().ok())
+            .last()
+            .unwrap_or(first);
+        if written == Some(level) {
+            continue;
+        }
+        match fs::write(&path, format!("{level}\n")) {
+            Ok(()) => written = Some(level),
+            Err(e) => log::warn("display", format_args!("{}: {e}", path.display())),
+        }
+    }
+}
+
 enum Command {
     Level(i32),
     /// Levels 20 ms apart; a later level or ramp replaces it.
@@ -1279,6 +1425,10 @@ fn state(display: &Display) -> State {
             value(display.resting_refresh_mode.to_string()),
         ),
         ("autoClear".to_owned(), value(display.auto_clear)),
+        (
+            "warmLightAvailable".to_owned(),
+            value(display.warm_light_available),
+        ),
     ])
 }
 
@@ -1456,7 +1606,8 @@ async fn measure(path: PathBuf) -> Option<i32> {
 
 #[cfg(test)]
 mod tests {
-    use super::{collapse, Command, Curve};
+    use super::{collapse, front_light, kelvin, warmth, Command, Curve};
+    use crate::night_light::{self, Schedule};
 
     #[test]
     fn runs_of_levels_collapse_to_their_last() {
@@ -1500,5 +1651,48 @@ mod tests {
         let back: Curve = curve.to_string().parse().unwrap_or_default();
         assert_eq!(back.to_string(), curve.to_string());
         assert!(back.long_term.iter().any(|o| *o > 0.0));
+    }
+
+    #[test]
+    fn warmth_is_the_settings_sliders_over_kelvin() {
+        assert_eq!(warmth(4500), 0);
+        assert_eq!(warmth(2700), 100);
+        assert_eq!(warmth(3400), 61);
+        assert_eq!(warmth(6500), 0);
+        assert_eq!(kelvin(0), 4500);
+        assert_eq!(kelvin(100), 2700);
+        assert_eq!(kelvin(50), 3600);
+        assert_eq!(kelvin(-5), 4500);
+        for w in 0..=100 {
+            assert_eq!(warmth(kelvin(w)), w);
+        }
+        // The Settings app's 100 K steps read back as whole warmths.
+        assert_eq!(warmth(4100), 22);
+    }
+
+    #[test]
+    fn the_warm_leds_take_what_the_white_gives_up() {
+        assert_eq!(front_light(0.8, None, 255), (1.0, 0));
+        assert_eq!(front_light(0.8, Some(0), 255), (1.0, 0));
+        let (white, warm) = front_light(0.8, Some(100), 255);
+        assert!(white.abs() < 1e-9);
+        assert_eq!(warm, 204);
+        let (white, warm) = front_light(0.4, Some(50), 255);
+        assert!((white - 0.5).abs() < 1e-9);
+        assert_eq!(warm, 51);
+        assert_eq!(front_light(0.0, Some(100), 255).1, 0);
+    }
+
+    #[test]
+    fn the_schedule_lights_the_warm_leds_at_night_only() {
+        let zone = tz::TimeZone::utc();
+        let schedule = Schedule::Times(22 * 60, 7 * 60);
+        let lit = |at: i64| {
+            let (on, _) = night_light::state(schedule, at, zone.as_ref()).unwrap_or((false, 0));
+            front_light(0.5, on.then_some(61), 255).1
+        };
+        let day = 20_000 * 86_400;
+        assert_eq!(lit(day + 23 * 3600), 78);
+        assert_eq!(lit(day + 12 * 3600), 0);
     }
 }

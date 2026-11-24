@@ -271,6 +271,30 @@ TestCase {
         compare(slider.value, SystemControlStore.volume);
     }
 
+    // The night light warms a front light by the warmth under brightness,
+    // shown only on a device with one and while the night light is on.
+    function test_warmthSliderWithAWarmLightAtNight() {
+        fit.height = 5000;
+        UIStore.quickSettingsHeight = qs.maxHeight;
+        const slider = findChild(qs, "warmthSlider");
+        verify(!slider.visible);
+        SystemControlStore.isNightLightOn = true;
+        verify(!slider.visible, "no warm light");
+        SystemControlStore.hasWarmLight = true;
+        verify(slider.visible);
+        compare(slider.value, 61);
+        // The column places it on the next polish.
+        wait(50);
+        const track = findChild(slider, "sliderTrack");
+        mouseClick(track, track.width * 0.25, track.height / 2);
+        compare(SystemControlStore.nightLightWarmth, 25);
+        compare(slider.value, 25);
+        SystemControlStore.isNightLightOn = false;
+        verify(!slider.visible);
+        SystemControlStore.hasWarmLight = false;
+        SystemControlStore.nightLightWarmth = 61;
+    }
+
     function test_verticalSwipeOnSliderScrolls_data() {
         return [
             {
