@@ -89,7 +89,7 @@ impl Panel {
             mode: open("refresh_mode")?,
             clear: open("full_refresh")?,
         };
-        log::info(
+        log::warn(
             "eink",
             format_args!("refresh controls at {}", dir.display()),
         );
@@ -144,7 +144,7 @@ fn run(panel: &Panel, rx: &Receiver<Msg>, mut policy: Policy) {
 /// false when no panel has the refresh controls.
 pub(crate) fn start(root: &Path) -> bool {
     let Some(panel) = Panel::find(root) else {
-        log::info("eink", "no refresh controls: rendering policy only");
+        log::warn("eink", "no refresh controls: rendering policy only");
         return false;
     };
     // The two numbers a camera on the panel has to settle.
