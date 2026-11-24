@@ -8,7 +8,7 @@ matching `build-*-image.sh` has produced an image artifact.
 | OnePlus 6 (enchilada) | `flash-oneplus6.sh` | **Ready, hardware-unverified** | fastboot (boot.img + sparse rootfs) |
 | Purism Librem 5 | `flash-librem5.sh` | **Ready, hardware-unverified** | `dd` to SD, or `uuu` SDP→Fastboot to eMMC |
 | HackberryPi CM5 | `flash-hackberry-cm5.sh` | **Ready, hardware-unverified** | `dd` to microSD |
-| Zinwa Q25 | `flash-zinwa-q25.sh` | **Ready, hardware-unverified** | fastboot from the stock bootloader (userdata + U-Boot in lk_a/lk_b), or mtkclient in BROM |
+| Zinwa Q25 | `q25-install` | **Ready; single-session writes hardware-unverified** | MediaTek download mode through mtkclient: backup, U-Boot in lk_a/lk_b, then userdata |
 | Minimal Phone MP01 | `flash-minimal-mp01.sh` | **Ready, hardware-unverified** | fastboot from the stock LK only: U-Boot in boot_a/boot_b + userdata; `--restore-stock` puts the stock boot images back (devices/minimal/mp01/FLASHING.md) |
 | PINE64 PinePhone | `flash-pinephone.sh` | **Ready, hardware-unverified** | `dd` to microSD, or to eMMC through JumpDrive |
 | Other Hackberry variants | `flash-hackberry-pi.sh` | **Wrapper** — dispatches to CM5; other variants not supported yet | n/a |
@@ -71,14 +71,15 @@ the host's own disk; a non-removable target needs `FORCE`.
 ## Zinwa Q25 (zinwa-q25)
 
 ```bash
-./scripts/build-zinwa-q25-image.sh
-./scripts/flash/flash-zinwa-q25.sh --stock-lk stock-lk_a.img   # stock phone, in fastboot
-./scripts/flash/flash-zinwa-q25.sh --mtkclient                  # reinstall, in BROM
+./scripts/flash/q25-install                                  # newest release from the feed
+./scripts/flash/q25-install --image <build>.userdata.img      # a local build
+./scripts/flash/q25-install restore-stock                     # back to Android
 ```
 
-Writes the `.userdata.img` from `build-zinwa-q25-image.sh` to `userdata`
-and, with `--stock-lk` (the phone's own lk partition, read with mtkclient),
-U-Boot to `lk_a` and `lk_b`. Guide, prerequisites and recovery:
+Backs up the phone, writes U-Boot (spliced into the phone's own lk) to
+`lk_a` and `lk_b`, then the userdata image, through mtkclient in download
+mode, and guides the user through each key press. Tests:
+`python3 -m unittest scripts/flash/test_q25_install.py`. Guide:
 [docs/install/ZINWA_Q25.md](../../docs/install/ZINWA_Q25.md).
 
 ## HackberryPi CM5
