@@ -14,7 +14,7 @@ package = "device-zinwa-q25-marathon"
 [build]
 target = "zinwa-q25"
 wrapper = "scripts/build-zinwa-q25-image.sh"
-flash = "scripts/flash/flash-zinwa-q25.sh"
+flash = "scripts/flash/q25-install"
 bootloader = "none"
 
 # U-Boot (lk_a) boots systemd-boot from the nested-GPT ESP inside userdata.

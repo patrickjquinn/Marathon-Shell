@@ -1,0 +1,1120 @@
+#!/usr/bin/env python3
+"""Install Marathon on a Zinwa Q25 over USB, from a Linux PC.
+
+  q25-install                  back up the phone, then install the newest
+                               release (or --image FILE)
+  q25-install backup           back up the phone's own partitions only
+  q25-install restore-stock    put the backed-up Android bootloader back
+
+The phone is driven through MediaTek's download mode with mtkclient. Guide:
+docs/install/ZINWA_Q25.md.
+"""
+import argparse
+import contextlib
+import hashlib
+import json
+import os
+import shutil
+import struct
+import subprocess
+import sys
+import time
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+
+RELEASES = 'https://api.github.com/repos/patrickjquinn/marathon-updates/releases'
+RELEASE_PREFIX = 'zinwa-q25/'
+USER_AGENT = 'marathon-q25-install'
+MTKCLIENT = 'mtkclient @ git+https://github.com/bkerler/mtkclient@a6a7147e92907b2017027ae404b84101444ee502'
+MTKCLIENT_DEPS = ('pyusb', 'pycryptodome', 'pycryptodomex', 'pyserial', 'colorama')
+DATA_HOME = Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share')
+CACHE_HOME = Path(os.environ.get('XDG_CACHE_HOME') or Path.home() / '.cache')
+VENV = DATA_HOME / 'marathon/q25-install/venv'
+
+BLOCK = 4096
+PIECE = 1 << 20
+MTK_VID = 0x0e8d
+USB_MARATHON = (0x18d1, 0xd001)
+MT6789 = 0x1208
+LK_SIZE = 4 << 20
+UBOOT_MARK = b'mt6789-q25'
+HANDOFF_LIMIT = 0x120 * 4096  # U-Boot restarts itself from this much of lk_a
+WIPE_HEAD = 64 << 20
+SAMPLE = 64 << 10
+MAX_SESSIONS = 6
+TAIL_WAIT = 30
+BACKUP_PARTS = (
+    'lk_a', 'lk_b', 'boot_a', 'boot_b', 'vendor_boot_a', 'vendor_boot_b', 'init_boot_a', 'init_boot_b',
+    'dtbo_a', 'dtbo_b', 'vbmeta_a', 'vbmeta_b', 'vbmeta_system_a', 'vbmeta_system_b', 'vbmeta_vendor_a',
+    'vbmeta_vendor_b', 'seccfg', 'proinfo', 'nvram', 'nvdata', 'nvcfg', 'protect1', 'protect2', 'persist')
+
+SPARSE_MAGIC = 0xED26FF3A
+RAW, FILL, DONT_CARE, CRC32 = 0xCAC1, 0xCAC2, 0xCAC3, 0xCAC4
+LK_MAGIC, LK_EXT = 0x58881688, 0x58891689
+
+
+class Fail(Exception):
+    """Stops the installer with a message for the user."""
+
+
+class SessionLost(Exception):
+    """The phone stopped answering; it has to be restarted into download mode."""
+
+
+class NextSession(Exception):
+    """(label, last): a write is done, and this phone takes only one write per session."""
+
+
+# ---------------------------------------------------------------- terminal
+
+class Ui:
+    def say(self, text=''):
+        print(text, flush=True)
+
+    def step(self, text):
+        print(f'\n==> {text}', flush=True)
+
+    def ask(self, prompt):
+        return input(prompt)
+
+    def progress(self, label, total):
+        return Progress(label, total)
+
+
+class Progress:
+    def __init__(self, label, total):
+        self.label, self.total, self.done = label, total, 0
+        self.start = self.shown = time.monotonic()
+        self.tty = sys.stdout.isatty()
+
+    def __call__(self, n):
+        self.done += n
+        now = time.monotonic()
+        if self.tty and (now - self.shown > 0.5 or self.done >= self.total):
+            self.shown = now
+            rate = self.done / max(now - self.start, 1e-3)
+            left = (self.total - self.done) / rate if rate else 0
+            print(f'\r    {self.label}: {self.done / 1e6:,.0f} of {self.total / 1e6:,.0f} MB, '
+                  f'{rate / 1e6:.0f} MB/s, {left / 60:.0f} min left   ', end='', flush=True)
+
+    def end(self):
+        secs = time.monotonic() - self.start
+        if self.tty:
+            print()
+        print(f'    {self.label}: {self.done / 1e6:,.0f} MB in {secs:.0f} s', flush=True)
+
+
+# ---------------------------------------------------------------- USB
+
+def usb_devices(root='/sys/bus/usb/devices'):
+    """(vendor, product) of every USB device the kernel sees."""
+    found = []
+    for d in Path(root).glob('*'):
+        try:
+            found.append(tuple(int((d / f).read_text(), 16) for f in ('idVendor', 'idProduct')))
+        except (OSError, ValueError):
+            continue
+    return found
+
+
+def mtk_devices(root='/sys/bus/usb/devices'):
+    return [d for d in usb_devices(root) if d[0] == MTK_VID]
+
+
+def plug_in(ui, attempt, usb_root='/sys/bus/usb/devices', sleep=time.sleep):
+    if mtk_devices(usb_root):
+        ui.say('\nThe phone is still connected from before. Unplug the USB cable from the phone.')
+        while mtk_devices(usb_root):
+            sleep(0.2)
+    if attempt > 1:
+        ui.say('\nThe phone has to restart before the next step:\n'
+               '  1. Hold the power key for about 15 seconds, until the phone is off, then let go.\n'
+               '     (Holding it that long switches the phone off even when the screen is black.)')
+        ui.ask('  Press Enter when the phone is off. ')
+    else:
+        ui.say('\nSwitch the phone off. If it does not switch off, hold the power key for about 15 seconds.')
+        ui.ask('Press Enter when the phone is off. ')
+
+
+PLUG = ('\nNow hold BOTH volume keys and, while holding them, plug the USB cable into the phone.\n'
+        'Keep holding them until this window says the phone is connected.\n'
+        'Waiting for the phone...')
+
+
+# ---------------------------------------------------------------- the image
+
+def parse_sums(text):
+    sums = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and len(parts[0]) == 64:
+            sums[parts[1].lstrip('*')] = parts[0].lower()
+    return sums
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for block in iter(lambda: f.read(PIECE), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def pick_release(releases, tag=None):
+    """The newest zinwa-q25/* release (or TAG) with an install image, U-Boot and checksums."""
+    for r in sorted(releases, key=lambda r: r.get('published_at') or '', reverse=True):
+        name = r['tag_name']
+        if r.get('draft') or not name.startswith(RELEASE_PREFIX) or (tag and name != tag):
+            continue
+        if r.get('prerelease') and not tag:
+            continue
+        assets = {a['name']: a for a in r.get('assets', [])}
+        image = sorted(n for n in assets if n.endswith('.userdata.img.zst'))
+        sums = sorted(n for n in assets if n.endswith('SHA256SUMS'))
+        if image and sums and 'u-boot-q25.bin' in assets:
+            return name, assets[image[-1]], assets[sums[-1]], assets['u-boot-q25.bin']
+    raise Fail(f'no {tag or "Zinwa Q25 install"} release with an image, U-Boot and checksums at {RELEASES}')
+
+
+def fetch(url, dest, size, ui, label):
+    if dest.exists() and dest.stat().st_size == size:
+        return
+    part = dest.with_name(dest.name + '.part')
+    have = part.stat().st_size if part.exists() else 0
+    if have > size:
+        part.unlink()
+        have = 0
+    headers = {'User-Agent': USER_AGENT}
+    if have:
+        headers['Range'] = f'bytes={have}-'
+    bar = ui.progress(f'downloading {label}', size)
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as r:
+        resumed = have and r.status == 206
+        bar(have if resumed else 0)
+        with open(part, 'ab' if resumed else 'wb') as f:
+            for block in iter(lambda: r.read(PIECE), b''):
+                f.write(block)
+                bar(len(block))
+    bar.end()
+    if part.stat().st_size != size:
+        raise Fail(f'the download of {label} stopped early; run the installer again to continue it')
+    part.rename(dest)
+
+
+def download_release(ui, cache, tag):
+    with urllib.request.urlopen(urllib.request.Request(RELEASES, headers={'User-Agent': USER_AGENT}),
+                                timeout=60) as r:
+        name, image, sums, uboot = pick_release(json.load(r), tag)
+    ui.step(f'Release {name}')
+    d = cache / name.replace('/', '-')
+    d.mkdir(parents=True, exist_ok=True)
+    need = sum(a['size'] for a in (image, sums, uboot) if not (d / a['name']).exists()) + (64 << 20)
+    free = shutil.disk_usage(d).free
+    if free < need:
+        raise Fail(f'{d} has {free >> 20} MiB free; the download needs {need >> 20} MiB. '
+                   'Free some space or pass --cache-dir on another disk.')
+    for a in (sums, uboot, image):
+        fetch(a['browser_download_url'], d / a['name'], a['size'], ui, a['name'])
+    return d / image['name'], d / 'u-boot-q25.bin', d / sums['name']
+
+
+@dataclass
+class Source:
+    image: Path
+    uboot: Path
+    sums: dict
+
+
+def local_source(image, uboot):
+    image = image.resolve()
+    if not image.is_file():
+        raise Fail(f'{image} does not exist')
+    stem = image.name.split('.userdata.img')[0]
+    sums = {}
+    for cand in (image.parent / f'{stem}.SHA256SUMS', image.parent / 'SHA256SUMS'):
+        if cand.is_file():
+            sums = parse_sums(cand.read_text())
+            break
+    return Source(image, (uboot or image.parent / 'u-boot-q25.bin').resolve(), sums)
+
+
+def check_files(ui, src):
+    """Check the compressed image and U-Boot against SHA256SUMS. Returns the hash the
+    image must have once decompressed, which scan() checks as it reads it."""
+    zst = src.image.name.endswith('.zst')
+    files = [src.uboot, src.image] if zst else [src.uboot]
+    for f in [src.image, src.uboot]:
+        if not f.is_file():
+            raise Fail(f'{f} does not exist')
+    for f in files:
+        want = src.sums.get(f.name)
+        if want is None:
+            ui.say(f'    warning: no checksum for {f.name}; it is not checked')
+        elif sha256_file(f) != want:
+            raise Fail(f'{f} does not match its checksum: the file is damaged. Delete it and run again.')
+    expect = src.sums.get(src.image.name[:-4] if zst else src.image.name)
+    if expect is None and not zst:
+        ui.say(f'    warning: no checksum for {src.image.name}; it is not checked')
+    return expect
+
+
+@contextlib.contextmanager
+def open_image(path):
+    if not path.name.endswith('.zst'):
+        with open(path, 'rb') as f:
+            yield f
+        return
+    try:
+        from compression import zstd
+    except ImportError:
+        zstd = None
+    if zstd:
+        with zstd.open(path, 'rb') as f:
+            yield f
+        return
+    if not shutil.which('zstd'):
+        raise Fail('the image is zstd-compressed: install zstd (e.g. "sudo apt install zstd")')
+    proc = subprocess.Popen(['zstd', '-dcq', '--', str(path)], stdout=subprocess.PIPE)
+    try:
+        yield proc.stdout
+    finally:
+        proc.stdout.close()
+        proc.wait()
+
+
+def read_exact(f, n):
+    out = bytearray()
+    while len(out) < n:
+        b = f.read(n - len(out))
+        if not b:
+            raise Fail('the image ends early: it is damaged or incomplete')
+        out += b
+    return bytes(out)
+
+
+class Hashing:
+    def __init__(self, f):
+        self.f, self.h = f, hashlib.sha256()
+
+    def read(self, n=-1):
+        b = self.f.read(n)
+        self.h.update(b)
+        return b
+
+
+def image_runs(f, raw_size=None):
+    """(size, runs): the disk size the image describes, and its data as (offset, bytes) in order.
+
+    An Android sparse image's DONT_CARE blocks are left out, as fastboot leaves them;
+    a plain image is all data, padded to whole blocks."""
+    head = f.read(28)
+    if len(head) == 28 and struct.unpack_from('<I', head)[0] == SPARSE_MAGIC:
+        return _sparse_runs(f, head)
+    if raw_size is None:
+        raise Fail('a compressed image must be an Android sparse image')
+    size = -(-raw_size // BLOCK) * BLOCK
+
+    def runs():
+        pos, buf = 0, bytearray(head)
+        while pos < size:
+            while len(buf) < PIECE:
+                more = f.read(PIECE - len(buf))
+                if not more:
+                    break
+                buf += more
+            piece = bytes(buf[:PIECE])
+            del buf[:PIECE]
+            piece += bytes(min(PIECE, size - pos) - len(piece))
+            yield pos, piece
+            pos += len(piece)
+    return size, runs()
+
+
+def _sparse_runs(f, head):
+    _, major, _, fhs, chs, blk, nblocks, nchunks, _ = struct.unpack('<IHHHHIIII', head)
+    if major != 1 or fhs < 28 or chs < 12 or blk % BLOCK:
+        raise Fail('the image is a sparse image this installer cannot read')
+    read_exact(f, fhs - 28)
+    size = nblocks * blk
+
+    def runs():
+        pos = 0
+        for _ in range(nchunks):
+            kind, _, nblk, total = struct.unpack('<HHII', read_exact(f, chs)[:12])
+            n, body = nblk * blk, total - chs
+            if kind == RAW and body == n:
+                for i in range(0, n, PIECE):
+                    yield pos + i, read_exact(f, min(PIECE, n - i))
+            elif kind == FILL and body == 4:
+                pattern = read_exact(f, 4) * (PIECE // 4)
+                for i in range(0, n, PIECE):
+                    yield pos + i, pattern[:min(PIECE, n - i)]
+            elif kind == CRC32:
+                read_exact(f, body)
+            elif kind != DONT_CARE or body:
+                raise Fail('the image is damaged (a bad sparse chunk)')
+            pos += n
+        if pos != size:
+            raise Fail('the image is damaged (its chunks do not add up to its size)')
+    return size, runs()
+
+
+@dataclass(frozen=True)
+class Extent:
+    start: int
+    length: int
+
+    @property
+    def end(self):
+        return self.start + self.length
+
+
+@dataclass
+class Plan:
+    size: int
+    extents: list
+    sha: str
+
+    @property
+    def data(self):
+        return sum(e.length for e in self.extents)
+
+    def span(self):
+        return [Extent(self.extents[0].start, self.extents[-1].end - self.extents[0].start)]
+
+
+def raw_size(path):
+    return None if path.name.endswith('.zst') else path.stat().st_size
+
+
+def scan(path, expect_sha=None):
+    """Read the whole image once: its layout, and its hash against SHA256SUMS."""
+    with open_image(path) as raw:
+        f = Hashing(raw)
+        size, runs = image_runs(f, raw_size(path))
+        spans = []
+        for off, piece in runs:
+            if spans and spans[-1][1] == off:
+                spans[-1][1] += len(piece)
+            else:
+                spans.append([off, off + len(piece)])
+        if f.read(1):
+            raise Fail('the image has data after its end: it is damaged')
+    sha = f.h.hexdigest()
+    if expect_sha and sha != expect_sha:
+        raise Fail('the image does not match its checksum once decompressed: it is damaged')
+    if not spans:
+        raise Fail('the image is empty')
+    return Plan(size, [Extent(s, e - s) for s, e in spans], sha)
+
+
+def feeds(runs, extents):
+    """For each extent, in order, its bytes from runs; gaps inside an extent read as zeros.
+    Each extent's pieces must be used up before the next extent's."""
+    runs = iter(runs)
+    pending = [next(runs, None)]
+    for ext in extents:
+        def pieces(ext=ext):
+            pos = ext.start
+            while pos < ext.end:
+                run = pending[0]
+                nxt = ext.end if run is None else min(run[0], ext.end)
+                while pos < nxt:
+                    n = min(PIECE, nxt - pos)
+                    yield bytes(n)
+                    pos += n
+                if run is None or run[0] >= ext.end:
+                    break
+                off, data = run
+                if off != pos:
+                    raise Fail('internal error: image data outside the planned writes')
+                take = data[:ext.end - pos]
+                yield take
+                pos += len(take)
+                pending[0] = (off + len(take), data[len(take):]) if len(take) < len(data) else next(runs, None)
+        yield ext, pieces()
+    if pending[0] is not None:
+        raise Fail('internal error: image data outside the planned writes')
+
+
+def pick_samples(extents):
+    """Regions to read back after writing: the nested GPT, its backup and a spread of the data."""
+    first, last = extents[0], extents[-1]
+    picks = {(first.start, min(PIECE, first.length)),
+             (last.end - min(SAMPLE, last.length), min(SAMPLE, last.length))}
+    middle = extents[1:-1]
+    for e in middle[::max(1, len(middle) // 6)][:6]:
+        picks.add((e.start, min(SAMPLE, e.length)))
+    return sorted(picks)
+
+
+def capture(pieces, start, windows, out):
+    pos = start
+    for p in pieces:
+        end = pos + len(p)
+        for s, n in windows:
+            lo, hi = max(s, pos), min(s + n, end)
+            if lo < hi:
+                out.setdefault(s, bytearray()).extend(p[lo - pos:hi - pos])
+        yield p
+        pos = end
+
+
+# ---------------------------------------------------------------- lk
+
+def _u32(b, off):
+    return struct.unpack_from('<I', b, off)[0]
+
+
+def _is_cert(img, off):
+    return off + 512 <= len(img) and _u32(img, off) == LK_MAGIC and _u32(img, off + 60) >> 24 == 2
+
+
+def lk_parts(img):
+    """The (start, end, is_cert) of each part of an lk image."""
+    if len(img) < 512 or _u32(img, 0) != LK_MAGIC or img[8:11] != b'lk\0':
+        raise Fail('lk_a does not hold an lk image')
+    parts, off = [], 0
+    while off + 512 <= len(img) and _u32(img, off) == LK_MAGIC:
+        if _u32(img, off + 48) != LK_EXT:
+            raise Fail('lk_a has a part without an extended header')
+        last, align = _u32(img, off + 64), _u32(img, off + 68)
+        end = off + 512 + _u32(img, off + 4)
+        if align:
+            end = -(-end // align) * align
+        if end > len(img):
+            raise Fail('lk_a is cut short')
+        parts.append((off, end, _u32(img, off + 60) >> 24 == 2))
+        off = end
+        # gimme-uboot.py marks the last part before its certificates as the end too
+        if last and not _is_cert(img, off):
+            return parts
+    raise Fail("lk_a's part list does not end")
+
+
+def is_marathon_lk(img):
+    start, end, _ = lk_parts(img)[0]
+    return UBOOT_MARK in img[start:end]
+
+
+def splice_uboot(lk, uboot):
+    """The phone's lk image with U-Boot as its first part, as gimme-uboot.py builds it.
+
+    MediaTek's other parts (bl2_ext, aee, lk_main_dtb) and every certificate are the
+    phone's own and stay byte for byte."""
+    if UBOOT_MARK not in uboot:
+        raise Fail('the U-Boot file is not the Zinwa Q25 U-Boot')
+    parts = lk_parts(lk)
+    head = bytearray(lk[:512])
+    size = -(-len(uboot) // 16) * 16
+    align = _u32(head, 68) or 1
+    first = 512 + -(-size // align) * align
+    if 512 + size > HANDOFF_LIMIT:
+        raise Fail('the U-Boot file is too big for lk_a')
+    struct.pack_into('<I', head, 4, size)
+    head[8:40] = b'lk'.ljust(32, b'\0')
+    struct.pack_into('<II', head, 40, 0xFFFFFFFF, 0xFFFFFFFF)
+    blocks = [head + uboot + bytes(first - 512 - len(uboot))]
+    blocks += [bytearray(lk[s:e]) for s, e, _ in parts[1:]]
+    main = [i for i, (_, _, cert) in enumerate(parts) if not cert]
+    for i in main:
+        struct.pack_into('<I', blocks[i], 64, int(i == main[-1]))
+    out = b''.join(blocks)
+    if len(out) > LK_SIZE:
+        raise Fail('the new lk image does not fit lk_a')
+    return out
+
+
+def pad_block(b):
+    return b + bytes(-len(b) % BLOCK)
+
+
+# ---------------------------------------------------------------- the partition table
+
+@dataclass(frozen=True)
+class Part:
+    offset: int
+    size: int
+
+
+@dataclass
+class Table:
+    parts: dict
+    primary: Extent
+    backup: Extent
+
+
+def read_table(phone):
+    head = phone.read(0, 2 * BLOCK)
+    if head[BLOCK:BLOCK + 8] != b'EFI PART':
+        raise Fail('the phone has no GPT with 4 KiB sectors where a Zinwa Q25 has one')
+    alt_lba, = struct.unpack_from('<Q', head, BLOCK + 32)
+    entries_lba, count, esize = struct.unpack_from('<QII', head, BLOCK + 72)
+    end = entries_lba * BLOCK + count * esize
+    data = phone.read(0, -(-end // BLOCK) * BLOCK)
+    parts = {}
+    for i in range(count):
+        e = data[entries_lba * BLOCK + i * esize:][:esize]
+        if e[:16] == bytes(16):
+            continue
+        first, last = struct.unpack_from('<QQ', e, 32)
+        name = e[56:128].decode('utf-16-le').split('\0')[0]
+        parts[name] = Part(first * BLOCK, (last - first + 1) * BLOCK)
+    if not parts:
+        raise Fail('the GPT on the phone lists no partitions')
+    low = min(p.offset for p in parts.values())
+    high = max(p.offset + p.size for p in parts.values())
+    return Table(parts, Extent(0, low), Extent(high, (alt_lba + 1) * BLOCK - high))
+
+
+def check_q25(table, hwcode, need=0):
+    if hwcode != MT6789:
+        raise Fail(f'this phone is not a Zinwa Q25 (its chip is {hwcode:#x}, not MT6789)')
+    for name in ('lk_a', 'lk_b', 'userdata'):
+        if name not in table.parts:
+            raise Fail(f'the phone has no {name} partition; is this a Zinwa Q25?')
+    if table.parts['lk_a'].size != LK_SIZE or table.parts['lk_b'].size != LK_SIZE:
+        raise Fail('lk_a or lk_b is not 4 MiB; is this a Zinwa Q25?')
+    if need > table.parts['userdata'].size:
+        raise Fail("the image is bigger than the phone's userdata partition")
+
+
+# ---------------------------------------------------------------- mtkclient
+
+def da_write(da, addr, length, pieces, progress, tail):
+    """WRITE-FLASH through an XML download agent, streaming the data.
+
+    mtkclient's own writeflash() reads the whole file into memory and sends one
+    extra "OK" after the last packet (upload(raw=True)), which the documented
+    exchange does not have; a DA that takes it for the next command answers
+    nothing more, so every mtkclient session got exactly one write. Here the
+    tail waits for CMD:END and sends that "OK" only to a DA that waits for it.
+    Returns the tail style the DA used ('direct' or 'extra-ok')."""
+    from mtkclient.Library.DA.xmlflash.xml_lib import get_field
+    info = da.daconfig.storage.get_storage('user', length)
+    if not info:
+        raise Fail('mtkclient does not know how to address the phone storage')
+    if da.send_command(da.cmd.cmd_write_flash(partition=info[1], offset=addr, mem_length=length),
+                       noack=True) is not True:
+        raise SessionLost('the phone refused the write')
+    _, op = da.get_command_result()
+    if getattr(op, 'key', None) != 'FILE-SIZE':
+        raise SessionLost('the phone did not ask for the size of the write')
+    da.ack_value(length)
+    _, dl = da.get_command_result()
+    packet = getattr(dl, 'packet_length', None)
+    if not packet:
+        raise SessionLost('the phone did not take the data')
+    da.ack_value(length)
+    if da.get_response() != 'OK':
+        raise SessionLost('the phone did not take the data')
+    sent, buf = 0, bytearray()
+
+    def send(chunk):
+        da.ack_value(0)
+        if 'OK' not in da.get_response():
+            raise SessionLost(f'the phone stopped taking data at {addr + sent:#x}')
+        da.xsend(data=bytes(chunk))
+        if 'OK' not in da.get_response():
+            raise SessionLost(f'the phone did not confirm the data at {addr + sent:#x}')
+        progress(len(chunk))
+
+    for p in pieces:
+        buf += p
+        while len(buf) >= packet:
+            send(buf[:packet])
+            sent += packet
+            del buf[:packet]
+    if buf:
+        send(buf)
+        sent += len(buf)
+    if sent != length:
+        raise Fail(f'internal error: wrote {sent} bytes of {length}')
+    if tail == 'extra-ok':
+        da.ack()
+        end = da.get_response()
+    else:
+        end = _message(da, TAIL_WAIT if tail is None else 100)
+        if end is None and tail is None:
+            da.ack()
+            end, tail = da.get_response(), 'extra-ok'
+    if not end or get_field(end, 'command') != 'CMD:END':
+        raise SessionLost('the phone did not finish the write')
+    da.ack()
+    result = get_field(end, 'result')
+    cmd, _ = da.get_command_result()
+    if result != 'OK':
+        raise Fail(f'the phone could not write at {addr:#x}: {get_field(end, "message") or result}')
+    if cmd != 'CMD:START':
+        raise SessionLost('the phone did not come back after the write')
+    return tail or 'direct'
+
+
+def _message(da, wait):
+    """The next protocol message, or None if the DA sends nothing for about WAIT seconds."""
+    from mtkclient.Library.DA.xmlflash.xml_param import DataType
+    while True:
+        hdr = da.usbread(maxtimeout=wait)
+        if not hdr:
+            return None
+        if len(hdr) not in (12, 16) or _u32(hdr, 0) != 0xFEEEEEEF:
+            raise SessionLost('the phone sent a garbled reply')
+        kind, n = _u32(hdr, 4), _u32(hdr, 8)
+        if kind == DataType.DT_MESSAGE:
+            da.usbread(n - 4)
+            continue
+        return bytes(da.usbread(n)).rstrip(b'\0').decode('utf-8', 'replace')
+
+
+def mtkclient_ready():
+    try:
+        from mtkclient.Library.DA.xmlflash.xml_lib import DAXML
+    except ImportError:
+        return False
+    return all(hasattr(DAXML, a) for a in ('send_command', 'get_command_result', 'ack_value', 'ack',
+                                            'get_response', 'xsend', 'readflash', 'shutdown'))
+
+
+class MtkPhone:
+    """One download-mode session with the phone."""
+
+    def __init__(self, mtk, statedir):
+        self.mtk, self.da, self.statedir = mtk, mtk.daloader.da, statedir
+        self.wrote, self.tail = False, None
+        cfg = mtk.config
+        ident = cfg.socid or cfg.meid
+        self.ident = hashlib.sha256(ident).hexdigest()[:12] if ident else 'unknown'
+        self.hwcode = cfg.hwcode
+        self.is_brom = bool(cfg.is_brom)
+        self.boot_lu_size = self.da.daconfig.storage.ufs.lu0_size
+
+    @classmethod
+    def open(cls, ui, attempt, statedir, preloader, verbose):
+        import argparse as ap
+        import errno
+        import logging
+        import mtkclient
+        import usb.core
+        from mtkclient.config.mtk_config import MtkConfig
+        from mtkclient.Library.mtk_main import ArgHandler
+        from mtkclient.Library.mtk_class import Mtk
+        from mtkclient.Library.DA.mtk_da_handler import DaHandler
+        from mtkclient.Library.DA.xmlflash.xml_lib import DAXML
+        plug_in(ui, attempt)
+        level = logging.INFO if verbose else logging.WARNING
+        statedir.mkdir(parents=True, exist_ok=True)
+        (statedir / '.state').unlink(missing_ok=True)
+        loader = Path(mtkclient.__file__).parent / 'Loader' / 'MTK_DA_V6.bin'
+        args = ap.Namespace(vid=hex(MTK_VID), pid=None, stock=True, loader=str(loader),
+                            preloader=str(preloader) if preloader else None)
+        try:
+            config = MtkConfig(loglevel=level, gui=None, guiprogress=None)
+            ArgHandler(args, config)
+            mtk = Mtk(config=config, loglevel=level, serialportname=None)
+            config.set_peek(mtk.daloader.peek)
+            handler = DaHandler(mtk, level)
+            ui.say(PLUG)
+            mtk = handler.connect(mtk, str(statedir))
+            if mtk is None:
+                raise SessionLost('the phone was connected before the installer was ready')
+            mtk = handler.configure_da(mtk)
+        except SystemExit:
+            raise SessionLost('mtkclient could not start its download agent on the phone') from None
+        except usb.core.USBError as e:
+            if e.errno == errno.EACCES:
+                raise Fail('this user may not open the phone over USB; see "Prepare the PC" in '
+                           'docs/install/ZINWA_Q25.md') from None
+            raise SessionLost(f'USB error: {e}') from None
+        if not isinstance(mtk.daloader.da, DAXML):
+            raise Fail('the phone did not take the XML download agent; is this a Zinwa Q25?')
+        phone = cls(mtk, statedir)
+        ui.say(f'\nConnected ({"BROM" if phone.is_brom else "preloader"} mode). You can let go of the keys.')
+        return phone
+
+    def _call(self, fn, *args, **kw):
+        import usb.core
+        try:
+            return fn(*args, **kw)
+        except SystemExit:
+            raise SessionLost('the phone stopped answering') from None
+        except usb.core.USBError as e:
+            raise SessionLost(f'USB error: {e}') from None
+
+    def read(self, offset, length, lu='user'):
+        data = self._call(self.da.readflash, addr=offset, length=length, filename='', parttype=lu,
+                          display=False)
+        if not isinstance(data, (bytes, bytearray)) or len(data) != length:
+            raise SessionLost('the phone stopped answering a read')
+        return bytes(data)
+
+    def write(self, offset, length, pieces, progress):
+        self.wrote = True
+        self.tail = self._call(da_write, self.da, offset, length, pieces, progress, self.tail)
+
+    def reboot(self):
+        self._call(self.da.shutdown)
+
+    def close(self):
+        with contextlib.suppress(Exception):
+            self.mtk.port.close()
+        (self.statedir / '.state').unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------- the steps
+
+def load_state(path):
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return {}
+
+
+def save_state(path, state):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix('.tmp')
+    tmp.write_text(json.dumps(state, indent=1) + '\n')
+    tmp.replace(path)
+
+
+class Job:
+    """What a run carries from one session to the next: options, the image, and the phone's state."""
+
+    def __init__(self, args, image=None, plan=None, uboot=None):
+        self.args, self.image, self.plan, self.uboot = args, image, plan, uboot
+        self.state, self.state_path = None, None
+
+    def bind(self, phone):
+        self.state_path = self.args.backup_dir / f'q25-{phone.ident}' / 'install-state.json'
+        self.state = load_state(self.state_path)
+
+    def save(self):
+        save_state(self.state_path, self.state)
+
+
+def put(ui, phone, job, label, offset, expect, last=False):
+    """Write EXPECT at OFFSET unless it is already there, then read it back.
+
+    The read-back is also the first command after a write: if the phone stops
+    answering there, the session loop switches this phone to one write per session."""
+    if phone.read(offset, len(expect)) == expect:
+        ui.say(f'    {label}: already written')
+        return
+    bar = ui.progress(f'writing {label}', len(expect))
+    phone.write(offset, len(expect), [expect], bar)
+    bar.end()
+    if job.state.get('multiwrite') is False:
+        raise NextSession(label, last)
+    if phone.read(offset, len(expect)) != expect:
+        raise Fail(f'{label} did not read back as written. Run the installer again to retry it.')
+    if job.state.get('multiwrite') is None:
+        job.state['multiwrite'] = True
+        job.save()
+
+
+def backup(ui, phone, table, job):
+    base = job.args.backup_dir / f'q25-{phone.ident}'
+    for manifest in sorted(base.glob('*/manifest.json'), reverse=True):
+        if json.loads(manifest.read_text()).get('complete'):
+            ui.say(f'    the phone is backed up in {manifest.parent}')
+            return manifest.parent
+    partial = sorted(d for d in base.glob('2*') if d.is_dir())
+    d = partial[-1] if partial else base / time.strftime('%Y%m%d-%H%M%S')
+    items = [('gpt-primary', 'user', table.primary), ('gpt-backup', 'user', table.backup)]
+    items += [(n, 'user', Extent(table.parts[n].offset, table.parts[n].size))
+              for n in BACKUP_PARTS if n in table.parts]
+    items.append(('preloader', 'boot1', Extent(0, phone.boot_lu_size)))
+    todo = [(n, lu, e) for n, lu, e in items if not (d / f'{n}.bin').exists()]
+    need = sum(e.length for _, _, e in todo) + (16 << 20)
+    d.mkdir(parents=True, exist_ok=True)
+    if shutil.disk_usage(d).free < need:
+        raise Fail(f'{d} needs {need >> 20} MiB free for the backup; pass --backup-dir on another disk')
+    ui.step(f'Backing up the phone to {d}')
+    bar = ui.progress('reading', sum(e.length for _, _, e in todo))
+    for name, lu, e in todo:
+        data = phone.read(e.start, e.length, lu)
+        tmp = d / f'{name}.bin.part'
+        tmp.write_bytes(data)
+        tmp.replace(d / f'{name}.bin')
+        bar(len(data))
+    bar.end()
+    lines = [f'{sha256_file(d / f"{n}.bin")}  {n}.bin' for n, _, _ in items]
+    (d / 'SHA256SUMS').write_text('\n'.join(lines) + '\n')
+    (d / 'manifest.json').write_text(json.dumps({
+        'complete': True, 'phone': phone.ident, 'date': time.strftime('%Y-%m-%d %H:%M:%S'),
+        'lk_a_is_stock': not is_marathon_lk((d / 'lk_a.bin').read_bytes()),
+        'partitions': {n: [p.offset, p.size] for n, p in table.parts.items()}}, indent=1) + '\n')
+    return d
+
+
+def install_session(ui, phone, job):
+    table = read_table(phone)
+    check_q25(table, phone.hwcode, job.plan.size)
+    job.bind(phone)
+    bdir = backup(ui, phone, table, job)
+    lk = pad_block(splice_uboot((bdir / 'lk_a.bin').read_bytes(), job.uboot))
+    ui.step('Writing U-Boot to lk_a and lk_b')
+    for name in ('lk_a', 'lk_b'):
+        put(ui, phone, job, name, table.parts[name].offset, lk)
+    # Only now, with U-Boot in both slots, can Android no longer start and claim userdata.
+    ud = table.parts['userdata']
+    windows = pick_samples(job.plan.extents)
+    ui.step('Writing Marathon to userdata')
+    if job.state.get('userdata') == job.plan.sha and verify(phone, ud, job, windows):
+        ui.say('    userdata: already written')
+        return finish(ui, phone)
+    single = job.state.get('multiwrite') is False
+    extents = job.plan.span() if single else job.plan.extents
+    seen = {}
+    job.state.pop('userdata', None)
+    job.save()
+    bar = ui.progress('writing userdata', sum(e.length for e in extents))
+    with open_image(job.image) as raw:
+        _, runs = image_runs(raw, raw_size(job.image))
+        for ext, pieces in feeds(runs, extents):
+            phone.write(ud.offset + ext.start, ext.length, capture(pieces, ext.start, windows, seen), bar)
+    bar.end()
+    job.state['expected'] = {str(s): hashlib.sha256(b).hexdigest() for s, b in seen.items()}
+    job.state['userdata'] = job.plan.sha
+    job.save()
+    if single:
+        raise NextSession('userdata', True)
+    if not verify(phone, ud, job, windows):
+        raise Fail('userdata did not read back as written. Run the installer again to rewrite it.')
+    return finish(ui, phone)
+
+
+def verify(phone, ud, job, windows):
+    want = job.state.get('expected', {})
+    return all(hashlib.sha256(phone.read(ud.offset + s, n)).hexdigest() == want.get(str(s))
+               for s, n in windows)
+
+
+def finish(ui, phone):
+    ui.step('Restarting the phone')
+    phone.reboot()
+    return True
+
+
+def backup_session(ui, phone, job):
+    table = read_table(phone)
+    check_q25(table, phone.hwcode)
+    job.bind(phone)
+    backup(ui, phone, table, job)
+    return finish(ui, phone)
+
+
+def stock_backup(job, phone):
+    if job.args.from_backup:
+        return job.args.from_backup.resolve()
+    base = job.args.backup_dir / f'q25-{phone.ident}'
+    for m in sorted(base.glob('*/manifest.json'), reverse=True):
+        if json.loads(m.read_text()).get('lk_a_is_stock'):
+            return m.parent
+    raise Fail(f'there is no backup of this phone with the stock bootloader in {base}')
+
+
+def restore_session(ui, phone, job):
+    table = read_table(phone)
+    check_q25(table, phone.hwcode)
+    job.bind(phone)
+    job.state.pop('userdata', None)
+    job.save()
+    d = stock_backup(job, phone)
+    sums = parse_sums((d / 'SHA256SUMS').read_text())
+    lk = {}
+    for name in ('lk_a', 'lk_b'):
+        lk[name] = (d / f'{name}.bin').read_bytes()
+        if hashlib.sha256(lk[name]).hexdigest() != sums.get(f'{name}.bin'):
+            raise Fail(f'{d / name}.bin does not match the backup checksums')
+    if is_marathon_lk(lk['lk_a']):
+        raise Fail(f'{d} holds Marathon\'s U-Boot in lk_a, not the stock bootloader')
+    manifest = json.loads((d / 'manifest.json').read_text())
+    if {n: [p.offset, p.size] for n, p in table.parts.items()} != manifest['partitions']:
+        raise Fail(f'the partitions in {d} are not the ones on this phone')
+    ui.step('Erasing the start of userdata, so that Android sets it up again')
+    put(ui, phone, job, 'userdata', table.parts['userdata'].offset, bytes(WIPE_HEAD))
+    ui.step('Writing the stock bootloader to lk_a and lk_b')
+    for name in ('lk_a', 'lk_b'):
+        put(ui, phone, job, name, table.parts[name].offset, lk[name], last=name == 'lk_b')
+    return finish(ui, phone)
+
+
+def run_sessions(ui, job, session, opener):
+    """Run SESSION until it is done; True if the phone was restarted at the end.
+
+    Each time the download agent stops answering, or this phone needs a fresh
+    session for its next write, the user restarts the phone into download mode
+    and the work goes on from what the phone holds."""
+    for attempt in range(1, MAX_SESSIONS + 1):
+        phone = None
+        try:
+            phone = opener(ui, attempt)
+            return session(ui, phone, job)
+        except NextSession as e:
+            label, last = e.args
+            if last:
+                return False
+            ui.say(f'\n{label} is written. This phone takes one write per connection.')
+        except SessionLost as e:
+            ui.say(f'\nThe phone stopped answering ({e}).')
+            if phone is not None and phone.wrote and job.state is not None:
+                job.state['multiwrite'] = False
+                job.save()
+                ui.say('From now on the installer makes one write per connection.')
+        finally:
+            if phone is not None:
+                phone.close()
+    raise Fail(f'gave up after {MAX_SESSIONS} connections. Run the installer again to continue; '
+               'it picks up from what is on the phone.')
+
+
+def await_marathon(ui, wait=300, usb_root='/sys/bus/usb/devices', sleep=time.sleep):
+    ui.say('    the first start takes a few minutes: it sets up the storage and encryption')
+    for _ in range(wait):
+        if USB_MARATHON in usb_devices(usb_root):
+            ui.say('    Marathon is starting. Setup continues on the phone.')
+            return
+        sleep(1)
+    ui.say('    the phone has not shown up on USB yet. If the screen is still black after five more\n'
+           '    minutes, hold power for 15 seconds and press it again to start the phone.')
+
+
+# ---------------------------------------------------------------- the host
+
+def ensure_mtkclient(ui):
+    if mtkclient_ready():
+        return
+    py = VENV / 'bin' / 'python3'
+    if os.environ.get('Q25_INSTALL_VENV') != '1':
+        if not py.exists():
+            ui.say(f'The installer needs mtkclient. It can set it up in {VENV}\n'
+                   '(a private Python environment of about 100 MB).')
+            if ui.ask('Set it up now? [Y/n] ').strip().lower() not in ('', 'y', 'yes'):
+                raise Fail('mtkclient is needed; see docs/install/ZINWA_Q25.md')
+            try:
+                subprocess.run([sys.executable, '-m', 'venv', str(VENV)], check=True)
+                subprocess.run([str(py), '-m', 'pip', 'install', '-q', *MTKCLIENT_DEPS], check=True)
+                subprocess.run([str(py), '-m', 'pip', 'install', '-q', '--no-deps', MTKCLIENT], check=True)
+            except (subprocess.CalledProcessError, OSError) as e:
+                shutil.rmtree(VENV, ignore_errors=True)
+                raise Fail(f'setting up mtkclient failed ({e}). It needs python3-venv, git and network '
+                           'access; see docs/install/ZINWA_Q25.md') from None
+        os.execve(str(py), [str(py), str(Path(__file__).resolve()), *sys.argv[1:]],
+                  {**os.environ, 'Q25_INSTALL_VENV': '1'})
+    raise Fail(f'mtkclient in {VENV} is broken; delete that directory and run again')
+
+
+def check_host(ui):
+    if not sys.platform.startswith('linux'):
+        raise Fail('the installer runs on Linux')
+    mm = subprocess.run(['systemctl', 'is-active', '--quiet', 'ModemManager'], check=False) \
+        if shutil.which('systemctl') else None
+    if mm is not None and mm.returncode == 0:
+        raise Fail('ModemManager is running; it takes the phone\'s USB port in download mode.\n'
+                   'Stop it while installing:  sudo systemctl stop ModemManager\n'
+                   '(start it again afterwards with: sudo systemctl start ModemManager)')
+    if os.geteuid() != 0:
+        rules = [p for d in ('/etc/udev/rules.d', '/usr/lib/udev/rules.d', '/lib/udev/rules.d')
+                 for p in Path(d).glob('*.rules')] if Path('/etc/udev').exists() else []
+        if not any('0e8d' in p.read_text(errors='replace').lower() for p in rules if p.is_file()):
+            raise Fail('this PC does not let you use the phone in download mode yet. Allow it once with:\n'
+                       '  echo \'SUBSYSTEM=="usb", ATTR{idVendor}=="0e8d", MODE="0666", TAG+="uaccess"\' |'
+                       ' sudo tee /etc/udev/rules.d/51-marathon-q25.rules\n'
+                       '  sudo udevadm control --reload')
+
+
+def prepare_image(ui, args):
+    if args.image:
+        src = local_source(args.image, args.uboot)
+    else:
+        image, uboot, sums = download_release(ui, args.cache_dir, args.release)
+        src = Source(image, args.uboot or uboot, parse_sums(sums.read_text()))
+    ui.step(f'Checking {src.image.name}')
+    expect = check_files(ui, src)
+    plan = scan(src.image, expect)
+    uboot = src.uboot.read_bytes()
+    if UBOOT_MARK not in uboot:
+        raise Fail(f'{src.uboot} is not the Zinwa Q25 U-Boot')
+    ui.say(f'    {plan.data / 1e9:.1f} GB to write in {len(plan.extents)} run(s), '
+           f'for a {plan.size / 1e9:.1f} GB disk image')
+    return src.image, plan, uboot
+
+
+WARNINGS = {
+    'install': "This erases everything on the phone: Android, its apps, photos and files. Android's\n"
+               "bootloader is replaced by Marathon's. The phone's own partitions are saved first.",
+    'restore-stock': "This erases Marathon and everything in it, and puts Android's bootloader back.",
+}
+DONE = {
+    'backup': 'Done. The phone restarts as before.',
+    'restore-stock': 'Done. Android starts and sets up its storage again. If it shows "Cannot load\n'
+                     'Android system", choose "Factory data reset".',
+}
+RESTART_BY_HAND = ('To start it: unplug the phone, hold power for about 15 seconds until it is off,\n'
+                   'then press power once.')
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog='q25-install', description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument('command', nargs='?', default='install', choices=('install', 'backup', 'restore-stock'))
+    p.add_argument('--image', type=Path, help='a local *.userdata.img or *.userdata.img.zst to install')
+    p.add_argument('--uboot', type=Path, help='U-Boot to install (default: u-boot-q25.bin beside the image)')
+    p.add_argument('--release', help='a release tag of the feed, e.g. zinwa-q25/26103101 (default: newest)')
+    p.add_argument('--backup-dir', type=Path, default=Path.home() / 'marathon-q25-backups')
+    p.add_argument('--cache-dir', type=Path, default=CACHE_HOME / 'marathon/q25-install')
+    p.add_argument('--from-backup', type=Path, help='restore-stock: the backup directory to restore')
+    p.add_argument('--preloader', type=Path, help="the phone's preloader, for a phone that only starts in BROM")
+    p.add_argument('--yes', action='store_true', help='do not ask before erasing the phone')
+    p.add_argument('--dry-run', action='store_true', help='get and check the image, then stop')
+    p.add_argument('--verbose', action='store_true', help="show mtkclient's own messages")
+    args = p.parse_args(argv)
+    ui = Ui()
+    try:
+        if not args.dry_run:
+            check_host(ui)
+            ensure_mtkclient(ui)
+        job = Job(args)
+        if args.command == 'install':
+            job.image, job.plan, job.uboot = prepare_image(ui, args)
+        if args.dry_run:
+            ui.say('\nDry run: the phone was not touched.')
+            return 0
+        if args.command in WARNINGS and not args.yes:
+            ui.say('\n' + WARNINGS[args.command])
+            if ui.ask('Type "erase" to continue: ').strip().lower() != 'erase':
+                raise Fail('nothing was changed')
+        session = {'install': install_session, 'backup': backup_session,
+                   'restore-stock': restore_session}[args.command]
+
+        def opener(ui, attempt):
+            preloader = args.preloader
+            if not preloader and job.state_path:
+                saved = sorted(job.state_path.parent.glob('*/preloader.bin'))
+                preloader = saved[-1] if saved else None
+            return MtkPhone.open(ui, attempt, args.cache_dir / 'mtkclient', preloader, args.verbose)
+
+        if run_sessions(ui, job, session, opener):
+            if args.command == 'install':
+                await_marathon(ui)
+            else:
+                ui.say('\n' + DONE[args.command])
+        elif args.command == 'install':
+            ui.say(f'\nMarathon is written. {RESTART_BY_HAND} The first start takes a few minutes.')
+        else:
+            ui.say(f'\nThe stock bootloader is back. {RESTART_BY_HAND}\n{DONE["restore-stock"]}')
+        return 0
+    except Fail as e:
+        ui.say(f'\nerror: {e}')
+        return 1
+    except OSError as e:
+        ui.say(f'\nerror: {e}')
+        return 1
+    except KeyboardInterrupt:
+        ui.say('\nStopped. Run the installer again to continue where it stopped.')
+        return 130
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -454,8 +454,9 @@ part list does not parse, and a U-Boot too big for the hand-off below
 the new root was blessed, and a rollback brings the older root's U-Boot
 back the same way. `lk_b` keeps the U-Boot it was installed with.
 
-U-Boot enters fastboot on every boot (`fastboot continue` boots on), then
-runs a one-shot test boot if Linux armed one (`Q25ONCE1` in `misc`'s block
+U-Boot has no fastboot (its USB gadget does not start on the Q25, and
+`devices/zinwa/q25/u-boot/0005` dropped the step). It runs a one-shot test
+boot if Linux armed one (`Q25ONCE1` in `misc`'s block
 0x7f, cleared and read back before it runs `/q25-oneshot/env.txt` from the
 ESP), then the CPU0 hand-off: it sets the modem bank remaps and EMI MPU
 regions 22-27 for CONNSYS and the modem, and restarts itself from `lk_a`
@@ -470,8 +471,9 @@ splash, instead of the session (`marathon-charger`).
 `/loader/q25-no-handoff` on the ESP skips the hand-off (CPU0 then stays
 offline); a failed hand-off step falls back to the same path.
 
-To put back a saved `lk_a`: `fastboot flash lk_a lk_a-<sha>.img` while
-U-Boot holds fastboot, or mtkclient if U-Boot does not start.
+To put back a saved `lk_a`: `dd` it to `/dev/disk/by-partlabel/lk_a` from
+a running Marathon, or write it with mtkclient in download mode if U-Boot
+does not start.
 
 ### Publishing
 
@@ -666,5 +668,5 @@ on the host and rewriting it.
 - Zinwa Q25: the state carried into a new root is a fixed list; state
   outside it written on the running root stays in that root.
 - Zinwa Q25: `q25-lk-update` writes `lk_a` only and nothing falls back to
-  another U-Boot: one that never reaches fastboot needs mtkclient to put
-  the saved `lk_a` back.
+  another U-Boot: one that does not start needs mtkclient to put the saved
+  `lk_a` back.
