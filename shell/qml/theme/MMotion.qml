@@ -147,6 +147,8 @@ QtObject {
     // E-paper: no motion at all. A fade is a run of partial updates through
     // the greys, which ghosts, so every state change is a cut.
     property bool instant: typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "epaper"
+    // E-paper's swipes turn at this share of the view (MEinkSwipe).
+    readonly property real swipeShare: 0.1
     // A hard-coded duration, or none on e-paper.
     function ms(duration) {
         return instant ? 0 : duration;

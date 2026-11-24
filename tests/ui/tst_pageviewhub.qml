@@ -24,39 +24,60 @@ TestCase {
         return findChild(pages, "pageList");
     }
 
-    // E-paper: a release lands on its page in the same frame, flick or not.
-    function test_releaseLandsAtOnceOnEpaper_data() {
+    SignalSpy {
+        id: contentXSpy
+
+        signalName: "contentXChanged"
+    }
+
+    SignalSpy {
+        id: indexSpy
+
+        signalName: "currentIndexChanged"
+    }
+
+    // E-paper: the pages never follow the finger. A swipe short of a tenth
+    // of the width moves nothing; past it the view cuts once to the next
+    // page, however far the finger goes on.
+    function test_epaperSwipeTurnsOnce_data() {
         return [
             {
-                tag: "flick",
-                steps: 10,
-                stepMs: 5,
-                next: true
+                tag: "short",
+                dx: 50,
+                turns: 0
             },
             {
-                tag: "slow",
-                steps: 20,
-                stepMs: 30,
-                next: false
+                tag: "past a tenth",
+                dx: 100,
+                turns: 1
+            },
+            {
+                tag: "a long drag",
+                dx: 500,
+                turns: 1
             }
         ];
     }
 
-    function test_releaseLandsAtOnceOnEpaper(data) {
+    function test_epaperSwipeTurnsOnce(data) {
         MMotion.instant = true;
         pages.jumpToIndex(1);
         const list = pageView();
         tryCompare(list, "currentIndex", 1);
         const x0 = list.contentX;
+        contentXSpy.target = list;
+        indexSpy.target = list;
+        contentXSpy.clear();
+        indexSpy.clear();
         const y = pages.height / 2;
-        // From Frames toward home.
         mousePress(pages, 600, y);
-        for (let i = 1; i <= data.steps; ++i)
-            mouseMove(pages, 600 - 240 * i / data.steps, y, data.stepMs);
-        mouseRelease(pages, 360, y);
-        compare(list.currentIndex, data.next ? 2 : 1);
-        compare(list.contentX, x0 + (data.next ? list.width : 0));
-        verify(!list.moving);
+        for (let i = 1; i <= 20; ++i)
+            mouseMove(pages, 600 - data.dx * i / 20, y, 30);
+        mouseRelease(pages, 600 - data.dx, y);
+        compare(indexSpy.count, data.turns);
+        compare(contentXSpy.count, data.turns);
+        compare(list.currentIndex, 1 + data.turns);
+        compare(list.contentX, x0 + data.turns * list.width);
         MMotion.instant = false;
     }
 

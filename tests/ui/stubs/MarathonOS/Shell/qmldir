@@ -47,6 +47,7 @@ singleton BluetoothManagerCpp 1.0 BluetoothManagerCpp.qml
 singleton MPRIS2Controller 1.0 MPRIS2Controller.qml
 MQSTile 1.0 ../../../../../shell/qml/ui/MQSTile.qml
 MQSSlider 1.0 ../../../../../shell/qml/ui/MQSSlider.qml
+MEinkSwipe 1.0 ../../../../../shell/qml/ui/MEinkSwipe.qml
 MNowBar 1.0 ../../../../../shell/qml/ui/MNowBar.qml
 MMarathonMark 1.0 ../../../../../shell/qml/ui/MMarathonMark.qml
 singleton WindowOrigins 1.0 ../../../../../shell/qml/core/WindowOrigins.qml

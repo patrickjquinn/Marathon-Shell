@@ -217,8 +217,9 @@ Item {
         orientation: ListView.Horizontal
         snapMode: ListView.SnapOneItem
         highlightRangeMode: ListView.StrictlyEnforceRange
-        // The Hub's weather sheet keeps the pages still under it.
-        interactive: !pageViewContainer.hubOverlayOpen
+        // The Hub's weather sheet keeps the pages still under it. On
+        // e-paper the pages never follow the finger: einkSwipe turns them.
+        interactive: !pageViewContainer.hubOverlayOpen && !MMotion.instant
         // pressDelay 200 ate fast horizontal flicks before the Flickable
         // could steal — the user reported swipe Drawer→Hub silently failed.
         // Per-icon MouseAreas already reject tap-on-release when drag > 15 px,
@@ -244,23 +245,19 @@ Item {
                 maximumFlickVelocity = MMotion.pagerFlickVelocity;
             } else {
                 maximumFlickVelocity = Math.max(400, Math.abs(Silica.Velocity.rate(_motion, 1)));
-                if (MMotion.instant)
-                    landAtOnce(Silica.Velocity.rate(_motion, 1));
             }
         }
-        // E-paper: the page a release heads for, at once. A snap settling
-        // over the next frames keeps the panel in its fast waveform.
-        function landAtOnce(velocity) {
-            const at = (contentX - originX) / width;
-            const page = Math.abs(velocity) < 400 ? Math.round(at) : velocity > 0 ? Math.ceil(at) : Math.floor(at);
-            currentIndex = Math.max(0, Math.min(count - 1, page));
-            positionViewAtIndex(currentIndex, ListView.Beginning);
-        }
-        // The release's own flick or snap starts after that: it stays put.
-        onFlickStarted: {
-            if (MMotion.instant) {
-                cancelFlick();
-                positionViewAtIndex(currentIndex, ListView.Beginning);
+
+        MEinkSwipe {
+            id: einkSwipe
+
+            extent: pageView.width
+            yAxis.enabled: false
+            enabled: MMotion.instant && !pageViewContainer.hubOverlayOpen && !pageViewContainer.appEditing
+            onTurn: step => {
+                const page = Math.max(0, Math.min(pageView.count - 1, pageView.currentIndex + step));
+                pageView.positionViewAtIndex(page, ListView.Beginning);
+                pageView.currentIndex = page;
             }
         }
         preferredHighlightBegin: 0

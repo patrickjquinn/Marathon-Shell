@@ -199,6 +199,7 @@ set(QML_FILES
     qml/ui/MApp.qml
     qml/ui/MAppIcon.qml
     qml/ui/MCircularIconButton.qml
+    qml/ui/MEinkSwipe.qml
     qml/ui/MEntrance.qml
     qml/ui/MGlowLine.qml
     qml/ui/MPressHighlight.qml

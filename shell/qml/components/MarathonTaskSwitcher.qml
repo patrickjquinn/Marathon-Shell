@@ -243,7 +243,8 @@ Item {
         }
         flickableDirection: Flickable.VerticalFlick
         pressDelay: 0
-        interactive: pages > 1
+        // On e-paper the cards never follow the finger: einkPages turns them.
+        interactive: pages > 1 && !MMotion.instant
         // Past the first or last page the cards give, then spring back.
         boundsBehavior: Flickable.DragAndOvershootBounds
         model: Tasks
@@ -258,6 +259,15 @@ Item {
             dragStartPage = Math.round((contentY - originY) / pageHeight);
         }
         onDragEnded: settle()
+
+        MEinkSwipe {
+            id: einkPages
+
+            extent: taskGrid.pageHeight
+            xAxis.enabled: false
+            enabled: MMotion.instant && taskGrid.pages > 1
+            onTurn: step => taskGrid.showPage(Math.round((taskGrid.contentY - taskGrid.originY) / taskGrid.pageHeight) + step)
+        }
         onFlickStarted: cancelFlick()
 
         NumberAnimation {
