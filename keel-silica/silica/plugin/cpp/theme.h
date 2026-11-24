@@ -84,6 +84,9 @@ class KeelTheme : public QObject
     Q_PROPERTY(qreal paddingMedium READ paddingMedium NOTIFY paddingMediumChanged FINAL)
     Q_PROPERTY(qreal paddingLarge READ paddingLarge NOTIFY paddingLargeChanged FINAL)
     Q_PROPERTY(bool _phoneScreen READ phoneScreen NOTIFY _phoneScreenChanged FINAL)
+    // Marathon: lists move a page a swipe instead of following the finger,
+    // on a panel that cannot (e-paper).
+    Q_PROPERTY(bool pagedScrolling READ pagedScrolling NOTIFY pagedScrollingChanged FINAL)
     Q_PROPERTY(qreal _widthScale READ widthScale NOTIFY _widthScaleChanged FINAL)
     Q_PROPERTY(qreal horizontalPageMargin READ horizontalPageMargin NOTIFY horizontalPageMarginChanged FINAL)
     Q_PROPERTY(qreal itemSizeExtraSmall READ itemSizeExtraSmall NOTIFY itemSizeExtraSmallChanged FINAL)
@@ -176,6 +179,7 @@ public:
     qreal paddingMedium() const { return measured() ? 20 : jsRound(12 * m_pixelRatio); }
     qreal paddingLarge() const { return measured() ? 40 : jsRound(24 * m_pixelRatio); }
     bool phoneScreen() const { return m_phoneScreen; }
+    bool pagedScrolling() const { return m_pagedScrolling; }
     qreal widthScale() const { return m_phoneScreen ? qMax(1.0, m_screenWidth / 540) : m_pixelRatio; }
     qreal horizontalPageMargin() const
     {
@@ -287,6 +291,7 @@ signals:
     void paddingMediumChanged();
     void paddingLargeChanged();
     void _phoneScreenChanged();
+    void pagedScrollingChanged();
     void _widthScaleChanged();
     void horizontalPageMarginChanged();
     void itemSizeExtraSmallChanged();
@@ -350,6 +355,7 @@ private:
     qreal m_pixelRatio = 1.0;
     int m_fontSizes[7] = {};
     bool m_phoneScreen = true;
+    bool m_pagedScrolling = false;
     qreal m_screenWidth = 540;
 };
 

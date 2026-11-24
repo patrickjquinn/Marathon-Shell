@@ -77,6 +77,9 @@ Flickable {
                         : Flickable.AutoFlickDirection
 
     BoundsBehavior { flickable: flick }
+    // Modified by Shipwright: a list too long for its view pages on e-paper (Theme.pagedScrolling).
+    interactive: !pagedScrolling.enabled
+    PagedScrolling { id: pagedScrolling; flickable: flick }
 
     QuickScroll {
         id: quickScrollItem
