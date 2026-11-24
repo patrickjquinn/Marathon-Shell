@@ -140,6 +140,7 @@ _board="
 	mp01-0037-Input-edt-ft5x06-Add-touch-overlay-support.patch
 	mp01-0038-arm64-dts-mediatek-mp01-Map-the-keys-under-the-panel.patch
 	mp01-0039-pinctrl-aw9523-Leave-the-interrupt-trigger-to-the-co.patch
+	mp01-0040-pinctrl-aw9523-Set-the-mode-of-port-1-pins-in-port-1.patch
 "
 _release=7.0.0-mp01
 pkgdesc="Minimal Phone MP01 kernel"
@@ -328,6 +329,7 @@ f7883386e345a001a2f62a962926f1afc7167472d6b675c798ff5323f35bb11ca371e02c92bdef3f
 1451c89f8cbc20e1fe3ebecfab744f9d111a7fd0a1dc88977f97d8fb0ebf589587178a6afab5a77a89f49fae9b519ab6dcb16f2d42136b22d1453c3e11dd7660  mp01-0037-Input-edt-ft5x06-Add-touch-overlay-support.patch
 c9ff4a268295b66691e67b88f27d9c98ce2d5d8f43b30f2e920df59573190a578b276c2569079a0b91be17b274d9d20bbd0f9b746c6280b083aa80426970b371  mp01-0038-arm64-dts-mediatek-mp01-Map-the-keys-under-the-panel.patch
 7857264a492806c3d3bfb1f1d4c752f639f60fd17b0906ac2dc37d30691b8e51f02bf7dbb4c45d2d306df749aa7f8f5d50b8752895ad4104379a37f376151543  mp01-0039-pinctrl-aw9523-Leave-the-interrupt-trigger-to-the-co.patch
+ee4d33d99598764c4b44e65e927a2d2bc795b71a65d4946dbd93993e3e8ea665b66f23219d259dc3b10bdc91e4cf7fc7446a8b02ef26bb8ff96760c5accf38d7  mp01-0040-pinctrl-aw9523-Set-the-mode-of-port-1-pins-in-port-1.patch
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
 9f0586dc6ec86a5893e8fcf64e91255a9f64375d33e96d57bc199b15807b38610b2c1b5fd03ade40f8bc787a0a33bc717d0e9d97f167526d471cf000166c85d5  0004-iio-adc-mt6359-auxadc-Include-the-ADC-resolution-in-.patch

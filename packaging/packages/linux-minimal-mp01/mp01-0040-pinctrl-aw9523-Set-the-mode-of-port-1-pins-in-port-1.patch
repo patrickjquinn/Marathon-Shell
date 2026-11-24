@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 19:56:02 +0000
+Subject: [PATCH 40/43] pinctrl: aw9523: Set the mode of port 1 pins in port 1
+
+aw9523_pmx_set_mux() reduces the pin number to its bit in the port
+before it picks the port's mode register, so every pin selects port 0's
+register: muxing P1_n changes P0_n instead.
+
+Pick the register from the pin number and the bit from its place in
+the port.
+
+Fixes: 576623d70661 ("pinctrl: Add driver for Awinic AW9523/B I2C GPIO Expander")
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/pinctrl/pinctrl-aw9523.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/pinctrl/pinctrl-aw9523.c b/drivers/pinctrl/pinctrl-aw9523.c
+index 5ccacef..9d635b7 100644
+--- a/drivers/pinctrl/pinctrl-aw9523.c
++++ b/drivers/pinctrl/pinctrl-aw9523.c
+@@ -174,7 +174,9 @@ static int aw9523_pmx_set_mux(struct pinctrl_dev *pctl, unsigned int fsel,
+ 			      unsigned int grp)
+ {
+ 	struct aw9523 *awi = pinctrl_dev_get_drvdata(pctl);
+-	int ret, pin = aw9523_pins[grp].number % AW9523_PINS_PER_PORT;
++	unsigned int pin = aw9523_pins[grp].number;
++	u8 bit = BIT(pin % AW9523_PINS_PER_PORT);
++	int ret;
+ 
+ 	if (fsel >= ARRAY_SIZE(aw9523_pmx))
+ 		return -EINVAL;
+@@ -185,7 +187,7 @@ static int aw9523_pmx_set_mux(struct pinctrl_dev *pctl, unsigned int fsel,
+ 	 */
+ 	mutex_lock(&awi->i2c_lock);
+ 	ret = regmap_update_bits(awi->regmap, AW9523_REG_PORT_MODE(pin),
+-				 BIT(pin), (fsel ? BIT(pin) : 0));
++				 bit, fsel ? bit : 0);
+ 	mutex_unlock(&awi->i2c_lock);
+ 	return ret;
+ }
+-- 
+2.55.0
+
