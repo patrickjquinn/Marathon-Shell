@@ -203,6 +203,7 @@ Item {
     ListView {
         id: pageView
 
+        objectName: "pageList"
         // currentPage exposes the app-grid page number (0-based).
         // Hub is at index 0 → currentPage -2.
         // Frames (task switcher) at index 1 → currentPage -1.
@@ -229,7 +230,7 @@ Item {
         currentIndex: 2
         // Rubber-band at the first/last page instead of a hard stop.
         boundsBehavior: Flickable.DragAndOvershootBounds
-        highlightMoveDuration: 180
+        highlightMoveDuration: MMotion.ms(180)
         // A SnapOneItem flick starts at maximumFlickVelocity and decelerates
         // onto the next page, so at release the cap becomes the finger's
         // speed: the snap carries on from it, as Android's ViewPager does.
@@ -243,6 +244,23 @@ Item {
                 maximumFlickVelocity = MMotion.pagerFlickVelocity;
             } else {
                 maximumFlickVelocity = Math.max(400, Math.abs(Silica.Velocity.rate(_motion, 1)));
+                if (MMotion.instant)
+                    landAtOnce(Silica.Velocity.rate(_motion, 1));
+            }
+        }
+        // E-paper: the page a release heads for, at once. A snap settling
+        // over the next frames keeps the panel in its fast waveform.
+        function landAtOnce(velocity) {
+            const at = (contentX - originX) / width;
+            const page = Math.abs(velocity) < 400 ? Math.round(at) : velocity > 0 ? Math.ceil(at) : Math.floor(at);
+            currentIndex = Math.max(0, Math.min(count - 1, page));
+            positionViewAtIndex(currentIndex, ListView.Beginning);
+        }
+        // The release's own flick or snap starts after that: it stays put.
+        onFlickStarted: {
+            if (MMotion.instant) {
+                cancelFlick();
+                positionViewAtIndex(currentIndex, ListView.Beginning);
             }
         }
         preferredHighlightBegin: 0
