@@ -823,7 +823,7 @@ Item {
 
             PropertyChanges {
                 // Home and the switcher stay drawn while a window grows out of them or shrinks onto a card.
-                mainContent.visible: backExit.running || appWindow.zooming || appWindowContainer.dock > 0 || navBar.backProgress > 0
+                mainContent.visible: backExit.running || appWindow.zooming || appWindowContainer.dock > 0 || (navBar.backProgress > 0 && !MMotion.instant)
                 mainContent.enabled: false
             }
 
@@ -1906,7 +1906,8 @@ Item {
         // drives it while the finger is down, snapIntoGridAnimation after.
         // TODO(t2): follow the thumb sideways once the nav bar exposes its x travel.
         // Follows the finger over the travel snapIntoGridAnimation assumes for the rest.
-        readonly property real gestureDock: Math.min(1, navBar.minimizeTracker.value / (shell.height * 0.6))
+        // Not on e-paper, where nothing follows the finger.
+        readonly property real gestureDock: MMotion.instant ? 0 : Math.min(1, navBar.minimizeTracker.value / (shell.height * 0.6))
         property real dockAnimated: 0
         readonly property real dock: shell.isTransitioningToActiveFrames ? dockAnimated : gestureDock
         property bool landed: false
@@ -2015,7 +2016,7 @@ Item {
         Connections {
             target: navBar.minimizeTracker
             function onValueChanged() {
-                if (navBar.minimizeTracker.active && navBar.minimizeTracker.value > 0 && UIStore.appWindowOpen && pageView.currentIndex !== 1) {
+                if (!MMotion.instant && navBar.minimizeTracker.active && navBar.minimizeTracker.value > 0 && UIStore.appWindowOpen && pageView.currentIndex !== 1) {
                     pageView.jumpToIndex(1);
                     WindowOrigins.revealCard(UIStore.currentAppId);
                     appWindowContainer.dockCardEpoch++;
@@ -2301,13 +2302,21 @@ Item {
                     "y": startY
                 });
             }
-            if (isDraggingDown)
+            // E-paper: the shade does not follow the finger; it opens in
+            // one cut once the pull passes a share of it.
+            if (isDraggingDown && MMotion.instant) {
+                if (!UIStore.quickSettingsOpen && dragDistance > shell.maxQuickSettingsHeight * MMotion.swipeShare) {
+                    UIStore.quickSettingsDragging = false;
+                    UIStore.openQuickSettings();
+                }
+            } else if (isDraggingDown) {
                 UIStore.quickSettingsHeight = Math.min(shell.maxQuickSettingsHeight, startHeight + dragDistance);
+            }
         }
         onReleased: mouse => {
             if (isDraggingDown) {
                 UIStore.quickSettingsDragging = false;
-                var open = quickSettings.tracker.decide(UIStore.quickSettingsHeight, quickSettings.tracker.velocity);
+                var open = MMotion.instant ? UIStore.quickSettingsOpen : quickSettings.tracker.decide(UIStore.quickSettingsHeight, quickSettings.tracker.velocity);
                 Logger.gesture("StatusBar", "dragEnd", {
                     "height": UIStore.quickSettingsHeight,
                     "velocity": quickSettings.tracker.velocity,

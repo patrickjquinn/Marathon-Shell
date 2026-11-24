@@ -140,8 +140,9 @@ Rectangle {
 
         property real targetX: parent.width / 2 - width / 2
         property real targetY: parent.height / 2 - height / 2
-        property real dragX: pillX.value * 0.3
-        property real dragY: pillY.value * 0.3
+        // Still on e-paper: a pill following the finger redraws the panel.
+        property real dragX: MMotion.instant ? 0 : pillX.value * 0.3
+        property real dragY: MMotion.instant ? 0 : pillY.value * 0.3
 
         objectName: "navPill"
         width: Silica.Theme.itemSizeExtraLarge
@@ -455,15 +456,22 @@ Rectangle {
                     // diffY stays cumulative for the release decision.
                     var frameDeltaY = diffY - prevDiffY;
                     prevDiffY = diffY;
-                    var newHeight = UIStore.quickSettingsHeight - frameDeltaY;
-                    UIStore.quickSettingsHeight = Math.max(0, Math.min(UIStore.maxQuickSettingsHeight, newHeight));
+                    // E-paper: the shade closes in one cut past a share of it.
+                    if (MMotion.instant) {
+                        if (diffY > UIStore.maxQuickSettingsHeight * MMotion.swipeShare)
+                            UIStore.closeQuickSettings();
+                    } else {
+                        var newHeight = UIStore.quickSettingsHeight - frameDeltaY;
+                        UIStore.quickSettingsHeight = Math.max(0, Math.min(UIStore.maxQuickSettingsHeight, newHeight));
+                    }
                 } else if (pullingQuickSettings || (diffY < 0 && !navBar.pinScreenMode && !SessionStore.isLocked)) {
                     // The bar sits at the screen edge with only its own
                     // height to travel, so the shade follows at a gain:
                     // fully open at 40 % of the bar.
                     pullingQuickSettings = true;
                     UIStore.quickSettingsDragging = true;
-                    UIStore.quickSettingsHeight = UIStore.maxQuickSettingsHeight * Math.max(0, Math.min(1, -diffY / Math.max(1, navBar.height * 0.4)));
+                    if (!MMotion.instant)
+                        UIStore.quickSettingsHeight = UIStore.maxQuickSettingsHeight * Math.max(0, Math.min(1, -diffY / Math.max(1, navBar.height * 0.4)));
                 } else if (navBar.isAppOpen || navBar.setupMode) {
                     var oldProgress = navBar.gestureProgress;
                     navBar.minimizeThumbX = diffX;
@@ -473,7 +481,8 @@ Rectangle {
                 }
             } else if (navBar.isAppOpen) {
                 backDrag.move(Math.max(0, backBase - diffX));
-                if (backDrag.value > 0)
+                // An app redrawing a predictive back is a run of panel updates.
+                if (backDrag.value > 0 && !MMotion.instant)
                     navBar.backDragged(backDrag.progress, navBar.mapToItem(null, mouse.x, mouse.y));
             }
         }
@@ -631,7 +640,7 @@ Rectangle {
                     return;
                 apron.pull = point.position.y - point.pressPosition.y;
                 apron.pullVelocity = point.velocity.y;
-                if (apronDrag.active)
+                if (apronDrag.active && !MMotion.instant)
                     UIStore.quickSettingsHeight = UIStore.maxQuickSettingsHeight * Math.max(0, Math.min(1, apron.pull / Math.max(1, navBar.height * 0.4)));
             }
         }

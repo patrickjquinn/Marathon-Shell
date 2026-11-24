@@ -134,6 +134,41 @@ TestCase {
         verify(!UIStore.quickSettingsOpen);
     }
 
+    SignalSpy {
+        id: heightSpy
+
+        target: UIStore
+        signalName: "quickSettingsHeightChanged"
+    }
+
+    // E-paper: the shade never follows the finger. A short swipe up at its
+    // end leaves it as drawn; past a tenth of it, it closes in one cut.
+    function test_epaperShadeClosesInOneCut_data() {
+        return [
+            {
+                tag: "short",
+                dy: -25,
+                closes: false
+            },
+            {
+                tag: "past a tenth",
+                dy: -120,
+                closes: true
+            }
+        ];
+    }
+
+    function test_epaperShadeClosesInOneCut(data) {
+        MMotion.instant = true;
+        const f = scroll();
+        f.contentY = f.contentHeight - f.height;
+        heightSpy.clear();
+        touchDrag(300, data.dy, 360);
+        compare(heightSpy.count, data.closes ? 1 : 0);
+        compare(UIStore.quickSettingsOpen, !data.closes);
+        MMotion.instant = false;
+    }
+
     function test_swipeDownAtTheEndScrollsBack_data() {
         return test_swipeUpScrollsOverflowingContent_data();
     }

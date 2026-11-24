@@ -126,6 +126,12 @@ Item {
                 UIStore.quickSettingsDragging = false;
                 const dy = centroid.position.y - startY;
                 const vy = centroid.velocity.y;
+                // E-paper: a swipe up closed it already, or a flick does now.
+                if (MMotion.instant) {
+                    if (vy < -800)
+                        UIStore.closeQuickSettings();
+                    return;
+                }
                 // Fling up OR more than a third of the shade swept up → close.
                 if (vy < -800 || -dy > startHeight * 0.33)
                     UIStore.closeQuickSettings();
@@ -137,6 +143,15 @@ Item {
             if (!active)
                 return;
             const dy = centroid.position.y - startY;
+            // E-paper: the shade stays put, and closes in one cut once the
+            // swipe up passes a share of it.
+            if (MMotion.instant) {
+                if (-dy > startHeight * MMotion.swipeShare) {
+                    UIStore.quickSettingsDragging = false;
+                    UIStore.closeQuickSettings();
+                }
+                return;
+            }
             if (dy >= 0) {
                 // pull-down past open → iOS rubber-band resistance
                 const c = 0.55;
