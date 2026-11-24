@@ -992,6 +992,7 @@ int main(int argc, char *argv[]) {
         QObject::connect(display, changed, settingsManager, // clazy:exclude=connect-non-signal
                          [=] { settingsManager->set(key, display->property(name)); });
     }
+    display->applyRestored();
     display->setAutoBrightness(settingsManager->getAutoBrightness());
     QObject::connect(settingsManager, &marathon::Settings::autoBrightnessChanged, display,
                      [=] { display->setAutoBrightness(settingsManager->getAutoBrightness()); });

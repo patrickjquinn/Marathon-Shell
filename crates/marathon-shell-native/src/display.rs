@@ -165,6 +165,10 @@ pub mod qobject {
             floor: f64,
             dim: f64,
         );
+        /// The saved settings are applied: light the panel as they say.
+        #[qinvokable]
+        #[cxx_name = "applyRestored"]
+        fn apply_restored(self: Pin<&mut Display>);
         #[qinvokable]
         #[cxx_name = "setBrightness"]
         fn set_brightness(self: Pin<&mut Display>, brightness: f64);
@@ -266,6 +270,8 @@ pub struct DisplayRust {
     resting_refresh_mode: QString,
     auto_clear: bool,
     warm_light_available: bool,
+    /// The white string's duty and the warm LEDs' when the shell started.
+    boot_light: Option<(f64, f64)>,
 }
 
 impl Default for DisplayRust {
@@ -310,6 +316,7 @@ impl Default for DisplayRust {
             resting_refresh_mode: QString::from("quality"),
             auto_clear: true,
             warm_light_available: false,
+            boot_light: None,
         }
     }
 }
@@ -438,11 +445,9 @@ impl Display {
                     lit,
                 ))
             });
-            // A shell gone with the night light on left part of the light warm.
-            #[allow(clippy::cast_possible_truncation, reason = "at most max_brightness")]
-            let warm_part = warm.as_ref().map_or(0, |(w, lit)| {
-                (f64::from(*lit) / f64::from(w.max) * f64::from(max)).round() as i32
-            });
+            let warm_lit = warm
+                .as_ref()
+                .map_or(0.0, |(w, lit)| f64::from(*lit) / f64::from(w.max));
             let panel = Panel {
                 dir,
                 max,
@@ -453,7 +458,8 @@ impl Display {
                 warm: warm.map(|(w, _)| w),
             };
             let mut rust = self.as_mut().rust_mut();
-            rust.brightness = level.map_or(0.5, |l| panel.user(l + warm_part));
+            rust.brightness = level.map_or(0.5, |l| panel.user(l));
+            rust.boot_light = level.map(|l| (f64::from(l) / f64::from(max), warm_lit));
             rust.available = true;
             rust.warm_light_available = panel.warm.is_some();
             rust.panel = Some(panel);
@@ -493,17 +499,6 @@ impl Display {
             .on_resting_refresh_mode_changed(push)
             .release();
         self.as_mut().on_auto_clear_changed(push).release();
-        if self.warm_light_available {
-            let mix = |obj: Pin<&mut Self>| obj.mix_front_light();
-            self.as_mut().on_brightness_changed(mix).release();
-            self.as_mut().on_night_light_enabled_changed(mix).release();
-            self.as_mut()
-                .on_night_light_temperature_changed(mix)
-                .release();
-            self.as_mut().on_screen_on_changed(mix).release();
-            self.as_mut().on_proximity_blanked_changed(mix).release();
-            self.as_mut().mix_front_light();
-        }
         self.as_mut()
             .on_proximity_near_changed(|obj| {
                 ipc::signal("Sensor", "ProximityChanged", (obj.proximity_near,));
@@ -517,6 +512,34 @@ impl Display {
         let qt = self.qt_thread();
         ipc::export("Display", Display1 { qt: qt.clone() });
         ipc::export("Sensor", Sensor1 { qt });
+    }
+
+    /// Once the saved settings are on: the panel lit at the light it had,
+    /// with the night light's warm share, and the warm light following it.
+    fn apply_restored(mut self: Pin<&mut Self>) {
+        let Some(panel) = &self.panel else { return };
+        if let Some((white, warm)) = self.boot_light {
+            #[allow(clippy::cast_possible_truncation, reason = "at most max_brightness")]
+            let level = (boot_duty(white, warm, self.night_light_enabled) * f64::from(panel.max))
+                .round() as i32;
+            let brightness = panel.user(level.max(1));
+            self.as_mut().rust_mut().brightness = brightness;
+            self.as_mut().brightness_changed();
+        }
+        if self.warm_light_available {
+            let mix = |obj: Pin<&mut Self>| obj.mix_front_light();
+            self.as_mut().on_brightness_changed(mix).release();
+            self.as_mut().on_night_light_enabled_changed(mix).release();
+            self.as_mut()
+                .on_night_light_temperature_changed(mix)
+                .release();
+            self.as_mut().on_screen_on_changed(mix).release();
+            self.as_mut().on_proximity_blanked_changed(mix).release();
+            self.as_mut().mix_front_light();
+        }
+        if let Some(panel) = &self.panel {
+            panel.send(Command::Level(panel.level(self.brightness)));
+        }
     }
 
     fn set_brightness(mut self: Pin<&mut Self>, brightness: f64) {
@@ -1076,6 +1099,14 @@ fn front_light(duty: f64, night: Option<i32>, warm_max: i32) -> (f64, i32) {
     (1.0 - warm, level)
 }
 
+/// The light a front light had, as a white duty, from the white string's
+/// duty and the warm LEDs': the warm LEDs carry what the white gave up
+/// while the night light is on. Lit with it off, they are the driver's
+/// default, not part of the light.
+fn boot_duty(white: f64, warm: f64, night: bool) -> f64 {
+    (white + if night { warm } else { 0.0 }).min(1.0)
+}
+
 /// Writes the warm LEDs' level, the last of those queued.
 async fn warm_light(dir: PathBuf, levels: Receiver<i32>) {
     let path = dir.join("brightness");
@@ -1606,7 +1637,7 @@ async fn measure(path: PathBuf) -> Option<i32> {
 
 #[cfg(test)]
 mod tests {
-    use super::{collapse, front_light, kelvin, warmth, Command, Curve};
+    use super::{boot_duty, collapse, front_light, kelvin, warmth, Command, Curve};
     use crate::night_light::{self, Schedule};
 
     #[test]
@@ -1681,6 +1712,17 @@ mod tests {
         assert!((white - 0.5).abs() < 1e-9);
         assert_eq!(warm, 51);
         assert_eq!(front_light(0.0, Some(100), 255).1, 0);
+    }
+
+    #[test]
+    fn a_restart_reads_back_the_light_it_left() {
+        let (share, warm) = front_light(0.6, Some(61), 255);
+        let white = (0.6 * share * 255.0).round() / 255.0;
+        let duty = boot_duty(white, f64::from(warm) / 255.0, true);
+        assert!((duty - 0.6).abs() < 0.01, "{duty}");
+        // The driver's default-on warm LEDs with the night light off: the
+        // white alone is the light.
+        assert!((boot_duty(64.0 / 255.0, 1.0, false) - 64.0 / 255.0).abs() < 1e-9);
     }
 
     #[test]
