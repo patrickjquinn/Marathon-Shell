@@ -38,12 +38,14 @@ namespace KeyRouting {
         if (key == Qt::Key_Back)
             return Back;
         // The Q25's keys, as its bbqx0kbd driver sends them (pickup, hangup,
-        // menu) and as its older driver did (appselect for end, homepage for
-        // the menu key).
+        // menu) and as its older driver did (homepage for the menu key).
         if (key == Qt::Key_Call || key == Qt::Key_Send || scanCode == PickupScanCode)
             return Call;
-        if (scanCode == HangupScanCode || scanCode == AppSelectScanCode)
+        if (scanCode == HangupScanCode)
             return Hangup;
+        // Recents, as the MP01's keys under the screen send it.
+        if (scanCode == AppSelectScanCode)
+            return Switcher;
         if (key == Qt::Key_HomePage || scanCode == MenuScanCode)
             return Home;
         if (key == Qt::Key_Hangup)

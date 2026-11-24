@@ -25,11 +25,17 @@ class TestKeyRouting : public QObject {
         QCOMPARE(KeyRouting::systemAction(0, QString(), 445 + 8), KeyRouting::Call);
         QCOMPARE(KeyRouting::systemAction(0, QString(), 446 + 8), KeyRouting::Hangup);
         QCOMPARE(KeyRouting::systemAction(Qt::Key_Menu, QString(), 139 + 8), KeyRouting::Home);
-        // The older driver: KEY_APPSELECT for end, KEY_HOMEPAGE for the menu key.
-        QCOMPARE(KeyRouting::systemAction(0, QString(), 580 + 8), KeyRouting::Hangup);
+        // The older driver: KEY_HOMEPAGE for the menu key.
         QCOMPARE(KeyRouting::systemAction(Qt::Key_HomePage, QString(), 172 + 8), KeyRouting::Home);
         // Any other keyboard's hang-up key.
         QCOMPARE(KeyRouting::systemAction(Qt::Key_Hangup, QString()), KeyRouting::End);
+    }
+    void keysUnderTheScreen() {
+        // The MP01's back, home and recents: KEY_BACK, KEY_HOMEPAGE, KEY_APPSELECT.
+        QCOMPARE(KeyRouting::systemAction(Qt::Key_Back, QString(), 158 + 8), KeyRouting::Back);
+        QCOMPARE(KeyRouting::systemAction(Qt::Key_HomePage, QString(), 172 + 8), KeyRouting::Home);
+        // Recents never ends a call.
+        QCOMPARE(KeyRouting::systemAction(0, QString(), 580 + 8), KeyRouting::Switcher);
     }
     void pcMenuKeyIsNotHome() {
         // KEY_COMPOSE also maps to Qt::Key_Menu.
