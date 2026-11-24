@@ -143,7 +143,7 @@ class Q25(UserdataImage, unittest.TestCase):
 
 
 class MP01(UserdataImage, unittest.TestCase):
-    NAME, DEVICE, DTB = 'mp01', 'minimal-mp01', 'mediatek/mt6789-minimal-mp01.dtb'
+    NAME, DEVICE, DTB = 'mp01', 'minimal-mp01', 'mediatek/mt6789-minimal-mp01-vendor.dtb'
 
 
 @unittest.skipUnless(all(shutil.which(t) for t in TOOLS), 'needs the image tools')

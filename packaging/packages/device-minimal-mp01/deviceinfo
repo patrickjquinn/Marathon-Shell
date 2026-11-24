@@ -11,8 +11,9 @@ deviceinfo_arch="aarch64"
 deviceinfo_chassis="handset"
 
 # Device related
-# The board DT alone: the vendor DTB is for images with mp01-kernel-modules.
-deviceinfo_dtb="mediatek/mt6789-minimal-mp01"
+# The board DT with the CONNSYS and sound card overlays merged, for the
+# vendor drivers in mp01-kernel-modules (device-minimal-mp01-marathon).
+deviceinfo_dtb="mediatek/mt6789-minimal-mp01-vendor"
 deviceinfo_drm="true"
 deviceinfo_external_storage="true"
 deviceinfo_rootfs_image_sector_size="4096"

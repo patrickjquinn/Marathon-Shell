@@ -28,7 +28,7 @@ partition_table = "gpt"
 
 [boot.carrier]
 name = "mp01"
-dtb = "mediatek/mt6789-minimal-mp01.dtb"
+dtb = "mediatek/mt6789-minimal-mp01-vendor.dtb"
 
 # Release 7.0.0-mp01, from the MT6789 tree the Q25's kernel uses.
 [kernel]
