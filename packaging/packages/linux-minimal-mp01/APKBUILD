@@ -137,6 +137,7 @@ _board="
 	mp01-0033-ASoC-dt-bindings-awinic-aw87390-Add-the-Minimal-Phon.patch
 	mp01-0034-ASoC-codecs-aw87390-Add-the-Minimal-Phone-MP01-ampli.patch
 	mp01-0035-backlight-pwm_bl-Cap-the-duty-cycle-on-request.patch
+	mp01-0036-arm64-dts-mediatek-mp01-Cap-the-white-front-light.patch
 "
 _release=7.0.0-mp01
 pkgdesc="Minimal Phone MP01 kernel"
@@ -321,6 +322,7 @@ b58189fc8f1b8ea144d9b5c4aaf3c21901d4a20f00367cc5fa989102d45f898813d377353cfcb591
 201c3f9d39bffd07294524ece2f75d529bb42b7d49610afae186d8514c5eaed7181be342a6955060c8ab821cbc54d1a07892002d5fb10ea45d1689746cf25c01  mp01-0033-ASoC-dt-bindings-awinic-aw87390-Add-the-Minimal-Phon.patch
 4b03485c78380165f615b76142a7ce14c677d8b62eea379b5fe74b06d662a8a699c09ea0fa75200567cb5ce60b8e00cb803275d1ada92eb0044d43e2d10467cf  mp01-0034-ASoC-codecs-aw87390-Add-the-Minimal-Phone-MP01-ampli.patch
 1850ac9220ab743e025da5cb892042da2c8c9c4f46acf4ddbccb2399f523587e69ebc3fac8a138a512274a59e0bf2fbce4cd1d36ad6f3c3753b907204d05f6bd  mp01-0035-backlight-pwm_bl-Cap-the-duty-cycle-on-request.patch
+f7883386e345a001a2f62a962926f1afc7167472d6b675c798ff5323f35bb11ca371e02c92bdef3fa04885927375b209e84d46b116ab3adabc51467e54f8b728  mp01-0036-arm64-dts-mediatek-mp01-Cap-the-white-front-light.patch
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
 9f0586dc6ec86a5893e8fcf64e91255a9f64375d33e96d57bc199b15807b38610b2c1b5fd03ade40f8bc787a0a33bc717d0e9d97f167526d471cf000166c85d5  0004-iio-adc-mt6359-auxadc-Include-the-ADC-resolution-in-.patch

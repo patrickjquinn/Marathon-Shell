@@ -66,7 +66,7 @@ The board DT follows the bindings of the e-paper series in this package
 | 35 | AW9523B reset | `reset-gpios`, active high: the upstream driver drives RSTN's level. DCT leaves it low (chip in reset) until the driver runs. |
 | 9, 152 | touch IRQ, reset | edge-falling IRQ (overlay `<9 2>`), reset active low |
 | 1, 3 | NFC IRQ, firmware download | IRQ edge-rising, so an unpowered controller cannot storm the line; `firmware-gpios` |
-| 84 | DISP_PWM (DCT mode 1) | frontlight `pwm-backlight`, 39385 ns as the vendor |
+| 84 | DISP_PWM (DCT mode 1) | white front light `pwm-backlight`, 39385 ns as the vendor, at most 25% duty (`max-duty-cycle-percent`, as Minimal's leds-mtk cap); the PWM reaches the pin only with MT8183-style registers (`mp01-0028`) |
 | 66, 67 | KPCOL0/1 | as the Q25: volume down and the key between the volume keys |
 | 85, 158, 159, 43, 83 | panel reset, EPD rails, DSI TE | panel contract above; TE unused |
 | 68 | PWM_1 (DCT mode 3), the warm light | `pwm-leds` LED `amber:frontlight` on channel 1 of the SoC PWM (`mp01-0030`..`0032` add the MT6789 to `pwm-mediatek`); 39385 ns as the white string, stock's 62.5 Hz old-mode clock has no upstream equivalent |
