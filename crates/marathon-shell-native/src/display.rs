@@ -56,7 +56,7 @@ pub mod qobject {
         #[qproperty(bool, auto_brightness, cxx_name = "autoBrightness", READ, WRITE = set_auto_brightness, NOTIFY)]
         /// The level the user last chose, kept in settings and applied at
         /// start (a driver's boot default would win otherwise); -1 for none.
-        #[qproperty(f64, user_brightness, cxx_name = "userBrightness", READ, WRITE, NOTIFY)]
+        #[qproperty(f64, user_brightness, cxx_name = "userBrightness", READ, WRITE = set_user_brightness, NOTIFY)]
         #[qproperty(bool, rotation_locked, cxx_name = "rotationLocked", READ, WRITE = set_rotation_locked, NOTIFY)]
         #[qproperty(bool, rotation_available, cxx_name = "rotationAvailable", READ, NOTIFY)]
         /// portrait, landscape, portrait-inverted or landscape-inverted.
@@ -211,6 +211,8 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "contentReplaced"]
         fn content_replaced(self: &Display);
+        #[cxx_name = "setUserBrightness"]
+        fn set_user_brightness(self: Pin<&mut Display>, value: f64);
     }
 
     impl cxx_qt::Threading for Display {}
@@ -572,7 +574,7 @@ impl Display {
     fn set_brightness_from_user(mut self: Pin<&mut Self>, brightness: f64) {
         self.as_mut().set_brightness(brightness);
         let chosen = self.brightness;
-        set!(self, user_brightness, user_brightness_changed, chosen);
+        self.as_mut().set_user_brightness(chosen);
         if !self.auto_brightness {
             return;
         }
@@ -705,10 +707,17 @@ impl Display {
         set!(self, auto_clear, auto_clear_changed, on);
     }
 
+    #[allow(clippy::float_cmp, reason = "a change is any new value")]
+    fn set_user_brightness(mut self: Pin<&mut Self>, value: f64) {
+        set!(self, user_brightness, user_brightness_changed, value);
+    }
+
+    #[allow(clippy::unused_self, reason = "a QML invokable")]
     fn full_refresh(&self) {
         eink::refresh();
     }
 
+    #[allow(clippy::unused_self, reason = "a QML invokable")]
     fn content_replaced(&self) {
         eink::replaced();
     }
@@ -1438,7 +1447,7 @@ pub(crate) fn panel_waveform(w: Waveform) {
                 refresh_mode,
                 refresh_mode_changed,
                 QString::from(w.name())
-            )
+            );
         })
         .ok();
     }

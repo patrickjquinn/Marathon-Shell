@@ -446,6 +446,7 @@ mod tests {
     const FAST: Action = Action::Waveform(Waveform::Fast);
     const TEXT: Action = Action::Waveform(Waveform::Text);
     const QUALITY: Action = Action::Waveform(Waveform::Quality);
+    const NONE: [Action; 0] = [];
 
     #[test]
     fn touch_down_goes_fast_at_once() {
@@ -460,9 +461,9 @@ mod tests {
         for step in 1..=10u8 {
             let ms = 1000 + 16 * u64::from(step);
             let y = f32::from(step) * 10.0;
-            assert!(c.input(ms, Input::Move { x: 0.0, y }).is_empty());
+            assert_eq!(c.input(ms, Input::Move { x: 0.0, y }), NONE);
         }
-        assert!(c.input(1200, Input::Release).is_empty());
+        assert_eq!(c.input(1200, Input::Release), NONE);
         assert_eq!(c.policy.want(c.at(1200 + 349)), Waveform::Fast);
         assert_eq!(c.run_until(3000), vec![(1550, QUALITY)]);
         // Nothing more happens: the screen holds its picture.
@@ -481,9 +482,9 @@ mod tests {
         let mut c = Clock::new();
         assert_eq!(c.input(1000, Input::Key), vec![TEXT]);
         // A tap on the on-screen keyboard: the press does not go fast.
-        assert!(c.input(1300, Input::Press { x: 50.0, y: 700.0 }).is_empty());
-        assert!(c.input(1310, Input::Key).is_empty());
-        assert!(c.input(1380, Input::Release).is_empty());
+        assert_eq!(c.input(1300, Input::Press { x: 50.0, y: 700.0 }), NONE);
+        assert_eq!(c.input(1310, Input::Key), NONE);
+        assert_eq!(c.input(1380, Input::Release), NONE);
         assert_eq!(c.run_until(5000), vec![(2810, QUALITY)]);
     }
 
@@ -495,8 +496,8 @@ mod tests {
             vec![FAST]
         );
         // The key lands inside the rate limit: text waits for it.
-        assert!(c.input(1005, Input::Key).is_empty());
-        assert!(c.input(1060, Input::Release).is_empty());
+        assert_eq!(c.input(1005, Input::Key), NONE);
+        assert_eq!(c.input(1060, Input::Release), NONE);
         assert_eq!(c.run_until(1300), vec![(1200, TEXT)]);
     }
 
@@ -504,7 +505,7 @@ mod tests {
     fn a_drag_while_typing_still_goes_fast() {
         let mut c = Clock::new();
         assert_eq!(c.input(1000, Input::Key), vec![TEXT]);
-        assert!(c.input(1300, Input::Press { x: 0.0, y: 300.0 }).is_empty());
+        assert_eq!(c.input(1300, Input::Press { x: 0.0, y: 300.0 }), NONE);
         assert_eq!(c.input(1320, Input::Move { x: 0.0, y: 260.0 }), vec![FAST]);
     }
 
@@ -515,16 +516,16 @@ mod tests {
         // Settles at 1350; the switch back is allowed then.
         assert_eq!(c.run_until(1400), vec![(1350, QUALITY)]);
         // A touch 50 ms later waits out the 200 ms limit.
-        assert!(c.input(1400, Input::Press { x: 0.0, y: 0.0 }).is_empty());
+        assert_eq!(c.input(1400, Input::Press { x: 0.0, y: 0.0 }), NONE);
         assert_eq!(c.run_until(1600), vec![(1550, FAST)]);
     }
 
     #[test]
     fn frames_without_input_are_motion() {
         let mut c = Clock::new();
-        assert!(c.input(1000, Input::Frame).is_empty());
-        assert!(c.input(1016, Input::Frame).is_empty());
-        assert!(c.input(1033, Input::Frame).is_empty());
+        assert_eq!(c.input(1000, Input::Frame), NONE);
+        assert_eq!(c.input(1016, Input::Frame), NONE);
+        assert_eq!(c.input(1033, Input::Frame), NONE);
         assert_eq!(c.input(1050, Input::Frame), vec![FAST]);
         assert_eq!(c.run_until(2000), vec![(1400, QUALITY)]);
     }
@@ -551,7 +552,7 @@ mod tests {
         assert_eq!(c.input(1000, Input::Key), vec![TEXT]);
         assert_eq!(c.run_until(2600), vec![(2500, QUALITY)]);
         for ms in [2700, 2716, 2733] {
-            assert!(c.input(ms, Input::Frame).is_empty());
+            assert_eq!(c.input(ms, Input::Frame), NONE);
         }
         assert_eq!(c.input(2750, Input::Frame), vec![FAST]);
     }
@@ -562,17 +563,17 @@ mod tests {
     fn the_redraw_of_a_switch_is_not_motion() {
         let mut c = Clock::new();
         for ms in [1000, 1016, 1033] {
-            assert!(c.input(ms, Input::Frame).is_empty());
+            assert_eq!(c.input(ms, Input::Frame), NONE);
         }
         assert_eq!(c.input(1050, Input::Frame), vec![FAST]);
         // The switch to fast redraws: not content.
-        assert!(c.input(1066, Input::Frame).is_empty());
+        assert_eq!(c.input(1066, Input::Frame), NONE);
         for ms in [1360, 1380, 1390] {
-            assert!(c.input(ms, Input::Frame).is_empty());
+            assert_eq!(c.input(ms, Input::Frame), NONE);
         }
         assert_eq!(c.run_until(1400), vec![(1400, QUALITY)]);
         // The switch back's redraw would be a fourth frame in the window.
-        assert!(c.input(1410, Input::Frame).is_empty());
+        assert_eq!(c.input(1410, Input::Frame), NONE);
         assert_eq!(c.policy.applied(), Some(Waveform::Quality));
     }
 
@@ -586,9 +587,9 @@ mod tests {
             c.policy.handle(Input::Move { x, y: 0.0 }, c.at(ms));
             c.policy.handle(Input::Frame, c.at(ms));
         }
-        assert!(c.input(1200, Input::Release).is_empty());
+        assert_eq!(c.input(1200, Input::Release), NONE);
         for ms in [1210, 1240, 1270, 1300, 1330] {
-            assert!(c.input(ms, Input::Frame).is_empty());
+            assert_eq!(c.input(ms, Input::Frame), NONE);
         }
         assert_eq!(c.run_until(3000), vec![(1550, QUALITY)]);
     }
@@ -597,7 +598,7 @@ mod tests {
     fn sparse_frames_are_not_motion() {
         let mut c = Clock::new();
         for ms in [1000, 1200, 1400, 1600, 60_000] {
-            assert!(c.input(ms, Input::Frame).is_empty());
+            assert_eq!(c.input(ms, Input::Frame), NONE);
         }
     }
 
@@ -611,7 +612,7 @@ mod tests {
             ms += 50;
             c.policy.handle(Input::Scroll, c.at(ms));
             c.policy.handle(Input::Frame, c.at(ms));
-            assert!(c.policy.poll(c.at(ms)).is_empty());
+            assert_eq!(c.policy.poll(c.at(ms)), NONE);
         }
         // Rests at +350, clears once the screen has been still 1.5 s.
         assert_eq!(
@@ -635,10 +636,10 @@ mod tests {
     fn idle_clears_are_spaced() {
         let mut c = Clock::new();
         c.policy.debt = 1000;
-        assert!(c.input(10, Input::Frame).is_empty());
+        assert_eq!(c.input(10, Input::Frame), NONE);
         assert_eq!(c.run_until(1600), vec![(1510, Action::Clear)]);
         c.policy.debt = 1000;
-        assert!(c.input(2000, Input::Frame).is_empty());
+        assert_eq!(c.input(2000, Input::Frame), NONE);
         // Still since 2 s, but the last clear was at 1.51 s.
         assert_eq!(c.run_until(30_000), vec![(21_510, Action::Clear)]);
     }
@@ -646,9 +647,9 @@ mod tests {
     #[test]
     fn whole_screen_changes_spend_the_budget() {
         let mut c = Clock::new();
-        assert!(c.input(1000, Input::Replaced).is_empty());
+        assert_eq!(c.input(1000, Input::Replaced), NONE);
         assert_eq!(c.run_until(5000), vec![]);
-        assert!(c.input(6000, Input::Replaced).is_empty());
+        assert_eq!(c.input(6000, Input::Replaced), NONE);
         assert_eq!(c.run_until(9000), vec![(7500, Action::Clear)]);
     }
 
@@ -666,8 +667,8 @@ mod tests {
         let mut c = Clock::new();
         // The refresh tile is a tap: fast first, the clear once rested.
         assert_eq!(c.input(1000, Input::Press { x: 0.0, y: 0.0 }), vec![FAST]);
-        assert!(c.input(1080, Input::Release).is_empty());
-        assert!(c.input(1081, Input::Clear).is_empty());
+        assert_eq!(c.input(1080, Input::Release), NONE);
+        assert_eq!(c.input(1081, Input::Clear), NONE);
         assert_eq!(
             c.run_until(3000),
             vec![(1430, QUALITY), (1430, Action::Clear)]
@@ -678,7 +679,7 @@ mod tests {
     fn asked_clears_coalesce() {
         let mut c = Clock::new();
         assert_eq!(c.input(1000, Input::Clear), vec![Action::Clear]);
-        assert!(c.input(1100, Input::Clear).is_empty());
+        assert_eq!(c.input(1100, Input::Clear), NONE);
         assert_eq!(c.run_until(3000), vec![(1500, Action::Clear)]);
     }
 
@@ -699,9 +700,9 @@ mod tests {
     #[test]
     fn nothing_is_written_while_the_screen_is_off() {
         let mut c = Clock::new();
-        assert!(c.input(1000, Input::Screen { on: false }).is_empty());
-        assert!(c.input(1100, Input::Scroll).is_empty());
-        assert!(c.input(1200, Input::Clear).is_empty());
+        assert_eq!(c.input(1000, Input::Screen { on: false }), NONE);
+        assert_eq!(c.input(1100, Input::Scroll), NONE);
+        assert_eq!(c.input(1200, Input::Clear), NONE);
         assert_eq!(c.input(5000, Input::Screen { on: true }), vec![]);
         assert_eq!(c.run_until(6000), vec![]);
     }
