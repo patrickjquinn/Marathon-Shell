@@ -154,6 +154,12 @@ TestCase {
                 tag: "past a tenth",
                 dy: -120,
                 closes: true
+            },
+            {
+                tag: "past a tenth in one update",
+                dy: -120,
+                closes: true,
+                oneUpdate: true
             }
         ];
     }
@@ -163,7 +169,16 @@ TestCase {
         const f = scroll();
         f.contentY = f.contentHeight - f.height;
         heightSpy.clear();
-        touchDrag(300, data.dy, 360);
+        if (data.oneUpdate) {
+            // Nothing redraws during the swipe: one update at release.
+            const touch = touchEvent(qs);
+            touch.press(0, qs, 360, 300).commit();
+            wait(400);
+            touch.move(0, qs, 360, 300 + data.dy).commit();
+            touch.release(0, qs, 360, 300 + data.dy).commit();
+        } else {
+            touchDrag(300, data.dy, 360);
+        }
         compare(heightSpy.count, data.closes ? 1 : 0);
         compare(UIStore.quickSettingsOpen, !data.closes);
         MMotion.instant = false;

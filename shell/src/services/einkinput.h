@@ -8,6 +8,7 @@
 #include <QMouseEvent>
 #include <QObject>
 #include <QPointerEvent>
+#include <QQuickWindow>
 
 // The e-paper waveform policy (eink.rs) hears input as the compositor
 // receives it, before any item: the panel goes to its fast waveform on the
@@ -30,7 +31,13 @@ class EinkInput : public QObject {
         switch (event->type()) {
             case QEvent::TouchBegin:
             case QEvent::MouseButtonPress: at(marathon::eink::press); break;
-            case QEvent::TouchUpdate: at(marathon::eink::motion); break;
+            // Qt Quick hands a touch's moves to items at the next frame, and
+            // on e-paper a swipe draws nothing until it turns: ask for one.
+            case QEvent::TouchUpdate:
+                at(marathon::eink::motion);
+                if (auto *window = qobject_cast<QQuickWindow *>(watched))
+                    window->requestUpdate();
+                break;
             case QEvent::MouseMove:
                 if (static_cast<QMouseEvent *>(event)->buttons() != Qt::NoButton)
                     at(marathon::eink::motion);

@@ -18,25 +18,31 @@ DragHandler {
     // +1 for a swipe toward the start (left or up): the next page.
     signal turn(int step)
 
-    target: null
-    enabled: MMotion.instant
-    onActiveChanged: {
-        if (active) {
-            turned = false;
-            velocity = 0;
-        } else if (!turned && Math.abs(velocity) > speed) {
-            turned = true;
-            turn(velocity < 0 ? 1 : -1);
-        }
-    }
-    onCentroidChanged: {
-        if (!active)
-            return;
+    function measure() {
         velocity = xAxis.enabled ? centroid.velocity.x : centroid.velocity.y;
         const moved = xAxis.enabled ? centroid.position.x - centroid.pressPosition.x : centroid.position.y - centroid.pressPosition.y;
         if (!turned && Math.abs(moved) >= distance) {
             turned = true;
             turn(moved < 0 ? 1 : -1);
         }
+    }
+
+    target: null
+    enabled: MMotion.instant
+    // Nothing redraws during the swipe, so Qt may hand over the whole
+    // movement in the one update that activates the handler: measured
+    // there too, not only on later moves.
+    onActiveChanged: {
+        if (active) {
+            turned = false;
+            measure();
+        } else if (!turned && Math.abs(velocity) > speed) {
+            turned = true;
+            turn(velocity < 0 ? 1 : -1);
+        }
+    }
+    onCentroidChanged: {
+        if (active)
+            measure();
     }
 }

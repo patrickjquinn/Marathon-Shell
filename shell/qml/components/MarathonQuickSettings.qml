@@ -116,12 +116,23 @@ Item {
         xAxis.enabled: false
         property real startY: 0
         property real startHeight: 0
+        // E-paper: the shade stays put, and closes in one cut once the swipe
+        // up passes a share of it.
+        function closeOnPaper() {
+            if (UIStore.quickSettingsOpen && startY - centroid.position.y > startHeight * MMotion.swipeShare) {
+                UIStore.quickSettingsDragging = false;
+                UIStore.closeQuickSettings();
+            }
+        }
         onActiveChanged: {
             if (active) {
-                startY = centroid.position.y;
+                startY = MMotion.instant ? centroid.pressPosition.y : centroid.position.y;
                 // From where the shade is drawn: a settle in flight is caught, not skipped.
                 startHeight = quickSettings.drawnHeight;
                 UIStore.quickSettingsDragging = true;
+                // E-paper: the whole swipe may arrive in this one update.
+                if (MMotion.instant)
+                    closeOnPaper();
             } else {
                 UIStore.quickSettingsDragging = false;
                 const dy = centroid.position.y - startY;
@@ -143,13 +154,8 @@ Item {
             if (!active)
                 return;
             const dy = centroid.position.y - startY;
-            // E-paper: the shade stays put, and closes in one cut once the
-            // swipe up passes a share of it.
             if (MMotion.instant) {
-                if (-dy > startHeight * MMotion.swipeShare) {
-                    UIStore.quickSettingsDragging = false;
-                    UIStore.closeQuickSettings();
-                }
+                closeOnPaper();
                 return;
             }
             if (dy >= 0) {
