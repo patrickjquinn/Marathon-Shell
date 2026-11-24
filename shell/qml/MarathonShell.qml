@@ -1315,10 +1315,16 @@ Item {
         }
 
         function onShowRequested(appId, name, icon, kind, surfaceId) {
+            UIStore.closeSearch();
+            UIStore.closeQuickSettings();
             appWindow.show(appId, name, icon, kind, surfaceId >= 0 && shell.compositor ? shell.compositor.shellSurfaceById(surfaceId) : null, surfaceId);
         }
 
+        // From Keel or D-Bus, home is home: nothing stays over the pages.
         function onHomeRequested(switcher) {
+            UIStore.closeSearch();
+            UIStore.closeQuickSettings();
+            virtualKeyboard.active = false;
             shell.handleHomeKey();
             if (!switcher) {
                 pageView.currentIndex = 2;
