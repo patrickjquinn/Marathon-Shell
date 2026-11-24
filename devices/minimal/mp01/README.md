@@ -29,7 +29,7 @@ declares it but stock loads no driver for it.
 | Wi-Fi, Bluetooth, FM | CONNSYS, `wlan_drv_gen4m_6789`, `wmt_drv`, A-die MT6631 | untested | Same drivers, units and firmware as the Q25 (`mp01-kernel-modules`, `mt6789-platform`, `q25-connsys-firmware`) |
 | GNSS | CONNSYS GNSS, L1 and L5 LNAs | untested | `q25-gnss-firmware` only knows the Q25's `libmnl.so` (sha256 `c0eba0a2…`); the MP01's is another build (`784eb16e…`) whose MT6789 L1 image offset is not yet found |
 | Modem | MD1 over ECCCI, LTE | blocked | `q25-md1-owner` hardcodes the Q25's memory map. The MD1 image is on the phone's own `md1img_a` |
-| Audio | MT6366 codec and AFE, OCA72xxx PA (i2c6 0x58) | untested | UCM skeleton: speaker and main mic. Stock also loads RT5512 and TFA98xx drivers, so which amp is fitted is unconfirmed |
+| Audio | MT6366 codec and AFE, OCA72390 PA (i2c6 0x58) | untested | Card `mp01-mt6366` from the Q25's machine driver (`mp01-audio.dtso`); the PA's Music/Off lists come from the phone's `ocs72xxx_cf.bin`. Stock also loads RT5512 and TFA98xx drivers, which bind nothing |
 | Headset | MT6358 ACCDET | untested | |
 | Charger | MT6375 (i2c5 0x34), USB-C TCPC | blocked | No mainline driver |
 | Secondary charger | ETA6937 (i2c5 0x6b) | not fitted | |
@@ -100,7 +100,7 @@ None of the Q25's battery values apply.
 8. [ ] Wi-Fi, Bluetooth and FM through `mt6789-platform` with the Q25's
    CONNSYS firmware.
 9. [ ] Charger and gauge with the limits above. Doze, wake and suspend.
-10. [ ] Audio: name the card, confirm the PA, fill the UCM.
+10. [ ] Audio: card `mp01-mt6366` plays through the speaker; mic and headset.
 11. [ ] Modem: an MD1 owner for the MP01's memory map. Then reuse the CCCI
     stack.
 12. [ ] Move `status` on in `device.toml`.

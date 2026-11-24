@@ -14,7 +14,7 @@ depends="device-minimal-mp01 mp01-kernel-modules q25-connsys-firmware marathon-b
  mesa=26.2.6-r100 mesa-dri-gallium=26.2.6-r100 alsa-ucm-conf alsa-utils"
 source="device-profile.conf mp01-shell-session greetd-mp01.toml 50-mp01-session.conf eglfs-kms.json
  60-mp01-display.rules 60-mp01-keyboard.rules mp01-mt6366.conf HiFi.conf
- 50-mp01-shutdown.conf"
+ 50-mp01-shutdown.conf mp01-audio.modprobe.conf"
 package() {
     install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
     install -Dm755 "$srcdir/mp01-shell-session" "$pkgdir/usr/libexec/marathon/mp01-shell-session"
@@ -25,6 +25,7 @@ package() {
     install -Dm644 "$srcdir/60-mp01-keyboard.rules" "$pkgdir/usr/lib/udev/rules.d/60-mp01-keyboard.rules"
     install -Dm644 "$srcdir/mp01-mt6366.conf" "$pkgdir/usr/share/alsa/ucm2/conf.d/mp01-mt6366/mp01-mt6366.conf"
     install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Minimal/MP01/HiFi.conf"
+    install -Dm644 "$srcdir/mp01-audio.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/mp01-audio.conf"
     local t
     for t in reboot poweroff halt; do
         install -Dm644 "$srcdir/50-mp01-shutdown.conf" "$pkgdir/usr/lib/systemd/system/$t.target.d/50-mp01-shutdown.conf"
@@ -38,7 +39,8 @@ a61995c47c5ca8457ab7fbfb7ca3e000a6f2f72575ba4497f02518b94e67d5b0d58c49cc79e90e7e
 36e6d1dfae22c38181fdb837e6bd86ccf445564273f27574494f64addc1e83685a43771035083b22bf7da4d6ce5a05c72cf7b69e89f115dd50d3127bbcf15577  eglfs-kms.json
 eb4d52b9098085d471d0627cb9b67c567be1d081868d1eabb6fe2349a6c653e3d0e8b490ddb5f8700159f64cddd10f81263b1a1819bf9c90db385ec1e60868f9  60-mp01-display.rules
 e48926d8dd273c24bf97204afc1ded644867fe682e9932f1d52955c58b20c12250bff4a7fbc6740fdb67efa543543d71e74a2e7a8733348c763c6b8a28ceb120  60-mp01-keyboard.rules
-e82aa0b8cb191833a4b53e8e4d6fe3206ffc10f9664ccafe303d752e64ea39154bf9471cbf8dddad0c51c0d8c0c44d2963990aec4368ad721836bb1a98899b20  mp01-mt6366.conf
+7831076bdfc527172d1ab5695e489dd3729f5229b9baac80e570388450d388dc1e163fddcb0ebf3fe77824378d4a0d598f244caffcb3e06df3da7fefe64aa597  mp01-mt6366.conf
 2094ed471ac8b08016adb8f45685aab88cfde6e6514895377bae8dbf5bd48a891bb2f9d4817638b07ad22ed20d0bf76a863ea796cb162d9d94d10a6b4a70c12e  HiFi.conf
 a1bc3bd426b8500d5050a53e05f6b18a20a355f138718e6978cbacfb61f393ae8115dd7489358f9b91c8b7d16c75f0b4cae82be5767542e5e4cc581f6829b116  50-mp01-shutdown.conf
+6c02885180c51f5e735aa48b67fe5e79b519a00f490ed57ca3a3ef10ec8440d82a90277e27f58c0804fd038d056257bce13d2cbc2b08df81dd341360ea50061d  mp01-audio.modprobe.conf
 "
