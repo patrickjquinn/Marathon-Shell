@@ -3,7 +3,9 @@
 //!
 //! - [`waveform`]: tables, loaders (IWF/CSV, the decoded v0x25 CPLD tables) and [`wbf`] files.
 //! - [`engine`]: per-pixel state machine, CPU reference.
+//! - [`link`]: the drive-frame format and the bridge's acceptance rules.
 
 pub mod engine;
+pub mod link;
 pub mod waveform;
 pub mod wbf;
