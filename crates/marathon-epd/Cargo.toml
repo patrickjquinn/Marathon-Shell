@@ -1,0 +1,10 @@
+[package]
+name = "marathon-epd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Software e-paper timing controller: per-pixel waveform engine (CPU and GLES 3.1 compute) and the DSI drive-frame format for a dumb CPLD bridge"
+
+[lints]
+workspace = true
