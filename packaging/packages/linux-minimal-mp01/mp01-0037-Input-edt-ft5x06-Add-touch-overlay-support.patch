@@ -1,0 +1,105 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 15:30:32 +0000
+Subject: [PATCH 37/38] Input: edt-ft5x06 - Add touch-overlay support
+
+Some panels have keys printed on the glass past the display, which the
+controller reports as touches outside the display's area: the Minimal
+Phone MP01 has back, home and recents under its e-paper panel. Map them
+with the generic touch-overlay binding, as st1232 does.
+
+With an overlay, each frame reports only the contacts still down and
+drops the rest, so a key is released when its contact lifts. Without
+one, the reporting is unchanged.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/input/touchscreen/edt-ft5x06.c | 37 ++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+
+diff --git a/drivers/input/touchscreen/edt-ft5x06.c b/drivers/input/touchscreen/edt-ft5x06.c
+index d0ab644..6e8c52f 100644
+--- a/drivers/input/touchscreen/edt-ft5x06.c
++++ b/drivers/input/touchscreen/edt-ft5x06.c
+@@ -21,6 +21,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/input.h>
+ #include <linux/input/mt.h>
++#include <linux/input/touch-overlay.h>
+ #include <linux/input/touchscreen.h>
+ #include <linux/irq.h>
+ #include <linux/kernel.h>
+@@ -109,6 +110,7 @@ struct edt_ft5x06_ts_data {
+ 	struct i2c_client *client;
+ 	struct input_dev *input;
+ 	struct touchscreen_properties prop;
++	struct list_head touch_overlay_list;
+ 	u16 num_x;
+ 	u16 num_y;
+ 	struct regulator *vcc;
+@@ -299,6 +301,8 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
+ {
+ 	struct edt_ft5x06_ts_data *tsdata = dev_id;
+ 	struct device *dev = &tsdata->client->dev;
++	bool overlay = !list_empty(&tsdata->touch_overlay_list);
++	struct input_mt_pos pos;
+ 	u8 rdbuf[63];
+ 	int i, type, x, y, id;
+ 	int error;
+@@ -332,6 +336,28 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
+ 
+ 		id = (buf[2] >> 4) & 0x0f;
+ 
++		/*
++		 * With an overlay, each frame reports the contacts still down
++		 * and the ones it leaves out are lifted: the overlay releases
++		 * its keys the same way.
++		 */
++		if (overlay) {
++			if (type == TOUCH_EVENT_UP)
++				continue;
++
++			touchscreen_set_mt_pos(&pos, &tsdata->prop, x, y);
++			if (touch_overlay_process_contact(&tsdata->touch_overlay_list,
++							  tsdata->input, &pos, id))
++				continue;
++
++			input_mt_slot(tsdata->input, id);
++			input_mt_report_slot_state(tsdata->input, MT_TOOL_FINGER,
++						   true);
++			input_report_abs(tsdata->input, ABS_MT_POSITION_X, pos.x);
++			input_report_abs(tsdata->input, ABS_MT_POSITION_Y, pos.y);
++			continue;
++		}
++
+ 		input_mt_slot(tsdata->input, id);
+ 		if (input_mt_report_slot_state(tsdata->input, MT_TOOL_FINGER,
+ 					       type != TOUCH_EVENT_UP))
+@@ -339,6 +365,12 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
+ 					       x, y, true);
+ 	}
+ 
++	if (overlay) {
++		touch_overlay_sync_frame(&tsdata->touch_overlay_list,
++					 tsdata->input);
++		input_mt_drop_unused(tsdata->input);
++	}
++
+ 	input_mt_report_pointer_emulation(tsdata->input, true);
+ 	input_sync(tsdata->input);
+ 
+@@ -1321,6 +1353,11 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client)
+ 
+ 	touchscreen_parse_properties(input, true, &tsdata->prop);
+ 
++	INIT_LIST_HEAD(&tsdata->touch_overlay_list);
++	error = touch_overlay_map(&tsdata->touch_overlay_list, input);
++	if (error)
++		return error;
++
+ 	error = input_mt_init_slots(input, tsdata->max_support_points,
+ 				    INPUT_MT_DIRECT);
+ 	if (error) {
+-- 
+2.55.0
+
