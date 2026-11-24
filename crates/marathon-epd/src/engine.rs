@@ -283,7 +283,7 @@ impl Stats {
 pub type Dc = i8;
 
 /// Drive output: 2 bits per pixel, four pixels per byte, the leftmost in bits 7:6, rows of
-/// `width / 4` bytes. This is the Option-B DSI payload layout (`link.rs`).
+/// `width / 4` bytes. `link.rs` sends each row as is, one per DSI line.
 pub fn drive_len(width: usize, height: usize) -> usize {
     width / 4 * height
 }

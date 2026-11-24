@@ -1,14 +1,15 @@
-//! The drive-frame format between the `SoC` and a dumb DSI-to-EPD bridge (Option B of the MP01
-//! CPLD report): DSI video, RGB888, 800×51. Line 0 is a header; lines 1–50 carry 12 panel rows
-//! each, 2 bits per pixel.
+//! The drive-frame format between the `SoC` and a dumb DSI-to-EPD bridge (link v2, see
+//! `tools/epaper-bridge-rtl/DESIGN.md`): the stock MP01 DSI mode, RGB888 800×600, one panel row
+//! per DSI line, so the panel frame rate is the DSI frame rate and no display-mode change is
+//! needed.
 //!
-//! Each DSI pixel is three wire bytes B0, B1, B2 (B0 first), so a DSI line is 2,400 bytes. Panel
-//! row `r = 12(d-1) + k` sits at bytes `200k..200k+200` of DSI line `d`; byte `j` holds columns
-//! `4j..4j+3`, the first in bits 7:6. That is exactly [`crate::engine`]'s drive layout, so the
-//! payload is the drive buffer as is. Codes: 00 none, 01 black, 10 white; 11 is reserved and the
-//! bridge masks it to 00.
+//! Each DSI pixel is three wire bytes B0, B1, B2 (B0 first), so a DSI line is 2,400 bytes. Bytes
+//! 0..32 of line 0 are the header (zero on the other lines); bytes 32..232 of line `r` are panel
+//! row `r`, the rest of the line is padding. Byte `j` of a row holds columns `4j..4j+3`, the first
+//! in bits 7:6, which is [`crate::engine`]'s drive layout row for row. Codes: 00 none, 01 black,
+//! 10 white; 11 is reserved and the bridge masks it to 00.
 //!
-//! Header (bytes 0..32 of line 0, little-endian): magic `EPD1`, version 1, flags, 2 reserved,
+//! Header (bytes 0..32 of line 0, little-endian): magic `EPD1`, version 2, flags, 2 reserved,
 //! seq u32, `scan_first` u16, `scan_last` u16 (inclusive), `vcom_mv` u16, 10 reserved, CRC-16 over
 //! bytes 0..28. The CRC is CRC-16/MCRF4XX, the DSI long-packet checksum, so the bridge reuses
 //! one circuit.
@@ -16,23 +17,27 @@
 //! The bridge drives a frame only if its header is valid and its seq is exactly the last
 //! accepted seq + 1, after a RESYNC frame (which never drives) set the base. A display
 //! controller left rescanning a stale buffer, a bootloader's plain RGB logo, or garbage all fail
-//! that check and never reach the panel. [`Bridge`] is the reference model of those rules.
+//! that check and never reach the panel. A rescan of the RESYNC buffer itself (same seq) is
+//! refused without losing sync, so it cannot keep the bridge's watchdog fed either. The bridge
+//! also refuses DRIVE until its PMIC rails are up, again without losing sync. [`Bridge`] is the
+//! reference model of the sequence rules.
 
 use std::fmt;
 
 pub const PANEL_W: usize = 800;
 pub const PANEL_H: usize = 600;
 pub const ROW_BYTES: usize = PANEL_W / 4;
-pub const ROWS_PER_LINE: usize = 12;
 pub const DSI_W: usize = 800;
-pub const DSI_H: usize = 1 + PANEL_H / ROWS_PER_LINE;
+pub const DSI_H: usize = PANEL_H;
 pub const LINE_BYTES: usize = DSI_W * 3;
 pub const FRAME_BYTES: usize = LINE_BYTES * DSI_H;
 pub const DRIVE_BYTES: usize = ROW_BYTES * PANEL_H;
 pub const HEADER_LEN: usize = 32;
+/// Offset of the panel row in every DSI line.
+pub const ROW_OFFSET: usize = HEADER_LEN;
 
 pub const MAGIC: [u8; 4] = *b"EPD1";
-pub const VERSION: u8 = 1;
+pub const VERSION: u8 = 2;
 pub const DRIVE: u8 = 1 << 0;
 pub const PMIC_ON: u8 = 1 << 1;
 pub const VCOM_SET: u8 = 1 << 2;
@@ -155,16 +160,24 @@ impl Header {
 pub fn pack_frame(h: &Header, drive: &[u8], out: &mut [u8]) {
     assert_eq!(drive.len(), DRIVE_BYTES);
     assert_eq!(out.len(), FRAME_BYTES);
-    out[..LINE_BYTES].fill(0);
+    out.fill(0);
     out[..HEADER_LEN].copy_from_slice(&h.encode());
-    out[LINE_BYTES..].copy_from_slice(drive);
+    for (line, row) in out.chunks_exact_mut(LINE_BYTES).zip(drive.chunks_exact(ROW_BYTES)) {
+        line[ROW_OFFSET..ROW_OFFSET + ROW_BYTES].copy_from_slice(row);
+    }
 }
 
-pub fn unpack_frame(wire: &[u8]) -> Result<(Header, &[u8]), LinkError> {
+pub fn unpack_frame(wire: &[u8]) -> Result<Header, LinkError> {
     if wire.len() != FRAME_BYTES {
         return Err(LinkError::Length(wire.len()));
     }
-    Ok((Header::decode(&wire[..LINE_BYTES])?, &wire[LINE_BYTES..]))
+    Header::decode(&wire[..LINE_BYTES])
+}
+
+/// Panel row `r` of a packed frame.
+pub fn frame_row(wire: &[u8], r: usize) -> &[u8] {
+    let at = r * LINE_BYTES + ROW_OFFSET;
+    &wire[at..at + ROW_BYTES]
 }
 
 /// Wire bytes to XRGB8888 scanout words, assuming the display controller sends R, G, B per
@@ -190,8 +203,10 @@ impl Sequencer {
         self.vcom_pending = true;
     }
 
-    /// The first frame after the bridge powers up, and after it reports a refusal.
+    /// The first frame after the bridge powers up, and after it reports a refusal. It takes a
+    /// fresh seq: the bridge refuses a RESYNC that repeats the last accepted one.
     pub fn resync(&mut self) -> Header {
+        self.seq = self.seq.wrapping_add(1);
         Header {
             flags: RESYNC | PMIC_ON | self.vcom_flag(),
             seq: self.seq,
@@ -263,11 +278,14 @@ pub struct Bridge {
 
 impl Bridge {
     pub fn receive(&mut self, wire: &[u8]) -> Verdict {
-        let Ok((h, _)) = unpack_frame(wire) else {
+        let Ok(h) = unpack_frame(wire) else {
             self.refused += 1;
             return Verdict::Refuse;
         };
-        if h.flags & RESYNC != 0 {
+        if h.flags & RESYNC != 0 && self.synced && h.seq == self.last_seq {
+            self.refused += 1;
+            return Verdict::Refuse;
+        } else if h.flags & RESYNC != 0 {
             self.last_seq = h.seq;
             self.synced = true;
         } else if self.synced && h.seq == self.last_seq.wrapping_add(1) {
@@ -321,14 +339,17 @@ mod tests {
         };
         let mut wire = vec![0u8; FRAME_BYTES];
         pack_frame(&h, &drive, &mut wire);
-        let (h2, payload) = unpack_frame(&wire).unwrap_or_else(|e| panic!("{e}"));
+        let h2 = unpack_frame(&wire).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(h2, h);
-        assert_eq!(payload, &drive[..]);
-        // Panel row 13 = DSI line 2, second 200-byte block.
+        for r in 0..PANEL_H {
+            assert_eq!(frame_row(&wire, r), &drive[r * ROW_BYTES..(r + 1) * ROW_BYTES]);
+        }
+        // Panel row 13 = DSI line 13, bytes 32..232.
         assert_eq!(
-            &wire[2 * LINE_BYTES + ROW_BYTES..2 * LINE_BYTES + 2 * ROW_BYTES],
+            &wire[13 * LINE_BYTES + 32..13 * LINE_BYTES + 232],
             &drive[13 * 200..14 * 200]
         );
+        assert!(wire[13 * LINE_BYTES..13 * LINE_BYTES + 32].iter().all(|&b| b == 0));
         let mut fb = vec![0u32; DSI_W * DSI_H];
         to_xrgb8888(&wire, &mut fb);
         assert_eq!(fb[0], u32::from_be_bytes([0, b'E', b'P', b'D']));
@@ -384,6 +405,12 @@ mod tests {
         assert_eq!(br.receive(&wire), Verdict::Accept);
         pack_frame(&seq.drive(Some((5, 9))), &drive, &mut wire);
         assert_eq!(br.receive(&wire), Verdict::Drive { first: 5, last: 9 });
+        // A rescanned RESYNC is refused but keeps sync.
+        pack_frame(&seq.resync(), &drive, &mut wire);
+        assert_eq!(br.receive(&wire), Verdict::Accept);
+        assert_eq!(br.receive(&wire), Verdict::Refuse);
+        pack_frame(&seq.drive(Some((5, 9))), &drive, &mut wire);
+        assert_eq!(br.receive(&wire), Verdict::Drive { first: 5, last: 9 });
         // The display controller rescans the same buffer: inert after the first scan.
         assert_eq!(br.receive(&wire), Verdict::Refuse);
         pack_frame(&seq.drive(None), &drive, &mut wire);
@@ -392,7 +419,7 @@ mod tests {
             Verdict::Refuse,
             "desynced until the next resync"
         );
-        assert_eq!(br.refused, 4);
+        assert_eq!(br.refused, 5);
     }
 
     #[test]

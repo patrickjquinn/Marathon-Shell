@@ -6,7 +6,7 @@
 //!   simulator. Per frame, stdin gives one flags byte (bit 0 allow greys, bit 1 stop) and W·H
 //!   target bytes; stdout returns W·H/4 drive bytes and five little-endian u32 stats.
 //! - `vectors DIR`: DSI frames from the engine for the bridge RTL testbench, one `$readmemh`
-//!   file per frame (800×51 24-bit words) plus `frames.txt` describing each.
+//!   file per frame (800×600 24-bit words, link v2) plus `frames.txt` describing each.
 #![allow(
     clippy::print_stdout,
     clippy::print_stderr,
