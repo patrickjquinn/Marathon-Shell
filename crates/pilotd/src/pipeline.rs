@@ -1062,6 +1062,27 @@ struct PendingCall {
     fingerprint: String,
     /// The card's detail: a plan's steps that needed the yes.
     shown: String,
+    /// The model's turn the call came from, to go on with after the yes.
+    resume: Option<Resume>,
+}
+
+/// What the model's turn goes on from once its call is allowed: the rest
+/// of the request ("...and open the display settings") is still to do.
+struct Resume {
+    /// The conversation up to the model's message with the call.
+    messages: Vec<Message>,
+    call_id: String,
+    tools: Vec<crate::llm::ToolDef>,
+    map: PlaceholderMap,
+    redacted: String,
+    /// The round the call was made in: the turn's rounds stay capped.
+    round: u32,
+    /// Calls made so far, the allowed one too.
+    made: Vec<String>,
+    tool_data: String,
+    tainted: bool,
+    /// Said when the model only answers after the allowed call.
+    canned: Option<String>,
 }
 
 struct Clarifying {
@@ -2451,6 +2472,7 @@ impl Pipeline {
                                 screen.as_ref(),
                                 false,
                                 top.as_deref().filter(|d| d.contains('.')),
+                                None,
                             )
                             .await,
                         )
@@ -2483,6 +2505,7 @@ impl Pipeline {
                         screen.as_ref(),
                         plain,
                         top.as_deref().filter(|d| d.contains('.')),
+                        None,
                     )
                     .await,
                 )
@@ -2508,6 +2531,7 @@ impl Pipeline {
                     screen.as_ref(),
                     plain,
                     top.as_deref().filter(|d| d.contains('.')),
+                    None,
                 )
                 .await,
             ),
@@ -2526,6 +2550,7 @@ impl Pipeline {
                     screen.as_ref(),
                     plain,
                     top.as_deref().filter(|d| d.contains('.')),
+                    None,
                 )
                 .await,
             ),
@@ -2740,7 +2765,7 @@ impl Pipeline {
                 args["replaces"] = old.id.into();
             }
         }
-        Some(self.confirm_card(turn, entry, args, None, &HashMap::new()))
+        Some(self.confirm_card(turn, entry, args, None, &HashMap::new(), None))
     }
 
     /// [`intents::text_request`] made into a draft: the longest run of
@@ -3104,6 +3129,7 @@ impl Pipeline {
         screen: Option<&OnScreen>,
         plain: bool,
         escape_app: Option<&str>,
+        resume: Option<Resume>,
     ) -> Vec<Card> {
         let deep = [
             "work this out",
@@ -3409,7 +3435,23 @@ impl Pipeline {
         let mut made: Vec<String> = Vec::new();
         let mut nudged = false;
         let mut empty_retried = false;
-        for round in 0..self.max_rounds {
+        // After the person allowed a call: the turn goes on where it was.
+        let mut canned = None;
+        let first = match resume {
+            Some(r) => {
+                messages = r.messages;
+                tools = r.tools;
+                map = r.map;
+                made = r.made;
+                tool_data = r.tool_data;
+                tainted = r.tainted;
+                canned = r.canned;
+                steps.clear();
+                r.round + 1
+            }
+            None => 0,
+        };
+        for round in first..self.max_rounds {
             // A model in the cloud thinks briefly every time: without it, after
             // a few turns it answered from the conversation instead of
             // calling the tool ("Minuteur de cinq minutes mis" with no timer).
@@ -3621,6 +3663,8 @@ impl Pipeline {
                     resp.content.as_deref().unwrap_or(""),
                 )));
                 let (text, followups) = split_followups(&plain_punctuation(&raw.replace("**", "")));
+                // Nothing more done after the allowed call: its confirmation.
+                let text = canned.take().filter(|_| !acted).unwrap_or(text);
                 self.outcome(turn, "done");
                 let mut cards = std::mem::take(&mut private_cards);
                 cards.append(&mut action_cards);
@@ -3657,6 +3701,7 @@ impl Pipeline {
                 });
                 return cards;
             }
+            let asked = messages.len();
             messages.push(Message {
                 role: Role::Assistant,
                 content: resp.content.clone(),
@@ -3705,6 +3750,15 @@ impl Pipeline {
                 } else {
                     map.restore_json(&args)
                 };
+                let key = format!("{} {real}", entry.spec.name);
+                if made.contains(&key) {
+                    messages.push(Message::tool_result(
+                        &call.id,
+                        json!({"ok": false, "error": "Already done this turn. Do the next step, or answer."})
+                            .to_string(),
+                    ));
+                    continue;
+                }
                 // Whoever a message, e-mail or call goes to must come from the
                 // person or a lookup, never from the model: it addressed
                 // "draft an e-mail to anna@example.com" to an invented
@@ -3802,9 +3856,41 @@ impl Pipeline {
                         ));
                         continue;
                     }
+                    // After the yes the model goes on from here: what it asked
+                    // up to this call, the rest of its calls left for it.
+                    let mut so_far = messages.clone();
+                    if let Some(m) = so_far.get_mut(asked) {
+                        if let Some(i) = m.tool_calls.iter().position(|c| c.id == call.id) {
+                            m.tool_calls.truncate(i + 1);
+                        }
+                    }
+                    let mut made = made.clone();
+                    made.push(key);
+                    let resume = Resume {
+                        messages: so_far,
+                        call_id: call.id.clone(),
+                        tools: tools.clone(),
+                        map: map.clone(),
+                        redacted: redacted.to_owned(),
+                        round,
+                        made,
+                        tool_data: tool_data.clone(),
+                        tainted,
+                        canned: None,
+                    };
                     // The card says what will happen; the model's words beside
                     // it tend to say it already has ("Installing it now").
-                    return vec![self.confirm_card(turn, entry, real, plan_detail, &names)];
+                    let mut cards = std::mem::take(&mut private_cards);
+                    cards.append(&mut action_cards);
+                    cards.push(self.confirm_card(
+                        turn,
+                        entry,
+                        real,
+                        plan_detail,
+                        &names,
+                        Some(resume),
+                    ));
+                    return cards;
                 }
                 if entry.spec.name == crate::web::TOOL {
                     let q = real.get("query").and_then(Value::as_str).unwrap_or("");
@@ -3832,15 +3918,6 @@ impl Pipeline {
                 }
                 if !used_domains.contains(&entry.spec.domain) {
                     used_domains.push(entry.spec.domain.clone());
-                }
-                let key = format!("{} {real}", entry.spec.name);
-                if made.contains(&key) {
-                    messages.push(Message::tool_result(
-                        &call.id,
-                        json!({"ok": false, "error": "Already done this turn. Do the next step, or answer."})
-                            .to_string(),
-                    ));
-                    continue;
                 }
                 made.push(key);
                 let ran = entry.run(&real).await;
@@ -4119,6 +4196,7 @@ impl Pipeline {
         args: Value,
         detail: Option<String>,
         names: &HashMap<String, String>,
+        resume: Option<Resume>,
     ) -> Card {
         let id = format!(
             "c{}-{}",
@@ -4194,6 +4272,7 @@ impl Pipeline {
                 at: Instant::now(),
                 fingerprint: spec_fingerprint(&entry.spec),
                 shown,
+                resume,
             },
         );
         card
@@ -4265,6 +4344,10 @@ impl Pipeline {
         let card = match entry.run(&p.args).await {
             Ok(out) => {
                 self.outcome(&p.turn, "confirmed");
+                if let Some(r) = p.resume.filter(|r| r.round + 1 < self.max_rounds) {
+                    let cards = self.go_on(&p.turn, entry, &p.args, out, r).await;
+                    return self.finish(mk(p.turn, cards));
+                }
                 Card::Response {
                     text: out.summary,
                     source: "handler".into(),
@@ -4280,6 +4363,77 @@ impl Pipeline {
             }
         };
         self.finish(mk(p.turn, vec![card]))
+    }
+
+    /// The model's turn after the person allowed its call: the call's
+    /// result, and the model's next round for the rest of the request
+    /// ("turn off Bluetooth and open the display settings").
+    async fn go_on(
+        &self,
+        turn: &str,
+        entry: &Entry,
+        args: &Value,
+        out: crate::tools::ToolOutput,
+        mut r: Resume,
+    ) -> Vec<Card> {
+        let mut cards = Vec::new();
+        let summary = out.summary.clone();
+        r.canned = confirmation(
+            &entry.spec.name,
+            args,
+            &out.summary,
+            crate::lang::current().is_english(),
+        );
+        if let Some(c) = typed_card(&entry.spec.name, args, &out, (self.now)().epoch) {
+            cards.push(c);
+        }
+        r.tool_data.push_str(&out.data.to_string());
+        r.tool_data.push('\n');
+        let reply = if out.private {
+            cards.push(Card::Response {
+                text: out.summary.clone(),
+                source: "app".into(),
+            });
+            json!({"ok": true, "summary": "Shown to the person; not available to you."})
+        } else if out.untrusted {
+            r.tainted = true;
+            json!({"ok": true, "summary": out.summary, "untrusted_content": out.data, "note": UNTRUSTED_NOTE})
+        } else if out.summary == "Done." && is_empty(&out.data) {
+            json!({"ok": true, "done": first_sentence(&entry.spec.description), "note": "Only this was done."})
+        } else {
+            json!({"ok": true, "summary": out.summary, "data": out.data})
+        };
+        let text = self.redactor.redact_with(&reply.to_string(), &mut r.map);
+        r.messages.push(Message::tool_result(&r.call_id, text));
+        let redacted = r.redacted.clone();
+        let more = self
+            .qwen(
+                turn,
+                &redacted,
+                PlaceholderMap::default(),
+                &[],
+                &self.backends(),
+                None,
+                false,
+                false,
+                false,
+                None,
+                false,
+                None,
+                Some(r),
+            )
+            .await;
+        // The allowed call ran even if the model then failed.
+        if more.iter().any(|c| matches!(c, Card::Error { .. })) {
+            cards.push(Card::Response {
+                text: summary,
+                source: "handler".into(),
+            });
+        } else {
+            self.outcome(turn, "confirmed");
+        }
+        cards.extend(more);
+        cards
     }
 
     pub fn pending_count(&self) -> usize {

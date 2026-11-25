@@ -100,7 +100,6 @@ async fn connect(app: Arc<Notes>) -> Arc<pilotd::mcp::McpClient> {
 
 /// As [`connect`], with the named actions declared `untrusted`.
 async fn connect_marking(app: Arc<Notes>, untrusted: &[&str]) -> Arc<pilotd::mcp::McpClient> {
-    let server = KeelMcp::new(app, false);
     let mut manifests = load(&scan(&[golden()]));
     for m in &mut manifests {
         for t in m["tools"].as_array_mut().into_iter().flatten() {
@@ -109,6 +108,12 @@ async fn connect_marking(app: Arc<Notes>, untrusted: &[&str]) -> Arc<pilotd::mcp
             }
         }
     }
+    serve(app, manifests).await
+}
+
+/// keel-mcp with `manifests` installed, behind pilotd's client.
+async fn serve(app: Arc<Notes>, manifests: Vec<Value>) -> Arc<pilotd::mcp::McpClient> {
+    let server = KeelMcp::new(app, false);
     server.set_catalogue(Catalogue::build(manifests, Vec::new()));
     let (client_end, server_end) = tokio::io::duplex(1 << 16);
     tokio::spawn(async move {
@@ -940,4 +945,70 @@ async fn no_call_is_required_after_a_narrow_lookup() {
     assert_eq!(chats.len(), 2, "{:?}", r.cards);
     assert_eq!(chats[0].body["tool_choice"], "auto");
     assert_eq!(chats[1].body["tool_choice"], "auto");
+}
+
+/// "Turn off Bluetooth and open the display settings" over Settings' own
+/// actions: the switch waits for the yes, and after it the model goes on
+/// to the rest of the request. A no ends the turn there.
+#[tokio::test]
+async fn the_rest_of_a_request_goes_on_after_the_yes() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(json!({"answers": {
+            "intent": {"probabilities": {"device_toggle": 0.9, "settings_page": 0.1}, "confidence": 0.9},
+            "needs_generation": {"noul": 0.1},
+            "needs_web": {"noul": 0.0},
+            "ambiguity": {"score": 0.1},
+            "domain": {"probabilities": {"org.marathonos.settings": 0.9, "system": 0.1}, "confidence": 0.9}
+        }})),
+        _ => Reply::stamped(
+            match i {
+                0 | 3 => chat_tool(
+                    "org_marathonos_settings_bluetooth_switch",
+                    r#"{"enabled": false}"#,
+                ),
+                1 => chat_tool("org_marathonos_settings_app_show", r#"{"page": "display"}"#),
+                _ => chat_text("Bluetooth is off and the display settings are open."),
+            },
+            "device",
+        ),
+    })
+    .await;
+    let app = Arc::new(Notes::default());
+    let settings =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/settings/keel-actions.json");
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(settings).unwrap()).unwrap();
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline
+        .attach_mcp(serve(Arc::clone(&app), vec![manifest]).await)
+        .await;
+    let ask = "turn off bluetooth and open the display settings";
+    let r = d.pipeline.ask(ask, false).await;
+    let Some(Card::Confirm { id, tool, .. }) = r.cards.last() else {
+        panic!("{r:?}")
+    };
+    assert_eq!(tool, "org.marathonos.settings/bluetooth.switch");
+    assert!(app.0.lock().unwrap().is_empty(), "nothing before the yes");
+
+    let done = d.pipeline.confirm(id, true).await;
+    assert_eq!(
+        app.0.lock().unwrap().clone(),
+        vec![
+            ("bluetooth.switch".to_owned(), json!({"enabled": false})),
+            ("app.show".to_owned(), json!({"page": "display"}))
+        ]
+    );
+    let Some(Card::Answer { text, .. }) = done.cards.last() else {
+        panic!("{done:?}")
+    };
+    assert_eq!(text, "Bluetooth is off and the display settings are open.");
+
+    let r = d.pipeline.ask(ask, false).await;
+    let Some(Card::Confirm { id, .. }) = r.cards.last() else {
+        panic!("{r:?}")
+    };
+    let rounds = srv.seen("/v1/llm/chat/completions").len();
+    d.pipeline.confirm(id, false).await;
+    assert_eq!(srv.seen("/v1/llm/chat/completions").len(), rounds);
+    assert_eq!(app.0.lock().unwrap().len(), 2);
 }

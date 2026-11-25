@@ -433,8 +433,13 @@ async fn corrected_tool_call_runs_and_the_model_summarises() {
 
 #[tokio::test]
 async fn outbound_call_waits_for_a_confirmation_card() {
-    let srv = FakeHttp::start(route_server(jev_reply(&[("call", 0.95)], 0.1, 0.1), |_| {
-        Reply::us(chat_tool("call_dial", r#"{"number": "<PHONE_1>"}"#))
+    // After the yes the model has its next round, and answers.
+    let srv = FakeHttp::start(route_server(jev_reply(&[("call", 0.95)], 0.1, 0.1), |i| {
+        Reply::us(if i == 1 {
+            chat_text("Calling.")
+        } else {
+            chat_tool("call_dial", r#"{"number": "<PHONE_1>"}"#)
+        })
     }))
     .await;
     let log = Arc::new(Log::default());
