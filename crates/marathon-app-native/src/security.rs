@@ -247,32 +247,7 @@ impl cxx_qt::Initialize for Security {
             "BugReportFailed",
             |obj, (r,): (String,)| obj.bug_report_failed(&QString::from(&r)),
         );
-        relay(
-            qt.clone(),
-            SECURITY,
-            "FingerprintEnrollStatus",
-            |obj, (r, passed, stages): (String, i32, i32)| {
-                obj.fingerprint_enroll_status(&QString::from(&r), passed, stages);
-            },
-        );
-        relay(
-            qt.clone(),
-            SECURITY,
-            "FingerprintEnrolled",
-            |obj, (f,): (String,)| obj.fingerprint_enrolled(&QString::from(&f)),
-        );
-        relay(
-            qt.clone(),
-            SECURITY,
-            "FingerprintDeleted",
-            |obj, (f,): (String,)| obj.fingerprint_deleted(&QString::from(&f)),
-        );
-        relay(
-            qt.clone(),
-            SECURITY,
-            "FingerprintFailed",
-            |obj, (r,): (String,)| obj.fingerprint_failed(&QString::from(&r)),
-        );
+        relay_fingerprint(&qt);
         mirror(qt, SECURITY, "system", |mut obj, update| {
             let Update::State(s) = update else { return };
             let mut x = obj.as_mut().rust_mut();
@@ -301,6 +276,36 @@ impl cxx_qt::Initialize for Security {
             obj.state_changed();
         });
     }
+}
+
+/// Relays the fingerprint enrolment signals.
+fn relay_fingerprint(qt: &cxx_qt::CxxQtThread<Security>) {
+    relay(
+        qt.clone(),
+        SECURITY,
+        "FingerprintEnrollStatus",
+        |obj, (r, passed, stages): (String, i32, i32)| {
+            obj.fingerprint_enroll_status(&QString::from(&r), passed, stages);
+        },
+    );
+    relay(
+        qt.clone(),
+        SECURITY,
+        "FingerprintEnrolled",
+        |obj, (f,): (String,)| obj.fingerprint_enrolled(&QString::from(&f)),
+    );
+    relay(
+        qt.clone(),
+        SECURITY,
+        "FingerprintDeleted",
+        |obj, (f,): (String,)| obj.fingerprint_deleted(&QString::from(&f)),
+    );
+    relay(
+        qt.clone(),
+        SECURITY,
+        "FingerprintFailed",
+        |obj, (r,): (String,)| obj.fingerprint_failed(&QString::from(&r)),
+    );
 }
 
 impl Security {

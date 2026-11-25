@@ -1808,16 +1808,15 @@ async fn enroll_fingerprint(
         .take()
         .ok_or_else(|| fl!("fingerprint-enroll-failed", error = "no output"))?;
     let mut lines = futures_lite::io::BufReader::new(blocking::Unblock::new(stdout)).lines();
-    let (mut passed, mut last, mut cancelled) = (0, String::new(), false);
-    loop {
+    let (mut passed, mut last) = (0, String::new());
+    let cancelled = loop {
         let line = future::or(async { Some(lines.next().await) }, async {
             stop.recv().await.ok();
             None
         })
         .await;
         let Some(Some(Ok(result))) = line else {
-            cancelled = line.is_none();
-            break;
+            break line.is_none();
         };
         if result == "enroll-stage-passed" {
             passed += 1;
@@ -1828,7 +1827,7 @@ async fn enroll_fingerprint(
             (result.clone(), passed, stages),
         );
         last = result;
-    }
+    };
     drop(stdin.take());
     while lines.next().await.is_some() {}
     let out = blocking::unblock(move || child.wait_with_output())
