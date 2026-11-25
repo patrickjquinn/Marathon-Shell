@@ -2291,7 +2291,11 @@ impl Pipeline {
                 // The phone's model takes an app's tools in place of its own
                 // only when the router is sure: "longest river in Europe"
                 // (Pacific, 0.45) re-read the whole prompt for the browser's
-                // tools (80 s) and failed switching tabs.
+                // tools (80 s) and failed switching tabs. The price: below
+                // that, a question about an app's own content ("what did I
+                // note about the cabin?", Notes at 0.42) is answered without
+                // the app's tools; the ACTION escape still offers them for
+                // something to do.
                 if !wide && *confidence < SURE_FROM {
                     d.retain(|o| !o.contains('.'));
                 }
@@ -2308,8 +2312,9 @@ impl Pipeline {
             }
             _ => (None, None, None),
         };
-        // An app as stage one's likely choice: an answer without its tools
-        // goes back once. "what did I note about the cabin?" (notes, 0.42)
+        // An app as stage one's likely choice (sure, on the phone): an
+        // answer without its tools goes back once. "what did I note about
+        // the cabin?" (notes, 0.42)
         // got "I do not have access to your notes" with the search tool
         // offered; "How far is the moon from Earth" (Pacific, 0.24) had its
         // answer sent back and lost.
