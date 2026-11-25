@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 17:58:46 +0000
-Subject: [PATCH 01/17] dt-bindings: vendor-prefixes: Add Jolla Mobile Ltd.
+Subject: [PATCH 01/18] dt-bindings: vendor-prefixes: Add Jolla Mobile Ltd.
 
 Jolla Mobile Ltd. makes the Jolla Phone (2026), board JP2601, on the
 MediaTek MT6858. Add its prefix so the board's device tree can name it.

@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 22:44:04 +0000
+Subject: [PATCH 15/18] dt-bindings: phy: mediatek,xsphy: Add
+ mediatek,force-vbus
+
+On some phones VBUS is not wired to a U2 port's VBUS and session
+comparators: the charger and the Type-C controller sense it instead.
+Add a per-port property that says so, for the PHY to report a valid
+B-session itself when it works as a device.
+---
+ Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml b/Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml
+index fdbe04a52..3e15f2557 100644
+--- a/Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml
++++ b/Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml
+@@ -136,6 +136,13 @@ patternProperties:
+         minimum: 1
+         maximum: 7
+ 
++      mediatek,force-vbus:
++        description:
++          VBUS is not wired to the port's VBUS and session comparators (U2
++          phy). In USB device mode the PHY reports a valid B-session to the
++          controller instead.
++        type: boolean
++
+       mediatek,efuse-intr:
+         description:
+           The selection of Internal Resistor (U2/U3 phy)

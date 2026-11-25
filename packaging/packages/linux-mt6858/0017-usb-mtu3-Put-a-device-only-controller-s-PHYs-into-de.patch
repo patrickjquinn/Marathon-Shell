@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 22:44:04 +0000
+Subject: [PATCH 17/18] usb: mtu3: Put a device-only controller's PHYs into
+ device mode
+
+mtu3 sets the PHY mode only when it switches roles, so a controller
+with dr_mode = "peripheral" never tells its PHYs they serve a device.
+PHYs that need the mode to work as one, such as an xsphy port with
+mediatek,force-vbus, then never connect. Set PHY_MODE_USB_DEVICE once at
+probe for such controllers.
+---
+ drivers/usb/mtu3/mtu3_plat.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/mtu3/mtu3_plat.c b/drivers/usb/mtu3/mtu3_plat.c
+index e50e32c27..b331c30d5 100644
+--- a/drivers/usb/mtu3/mtu3_plat.c
++++ b/drivers/usb/mtu3/mtu3_plat.c
+@@ -329,7 +329,7 @@ static int mtu3_probe(struct platform_device *pdev)
+ 	struct device_node *node = pdev->dev.of_node;
+ 	struct device *dev = &pdev->dev;
+ 	struct ssusb_mtk *ssusb;
+-	int ret = -ENOMEM;
++	int i, ret = -ENOMEM;
+ 
+ 	/* all elements are set to ZERO as default value */
+ 	ssusb = devm_kzalloc_obj(dev, *ssusb);
+@@ -380,6 +380,11 @@ static int mtu3_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	ssusb_ip_sw_reset(ssusb);
++
++	/* A device-only controller's PHYs stay in device mode */
++	if (ssusb->dr_mode == USB_DR_MODE_PERIPHERAL)
++		for (i = 0; i < ssusb->num_phys; i++)
++			phy_set_mode(ssusb->phys[i], PHY_MODE_USB_DEVICE);
+ 	ssusb_u3_drd_check(ssusb);
+ 
+ 	if (IS_ENABLED(CONFIG_USB_MTU3_HOST))

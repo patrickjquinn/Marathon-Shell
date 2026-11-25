@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 22:44:04 +0000
+Subject: [PATCH 16/18] phy: mediatek: xsphy: Force a valid B-session in device
+ mode when asked
+
+On the Jolla Phone (MT6858) VBUS reaches the charger and the Type-C
+controller but not the U2 PHY's VBUS and session comparators, so the
+PHY never reports a B-session and the controller never connects as a
+device: the gadget turns on its D+ pull-up and the host sees nothing.
+Forcing VBUSVALID, BVALID and AVALID and clearing SESSEND in U2PHYDTM1,
+as MediaTek's LK does for fastboot, makes the gadget enumerate at once.
+
+With mediatek,force-vbus on the port, phy_set_mode() to USB device
+mode forces those signals valid, next to the IDDIG force it already
+applies; host and OTG modes drop the forcing again.
+---
+ drivers/phy/mediatek/phy-mtk-xsphy.c | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/phy/mediatek/phy-mtk-xsphy.c b/drivers/phy/mediatek/phy-mtk-xsphy.c
+index 4c2db497a..7e45a549a 100644
+--- a/drivers/phy/mediatek/phy-mtk-xsphy.c
++++ b/drivers/phy/mediatek/phy-mtk-xsphy.c
+@@ -71,11 +71,18 @@
+ #define P2D_FORCE_TERMSEL	BIT(17)
+ 
+ #define XSP_U2PHYDTM1		((SSUSB_SIFSLV_U2PHY_COM) + 0x06C)
++#define P2D_FORCE_VBUSVALID	BIT(13)
++#define P2D_FORCE_SESSEND	BIT(12)
++#define P2D_FORCE_BVALID	BIT(11)
++#define P2D_FORCE_AVALID	BIT(10)
+ #define P2D_FORCE_IDDIG		BIT(9)
+ #define P2D_RG_VBUSVALID	BIT(5)
+ #define P2D_RG_SESSEND		BIT(4)
++#define P2D_RG_BVALID		BIT(3)
+ #define P2D_RG_AVALID		BIT(2)
+ #define P2D_RG_IDDIG		BIT(1)
++#define P2D_FORCE_VBUS		(P2D_FORCE_VBUSVALID | P2D_FORCE_SESSEND | \
++				 P2D_FORCE_BVALID | P2D_FORCE_AVALID)
+ 
+ #define SSPXTP_PHYA_GLB_00		((SSPXTP_SIFSLV_PHYA_GLB) + 0x00)
+ #define RG_XTP_GLB_BIAS_INTR_CTRL		GENMASK(21, 16)
+@@ -116,6 +123,8 @@ struct xsphy_instance {
+ 	int eye_src;
+ 	int eye_vrt;
+ 	int eye_term;
++	/* VBUS is not wired to the u2 port's comparators */
++	bool force_vbus;
+ };
+ 
+ struct mtk_xsphy {
+@@ -241,13 +250,19 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
+ 	switch (mode) {
+ 	case PHY_MODE_USB_DEVICE:
+ 		tmp |= P2D_FORCE_IDDIG | P2D_RG_IDDIG;
++		/* No VBUS to sense: report a valid B-session to the controller */
++		if (inst->force_vbus) {
++			tmp |= P2D_FORCE_VBUS | P2D_RG_VBUSVALID |
++			       P2D_RG_BVALID | P2D_RG_AVALID;
++			tmp &= ~P2D_RG_SESSEND;
++		}
+ 		break;
+ 	case PHY_MODE_USB_HOST:
+ 		tmp |= P2D_FORCE_IDDIG;
+-		tmp &= ~P2D_RG_IDDIG;
++		tmp &= ~(P2D_RG_IDDIG | P2D_FORCE_VBUS);
+ 		break;
+ 	case PHY_MODE_USB_OTG:
+-		tmp &= ~(P2D_FORCE_IDDIG | P2D_RG_IDDIG);
++		tmp &= ~(P2D_FORCE_IDDIG | P2D_RG_IDDIG | P2D_FORCE_VBUS);
+ 		break;
+ 	default:
+ 		return;
+@@ -270,6 +285,7 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
+ 					 &inst->eye_vrt);
+ 		device_property_read_u32(dev, "mediatek,eye-term",
+ 					 &inst->eye_term);
++		inst->force_vbus = device_property_read_bool(dev, "mediatek,force-vbus");
+ 		dev_dbg(dev, "intr:%d, src:%d, vrt:%d, term:%d\n",
+ 			inst->efuse_intr, inst->eye_src,
+ 			inst->eye_vrt, inst->eye_term);
