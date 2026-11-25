@@ -23,7 +23,7 @@ Item {
     // An app at rest covers everything but the status bar, whose glass lets
     // the wallpaper show through. The wallpaper is clipped to that strip
     // then, instead of being shaded full-screen under every app frame.
-    readonly property bool appCoversWallpaper: state === "app" && !isTransitioningToActiveFrames && navBar.gestureProgress === 0 && appWindowContainer.dock === 0 && appWindowContainer.opacity === 1 && !appWindow.zooming && !appWindow.leaving && appWindow.scale === 1 && appWindow.opacity === 1
+    readonly property bool appCoversWallpaper: state === "app" && !isTransitioningToActiveFrames && navBar.gestureProgress === 0 && appWindowContainer.dock === 0 && appWindowContainer.opacity === 1 && !appWindow.zooming && appWindow.scale === 1 && appWindow.opacity === 1
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
@@ -1997,33 +1997,24 @@ Item {
             y: Constants.safeAreaTop * appWindowContainer.dock
             height: parent.height + (Constants.safeAreaTop + appWindowContainer.dockHeight - parent.height) * appWindowContainer.dock - y
             clip: appWindowContainer.dock > 0
-            // The window's place. Its own x and y are its open animation's:
-            // an animator's write-back would drop a binding on them.
-            Item {
-                id: appWindowFrame
+            MarathonAppWindow {
+                id: appWindow
+
+                onRetryRequested: id => Qt.callLater(() => Tasks.launchApp(id))
 
                 x: -cardBorder.x
                 y: Constants.safeAreaTop - cardBorder.y
                 width: appWindowContainer.width
                 height: appWindowContainer.height - Constants.safeAreaTop - Constants.safeAreaBottom - shell.appKeyboardInset
-
-                MarathonAppWindow {
-                    id: appWindow
-
-                    onRetryRequested: id => Qt.callLater(() => Tasks.launchApp(id))
-
-                    width: parent.width
-                    height: parent.height
-                    visible: true
-                    onMinimized: {
-                        Logger.info("AppWindow", "Minimized: " + appWindow.appName);
-                        UIStore.minimizeApp();
-                        pageView.currentIndex = 1;
-                    }
-                    onClosed: {
-                        Logger.info("AppWindow", "Closed: " + appWindow.appName);
-                        UIStore.closeApp();
-                    }
+                visible: true
+                onMinimized: {
+                    Logger.info("AppWindow", "Minimized: " + appWindow.appName);
+                    UIStore.minimizeApp();
+                    pageView.currentIndex = 1;
+                }
+                onClosed: {
+                    Logger.info("AppWindow", "Closed: " + appWindow.appName);
+                    UIStore.closeApp();
                 }
             }
 
@@ -2044,7 +2035,7 @@ Item {
                 function part(item) {
                     if (!item || item.width <= 0 || item.height <= 0)
                         return Qt.rect(0, 0, cardBorder.width, cardBorder.height);
-                    void (appWindowFrame.x + appWindowFrame.y); // mapToItem tracks no geometry
+                    void (appWindow.x + appWindow.y); // mapToItem tracks no geometry
                     var r = item.mapToItem(cardBorder, 0, 0, item.width, item.height);
                     var x = Math.max(0, r.x), y = Math.max(0, r.y);
                     return Qt.rect(x, y, Math.max(0, Math.min(cardBorder.width, r.x + r.width) - x), Math.max(0, Math.min(cardBorder.height, r.y + r.height) - y));
