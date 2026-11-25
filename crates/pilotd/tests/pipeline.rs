@@ -955,3 +955,271 @@ fn answers_carry_no_em_dashes() {
         "From 2019\u{2013}2024"
     );
 }
+
+/// Stage one's routing for the phone's model: one intent at `p`.
+fn one_intent(intent: &str, p: f64) -> Value {
+    jev_reply(&[(intent, p), ("open_ended", 1.0 - p)], 0.1, 0.1)
+}
+
+/// The phone's narrow round looked a person up and asks which one: that
+/// question is the answer, not a fresh start with the whole prompt (where
+/// the same lookup was refused as "Already done this turn").
+#[tokio::test]
+async fn a_question_after_a_narrow_lookup_is_the_answer() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(one_intent("call", 0.9)),
+        _ if i == 0 => Reply::stamped(
+            chat_tool("contacts_lookup", r#"{"query": "Anna"}"#),
+            "device",
+        ),
+        _ => Reply::stamped(chat_text("Which Anna?"), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    let r = d.pipeline.ask("ring Anna", false).await;
+    assert_eq!(text_of(r.cards.last().unwrap()), "Which Anna?");
+    assert_eq!(srv.seen("/v1/llm/chat/completions").len(), 2);
+}
+
+/// One action called from the whole prompt may be half the request: the
+/// model gets another round. The narrow action's confirmation ends its turn.
+#[tokio::test]
+async fn only_the_narrow_action_ends_the_turn_at_once() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(one_intent("device_toggle", 0.5)),
+        _ => Reply::stamped(
+            match i {
+                0 => chat_tool("device_toggle", r#"{"target": "wifi", "state": "off"}"#),
+                1 => chat_tool(
+                    "device_toggle",
+                    r#"{"target": "bluetooth", "state": "off"}"#,
+                ),
+                _ => chat_text("Wi-Fi and Bluetooth are off."),
+            },
+            "device",
+        ),
+    })
+    .await;
+    let log = Arc::new(Log::default());
+    let d = common::phone_model_daemon(&srv.base, &log);
+    let r = d.pipeline.ask("turn off wifi and bluetooth", false).await;
+    assert_eq!(
+        text_of(r.cards.last().unwrap()),
+        "Wi-Fi and Bluetooth are off."
+    );
+    assert_eq!(log.all(), ["toggle Wifi false", "toggle Bluetooth false"]);
+
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(one_intent("device_toggle", 0.9)),
+        _ => Reply::stamped(
+            chat_tool("device_toggle", r#"{"target": "wifi", "state": "off"}"#),
+            "device",
+        ),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline.ask("turn off wifi", false).await;
+    assert_eq!(srv.seen("/v1/llm/chat/completions").len(), 1);
+}
+
+/// The narrow prompt carries the last exchange: "make a note of that" is
+/// about the answer before it.
+#[tokio::test]
+async fn the_narrow_prompt_knows_the_last_answer() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" if i == 0 => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.1)),
+        "/v1/jev" => Reply::ok(one_intent("note", 0.9)),
+        _ if i == 0 => Reply::stamped(chat_text("Tokyo."), "device"),
+        _ => Reply::stamped(chat_tool("notes_create", r#"{"text": "Tokyo"}"#), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline.ask("what is the capital of japan", false).await;
+    d.pipeline.ask("make a note of that", false).await;
+    let narrow = &srv.seen("/v1/llm/chat/completions")[1].body["messages"];
+    let texts: Vec<&str> = narrow
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["content"].as_str().unwrap_or(""))
+        .collect();
+    assert_eq!(texts.len(), 4, "{texts:?}");
+    assert_eq!(texts[1], "what is the capital of japan");
+    assert!(texts[2].starts_with("Tokyo."), "{texts:?}");
+    assert!(texts[3].ends_with("make a note of that"), "{texts:?}");
+}
+
+/// Without tools the phone's model said it had set a reminder: nothing
+/// was done, so it is given the tools, as when it asks for them.
+#[tokio::test]
+async fn a_plain_answer_that_claims_an_action_gets_the_tools() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.1)),
+        _ if i == 0 => Reply::stamped(chat_text("I've set a reminder for five."), "device"),
+        _ => Reply::stamped(chat_text("What should the reminder say?"), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    let r = d.pipeline.ask("bins at five", false).await;
+    assert_eq!(
+        text_of(r.cards.last().unwrap()),
+        "What should the reminder say?"
+    );
+    let chats = srv.seen("/v1/llm/chat/completions");
+    assert!(chats[0].body.get("tools").is_none());
+    assert!(chats[1].body["tools"]
+        .as_array()
+        .is_some_and(|t| !t.is_empty()));
+}
+
+/// After ACTION the tools round asks something back: that question is the
+/// answer. With nothing done and nothing asked, the answer before ACTION
+/// stands.
+#[tokio::test]
+async fn a_question_after_action_beats_the_answer_before_it() {
+    for (after, shown) in [
+        ("Which note should it go in?", "Which note should it go in?"),
+        ("Sorry, I have no tool for that.", "Tokyo is the capital."),
+    ] {
+        let srv = FakeHttp::start(move |req: &common::Seen, i| match req.path.as_str() {
+            "/v1/jev" => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.1)),
+            _ if i == 0 => Reply::stamped(chat_text("Tokyo is the capital.\nACTION"), "device"),
+            _ => Reply::stamped(chat_text(after), "device"),
+        })
+        .await;
+        let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+        let r = d.pipeline.ask("capital of japan, noted", false).await;
+        assert_eq!(text_of(r.cards.last().unwrap()), shown);
+    }
+}
+
+/// The phone's model is held to a phone's length in words, not in a tool
+/// call; a call cut off at the limit is not run.
+#[tokio::test]
+async fn the_phone_caps_words_not_tool_calls() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.1)),
+        _ if i == 0 => Reply::stamped(chat_text("ACTION"), "device"),
+        _ => {
+            let mut cut = chat_tool("notes_create", r#"{"text": "milk, eggs"}"#);
+            cut["choices"][0]["finish_reason"] = json!("length");
+            Reply::stamped(cut, "device")
+        }
+    })
+    .await;
+    let log = Arc::new(Log::default());
+    let d = common::phone_model_daemon(&srv.base, &log);
+    let r = d.pipeline.ask("a long shopping list, noted", false).await;
+    let chats = srv.seen("/v1/llm/chat/completions");
+    assert_eq!(chats[0].body["max_completion_tokens"], 400);
+    assert_eq!(chats[1].body["max_completion_tokens"], 1024);
+    assert!(
+        matches!(r.cards.last(), Some(Card::Error { .. })),
+        "{:?}",
+        r.cards
+    );
+    assert!(log.all().is_empty(), "{:?}", log.all());
+}
+
+/// A weather intent the router is unsure of does not keep the web out of
+/// a question that needs it.
+#[tokio::test]
+async fn an_unsure_weather_intent_does_not_block_the_web() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(json!({"answers": {
+            "intent": {"probabilities": {"weather": 0.26, "open_ended": 0.24}, "confidence": 0.26},
+            "needs_generation": {"noul": 0.9},
+            "needs_web": {"noul": 0.9},
+            "ambiguity": {"score": 0.1, "confidence": 0.9}
+        }})),
+        "/v1/search" => Reply::ok(json!({"items": [
+            {"title": "Final", "url": "https://example.com/final", "description": "Kerry won."}
+        ]})),
+        _ => Reply::stamped(chat_text("Kerry won."), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline.ask("who won the all-ireland final", false).await;
+    assert_eq!(srv.seen("/v1/search").len(), 1);
+}
+
+/// Remembered facts are ranked on the phone against the words as said,
+/// not as redacted for the router ("Siobhan" became "<NAME>", which no
+/// fact mentions).
+#[tokio::test]
+async fn facts_are_ranked_against_the_words_as_said() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/embeddings" => {
+            let n = req.body["input"].as_array().map_or(0, Vec::len);
+            Reply::ok(json!({"data": (0..n).map(|_| json!({"embedding": [1.0, 0.5]})).collect::<Vec<_>>()}))
+        }
+        _ => Reply::stamped(chat_text("Something with orchids."), "device"),
+    })
+    .await;
+    let d = local_daemon(&srv.base, 5);
+    for i in 0..9 {
+        d.pipeline
+            .ask(&format!("Remember that fact {i} is true"), false)
+            .await;
+    }
+    d.pipeline
+        .ask("Remember that Siobhan loves orchids", false)
+        .await;
+    d.pipeline.ask("what should I get for Siobhan", false).await;
+    let queries: Vec<String> = srv
+        .seen("/v1/embeddings")
+        .iter()
+        .flat_map(|s| s.body["input"].as_array().cloned().unwrap_or_default())
+        .filter_map(|v| v.as_str().map(str::to_owned))
+        .filter(|t| t.starts_with("query: "))
+        .collect();
+    assert!(
+        queries.contains(&"query: what should I get for Siobhan".to_owned()),
+        "{queries:?}"
+    );
+}
+
+/// The phone's model reads the first four results: an answer's sources
+/// are among those, not a page it never saw.
+#[tokio::test]
+async fn sources_are_pages_the_phone_read() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(json!({"answers": {
+            "intent": {"probabilities": {"open_ended": 0.9}, "confidence": 0.9},
+            "needs_generation": {"noul": 0.9},
+            "needs_web": {"noul": 0.9},
+            "ambiguity": {"score": 0.1, "confidence": 0.9}
+        }})),
+        "/v1/search" => Reply::ok(json!({"items": (1..=5).map(|i| json!({
+            "title": format!("Result {i}"),
+            "url": format!("https://site{i}.example/page"),
+            "description": "Kerry won."
+        })).collect::<Vec<_>>()})),
+        _ => Reply::stamped(chat_text("Kerry won, says site5 and site1."), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    let r = d.pipeline.ask("who won the all-ireland final", false).await;
+    let Some(Card::Answer { sources, .. }) = r.cards.last() else {
+        panic!("{:?}", r.cards)
+    };
+    let sites: Vec<&str> = sources.iter().map(|s| s.site.as_str()).collect();
+    assert_eq!(sites, ["site1.example"]);
+}
+
+/// A second warm-up while one runs returns at once and says so: its
+/// caller then leaves the loading state to the first.
+#[tokio::test]
+async fn a_second_warm_up_says_it_did_not_run() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/embeddings" => Reply {
+            delay: Duration::from_millis(300),
+            ..Reply::ok(json!({"data": []}))
+        },
+        _ => Reply::stamped(chat_text("."), "device"),
+    })
+    .await;
+    let d = local_daemon(&srv.base, 5);
+    let (first, second) = tokio::join!(d.pipeline.warm(), d.pipeline.warm());
+    assert_eq!((first, second), (true, false));
+}

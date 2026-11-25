@@ -778,12 +778,23 @@ const UNSURE_BELOW: f64 = 0.4;
 /// What the phone's model answers, without tools, for something to do.
 const ACTION_WORD: &str = "ACTION";
 
-/// Whether a line of a plain answer asks for the tools: the word alone, or
-/// leading the line ("ACTION Play Radio Nova").
+/// Whether a line of a plain answer asks for the tools: the word in any
+/// case, alone or before punctuation ("Action.", "action: play it"), or in
+/// capitals leading the line ("ACTION Play Radio Nova"); "Action films are"
+/// is an answer.
 fn asks_for_tools(line: &str) -> bool {
-    line.trim()
-        .strip_prefix(ACTION_WORD)
-        .is_some_and(|rest| rest.chars().next().is_none_or(|c| !c.is_alphanumeric()))
+    let line = line.trim();
+    let Some(word) = line.get(..ACTION_WORD.len()) else {
+        return false;
+    };
+    if !word.eq_ignore_ascii_case(ACTION_WORD) {
+        return false;
+    }
+    match line[word.len()..].chars().next() {
+        None => true,
+        Some(c) if c.is_whitespace() => word == ACTION_WORD,
+        Some(c) => !c.is_alphanumeric(),
+    }
 }
 
 /// Said to the phone's model without tools.
@@ -811,8 +822,16 @@ fn intent_tools(intent: &str) -> Vec<&'static str> {
 
 /// What the person reads when an action on the phone is done, without the
 /// model: the tool's summary where it is written for them, words for them
-/// where it is written for the model. `None`: the model says it.
-fn confirmation(tool: &str, summary: &str) -> Option<String> {
+/// where it is written for the model. `None`: the model says it, as it
+/// does in any language but English (these words are English).
+fn confirmation(tool: &str, args: &Value, summary: &str, english: bool) -> Option<String> {
+    if !english {
+        return None;
+    }
+    let addressed = args
+        .get("to")
+        .and_then(Value::as_str)
+        .is_some_and(|t| !t.trim().is_empty());
     match tool {
         "notes.create" | "settings.open" | "device.toggle" | "call.dial" | "alarm.set"
         | "timer.set" | "reminder.create" => Some(summary.to_owned()),
@@ -820,6 +839,9 @@ fn confirmation(tool: &str, summary: &str) -> Option<String> {
         "email.draft" if summary.starts_with("No draft") => Some(
             "There is no e-mail account on the phone yet: Email is open so you can add one.".into(),
         ),
+        "email.draft" if !addressed => {
+            Some("Your e-mail is open in Email: add who it goes to, then check and send it.".into())
+        }
         "email.draft" => Some("Your e-mail is open in Email, ready to check and send.".into()),
         _ => None,
     }
@@ -907,7 +929,7 @@ fn answer_so_far(text: &str) -> &str {
         return "";
     }
     let start = text.trim_start();
-    if !start.is_empty() && ACTION_WORD.starts_with(start) {
+    if !start.is_empty() && ACTION_WORD.starts_with(&start.to_ascii_uppercase()) {
         return "";
     }
     let cut = followup_marker(text).map_or(text.len(), |(start, _)| start);
@@ -926,9 +948,9 @@ fn answer_so_far(text: &str) -> &str {
 }
 
 /// Where the first follow-up label is, and where its text starts: the
-/// model writes it "FOLLOWUPS:", "Follow-ups:", "Follow ups:" and
-/// "FOLUPS:", so a word that is "fol", then l, o and w, then "up" or
-/// "ups", and a colon.
+/// model writes it "FOLLOWUPS:", "Follow-ups:", "Follow ups:", "FOLUPS:"
+/// and "FOLLOWUP:", so a word that is "fol", then l, o and w, then "ups",
+/// or "up" in capitals ("Follow-up: see a doctor" is prose), and a colon.
 fn followup_marker(text: &str) -> Option<(usize, usize)> {
     let lower = text.to_ascii_lowercase();
     for (i, _) in lower.match_indices("fol") {
@@ -951,9 +973,10 @@ fn followup_marker(text: &str) -> Option<(usize, usize)> {
             continue;
         }
         let letters: String = head.chars().filter(char::is_ascii_alphabetic).collect();
+        let capitals = !text[i..i + colon].chars().any(|c| c.is_ascii_lowercase());
         let core = letters
             .strip_suffix("ups")
-            .or_else(|| letters.strip_suffix("up"));
+            .or_else(|| letters.strip_suffix("up").filter(|_| capitals));
         if core.is_some_and(|m| m.starts_with("fol") && m[3..].chars().all(|c| "low".contains(c))) {
             return Some((i, i + colon + 1));
         }
@@ -1519,16 +1542,16 @@ impl Pipeline {
         *lock(&self.on_screen) = None;
     }
 
-    /// The app on screen, if Pilot was opened over one in the last
-    /// [`ON_SCREEN_TTL`]: (app id, name).
     /// Fills the router's cache of option embeddings ahead of the first
     /// question, which otherwise embedded every option first (0.9 s).
-    pub async fn warm(&self) {
+    /// False, at once, while another warm-up runs.
+    pub async fn warm(&self) -> bool {
         if self.warming.swap(true, Ordering::SeqCst) {
-            return;
+            return false;
         }
         self.warm_once().await;
         self.warming.store(false, Ordering::SeqCst);
+        true
     }
 
     async fn warm_once(&self) {
@@ -1554,9 +1577,8 @@ impl Pipeline {
         // first question: every turn's prompt starts with it. The tools are
         // part of it (chat templates put them in the system block), so they
         // go too, as a turn offers them: 2,700 of 3,000 tokens on the Q25.
-        // Read already and the model still loaded: nothing to do. Asked
-        // again after a turn it read 516 tokens again (16.5 s), in front of
-        // the next question.
+        // Read already and the model still loaded: nothing to do; reading
+        // it again would hold up the next question.
         let still_read = self.warm_read.load(Ordering::SeqCst)
             && lock(&self.last_model_use).is_some_and(|t| t.elapsed() < MODEL_KEPT);
         if backends.llm.provider() == "local" && !still_read {
@@ -1604,6 +1626,8 @@ impl Pipeline {
         }
     }
 
+    /// The app on screen, if Pilot was opened over one in the last
+    /// [`ON_SCREEN_TTL`]: (app id, name).
     pub fn on_screen(&self) -> Option<(String, String)> {
         self.on_screen_now().map(|o| (o.app, o.name))
     }
@@ -2161,22 +2185,28 @@ impl Pipeline {
         }
         let backends = self.backends();
         // Many remembered facts: the router on the phone ranks them by
-        // meaning in the same request, and the prompt gets the few this
-        // turn is about (30 facts were 600 tokens, ~10 s on the phone). A
-        // router in the cloud is not sent them.
+        // meaning, and the prompt gets the few this turn is about (30 facts
+        // were 600 tokens, ~10 s on the phone). Against the words as said:
+        // the facts are not redacted, and "<NAME>" matches none of them. A
+        // router off the phone (a "local" one at a remote URL too) is not
+        // sent them.
         let facts = self.store.memories().unwrap_or_default();
-        let rank_memory = backends.jev.provider() == "local" && facts.len() > MEMORY_ALL;
-        if rank_memory {
+        let rank_memory = backends.jev.on_device() && facts.len() > MEMORY_ALL;
+        let memory_req = rank_memory.then(|| {
             let recent = &facts[facts.len().saturating_sub(crate::jev::MAX_CHOICE_OPTIONS)..];
-            questions.insert(
-                MEMORY_QUESTION.into(),
-                Question::Choice {
-                    options: recent.iter().map(|m| m.id.to_string()).collect(),
-                    criteria: "Which remembered fact is about what `utterance` asks?".into(),
-                    descriptions: recent.iter().map(|m| m.fact.clone()).collect(),
-                },
-            );
-        }
+            DecideRequest {
+                state: json!({"utterance": text}),
+                questions: [(
+                    MEMORY_QUESTION.to_owned(),
+                    Question::Choice {
+                        options: recent.iter().map(|m| m.id.to_string()).collect(),
+                        criteria: "Which remembered fact is about what `utterance` asks?".into(),
+                        descriptions: recent.iter().map(|m| m.fact.clone()).collect(),
+                    },
+                )]
+                .into(),
+            }
+        });
         let req = DecideRequest {
             state: json!({
                 "utterance": crate::redact::for_jev(&redacted.text, &self.own_name()),
@@ -2184,7 +2214,15 @@ impl Pipeline {
             }),
             questions,
         };
-        let answers = match backends.jev.decide(&req, "decide").await {
+        let (decided, ranked) = tokio::join!(backends.jev.decide(&req, "decide"), async {
+            match &memory_req {
+                Some(r) => backends.jev.decide(r, "decide").await.ok(),
+                None => None,
+            }
+        });
+        *lock(&self.memory_pick) =
+            rank_memory.then(|| memory_pick(&ranked.unwrap_or_default(), &facts));
+        let answers = match decided {
             Ok(a) => a,
             Err(RemoteError::Offline) => return self.local_only(turn, text, "offline").await,
             Err(e) => {
@@ -2196,7 +2234,6 @@ impl Pipeline {
                 return mk("error", vec![error_card(&e)]);
             }
         };
-        *lock(&self.memory_pick) = rank_memory.then(|| memory_pick(&answers, &facts));
         let Some(decision) = Decision::from_answers(&answers) else {
             return mk(
                 "error",
@@ -2254,7 +2291,11 @@ impl Pipeline {
                 // The phone's model takes an app's tools in place of its own
                 // only when the router is sure: "longest river in Europe"
                 // (Pacific, 0.45) re-read the whole prompt for the browser's
-                // tools (80 s) and failed switching tabs.
+                // tools (80 s) and failed switching tabs. The price: below
+                // that, a question about an app's own content ("what did I
+                // note about the cabin?", Notes at 0.42) is answered without
+                // the app's tools; the ACTION escape still offers them for
+                // something to do.
                 if !wide && *confidence < SURE_FROM {
                     d.retain(|o| !o.contains('.'));
                 }
@@ -2271,8 +2312,9 @@ impl Pipeline {
             }
             _ => (None, None, None),
         };
-        // An app as stage one's likely choice: an answer without its tools
-        // goes back once. "what did I note about the cabin?" (notes, 0.42)
+        // An app as stage one's likely choice (sure, on the phone): an
+        // answer without its tools goes back once. "what did I note about
+        // the cabin?" (notes, 0.42)
         // got "I do not have access to your notes" with the search tool
         // offered; "How far is the moon from Earth" (Pacific, 0.24) had its
         // answer sent back and lost.
@@ -2356,8 +2398,11 @@ impl Pipeline {
             && answers.get("domain").is_some_and(|a| {
                 matches!(a, crate::jev::Answer::Choice { confidence, .. } if *confidence >= INSIST_FROM)
             });
+        // A weather intent keeps the search out unless the router is unsure
+        // of it: "What is the capital of Japan" was weather at 0.26.
+        let weather_asked = decision.intent == "weather" && decision.confidence >= UNSURE_BELOW;
         let web_first = place_plan
-            || (decision.intent != "weather"
+            || (!weather_asked
                 && !weather
                 && !own_area
                 && matches!(
@@ -3121,6 +3166,8 @@ impl Pipeline {
                 "Followed on from the conversation so far",
             ));
         }
+        // The narrow prompt's only history: "make a note of that".
+        let last_exchange = earlier[earlier.len().saturating_sub(2)..].to_vec();
         messages.extend(earlier);
         let mut context = self.turn_context(hints) + &memory;
         let ask_full = Message::text(Role::User, format!("[{}]\n\n{redacted}", context.trim()));
@@ -3136,7 +3183,7 @@ impl Pipeline {
         ));
         let registry = self.registry();
         let may_leave = self.may_leave();
-        let mut tools = Self::select_tools(&registry, scope, backends);
+        let mut tools = Self::select_tools(&registry, scope, backends.llm.provider() == "local");
         if !may_leave {
             if let Some(web) = registry.get(crate::web::TOOL) {
                 tools.retain(|t| t.name != web.model_name);
@@ -3173,6 +3220,10 @@ impl Pipeline {
         // action's confirmation ends the turn. Not called: the turn goes
         // on as before, with everything.
         let mut wide: Option<(Vec<Message>, Vec<crate::llm::ToolDef>)> = None;
+        // The turn is the narrow action: only then does its confirmation
+        // end it. From the whole prompt one call may be half of what was
+        // asked ("turn off Wi-Fi and Bluetooth").
+        let mut narrowed = false;
         if backends.llm.provider() == "local"
             && !plain
             && !web_first
@@ -3190,17 +3241,23 @@ impl Pipeline {
                     let ask = messages.last().cloned();
                     if let Some(ask) = ask {
                         log::debug!("{intent}: the model fills in {}", names.join(", "));
+                        let mut short = vec![Message::text(Role::System, NARROW_PROMPT)];
+                        short.extend(last_exchange);
+                        short.push(ask);
                         wide = Some((
-                            std::mem::replace(
-                                &mut messages,
-                                vec![Message::text(Role::System, NARROW_PROMPT), ask],
-                            ),
+                            std::mem::replace(&mut messages, short),
                             std::mem::replace(&mut tools, narrow),
                         ));
+                        narrowed = true;
                     }
                 }
             }
         }
+        // A tool call is required in the first round with the whole prompt,
+        // not in the narrow ones: there a required call makes llama.cpp's
+        // grammar force one, and the model cannot answer "no" or ask
+        // "Which Anna?".
+        let mut must_call = ground;
         let mut rejected_once = false;
         // What the tools returned this turn, as the phone saw it: where a
         // recipient may come from besides the person's own words.
@@ -3252,7 +3309,13 @@ impl Pipeline {
                                 .collect::<Vec<_>>()
                                 .join("; ")
                         );
-                        found.extend(sources_of(&out.data));
+                        // The pages the model reads: the phone's sees fewer.
+                        let data = if backends.llm.provider() == "local" {
+                            web_for_phone(&out.data)
+                        } else {
+                            out.data.clone()
+                        };
+                        found.extend(sources_of(&data));
                         steps.push(how(
                             "web",
                             format!(
@@ -3273,11 +3336,6 @@ impl Pipeline {
                             tool_call_id: None,
                             images: Vec::new(),
                         });
-                        let data = if backends.llm.provider() == "local" {
-                            web_for_phone(&out.data)
-                        } else {
-                            out.data.clone()
-                        };
                         let reply = json!({"ok": true, "summary": out.summary,
                             "untrusted_content": data, "note": UNTRUSTED_NOTE});
                         let text = self.redactor.redact_with(&reply.to_string(), &mut map);
@@ -3388,7 +3446,7 @@ impl Pipeline {
                 } else {
                     "tool-loop".into()
                 },
-                require: round == 0 && ground,
+                require: must_call && !narrowed,
                 max_tokens: None,
                 // A narrow round's words are not the answer.
                 stream: if wide.is_some() {
@@ -3428,6 +3486,19 @@ impl Pipeline {
                 }
             };
             *lock(&self.last_model_use) = Some(Instant::now());
+            must_call &= narrowed;
+            // Cut off at the length limit: a call's arguments are half written.
+            if resp.finish_reason == "length" && !resp.tool_calls.is_empty() {
+                self.outcome(turn, "failed");
+                let mut cards = std::mem::take(&mut private_cards);
+                cards.append(&mut action_cards);
+                cards.push(Card::Error {
+                    text: "Pilot's reply ran too long to finish. Try asking for less at once."
+                        .into(),
+                    code: ErrorCode::Internal,
+                });
+                return cards;
+            }
             if resp.tool_calls.is_empty() {
                 let text = strip_reasoning(resp.content.as_deref().unwrap_or(""));
                 if let Some(call) = stray_call(&text, &registry) {
@@ -3452,25 +3523,18 @@ impl Pipeline {
             );
             // On a line of its own: it wrote "The capital of Japan is
             // Tokyo.\nACTION" for a note (the last answer, then the word).
-            if resp.tool_calls.is_empty()
-                && resp
-                    .content
-                    .as_deref()
-                    .is_some_and(|c| c.lines().any(asks_for_tools))
-            {
+            // Without tools, "I've set a reminder" did nothing: the same.
+            let reply = resp.content.as_deref().unwrap_or("");
+            let claimed = escape.is_some() && claims_action(&strip_reasoning(reply));
+            if resp.tool_calls.is_empty() && (claimed || reply.lines().any(asks_for_tools)) {
                 if let Some((full, ask, t)) = escape.take() {
                     log::debug!("something to do: the tools");
                     // What it answered before the word, kept: it added ACTION
                     // to "The moon is about 384,400 km away", then, with the
                     // tools, apologised that it had none for that.
-                    let said: Vec<&str> = resp
-                        .content
-                        .as_deref()
-                        .unwrap_or("")
-                        .lines()
-                        .filter(|l| !asks_for_tools(l))
-                        .collect();
-                    held = Some(said.join("\n").trim().to_owned()).filter(|a| !a.is_empty());
+                    let said: Vec<&str> = reply.lines().filter(|l| !asks_for_tools(l)).collect();
+                    held = Some(said.join("\n").trim().to_owned())
+                        .filter(|a| !a.is_empty() && !claimed);
                     messages.pop();
                     messages.push(ask);
                     messages[0] = full;
@@ -3479,9 +3543,12 @@ impl Pipeline {
                 }
             }
             escape = None;
-            // The tools did nothing: the answer it gave without them stands.
+            // The tools did nothing: the answer it gave without them stands,
+            // unless it now asks something back ("Which note?").
             if let Some(answer) = held.take() {
-                if resp.tool_calls.is_empty() {
+                let (said, _) =
+                    split_followups(&strip_reasoning(resp.content.as_deref().unwrap_or("")));
+                if resp.tool_calls.is_empty() && !said.ends_with(['?', '\u{ff1f}', '\u{61f}']) {
                     log::debug!("no tool after ACTION: the answer before it");
                     resp.content = Some(answer);
                 }
@@ -3489,6 +3556,7 @@ impl Pipeline {
             if resp.tool_calls.is_empty() {
                 if let Some((m, t)) = wide.take() {
                     log::debug!("not that action: the whole prompt");
+                    narrowed = false;
                     messages = m;
                     tools = t;
                     continue;
@@ -3805,10 +3873,6 @@ impl Pipeline {
                     }
                     Ok(out) if out.untrusted => {
                         tainted = true;
-                        if entry.spec.name == crate::web::TOOL {
-                            found.extend(sources_of(&out.data));
-                            self.stage(turn, "reading", &sites_line(&found));
-                        }
                         let data = if entry.spec.name == crate::web::TOOL
                             && backends.llm.provider() == "local"
                         {
@@ -3816,6 +3880,10 @@ impl Pipeline {
                         } else {
                             out.data
                         };
+                        if entry.spec.name == crate::web::TOOL {
+                            found.extend(sources_of(&data));
+                            self.stage(turn, "reading", &sites_line(&found));
+                        }
                         json!({"ok": true, "summary": out.summary, "untrusted_content": data, "note": UNTRUSTED_NOTE})
                     }
                     Ok(out) => {
@@ -3829,9 +3897,14 @@ impl Pipeline {
                         }
                         // The phone's model asked again only to say it was
                         // done (five seconds on the Q25): the action's own
-                        // confirmation ends the turn, unless more was asked.
-                        if single && !intents::needs_model(redacted) {
-                            if let Some(text) = confirmation(&entry.spec.name, &out.summary) {
+                        // confirmation ends the turn.
+                        if single && narrowed {
+                            if let Some(text) = confirmation(
+                                &entry.spec.name,
+                                &real,
+                                &out.summary,
+                                crate::lang::current().is_english(),
+                            ) {
                                 lookup = Some(text);
                             }
                         }
@@ -3849,6 +3922,11 @@ impl Pipeline {
                 // turn's map so known values keep their placeholders.
                 let text = self.redactor.redact_with(&reply.to_string(), &mut map);
                 messages.push(Message::tool_result(&call.id, text));
+            }
+            // A narrow tool ran: the turn is that action, and the model's
+            // words after it ("Which Anna?") are the answer.
+            if !made.is_empty() {
+                wide = None;
             }
             if let Some(text) = lookup {
                 *lock(&self.last_domains) =
@@ -3878,9 +3956,8 @@ impl Pipeline {
     fn select_tools(
         registry: &Registry,
         scope: Option<&[String]>,
-        backends: &Backends,
+        local: bool,
     ) -> Vec<crate::llm::ToolDef> {
-        let local = backends.llm.provider() == "local";
         let Some(domains) = scope else {
             return unscoped_tools(registry, local);
         };
@@ -3888,13 +3965,13 @@ impl Pipeline {
         // the same, and Qwen3.5's template puts them first: a subset made
         // "What is the capital of Australia" read 1,050 tokens again, 20 s.
         if local {
-            // An app's own tools and plans: the same list for the same app,
-            // so the server keeps it read after its first turn. With Pilot's
-            // own tools too it was minutes of reading (Pacific's, 5,879
-            // tokens), and reading it ahead held up the questions asked
-            // meanwhile (one request at a time on the phone).
+            // One app's tools and plans, and the other areas in scope (a
+            // call after a Notes turn); not all of Pilot's own, which with
+            // an app's take minutes to read.
             if let Some(app) = domains.iter().find(|d| d.contains('.')) {
-                return registry.defs(Some(&[app.clone(), "keel".into()]));
+                let mut chosen = vec![app.clone(), "keel".into()];
+                chosen.extend(domains.iter().filter(|d| !d.contains('.')).cloned());
+                return registry.defs(Some(&chosen));
             }
             return unscoped_tools(registry, true);
         }
@@ -4446,7 +4523,15 @@ mod answer_tests {
         assert!(asks_for_tools("ACTION: play it"));
         assert!(!asks_for_tools("ACTIONS speak louder"));
         assert!(!asks_for_tools("The ACTION film"));
+        assert!(asks_for_tools("ACTION."));
+        assert!(asks_for_tools("Action"));
+        assert!(asks_for_tools("action: play it"));
+        assert!(!asks_for_tools("Action films are fun."));
+        assert!(!asks_for_tools("Actionable"));
+        assert!(!asks_for_tools("Ä"));
         assert_eq!(answer_so_far("ACTION Play Radio Nova"), "");
+        assert_eq!(answer_so_far("Act"), "");
+        assert_eq!(answer_so_far("Action."), "");
     }
 
     #[test]
@@ -4493,7 +4578,13 @@ mod answer_tests {
             answer_so_far("Nothing today.\nFOLLOWUPS:\n1. Which?\nFOLLOWUPS: When?"),
             "Nothing today."
         );
-        for not in ["Folding up: the map.", "Scaffolding up: soon", "fold: up"] {
+        for not in [
+            "Folding up: the map.",
+            "Scaffolding up: soon",
+            "fold: up",
+            "See a doctor.\nFollow-up: in two weeks, or sooner if it hurts.",
+            "Follow up: call the bank | then the shop",
+        ] {
             assert!(split_followups(not).1.is_empty(), "{not}");
         }
     }
@@ -4542,6 +4633,54 @@ mod answer_tests {
         let local = names(unscoped_tools(&registry, true));
         assert_eq!(local.len(), 1);
         assert!(!local[0].contains("notes"));
+    }
+
+    #[test]
+    fn the_phone_offers_an_app_with_the_other_areas_in_scope() {
+        let mut registry = Registry::new();
+        registry.add(crate::weather::spec(), true, std::sync::Arc::new(Nothing));
+        let mut app = crate::weather::spec();
+        app.name = "notes.create".into();
+        app.domain = "org.example.notes".into();
+        registry.add(app, true, std::sync::Arc::new(Nothing));
+        let names = |scope: &[&str]| -> Vec<String> {
+            let scope: Vec<String> = scope.iter().map(|s| (*s).to_owned()).collect();
+            Pipeline::select_tools(&registry, Some(&scope), true)
+                .into_iter()
+                .map(|d| d.name)
+                .collect()
+        };
+        assert_eq!(names(&["org.example.notes"]).len(), 1);
+        assert_eq!(names(&["weather", "org.example.notes"]).len(), 2);
+    }
+
+    #[test]
+    fn a_confirmation_without_the_model_is_english_only() {
+        let none = json!({});
+        assert_eq!(
+            confirmation("notes.create", &none, "The note is in Notes.", true).as_deref(),
+            Some("The note is in Notes.")
+        );
+        assert_eq!(
+            confirmation("notes.create", &none, "The note is in Notes.", false),
+            None
+        );
+    }
+
+    #[test]
+    fn an_email_with_no_recipient_is_not_ready_to_send() {
+        let open = "The e-mail is open in Email for the person to check and send.";
+        let to = json!({"to": "anna@example.com"});
+        assert!(confirmation("email.draft", &to, open, true)
+            .unwrap()
+            .contains("ready to check and send"));
+        assert!(confirmation("email.draft", &json!({"to": " "}), open, true)
+            .unwrap()
+            .contains("add who it goes to"));
+        let none = "No draft was made: there is no e-mail account on the phone.";
+        assert!(confirmation("email.draft", &to, none, true)
+            .unwrap()
+            .starts_with("There is no e-mail account"));
     }
 
     #[test]

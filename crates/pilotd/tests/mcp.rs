@@ -884,3 +884,60 @@ async fn a_change_that_may_have_happened_is_not_tried_again() {
         "the model is not asked to try again"
     );
 }
+
+/// Stage one sure of an area and of one action: the phone's model fills
+/// that action in from a short prompt, where it may still answer "no" (a
+/// required call makes llama.cpp's grammar force one). The whole prompt
+/// after it must call a tool.
+#[tokio::test]
+async fn the_narrow_round_may_answer_no() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(json!({"answers": {
+            "intent": {"probabilities": {"device_toggle": 0.9, "open_ended": 0.1}, "confidence": 0.9},
+            "needs_generation": {"noul": 0.1},
+            "needs_web": {"noul": 0.1},
+            "ambiguity": {"score": 0.1},
+            "domain": {"probabilities": {"system": 0.9, "org.example.notes": 0.1}, "confidence": 0.9}
+        }})),
+        _ if i == 0 => Reply::stamped(chat_text("no"), "device"),
+        _ => Reply::stamped(chat_text("Wi-Fi is on."), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline
+        .attach_mcp(connect(Arc::new(Notes::default())).await)
+        .await;
+    d.pipeline.ask("switch the wifi off", false).await;
+    let chats = srv.seen("/v1/llm/chat/completions");
+    assert_eq!(chats.len(), 2);
+    assert_eq!(names(&chats[0].body), ["device_toggle"]);
+    assert_eq!(chats[0].body["tool_choice"], "auto");
+    assert_eq!(chats[1].body["tool_choice"], "required");
+}
+
+/// After the narrow round's lookup the model may still ask which person:
+/// no call is required of it there.
+#[tokio::test]
+async fn no_call_is_required_after_a_narrow_lookup() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(json!({"answers": {
+            "intent": {"probabilities": {"call": 0.9, "open_ended": 0.1}, "confidence": 0.9},
+            "needs_generation": {"noul": 0.1},
+            "needs_web": {"noul": 0.1},
+            "ambiguity": {"score": 0.1},
+            "domain": {"probabilities": {"messaging": 0.9, "org.example.notes": 0.1}, "confidence": 0.9}
+        }})),
+        _ if i == 0 => Reply::stamped(chat_tool("contacts_lookup", r#"{"query": "Anna"}"#), "device"),
+        _ => Reply::stamped(chat_text("Which Anna?"), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline
+        .attach_mcp(connect(Arc::new(Notes::default())).await)
+        .await;
+    let r = d.pipeline.ask("ring Anna", false).await;
+    let chats = srv.seen("/v1/llm/chat/completions");
+    assert_eq!(chats.len(), 2, "{:?}", r.cards);
+    assert_eq!(chats[0].body["tool_choice"], "auto");
+    assert_eq!(chats[1].body["tool_choice"], "auto");
+}

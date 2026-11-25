@@ -16,9 +16,15 @@ pub const INTERFACE: &str = "org.shipwright.Pilot1";
 /// that stalls; Stop ends it sooner.
 const TURN_TIMEOUT: Duration = Duration::from_mins(10);
 
+/// Every other call, some made on the UI thread: a stalled pilotd fails
+/// them in D-Bus' usual time.
+const CALL_TIMEOUT: Duration = Duration::from_secs(25);
+
+/// Two connections, as zbus times calls out per connection.
 #[derive(Clone)]
 pub struct Client {
     conn: Connection,
+    turns: Connection,
 }
 
 /// A change pilotd announced.
@@ -79,13 +85,18 @@ impl Client {
     /// Connects to the session bus. Calls activate pilotd if it is not
     /// running.
     pub fn connect() -> Result<Client, String> {
-        let conn = zbus::block_on(
-            zbus::connection::Builder::session()
-                .method_timeout(TURN_TIMEOUT)
-                .build(),
-        )
-        .map_err(|e| err(&e))?;
-        Ok(Client { conn })
+        let connect = |timeout| {
+            zbus::block_on(
+                zbus::connection::Builder::session()
+                    .method_timeout(timeout)
+                    .build(),
+            )
+            .map_err(|e| err(&e))
+        };
+        Ok(Client {
+            conn: connect(CALL_TIMEOUT)?,
+            turns: connect(TURN_TIMEOUT)?,
+        })
     }
 
     fn proxy(&self) -> Result<Proxy<'static>, String> {
@@ -106,7 +117,7 @@ impl Client {
         B: serde::Serialize + zbus::DynamicType,
     {
         zbus::block_on(async {
-            let proxy = Proxy::new(&self.conn, BUS_NAME, PATH, INTERFACE).await?;
+            let proxy = Proxy::new(&self.turns, BUS_NAME, PATH, INTERFACE).await?;
             proxy.call(method, body).await
         })
         .map_err(|e| failure(&e))
