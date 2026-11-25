@@ -914,3 +914,30 @@ async fn the_narrow_round_may_answer_no() {
     assert_eq!(chats[0].body["tool_choice"], "auto");
     assert_eq!(chats[1].body["tool_choice"], "required");
 }
+
+/// After the narrow round's lookup the model may still ask which person:
+/// no call is required of it there.
+#[tokio::test]
+async fn no_call_is_required_after_a_narrow_lookup() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(json!({"answers": {
+            "intent": {"probabilities": {"call": 0.9, "open_ended": 0.1}, "confidence": 0.9},
+            "needs_generation": {"noul": 0.1},
+            "needs_web": {"noul": 0.1},
+            "ambiguity": {"score": 0.1},
+            "domain": {"probabilities": {"messaging": 0.9, "org.example.notes": 0.1}, "confidence": 0.9}
+        }})),
+        _ if i == 0 => Reply::stamped(chat_tool("contacts_lookup", r#"{"query": "Anna"}"#), "device"),
+        _ => Reply::stamped(chat_text("Which Anna?"), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline
+        .attach_mcp(connect(Arc::new(Notes::default())).await)
+        .await;
+    let r = d.pipeline.ask("ring Anna", false).await;
+    let chats = srv.seen("/v1/llm/chat/completions");
+    assert_eq!(chats.len(), 2, "{:?}", r.cards);
+    assert_eq!(chats[0].body["tool_choice"], "auto");
+    assert_eq!(chats[1].body["tool_choice"], "auto");
+}

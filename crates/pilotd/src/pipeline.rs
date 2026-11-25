@@ -3254,8 +3254,9 @@ impl Pipeline {
             }
         }
         // A tool call is required in the first round with the whole prompt,
-        // not in the narrow one: there a required call makes llama.cpp's
-        // grammar force one, and the model cannot answer "no".
+        // not in the narrow ones: there a required call makes llama.cpp's
+        // grammar force one, and the model cannot answer "no" or ask
+        // "Which Anna?".
         let mut must_call = ground;
         let mut rejected_once = false;
         // What the tools returned this turn, as the phone saw it: where a
@@ -3445,7 +3446,7 @@ impl Pipeline {
                 } else {
                     "tool-loop".into()
                 },
-                require: must_call && wide.is_none(),
+                require: must_call && !narrowed,
                 max_tokens: None,
                 // A narrow round's words are not the answer.
                 stream: if wide.is_some() {
@@ -3485,7 +3486,7 @@ impl Pipeline {
                 }
             };
             *lock(&self.last_model_use) = Some(Instant::now());
-            must_call &= wide.is_some();
+            must_call &= narrowed;
             // Cut off at the length limit: a call's arguments are half written.
             if resp.finish_reason == "length" && !resp.tool_calls.is_empty() {
                 self.outcome(turn, "failed");
