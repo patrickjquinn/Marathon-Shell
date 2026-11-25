@@ -6,7 +6,8 @@
 #
 # Usage: build-aport-apk.sh <pkgname>, or APORT=<pkgname> in the env.
 # NO_DEPS=1 installs only makedepends=, for meta-packages and aports whose
-# depends are other local packages.
+# depends are other local packages. JOBS=<n> caps abuild's make jobs, which
+# default to every CPU.
 set -euo pipefail
 
 PKG="${1:-${APORT:?usage: $0 <pkgname> (or APORT=<pkgname>)}}"
@@ -36,6 +37,7 @@ podman run --rm -i \
     -e PKG="$PKG" \
     -e DEPS_FLAG="$([ "${NO_DEPS:-0}" = 1 ] && echo -d || echo -r)" \
     -e WPE_BUILD_JOBS="${WPE_BUILD_JOBS:-}" \
+    -e JOBS="${JOBS:-}" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
     -v "$PMOS_KEY:/etc/apk/keys/build.postmarketos.org.rsa.pub:z,ro" \
     -v "$MKOSI_PKG_DIR:/out:z" \
