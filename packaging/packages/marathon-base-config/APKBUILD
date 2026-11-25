@@ -354,14 +354,14 @@ EOF
 	# Persistent journald. A volatile journal lost every hang's record on
 	# the reboot that followed it. After a long-press power-off journald
 	# reports the last file "uncleanly shut down", sets it aside and
-	# starts a fresh one; at most the last seconds are lost. Synced often
-	# so the lines before a hang reach the disk.
+	# starts a fresh one. Synced every 15 min so an idle phone's storage
+	# can sleep; crit and emerg lines are still written at once.
 	install -d "$pkgdir/usr/lib/systemd/journald.conf.d"
 	cat > "$pkgdir/usr/lib/systemd/journald.conf.d/50-marathon.conf" <<'EOF'
 [Journal]
 Storage=persistent
 SystemMaxUse=200M
-SyncIntervalSec=15s
+SyncIntervalSec=15min
 RuntimeMaxUse=32M
 RuntimeKeepFree=64M
 RuntimeMaxFileSize=8M
