@@ -54,7 +54,11 @@ jobs:
       - name: Restore build tree
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: ${{ runner.temp }}/mb
+          path: |
+            ${{ runner.temp }}/mb
+            !${{ runner.temp }}/mb/duranium/mkosi.output
+            !${{ runner.temp }}/mb/duranium/mkosi.tools
+            !${{ runner.temp }}/mb/duranium/mkosi.cache
           key: image-spike-mb-${{ github.sha }}
           restore-keys: image-spike-mb-
 
@@ -87,7 +91,11 @@ jobs:
         if: always()
         uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: ${{ runner.temp }}/mb
+          path: |
+            ${{ runner.temp }}/mb
+            !${{ runner.temp }}/mb/duranium/mkosi.output
+            !${{ runner.temp }}/mb/duranium/mkosi.tools
+            !${{ runner.temp }}/mb/duranium/mkosi.cache
           key: image-spike-mb-${{ github.sha }}
 
       - name: Results
