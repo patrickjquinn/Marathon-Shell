@@ -1,0 +1,34 @@
+# JP2601 deviceinfo and kernel command line. The kernel is the SoC's
+# (linux-mt6858); scripts/build-image.sh builds the one named here.
+pkgname=device-jolla-jp2601
+pkgdesc="Jolla Phone (2026)"
+pkgver=1
+pkgrel=0
+url="https://github.com/patrickjquinn/Marathon-Shell"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+_kernel=linux-mt6858
+depends="
+	$_kernel>=7.4.0_rc4
+	postmarketos-base
+	systemd-boot
+"
+makedepends="devicepkg-dev"
+source="
+	deviceinfo
+	kernel-cmdline.conf
+"
+
+build() {
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+}
+
+sha512sums="
+b4d4eda1acf9a1312a7fd8ec6b2b47e296ebe961ce0d25292006558faa272ae7725de9212ce5e4c2f66d212ff0fdb36a9142bdecd11c3e6c9e6fe2d2e01321bc  deviceinfo
+afa7cfb5de2d2bf5b9ad560771d812458b469c1e0c0c191b85210542cca21234cdf01f009056247b17573d4dd5077eca5ef1bc24cebcb3e3e811f46783d65b2f  kernel-cmdline.conf
+"
