@@ -1,0 +1,3 @@
+# Plymouth's text (the wordmark) falls back to this file when fontconfig has
+# no config, as in the initramfs.
+/usr/share/fonts/marathon/Sora-Regular.ttf:/usr/share/fonts/Plymouth.ttf

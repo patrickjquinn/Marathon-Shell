@@ -211,8 +211,8 @@ build_if_missing "marathon-shipwright-apps"  'marathon-shipwright-apps-*.apk' "$
 DECKARD_SRC="${DECKARD_SRC-}" \
 build_if_missing "deckard"                   'deckard-[0-9]*.apk'             "$LIB/build-deckard-apk.sh"                   "$APORTS_DIR/deckard/APKBUILD"
 # Android's images, for the HackberryPi overlay on the Pi 5 and for the Q25
-# (mkosi-configure.py).
-if [ "$DEVICE" = raspberry-pi5 ] || [ "$DEVICE" = zinwa-q25 ]; then
+# (mkosi-configure.py), and for the Jolla Phone (its overlay's depends).
+if [ "$DEVICE" = raspberry-pi5 ] || [ "$DEVICE" = zinwa-q25 ] || [ "$DEVICE" = jolla-jp2601 ]; then
 APORT=deckard-images NO_DEPS=1 \
 build_if_missing "deckard-images"            'deckard-images-*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/deckard-images/APKBUILD"
 fi
@@ -235,6 +235,17 @@ if [ "$DEVICE" = zinwa-q25 ]; then
     # Panfrost's, without the import of every client buffer into mediatek-drm.
     APORT=mesa build_if_missing "mesa" 'mesa-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/mesa/APKBUILD"
+fi
+# Jolla Phone: the SoC kernel device-jolla-jp2601 names, that package, and
+# the carrier runtime its overlay depends on.
+if [ "$DEVICE" = jolla-jp2601 ]; then
+    # shellcheck source=/dev/null disable=SC2154 # _kernel comes from the APKBUILD
+    kernel=$(set +u; . "$APORTS_DIR/device-jolla-jp2601/APKBUILD"; echo "$_kernel")
+    for aport in "$APORTS_DIR/$kernel" "$APORTS_DIR"/device-jolla-jp2601 "$APORTS_DIR"/marathon-carrier; do
+        name="$(basename "$aport")"
+        APORT="$name" NO_DEPS=1 build_if_missing "$name" "$name-[0-9]*.apk" \
+            "$LIB/build-aport-apk.sh" "$aport/APKBUILD"
+    done
 fi
 # marathon-shell's camera app builds against it (build-marathon-shell-apk.sh
 # installs it from mkosi.packages), on every device; the Q25's cameras also
@@ -270,8 +281,8 @@ fi
 # A/B images update over the air (docs/OTA.md): sysupdate transfers for the
 # feed at $MARATHON_OTA_URL and the keyring that verifies it go into the
 # image through mkosi.extra. Single-root images get neither, except those
-# whose root is a file on a userdata carrier (the Q25's) with room for the
-# next one.
+# whose root is a file on a userdata carrier (the Q25's, the Jolla Phone's)
+# with room for the next one.
 export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
 CARRIER="$(python3 "$MARATHON_SHELL_SRC/tools/devices/devices.py" carrier "$MARATHON_TARGET_DEVICE")"
 CARRIER_NAME="$(printf '%s\n' "$CARRIER" | sed -n 's/^CARRIER_NAME=//p')"

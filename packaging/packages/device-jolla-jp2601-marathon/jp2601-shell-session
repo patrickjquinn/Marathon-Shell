@@ -1,0 +1,10 @@
+#!/bin/sh
+# No GPU driver yet: the shell draws with Qt Quick's software renderer into
+# simpledrm's framebuffer, as the Q25 does without its GPU.
+set -eu
+export QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
+export QT_QUICK_BACKEND=software
+export QSG_RENDER_LOOP=basic
+export QT_QPA_FB_FORCE_FULLSCREEN=1
+unset QT_SCALE_FACTOR QT_SCREEN_SCALE_FACTORS QT_FONT_DPI QT_SCALE_FACTOR_ROUNDING_POLICY
+exec /usr/bin/marathon-shell-session "$@"

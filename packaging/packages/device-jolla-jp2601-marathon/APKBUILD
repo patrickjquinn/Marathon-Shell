@@ -1,0 +1,86 @@
+# JP2601 session, UI profile, boot splash and board policy. The carrier
+# runtime (encrypted /home, root growth, over-the-air root install) is
+# marathon-carrier's; the kernel and image layout are separate.
+pkgname=device-jolla-jp2601-marathon
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0"
+options="!check"
+depends="device-jolla-jp2601 marathon-base-config marathon-shell marathon-carrier greetd
+ plymouth marathon-plymouth-theme deckard deckard-images"
+source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-session.conf
+ jp2601-plymouth.files jp2601-plymouth-newroot.hook
+ jp2601-splash-handover jp2601-splash-handover.service jp2601-splash-greetd.conf
+ jp2601-splash-plymouth-quit.conf jp2601-splash-plymouth-quit-wait.conf jp2601-splash-plymouth-start.conf
+ jp2601.preset unudhcpd-usb0.conf jp2601-usb.nm.conf jp2601-usb-gadget jp2601-usb-gadget.service
+ deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf"
+
+package() {
+	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
+	install -Dm755 "$srcdir/jp2601-shell-session" "$pkgdir/usr/libexec/marathon/jp2601-shell-session"
+	install -Dm644 "$srcdir/greetd-jp2601.toml" "$pkgdir/etc/greetd/jp2601-config.toml"
+	install -Dm644 "$srcdir/50-jp2601-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-jp2601-session.conf"
+
+	# One Plymouth from the initramfs to the shell. It outlives switch_root,
+	# so its font and plugins come from the real root.
+	install -Dm644 "$srcdir/jp2601-plymouth.files" "$pkgdir/usr/share/mkinitfs/files/50-jp2601-plymouth.files"
+	install -Dm755 "$srcdir/jp2601-plymouth-newroot.hook" "$pkgdir/usr/share/mkinitfs/hooks-cleanup/90-jp2601-plymouth-newroot.sh"
+	install -d "$pkgdir/usr/share/fonts"
+	ln -s marathon/Sora-Regular.ttf "$pkgdir/usr/share/fonts/Plymouth.ttf"
+	install -Dm644 "$srcdir/jp2601-splash-plymouth-start.conf" "$pkgdir/usr/lib/systemd/system/plymouth-start.service.d/60-jp2601-initramfs.conf"
+	install -Dm644 "$srcdir/jp2601-splash-greetd.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/60-jp2601-splash.conf"
+	install -Dm644 "$srcdir/jp2601-splash-plymouth-quit.conf" "$pkgdir/usr/lib/systemd/system/plymouth-quit.service.d/60-jp2601-splash.conf"
+	install -Dm644 "$srcdir/jp2601-splash-plymouth-quit-wait.conf" "$pkgdir/usr/lib/systemd/system/plymouth-quit-wait.service.d/60-jp2601-splash.conf"
+	install -Dm644 "$srcdir/jp2601-splash-handover.service" "$pkgdir/usr/lib/systemd/system/jp2601-splash-handover.service"
+	install -Dm755 "$srcdir/jp2601-splash-handover" "$pkgdir/usr/libexec/marathon/jp2601-splash-handover"
+
+	# USB networking starts when the gadget's usb0 appears and stops when it
+	# goes; the preset keeps it out of multi-user.target, which would
+	# otherwise wait for the device at boot. unudhcpd serves usb0, so
+	# NetworkManager leaves it alone.
+	install -Dm644 "$srcdir/jp2601.preset" "$pkgdir/usr/lib/systemd/system-preset/05-jp2601.preset"
+	install -Dm644 "$srcdir/unudhcpd-usb0.conf" "$pkgdir/usr/lib/systemd/system/unudhcpd@usb0.service.d/50-jp2601-usb0.conf"
+	install -d "$pkgdir/usr/lib/systemd/system/sys-subsystem-net-devices-usb0.device.wants"
+	ln -s ../unudhcpd@.service "$pkgdir/usr/lib/systemd/system/sys-subsystem-net-devices-usb0.device.wants/unudhcpd@usb0.service"
+	install -Dm644 "$srcdir/jp2601-usb.nm.conf" "$pkgdir/usr/lib/NetworkManager/conf.d/90-jp2601-usb.conf"
+	# The initramfs makes the USB network gadget only if a UDC exists when it
+	# looks; make it here if it did not.
+	install -Dm755 "$srcdir/jp2601-usb-gadget" "$pkgdir/usr/libexec/marathon/jp2601-usb-gadget"
+	install -Dm644 "$srcdir/jp2601-usb-gadget.service" "$pkgdir/usr/lib/systemd/system/jp2601-usb-gadget.service"
+	install -d "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants"
+	ln -s ../jp2601-usb-gadget.service "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants/jp2601-usb-gadget.service"
+
+	# Deckard: Android's display geometry, its data directory, the user may
+	# start it, and the legacy iptables modules its netd cannot load.
+	install -Dm644 "$srcdir/deckard.cfg" "$pkgdir/usr/share/marathon/deckard.cfg"
+	install -Dm644 "$srcdir/marathon-deckard.tmpfiles" "$pkgdir/usr/lib/tmpfiles.d/marathon-deckard.conf"
+	install -Dm644 "$srcdir/50-marathon-deckard.rules" "$pkgdir/usr/share/polkit-1/rules.d/50-marathon-deckard.rules"
+	install -Dm644 "$srcdir/jp2601-deckard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/jp2601-deckard.conf"
+}
+
+sha512sums="
+695387ba27b34a9313007d6a3d0e1fd4e1585ed0c486e11bc6943dada079fd080d32580a477db96665d2bba27a5501cd5264ddb3f6d22a8d2e5fce30202c45a1  device-profile.conf
+f3937ed3286fc40d2efe3236e3b2727001ff2aaa2eec715317048eb16daf839f218f547aee081a368ff138c83a04414424caba6e3132df5d9f5845de92ab79cd  jp2601-shell-session
+01eae87fbcffb4114817bd08cfa0a28c0c0e07000ae2214436db2652f05dd09aa0c6b2250c9bcda2f0437926f0234779592bdcb9cdaba463935e7ddd6d01b17d  greetd-jp2601.toml
+230e022144e6ff3928840afaf03499977ad232394702a7412160a8ac8df88cdf7d71451ed41f929ba682b1c9c062b88f0db23cdc79316dde63424bb75f1b00eb  50-jp2601-session.conf
+44b5f5563b44f0e32aa6b01ff64a1fa5deeac76e4bc691aede0dd1358bcaaa35ca06e8f40f63632ff7b98a338255d43d9c192bcb59035816b5f5b10dac5c5eb4  jp2601-plymouth.files
+6c907f0a9b1f9f7f7f12be4465737ed92d6be0ba360c390f5420d0e7636a87538930206beabd0057846977d634df526c3b97965ca364ab3453dd5ddb141dfe91  jp2601-plymouth-newroot.hook
+080b84a81eeecfd06e27045de5c1f17bfe615b0addb525a0373fce1e99de4428755833b6dfd399f132660b3919581bc6e8c04cc21f6c7ca0a9064dfbc388a8af  jp2601-splash-handover
+0458256b28b4d716c3d7c1a4147f72421da0d94e622f247c92f1d57ce034078f42beb9b3eaf2ae8db317de9efafe31035ffaacbd194d59a3e3faf82e84019d92  jp2601-splash-handover.service
+d4fa85509b33e1a188d72516518664c47bf6e6a764148e4313d4e892a0a0022717ebb06f47bb0562b24867ef76093d001dd6a501b9a2c5a139324a7d8bd46e59  jp2601-splash-greetd.conf
+4f4d7a546035c4b12591e39cbfaea61a4c7f562c8aee61544c24fa33dd25adcfb3d384362e5dbc3c7202a6c8e5189d6496f71d32400a83427e6b7be76dc4783d  jp2601-splash-plymouth-quit.conf
+c92a9422c1a2307be62d18c41d91b5e884c26e44c589387f834d64dc0d1c9fb7bc878e8deb616cbdc4bb3b0f19a94a6cb8ff06e4c2d2855be2f38ba39ca5f3a3  jp2601-splash-plymouth-quit-wait.conf
+67c79f7cb55b382310c1215dc6390384f3c46fb3ac604bec8753f1bdd7fab91a257804099e4d005dd5d90496d3b335b904af45f33718698442d3e1c74e4eb98b  jp2601-splash-plymouth-start.conf
+54cf5cfb7676bbf82d352f62fde367b417e9fbac216069131248b362771ecf2a9602d90eb63ce7be3648db4e6c3e8e1dd8d2b987414b6aac56eda3a0f7e0934f  jp2601.preset
+9e77ff4f12873407255fcbde236299678e238315b27f57401fcdd50b04c5427f2aacb5836bd5ce7c0aa177106e32085ac2e3505ec486d33f1f583dc7cd0f8d01  unudhcpd-usb0.conf
+98357776e02b8aff3b585280bf9d4a3082ae8ad694ac880616ca66fec423ee2a645bf65840194e51d0345c6a60fa4c426f183a955ac0233e77c1fa476fb90499  jp2601-usb.nm.conf
+1d4783312f07722daf37144074d6637a56e3b09664d3687ae1fc143df0412236c56febf7455c6d59b5ecda8482dea62e1f86d57af4eca78290ff0fb9a8c09443  jp2601-usb-gadget
+6af52b161c6eacf386ba80d814735c2861221e0fb308a507e8bd3a863a34922b760285ee15f2d77e2be186cdd102cae96aa4df4ef68d87d0fecebccd80e2a043  jp2601-usb-gadget.service
+ba77f425197dff38ecbd055ae4c2f01e311b3352efc39c66347f07c2c1024ede6383ebcd6ab1571620f7805a4caaf598de6d6806658b3ff8a30678123a532cfd  deckard.cfg
+f56b5f79e54d0fc78ac9c2b86f5da075117d1f15117ac5881f64d6ed6572681889b5354a45a22f4f3ff7d8c3e6a816b001bca4e2f5d71fd8aea1255e75d7daaa  marathon-deckard.tmpfiles
+e4d9c1dc757e14591323b8e4606bb6a5975a34a2dbf548d928ba84f80240882077abeeb19f867f5928c93e42d4e9d216648c445af265db2a8620bf355d034ce1  50-marathon-deckard.rules
+e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99e63c486882373de76f6433906e7a00c4c0774235b798981c  jp2601-deckard.modules-load.conf
+"

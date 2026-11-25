@@ -1,0 +1,2 @@
+d /var/lib/deckard 0755 root root -
+C /var/lib/deckard/deckard.cfg - - - - /usr/share/marathon/deckard.cfg

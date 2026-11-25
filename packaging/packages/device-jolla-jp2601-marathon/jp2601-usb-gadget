@@ -1,0 +1,31 @@
+#!/bin/sh
+# The pmOS initramfs creates its USB network gadget only if a UDC exists
+# when it looks, and never looks again. Create the same gadget (ids,
+# strings and function as setup_usb_network_configfs) once a UDC exists.
+set -eu
+g=/sys/kernel/config/usb_gadget/g1
+[ -z "$(cat "$g/UDC" 2>/dev/null)" ] || exit 0
+for f in /usr/share/deviceinfo/deviceinfo /etc/deviceinfo; do
+	if [ -r "$f" ]; then
+		# shellcheck disable=SC1090
+		. "$f"
+	fi
+done
+# shellcheck disable=SC2012
+udc=${deviceinfo_usb_network_udc:-$(ls /sys/class/udc | head -n 1)}
+fn=${deviceinfo_usb_network_function:-ncm.usb0}
+
+modprobe -a libcomposite "usb_f_${fn%%.*}"
+mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
+mkdir -p "$g/strings/0x409" "$g/functions/$fn" "$g/configs/c.1/strings/0x409"
+echo "${deviceinfo_usb_idVendor:-0x18D1}" > "$g/idVendor"
+echo "${deviceinfo_usb_idProduct:-0xD001}" > "$g/idProduct"
+echo "${deviceinfo_manufacturer:-}" > "$g/strings/0x409/manufacturer"
+echo "${deviceinfo_usb_serialnumber:-postmarketOS}" > "$g/strings/0x409/serialnumber"
+echo "${deviceinfo_name:-}" > "$g/strings/0x409/product"
+echo "USB network" > "$g/configs/c.1/strings/0x409/configuration"
+if [ -n "${deviceinfo_usb_network_host_addr:-}" ]; then
+	echo "$deviceinfo_usb_network_host_addr" > "$g/functions/$fn/host_addr"
+fi
+[ -e "$g/configs/c.1/$fn" ] || ln -s "$g/functions/$fn" "$g/configs/c.1/"
+echo "$udc" > "$g/UDC"

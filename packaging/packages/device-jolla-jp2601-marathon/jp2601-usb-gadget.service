@@ -1,0 +1,12 @@
+[Unit]
+Description=USB network gadget the initramfs did not create
+ConditionPathExistsGlob=/sys/class/udc/*
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/jp2601-usb-gadget
+
+[Install]
+WantedBy=usb-gadget.target
