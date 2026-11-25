@@ -637,7 +637,6 @@ Item {
                 }
             }
         }
-
     }
 
     // Apart, at the bottom corners, clear of the keypad.
