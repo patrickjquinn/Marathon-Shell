@@ -13,11 +13,14 @@ depends="
 	$_kernel>=7.4.0_rc4
 	postmarketos-base
 	systemd-boot
+	python3
 "
 makedepends="devicepkg-dev"
 source="
 	deviceinfo
 	kernel-cmdline.conf
+	jp2601-mark-boot-successful
+	jp2601-mark-boot-successful.service
 "
 
 build() {
@@ -26,9 +29,17 @@ build() {
 
 package() {
 	devicepkg_package $startdir $pkgname
+	# LK falls back to the other slot once slot B's tries run out, unless the
+	# booted slot is marked successful in misc.
+	install -Dm755 "$srcdir/jp2601-mark-boot-successful" "$pkgdir/usr/libexec/marathon/jp2601-mark-boot-successful"
+	install -Dm644 "$srcdir/jp2601-mark-boot-successful.service" "$pkgdir/usr/lib/systemd/system/jp2601-mark-boot-successful.service"
+	install -d "$pkgdir/usr/lib/systemd/system/graphical.target.wants"
+	ln -s ../jp2601-mark-boot-successful.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/jp2601-mark-boot-successful.service"
 }
 
 sha512sums="
 b4d4eda1acf9a1312a7fd8ec6b2b47e296ebe961ce0d25292006558faa272ae7725de9212ce5e4c2f66d212ff0fdb36a9142bdecd11c3e6c9e6fe2d2e01321bc  deviceinfo
 afa7cfb5de2d2bf5b9ad560771d812458b469c1e0c0c191b85210542cca21234cdf01f009056247b17573d4dd5077eca5ef1bc24cebcb3e3e811f46783d65b2f  kernel-cmdline.conf
+086613bf243f4fd95785314a0f5b834b38c02c3edea88a1de531e12441b0c5be73eb9da55de68a78d64dccfaf520df26a1fcbf6af430f219e596e1c2723ad5df  jp2601-mark-boot-successful
+3459fcfe05b6c0237994817649512014e13ff038d753a14e1d0beff90d0a08ee458f41382b01eafe8770c81e79b9a32b5094d943f84fcb62d9d58adc0151ddf3  jp2601-mark-boot-successful.service
 "
