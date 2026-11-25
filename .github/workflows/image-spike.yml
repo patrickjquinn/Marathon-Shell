@@ -67,9 +67,10 @@ jobs:
           (while sleep 60; do
             echo "::notice::t+$(( $(date +%s)-start ))s free $(df --output=avail -h / | tail -1) mem $(free -h | awk '/Mem/{print $3}')"
           done) &
-          mkdir -p "$RUNNER_TEMP/mb"
+          mkdir -p "$RUNNER_TEMP/mb" "$RUNNER_TEMP/vartmp"
           sudo podman run --rm --privileged --network host \
             -v /dev:/dev -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP/mb:/mb" \
+            -v "$RUNNER_TEMP/vartmp:/var/tmp" \
             -e MARATHON_BUILD_DIR=/mb -e MARATHON_DEV_SSH_KEY= -w /src \
             registry.fedoraproject.org/fedora:44 bash -euc '
               dnf -y -q install git python3 podman fuse-overlayfs zstd mtools \
