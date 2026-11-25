@@ -3201,6 +3201,10 @@ impl Pipeline {
                 }
             }
         }
+        // A tool call is required in the first round with the whole prompt,
+        // not in the narrow one: there a required call makes llama.cpp's
+        // grammar force one, and the model cannot answer "no".
+        let mut must_call = ground;
         let mut rejected_once = false;
         // What the tools returned this turn, as the phone saw it: where a
         // recipient may come from besides the person's own words.
@@ -3388,7 +3392,7 @@ impl Pipeline {
                 } else {
                     "tool-loop".into()
                 },
-                require: round == 0 && ground,
+                require: must_call && wide.is_none(),
                 max_tokens: None,
                 // A narrow round's words are not the answer.
                 stream: if wide.is_some() {
@@ -3428,6 +3432,7 @@ impl Pipeline {
                 }
             };
             *lock(&self.last_model_use) = Some(Instant::now());
+            must_call &= wide.is_some();
             if resp.tool_calls.is_empty() {
                 let text = strip_reasoning(resp.content.as_deref().unwrap_or(""));
                 if let Some(call) = stray_call(&text, &registry) {
