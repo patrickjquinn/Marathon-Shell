@@ -1021,3 +1021,30 @@ async fn only_the_narrow_action_ends_the_turn_at_once() {
     d.pipeline.ask("turn off wifi", false).await;
     assert_eq!(srv.seen("/v1/llm/chat/completions").len(), 1);
 }
+
+/// The narrow prompt carries the last exchange: "make a note of that" is
+/// about the answer before it.
+#[tokio::test]
+async fn the_narrow_prompt_knows_the_last_answer() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" if i == 0 => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.1)),
+        "/v1/jev" => Reply::ok(one_intent("note", 0.9)),
+        _ if i == 0 => Reply::stamped(chat_text("Tokyo."), "device"),
+        _ => Reply::stamped(chat_tool("notes_create", r#"{"text": "Tokyo"}"#), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline.ask("what is the capital of japan", false).await;
+    d.pipeline.ask("make a note of that", false).await;
+    let narrow = &srv.seen("/v1/llm/chat/completions")[1].body["messages"];
+    let texts: Vec<&str> = narrow
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["content"].as_str().unwrap_or(""))
+        .collect();
+    assert_eq!(texts.len(), 4, "{texts:?}");
+    assert_eq!(texts[1], "what is the capital of japan");
+    assert!(texts[2].starts_with("Tokyo."), "{texts:?}");
+    assert!(texts[3].ends_with("make a note of that"), "{texts:?}");
+}

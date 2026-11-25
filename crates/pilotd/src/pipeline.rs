@@ -3121,6 +3121,8 @@ impl Pipeline {
                 "Followed on from the conversation so far",
             ));
         }
+        // The narrow prompt's only history: "make a note of that".
+        let last_exchange = earlier[earlier.len().saturating_sub(2)..].to_vec();
         messages.extend(earlier);
         let mut context = self.turn_context(hints) + &memory;
         let ask_full = Message::text(Role::User, format!("[{}]\n\n{redacted}", context.trim()));
@@ -3194,11 +3196,11 @@ impl Pipeline {
                     let ask = messages.last().cloned();
                     if let Some(ask) = ask {
                         log::debug!("{intent}: the model fills in {}", names.join(", "));
+                        let mut short = vec![Message::text(Role::System, NARROW_PROMPT)];
+                        short.extend(last_exchange);
+                        short.push(ask);
                         wide = Some((
-                            std::mem::replace(
-                                &mut messages,
-                                vec![Message::text(Role::System, NARROW_PROMPT), ask],
-                            ),
+                            std::mem::replace(&mut messages, short),
                             std::mem::replace(&mut tools, narrow),
                         ));
                         narrowed = true;
