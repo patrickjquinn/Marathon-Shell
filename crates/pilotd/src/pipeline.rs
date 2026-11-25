@@ -3495,9 +3495,12 @@ impl Pipeline {
                 }
             }
             escape = None;
-            // The tools did nothing: the answer it gave without them stands.
+            // The tools did nothing: the answer it gave without them stands,
+            // unless it now asks something back ("Which note?").
             if let Some(answer) = held.take() {
-                if resp.tool_calls.is_empty() {
+                let (said, _) =
+                    split_followups(&strip_reasoning(resp.content.as_deref().unwrap_or("")));
+                if resp.tool_calls.is_empty() && !said.ends_with(['?', '\u{ff1f}', '\u{61f}']) {
                     log::debug!("no tool after ACTION: the answer before it");
                     resp.content = Some(answer);
                 }

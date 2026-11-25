@@ -1071,3 +1071,24 @@ async fn a_plain_answer_that_claims_an_action_gets_the_tools() {
         .as_array()
         .is_some_and(|t| !t.is_empty()));
 }
+
+/// After ACTION the tools round asks something back: that question is the
+/// answer. With nothing done and nothing asked, the answer before ACTION
+/// stands.
+#[tokio::test]
+async fn a_question_after_action_beats_the_answer_before_it() {
+    for (after, shown) in [
+        ("Which note should it go in?", "Which note should it go in?"),
+        ("Sorry, I have no tool for that.", "Tokyo is the capital."),
+    ] {
+        let srv = FakeHttp::start(move |req: &common::Seen, i| match req.path.as_str() {
+            "/v1/jev" => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.1)),
+            _ if i == 0 => Reply::stamped(chat_text("Tokyo is the capital.\nACTION"), "device"),
+            _ => Reply::stamped(chat_text(after), "device"),
+        })
+        .await;
+        let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+        let r = d.pipeline.ask("capital of japan, noted", false).await;
+        assert_eq!(text_of(r.cards.last().unwrap()), shown);
+    }
+}
