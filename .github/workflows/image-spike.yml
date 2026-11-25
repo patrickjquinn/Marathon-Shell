@@ -75,7 +75,8 @@ jobs:
               dnf -y -q install git python3 podman fuse-overlayfs zstd mtools \
                 dosfstools e2fsprogs util-linux binutils qemu-img sshpass \
                 systemd-ukify erofs-utils gnupg2 apk-tools \
-                qemu-system-aarch64 edk2-aarch64 >/dev/null
+                qemu-system-aarch64 edk2-aarch64 rsync cpio xz openssl file \
+                which curl patch make sudo >/dev/null
               git config --global --add safe.directory "*"
               bash scripts/build-qemu-image.sh'
           echo "::notice::build took $(( $(date +%s)-start ))s"
