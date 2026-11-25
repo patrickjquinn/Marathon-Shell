@@ -269,11 +269,14 @@ fi
 
 # A/B images update over the air (docs/OTA.md): sysupdate transfers for the
 # feed at $MARATHON_OTA_URL and the keyring that verifies it go into the
-# image through mkosi.extra. Single-root images get neither, except the
-# Q25's, whose root is a file on its carrier with room for the next one.
+# image through mkosi.extra. Single-root images get neither, except those
+# whose root is a file on a userdata carrier (the Q25's) with room for the
+# next one.
 export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
+CARRIER="$(python3 "$MARATHON_SHELL_SRC/tools/devices/devices.py" carrier "$MARATHON_TARGET_DEVICE")"
+CARRIER_NAME="$(printf '%s\n' "$CARRIER" | sed -n 's/^CARRIER_NAME=//p')"
 OTA=0
-if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ] || [ "$MARATHON_TARGET_DEVICE" = zinwa-q25 ]; then
+if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ] || [ -n "$CARRIER" ]; then
     OTA=1
 fi
 export MARATHON_DEV_SSH_KEY="${MARATHON_DEV_SSH_KEY:-}"
@@ -293,6 +296,7 @@ OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/sysupdate.d"
 case "$MARATHON_TARGET_DEVICE" in
     raspberry-pi*) OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/pi/sysupdate.d" ;;
     zinwa-q25) OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/q25/sysupdate.d" ;;
+    *) [ -z "$CARRIER" ] || OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/carrier/sysupdate.d" ;;
 esac
 if [ "$OTA" = 1 ]; then
     OTA_URL="${MARATHON_OTA_URL:-https://github.com/patrickjquinn/marathon-updates/releases/download/${MARATHON_OTA_CHANNEL:-stable}}"
@@ -304,7 +308,7 @@ if [ "$OTA" = 1 ]; then
     fi
     mkdir -p "$OTA_TRANSFERS" "$(dirname "$OTA_KEYRING")"
     for t in "$OTA_TEMPLATES"/*.transfer.in; do
-        sed "s|@MARATHON_OTA_URL@|${OTA_URL%/}|g" "$t" > "$OTA_TRANSFERS/$(basename "$t" .in)"
+        sed -e "s|@MARATHON_OTA_URL@|${OTA_URL%/}|g" -e "s|@CARRIER_NAME@|$CARRIER_NAME|g" "$t" > "$OTA_TRANSFERS/$(basename "$t" .in)"
     done
     gpg --dearmor < "$OTA_PUBKEY" > "$OTA_KEYRING"
     case "$MARATHON_TARGET_DEVICE" in
@@ -337,7 +341,6 @@ EXTRA="$DURANIUM_DIR/mkosi.extra"
 CARRIER_CONF="$EXTRA/usr/share/marathon/carrier.conf"
 rm -f "$CARRIER_CONF" "$EXTRA/usr/share/mkinitfs/hooks-cleanup/50-marathon-carrier.sh" \
     "$EXTRA/usr/share/mkinitfs/files/50-marathon-carrier.files"
-CARRIER="$(python3 "$MARATHON_SHELL_SRC/tools/devices/devices.py" carrier "$MARATHON_TARGET_DEVICE")"
 if [ -n "$CARRIER" ]; then
     if [ "$MARATHON_IMAGE_LAYOUT" != single ]; then
         echo "error: $MARATHON_TARGET_DEVICE boots its root from a userdata carrier, not MARATHON_IMAGE_LAYOUT=$MARATHON_IMAGE_LAYOUT" >&2
