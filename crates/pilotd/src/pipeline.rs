@@ -2184,23 +2184,28 @@ impl Pipeline {
         }
         let backends = self.backends();
         // Many remembered facts: the router on the phone ranks them by
-        // meaning in the same request, and the prompt gets the few this
-        // turn is about (30 facts were 600 tokens, ~10 s on the phone). A
+        // meaning, and the prompt gets the few this turn is about (30 facts
+        // were 600 tokens, ~10 s on the phone). Against the words as said:
+        // the facts are not redacted, and "<NAME>" matches none of them. A
         // router off the phone (a "local" one at a remote URL too) is not
         // sent them.
         let facts = self.store.memories().unwrap_or_default();
         let rank_memory = backends.jev.on_device() && facts.len() > MEMORY_ALL;
-        if rank_memory {
+        let memory_req = rank_memory.then(|| {
             let recent = &facts[facts.len().saturating_sub(crate::jev::MAX_CHOICE_OPTIONS)..];
-            questions.insert(
-                MEMORY_QUESTION.into(),
-                Question::Choice {
-                    options: recent.iter().map(|m| m.id.to_string()).collect(),
-                    criteria: "Which remembered fact is about what `utterance` asks?".into(),
-                    descriptions: recent.iter().map(|m| m.fact.clone()).collect(),
-                },
-            );
-        }
+            DecideRequest {
+                state: json!({"utterance": text}),
+                questions: [(
+                    MEMORY_QUESTION.to_owned(),
+                    Question::Choice {
+                        options: recent.iter().map(|m| m.id.to_string()).collect(),
+                        criteria: "Which remembered fact is about what `utterance` asks?".into(),
+                        descriptions: recent.iter().map(|m| m.fact.clone()).collect(),
+                    },
+                )]
+                .into(),
+            }
+        });
         let req = DecideRequest {
             state: json!({
                 "utterance": crate::redact::for_jev(&redacted.text, &self.own_name()),
@@ -2208,7 +2213,15 @@ impl Pipeline {
             }),
             questions,
         };
-        let answers = match backends.jev.decide(&req, "decide").await {
+        let (decided, ranked) = tokio::join!(backends.jev.decide(&req, "decide"), async {
+            match &memory_req {
+                Some(r) => backends.jev.decide(r, "decide").await.ok(),
+                None => None,
+            }
+        });
+        *lock(&self.memory_pick) =
+            rank_memory.then(|| memory_pick(&ranked.unwrap_or_default(), &facts));
+        let answers = match decided {
             Ok(a) => a,
             Err(RemoteError::Offline) => return self.local_only(turn, text, "offline").await,
             Err(e) => {
@@ -2220,7 +2233,6 @@ impl Pipeline {
                 return mk("error", vec![error_card(&e)]);
             }
         };
-        *lock(&self.memory_pick) = rank_memory.then(|| memory_pick(&answers, &facts));
         let Some(decision) = Decision::from_answers(&answers) else {
             return mk(
                 "error",

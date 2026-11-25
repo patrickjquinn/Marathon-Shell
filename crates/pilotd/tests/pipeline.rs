@@ -1142,3 +1142,39 @@ async fn an_unsure_weather_intent_does_not_block_the_web() {
     d.pipeline.ask("who won the all-ireland final", false).await;
     assert_eq!(srv.seen("/v1/search").len(), 1);
 }
+
+/// Remembered facts are ranked on the phone against the words as said,
+/// not as redacted for the router ("Siobhan" became "<NAME>", which no
+/// fact mentions).
+#[tokio::test]
+async fn facts_are_ranked_against_the_words_as_said() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/embeddings" => {
+            let n = req.body["input"].as_array().map_or(0, Vec::len);
+            Reply::ok(json!({"data": (0..n).map(|_| json!({"embedding": [1.0, 0.5]})).collect::<Vec<_>>()}))
+        }
+        _ => Reply::stamped(chat_text("Something with orchids."), "device"),
+    })
+    .await;
+    let d = local_daemon(&srv.base, 5);
+    for i in 0..9 {
+        d.pipeline
+            .ask(&format!("Remember that fact {i} is true"), false)
+            .await;
+    }
+    d.pipeline
+        .ask("Remember that Siobhan loves orchids", false)
+        .await;
+    d.pipeline.ask("what should I get for Siobhan", false).await;
+    let queries: Vec<String> = srv
+        .seen("/v1/embeddings")
+        .iter()
+        .flat_map(|s| s.body["input"].as_array().cloned().unwrap_or_default())
+        .filter_map(|v| v.as_str().map(str::to_owned))
+        .filter(|t| t.starts_with("query: "))
+        .collect();
+    assert!(
+        queries.contains(&"query: what should I get for Siobhan".to_owned()),
+        "{queries:?}"
+    );
+}
