@@ -3138,7 +3138,7 @@ impl Pipeline {
         ));
         let registry = self.registry();
         let may_leave = self.may_leave();
-        let mut tools = Self::select_tools(&registry, scope, backends);
+        let mut tools = Self::select_tools(&registry, scope, backends.llm.provider() == "local");
         if !may_leave {
             if let Some(web) = registry.get(crate::web::TOOL) {
                 tools.retain(|t| t.name != web.model_name);
@@ -3896,9 +3896,8 @@ impl Pipeline {
     fn select_tools(
         registry: &Registry,
         scope: Option<&[String]>,
-        backends: &Backends,
+        local: bool,
     ) -> Vec<crate::llm::ToolDef> {
-        let local = backends.llm.provider() == "local";
         let Some(domains) = scope else {
             return unscoped_tools(registry, local);
         };
@@ -3906,13 +3905,13 @@ impl Pipeline {
         // the same, and Qwen3.5's template puts them first: a subset made
         // "What is the capital of Australia" read 1,050 tokens again, 20 s.
         if local {
-            // An app's own tools and plans: the same list for the same app,
-            // so the server keeps it read after its first turn. With Pilot's
-            // own tools too it was minutes of reading (Pacific's, 5,879
-            // tokens), and reading it ahead held up the questions asked
-            // meanwhile (one request at a time on the phone).
+            // One app's tools and plans, and the other areas in scope (a
+            // call after a Notes turn): not all of Pilot's own, which with
+            // an app's were minutes of reading (Pacific's, 5,879 tokens).
             if let Some(app) = domains.iter().find(|d| d.contains('.')) {
-                return registry.defs(Some(&[app.clone(), "keel".into()]));
+                let mut chosen = vec![app.clone(), "keel".into()];
+                chosen.extend(domains.iter().filter(|d| !d.contains('.')).cloned());
+                return registry.defs(Some(&chosen));
             }
             return unscoped_tools(registry, true);
         }
@@ -4560,6 +4559,25 @@ mod answer_tests {
         let local = names(unscoped_tools(&registry, true));
         assert_eq!(local.len(), 1);
         assert!(!local[0].contains("notes"));
+    }
+
+    #[test]
+    fn the_phone_offers_an_app_with_the_other_areas_in_scope() {
+        let mut registry = Registry::new();
+        registry.add(crate::weather::spec(), true, std::sync::Arc::new(Nothing));
+        let mut app = crate::weather::spec();
+        app.name = "notes.create".into();
+        app.domain = "org.example.notes".into();
+        registry.add(app, true, std::sync::Arc::new(Nothing));
+        let names = |scope: &[&str]| -> Vec<String> {
+            let scope: Vec<String> = scope.iter().map(|s| (*s).to_owned()).collect();
+            Pipeline::select_tools(&registry, Some(&scope), true)
+                .into_iter()
+                .map(|d| d.name)
+                .collect()
+        };
+        assert_eq!(names(&["org.example.notes"]).len(), 1);
+        assert_eq!(names(&["weather", "org.example.notes"]).len(), 2);
     }
 
     #[test]
