@@ -778,12 +778,23 @@ const UNSURE_BELOW: f64 = 0.4;
 /// What the phone's model answers, without tools, for something to do.
 const ACTION_WORD: &str = "ACTION";
 
-/// Whether a line of a plain answer asks for the tools: the word alone, or
-/// leading the line ("ACTION Play Radio Nova").
+/// Whether a line of a plain answer asks for the tools: the word in any
+/// case, alone or before punctuation ("Action.", "action: play it"), or in
+/// capitals leading the line ("ACTION Play Radio Nova"); "Action films are"
+/// is an answer.
 fn asks_for_tools(line: &str) -> bool {
-    line.trim()
-        .strip_prefix(ACTION_WORD)
-        .is_some_and(|rest| rest.chars().next().is_none_or(|c| !c.is_alphanumeric()))
+    let line = line.trim();
+    let Some(word) = line.get(..ACTION_WORD.len()) else {
+        return false;
+    };
+    if !word.eq_ignore_ascii_case(ACTION_WORD) {
+        return false;
+    }
+    match line[word.len()..].chars().next() {
+        None => true,
+        Some(c) if c.is_whitespace() => word == ACTION_WORD,
+        Some(c) => !c.is_alphanumeric(),
+    }
 }
 
 /// Said to the phone's model without tools.
@@ -907,7 +918,7 @@ fn answer_so_far(text: &str) -> &str {
         return "";
     }
     let start = text.trim_start();
-    if !start.is_empty() && ACTION_WORD.starts_with(start) {
+    if !start.is_empty() && ACTION_WORD.starts_with(&start.to_ascii_uppercase()) {
         return "";
     }
     let cut = followup_marker(text).map_or(text.len(), |(start, _)| start);
@@ -4456,7 +4467,15 @@ mod answer_tests {
         assert!(asks_for_tools("ACTION: play it"));
         assert!(!asks_for_tools("ACTIONS speak louder"));
         assert!(!asks_for_tools("The ACTION film"));
+        assert!(asks_for_tools("ACTION."));
+        assert!(asks_for_tools("Action"));
+        assert!(asks_for_tools("action: play it"));
+        assert!(!asks_for_tools("Action films are fun."));
+        assert!(!asks_for_tools("Actionable"));
+        assert!(!asks_for_tools("Ä"));
         assert_eq!(answer_so_far("ACTION Play Radio Nova"), "");
+        assert_eq!(answer_so_far("Act"), "");
+        assert_eq!(answer_so_far("Action."), "");
     }
 
     #[test]
