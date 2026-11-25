@@ -1,0 +1,62 @@
+name: Image spike (QEMU)
+
+# Spike for moving image builds off the developer machine
+# (reports/CI image builds on GitHub Actions.md): can a hosted arm64
+# runner build a full image with the same script as local builds, and
+# how much disk and time does it take? Manual only; publishes nothing.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qemu-image:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 300
+    steps:
+      - name: Disk before
+        run: df -h / /mnt 2>/dev/null || df -h /
+
+      - name: Free disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost /usr/share/swift
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          df -h /
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Host tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq podman qemu-system-arm qemu-efi-aarch64 \
+            sshpass mtools util-linux dosfstools e2fsprogs binutils python3-venv
+
+      - name: Loop devices
+        run: |
+          ls /dev/loop* | head -3
+          sudo losetup -f
+
+      - name: Build QEMU image
+        env:
+          MARATHON_BUILD_DIR: ${{ runner.temp }}/mb
+          MARATHON_DEV_SSH_KEY: ""
+        run: |
+          start=$(date +%s)
+          (while sleep 60; do
+            echo "::notice::t+$(( $(date +%s)-start ))s free $(df --output=avail -h / | tail -1) mem $(free -h | awk '/Mem/{print $3}')"
+          done) &
+          bash scripts/build-qemu-image.sh
+          echo "::notice::build took $(( $(date +%s)-start ))s"
+
+      - name: Results
+        if: always()
+        run: |
+          df -h /
+          sudo du -sh "$RUNNER_TEMP/mb"/* 2>/dev/null | sort -rh | head
+          find "$RUNNER_TEMP/mb" -maxdepth 4 \( -name '*.raw' -o -name '*.qcow2' -o -name '*.ext4' \) -exec ls -la {} + 2>/dev/null | head
