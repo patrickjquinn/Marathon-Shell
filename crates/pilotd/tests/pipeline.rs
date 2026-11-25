@@ -980,3 +980,44 @@ async fn a_question_after_a_narrow_lookup_is_the_answer() {
     assert_eq!(text_of(r.cards.last().unwrap()), "Which Anna?");
     assert_eq!(srv.seen("/v1/llm/chat/completions").len(), 2);
 }
+
+/// One action called from the whole prompt may be half the request: the
+/// model gets another round. The narrow action's confirmation ends its turn.
+#[tokio::test]
+async fn only_the_narrow_action_ends_the_turn_at_once() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(one_intent("device_toggle", 0.5)),
+        _ => Reply::stamped(
+            match i {
+                0 => chat_tool("device_toggle", r#"{"target": "wifi", "state": "off"}"#),
+                1 => chat_tool(
+                    "device_toggle",
+                    r#"{"target": "bluetooth", "state": "off"}"#,
+                ),
+                _ => chat_text("Wi-Fi and Bluetooth are off."),
+            },
+            "device",
+        ),
+    })
+    .await;
+    let log = Arc::new(Log::default());
+    let d = common::phone_model_daemon(&srv.base, &log);
+    let r = d.pipeline.ask("turn off wifi and bluetooth", false).await;
+    assert_eq!(
+        text_of(r.cards.last().unwrap()),
+        "Wi-Fi and Bluetooth are off."
+    );
+    assert_eq!(log.all(), ["toggle Wifi false", "toggle Bluetooth false"]);
+
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(one_intent("device_toggle", 0.9)),
+        _ => Reply::stamped(
+            chat_tool("device_toggle", r#"{"target": "wifi", "state": "off"}"#),
+            "device",
+        ),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline.ask("turn off wifi", false).await;
+    assert_eq!(srv.seen("/v1/llm/chat/completions").len(), 1);
+}

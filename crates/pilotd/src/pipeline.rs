@@ -3173,6 +3173,10 @@ impl Pipeline {
         // action's confirmation ends the turn. Not called: the turn goes
         // on as before, with everything.
         let mut wide: Option<(Vec<Message>, Vec<crate::llm::ToolDef>)> = None;
+        // The turn is the narrow action: only then does its confirmation
+        // end it. From the whole prompt one call may be half of what was
+        // asked ("turn off Wi-Fi and Bluetooth").
+        let mut narrowed = false;
         if backends.llm.provider() == "local"
             && !plain
             && !web_first
@@ -3197,6 +3201,7 @@ impl Pipeline {
                             ),
                             std::mem::replace(&mut tools, narrow),
                         ));
+                        narrowed = true;
                     }
                 }
             }
@@ -3494,6 +3499,7 @@ impl Pipeline {
             if resp.tool_calls.is_empty() {
                 if let Some((m, t)) = wide.take() {
                     log::debug!("not that action: the whole prompt");
+                    narrowed = false;
                     messages = m;
                     tools = t;
                     continue;
@@ -3834,8 +3840,8 @@ impl Pipeline {
                         }
                         // The phone's model asked again only to say it was
                         // done (five seconds on the Q25): the action's own
-                        // confirmation ends the turn, unless more was asked.
-                        if single && !intents::needs_model(redacted) {
+                        // confirmation ends the turn.
+                        if single && narrowed {
                             if let Some(text) = confirmation(&entry.spec.name, &out.summary) {
                                 lookup = Some(text);
                             }
