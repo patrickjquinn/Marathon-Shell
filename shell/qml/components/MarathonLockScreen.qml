@@ -735,10 +735,10 @@ Item {
                                         radius: width / 2
                                         color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.16)
 
-                                        GlyphIcon {
+                                        NotificationIcon {
                                             anchors.centerIn: parent
-                                            name: notifCard.icon
-                                            size: Silica.Theme.iconSizeExtraSmall
+                                            source: notifCard.icon
+                                            size: hasImage ? notifIcon.width : Silica.Theme.iconSizeExtraSmall
                                             color: Silica.Theme.highlightColor
                                         }
                                     }

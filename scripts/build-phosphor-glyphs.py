@@ -84,6 +84,7 @@ ALIASES = {
     "map":               "map-trifold",
     "menu":              "list",
     "move":              "arrows-out-cardinal",
+    "phone-missed":      "phone-x",
 }
 
 

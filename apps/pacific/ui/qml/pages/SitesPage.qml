@@ -78,15 +78,17 @@ Page {
             required property string detail
             // As tall as its lines need at a large text size.
             contentHeight: Math.max(Theme.itemSizeMedium, rowText.height + 2 * Theme.paddingSmall)
-            menu: ContextMenu {
-                MenuItem {
-                    text: page.kind === "sites" ? qsTr("Reset") : qsTr("Remove")
-                    onClicked: item.remorseDelete(function () {
-                        if (page.kind === "sites")
-                            Pacific.clearSiteSettings(item.itemId);
-                        else
-                            Pacific.removeHttpsException(item.itemId);
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        text: page.kind === "sites" ? qsTr("Reset") : qsTr("Remove")
+                        onClicked: item.remorseDelete(function () {
+                            if (page.kind === "sites")
+                                Pacific.clearSiteSettings(item.itemId);
+                            else
+                                Pacific.removeHttpsException(item.itemId);
+                        })
+                    }
                 }
             }
             Column {

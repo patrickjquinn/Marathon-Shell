@@ -71,13 +71,15 @@ Page {
 
             contentHeight: Theme.itemSizeMedium
             Accessible.name: modelData.title || modelData.url
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "deleteItem"
-                    text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function () {
-                        root.browser.removeBookmark(item.modelData.url);
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "deleteItem"
+                        text: qsTr("Delete")
+                        onClicked: item.remorseDelete(function () {
+                            root.browser.removeBookmark(item.modelData.url);
+                        })
+                    }
                 }
             }
             onClicked: root.open(modelData.url)

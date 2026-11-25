@@ -83,23 +83,25 @@ TabItem {
             objectName: "cityItem"
             contentHeight: Theme.itemSizeMedium
             Accessible.name: modelData.name + ", " + info.time
-            menu: ContextMenu {
-                MenuItem {
-                    visible: item.index > 0
-                    text: qsTr("Move up")
-                    onClicked: root.app.moveCity(item.index, item.index - 1)
-                }
-                MenuItem {
-                    visible: item.index < list.count - 1
-                    text: qsTr("Move down")
-                    onClicked: root.app.moveCity(item.index, item.index + 1)
-                }
-                MenuItem {
-                    text: qsTr("Remove")
-                    onClicked: {
-                        const app = root.app;
-                        const name = item.modelData.name;
-                        item.remorseDelete(() => app.removeCity(name));
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        visible: item.index > 0
+                        text: qsTr("Move up")
+                        onClicked: root.app.moveCity(item.index, item.index - 1)
+                    }
+                    MenuItem {
+                        visible: item.index < list.count - 1
+                        text: qsTr("Move down")
+                        onClicked: root.app.moveCity(item.index, item.index + 1)
+                    }
+                    MenuItem {
+                        text: qsTr("Remove")
+                        onClicked: {
+                            const app = root.app;
+                            const name = item.modelData.name;
+                            item.remorseDelete(() => app.removeCity(name));
+                        }
                     }
                 }
             }

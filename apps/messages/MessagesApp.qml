@@ -63,6 +63,18 @@ ApplicationWindow {
         draftTimer.restart();
     }
 
+    function addToDraft(id, text) {
+        setDraft(id, Logic.withText(drafts[id], text));
+    }
+
+    // Down to the list for a page from outside, but not past a new message
+    // the person has started.
+    function popForRoute() {
+        const kept = pageStack.find(p => p.started === true || !pageStack.previousPage(p));
+        if (pageStack.currentPage !== kept)
+            pageStack.pop(kept, PageStackAction.Immediate);
+    }
+
     function deleteConversation(id) {
         pinnedIds = toggled(pinnedIds, id, false);
         archivedIds = toggled(archivedIds, id, false);
@@ -109,9 +121,7 @@ ApplicationWindow {
         if (text === "" && pictures.length === 0)
             return;
         activate();
-        const list = pageStack.find(p => !pageStack.previousPage(p));
-        if (pageStack.currentPage !== list)
-            pageStack.pop(list, PageStackAction.Immediate);
+        popForRoute();
         pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), {
             app: root,
             sharedText: text,
@@ -122,7 +132,7 @@ ApplicationWindow {
     // Replaces the recipient picker with the thread, existing or new.
     function startConversation(number, name, text, attachments) {
         if (text)
-            setDraft(conversationFor(number, name).id, text);
+            addToDraft(conversationFor(number, name).id, text);
         pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), {
             app: root,
             conversation: conversationFor(number, name),
@@ -138,9 +148,7 @@ ApplicationWindow {
         const body = Logic.routeBody(paramsJson);
         if (number === "" && (name !== "compose" || body === ""))
             return;
-        const list = pageStack.find(p => !pageStack.previousPage(p));
-        if (pageStack.currentPage !== list)
-            pageStack.pop(list, PageStackAction.Immediate);
+        popForRoute();
         if (number === "") {
             pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), {
                 app: root,
@@ -151,7 +159,7 @@ ApplicationWindow {
         const contact = (Contacts.contacts || []).find(c => Logic.sameNumber(c.phone, number));
         const conversation = conversationFor(number, contact ? contact.name : "");
         if (body !== "")
-            setDraft(conversation.id, body);
+            addToDraft(conversation.id, body);
         pageStack.push(Qt.resolvedUrl("pages/ConversationPage.qml"), {
             app: root,
             conversation: conversation

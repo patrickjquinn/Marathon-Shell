@@ -103,31 +103,33 @@ Page {
                     }));
                 }
             }
-            menu: ContextMenu {
-                MenuItem {
-                    visible: !item.isFolder
-                    text: qsTr("Open in new tab")
-                    onClicked: page.browser.open(item.url, {
-                        newTab: true,
-                        background: true,
-                        transition: "bookmark"
-                    })
-                }
-                MenuItem {
-                    text: qsTr("Edit")
-                    onClicked: pageStack.push(Qt.resolvedUrl("BookmarkDialog.qml"), {
-                        bookmarkId: item.itemId,
-                        folderMode: item.isFolder,
-                        bookmarkTitle: item.title,
-                        bookmarkUrl: item.url,
-                        parentFolder: page.folder
-                    })
-                }
-                MenuItem {
-                    text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function () {
-                        Pacific.deleteBookmark(item.itemId);
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        visible: !item.isFolder
+                        text: qsTr("Open in new tab")
+                        onClicked: page.browser.open(item.url, {
+                            newTab: true,
+                            background: true,
+                            transition: "bookmark"
+                        })
+                    }
+                    MenuItem {
+                        text: qsTr("Edit")
+                        onClicked: pageStack.push(Qt.resolvedUrl("BookmarkDialog.qml"), {
+                            bookmarkId: item.itemId,
+                            folderMode: item.isFolder,
+                            bookmarkTitle: item.title,
+                            bookmarkUrl: item.url,
+                            parentFolder: page.folder
+                        })
+                    }
+                    MenuItem {
+                        text: qsTr("Delete")
+                        onClicked: item.remorseDelete(function () {
+                            Pacific.deleteBookmark(item.itemId);
+                        })
+                    }
                 }
             }
 

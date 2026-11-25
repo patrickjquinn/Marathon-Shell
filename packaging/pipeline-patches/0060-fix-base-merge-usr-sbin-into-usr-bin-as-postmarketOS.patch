@@ -1,0 +1,34 @@
+From 3d186dd0805c84067c3e4ebced16153f8c0ea989 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 13:43:57 +0000
+Subject: [PATCH] fix(base): merge /usr/sbin into /usr/bin, as postmarketOS now
+ does
+
+postmarketOS finished its bin-merge: systemd 262.2-r3 ships udevd,
+udevadm and init in /usr/bin only, and its core layout has /sbin and
+/usr/sbin point there. mkosi still makes /usr/sbin a directory, so
+/sbin/udevd was missing and mkinitfs made no initramfs, and /sbin/init
+was busybox's, not systemd's. pmOS's merge-usr --bins merges the
+directory; where both have a name, it keeps /usr/bin's.
+---
+ mkosi.images/base/mkosi.postinst | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index ff5f890..a1f1ac8 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -8,6 +8,10 @@ set -eu
+ 
+ BUILDROOT=/buildroot
+ 
++# postmarketOS packages put /usr/sbin's files in /usr/bin now, but mkosi
++# still makes /usr/sbin a directory: merge it, as pmbootstrap lays it out.
++[ -L "$BUILDROOT/usr/sbin" ] || chroot "$BUILDROOT" merge-usr --bins
++
+ # Drop the masking symlink (greetd-vs-getty race is handled below)
+ rm -f "$BUILDROOT/etc/systemd/system/getty@tty1.service"
+ 
+-- 
+2.55.0
+

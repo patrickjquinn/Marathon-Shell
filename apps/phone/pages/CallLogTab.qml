@@ -68,21 +68,23 @@ TabItem {
             objectName: "callLogItem"
             contentHeight: Theme.itemSizeMedium
             Accessible.name: (missed ? qsTr("Missed call from %1") : declined ? qsTr("Declined call from %1") : modelData.type === "outgoing" ? qsTr("Call to %1") : qsTr("Call from %1")).arg(name || number) + (count > 1 ? ", " + qsTr("%n calls", "", count) : "")
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "editMenuItem"
-                    text: qsTr("Edit before calling")
-                    onClicked: root.openInDialer(item.number)
-                }
-                MenuItem {
-                    objectName: "messageMenuItem"
-                    text: qsTr("Send message")
-                    onClicked: root.phone.sendMessage(item.number)
-                }
-                MenuItem {
-                    objectName: "deleteMenuItem"
-                    text: qsTr("Delete")
-                    onClicked: item.remove()
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "editMenuItem"
+                        text: qsTr("Edit before calling")
+                        onClicked: root.openInDialer(item.number)
+                    }
+                    MenuItem {
+                        objectName: "messageMenuItem"
+                        text: qsTr("Send message")
+                        onClicked: root.phone.sendMessage(item.number)
+                    }
+                    MenuItem {
+                        objectName: "deleteMenuItem"
+                        text: qsTr("Delete")
+                        onClicked: item.remove()
+                    }
                 }
             }
             onClicked: root.phone.call(number)

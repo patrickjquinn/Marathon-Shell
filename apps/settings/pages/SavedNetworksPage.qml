@@ -29,15 +29,17 @@ Page {
 
             objectName: "saved-" + modelData.ssid
             contentHeight: Theme.itemSizeSmall
-            menu: ContextMenu {
-                MenuItem {
-                    text: qsTr("Forget network")
-                    onClicked: {
-                        const ssid = row.modelData.ssid;
-                        row.remorseDelete(() => {
-                            Network.forgetNetwork(ssid);
-                            page.networks = page.networks.filter(n => n.ssid !== ssid);
-                        });
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        text: qsTr("Forget network")
+                        onClicked: {
+                            const ssid = row.modelData.ssid;
+                            row.remorseDelete(() => {
+                                Network.forgetNetwork(ssid);
+                                page.networks = page.networks.filter(n => n.ssid !== ssid);
+                            });
+                        }
                     }
                 }
             }

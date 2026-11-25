@@ -101,6 +101,13 @@ TestCase {
         })).length, 10000);
     }
 
+    function test_withText() {
+        compare(Logic.withText("", "See you at 8"), "See you at 8");
+        compare(Logic.withText(undefined, "See you at 8"), "See you at 8");
+        compare(Logic.withText("Running late", "See you at 8"), "Running late\nSee you at 8");
+        compare(Logic.withText("Running late\nSee you at 8", "See you at 8"), "Running late\nSee you at 8");
+    }
+
     function test_routeNumber() {
         compare(Logic.routeNumber('{"number":" +15551234567 "}'), "+15551234567");
         compare(Logic.routeNumber("{}"), "");

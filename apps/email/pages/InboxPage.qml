@@ -135,25 +135,27 @@ Page {
             contentHeight: Theme.itemSizeExtraLarge
             Accessible.name: (unread ? qsTr("Unread") + ", " : "") + (model.from || "") + ", " + (model.subject || "")
             onClicked: page.app.openMessage(messageId)
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "readItem"
-                    text: item.unread ? qsTr("Mark as read") : qsTr("Mark as unread")
-                    onClicked: page.mail.markAsRead(item.messageId, item.unread)
-                }
-                MenuItem {
-                    objectName: "archiveItem"
-                    text: qsTr("Archive")
-                    onClicked: item.remorseAction(qsTr("Archived"), function () {
-                        page.app.move(item.messageId, "archive");
-                    })
-                }
-                MenuItem {
-                    objectName: "deleteItem"
-                    text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function () {
-                        page.app.move(item.messageId, "trash");
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "readItem"
+                        text: item.unread ? qsTr("Mark as read") : qsTr("Mark as unread")
+                        onClicked: page.mail.markAsRead(item.messageId, item.unread)
+                    }
+                    MenuItem {
+                        objectName: "archiveItem"
+                        text: qsTr("Archive")
+                        onClicked: item.remorseAction(qsTr("Archived"), function () {
+                            page.app.move(item.messageId, "archive");
+                        })
+                    }
+                    MenuItem {
+                        objectName: "deleteItem"
+                        text: qsTr("Delete")
+                        onClicked: item.remorseDelete(function () {
+                            page.app.move(item.messageId, "trash");
+                        })
+                    }
                 }
             }
 

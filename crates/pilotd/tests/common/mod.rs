@@ -460,3 +460,34 @@ pub fn daemon(
     })
     .unwrap()
 }
+
+/// A daemon with the router in the cloud (scripted at `/v1/jev`) and the
+/// model on the phone: the phone's own prompts with routing a test sets.
+pub fn phone_model_daemon(base: &str, log: &Arc<Log>) -> pilotd::daemon::Daemon {
+    let config = pilotd::config::Config::parse(&format!(
+        r#"
+        timeout_secs = 5
+        web_search_url = "{base}/v1/search"
+        [privacy]
+        source = "none"
+        [backends.standard.jev]
+        kind = "jev"
+        url = "{base}/v1/jev"
+        [backends.standard.llm]
+        url = "{base}/v1/llm/chat/completions"
+        provider = "local"
+        allowed_regions = ["device"]
+        "#
+    ))
+    .unwrap();
+    pilotd::daemon::build(pilotd::daemon::Options {
+        config,
+        data_dir: None,
+        session: None,
+        system: None,
+        adapters: Some(fake_adapters(log)),
+        credential: Some(pilotd::remote::Credential::None),
+        now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
+    })
+    .unwrap()
+}

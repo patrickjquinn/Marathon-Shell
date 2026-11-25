@@ -2575,23 +2575,59 @@ Item {
             running: true
             onTriggered: chargingOverlay.armed = true
         }
-        Connections {
-            // A charger wakes the screen for its moment, as on iOS and
-            // Android; the lock screen's idle timer puts it back to sleep.
-            // Not during a call (the phone may be at an ear), and nothing on
-            // unplugging.
-            function onIsPluggedInChanged() {
-                if (!chargingOverlay.armed || !Power.isPluggedIn || Power.batteryLevel < 0)
+        // A charger wakes the screen for its moment, as on iOS and Android.
+        // Not during a call (the phone may be at an ear), and nothing on
+        // unplugging. Acts on the state once a bouncing contact settles.
+        Timer {
+            id: chargerSettle
+
+            interval: 500
+            onTriggered: {
+                if (!Power.isPluggedIn || Power.batteryLevel < 0)
                     return;
                 if (!Display.screenOn) {
                     if (Power.hasActiveCalls)
                         return;
                     Display.turnScreenOn("charger");
+                    chargerWakeOff.restart();
                 }
                 chargingOverlay.show(true, Power.batteryLevel);
             }
+        }
+        // The screen it woke goes back off unless touched: at a screen
+        // timeout of Never no idle timer would.
+        Timer {
+            id: chargerWakeOff
+
+            interval: 5000
+            onTriggered: {
+                if (Display.screenOn && !Power.hasActiveCalls && !AlarmManagerCpp.hasActiveAlarm)
+                    nightshade.idle("charger wake");
+            }
+        }
+        Connections {
+            function onIsPluggedInChanged() {
+                if (chargingOverlay.armed)
+                    chargerSettle.restart();
+            }
 
             target: Power
+        }
+        Connections {
+            function onUserActivity() {
+                chargerWakeOff.stop();
+            }
+
+            target: shell.compositor
+            ignoreUnknownSignals: true
+        }
+        Connections {
+            function onScreenOnChanged() {
+                if (!Display.screenOn)
+                    chargerWakeOff.stop();
+            }
+
+            target: Display
         }
     }
 
@@ -3389,8 +3425,8 @@ Item {
         function onCallEnded(number, kind) {
             if (kind !== "missed")
                 return;
-            NotificationService.sendNotification("phone", qsTr("Missed Call"), qsTr("From: %1").arg(nameOf(number)), {
-                "icon": "phone-missed",
+            NotificationService.sendNotification("phone", qsTr("Missed Call"), qsTr("From: %1").arg(nameOf(number) || qsTr("Unknown number")), {
+                "icon": "phone-x",
                 "category": "call",
                 "priority": "high",
                 "actions": [

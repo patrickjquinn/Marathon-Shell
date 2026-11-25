@@ -67,41 +67,43 @@ Page {
             contentHeight: Math.max(Theme.itemSizeLarge, rows.height + 2 * Theme.paddingMedium)
             onClicked: if (status === "finished")
                 Qt.openUrlExternally("file://" + path)
-            menu: ContextMenu {
-                MenuItem {
-                    visible: item.status === "finished"
-                    text: qsTr("Open")
-                    onClicked: Qt.openUrlExternally("file://" + item.path)
-                }
-                MenuItem {
-                    visible: item.status === "finished"
-                    text: qsTr("Share")
-                    onClicked: {
-                        share.mimeType = item.host !== "" ? item.host : "application/octet-stream";
-                        share.resources = ["file://" + item.path];
-                        share.trigger();
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        visible: item.status === "finished"
+                        text: qsTr("Open")
+                        onClicked: Qt.openUrlExternally("file://" + item.path)
                     }
-                }
-                MenuItem {
-                    visible: item.status === "failed" || item.status === "paused" || item.status === "cancelled"
-                    text: qsTr("Try again")
-                    onClicked: {
-                        Pacific.removeDownload(item.itemId, true);
-                        WebEngine.defaultProfile.download(item.url);
+                    MenuItem {
+                        visible: item.status === "finished"
+                        text: qsTr("Share")
+                        onClicked: {
+                            share.mimeType = item.host !== "" ? item.host : "application/octet-stream";
+                            share.resources = ["file://" + item.path];
+                            share.trigger();
+                        }
                     }
-                }
-                MenuItem {
-                    text: qsTr("Remove from list")
-                    onClicked: item.remorseDelete(function () {
-                        Pacific.removeDownload(item.itemId, false);
-                    })
-                }
-                MenuItem {
-                    visible: item.status === "finished"
-                    text: qsTr("Delete file")
-                    onClicked: item.remorseDelete(function () {
-                        Pacific.removeDownload(item.itemId, true);
-                    })
+                    MenuItem {
+                        visible: item.status === "failed" || item.status === "paused" || item.status === "cancelled"
+                        text: qsTr("Try again")
+                        onClicked: {
+                            Pacific.removeDownload(item.itemId, true);
+                            WebEngine.defaultProfile.download(item.url);
+                        }
+                    }
+                    MenuItem {
+                        text: qsTr("Remove from list")
+                        onClicked: item.remorseDelete(function () {
+                            Pacific.removeDownload(item.itemId, false);
+                        })
+                    }
+                    MenuItem {
+                        visible: item.status === "finished"
+                        text: qsTr("Delete file")
+                        onClicked: item.remorseDelete(function () {
+                            Pacific.removeDownload(item.itemId, true);
+                        })
+                    }
                 }
             }
             Item {
