@@ -1,5 +1,13 @@
 # JP2601 deviceinfo and kernel command line. The kernel is the SoC's
 # (linux-mt6858); scripts/build-image.sh builds the one named here.
+#
+# The command line: splash comes first (the initramfs takes the first splash
+# word it finds); Plymouth uses simpledrm, the only display driver; fbcon
+# leaves VT1, so with no DRM master after Plymouth lets go it cannot put its
+# frame back over the shell's, and the kernel's lines (loglevel 7) stay off
+# the splash but still reach ramoops, which U-Boot shows after a crash. No
+# clock or PMIC drivers yet: clk_ignore_unused and pd_ignore_unused keep
+# what LK left running.
 pkgname=device-jolla-jp2601
 pkgdesc="Jolla Phone (2026)"
 pkgver=1
@@ -39,7 +47,7 @@ package() {
 
 sha512sums="
 b4d4eda1acf9a1312a7fd8ec6b2b47e296ebe961ce0d25292006558faa272ae7725de9212ce5e4c2f66d212ff0fdb36a9142bdecd11c3e6c9e6fe2d2e01321bc  deviceinfo
-afa7cfb5de2d2bf5b9ad560771d812458b469c1e0c0c191b85210542cca21234cdf01f009056247b17573d4dd5077eca5ef1bc24cebcb3e3e811f46783d65b2f  kernel-cmdline.conf
+05c8c10bc9586728508f21fcb31bd0b9795846f8e17259afa5dc8267fea510c9e3ef7e62ff588f5f3992525288cf4575a913829845d51622ff7e9fd8c2c42be0  kernel-cmdline.conf
 086613bf243f4fd95785314a0f5b834b38c02c3edea88a1de531e12441b0c5be73eb9da55de68a78d64dccfaf520df26a1fcbf6af430f219e596e1c2723ad5df  jp2601-mark-boot-successful
 3459fcfe05b6c0237994817649512014e13ff038d753a14e1d0beff90d0a08ee458f41382b01eafe8770c81e79b9a32b5094d943f84fcb62d9d58adc0151ddf3  jp2601-mark-boot-successful.service
 "
