@@ -3452,6 +3452,18 @@ impl Pipeline {
             };
             *lock(&self.last_model_use) = Some(Instant::now());
             must_call &= wide.is_some();
+            // Cut off at the length limit: a call's arguments are half written.
+            if resp.finish_reason == "length" && !resp.tool_calls.is_empty() {
+                self.outcome(turn, "failed");
+                let mut cards = std::mem::take(&mut private_cards);
+                cards.append(&mut action_cards);
+                cards.push(Card::Error {
+                    text: "Pilot's reply ran too long to finish. Try asking for less at once."
+                        .into(),
+                    code: ErrorCode::Internal,
+                });
+                return cards;
+            }
             if resp.tool_calls.is_empty() {
                 let text = strip_reasoning(resp.content.as_deref().unwrap_or(""));
                 if let Some(call) = stray_call(&text, &registry) {

@@ -1092,3 +1092,31 @@ async fn a_question_after_action_beats_the_answer_before_it() {
         assert_eq!(text_of(r.cards.last().unwrap()), shown);
     }
 }
+
+/// The phone's model is held to a phone's length in words, not in a tool
+/// call; a call cut off at the limit is not run.
+#[tokio::test]
+async fn the_phone_caps_words_not_tool_calls() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.1)),
+        _ if i == 0 => Reply::stamped(chat_text("ACTION"), "device"),
+        _ => {
+            let mut cut = chat_tool("notes_create", r#"{"text": "milk, eggs"}"#);
+            cut["choices"][0]["finish_reason"] = json!("length");
+            Reply::stamped(cut, "device")
+        }
+    })
+    .await;
+    let log = Arc::new(Log::default());
+    let d = common::phone_model_daemon(&srv.base, &log);
+    let r = d.pipeline.ask("a long shopping list, noted", false).await;
+    let chats = srv.seen("/v1/llm/chat/completions");
+    assert_eq!(chats[0].body["max_completion_tokens"], 400);
+    assert_eq!(chats[1].body["max_completion_tokens"], 1024);
+    assert!(
+        matches!(r.cards.last(), Some(Card::Error { .. })),
+        "{:?}",
+        r.cards
+    );
+    assert!(log.all().is_empty(), "{:?}", log.all());
+}

@@ -310,8 +310,9 @@ impl OpenAiClient {
         // The model on the phone writes ~13 tokens a second: a reply that
         // runs on is cut at a phone's length, not left for a minute or more
         // (LFM2.5 wrote 1,024 tokens of markdown, 80 s, and a turn's rounds
-        // made it 250 s).
-        let cap = if self.provider == "local" {
+        // made it 250 s). Not a round with tools: a long note's call, cut,
+        // is no call.
+        let cap = if self.provider == "local" && req.tools.is_empty() {
             self.max_completion_tokens.min(PHONE_MAX_TOKENS)
         } else {
             self.max_completion_tokens
