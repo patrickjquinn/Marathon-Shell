@@ -1,0 +1,264 @@
+From 07fe25128088225504a2f3efa74b0d2f6bee5a10 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 22:00:00 +0000
+Subject: [PATCH 3/5] mfd: Add the MediaTek MT6375 SubPMIC core
+
+The MT6375 is the charger and Type-C controller of MT6789 phones such as
+the Minimal Phone MP01. It addresses its registers as the MT6370 does:
+the high byte selects the I2C address of a function, the low byte the
+register there. The core registers the PMU's interrupt controller and
+the charger; the PMU bank at the device's own address is all they use,
+so the other banks are left for the functions that need them.
+
+The bootloader can leave interrupts of the Type-C and gauge functions
+unmasked, and those sources are not cleared by acknowledging the event
+here, so a pending one would hold the level-triggered line low. The core
+therefore masks and clears every event before the interrupt chip, which
+only manages the events it lists, takes over.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/mfd/Kconfig  |  13 +++
+ drivers/mfd/Makefile |   1 +
+ drivers/mfd/mt6375.c | 193 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 207 insertions(+)
+ create mode 100644 drivers/mfd/mt6375.c
+
+diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
+index 7192c9d..673ddd7 100644
+--- a/drivers/mfd/Kconfig
++++ b/drivers/mfd/Kconfig
+@@ -1138,6 +1138,19 @@ config MFD_MT6370
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called "mt6370".
+ 
++config MFD_MT6375
++	tristate "MediaTek MT6375 SubPMIC"
++	select MFD_CORE
++	select REGMAP_IRQ
++	depends on I2C
++	help
++	  Say Y here to enable the core of the MediaTek MT6375 SubPMIC, a
++	  single cell switching charger with BC1.2 detection, a USB Type-C
++	  and PD port controller, a fuel gauge and an ADC.
++
++	  This driver can also be built as a module. If so, the module
++	  will be called "mt6375".
++
+ config MFD_MT6397
+ 	tristate "MediaTek MT6397 PMIC Support"
+ 	select MFD_CORE
+diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
+index e75e804..15c5e00 100644
+--- a/drivers/mfd/Makefile
++++ b/drivers/mfd/Makefile
+@@ -188,6 +188,7 @@ obj-$(CONFIG_MFD_MP2629)	+= mp2629.o
+ 
+ obj-$(CONFIG_MFD_MT6360)	+= mt6360-core.o
+ obj-$(CONFIG_MFD_MT6370)	+= mt6370.o
++obj-$(CONFIG_MFD_MT6375)	+= mt6375.o
+ mt6397-objs			:= mt6397-core.o mt6397-irq.o mt6358-irq.o
+ obj-$(CONFIG_MFD_MT6397)	+= mt6397.o
+ 
+diff --git a/drivers/mfd/mt6375.c b/drivers/mfd/mt6375.c
+new file mode 100644
+index 0000000..8024111
+--- /dev/null
++++ b/drivers/mfd/mt6375.c
+@@ -0,0 +1,193 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6375 subPMIC: a switching charger, a USB Type-C port
++ * controller, a fuel gauge and an ADC, each behind its own I2C address.
++ *
++ * Register addresses carry the bank (the I2C address) in their high byte,
++ * as on the MT6370. Only the PMU bank, which holds the charger and the
++ * interrupt controller, is described so far.
++ */
++
++#include <linux/bitfield.h>
++#include <linux/i2c.h>
++#include <linux/interrupt.h>
++#include <linux/mfd/core.h>
++#include <linux/module.h>
++#include <linux/regmap.h>
++
++#define MT6375_REG_DEV_INFO	0x100
++#define MT6375_REG_CHG_IRQ0	0x1d0
++#define MT6375_REG_CHG_MSK0	0x1f0
++#define MT6375_REG_MAX		0x1ff
++
++#define MT6375_NUM_IRQ_REGS	16
++#define MT6375_VENID_MASK	GENMASK(7, 4)
++#define MT6375_VENID		0x7
++
++#define MT6375_BANK_PMU		1
++#define MT6375_REG_ADDR_LEN	2
++
++#define MT6375_IRQ_PWR_RDY	0
++#define MT6375_IRQ_DETACH	1
++#define MT6375_IRQ_RECHG	2
++#define MT6375_IRQ_CHG_DONE	3
++#define MT6375_IRQ_VBUS_OV	8
++#define MT6375_IRQ_CHG_TOUT	11
++#define MT6375_IRQ_BC12_DN	31
++
++static int mt6375_regmap_read(void *context, const void *reg_buf,
++			      size_t reg_size, void *val_buf, size_t val_size)
++{
++	struct i2c_client *i2c = context;
++	const u8 *addr = reg_buf;
++	int ret;
++
++	if (addr[0] != MT6375_BANK_PMU)
++		return -EINVAL;
++
++	ret = i2c_smbus_read_i2c_block_data(i2c, addr[1], val_size, val_buf);
++	if (ret < 0)
++		return ret;
++
++	return ret == val_size ? 0 : -EIO;
++}
++
++static int mt6375_regmap_write(void *context, const void *data, size_t count)
++{
++	struct i2c_client *i2c = context;
++	const u8 *buf = data;
++
++	if (buf[0] != MT6375_BANK_PMU)
++		return -EINVAL;
++
++	return i2c_smbus_write_i2c_block_data(i2c, buf[1],
++					      count - MT6375_REG_ADDR_LEN,
++					      buf + MT6375_REG_ADDR_LEN);
++}
++
++static const struct regmap_bus mt6375_regmap_bus = {
++	.read = mt6375_regmap_read,
++	.write = mt6375_regmap_write,
++	.max_raw_read = I2C_SMBUS_BLOCK_MAX,
++	.max_raw_write = I2C_SMBUS_BLOCK_MAX,
++};
++
++static const struct regmap_range mt6375_pmu_range =
++	regmap_reg_range(MT6375_REG_DEV_INFO, MT6375_REG_MAX);
++
++static const struct regmap_access_table mt6375_access_table = {
++	.yes_ranges = &mt6375_pmu_range,
++	.n_yes_ranges = 1,
++};
++
++static const struct regmap_config mt6375_regmap_config = {
++	.reg_bits = 16,
++	.val_bits = 8,
++	.reg_format_endian = REGMAP_ENDIAN_BIG,
++	.max_register = MT6375_REG_MAX,
++	.rd_table = &mt6375_access_table,
++	.wr_table = &mt6375_access_table,
++};
++
++static const struct regmap_irq mt6375_irqs[] = {
++	REGMAP_IRQ_REG_LINE(MT6375_IRQ_PWR_RDY, 8),
++	REGMAP_IRQ_REG_LINE(MT6375_IRQ_DETACH, 8),
++	REGMAP_IRQ_REG_LINE(MT6375_IRQ_RECHG, 8),
++	REGMAP_IRQ_REG_LINE(MT6375_IRQ_CHG_DONE, 8),
++	REGMAP_IRQ_REG_LINE(MT6375_IRQ_VBUS_OV, 8),
++	REGMAP_IRQ_REG_LINE(MT6375_IRQ_CHG_TOUT, 8),
++	REGMAP_IRQ_REG_LINE(MT6375_IRQ_BC12_DN, 8),
++};
++
++/* The event registers latch until a 1 is written back. */
++static const struct regmap_irq_chip mt6375_irq_chip = {
++	.name = "mt6375",
++	.status_base = MT6375_REG_CHG_IRQ0,
++	.ack_base = MT6375_REG_CHG_IRQ0,
++	.mask_base = MT6375_REG_CHG_MSK0,
++	.num_regs = MT6375_NUM_IRQ_REGS,
++	.irqs = mt6375_irqs,
++	.num_irqs = ARRAY_SIZE(mt6375_irqs),
++};
++
++static const struct resource mt6375_charger_irqs[] = {
++	DEFINE_RES_IRQ_NAMED(MT6375_IRQ_PWR_RDY, "pwr-rdy"),
++	DEFINE_RES_IRQ_NAMED(MT6375_IRQ_DETACH, "detach"),
++	DEFINE_RES_IRQ_NAMED(MT6375_IRQ_RECHG, "rechg"),
++	DEFINE_RES_IRQ_NAMED(MT6375_IRQ_CHG_DONE, "chg-done"),
++	DEFINE_RES_IRQ_NAMED(MT6375_IRQ_VBUS_OV, "vbus-ov"),
++	DEFINE_RES_IRQ_NAMED(MT6375_IRQ_CHG_TOUT, "chg-tout"),
++	DEFINE_RES_IRQ_NAMED(MT6375_IRQ_BC12_DN, "bc12-dn"),
++};
++
++static const struct mfd_cell mt6375_devices[] = {
++	MFD_CELL_OF("mt6375-charger", mt6375_charger_irqs, NULL, 0, 0,
++		    "mediatek,mt6375-charger"),
++};
++
++static const u8 mt6375_all_set[MT6375_NUM_IRQ_REGS] = {
++	[0 ... MT6375_NUM_IRQ_REGS - 1] = 0xff
++};
++
++static int mt6375_probe(struct i2c_client *i2c)
++{
++	struct device *dev = &i2c->dev;
++	struct regmap_irq_chip_data *irq_data;
++	struct regmap *regmap;
++	unsigned int devinfo;
++	int ret;
++
++	regmap = devm_regmap_init(dev, &mt6375_regmap_bus, i2c,
++				  &mt6375_regmap_config);
++	if (IS_ERR(regmap))
++		return dev_err_probe(dev, PTR_ERR(regmap),
++				     "Failed to init regmap\n");
++
++	ret = regmap_read(regmap, MT6375_REG_DEV_INFO, &devinfo);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to read device info\n");
++
++	if (FIELD_GET(MT6375_VENID_MASK, devinfo) != MT6375_VENID)
++		return dev_err_probe(dev, -ENODEV,
++				     "Unknown vendor ID in 0x%02x\n", devinfo);
++
++	/*
++	 * The IRQ chip only masks the events it lists. The bootloader may
++	 * have left the Type-C and gauge events unmasked, and their sources
++	 * are not cleared here, so they would hold the line low.
++	 */
++	ret = regmap_bulk_write(regmap, MT6375_REG_CHG_MSK0, mt6375_all_set,
++				MT6375_NUM_IRQ_REGS);
++	if (!ret)
++		ret = regmap_bulk_write(regmap, MT6375_REG_CHG_IRQ0,
++					mt6375_all_set, MT6375_NUM_IRQ_REGS);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to mask the events\n");
++
++	ret = devm_regmap_add_irq_chip(dev, regmap, i2c->irq, IRQF_ONESHOT, 0,
++				       &mt6375_irq_chip, &irq_data);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to add IRQ chip\n");
++
++	return devm_mfd_add_devices(dev, PLATFORM_DEVID_AUTO, mt6375_devices,
++				    ARRAY_SIZE(mt6375_devices), NULL, 0,
++				    regmap_irq_get_domain(irq_data));
++}
++
++static const struct of_device_id mt6375_of_match[] = {
++	{ .compatible = "mediatek,mt6375" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6375_of_match);
++
++static struct i2c_driver mt6375_driver = {
++	.driver = {
++		.name = "mt6375",
++		.of_match_table = mt6375_of_match,
++	},
++	.probe = mt6375_probe,
++};
++module_i2c_driver(mt6375_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6375 subPMIC driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

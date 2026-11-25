@@ -42,14 +42,14 @@ Column {
 
             Behavior on height {
                 NumberAnimation {
-                    duration: 200
+                    duration: MMotion.ms(200)
                     easing.type: Easing.OutCubic
                 }
             }
 
             Behavior on color {
                 ColorAnimation {
-                    duration: 200
+                    duration: MMotion.ms(200)
                 }
             }
         }

@@ -140,6 +140,16 @@ TestCase {
         verify(!from.visible);
     }
 
+    // A warm front light: the same warmth, as a share of the warm LEDs.
+    function test_nightLightWarmLight() {
+        const s = open("display");
+        const warmth = child(s.page, "nightLightWarmth");
+        compare(warmth.valueText, "3400 K");
+        Display.warmLightAvailable = true;
+        compare(warmth.valueText, "61%");
+        verify(child(s.page, "nightLightSwitch").description.indexOf("front light") >= 0);
+    }
+
     function test_nightshade() {
         const s = open("display");
         const from = child(s.page, "nightshadeFrom");
@@ -185,6 +195,33 @@ TestCase {
         verify(!child(s.page, "autoBrightnessSwitch").visible);
         verify(!child(s.page, "rotationSwitch").visible);
         verify(child(s.page, "reduceMotionSwitch").visible);
+        verify(!child(s.page, "restingRefreshCombo").visible);
+        verify(!child(s.page, "autoClearSwitch").visible);
+        verify(!child(s.page, "fullRefreshButton").visible);
+    }
+
+    // An e-paper panel's refresh: where it rests, automatic clears and a
+    // clear now. Reduce motion has nothing to reduce there.
+    function test_displayEpaper() {
+        Display.refreshControls = true;
+        const s = open("display");
+        verify(!child(s.page, "reduceMotionSwitch").visible);
+        const resting = child(s.page, "restingRefreshCombo");
+        verify(resting.visible);
+        compare(resting.currentIndex, 0);
+        pick(resting, 1);
+        compare(Display.restingRefreshMode, "text");
+        Display.restingRefreshMode = "quality";
+        compare(resting.currentIndex, 0);
+
+        const autoClear = child(s.page, "autoClearSwitch");
+        verify(autoClear.checked);
+        autoClear.clicked(null);
+        verify(!Display.autoClear);
+        verify(!autoClear.checked);
+
+        child(s.page, "fullRefreshButton").clicked(null);
+        compare(Display.fullRefreshes, 1);
     }
 
     function test_noModemNoRingtone() {

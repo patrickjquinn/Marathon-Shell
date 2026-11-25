@@ -1,0 +1,67 @@
+# What every MediaTek Helio G99 (MT6789) phone runs above its kernel: the
+# CONNSYS (WMT) bring-up and its Wi-Fi, Bluetooth and FM services, Panfrost's
+# runtime PM and the MT6366 codec's module. Firmware, kernels, display,
+# input, audio routes and power policy are the boards' (device-*-marathon).
+pkgname=mt6789-platform
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="MediaTek MT6789 shared CONNSYS, GPU and codec services"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0 AND MIT"
+options="!check"
+depends="wpa_supplicant wpa_supplicant-systemd bluez-btmgmt"
+makedepends="gcc musl-dev"
+source="mt6789-wmt.c mt6789-connsys.service mt6789-wmt-launcher.service mt6789-wifi.service
+ mt6789-wifi.system-sleep 50-mt6789-wpa_supplicant.conf mt6789-wlan.modprobe.conf mt6789-wifi-mac.nm.conf
+ mt6789-bluetooth.service mt6789-bt-address mt6789-bt-address.service mt6789-fm.service 62-mt6789-fm.rules
+ 61-mt6789-gpu-autosuspend.rules mt6789-audio.modules-load.conf"
+build() {
+    mkdir -p "$builddir"
+    ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/mt6789-wmt" "$srcdir/mt6789-wmt.c" $LDFLAGS
+}
+package() {
+    # Wi-Fi: CONNSYS bring-up, the WMT firmware patch server, then WLAN power.
+    install -Dm755 "$builddir/mt6789-wmt" "$pkgdir/usr/libexec/marathon/mt6789-wmt"
+    local unit
+    for unit in mt6789-connsys mt6789-wmt-launcher mt6789-wifi mt6789-bluetooth mt6789-bt-address mt6789-fm; do
+        install -Dm644 "$srcdir/$unit.service" "$pkgdir/usr/lib/systemd/system/$unit.service"
+    done
+    install -Dm755 "$srcdir/mt6789-wifi.system-sleep" "$pkgdir/usr/lib/systemd/system-sleep/mt6789-wifi"
+    # wpa_cli and mt6789-wifi need the control socket; log to syslog.
+    install -Dm644 "$srcdir/50-mt6789-wpa_supplicant.conf" "$pkgdir/usr/lib/systemd/system/wpa_supplicant.service.d/50-mt6789.conf"
+    install -Dm644 "$srcdir/mt6789-wlan.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/mt6789-wlan.conf"
+    install -Dm644 "$srcdir/mt6789-wifi-mac.nm.conf" "$pkgdir/usr/lib/NetworkManager/conf.d/50-mt6789-wifi-mac.conf"
+
+    # Bluetooth: the HCI driver over WMT/STP, once the patch server runs.
+    install -Dm755 "$srcdir/mt6789-bt-address" "$pkgdir/usr/libexec/marathon/mt6789-bt-address"
+
+    install -Dm644 "$srcdir/62-mt6789-fm.rules" "$pkgdir/usr/lib/udev/rules.d/62-mt6789-fm.rules"
+    install -Dm644 "$srcdir/61-mt6789-gpu-autosuspend.rules" "$pkgdir/usr/lib/udev/rules.d/61-mt6789-gpu-autosuspend.rules"
+    install -Dm644 "$srcdir/mt6789-audio.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/mt6789-audio.conf"
+
+    install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants" "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
+    for unit in mt6789-connsys mt6789-wmt-launcher mt6789-wifi mt6789-bluetooth mt6789-bt-address mt6789-fm; do
+        ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
+    done
+    for unit in mt6789-bluetooth mt6789-bt-address; do
+        ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants/$unit.service"
+    done
+}
+sha512sums="
+9c8c9d3ba5032999d76b899c391fb02484a271221254ea41740639827c1b45a9cc32ea9a31f5673ff382cf2206617ec2f2dde1a541b1f86952f0d5c8ca581353  mt6789-wmt.c
+43f02bffb8b9388446c8a5695d4ba6cece5f6f8f50081754deaf7fedcaec5e2ab648aa5cd98add04f6a6892a14aadd3c3f9dfbe584b039b1bb04f346cd5c73b3  mt6789-connsys.service
+d348527b36fd1e237dff6f22a4808a7db9c9fe3e8b0c9d9cc434da8f88d0e3c3872f9aa2e45455f35fa4e118696a819638cae32ef480b428b5172cec5a69bed5  mt6789-wmt-launcher.service
+23e046e7b9b43cfdea951888bb639df13faa2820aff9366aad6790a35864e818d751ab30dcb340d9419e95f77842157c82d4f34f0ac0b1255de020eeb0ad9871  mt6789-wifi.service
+515a6aaf6d988c3da39d414bc28f391a6364b6a17a913ba4490b277d41efc695efa74a7adb7050723238747494bbfa9e120f7f20448677a39dd15e1940ec8ef4  mt6789-wifi.system-sleep
+710a3091c847e444935152924eb7fc738798b32eaa55d8e0acf77e6c6332e58d161eb9774410551e2d5b4b8b69e2d1bba4c06f5ad739c1530326ac7854857fd5  50-mt6789-wpa_supplicant.conf
+d32bd967376e0120d952df65dab6e247383fbf65dcab7a095336a94a788b6ebf768214100c3ba0d60aec42d6e5542eb36f43bcd22a167531889f83fae8a414e0  mt6789-wlan.modprobe.conf
+3a03e718e0d058d4df7310aa80fd2652f68f441f114e06a2b28eb278fd25c5f61b4ef1754bb9645dd2621ebf4103440f05dde3581fefc280bc7759a82fce7d1e  mt6789-wifi-mac.nm.conf
+a6ae3c8fcbb990af31eb72f0421c18f0dea40589b516545bc3c95a51ffe0f9809aba64b60e0006a29630debcf738eb0676193810f46a50465837fb32037ef1b0  mt6789-bluetooth.service
+29fa0be8869c59ed11da3be43d130ad83cfb2befd8fff4624c11eb9027c708461f664a80f8c0fcfd76f41c84f62bda4a22cd3df4e2d3ef7cca927e507a0c4753  mt6789-bt-address
+71488681b6b970d65b8e6dde67512e0ace1765361ad900dc04c66d3f0d8189a7aea61cbee71319fee79bb885f54f4e33789e4abe7766fb3895400dafd2fbf5a1  mt6789-bt-address.service
+5240c2898238c3f5ec7d40983c8f8982d61f7f1197314c7406665dc6854bf9521f2c780b30ced113b43dfd0f371fff35cf66007f1db381dafa3f661bb5ec5033  mt6789-fm.service
+a0274eb69aac3b98778294fda0d31b0ca4ae5a8292e6dde5467ca664bc6794daece12f7549221343d44d8a98e5417e4d09bd6ed63c29c6182a7674ebf793a240  62-mt6789-fm.rules
+f4184dac99d7a939cbfe09c8fdd95e0cbaa9da7c3c03d14f85d1ea96e5701237d76c3f5d6dd94193d4dca66ac0190a1450969549564806860bc97e646d1edde7  61-mt6789-gpu-autosuspend.rules
+fdc6f47dc3762bee3f4e6cead19508d1361f014ada2451b991116e792ee9df01e06280cb07e41fdf2983fa0efebd4163bdfd0914cf23a63a9f2f64c8afae03ce  mt6789-audio.modules-load.conf
+"

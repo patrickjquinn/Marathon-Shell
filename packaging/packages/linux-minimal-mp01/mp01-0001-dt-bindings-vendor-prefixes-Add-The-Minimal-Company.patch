@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] dt-bindings: vendor-prefixes: Add The Minimal Company
+
+The Minimal Company makes the Minimal Phone (MP01), an MT6789 phone
+with an e-paper display and a hardware keyboard.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -1055,6 +1055,8 @@
+     description: MilkV Technology Co., Ltd
+   "^miniand,.*":
+     description: Miniand Tech
++  "^minimal,.*":
++    description: The Minimal Company
+   "^minix,.*":
+     description: MINIX Technology Ltd.
+   "^mips,.*":
+-- 
+2.47.0
+

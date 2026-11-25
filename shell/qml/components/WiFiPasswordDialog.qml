@@ -285,7 +285,7 @@ Item {
             property: "opacity"
             from: 0
             to: 1
-            duration: MMotion.quick
+            duration: MMotion.ms(MMotion.quick)
             easing.type: Easing.OutCubic
         }
     }
@@ -297,7 +297,7 @@ Item {
             target: overlay
             property: "opacity"
             to: 0
-            duration: MMotion.fast
+            duration: MMotion.ms(MMotion.fast)
             easing.type: Easing.OutCubic
         }
 

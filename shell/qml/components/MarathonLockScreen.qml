@@ -283,13 +283,15 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: "black"
-            visible: lockWallpaper.status !== Image.Ready
+            color: MColors.eink ? MColors.background : "black"
+            visible: MColors.eink || lockWallpaper.status !== Image.Ready
         }
+        // E-paper shows paper, not the wallpaper.
         Image {
             id: lockWallpaper
 
             anchors.fill: parent
+            visible: !MColors.eink
             source: SettingsManagerCpp.wallpaperPath
             // The home screen's size too, so both share one decoded image.
             sourceSize: Qt.size(width, height)
@@ -382,9 +384,9 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: Silica.Theme.paddingMedium
-                color: Silica.Theme.rgba("black", 0.85)
+                color: MColors.badge
                 border.width: 1
-                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
 
                 Rectangle {
                     id: callAvatar
@@ -491,8 +493,12 @@ Item {
             anchors.bottomMargin: Silica.Theme.paddingLarge
             contentHeight: lockStack.height
             clip: true
-            interactive: contentHeight > height
+            interactive: contentHeight > height && !MMotion.instant
             boundsBehavior: Flickable.StopAtBounds
+
+            MEinkScroll {
+                flickable: lockScroller
+            }
             z: 10
 
             Column {
@@ -508,7 +514,7 @@ Item {
 
                     Behavior on height {
                         NumberAnimation {
-                            duration: MMotion.moderate
+                            duration: MMotion.ms(MMotion.moderate)
                             easing.type: Easing.OutCubic
                         }
                     }
@@ -659,14 +665,14 @@ Item {
                                     target: cardBody
                                     property: "x"
                                     to: notifCard.width
-                                    duration: MMotion.quick
+                                    duration: MMotion.ms(MMotion.quick)
                                     easing.type: Easing.OutCubic
                                 }
                                 NumberAnimation {
                                     target: notifCard
                                     property: "collapse"
                                     to: 0
-                                    duration: MMotion.quick
+                                    duration: MMotion.ms(MMotion.quick)
                                     easing.type: Easing.InOutQuad
                                 }
                                 ScriptAction {
@@ -680,7 +686,7 @@ Item {
                                 target: cardBody
                                 property: "x"
                                 to: 0
-                                duration: MMotion.quick
+                                duration: MMotion.ms(MMotion.quick)
                                 easing.type: Easing.OutCubic
                             }
 
@@ -965,13 +971,13 @@ Item {
 
                     NumberAnimation {
                         to: -Silica.Theme.paddingSmall
-                        duration: 800
+                        duration: MMotion.ms(800)
                         easing.type: Easing.InOutQuad
                     }
 
                     NumberAnimation {
                         to: 0
-                        duration: 800
+                        duration: MMotion.ms(800)
                         easing.type: Easing.InOutQuad
                     }
                 }

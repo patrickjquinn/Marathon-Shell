@@ -1,0 +1,116 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt6789: Add the display processors
+
+The MT6789's main display path is OVL0 -> RDMA0 -> COLOR0 -> CCORR0 ->
+AAL0 -> GAMMA0 -> POSTMASK0 -> DITHER0 -> DSI0, as on the MT8186. The
+SoC DT had only OVL0, RDMA0 and DITHER0, so every board had to describe
+the other five itself, and the three it had, together with the mutex,
+lacked the fallback compatibles their drivers match.
+
+Add the five processors, disabled, with the addresses and interrupts of
+MediaTek's MT6789 DT, and give OVL0, RDMA0, DITHER0 and the mutex their
+MT8192/MT8183/MT8186 fallbacks. These are the nodes the Zinwa Q25 board
+DT carries today; a board now only enables them.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789.dtsi b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+--- a/arch/arm64/boot/dts/mediatek/mt6789.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+@@ -889,7 +889,7 @@
+ 		};
+ 
+ 		mutex: mutex@14001000 {
+-			compatible = "mediatek,mt6789-disp-mutex";
++			compatible = "mediatek,mt6789-disp-mutex", "mediatek,mt8186-disp-mutex";
+ 			reg = <0 0x14001000 0 0x1000>;
+ 			interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
+ 			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
+@@ -1192,7 +1192,7 @@
+ 		};
+ 
+ 		ovl0: ovl@14005000 {
+-			compatible = "mediatek,mt6789-disp-ovl";
++			compatible = "mediatek,mt6789-disp-ovl", "mediatek,mt8192-disp-ovl";
+ 			reg = <0 0x14005000 0 0x1000>;
+ 			interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
+ 			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
+@@ -1203,7 +1203,7 @@
+ 		};
+ 
+ 		rdma0: rdma@14007000 {
+-			compatible = "mediatek,mt6789-disp-rdma";
++			compatible = "mediatek,mt6789-disp-rdma", "mediatek,mt8183-disp-rdma";
+ 			reg = <0 0x14007000 0 0x1000>;
+ 			interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
+ 			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
+@@ -1214,8 +1214,63 @@
+ 			status = "disabled";
+ 		};
+ 
++		color0: color@14009000 {
++			compatible = "mediatek,mt6789-disp-color",
++				     "mediatek,mt8173-disp-color";
++			reg = <0 0x14009000 0 0x1000>;
++			interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++			clocks = <&mmsys CLK_MM_DISP_COLOR0>;
++			mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0x9000 0x1000>;
++			status = "disabled";
++		};
++
++		ccorr0: ccorr@1400b000 {
++			compatible = "mediatek,mt6789-disp-ccorr",
++				     "mediatek,mt8192-disp-ccorr";
++			reg = <0 0x1400b000 0 0x1000>;
++			interrupts = <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++			clocks = <&mmsys CLK_MM_DISP_CCORR0>;
++			mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0xb000 0x1000>;
++			status = "disabled";
++		};
++
++		aal0: aal@1400c000 {
++			compatible = "mediatek,mt6789-disp-aal",
++				     "mediatek,mt8183-disp-aal";
++			reg = <0 0x1400c000 0 0x1000>;
++			interrupts = <GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++			clocks = <&mmsys CLK_MM_DISP_AAL0>;
++			mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0xc000 0x1000>;
++			status = "disabled";
++		};
++
++		gamma0: gamma@1400d000 {
++			compatible = "mediatek,mt6789-disp-gamma",
++				     "mediatek,mt8183-disp-gamma";
++			reg = <0 0x1400d000 0 0x1000>;
++			interrupts = <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++			clocks = <&mmsys CLK_MM_DISP_GAMMA0>;
++			mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0xd000 0x1000>;
++			status = "disabled";
++		};
++
++		postmask0: postmask@1400e000 {
++			compatible = "mediatek,mt6789-disp-postmask",
++				     "mediatek,mt8192-disp-postmask";
++			reg = <0 0x1400e000 0 0x1000>;
++			interrupts = <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++			clocks = <&mmsys CLK_MM_DISP_POSTMASK0>;
++			mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0xe000 0x1000>;
++			status = "disabled";
++		};
++
+ 		dither0: dither@1400f000 {
+-			compatible = "mediatek,mt6789-disp-dither";
++			compatible = "mediatek,mt6789-disp-dither", "mediatek,mt8183-disp-dither";
+ 			reg = <0 0x1400f000 0 0x1000>;
+ 			interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
+ 			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
+-- 
+2.47.0
+

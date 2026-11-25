@@ -27,7 +27,7 @@ Rectangle {
 
     Behavior on height {
         NumberAnimation {
-            duration: MMotion.moderate
+            duration: MMotion.ms(MMotion.moderate)
             easing.type: Easing.OutCubic
         }
     }
@@ -59,7 +59,7 @@ Rectangle {
 
         Behavior on x {
             NumberAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
         }

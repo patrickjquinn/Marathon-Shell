@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt6789: Fix the dither unit address
+
+The dither block's registers are at 0x1400f000, as its reg says; the
+node name gave the DSC's address, 0x14012000, so dtc warned about a
+unit address that does not match reg and about two nodes at the same
+address.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789.dtsi b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+--- a/arch/arm64/boot/dts/mediatek/mt6789.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+@@ -1214,7 +1214,7 @@
+ 			status = "disabled";
+ 		};
+ 
+-		dither0: dither@14012000 {
++		dither0: dither@1400f000 {
+ 			compatible = "mediatek,mt6789-disp-dither";
+ 			reg = <0 0x1400f000 0 0x1000>;
+ 			interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
+-- 
+2.47.0
+

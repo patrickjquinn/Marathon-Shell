@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 07:30:00 +0000
+Subject: [PATCH] dt-bindings: display: mediatek: dsi: Add mediatek,vendor-link-timing
+
+The Minimal Phone MP01's e-paper controller, an FPGA, decodes the MT6789
+DSI link only with the horizontal blanking and D-PHY data lane timings
+MediaTek's vendor driver programs; with the mainline ones it shows
+garbled lines or a streaked picture. Describe that need on the DSI node.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/display/mediatek/mediatek,dsi.yaml | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
+@@ -71,6 +71,13 @@
+     items:
+       - const: dphy
+ 
++  mediatek,vendor-link-timing:
++    type: boolean
++    description:
++      Program the horizontal blanking word counts and the D-PHY data lane
++      timings as MediaTek's vendor driver does, for a peripheral that only
++      decodes the link with those.
++
+   port:
+     $ref: '#/$defs/output-port'
+     description:
+-- 
+2.47.0

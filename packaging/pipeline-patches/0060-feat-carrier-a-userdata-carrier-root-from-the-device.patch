@@ -1,0 +1,92 @@
+From d593507c8f5d44a443e63f8d5627c195b487d3fa Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 01:29:11 +0000
+Subject: [PATCH] feat(carrier): a userdata carrier root from the device
+ manifest
+
+The Q25's root-only layout and its mkinitfs step were keyed on
+PMOS_DEVICE = zinwa-q25, so a second phone booting the same way (the
+Minimal Phone MP01) could not get them without another device name in
+the pipeline. Key both on carrier.conf instead, which build-image.sh
+writes into mkosi.extra from the manifest's boot.carrier:
+
+- mkosi-configure.py: a tree with mkosi.extra/usr/share/marathon/
+  carrier.conf builds the root alone (Bootable disabled,
+  mkosi.repart.root-only).
+- mkosi.finalize: a root with /usr/share/marathon/carrier.conf keeps
+  its /etc and gets its own initramfs from mkinitfs.
+
+The Q25 gets the same configuration as before; its Deckard packages
+stay keyed on the device.
+---
+ mkosi.finalize             | 17 +++++++++++------
+ scripts/mkosi-configure.py | 10 ++++++----
+ 2 files changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 3d7276f..17a7b6d 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -149,8 +149,13 @@ case "$PMOS_DEVICE" in
+     purism-librem5*|pine64-pinephone) UBOOT_SCRIPT_BOOT=1 ;;
+ esac
+ 
++# A root that boots from a userdata carrier (build-image.sh writes its
++# carrier.conf from the device manifest) has its own mkinitfs initramfs.
++CARRIER_ROOT=""
++[ -f "$BUILDROOT/usr/share/marathon/carrier.conf" ] && CARRIER_ROOT=1
++
+ NEED_ETC_STASH=""
+-[ "$PMOS_DEVICE" = zinwa-q25 ] && NEED_ETC_STASH=1
++[ -n "$CARRIER_ROOT" ] && NEED_ETC_STASH=1
+ [ -n "$PI_BASE_FIRMWARE_BOOT" ] && NEED_ETC_STASH=1
+ [ -n "$UBOOT_SCRIPT_BOOT" ] && NEED_ETC_STASH=1
+ 
+@@ -980,10 +985,10 @@ EOF
+     fi
+ fi
+ 
+-# Zinwa Q25: scripts/q25/q25-userdata-image.sh copies /boot/initramfs to
+-# the phone's ESP with the kernel; make it here, as for the Pi and the
+-# Librem 5. /etc is the root's own (NEED_ETC_STASH).
+-if [ "$PMOS_DEVICE" = zinwa-q25 ]; then
++# Userdata carrier: scripts/carrier/carrier-userdata-image.sh copies
++# /boot/initramfs to the phone's ESP with the kernel; make it here, as for
++# the Pi and the Librem 5. /etc is the root's own (NEED_ETC_STASH).
++if [ -n "$CARRIER_ROOT" ]; then
+     rm -f "$BUILDROOT/in-pmbootstrap"
+     for d in proc sys dev; do
+         mkdir -p "$BUILDROOT/$d"
+@@ -994,7 +999,7 @@ if [ "$PMOS_DEVICE" = zinwa-q25 ]; then
+         umount "$BUILDROOT/$d" 2>/dev/null || true
+     done
+     if [ ! -s "$BUILDROOT/boot/initramfs" ]; then
+-        echo "error: mkinitfs made no /boot/initramfs for the Q25" >&2
++        echo "error: mkinitfs made no /boot/initramfs for $PMOS_DEVICE's carrier root" >&2
+         exit 1
+     fi
+ fi
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index 88dbd14..8d25333 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -102,10 +102,12 @@ def main() -> int:
+         # The root, the second /usr slot and its verity partition are
+         # created by systemd-repart from postmarketos-duranium's repart.d
+         # on first boot.
+-        # Zinwa Q25: the root is an ext4 file on the phone's carrier
+-        # partition, booted by the kernel, initramfs and ESP already there.
+-        # The image is that root partition alone.
+-        if device == "zinwa-q25":
++        # A userdata carrier device (the Q25, the MP01): the root is an
++        # ext4 file on the phone's carrier partition, booted by a kernel,
++        # initramfs and ESP made from its /boot. The image is that root
++        # partition alone. build-image.sh writes carrier.conf from the
++        # device's manifest.
++        if os.path.exists(os.path.join(srcdir, "mkosi.extra/usr/share/marathon/carrier.conf")):
+             config["Bootable"] = "disabled"
+             repart = config.get("RepartDirectories") or []
+             if len(repart) != 1:
+-- 
+2.55.0
+

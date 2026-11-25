@@ -1,0 +1,12 @@
+[Unit]
+Description=MT6789 FM radio receiver (CONNSYS over WMT)
+Requires=mt6789-wmt-launcher.service
+After=mt6789-wmt-launcher.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/modprobe fmradio_drv_mt6631_6635
+
+[Install]
+WantedBy=multi-user.target

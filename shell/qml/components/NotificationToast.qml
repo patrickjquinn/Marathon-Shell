@@ -274,7 +274,7 @@ Item {
             enabled: !bannerArea.pressed
 
             NumberAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.Bezier
                 easing.bezierCurve: MMotion.easingDecelerateCurve
             }
@@ -282,7 +282,7 @@ Item {
 
         Behavior on height {
             NumberAnimation {
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.Bezier
                 easing.bezierCurve: MMotion.easingDecelerateCurve
             }

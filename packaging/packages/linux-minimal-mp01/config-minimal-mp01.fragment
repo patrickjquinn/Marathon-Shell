@@ -1,0 +1,31 @@
+# The MP01's differences from config-zinwa-q25.aarch64.
+CONFIG_LOCALVERSION="-mp01"
+# Keyboard: AW9523B GPIO expander scanned by gpio-matrix-keypad.
+CONFIG_PINCTRL_AW9523=m
+CONFIG_KEYBOARD_MATRIX=m
+# FocalTech FT5446U touchscreen.
+CONFIG_TOUCHSCREEN_EDT_FT5X06=m
+# NXP PN8x NFC controller.
+CONFIG_NFC_NXP_NCI=m
+CONFIG_NFC_NXP_NCI_I2C=m
+# Frontlight: the white LEDs on DISP_PWM, the warm ones on the general PWM.
+CONFIG_PWM=y
+CONFIG_PWM_MTK_DISP=m
+CONFIG_BACKLIGHT_PWM=m
+CONFIG_PWM_MEDIATEK=m
+CONFIG_LEDS_PWM=m
+# The phone has no UART and no early display: keep the console in the
+# ramoops region LK reserves, built in so an early crash is caught.
+CONFIG_PSTORE_RAM=y
+CONFIG_PSTORE_CONSOLE=y
+CONFIG_PSTORE_PMSG=y
+# The e-paper module: a Pango CPLD fed over DSI, controlled over I2C.
+CONFIG_DRM_PANEL_MINIMAL_Z10_EINK=m
+# The e-paper scans out landscape on a portrait phone: fbcon follows
+# fbcon=rotate:3 and the panel's orientation only with rotation built in.
+CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y
+# Btrfs's boot-time self-tests are a debug aid; they hold up every boot.
+# CONFIG_BTRFS_FS_RUN_SANITY_TESTS is not set
+# The MT6375 SubPMIC and its charger.
+CONFIG_MFD_MT6375=m
+CONFIG_CHARGER_MT6375=m

@@ -79,6 +79,10 @@ void KeelTheme::update()
         set(m_fontFamily, a->property("fontFamily").toString());
         set(m_fontFamilyHeading, a->property("fontFamilyHeading").toString());
         set(m_backgroundImage, a->property("backgroundImage").toString());
+        if (const bool paged = a->property("pagedScrolling").toBool(); paged != m_pagedScrolling) {
+            m_pagedScrolling = paged;
+            emit pagedScrollingChanged();
+        }
     }
 
     set(m_screenWidth, static_cast<qreal>(screenWidth(m_screen)));

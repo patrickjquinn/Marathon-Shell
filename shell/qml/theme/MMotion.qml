@@ -11,7 +11,7 @@ QtObject {
     readonly property int xs: fast
     readonly property int sm: normal
 
-    readonly property int micro: 80
+    readonly property int micro: instant ? 0 : 80
     readonly property int quick: 160
     readonly property int moderate: 240
 
@@ -140,14 +140,25 @@ QtObject {
     readonly property int tapTimeout: 100
     readonly property real pagerFlickVelocity: 10000
 
-    // Settings → Accessibility → Reduce motion. Components go through dur().
-    property bool reduceMotion: typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true)
+    // Settings → Accessibility → Reduce motion, always on e-paper, which
+    // ghosts under animation. Components go through dur().
+    property bool reduceMotion: (typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "epaper") || (typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true))
+
+    // E-paper: no motion at all. A fade is a run of partial updates through
+    // the greys, which ghosts, so every state change is a cut.
+    property bool instant: typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "epaper"
+    // E-paper's swipes turn at this share of the view (MEinkSwipe).
+    readonly property real swipeShare: 0.1
+    // A hard-coded duration, or none on e-paper.
+    function ms(duration) {
+        return instant ? 0 : duration;
+    }
 
     function dur(token) {
-        return reduceMotion ? micro : token;
+        return instant ? 0 : reduceMotion ? micro : token;
     }
     // Reduce motion removes travel and scale and keeps short fades.
-    readonly property int reducedFade: 150
+    readonly property int reducedFade: instant ? 0 : 150
     function travel(px) {
         return reduceMotion ? 0 : px;
     }
@@ -399,7 +410,7 @@ QtObject {
         return r ? r : roles["tap"];
     }
     function durationFor(role) {
-        return reduceMotion ? micro : _role(role).duration;
+        return instant ? 0 : reduceMotion ? micro : _role(role).duration;
     }
     function easingFor(role) {
         return reduceMotion ? Easing.OutQuad : _role(role).easing;

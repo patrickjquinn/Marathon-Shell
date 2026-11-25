@@ -1,0 +1,47 @@
+# MP01 deviceinfo, initramfs modules and kernel command line. The kernel is
+# its own aport; scripts/build-minimal-mp01-image.sh names it from here.
+pkgname=device-minimal-mp01
+pkgdesc="Minimal Phone MP01"
+pkgver=1
+pkgrel=3
+url="https://github.com/patrickjquinn/Marathon-Shell"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+# Kernel release 7.0.0-mp01; its out-of-tree modules carry that vermagic.
+_kernel=linux-minimal-mp01
+depends="
+	$_kernel>=7.0.0
+	postmarketos-base
+	make-dynpart-mappings
+	systemd-boot
+	python3
+"
+makedepends="devicepkg-dev"
+source="
+	deviceinfo
+	kernel-cmdline.conf
+	modules-initfs
+	mp01-mark-boot-successful
+	mp01-mark-boot-successful.service
+"
+
+build() {
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+	install -Dm755 "$srcdir/mp01-mark-boot-successful" "$pkgdir/usr/libexec/marathon/mp01-mark-boot-successful"
+	install -Dm644 "$srcdir/mp01-mark-boot-successful.service" "$pkgdir/usr/lib/systemd/system/mp01-mark-boot-successful.service"
+	install -d "$pkgdir/usr/lib/systemd/system/graphical.target.wants"
+	ln -s ../mp01-mark-boot-successful.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/mp01-mark-boot-successful.service"
+}
+
+sha512sums="
+2b5815fe00b364d2c481d56ee13ee41b93b670be50fe0db6aa4818ad2ec6dca6df64b59073e1709b025948a21ef99649eb3ab2dfbd8fb3f7ea074235e5aade5e  deviceinfo
+db74e4792ddadf7abe40acc5b94c98e67ef8e62af8b72882e77d5cb633b2235dc46133b744a02823901d1afef358d89f7e0ef9c6b5bb0b1d683814894544ae3b  kernel-cmdline.conf
+7954584fb56ea448d5f3242affc5f4dc43f72c65b96ff2b91b456ec5f9bdc24faffb73019b36b8de06197faf1abe5f57162ea4edf536d03cefa006950b19197e  modules-initfs
+8cec44f7b844f1e30f67f3042ada87163f3e7b9b42bcd04ac6ba9e88ea1c830adecea7eeab5fcc080c06856212b622ecf6d895130d99a1f7aaea4f81f693ec62  mp01-mark-boot-successful
+75c68a8ed8d47038ac282b5858c4909684b06f93266b5f24eff9e8ad6fc94aba0c27285506ef688e6e056cbed2c802467472bfacd84543e0df60ecf32f1c26b4  mp01-mark-boot-successful.service
+"

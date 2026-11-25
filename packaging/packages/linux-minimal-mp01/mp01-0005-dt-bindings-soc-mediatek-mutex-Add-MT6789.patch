@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] dt-bindings: soc: mediatek: mutex: Add MT6789
+
+The MT6789 display mutex has the MT8186's module and SOF layout, so it
+falls back to mediatek,mt8186-disp-mutex. The binding only listed
+single compatibles; add the pair.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/Documentation/devicetree/bindings/soc/mediatek/mediatek,mutex.yaml b/Documentation/devicetree/bindings/soc/mediatek/mediatek,mutex.yaml
+--- a/Documentation/devicetree/bindings/soc/mediatek/mediatek,mutex.yaml
++++ b/Documentation/devicetree/bindings/soc/mediatek/mediatek,mutex.yaml
+@@ -23,21 +23,25 @@
+ 
+ properties:
+   compatible:
+-    enum:
+-      - mediatek,mt2701-disp-mutex
+-      - mediatek,mt2712-disp-mutex
+-      - mediatek,mt6795-disp-mutex
+-      - mediatek,mt8167-disp-mutex
+-      - mediatek,mt8173-disp-mutex
+-      - mediatek,mt8183-disp-mutex
+-      - mediatek,mt8186-disp-mutex
+-      - mediatek,mt8186-mdp3-mutex
+-      - mediatek,mt8188-disp-mutex
+-      - mediatek,mt8188-vpp-mutex
+-      - mediatek,mt8192-disp-mutex
+-      - mediatek,mt8195-disp-mutex
+-      - mediatek,mt8195-vpp-mutex
+-      - mediatek,mt8365-disp-mutex
++    oneOf:
++      - enum:
++          - mediatek,mt2701-disp-mutex
++          - mediatek,mt2712-disp-mutex
++          - mediatek,mt6795-disp-mutex
++          - mediatek,mt8167-disp-mutex
++          - mediatek,mt8173-disp-mutex
++          - mediatek,mt8183-disp-mutex
++          - mediatek,mt8186-disp-mutex
++          - mediatek,mt8186-mdp3-mutex
++          - mediatek,mt8188-disp-mutex
++          - mediatek,mt8188-vpp-mutex
++          - mediatek,mt8192-disp-mutex
++          - mediatek,mt8195-disp-mutex
++          - mediatek,mt8195-vpp-mutex
++          - mediatek,mt8365-disp-mutex
++      - items:
++          - const: mediatek,mt6789-disp-mutex
++          - const: mediatek,mt8186-disp-mutex
+ 
+   reg:
+     maxItems: 1
+-- 
+2.47.0
+

@@ -3354,6 +3354,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-eink"
+version = "0.1.0"
+
+[[package]]
 name = "marathon-gnssd"
 version = "0.1.0"
 dependencies = [
@@ -3532,6 +3536,7 @@ dependencies = [
  "inotify",
  "libc",
  "marathon-apps",
+ "marathon-eink",
  "marathon-i18n",
  "marathon-permissions",
  "marathon-qt",

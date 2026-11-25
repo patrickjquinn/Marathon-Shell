@@ -1,0 +1,102 @@
+From 2740ff3351f21c1d0d5f2b04bcc1680b54de5c53 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 22:00:00 +0000
+Subject: [PATCH 5/5] arm64: dts: mediatek: mt6789-minimal-mp01: Charge from
+ the MT6375
+
+The MP01 charges through the MT6375 at 0x34 on I2C5, whose interrupt
+is GPIO4, level low with the pull-up the factory pin table sets. The
+bus runs at 400 kHz rather than the factory 1 MHz, plenty for a few
+register writes per plug.
+
+The pack's stock charge voltage is 4.465 V at up to 2.5 A, with
+charging stopped outside 0-55 C. Nothing reads the pack's temperature
+here yet, so the battery takes the factory base DT's 4.35 V, 1.5 A and
+the stock 150 mA termination until that exists. The gauge follows the
+charger's state through power-supplies, which also lets it take a full
+charge as 100%.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt6789-minimal-mp01.dts | 37 ++++++++++++++++++-
+ 1 file changed, 36 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+index 147e322..1f294d5 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+@@ -242,6 +242,11 @@
+ 	 * OCV curve and its capacity, the 4.465 V charge voltage of the Z10
+ 	 * charger node, the gauge's 70 mOhm meter resistance and 3.4 V
+ 	 * shutdown level. The pack itself is not identified.
++	 *
++	 * The stock charger takes it to that voltage at up to 2.5 A and stops
++	 * outside 0-55 C. Nothing reads the pack's temperature here yet, so
++	 * it charges to the factory base DT's 4.35 V at 1.5 A, ending at the
++	 * stock 150 mA.
+ 	 */
+ 	battery: battery {
+ 		compatible = "simple-battery";
+@@ -249,7 +254,9 @@
+ 		charge-full-design-microamp-hours = <3112000>;
+ 		voltage-min-design-microvolt = <3400000>;
+ 		voltage-max-design-microvolt = <4465000>;
+-		constant-charge-voltage-max-microvolt = <4465000>;
++		constant-charge-voltage-max-microvolt = <4350000>;
++		constant-charge-current-max-microamp = <1500000>;
++		charge-term-current-microamp = <150000>;
+ 		factory-internal-resistance-micro-ohms = <70000>;
+ 		ocv-capacity-celsius = <25>;
+ 		ocv-capacity-table-0 = <4439000 100>, <4429783 99>, <4408063 98>,
+@@ -739,6 +746,7 @@
+ 			compatible = "mediatek,mt6358-gauge";
+ 			io-channels = <&pmic_adc MT6358_AUXADC_BATADC>;
+ 			monitored-battery = <&battery>;
++			power-supplies = <&charger>;
+ 			shunt-resistor-micro-ohms = <4950>;
+ 		};
+ 	};
+@@ -775,6 +783,14 @@
+ 			bias-pull-up;
+ 		};
+ 	};
++
++	subpmic_pins: subpmic-default-state {
++		pins-irq {
++			pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
++			input-enable;
++			bias-pull-up;
++		};
++	};
+ };
+ 
+ /*
+@@ -813,6 +829,25 @@
+ 	};
+ };
+ 
++/* The MT6375 charger and Type-C controller; its Type-C side is not described yet. */
++&i2c5 {
++	clock-frequency = <400000>;
++	status = "okay";
++
++	pmic@34 {
++		compatible = "mediatek,mt6375";
++		reg = <0x34>;
++		interrupts-extended = <&pio 4 IRQ_TYPE_LEVEL_LOW>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&subpmic_pins>;
++
++		charger: charger {
++			compatible = "mediatek,mt6375-charger";
++			monitored-battery = <&battery>;
++		};
++	};
++};
++
+ &i2c6 {
+ 	clock-frequency = <100000>;
+ 	status = "okay";
+-- 
+2.55.0
+

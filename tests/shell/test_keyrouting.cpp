@@ -25,11 +25,31 @@ class TestKeyRouting : public QObject {
         QCOMPARE(KeyRouting::systemAction(0, QString(), 445 + 8), KeyRouting::Call);
         QCOMPARE(KeyRouting::systemAction(0, QString(), 446 + 8), KeyRouting::Hangup);
         QCOMPARE(KeyRouting::systemAction(Qt::Key_Menu, QString(), 139 + 8), KeyRouting::Home);
-        // The older driver: KEY_APPSELECT for end, KEY_HOMEPAGE for the menu key.
-        QCOMPARE(KeyRouting::systemAction(0, QString(), 580 + 8), KeyRouting::Hangup);
+        // The older driver: KEY_HOMEPAGE for the menu key.
         QCOMPARE(KeyRouting::systemAction(Qt::Key_HomePage, QString(), 172 + 8), KeyRouting::Home);
         // Any other keyboard's hang-up key.
         QCOMPARE(KeyRouting::systemAction(Qt::Key_Hangup, QString()), KeyRouting::End);
+    }
+    void keysUnderTheScreen() {
+        // The MP01's back, home and recents: KEY_BACK, KEY_HOMEPAGE, KEY_APPSELECT.
+        QCOMPARE(KeyRouting::systemAction(Qt::Key_Back, QString(), 158 + 8), KeyRouting::Back);
+        QCOMPARE(KeyRouting::systemAction(Qt::Key_HomePage, QString(), 172 + 8), KeyRouting::Home);
+        // Recents never ends a call.
+        QCOMPARE(KeyRouting::systemAction(0, QString(), 580 + 8), KeyRouting::Switcher);
+    }
+    void keysReadFromTheTouchscreen() {
+        // As the touchscreen reader delivers them: its Qt key, evdev + 8.
+        const auto action = [](quint16 code) {
+            return KeyRouting::systemAction(KeyRouting::touchscreenKey(code), QString(), code + 8);
+        };
+        QCOMPARE(action(158), KeyRouting::Back);
+        QCOMPARE(action(172), KeyRouting::Home);
+        QCOMPARE(action(580), KeyRouting::Switcher);
+        // Touch itself and the pen's tools stay with the touch reader.
+        QCOMPARE(KeyRouting::touchscreenKey(0x14a), -1); // BTN_TOUCH
+        QCOMPARE(KeyRouting::touchscreenKey(0x145), -1); // BTN_TOOL_FINGER
+        QCOMPARE(KeyRouting::touchscreenKey(0x220), -1); // BTN_DPAD_UP
+        QCOMPARE(KeyRouting::touchscreenKey(0x2c0), -1); // BTN_TRIGGER_HAPPY
     }
     void pcMenuKeyIsNotHome() {
         // KEY_COMPOSE also maps to Qt::Key_Menu.

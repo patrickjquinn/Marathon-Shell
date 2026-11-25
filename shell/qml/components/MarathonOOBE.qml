@@ -156,12 +156,12 @@ Item {
 
                 NumberAnimation {
                     to: 1
-                    duration: 4000
+                    duration: MMotion.ms(4000)
                     easing.type: Easing.InOutSine
                 }
                 NumberAnimation {
                     to: 0.6
-                    duration: 4000
+                    duration: MMotion.ms(4000)
                     easing.type: Easing.InOutSine
                 }
             }
@@ -373,14 +373,14 @@ Item {
             target: oobeRoot
             property: "exitShrink"
             to: MMotion.reduceMotion ? 0 : 1
-            duration: exit.length
+            duration: MMotion.ms(exit.length)
             easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: oobeRoot
             property: "opacity"
             to: 0
-            duration: exit.length
+            duration: MMotion.ms(exit.length)
             easing.type: Easing.OutCubic
         }
     }

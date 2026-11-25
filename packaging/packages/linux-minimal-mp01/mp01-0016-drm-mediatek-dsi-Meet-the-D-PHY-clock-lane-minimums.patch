@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 21:20:00 +0000
+Subject: [PATCH] drm/mediatek: dsi: Meet the D-PHY clock lane minimums
+
+The clock lane timings are derived from clk_hs_prepare, which truncates
+to a single byte clock at low data rates. At the Minimal Phone MP01's
+208 Mbit/s that gives a 38 ns TCLK-TRAIL and 192 ns of TCLK-PREPARE plus
+TCLK-ZERO, short of the 60 ns and 300 ns the D-PHY specification asks
+for. The MP01's bootloader and vendor kernel run that link with a zero
+time of 8 and a trail time of 2 byte clocks.
+
+Raise the trail and zero times to those minimums, which gives the same 8
+and 2 there. Faster links already meet them and keep their timings: at
+the Zinwa Q25's 652 Mbit/s the clock lane is still 5/20/5/10 byte clocks.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -265,8 +265,12 @@
+ 
+ 	timing->clk_hs_prepare = 70 * data_rate_mhz / (8 * 1000);
+ 	timing->clk_hs_post = timing->clk_hs_prepare + 8;
+-	timing->clk_hs_trail = timing->clk_hs_prepare;
+-	timing->clk_hs_zero = timing->clk_hs_trail * 4;
++	/* D-PHY: TCLK-TRAIL >= 60 ns, TCLK-PREPARE + TCLK-ZERO >= 300 ns */
++	timing->clk_hs_trail = max(timing->clk_hs_prepare,
++				   DIV_ROUND_UP(60 * data_rate_mhz, 8 * 1000));
++	timing->clk_hs_zero = max(timing->clk_hs_trail * 4,
++				  DIV_ROUND_UP(300 * data_rate_mhz, 8 * 1000) -
++				  timing->clk_hs_prepare);
+ 	timing->clk_hs_exit = 2 * timing->clk_hs_trail;
+ 
+ 	timcon0 = FIELD_PREP(LPX, timing->lpx) |
+-- 
+2.47.0

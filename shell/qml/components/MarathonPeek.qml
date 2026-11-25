@@ -252,19 +252,17 @@ Item {
             }
 
             // Resting on the icons, a drag carries on to the Hub or back shut.
-            DragHandler {
-                target: null
+            MAxisDrag {
                 enabled: peekComponent.iconsShown
-                yAxis.enabled: false
                 onActiveChanged: {
                     if (active)
-                        peekComponent.startPeekGesture(centroid.position.x);
+                        peekComponent.startPeekGesture(along(centroid.scenePosition));
                     else
                         peekComponent.endPeekGesture();
                 }
                 onTranslationChanged: {
                     if (active)
-                        peekComponent.updatePeekGesture(activeTranslation.x);
+                        peekComponent.updatePeekGesture(travel());
                 }
             }
         }
@@ -293,26 +291,24 @@ Item {
                 }
             }
 
-            DragHandler {
-                target: null
+            MAxisDrag {
                 enabled: peekComponent.isFullyOpen
-                yAxis.enabled: false
                 onActiveChanged: {
                     if (active) {
-                        peekComponent.startPeekGesture(centroid.position.x);
+                        peekComponent.startPeekGesture(along(centroid.scenePosition));
                         return;
                     }
                     peekComponent.endPeekGesture();
                 }
                 onTranslationChanged: {
                     if (active)
-                        peekComponent.updatePeekGesture(Math.min(0, activeTranslation.x));
+                        peekComponent.updatePeekGesture(Math.min(0, travel()));
                 }
             }
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 150
+                    duration: MMotion.ms(150)
                     easing.type: Easing.OutCubic
                 }
             }

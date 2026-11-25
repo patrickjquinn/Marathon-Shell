@@ -79,9 +79,12 @@ Item {
 
     height: Constants.bottomBarHeight
 
+    // Over a wallpaper only: e-paper's home is flat paper.
     Rectangle {
+        objectName: "dockScrim"
         anchors.fill: parent
         z: Constants.zIndexBackground
+        visible: !MColors.eink
         gradient: Gradient {
             GradientStop {
                 position: 0
@@ -167,7 +170,7 @@ Item {
 
                 Behavior on width {
                     NumberAnimation {
-                        duration: MMotion.quick
+                        duration: MMotion.ms(MMotion.quick)
                         easing.type: MMotion.easingFor("tap")
                     }
                 }

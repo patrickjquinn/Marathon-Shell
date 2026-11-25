@@ -26,7 +26,9 @@ Item {
         width: Silica.Theme.itemSizeHuge * 1.6
         height: width
         radius: width / 2
-        color: Silica.Theme.rgba("black", 0.72)
+        color: MColors.eink ? MColors.background : Silica.Theme.rgba("black", 0.72)
+        border.width: MColors.eink ? 1 : 0
+        border.color: Silica.Theme.primaryColor
         opacity: 0
         scale: 0.9
 

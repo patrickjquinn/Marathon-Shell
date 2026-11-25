@@ -134,6 +134,56 @@ TestCase {
         verify(!UIStore.quickSettingsOpen);
     }
 
+    SignalSpy {
+        id: heightSpy
+
+        target: UIStore
+        signalName: "quickSettingsHeightChanged"
+    }
+
+    // E-paper: the shade never follows the finger. A short swipe up at its
+    // end leaves it as drawn; past a tenth of it, it closes in one cut.
+    function test_epaperShadeClosesInOneCut_data() {
+        return [
+            {
+                tag: "short",
+                dy: -25,
+                closes: false
+            },
+            {
+                tag: "past a tenth",
+                dy: -120,
+                closes: true
+            },
+            {
+                tag: "past a tenth in one update",
+                dy: -120,
+                closes: true,
+                oneUpdate: true
+            }
+        ];
+    }
+
+    function test_epaperShadeClosesInOneCut(data) {
+        MMotion.instant = true;
+        const f = scroll();
+        f.contentY = f.contentHeight - f.height;
+        heightSpy.clear();
+        if (data.oneUpdate) {
+            // Nothing redraws during the swipe: one update at release.
+            const touch = touchEvent(qs);
+            touch.press(0, qs, 360, 300).commit();
+            wait(400);
+            touch.move(0, qs, 360, 300 + data.dy).commit();
+            touch.release(0, qs, 360, 300 + data.dy).commit();
+        } else {
+            touchDrag(300, data.dy, 360);
+        }
+        compare(heightSpy.count, data.closes ? 1 : 0);
+        compare(UIStore.quickSettingsOpen, !data.closes);
+        MMotion.instant = false;
+    }
+
     function test_swipeDownAtTheEndScrollsBack_data() {
         return test_swipeUpScrollsOverflowingContent_data();
     }
@@ -269,6 +319,30 @@ TestCase {
         mouseClick(track, track.width * 0.137, track.height / 2);
         verify(Number.isInteger(SystemControlStore.volume), "volume " + SystemControlStore.volume);
         compare(slider.value, SystemControlStore.volume);
+    }
+
+    // The night light warms a front light by the warmth under brightness,
+    // shown only on a device with one and while the night light is on.
+    function test_warmthSliderWithAWarmLightAtNight() {
+        fit.height = 5000;
+        UIStore.quickSettingsHeight = qs.maxHeight;
+        const slider = findChild(qs, "warmthSlider");
+        verify(!slider.visible);
+        SystemControlStore.isNightLightOn = true;
+        verify(!slider.visible, "no warm light");
+        SystemControlStore.hasWarmLight = true;
+        verify(slider.visible);
+        compare(slider.value, 61);
+        // The column places it on the next polish.
+        wait(50);
+        const track = findChild(slider, "sliderTrack");
+        mouseClick(track, track.width * 0.25, track.height / 2);
+        compare(SystemControlStore.nightLightWarmth, 25);
+        compare(slider.value, 25);
+        SystemControlStore.isNightLightOn = false;
+        verify(!slider.visible);
+        SystemControlStore.hasWarmLight = false;
+        SystemControlStore.nightLightWarmth = 61;
     }
 
     function test_verticalSwipeOnSliderScrolls_data() {

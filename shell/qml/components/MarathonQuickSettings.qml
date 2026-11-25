@@ -106,26 +106,42 @@ Item {
     // Drag inside the shade for "follow-finger then snap" close. Grabs
     // the shade chrome (NOT tiles/sliders) and shrinks quickSettingsHeight
     // per-frame as the finger moves up; snaps open/closed on release.
-    DragHandler {
+    MAxisDrag {
         id: dismissDrag
-        target: null
         // Overflowing content scrolls first; the shade closes from its end.
         // Held while active: shrinking the shade moves atYEnd.
-        enabled: active || !shadeScroll.interactive || shadeScroll.atYEnd
-        yAxis.enabled: true
-        xAxis.enabled: false
+        // E-paper pages the content (einkScroll), which closes past its end.
+        enabled: active || !shadeScroll.overflows || (!MMotion.instant && shadeScroll.atYEnd)
+        horizontal: false
         property real startY: 0
         property real startHeight: 0
+        // E-paper: the shade stays put, and closes in one cut once the swipe
+        // up passes a share of it.
+        function closeOnPaper() {
+            if (UIStore.quickSettingsOpen && startY - along(centroid.scenePosition) > startHeight * MMotion.swipeShare) {
+                UIStore.quickSettingsDragging = false;
+                UIStore.closeQuickSettings();
+            }
+        }
         onActiveChanged: {
             if (active) {
-                startY = centroid.position.y;
+                startY = along(MMotion.instant ? centroid.scenePressPosition : centroid.scenePosition);
                 // From where the shade is drawn: a settle in flight is caught, not skipped.
                 startHeight = quickSettings.drawnHeight;
                 UIStore.quickSettingsDragging = true;
+                // E-paper: the whole swipe may arrive in this one update.
+                if (MMotion.instant)
+                    closeOnPaper();
             } else {
                 UIStore.quickSettingsDragging = false;
-                const dy = centroid.position.y - startY;
-                const vy = centroid.velocity.y;
+                const dy = along(centroid.scenePosition) - startY;
+                const vy = speed();
+                // E-paper: a swipe up closed it already, or a flick does now.
+                if (MMotion.instant) {
+                    if (vy < -800)
+                        UIStore.closeQuickSettings();
+                    return;
+                }
                 // Fling up OR more than a third of the shade swept up → close.
                 if (vy < -800 || -dy > startHeight * 0.33)
                     UIStore.closeQuickSettings();
@@ -136,7 +152,11 @@ Item {
         onCentroidChanged: {
             if (!active)
                 return;
-            const dy = centroid.position.y - startY;
+            const dy = along(centroid.scenePosition) - startY;
+            if (MMotion.instant) {
+                closeOnPaper();
+                return;
+            }
             if (dy >= 0) {
                 // pull-down past open → iOS rubber-band resistance
                 const c = 0.55;
@@ -279,7 +299,19 @@ Item {
                 label: qsTr("Pointer"),
                 on: SettingsManagerCpp.trackpadMode === "mouse"
             });
-        return enabledOnly(t);
+        // E-paper's own control, first and always there: the flashing
+        // clear that takes the ghosts away (docs/design/EINK_MODE.md).
+        const refresh = Display.refreshControls ? [
+            {
+                id: "refresh",
+                route: "display",
+                icon: "arrows-clockwise",
+                label: qsTr("Refresh"),
+                status: qsTr("Clear ghosting"),
+                on: false
+            }
+        ] : [];
+        return refresh.concat(enabledOnly(t));
     }
     // Switches in pages of three across by three. Paged by id: statuses change
     // every few seconds, and a page made of the tiles themselves would rebuild
@@ -352,7 +384,7 @@ Item {
                 width: Silica.Theme.itemSizeExtraSmall * 0.75
                 height: width
                 radius: width / 2
-                color: shortcutMouse.pressed ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
+                color: shortcutMouse.pressed ? MColors.whiteOverlay16 : MColors.controlFill
 
                 GlyphIcon {
                     anchors.centerIn: parent
@@ -433,7 +465,7 @@ Item {
         anchors.fill: parent
         // Clipping forces a scissor and breaks batching across the whole
         // shade, and `content` animates its opacity while the shade opens.
-        clip: interactive
+        clip: overflows
         contentHeight: content.y + content.height + Silica.Theme.paddingLarge
         boundsBehavior: Flickable.StopAtBounds
         flickDeceleration: MMotion.flickDecelerationFast
@@ -441,7 +473,16 @@ Item {
 
         // Gated on the open height, not the animating one, so it does not
         // flip while the shade opens.
-        interactive: quickSettings.maxHeight > 0 && contentHeight > quickSettings.maxHeight
+        readonly property bool overflows: quickSettings.maxHeight > 0 && contentHeight > quickSettings.maxHeight
+        interactive: overflows && !MMotion.instant
+
+        MEinkScroll {
+            flickable: shadeScroll
+            onBeyond: step => {
+                if (step > 0)
+                    UIStore.closeQuickSettings();
+            }
+        }
 
         // The shade is hidden, not destroyed: reopen at the top.
         onVisibleChanged: if (!visible) {
@@ -635,6 +676,15 @@ Item {
                     onMoved: v => SystemControlStore.setBrightnessFromUser(v)
                 }
                 MQSSlider {
+                    objectName: "warmthSlider"
+                    visible: SystemControlStore.hasWarmLight && SystemControlStore.isNightLightOn
+                    width: parent.width
+                    iconName: "moon"
+                    a11yName: qsTr("Warmth")
+                    value: SystemControlStore.nightLightWarmth
+                    onMoved: v => SystemControlStore.setNightLightWarmth(v)
+                }
+                MQSSlider {
                     objectName: "volumeSlider"
                     width: parent.width
                     iconName: "speaker-high"
@@ -749,6 +799,11 @@ Item {
             break;
         case "trackpad":
             SettingsManagerCpp.trackpadMode = SettingsManagerCpp.trackpadMode === "mouse" ? "gesture" : "mouse";
+            break;
+        case "refresh":
+            // The clear waits for a still screen, so the shade is gone from it.
+            quickSettings.closed();
+            Display.fullRefresh();
             break;
         case "settings":
             quickSettings.closed();

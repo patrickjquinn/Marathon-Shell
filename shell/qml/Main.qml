@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import QtQuick
 import QtQuick.Window
 
@@ -15,7 +16,7 @@ Window {
     height: 844
     visible: true
     title: "Marathon OS - Bandit"  // i18n: not user-facing
-    color: "#000000"
+    color: MColors.eink ? MColors.background : "#000000"
 
     MarathonShell {
         anchors.fill: parent

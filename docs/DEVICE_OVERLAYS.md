@@ -126,6 +126,9 @@ location (for host testing).
 | `PANEL_DEPTH` | `MARATHON_PANEL_DEPTH` | `8` | Bits per colour channel the panel shows; below 8 the shell dithers the whole frame (the HackberryPi's RP1 DPI is wired BGR666 and doesn't dither) |
 | `TOUCH_FILTER` | `MARATHON_TOUCH_FILTER` | `0` | The shell reads touchscreens with Qt's evdevtouch on its own thread (libinput ignores them, `71-marathon-touch.rules`) and applies each report as it comes, without Qt Quick's touch compression. `1` smooths them with evdevtouch's Kalman filter, one point a frame: even steps, about 60 ms more lag |
 | `TOUCH_PARAMS` | `MARATHON_TOUCH_PARAMS` | empty | Extra evdevtouch parameters for a panel whose touch axes don't match the display, colon-separated: `rotate=90\|180\|270`, `invertx`, `inverty`, `prediction=<ms>` |
+| `DISPLAY_TECHNOLOGY` | `MARATHON_DISPLAY_TECHNOLOGY` | `lcd` | `lcd` \| `oled` \| `epaper`; on `epaper` the shell always reduces motion |
+| `PANEL_ORIENTATION` | `MARATHON_PANEL_ORIENTATION` | `none` | `kms` = the compositor reads the DRM connector's `panel orientation` (which the panel driver sets from the DT `rotation`), turns the scene upright and advertises the matching `wl_output` transform; touch must report in the scanout's frame (DT `touchscreen-swapped-x-y` / `-inverted-*`). `none` ignores it |
+| `FRONTLIGHT_WARM` | `MARATHON_FRONTLIGHT_WARM` | unset | A front light's warm LEDs, e.g. `/sys/class/leds/amber:frontlight`: the night light crossfades the white string (the backlight) into them by its warmth instead of tinting the frame. Needs group `video` write on the LED's `brightness` (`udev/70-marathon-shell.rules`, for LEDs named `*:frontlight`) |
 | `FORCE_DPI` | `MARATHON_FORCE_DPI` | unset | Read by marathon-shell-session; pins the shell's DPI and so its scale factor (= DPI/160) |
 
 A manifest's `[profile]` writes each key in lower case with TOML types
@@ -218,7 +221,14 @@ validated in isolation.
    RS9116 out-of-tree patch).
 4. **Partition/boot**: add a `mkosi.repart.<device>/` if the layout differs,
    and a `mkosi.finalize` branch + `build-image.py` disk-surgery branch if the
-   device needs raw-kernel boot composition.
+   device needs raw-kernel boot composition. An Android phone whose stock
+   bootloader chain-loads U-Boot (the Q25, the MP01) needs none of these: give
+   the manifest a `[boot.carrier]` (`name`, the board `dtb`) and
+   `bootloader = "none"`. The image is then the root alone, with its own
+   initramfs and the shared hook from `packaging/carrier/`, and
+   `scripts/carrier/carrier-userdata-image.sh` makes the `userdata` image: an
+   ESP from the root's `/boot` and the root as a file on a carrier partition,
+   booted by `<name>.rootfs_file=` (pipeline patch 0060).
 5. **Register selection**: ensure `mkosi-configure.py` recognises the device
    (bootloader type, kernel pin) and that its overlay `.apk` lands in
    `mkosi.packages/`.

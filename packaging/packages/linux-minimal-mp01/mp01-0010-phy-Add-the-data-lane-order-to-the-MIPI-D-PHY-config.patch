@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 20:20:00 +0000
+Subject: [PATCH] phy: Add the data lane order to the MIPI D-PHY configuration
+
+A DSI host that reads its board's lane order from the data-lanes
+property has no way to give it to a separate D-PHY, which is where
+MediaTek's lane routing lives. phy_configure_opts_mipi_dphy assumes the
+lanes run in order from lane 0.
+
+Add data_lanes, numbered as in DT, from 1. All zero means in order,
+which is what every existing caller passes when it zeroes the options.
+PHYs that cannot route lanes ignore the field.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ include/linux/phy/phy-mipi-dphy.h |   9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/include/linux/phy/phy-mipi-dphy.h b/include/linux/phy/phy-mipi-dphy.h
+--- a/include/linux/phy/phy-mipi-dphy.h
++++ b/include/linux/phy/phy-mipi-dphy.h
+@@ -273,6 +273,15 @@
+ 	 * lane 0, used for the transmissions.
+ 	 */
+ 	unsigned char		lanes;
++
++	/**
++	 * @data_lanes:
++	 *
++	 * Physical data lane that carries each of the @lanes logical
++	 * data lanes, numbered from 1 as in the data-lanes property of
++	 * video-interfaces.yaml. All zero means the lanes are in order.
++	 */
++	unsigned char		data_lanes[4];
+ };
+ 
+ int phy_mipi_dphy_get_default_config(unsigned long pixel_clock,
+-- 
+2.55.0

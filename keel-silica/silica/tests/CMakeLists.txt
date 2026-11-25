@@ -20,6 +20,13 @@ add_test(NAME keel_silica_qml
 set_tests_properties(keel_silica_qml PROPERTIES
     ENVIRONMENT "${_keel_test_env}" TIMEOUT 300)
 
+# Theme.pagedScrolling: lists page a swipe at a time (Marathon's e-paper).
+add_test(NAME keel_silica_pagedscrolling
+    COMMAND ${KEEL_QMLTESTRUNNER} -import "${KEEL_QML_OUTPUT_DIR}"
+            -input "${CMAKE_CURRENT_SOURCE_DIR}/pagedscrolling")
+set_tests_properties(keel_silica_pagedscrolling PROPERTIES
+    ENVIRONMENT "${_keel_test_env};KEEL_THEME_PAGED_SCROLLING=true" TIMEOUT 120)
+
 # Ambience plumbing: keel-shell style forwarded dconf keys plus a
 # KEEL_THEME_ override, read by the Rust Ambience object.
 add_test(NAME keel_silica_ambience_env

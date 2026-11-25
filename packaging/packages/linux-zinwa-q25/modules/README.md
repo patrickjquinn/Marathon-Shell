@@ -19,7 +19,9 @@ tree (`build.sh`, run from its APKBUILD) and ships as `q25-kernel-modules`.
 tree before `0001`, `0003` and `0004`; `0002` applies to the donor's
 `wlan_drv_gen4m_6789` and `wmt_chrdev_wifi` directories.
 
-`MT6789_SOUND=DIR build.sh KSRC KOBJ DONOR OUT` builds all of them; the
+`MT6789_SOUND=DIR build.sh KSRC KOBJ DONOR OUT` builds all of them
+(`BOARD=mp01` builds the MT6789 sets, CONNSYS, modem and audio, for
+`linux-minimal-mp01`); the
 kernel APKBUILD fetches the two donor trees (mindone `9cd73c15` and the
 mt6789-sound files at `996ec481`) and installs the result under
 `/usr/lib/modules/7.0.0-q25/extra/`. Every module carries the kernel's

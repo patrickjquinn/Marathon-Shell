@@ -450,6 +450,32 @@ Item {
         service: AmbienceService
         settings: SettingsManagerCpp
     }
+
+    // E-paper: the whole frame on the panel's 16 greys, two levels while it
+    // draws with the fast waveform, so the controller never drives a pixel
+    // for a change it cannot show (eink.frag).
+    layer.enabled: MColors.eink
+    layer.effect: ShaderEffect {
+        readonly property real binary: Display.refreshMode === "fast" ? 1 : 0
+
+        fragmentShader: "qrc:/marathon/shaders/eink.frag.qsb"
+    }
+
+    // Most of the screen changes on a state change: it counts toward the
+    // panel's next ghost clear.
+    onStateChanged: {
+        if (MColors.eink)
+            Display.contentReplaced();
+    }
+
+    Connections {
+        function onCurrentAppIdChanged() {
+            Display.contentReplaced();
+        }
+
+        enabled: MColors.eink
+        target: UIStore
+    }
     Timer {
         id: screenshotTimer
         property string path: ""
@@ -797,7 +823,7 @@ Item {
 
             PropertyChanges {
                 // Home and the switcher stay drawn while a window grows out of them or shrinks onto a card.
-                mainContent.visible: backExit.running || appWindow.zooming || appWindowContainer.dock > 0 || navBar.backProgress > 0
+                mainContent.visible: backExit.running || appWindow.zooming || appWindowContainer.dock > 0 || (navBar.backProgress > 0 && !MMotion.instant)
                 mainContent.enabled: false
             }
 
@@ -884,7 +910,7 @@ Item {
                     target: pinScreen
                     property: "opacity"
                     to: 0
-                    duration: Constants.animationNormal
+                    duration: MMotion.ms(Constants.animationNormal)
                     easing.type: Easing.OutCubic
                 }
 
@@ -1289,10 +1315,16 @@ Item {
         }
 
         function onShowRequested(appId, name, icon, kind, surfaceId) {
+            UIStore.closeSearch();
+            UIStore.closeQuickSettings();
             appWindow.show(appId, name, icon, kind, surfaceId >= 0 && shell.compositor ? shell.compositor.shellSurfaceById(surfaceId) : null, surfaceId);
         }
 
+        // From Keel or D-Bus, home is home: nothing stays over the pages.
         function onHomeRequested(switcher) {
+            UIStore.closeSearch();
+            UIStore.closeQuickSettings();
+            virtualKeyboard.active = false;
             shell.handleHomeKey();
             if (!switcher) {
                 pageView.currentIndex = 2;
@@ -1324,12 +1356,15 @@ Item {
         id: shellInitialization
     }
 
+    // E-paper: no wallpaper. The panel cannot show a photo's tones while
+    // anything moves over it, so the shell sits on plain paper.
     Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: shell.appCoversWallpaper ? Constants.statusBarHeight : parent.height
         clip: true
+        visible: !MColors.eink
         z: Constants.zIndexBackground
 
         Image {
@@ -1359,7 +1394,7 @@ Item {
         opacity: shell.wallpaperCovered || shell.appCoversWallpaper ? 0 : 0.04
         smooth: false
         cache: true
-        visible: DeviceProfile.panelDither
+        visible: DeviceProfile.panelDither && !MColors.eink
         z: Constants.zIndexBackground + 1
     }
 
@@ -1546,9 +1581,9 @@ Item {
         width: Math.min(parent.width - 2 * Silica.Theme.horizontalPageMargin, Silica.Theme.itemSizeHuge * 4)
         height: privacyRows.height + 2 * Silica.Theme.paddingLarge
         radius: Silica.Theme.paddingLarge
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.15)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.eink ? 1 : 0.15)
         visible: shown && statusBar.privacyColors.length > 0
         z: Constants.zIndexStatusBarDrag + 1
         onVisibleChanged: if (visible)
@@ -1871,7 +1906,8 @@ Item {
         // drives it while the finger is down, snapIntoGridAnimation after.
         // TODO(t2): follow the thumb sideways once the nav bar exposes its x travel.
         // Follows the finger over the travel snapIntoGridAnimation assumes for the rest.
-        readonly property real gestureDock: Math.min(1, navBar.minimizeTracker.value / (shell.height * 0.6))
+        // Not on e-paper, where nothing follows the finger.
+        readonly property real gestureDock: MMotion.instant ? 0 : Math.min(1, navBar.minimizeTracker.value / (shell.height * 0.6))
         property real dockAnimated: 0
         readonly property real dock: shell.isTransitioningToActiveFrames ? dockAnimated : gestureDock
         property bool landed: false
@@ -1980,7 +2016,7 @@ Item {
         Connections {
             target: navBar.minimizeTracker
             function onValueChanged() {
-                if (navBar.minimizeTracker.active && navBar.minimizeTracker.value > 0 && UIStore.appWindowOpen && pageView.currentIndex !== 1) {
+                if (!MMotion.instant && navBar.minimizeTracker.active && navBar.minimizeTracker.value > 0 && UIStore.appWindowOpen && pageView.currentIndex !== 1) {
                     pageView.jumpToIndex(1);
                     WindowOrigins.revealCard(UIStore.currentAppId);
                     appWindowContainer.dockCardEpoch++;
@@ -2100,7 +2136,7 @@ Item {
 
         Behavior on anchors.margins {
             NumberAnimation {
-                duration: 200
+                duration: MMotion.ms(200)
                 easing.type: Easing.OutCubic
             }
         }
@@ -2266,13 +2302,21 @@ Item {
                     "y": startY
                 });
             }
-            if (isDraggingDown)
+            // E-paper: the shade does not follow the finger; it opens in
+            // one cut once the pull passes a share of it.
+            if (isDraggingDown && MMotion.instant) {
+                if (!UIStore.quickSettingsOpen && dragDistance > shell.maxQuickSettingsHeight * MMotion.swipeShare) {
+                    UIStore.quickSettingsDragging = false;
+                    UIStore.openQuickSettings();
+                }
+            } else if (isDraggingDown) {
                 UIStore.quickSettingsHeight = Math.min(shell.maxQuickSettingsHeight, startHeight + dragDistance);
+            }
         }
         onReleased: mouse => {
             if (isDraggingDown) {
                 UIStore.quickSettingsDragging = false;
-                var open = quickSettings.tracker.decide(UIStore.quickSettingsHeight, quickSettings.tracker.velocity);
+                var open = MMotion.instant ? UIStore.quickSettingsOpen : quickSettings.tracker.decide(UIStore.quickSettingsHeight, quickSettings.tracker.velocity);
                 Logger.gesture("StatusBar", "dragEnd", {
                     "height": UIStore.quickSettingsHeight,
                     "velocity": quickSettings.tracker.velocity,
@@ -3157,17 +3201,18 @@ Item {
     NightLight {
         anchors.fill: parent
         z: 900000
-        temperature: SystemControlStore.isNightLightOn ? Display.nightLightTemperature : 6500
+        // A warm front light warms the light instead.
+        temperature: SystemControlStore.isNightLightOn && !SystemControlStore.hasWarmLight ? Display.nightLightTemperature : 6500
         dim: Display.dim
         Behavior on dim {
             NumberAnimation {
-                duration: 300
+                duration: MMotion.ms(300)
                 easing.type: Easing.OutCubic
             }
         }
         Behavior on temperature {
             NumberAnimation {
-                duration: 2000
+                duration: MMotion.ms(2000)
                 easing.type: Easing.InOutSine
             }
         }
@@ -3262,7 +3307,7 @@ Item {
                 property: "opacity"
                 from: 0
                 to: 0.9
-                duration: 100
+                duration: MMotion.ms(100)
                 easing.type: Easing.OutQuad
             }
 
@@ -3271,7 +3316,7 @@ Item {
                 property: "opacity"
                 from: 0.9
                 to: 0
-                duration: 200
+                duration: MMotion.ms(200)
                 easing.type: Easing.OutQuad
             }
         }
@@ -3513,7 +3558,7 @@ Item {
         opacity: (1 << (8 - DeviceProfile.panelDepth)) / 255
         smooth: false
         cache: true
-        visible: DeviceProfile.panelDepth < 8
+        visible: DeviceProfile.panelDepth < 8 && !MColors.eink
         z: 999998
     }
 
@@ -3607,7 +3652,7 @@ Item {
                 target: bootHandover
                 property: "progress"
                 to: 1
-                duration: 800
+                duration: MMotion.ms(800)
                 easing.type: Easing.OutCubic
             }
             PauseAnimation {
@@ -3617,7 +3662,7 @@ Item {
                 target: bootHandover
                 property: "opacity"
                 to: 0
-                duration: 260
+                duration: MMotion.ms(260)
                 easing.type: Easing.InOutQuad
             }
         }

@@ -71,10 +71,10 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H12 | `q25-shell-session` GPU selector, `q25-shell-session.gpu` (`PAN_MESA_DEBUG=noafbc`), `/etc/q25/eglfs-kms.json` | Starts the GPU session only if `q25-gpu-prepare` wrote its ready file, and runtime PM is forced on; disables AFBC. | AFBC corrupts (cause unresolved). | W6 |
 | H13 | `q25-md1-off.service` (+post-install arming file) | `insmod q25-md1-owner standalone=1 md_off_at_boot=1` to switch off the MD1 domain the preloader left on. | No MD power domain in the kernel, so genpd cannot switch it off as unused. | W3 (MD domain) |
 | H14 | `q25-usb-gadget` (+`.service`) | Recreates the pmOS USB network gadget in configfs after boot. | The pmOS initramfs only creates it if a UDC exists when it looks (`cat …/g1/UDC: No such file` at 7.8 s in the boot log). Why the musb UDC is late is unverified. | W16 |
-| H15 | `q25-bt-address` (+`.service`) | Derives a Bluetooth address from machine-id and sets it with `btmgmt public-addr`. | Controller reports a placeholder; the nvdata copy is multicast. | Section 4.1 |
-| H16 | `q25-wifi.system-sleep` | rfkill-blocks Wi-Fi around suspend. | gen4m's AXI suspend/resume are stubs. | Section 4 |
-| H17 | `q25-wmt` (`q25-wmt.c`), `q25-connsys`, `q25-wmt-launcher`, `q25-wifi`, `q25-bluetooth` services | Native replacement for Android `wmt_loader`/`wmt_launcher`: ioctls on `/dev/wmtdetect` (SoC init, A-die probe), a resident daemon answering the ROM-patch up-call on `/dev/stpwmt`, writes `S`/`0` to `/dev/wmtWifi`. | Vendor WMT design: firmware selection and function power live in userspace. | Section 4 |
-| H19 | `q25-root-dio.service` | `losetup --direct-io=on` on the loop-mounted root. | Root is an ext4 file on the userdata carrier (`q25-carrier.hook`). Storage layout, not hardware; goes with `docs/roadmap/2026-10-31-storage-erofs-f2fs.md`. | Storage roadmap |
+| H15 | `mt6789-bt-address` (+`.service`; `mt6789-platform`, shared with the MP01) | Derives a Bluetooth address from machine-id and sets it with `btmgmt public-addr`. | Controller reports a placeholder; the nvdata copy is multicast. | Section 4.1 |
+| H16 | `mt6789-wifi.system-sleep` (`mt6789-platform`) | rfkill-blocks Wi-Fi around suspend. | gen4m's AXI suspend/resume are stubs. | Section 4 |
+| H17 | `mt6789-wmt` (`mt6789-wmt.c`), `mt6789-connsys`, `mt6789-wmt-launcher`, `mt6789-wifi`, `mt6789-bluetooth` services (`mt6789-platform`; the Q25 keeps the `q25-*` unit names as aliases) | Native replacement for Android `wmt_loader`/`wmt_launcher`: ioctls on `/dev/wmtdetect` (SoC init, A-die probe), a resident daemon answering the ROM-patch up-call on `/dev/stpwmt`, writes `S`/`0` to `/dev/wmtWifi`. | Vendor WMT design: firmware selection and function power live in userspace. | Section 4 |
+| H19 | `q25-root-dio.service` | `losetup --direct-io=on` on the loop-mounted root. | Root is an ext4 file on the userdata carrier (`50-marathon-carrier.sh`, `packaging/carrier`). Storage layout, not hardware; goes with `docs/roadmap/2026-10-31-storage-erofs-f2fs.md`. | Storage roadmap |
 
 ### 2.3 Out-of-tree kernel modules: Marathon shims for missing drivers (`pkg/linux-zinwa-q25/modules/`, built into `q25-kernel-modules`)
 
@@ -88,7 +88,7 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Module | Device | Status | Fixed by |
 |---|---|---|---|---|
-| H35 | `q25-mt6366-card` (`audio/q25/`), `q25-audio.modprobe.conf` softdeps, `q25-audio.modules-load.conf` | ASoC machine driver (AFE + MT6366 + PA), MTKAIF calibration port. | No MT6789 machine driver; codec binds to an MFD cell without an OF node, so it is loaded by name. | W11 |
+| H35 | `q25-mt6366-card` (`audio/q25/`), `q25-audio.modprobe.conf` softdeps, `mt6789-audio.modules-load.conf` (`mt6789-platform`) | ASoC machine driver (AFE + MT6366 + PA), MTKAIF calibration port. | No MT6789 machine driver; codec binds to an MFD cell without an OF node, so it is loaded by name. | W11 |
 | H36 | `q25-mt6358-accdet` (`audio/q25accdet/`, `options standalone=1`) | Headset detection, port of the vendor `mt6358-accdet.c` (LineageOS `2a873a35`). | Mainline has only `mt6359-accdet`. | W10 |
 | H37 | `snd-soc-mt6789-afe` + codec patches `0002`–`0006` (`audio/patches/`) | AFE from `adomerle/mt6789-sound` `996ec481` ("sound wip") + `0001` fixups; `0003`/`0005`/`0006` are debug controls. | WIP upstream driver. | W11 |
 | H38 | `mtk-seninf6s`, `mtk-camsv6s`, `phy-mtk-mipi-csi-2-1` (`camera/`) | MediaTek Genio BSP `mtk-v6.6` (MT8189 ISP 6s) + `0001-mt6789-port.patch`. | No mainline MediaTek camera receive path. | W15 |
@@ -112,7 +112,7 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H51 | `q25-camera.modprobe.conf`, `q25-camera.modules-load.conf` | Enables H24/H29 by parameter, loads them at boot. | W3, W15 |
 | H52 | `q25-modem.conf.modprobe`, `78-q25-modem.rules` | Blacklists ECCCI until the owner hands off; tags `ttyC0`/`ccmni` for ModemManager with a hard-coded physdev path. | Section 4 |
 
-Not hardware workarounds, so outside H1 (kept): `q25-carrier.hook`, `q25-root-grow`,
+Not hardware workarounds, so outside H1 (kept): the carrier hook (`packaging/carrier`), `q25-root-grow`,
 `q25-home-crypt`, `q25-boot-bless`, `q25-esp-readonly`, `q25-boot-check`, `90-q25-recovery-console.rules`,
 `q25-keyboard-layout.env`/`q25.xkb-symbols` (layout), UCM files (`q25-mt6366.conf`, `HiFi.conf`,
 `VoiceCall.conf`: UCM is the upstream mechanism), `q25-deckard.modules-load.conf` (goes with H41).
