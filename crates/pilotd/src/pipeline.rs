@@ -3855,6 +3855,11 @@ impl Pipeline {
                 let text = self.redactor.redact_with(&reply.to_string(), &mut map);
                 messages.push(Message::tool_result(&call.id, text));
             }
+            // A narrow tool ran: the turn is that action, and the model's
+            // words after it ("Which Anna?") are the answer.
+            if !made.is_empty() {
+                wide = None;
+            }
             if let Some(text) = lookup {
                 *lock(&self.last_domains) =
                     Some((std::mem::take(&mut used_domains), Instant::now()));

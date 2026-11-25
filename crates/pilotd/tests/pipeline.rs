@@ -955,3 +955,28 @@ fn answers_carry_no_em_dashes() {
         "From 2019\u{2013}2024"
     );
 }
+
+/// Stage one's routing for the phone's model: one intent at `p`.
+fn one_intent(intent: &str, p: f64) -> Value {
+    jev_reply(&[(intent, p), ("open_ended", 1.0 - p)], 0.1, 0.1)
+}
+
+/// The phone's narrow round looked a person up and asks which one: that
+/// question is the answer, not a fresh start with the whole prompt (where
+/// the same lookup was refused as "Already done this turn").
+#[tokio::test]
+async fn a_question_after_a_narrow_lookup_is_the_answer() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(one_intent("call", 0.9)),
+        _ if i == 0 => Reply::stamped(
+            chat_tool("contacts_lookup", r#"{"query": "Anna"}"#),
+            "device",
+        ),
+        _ => Reply::stamped(chat_text("Which Anna?"), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    let r = d.pipeline.ask("ring Anna", false).await;
+    assert_eq!(text_of(r.cards.last().unwrap()), "Which Anna?");
+    assert_eq!(srv.seen("/v1/llm/chat/completions").len(), 2);
+}
