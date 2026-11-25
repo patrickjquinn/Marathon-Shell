@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 20:33:29 +0000
+Subject: [PATCH 17/17] arm64: dts: mediatek: mt6858-jolla-jp2601: Force VBUS
+ for USB
+
+The SSUSB block does not see VBUS on this phone; the stock tree sets
+mediatek,force-vbus for it too. Without it the gadget never connects.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index c20a2ce35..3d11ad769 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -278,6 +278,8 @@ reg_vemc: regulator-vemc {
+ &ssusb {
+ 	dr_mode = "peripheral";
+ 	maximum-speed = "high-speed";
++	/* VBUS reaches the charger and Type-C controller, not SSUSB. */
++	mediatek,force-vbus;
+ 	status = "okay";
+ };
+ 

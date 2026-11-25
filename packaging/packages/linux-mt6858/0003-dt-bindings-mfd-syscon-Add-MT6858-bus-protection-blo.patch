@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 17:59:26 +0000
+Subject: [PATCH 03/17] dt-bindings: mfd: syscon: Add MT6858 bus protection
+ blocks
+
+The MT6858 power controller sets and clears bus protection in six
+register blocks: INFRACFG_AO, IMG_SUB0, CAM_SUB1, CAM_SUB0, IPE_SUB0 and
+VLPCFG, which it takes through its access-controllers property. Its
+driver only needs a regmap of each, so describe them as syscons.
+
+INFRACFG_AO also holds clock gates. When an MT6858 clock driver lands,
+its compatible should move to that clock binding instead.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/mfd/syscon.yaml | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/mfd/syscon.yaml b/Documentation/devicetree/bindings/mfd/syscon.yaml
+index 80ff0e1ca..870fc51ed 100644
+--- a/Documentation/devicetree/bindings/mfd/syscon.yaml
++++ b/Documentation/devicetree/bindings/mfd/syscon.yaml
+@@ -86,6 +86,12 @@ properties:
+               - mediatek,mt2701-pctl-a-syscfg
+               - mediatek,mt2712-pctl-a-syscfg
+               - mediatek,mt6397-pctl-pmic-syscfg
++              - mediatek,mt6858-cam-sub0-bus
++              - mediatek,mt6858-cam-sub1-bus
++              - mediatek,mt6858-img-sub0-bus
++              - mediatek,mt6858-infracfg-ao
++              - mediatek,mt6858-ipe-sub0-bus
++              - mediatek,mt6858-vlpcfg
+               - mediatek,mt7981-topmisc
+               - mediatek,mt7988-topmisc
+               - mediatek,mt8135-pctl-a-syscfg

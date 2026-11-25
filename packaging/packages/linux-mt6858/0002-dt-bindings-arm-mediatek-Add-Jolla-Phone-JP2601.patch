@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 17:58:56 +0000
+Subject: [PATCH 02/17] dt-bindings: arm: mediatek: Add Jolla Phone (JP2601)
+
+The Jolla Phone (2026) is a smartphone on the MediaTek MT6858
+(Dimensity 7100), sold with Sailfish OS. Document its board compatible
+ahead of its device tree.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/arm/mediatek.yaml | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/mediatek.yaml b/Documentation/devicetree/bindings/arm/mediatek.yaml
+index 180e6e494..ec8646cc8 100644
+--- a/Documentation/devicetree/bindings/arm/mediatek.yaml
++++ b/Documentation/devicetree/bindings/arm/mediatek.yaml
+@@ -72,6 +72,10 @@ properties:
+               - archermind,mt6797-x20-dev
+               - mediatek,mt6797-evb
+           - const: mediatek,mt6797
++      - items:
++          - enum:
++              - jolla,jp2601
++          - const: mediatek,mt6858
+       - items:
+           - enum:
+               - bananapi,bpi-r64

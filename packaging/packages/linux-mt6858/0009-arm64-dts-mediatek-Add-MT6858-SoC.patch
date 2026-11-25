@@ -1,0 +1,343 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 18:03:42 +0000
+Subject: [PATCH 09/17] arm64: dts: mediatek: Add MT6858 SoC
+
+Add a first device tree for the MediaTek MT6858 (Dimensity 7100): four
+Cortex-A55 and four Cortex-A78 cores in one DynamIQ cluster, PSCI, the
+GICv3 with its per-cluster PMU partitions, the arch timer, the three
+UARTs, the pin controller and the watchdog.
+
+The power controller lists only MM_INFRA, its DIS0 subdomain and SSUSB.
+The driver powers on every domain it registers, and most MT6858 domains
+need clocks for that, which nothing can provide until an MT6858 clock
+driver exists. DIS0 has to be registered so that the bootloader's
+framebuffer can hold it on.
+
+The UART bus clock is a peripheral gate without a provider yet; the
+driver treats it as optional, so only the 26 MHz baud clock is given.
+
+Addresses, interrupts, the CPU topology and the timer frequency are
+taken from the device tree that the stock bootloader passes to the
+stock kernel on a Jolla Phone (JP2601).
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 308 +++++++++++++++++++++++
+ 1 file changed, 308 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/mediatek/mt6858.dtsi
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+new file mode 100644
+index 000000000..48cce9fca
+--- /dev/null
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -0,0 +1,308 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
++/*
++ * MediaTek MT6858 (Dimensity 7100) SoC
++ */
++
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/power/mediatek,mt6858-power.h>
++
++/ {
++	compatible = "mediatek,mt6858";
++	interrupt-parent = <&gic>;
++	#address-cells = <2>;
++	#size-cells = <2>;
++
++	cpus {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		cpu0: cpu@0 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a55";
++			reg = <0x000>;
++			enable-method = "psci";
++			capacity-dmips-mhz = <346>;
++		};
++
++		cpu1: cpu@100 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a55";
++			reg = <0x100>;
++			enable-method = "psci";
++			capacity-dmips-mhz = <346>;
++		};
++
++		cpu2: cpu@200 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a55";
++			reg = <0x200>;
++			enable-method = "psci";
++			capacity-dmips-mhz = <346>;
++		};
++
++		cpu3: cpu@300 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a55";
++			reg = <0x300>;
++			enable-method = "psci";
++			capacity-dmips-mhz = <346>;
++		};
++
++		cpu4: cpu@400 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a78";
++			reg = <0x400>;
++			enable-method = "psci";
++			capacity-dmips-mhz = <1024>;
++		};
++
++		cpu5: cpu@500 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a78";
++			reg = <0x500>;
++			enable-method = "psci";
++			capacity-dmips-mhz = <1024>;
++		};
++
++		cpu6: cpu@600 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a78";
++			reg = <0x600>;
++			enable-method = "psci";
++			capacity-dmips-mhz = <1024>;
++		};
++
++		cpu7: cpu@700 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a78";
++			reg = <0x700>;
++			enable-method = "psci";
++			capacity-dmips-mhz = <1024>;
++		};
++
++		cpu-map {
++			cluster0 {
++				core0 {
++					cpu = <&cpu0>;
++				};
++
++				core1 {
++					cpu = <&cpu1>;
++				};
++
++				core2 {
++					cpu = <&cpu2>;
++				};
++
++				core3 {
++					cpu = <&cpu3>;
++				};
++
++				core4 {
++					cpu = <&cpu4>;
++				};
++
++				core5 {
++					cpu = <&cpu5>;
++				};
++
++				core6 {
++					cpu = <&cpu6>;
++				};
++
++				core7 {
++					cpu = <&cpu7>;
++				};
++			};
++		};
++	};
++
++	clk26m: oscillator-26m {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <26000000>;
++		clock-output-names = "clk26m";
++	};
++
++	pmu-a55 {
++		compatible = "arm,cortex-a55-pmu";
++		interrupt-parent = <&gic>;
++		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++	};
++
++	pmu-a78 {
++		compatible = "arm,cortex-a78-pmu";
++		interrupt-parent = <&gic>;
++		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster1>;
++	};
++
++	psci {
++		compatible = "arm,psci-1.0";
++		method = "smc";
++	};
++
++	soc {
++		compatible = "simple-bus";
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		gic: interrupt-controller@c000000 {
++			compatible = "arm,gic-v3";
++			#interrupt-cells = <4>;
++			#redistributor-regions = <1>;
++			interrupt-parent = <&gic>;
++			interrupt-controller;
++			reg = <0 0x0c000000 0 0x40000>,
++			      <0 0x0c040000 0 0x200000>;
++			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH 0>;
++
++			ppi-partitions {
++				ppi_cluster0: interrupt-partition-0 {
++					affinity = <&cpu0 &cpu1 &cpu2 &cpu3>;
++				};
++
++				ppi_cluster1: interrupt-partition-1 {
++					affinity = <&cpu4 &cpu5 &cpu6 &cpu7>;
++				};
++			};
++		};
++
++		infracfg_ao: syscon@10001000 {
++			compatible = "mediatek,mt6858-infracfg-ao", "syscon";
++			reg = <0 0x10001000 0 0x1000>;
++		};
++
++		pio: pinctrl@10005000 {
++			compatible = "mediatek,mt6858-pinctrl";
++			reg = <0 0x10005000 0 0x1000>,
++			      <0 0x11b20000 0 0x1000>,
++			      <0 0x11c10000 0 0x1000>,
++			      <0 0x11d10000 0 0x1000>,
++			      <0 0x11d30000 0 0x1000>,
++			      <0 0x11d40000 0 0x1000>,
++			      <0 0x11e20000 0 0x1000>,
++			      <0 0x11e30000 0 0x1000>,
++			      <0 0x11ed0000 0 0x1000>,
++			      <0 0x11ee0000 0 0x1000>,
++			      <0 0x11b00000 0 0x1000>,
++			      <0 0x11e60000 0 0x1000>,
++			      <0 0x11e80000 0 0x1000>,
++			      <0 0x1c01e000 0 0x1000>;
++			reg-names = "base", "lm", "rb", "bm2", "bm", "bm1",
++				    "lt", "lt1", "rt", "rt1",
++				    "eint0", "eint1", "eint2", "eint3";
++			gpio-controller;
++			#gpio-cells = <2>;
++			gpio-ranges = <&pio 0 0 197>;
++			interrupt-controller;
++			interrupts = <GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH 0>;
++			#interrupt-cells = <2>;
++		};
++
++		uart0: serial@11001000 {
++			compatible = "mediatek,mt6858-uart", "mediatek,mt6577-uart";
++			reg = <0 0x11001000 0 0x1000>;
++			interrupts = <GIC_SPI 386 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk26m>;
++			clock-names = "baud";
++			status = "disabled";
++		};
++
++		uart1: serial@11002000 {
++			compatible = "mediatek,mt6858-uart", "mediatek,mt6577-uart";
++			reg = <0 0x11002000 0 0x1000>;
++			interrupts = <GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk26m>;
++			clock-names = "baud";
++			status = "disabled";
++		};
++
++		uart2: serial@11003000 {
++			compatible = "mediatek,mt6858-uart", "mediatek,mt6577-uart";
++			reg = <0 0x11003000 0 0x1000>;
++			interrupts = <GIC_SPI 388 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk26m>;
++			clock-names = "baud";
++			status = "disabled";
++		};
++
++		img_sub0_bus: syscon@1502f000 {
++			compatible = "mediatek,mt6858-img-sub0-bus", "syscon";
++			reg = <0 0x1502f000 0 0x1000>;
++		};
++
++		cam_sub1_bus: syscon@1a00c000 {
++			compatible = "mediatek,mt6858-cam-sub1-bus", "syscon";
++			reg = <0 0x1a00c000 0 0x1000>;
++		};
++
++		cam_sub0_bus: syscon@1a00d000 {
++			compatible = "mediatek,mt6858-cam-sub0-bus", "syscon";
++			reg = <0 0x1a00d000 0 0x1000>;
++		};
++
++		ipe_sub0_bus: syscon@1b00e000 {
++			compatible = "mediatek,mt6858-ipe-sub0-bus", "syscon";
++			reg = <0 0x1b00e000 0 0x1000>;
++		};
++
++		scpsys: syscon@1c001000 {
++			compatible = "mediatek,mt6858-scpsys", "syscon", "simple-mfd";
++			reg = <0 0x1c001000 0 0x1000>;
++
++			/*
++			 * The driver powers on every domain it registers, so
++			 * only domains with a consumer here are listed; the
++			 * others need clocks this tree cannot name yet.
++			 */
++			spm: power-controller {
++				compatible = "mediatek,mt6858-power-controller";
++				#address-cells = <1>;
++				#size-cells = <0>;
++				#power-domain-cells = <1>;
++				access-controllers = <&infracfg_ao>, <&img_sub0_bus>,
++						     <&cam_sub1_bus>, <&cam_sub0_bus>,
++						     <&ipe_sub0_bus>, <&vlpcfg>;
++
++				power-domain@MT6858_POWER_DOMAIN_MM_INFRA {
++					reg = <MT6858_POWER_DOMAIN_MM_INFRA>;
++					#address-cells = <1>;
++					#size-cells = <0>;
++					#power-domain-cells = <1>;
++
++					power-domain@MT6858_POWER_DOMAIN_DIS0 {
++						reg = <MT6858_POWER_DOMAIN_DIS0>;
++						#power-domain-cells = <0>;
++					};
++				};
++
++				power-domain@MT6858_POWER_DOMAIN_SSUSB {
++					reg = <MT6858_POWER_DOMAIN_SSUSB>;
++					#power-domain-cells = <0>;
++				};
++			};
++		};
++
++		watchdog: watchdog@1c00a000 {
++			compatible = "mediatek,mt6858-wdt", "mediatek,mt6589-wdt";
++			reg = <0 0x1c00a000 0 0x1000>;
++		};
++
++		vlpcfg: syscon@1c00c000 {
++			compatible = "mediatek,mt6858-vlpcfg", "syscon";
++			reg = <0 0x1c00c000 0 0x1000>;
++		};
++	};
++
++	timer {
++		compatible = "arm,armv8-timer";
++		interrupt-parent = <&gic>;
++		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_PPI 14 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH 0>;
++		clock-frequency = <13000000>;
++	};
++};

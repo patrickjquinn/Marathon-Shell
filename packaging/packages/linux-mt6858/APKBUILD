@@ -1,0 +1,121 @@
+# MT6858 kernel, one for every board on the SoC: mainline at 4dce97c6c
+# (after v7.4-rc4) with the MT6858 series below, built from arm64 defconfig,
+# the series' mt6858.config and marathon.config. The patches are
+# git format-patch 4dce97c6c..c4392f89b of the jp2601/initial branch
+# (devices/jolla/jp2601/BRINGUP.md says what each one is).
+pkgname=linux-mt6858
+pkgver=7.4.0_rc4_git20261124
+pkgrel=0
+_commit=4dce97c6c265544342e716e62fd24bbb232590c5
+_release=7.4.0-rc4-mt6858
+pkgdesc="MediaTek Dimensity 7100 (MT6858) kernel"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps"
+# LLVM=1: the Rust binder Deckard needs (marathon.config).
+makedepends="
+	bash
+	bc
+	bison
+	clang
+	coreutils
+	elfutils-dev
+	findutils
+	flex
+	kmod
+	linux-headers
+	lld
+	llvm
+	openssl-dev
+	perl
+	python3
+	rust
+	rust-bindgen
+	rust-src
+	zstd
+"
+source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commit.tar.gz
+	0001-dt-bindings-vendor-prefixes-Add-Jolla-Mobile-Ltd.patch
+	0002-dt-bindings-arm-mediatek-Add-Jolla-Phone-JP2601.patch
+	0003-dt-bindings-mfd-syscon-Add-MT6858-bus-protection-blo.patch
+	0004-dt-bindings-mfd-mediatek-mt8195-scpsys-Add-MT6858.patch
+	0005-dt-bindings-serial-mediatek-uart-Add-MT6858.patch
+	0006-dt-bindings-watchdog-mediatek-mtk-wdt-Add-MT6858.patch
+	0007-dt-bindings-usb-mediatek-mtu3-Add-MT6858.patch
+	0008-dt-bindings-phy-mediatek-xsphy-Add-MT6858.patch
+	0009-arm64-dts-mediatek-Add-MT6858-SoC.patch
+	0010-arm64-dts-mediatek-mt6858-Add-UFS-and-USB-on-a-stand.patch
+	0011-arm64-dts-mediatek-Add-Jolla-Phone-JP2601.patch
+	0012-arm64-configs-Add-an-MT6858-first-boot-fragment.patch
+	0013-arm64-configs-mt6858-Leave-KVM-out.patch
+	0014-arm64-configs-mt6858-Add-the-16x32-console-font.patch
+	0015-dt-bindings-usb-mediatek-mtu3-Add-mediatek-force-vbu.patch
+	0016-usb-mtu3-Force-VBUS-valid-for-device-mode-when-it-is.patch
+	0017-arm64-dts-mediatek-mt6858-jolla-jp2601-Force-VBUS-fo.patch
+	marathon.config
+"
+builddir="$srcdir/linux-$_commit"
+
+prepare() {
+	default_prepare
+	cp "$srcdir/marathon.config" arch/arm64/configs/marathon.config
+	make ARCH=arm64 LLVM=1 defconfig mt6858.config marathon.config
+	# A fragment line the config dropped is a dependency it lacks.
+	local line missing=
+	while read -r line; do
+		case $line in CONFIG_*=*) ;; *) continue ;; esac
+		grep -qxF "$line" .config || missing="$missing $line"
+	done < "$srcdir/marathon.config"
+	[ -z "$missing" ] || { error "not in .config:$missing"; return 1; }
+}
+
+_dtbs() {
+	local d
+	for d in arch/arm64/boot/dts/mediatek/mt6858-*.dts; do
+		echo "mediatek/$(basename "$d" .dts).dtb"
+	done
+}
+
+build() {
+	unset LDFLAGS
+	export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@$SOURCE_DATE_EPOCH")"
+	make ARCH=arm64 LLVM=1 Image vmlinuz.efi modules $(_dtbs)
+	[ "$(cat include/config/kernel.release)" = "$_release" ]
+}
+
+package() {
+	make ARCH=arm64 LLVM=1 INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 modules_install
+	rm -f "$pkgdir"/usr/lib/modules/$_release/build
+	install -Dm644 arch/arm64/boot/vmlinuz.efi "$pkgdir"/boot/linux.efi
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/boot/vmlinuz
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/usr/lib/modules/$_release/vmlinuz
+	local dtb
+	for dtb in $(_dtbs); do
+		install -Dm644 "arch/arm64/boot/dts/$dtb" "$pkgdir/boot/dtbs/$dtb"
+	done
+	install -Dm644 include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/mt6858/kernel.release
+}
+
+sha512sums="
+f2bc059644b6199343e6c2667e10f1e17dac3fef8f59227af3a2d3c332ef22417eb883aea7225edef1edcb87a3fec589578e067c5d870f55269f602303221098  linux-4dce97c6c265544342e716e62fd24bbb232590c5.tar.gz
+aa8d9f59fee5e6c8abbaf4bfa991e3309dfbe1a742ce0f3a011c1519bd2edd507ff8a4a6e6b86e7d047a8de40ee2f9d6b580e789e6aa5ed2e2b45208db74df82  0001-dt-bindings-vendor-prefixes-Add-Jolla-Mobile-Ltd.patch
+3e294e6cbc7ab7cf3c13c46a47a6da8db0accd39bda29f10a717719fd14cd424979f3132be382082a64d2d976884f42502102231cf36dce35e9ad333127168a9  0002-dt-bindings-arm-mediatek-Add-Jolla-Phone-JP2601.patch
+095bde903816f1aad3210a42d0e7b9a3c042056e9198a6afc63c372e01a380424c42093c30686e755c436779e2a0dc0b2bf40136753214872a040414b8ed2f45  0003-dt-bindings-mfd-syscon-Add-MT6858-bus-protection-blo.patch
+2668ac9837c0fdf941edf3f8b726e53192b98cde1c116f1fbfde732485a270a13ec0bec729d181a864c66f34884315d38e4c7ae6e319c70394afde4040aee82b  0004-dt-bindings-mfd-mediatek-mt8195-scpsys-Add-MT6858.patch
+980d941d9f331795e768605cc0015c34bf48a6a7d996052f3d3163617d8b9a141073e1bb30c40e29616427b9d952af2d274bba09169a88e89959a244bd079d86  0005-dt-bindings-serial-mediatek-uart-Add-MT6858.patch
+21d5bddff6017630cacda3bf915924014fac26849aad019e8615d453daaf214c7f06e361fe1d2e0cca142f9bc9a604c77b47a29a0ae5d32ddefbd705e1e1eff4  0006-dt-bindings-watchdog-mediatek-mtk-wdt-Add-MT6858.patch
+1dc26bc27b3951cf581028b99666ca902873a4753926851d06978484e747b0d8f5e454a4bba4f64b72a42c933f9fc30159b14dcf177f7a9eafe6f57320dabd1a  0007-dt-bindings-usb-mediatek-mtu3-Add-MT6858.patch
+56963d22d37821b5c56a250e2b8d9011995898785355d24fee631e16fc38d9a58da9cc5f238b2c68dda9554bcebaed5f1b6341275e0b8065cb08c395439af03a  0008-dt-bindings-phy-mediatek-xsphy-Add-MT6858.patch
+706687eea5c09c6b7b87a2f1472e9c1c40fc7965610531c62aff2db2085846159f886bbe8f391f8cca4ab22db6082efcb2df87163efc7f2d95a1665ee174f109  0009-arm64-dts-mediatek-Add-MT6858-SoC.patch
+823d3118506308a5e885db469b28524198c23d6edbc1569f8c37c58d779f492039b98631f6c316ca40525736b3803987aab1f34b07d7093bf6ec1092214e1938  0010-arm64-dts-mediatek-mt6858-Add-UFS-and-USB-on-a-stand.patch
+b5dd24a36aef3cb4c0f2be09f2e07355fcef408898bcc59ac4d2fa887778653a1cb5c036f07ba8733d253558e5e8b15c152a5f2a13723df2256e7a4d99440f29  0011-arm64-dts-mediatek-Add-Jolla-Phone-JP2601.patch
+e1dfae04a01ab6855778abc96e34b5bb2d27b22c8a00c97db40276a3fbe4808ba77c9fd91e4ab46956b79fdab2d0878ba9169d6a83100919aa6f42edcba6bb6d  0012-arm64-configs-Add-an-MT6858-first-boot-fragment.patch
+4311fb572c16237785a00886ef9ab8e288caef1cc5717a86445860dd7cf550be86a7814b00311e9b0a69faac4d39a182f1b1de008f4975433490bde4fcd32698  0013-arm64-configs-mt6858-Leave-KVM-out.patch
+d3230f89accacd63a67d52ff0290d5a89fc034ead6bec76bb485722f1eaeafd3663d24bf9f8f70d4ec83f81b1fb7a6f7314bec07f06b1ddd7e15204f255a3bab  0014-arm64-configs-mt6858-Add-the-16x32-console-font.patch
+484d00fa72fa0118d0232a94a2ac36b84ce5ff5dd0391f7ed8d864faa0fe28a660f91527e453caa36359f20c0e45c026a2af6c0ffacef744489c9230bd9dfcd1  0015-dt-bindings-usb-mediatek-mtu3-Add-mediatek-force-vbu.patch
+f3818fe01b1b8165322a39367c7cdb6069972fe21a92e6d7f92301262d6f5a1a9b961f3431e926e83b3f8297ec7aaf578b69c52449c5ede160ed302a2ddba541  0016-usb-mtu3-Force-VBUS-valid-for-device-mode-when-it-is.patch
+35f38a85b0a826fbabad8727402081c2b4696f4b2549b5649917fc9b8470da1facebd082a52d7a716617136331dd80b471131c7ea347e7519a35c1bd09f5fb07  0017-arm64-dts-mediatek-mt6858-jolla-jp2601-Force-VBUS-fo.patch
+c76960a6f441c9459efd7a39a460eee2067f30b81745d11f263cad4da942e934acd93bb2742dbfacb99ad63bf2ba9c6196c78e5a00b8964e1d1b6b717acf3333  marathon.config
+"

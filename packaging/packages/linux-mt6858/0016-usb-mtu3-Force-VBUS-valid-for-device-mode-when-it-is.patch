@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 20:33:26 +0000
+Subject: [PATCH 16/17] usb: mtu3: Force VBUS valid for device mode when it is
+ not wired
+
+mtu3 leaves VBUS detection to the hardware. On the Jolla Phone (MT6858)
+VBUS only reaches the charger and Type-C controller, so the device
+controller never sees it: the gadget binds and turns on its D+ pull-up,
+but the host sees nothing on the bus, while the stock firmware
+enumerates on the same port.
+
+With mediatek,force-vbus, set VBUS_FRC_EN and VBUS_ON in U3D_MISC_CTRL
+instead, as Chunfeng Yun's 2019 force_vbus series did and MediaTek's
+own kernel does. Do it in mtu3_csr_init(), which mtu3_start() runs after
+powering the device MAC up: the MAC loses U3D_MISC_CTRL while powered
+down between probe and the gadget's start.
+---
+ drivers/usb/mtu3/mtu3.h      | 3 +++
+ drivers/usb/mtu3/mtu3_core.c | 8 ++++++--
+ drivers/usb/mtu3/mtu3_plat.c | 1 +
+ 3 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/mtu3/mtu3.h b/drivers/usb/mtu3/mtu3.h
+index ba5a63669..1254f5984 100644
+--- a/drivers/usb/mtu3/mtu3.h
++++ b/drivers/usb/mtu3/mtu3.h
+@@ -241,6 +241,8 @@ struct otg_switch_mtk {
+  *		but when use dual-role mode, can't disable u2port0
+  * @u3p_dis_msk: mask of disabling usb3 ports, for example, bit0==1 to
+  *		disable u3port0, bit1==1 to disable u3port1,... etc
++ * @force_vbus: VBUS is not wired to the controller, force it valid for
++ *		device mode
+  * @dbgfs_root: only used when supports manual dual-role switch via debugfs
+  * @uwk_en: it's true when supports remote wakeup in host mode
+  * @uwk: syscon including usb wakeup glue layer between SSUSB IP and SPM
+@@ -266,6 +268,7 @@ struct ssusb_mtk {
+ 	int u3_ports;
+ 	int u2p_dis_msk;
+ 	int u3p_dis_msk;
++	bool force_vbus;
+ 	struct dentry *dbgfs_root;
+ 	/* usb wakeup for host mode */
+ 	bool uwk_en;
+diff --git a/drivers/usb/mtu3/mtu3_core.c b/drivers/usb/mtu3/mtu3_core.c
+index 386fcb5d6..4b8609204 100644
+--- a/drivers/usb/mtu3/mtu3_core.c
++++ b/drivers/usb/mtu3/mtu3_core.c
+@@ -288,6 +288,12 @@ static void mtu3_csr_init(struct mtu3 *mtu)
+ 		mtu3_setbits(mbase, U3D_U3U2_SWITCH_CTRL, SOFTCON_CLR_AUTO_EN);
+ 	}
+ 
++	/* vbus detected by HW, unless it is not wired to the controller */
++	if (mtu->ssusb->force_vbus)
++		mtu3_setbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
++	else
++		mtu3_clrbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
++
+ 	/* delay about 0.1us from detecting reset to send chirp-K */
+ 	mtu3_clrbits(mbase, U3D_LINK_RESET_INFO, WTCHRP_MSK);
+ 	/* enable automatic HWRW from L1 */
+@@ -659,8 +665,6 @@ static void mtu3_regs_init(struct mtu3 *mtu)
+ 
+ 	/* U2/U3 detected by HW */
+ 	mtu3_writel(mbase, U3D_DEVICE_CONF, 0);
+-	/* vbus detected by HW */
+-	mtu3_clrbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
+ 	/* use new QMU format when HW version >= 0x1003 */
+ 	if (mtu->gen2cp)
+ 		mtu3_writel(mbase, U3D_QFCR, ~0x0);
+diff --git a/drivers/usb/mtu3/mtu3_plat.c b/drivers/usb/mtu3/mtu3_plat.c
+index e50e32c27..08ed05a16 100644
+--- a/drivers/usb/mtu3/mtu3_plat.c
++++ b/drivers/usb/mtu3/mtu3_plat.c
+@@ -286,6 +286,7 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
+ 	/* optional property, ignore the error if it does not exist */
+ 	of_property_read_u32(node, "mediatek,u2p-dis-msk",
+ 			     &ssusb->u2p_dis_msk);
++	ssusb->force_vbus = of_property_read_bool(node, "mediatek,force-vbus");
+ 
+ 	otg_sx->vbus = devm_regulator_get(dev, "vbus");
+ 	if (IS_ERR(otg_sx->vbus)) {
