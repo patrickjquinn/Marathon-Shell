@@ -1,0 +1,51 @@
+# Jolla Phone (2026), board JP2601, bring-up policy; BRINGUP.md has the
+# state of the mainline kernel and what comes next. Nothing here builds yet:
+# scripts/build-image.sh has no jolla-jp2601 target, and there is no overlay
+# or kernel package.
+schema = 1
+vendor = "jolla"
+codename = "jp2601"
+id = "jolla-jp2601"
+name = "Jolla Phone (2026)"
+manufacturer = "Jolla"
+soc = "mt6858"
+status = "bring-up"
+
+[build]
+target = "jolla-jp2601"
+bootloader = "none"
+
+# Planned, untested: the stock LK stays in lk_a/lk_b and loads a U-Boot
+# packed as boot_b's kernel, as on the MP01. Slot A keeps Sailfish OS.
+[boot]
+method = "android-u-boot"
+partition_table = "gpt"
+
+# Planned per-SoC package (one kernel, every MT6858 board's DTB).
+[kernel]
+package = "linux-mt6858"
+
+[display]
+# LK's lcmname: yft_vtdr6126_fhdp_dsi_vdo_90hz_boe_dphy_lcm_drv.
+panel = "BOE panel on a Visionox VTDR6126 driver IC, DSI video mode, D-PHY"
+interface = "dsi"
+width = 1032
+height = 2272
+
+[input]
+touch = "Hynitron over SPI (hynitron_spi); no mainline driver"
+keyboard = "none"
+
+[hardware]
+ram_mb = 12288
+modem = "MT6858 5G modem over CCIF and DPMAIF; no mainline driver"
+gps = "CONNSYS GNSS (conninfra soc7_0); no mainline driver"
+wifi = "CONNSYS gen4m (wlan_drv_gen4m_6858); no mainline driver"
+bluetooth = "CONNSYS (bt_drv_6858); no mainline driver"
+battery = "MT6720 charger and fuel gauge on i2c5 0x34"
+sensors = []
+quirks = [
+  "PMICs are MT6363 and MT6369 on SPMI at 0x1c024000",
+  "accelerometer and the other motion sensors sit behind the SCP sensor hub, not on the AP",
+  "NFC is an ST21NFC part (/dev/st21nfc); fingerprint is Goodix gf_spi with matching in the TEE",
+]
