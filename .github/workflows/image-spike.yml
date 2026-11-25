@@ -37,7 +37,8 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq podman qemu-system-arm qemu-efi-aarch64 \
-            sshpass mtools util-linux dosfstools e2fsprogs binutils python3-venv
+            sshpass mtools util-linux dosfstools e2fsprogs binutils python3-venv \
+            debian-archive-keyring
 
       - name: Loop devices
         run: |
@@ -48,6 +49,14 @@ jobs:
       # sandbox needs in its user namespace.
       - name: Allow user namespaces
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # The packages take 2.5 h from cold; keep the build tree between runs.
+      - name: Restore build tree
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/mb
+          key: image-spike-mb-${{ github.sha }}
+          restore-keys: image-spike-mb-
 
       - name: Build QEMU image
         env:
@@ -60,6 +69,13 @@ jobs:
           done) &
           bash scripts/build-qemu-image.sh
           echo "::notice::build took $(( $(date +%s)-start ))s"
+
+      - name: Save build tree
+        if: always()
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/mb
+          key: image-spike-mb-${{ github.sha }}
 
       - name: Results
         if: always()
