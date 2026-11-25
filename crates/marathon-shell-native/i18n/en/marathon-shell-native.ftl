@@ -102,11 +102,18 @@ fingerprint-unavailable = Fingerprint not available
 fingerprint-not-recognised = Fingerprint not recognized
 fingerprint-busy = Fingerprint device busy
 fingerprint-start-failed = Fingerprint verification failed to start
-fingerprint-place = Place your finger on the sensor
 fingerprint-retry-scan = Scan quality poor, try again
 fingerprint-too-short = Swipe too short, try again
 fingerprint-centre = Center your finger and try again
 fingerprint-remove = Remove finger and try again
+fingerprint-too-many = Too many attempts. Enter your PIN.
+fingerprint-pin-after-restart = Enter your PIN. It's needed once after a restart.
+fingerprint-needs-pin = Set a quick PIN first: it unlocks the phone when a finger can't
+fingerprint-enroll-failed = Couldn't add the fingerprint: { $error }
+fingerprint-duplicate = That finger is already added
+fingerprint-full = The sensor can't hold more fingerprints
+fingerprint-disconnected = The fingerprint sensor stopped responding
+fingerprint-delete-failed = Couldn't remove the fingerprint
 
 ## Software updates
 

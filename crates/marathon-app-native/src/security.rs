@@ -4,7 +4,7 @@
 use std::pin::Pin;
 
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::QString;
+use cxx_qt_lib::{QString, QStringList};
 
 use crate::shell::{get, mirror, relay, Service, Update};
 use marathon_rt::io;
@@ -15,6 +15,8 @@ pub mod qobject {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
+        include!("cxx-qt-lib/qstringlist.h");
+        type QStringList = cxx_qt_lib::QStringList;
     }
 
     extern "RustQt" {
@@ -22,6 +24,15 @@ pub mod qobject {
         #[qproperty(i32, auth_mode, cxx_name = "authMode", READ, NOTIFY = state_changed)]
         #[qproperty(bool, has_quick_pin, cxx_name = "hasQuickPIN", READ, NOTIFY = state_changed)]
         #[qproperty(bool, fingerprint_available, cxx_name = "fingerprintAvailable", READ, NOTIFY = state_changed)]
+        #[qproperty(bool, has_fingerprint_reader, cxx_name = "hasFingerprintReader", READ, NOTIFY = state_changed)]
+        /// fprintd's names, such as "right-index-finger".
+        #[qproperty(QStringList, enrolled_fingers, cxx_name = "enrolledFingers", READ, NOTIFY = state_changed)]
+        /// Touches an enrolment takes.
+        #[qproperty(i32, fingerprint_stages, cxx_name = "fingerprintStages", READ, NOTIFY = state_changed)]
+        /// "press" or "swipe".
+        #[qproperty(QString, fingerprint_scan_type, cxx_name = "fingerprintScanType", READ, NOTIFY = state_changed)]
+        /// "", "restart" or "attempts": why a finger can't unlock now.
+        #[qproperty(QString, fingerprint_blocked, cxx_name = "fingerprintBlocked", READ, NOTIFY = state_changed)]
         #[qproperty(bool, is_locked_out, cxx_name = "isLockedOut", READ, NOTIFY = state_changed)]
         #[qproperty(i32, lockout_seconds_remaining, cxx_name = "lockoutSecondsRemaining", READ, NOTIFY = state_changed)]
         #[qproperty(i32, failed_attempts, cxx_name = "failedAttempts", READ, NOTIFY = state_changed)]
@@ -65,6 +76,24 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "bugReportFailed"]
         fn bug_report_failed(self: Pin<&mut Self>, reason: &QString);
+        /// fprintd's result for one touch, with the touches passed so far.
+        #[qsignal]
+        #[cxx_name = "fingerprintEnrollStatus"]
+        fn fingerprint_enroll_status(
+            self: Pin<&mut Self>,
+            result: &QString,
+            passed: i32,
+            stages: i32,
+        );
+        #[qsignal]
+        #[cxx_name = "fingerprintEnrolled"]
+        fn fingerprint_enrolled(self: Pin<&mut Self>, finger: &QString);
+        #[qsignal]
+        #[cxx_name = "fingerprintDeleted"]
+        fn fingerprint_deleted(self: Pin<&mut Self>, finger: &QString);
+        #[qsignal]
+        #[cxx_name = "fingerprintFailed"]
+        fn fingerprint_failed(self: Pin<&mut Self>, reason: &QString);
 
         #[qinvokable]
         #[cxx_name = "setQuickPIN"]
@@ -119,6 +148,19 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "createBugReport"]
         fn create_bug_report(self: &Security);
+        /// Answers with `fingerprintEnrollStatus` for each touch, then
+        /// `fingerprintEnrolled` or `fingerprintFailed`.
+        #[qinvokable]
+        #[cxx_name = "enrollFingerprint"]
+        fn enroll_fingerprint(self: &Security, finger: &QString, pin: &QString);
+        #[qinvokable]
+        #[cxx_name = "cancelFingerprintEnroll"]
+        fn cancel_fingerprint_enroll(self: &Security);
+        /// An empty `finger` deletes every one. Answers with
+        /// `fingerprintDeleted` or `fingerprintFailed`.
+        #[qinvokable]
+        #[cxx_name = "deleteFingerprint"]
+        fn delete_fingerprint(self: &Security, finger: &QString, pin: &QString);
     }
 
     impl cxx_qt::Threading for Security {}
@@ -135,6 +177,11 @@ pub struct SecurityRust {
     auth_mode: i32,
     has_quick_pin: bool,
     fingerprint_available: bool,
+    has_fingerprint_reader: bool,
+    enrolled_fingers: QStringList,
+    fingerprint_stages: i32,
+    fingerprint_scan_type: QString,
+    fingerprint_blocked: QString,
     is_locked_out: bool,
     lockout_seconds_remaining: i32,
     failed_attempts: i32,
@@ -200,6 +247,32 @@ impl cxx_qt::Initialize for Security {
             "BugReportFailed",
             |obj, (r,): (String,)| obj.bug_report_failed(&QString::from(&r)),
         );
+        relay(
+            qt.clone(),
+            SECURITY,
+            "FingerprintEnrollStatus",
+            |obj, (r, passed, stages): (String, i32, i32)| {
+                obj.fingerprint_enroll_status(&QString::from(&r), passed, stages);
+            },
+        );
+        relay(
+            qt.clone(),
+            SECURITY,
+            "FingerprintEnrolled",
+            |obj, (f,): (String,)| obj.fingerprint_enrolled(&QString::from(&f)),
+        );
+        relay(
+            qt.clone(),
+            SECURITY,
+            "FingerprintDeleted",
+            |obj, (f,): (String,)| obj.fingerprint_deleted(&QString::from(&f)),
+        );
+        relay(
+            qt.clone(),
+            SECURITY,
+            "FingerprintFailed",
+            |obj, (r,): (String,)| obj.fingerprint_failed(&QString::from(&r)),
+        );
         mirror(qt, SECURITY, "system", |mut obj, update| {
             let Update::State(s) = update else { return };
             let mut x = obj.as_mut().rust_mut();
@@ -209,6 +282,11 @@ impl cxx_qt::Initialize for Security {
             x.recording_combo = get(&s, "recordingCombo");
             x.recorded_combo = get(&s, "recordedCombo");
             x.fingerprint_available = get(&s, "fingerprintAvailable");
+            x.has_fingerprint_reader = get(&s, "hasFingerprintReader");
+            x.enrolled_fingers = get(&s, "enrolledFingers");
+            x.fingerprint_stages = get(&s, "fingerprintStages");
+            x.fingerprint_scan_type = get(&s, "fingerprintScanType");
+            x.fingerprint_blocked = get(&s, "fingerprintBlocked");
             x.is_locked_out = get(&s, "isLockedOut");
             x.lockout_seconds_remaining = get(&s, "lockoutSecondsRemaining");
             x.failed_attempts = get(&s, "failedAttempts");
@@ -235,6 +313,7 @@ impl Security {
         authenticate_quick_pin(pin: &QString) => "AuthenticateQuickPIN";
         authenticate_biometric(kind: i32) => "AuthenticateBiometric";
         cancel_authentication() => "CancelAuthentication";
+        cancel_fingerprint_enroll() => "CancelFingerprintEnroll";
         reset_lockout() => "ResetLockout";
     }
     crate::shell::asks! { SECURITY;
@@ -263,6 +342,25 @@ impl Security {
                 let reason = QString::from(&crate::shell::message(&e));
                 qt.queue(move |obj| obj.remote_connection_failed(&reason))
                     .ok();
+            }
+        });
+    }
+
+    fn enroll_fingerprint(&self, finger: &QString, pin: &QString) {
+        self.fingerprint_call("EnrollFingerprint", finger, pin);
+    }
+
+    fn delete_fingerprint(&self, finger: &QString, pin: &QString) {
+        self.fingerprint_call("DeleteFingerprint", finger, pin);
+    }
+
+    // A refused call answers as the work's own failure would.
+    fn fingerprint_call(&self, method: &'static str, finger: &QString, pin: &QString) {
+        let (qt, args) = (self.qt_thread(), (finger.to_string(), pin.to_string()));
+        io::spawn(async move {
+            if let Err(e) = SECURITY.reply(method, &args).await {
+                let reason = QString::from(&crate::shell::message(&e));
+                qt.queue(move |obj| obj.fingerprint_failed(&reason)).ok();
             }
         });
     }

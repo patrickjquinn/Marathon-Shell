@@ -104,6 +104,19 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-bug-report</annotate>
   </action>
 
+  <!-- Settings > Security > Fingerprint. The shell asks for the quick PIN
+       first; sandboxed apps reach fprintd but can't use pkexec. -->
+  <action id="org.marathonos.shell.fingerprint">
+    <description>Add or remove fingerprints</description>
+    <message>Authentication is required to change your fingerprints</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-fingerprint</annotate>
+  </action>
+
   <!-- Allow bluetooth management -->
   <action id="org.marathonos.shell.bluetooth-control">
     <description>Control Bluetooth</description>

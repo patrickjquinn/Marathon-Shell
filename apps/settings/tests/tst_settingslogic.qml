@@ -22,6 +22,27 @@ TestCase {
         compare(Logic.pageFile(undefined), "");
     }
 
+    function test_fingers() {
+        compare(Logic.fingers.length, 10);
+        compare(Logic.fingerName("left-little-finger"), "Left little finger");
+        compare(Logic.fingerName("toe"), "toe");
+        compare(Logic.fingersLeft(["right-thumb", "left-thumb"])[0], "right-index-finger");
+        compare(Logic.fingersLeft(Logic.fingers), []);
+    }
+
+    function test_enrollGuidance() {
+        compare(Logic.enrollGuidance("", 0, 10, "press").title, "Touch the sensor");
+        compare(Logic.enrollGuidance("", 0, 10, "swipe").title, "Swipe your finger");
+        compare(Logic.enrollGuidance("enroll-stage-passed", 4, 10, "press").title, "Lift, then touch again");
+        // The second half of the touches asks for the edges.
+        compare(Logic.enrollGuidance("enroll-stage-passed", 5, 10, "press").title, "Now the edges");
+        compare(Logic.enrollGuidance("enroll-stage-passed", 5, 10, "swipe").title, "Swipe again");
+        verify(!Logic.enrollGuidance("enroll-stage-passed", 1, 10, "press").retry);
+        for (const result of ["enroll-retry-scan", "enroll-swipe-too-short", "enroll-finger-not-centered", "enroll-remove-and-retry"])
+            verify(Logic.enrollGuidance(result, 1, 10, "press").retry, result);
+        compare(Logic.enrollGuidance("enroll-finger-not-centered", 1, 10, "press").title, "Off center");
+    }
+
     function test_everyEntryHasAPage() {
         Logic.sections.forEach(section => section.entries.forEach(entry => {
                 verify(entry.app || Logic.pageFile(entry.page) !== "", entry.title);

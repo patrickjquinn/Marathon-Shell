@@ -257,6 +257,9 @@ install(PROGRAMS tools/marathon-update-channel/marathon-update-channel
 install(PROGRAMS tools/marathon-bug-report/marathon-bug-report
     DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
 )
+install(PROGRAMS tools/marathon-fingerprint/marathon-fingerprint
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
 install(FILES tools/marathon-update-channel/marathon-update-channel.service
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system
 )

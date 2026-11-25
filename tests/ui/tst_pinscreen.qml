@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Window
 import QtTest
 import MarathonOS.Shell
+import Sailfish.Silica 1.0 as Silica
 import "../../shell/qml/components"
 
 TestCase {
@@ -30,6 +31,8 @@ TestCase {
 
     function init() {
         Security.attempts = [];
+        Security.fingerprintAvailable = false;
+        Security.fingerprintBlocked = "";
         Security.isLockedOut = false;
         Security.lockoutStateChanged();
         pinScreen.authenticating = false;
@@ -101,6 +104,38 @@ TestCase {
         Security.lockoutStateChanged();
         compare(pinScreen.error, "");
         verify(!findChild(pinScreen, "key1").disabled);
+    }
+
+    function test_fingerprintHintSaysWhyThePinIsNeeded() {
+        const message = findChild(pinScreen, "pinMessage");
+        compare(message.text, "");
+        Security.fingerprintAvailable = true;
+        compare(message.text, "Or touch the fingerprint sensor");
+        compare(message.color, Silica.Theme.secondaryColor);
+        Security.fingerprintBlocked = "restart";
+        compare(message.text, "Your PIN is needed after a restart");
+        Security.fingerprintBlocked = "attempts";
+        compare(message.text, "Too many fingerprint attempts");
+        pinScreen.switchToPasswordMode();
+        compare(message.text, "");
+    }
+
+    function test_aMissedFingerIsAnErrorUntilTheNextDigit() {
+        Security.fingerprintAvailable = true;
+        const message = findChild(pinScreen, "pinMessage");
+        Security.fingerprintMismatch("Fingerprint not recognized");
+        compare(message.text, "Fingerprint not recognized");
+        compare(message.color, Silica.Theme.errorColor);
+        type("1");
+        compare(message.text, "Or touch the fingerprint sensor");
+    }
+
+    function test_whatTheSensorAsksForPasses() {
+        Security.fingerprintAvailable = true;
+        const message = findChild(pinScreen, "pinMessage");
+        Security.biometricPrompt("Center your finger and try again");
+        compare(message.text, "Center your finger and try again");
+        tryCompare(message, "text", "Or touch the fingerprint sensor", 4000);
     }
 
     function test_errorDoesNotMoveKeypad() {

@@ -10,7 +10,7 @@
 maintainer="Patrick Quinn <patrick@jquinn.com>"
 pkgname=postmarketos-ui-marathon
 pkgver=1.0.0
-pkgrel=19
+pkgrel=20
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -41,6 +41,7 @@ depends="
 	geoclue
 	udisks2
 	umtp-responder
+	fprintd
 	at-spi2-core
 	polkit
 	dbus

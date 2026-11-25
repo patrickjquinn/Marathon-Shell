@@ -33,6 +33,8 @@ add_test(NAME Script_UpdateSplash COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging
 
 # The startup PIN's keyslot helper against a LUKS2 image (skips without cryptsetup)
 add_test(NAME Script_DataKey COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-data-key.sh ${CMAKE_SOURCE_DIR}/tools/marathon-data-key/marathon-data-key)
+# The fingerprint helper against fake fprintd tools
+add_test(NAME Script_Fingerprint COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-fingerprint.sh ${CMAKE_SOURCE_DIR}/tools/marathon-fingerprint/marathon-fingerprint)
 
 # Reef links Keel's SailfishApp, which only keel-silica-dev provides.
 find_path(_KEEL_SAILFISHAPP sailfishapp.h PATHS /usr/include/keel/sailfishapp NO_DEFAULT_PATH)
