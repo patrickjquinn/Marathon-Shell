@@ -561,8 +561,8 @@ impl JevClient for LocalJev {
             .unwrap_or_default();
         let mut parsed = crate::intents::local_intent(utterance).map(|(intent, _)| intent);
         // What was asked, by meaning: every intent, not only the ones with
-        // a handler. Without it everything else was "open_ended", and "Make
-        // a note to buy milk and eggs" went to the model as a question.
+        // a handler ("Make a note to buy milk and eggs" is a note, not a
+        // question).
         let meaning = match req.questions.get("intent") {
             Some(Question::Choice {
                 options,

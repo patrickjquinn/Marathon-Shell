@@ -1577,9 +1577,8 @@ impl Pipeline {
         // first question: every turn's prompt starts with it. The tools are
         // part of it (chat templates put them in the system block), so they
         // go too, as a turn offers them: 2,700 of 3,000 tokens on the Q25.
-        // Read already and the model still loaded: nothing to do. Asked
-        // again after a turn it read 516 tokens again (16.5 s), in front of
-        // the next question.
+        // Read already and the model still loaded: nothing to do; reading
+        // it again would hold up the next question.
         let still_read = self.warm_read.load(Ordering::SeqCst)
             && lock(&self.last_model_use).is_some_and(|t| t.elapsed() < MODEL_KEPT);
         if backends.llm.provider() == "local" && !still_read {
@@ -3961,8 +3960,8 @@ impl Pipeline {
         // "What is the capital of Australia" read 1,050 tokens again, 20 s.
         if local {
             // One app's tools and plans, and the other areas in scope (a
-            // call after a Notes turn): not all of Pilot's own, which with
-            // an app's were minutes of reading (Pacific's, 5,879 tokens).
+            // call after a Notes turn); not all of Pilot's own, which with
+            // an app's take minutes to read.
             if let Some(app) = domains.iter().find(|d| d.contains('.')) {
                 let mut chosen = vec![app.clone(), "keel".into()];
                 chosen.extend(domains.iter().filter(|d| !d.contains('.')).cloned());
