@@ -3302,7 +3302,13 @@ impl Pipeline {
                                 .collect::<Vec<_>>()
                                 .join("; ")
                         );
-                        found.extend(sources_of(&out.data));
+                        // The pages the model reads: the phone's sees fewer.
+                        let data = if backends.llm.provider() == "local" {
+                            web_for_phone(&out.data)
+                        } else {
+                            out.data.clone()
+                        };
+                        found.extend(sources_of(&data));
                         steps.push(how(
                             "web",
                             format!(
@@ -3323,11 +3329,6 @@ impl Pipeline {
                             tool_call_id: None,
                             images: Vec::new(),
                         });
-                        let data = if backends.llm.provider() == "local" {
-                            web_for_phone(&out.data)
-                        } else {
-                            out.data.clone()
-                        };
                         let reply = json!({"ok": true, "summary": out.summary,
                             "untrusted_content": data, "note": UNTRUSTED_NOTE});
                         let text = self.redactor.redact_with(&reply.to_string(), &mut map);
@@ -3865,10 +3866,6 @@ impl Pipeline {
                     }
                     Ok(out) if out.untrusted => {
                         tainted = true;
-                        if entry.spec.name == crate::web::TOOL {
-                            found.extend(sources_of(&out.data));
-                            self.stage(turn, "reading", &sites_line(&found));
-                        }
                         let data = if entry.spec.name == crate::web::TOOL
                             && backends.llm.provider() == "local"
                         {
@@ -3876,6 +3873,10 @@ impl Pipeline {
                         } else {
                             out.data
                         };
+                        if entry.spec.name == crate::web::TOOL {
+                            found.extend(sources_of(&data));
+                            self.stage(turn, "reading", &sites_line(&found));
+                        }
                         json!({"ok": true, "summary": out.summary, "untrusted_content": data, "note": UNTRUSTED_NOTE})
                     }
                     Ok(out) => {

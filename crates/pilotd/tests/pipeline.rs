@@ -1178,3 +1178,31 @@ async fn facts_are_ranked_against_the_words_as_said() {
         "{queries:?}"
     );
 }
+
+/// The phone's model reads the first four results: an answer's sources
+/// are among those, not a page it never saw.
+#[tokio::test]
+async fn sources_are_pages_the_phone_read() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(json!({"answers": {
+            "intent": {"probabilities": {"open_ended": 0.9}, "confidence": 0.9},
+            "needs_generation": {"noul": 0.9},
+            "needs_web": {"noul": 0.9},
+            "ambiguity": {"score": 0.1, "confidence": 0.9}
+        }})),
+        "/v1/search" => Reply::ok(json!({"items": (1..=5).map(|i| json!({
+            "title": format!("Result {i}"),
+            "url": format!("https://site{i}.example/page"),
+            "description": "Kerry won."
+        })).collect::<Vec<_>>()})),
+        _ => Reply::stamped(chat_text("Kerry won, says site5 and site1."), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    let r = d.pipeline.ask("who won the all-ireland final", false).await;
+    let Some(Card::Answer { sources, .. }) = r.cards.last() else {
+        panic!("{:?}", r.cards)
+    };
+    let sites: Vec<&str> = sources.iter().map(|s| s.site.as_str()).collect();
+    assert_eq!(sites, ["site1.example"]);
+}
