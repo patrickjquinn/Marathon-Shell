@@ -162,7 +162,10 @@ pub fn pack_frame(h: &Header, drive: &[u8], out: &mut [u8]) {
     assert_eq!(out.len(), FRAME_BYTES);
     out.fill(0);
     out[..HEADER_LEN].copy_from_slice(&h.encode());
-    for (line, row) in out.chunks_exact_mut(LINE_BYTES).zip(drive.chunks_exact(ROW_BYTES)) {
+    for (line, row) in out
+        .chunks_exact_mut(LINE_BYTES)
+        .zip(drive.chunks_exact(ROW_BYTES))
+    {
         line[ROW_OFFSET..ROW_OFFSET + ROW_BYTES].copy_from_slice(row);
     }
 }
@@ -342,14 +345,19 @@ mod tests {
         let h2 = unpack_frame(&wire).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(h2, h);
         for r in 0..PANEL_H {
-            assert_eq!(frame_row(&wire, r), &drive[r * ROW_BYTES..(r + 1) * ROW_BYTES]);
+            assert_eq!(
+                frame_row(&wire, r),
+                &drive[r * ROW_BYTES..(r + 1) * ROW_BYTES]
+            );
         }
         // Panel row 13 = DSI line 13, bytes 32..232.
         assert_eq!(
             &wire[13 * LINE_BYTES + 32..13 * LINE_BYTES + 232],
             &drive[13 * 200..14 * 200]
         );
-        assert!(wire[13 * LINE_BYTES..13 * LINE_BYTES + 32].iter().all(|&b| b == 0));
+        assert!(wire[13 * LINE_BYTES..13 * LINE_BYTES + 32]
+            .iter()
+            .all(|&b| b == 0));
         let mut fb = vec![0u32; DSI_W * DSI_H];
         to_xrgb8888(&wire, &mut fb);
         assert_eq!(fb[0], u32::from_be_bytes([0, b'E', b'P', b'D']));
