@@ -822,8 +822,12 @@ fn intent_tools(intent: &str) -> Vec<&'static str> {
 
 /// What the person reads when an action on the phone is done, without the
 /// model: the tool's summary where it is written for them, words for them
-/// where it is written for the model. `None`: the model says it.
-fn confirmation(tool: &str, summary: &str) -> Option<String> {
+/// where it is written for the model. `None`: the model says it, as it
+/// does in any language but English (these words are English).
+fn confirmation(tool: &str, summary: &str, english: bool) -> Option<String> {
+    if !english {
+        return None;
+    }
     match tool {
         "notes.create" | "settings.open" | "device.toggle" | "call.dial" | "alarm.set"
         | "timer.set" | "reminder.create" => Some(summary.to_owned()),
@@ -3864,7 +3868,11 @@ impl Pipeline {
                         // done (five seconds on the Q25): the action's own
                         // confirmation ends the turn.
                         if single && narrowed {
-                            if let Some(text) = confirmation(&entry.spec.name, &out.summary) {
+                            if let Some(text) = confirmation(
+                                &entry.spec.name,
+                                &out.summary,
+                                crate::lang::current().is_english(),
+                            ) {
                                 lookup = Some(text);
                             }
                         }
@@ -4612,6 +4620,18 @@ mod answer_tests {
         };
         assert_eq!(names(&["org.example.notes"]).len(), 1);
         assert_eq!(names(&["weather", "org.example.notes"]).len(), 2);
+    }
+
+    #[test]
+    fn a_confirmation_without_the_model_is_english_only() {
+        assert_eq!(
+            confirmation("notes.create", "The note is in Notes.", true).as_deref(),
+            Some("The note is in Notes.")
+        );
+        assert_eq!(
+            confirmation("notes.create", "The note is in Notes.", false),
+            None
+        );
     }
 
     #[test]
