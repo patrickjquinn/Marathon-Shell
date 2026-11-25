@@ -96,19 +96,21 @@ Page {
                     return p.objectName === "browserPage";
                 }));
             }
-            menu: ContextMenu {
-                MenuItem {
-                    text: qsTr("Open in new tab")
-                    onClicked: page.browser.open(item.url, {
-                        newTab: true,
-                        background: true
-                    })
-                }
-                MenuItem {
-                    text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function () {
-                        Pacific.deleteHistory(item.url);
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        text: qsTr("Open in new tab")
+                        onClicked: page.browser.open(item.url, {
+                            newTab: true,
+                            background: true
+                        })
+                    }
+                    MenuItem {
+                        text: qsTr("Delete")
+                        onClicked: item.remorseDelete(function () {
+                            Pacific.deleteHistory(item.url);
+                        })
+                    }
                 }
             }
             LetterIcon {

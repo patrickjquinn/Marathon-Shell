@@ -20,16 +20,18 @@ ListItem {
     contentHeight: dayHeight + pictures.height + body.height + (time.visible ? time.height : 0) + (status.visible ? status.height : 0) + Theme.paddingMedium
     Accessible.name: message.text
     Accessible.description: outgoing ? qsTr("Sent") : qsTr("Received")
-    menu: ContextMenu {
-        MenuItem {
-            objectName: "copyItem"
-            text: qsTr("Copy")
-            onClicked: Clipboard.text = root.message.text
-        }
-        MenuItem {
-            objectName: "deleteItem"
-            text: qsTr("Delete")
-            onClicked: root.remorseDelete(() => root.deleteRequested())
+    menu: Component {
+        ContextMenu {
+            MenuItem {
+                objectName: "copyItem"
+                text: qsTr("Copy")
+                onClicked: Clipboard.text = root.message.text
+            }
+            MenuItem {
+                objectName: "deleteItem"
+                text: qsTr("Delete")
+                onClicked: root.remorseDelete(() => root.deleteRequested())
+            }
         }
     }
 

@@ -39,13 +39,15 @@ Page {
             required property var modelData
 
             Accessible.name: modelData.text
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "deleteItem"
-                    text: qsTr("Delete")
-                    onClicked: {
-                        const id = item.modelData.id;
-                        item.remorseDelete(() => page.app.removeItem(id));
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "deleteItem"
+                        text: qsTr("Delete")
+                        onClicked: {
+                            const id = item.modelData.id;
+                            item.remorseDelete(() => page.app.removeItem(id));
+                        }
                     }
                 }
             }

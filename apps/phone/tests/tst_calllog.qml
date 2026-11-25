@@ -74,9 +74,9 @@ TestCase {
     }
 
     function menuItem(item, name) {
-        item.openMenu();
+        const menu = item.openMenu();
         let found = null;
-        tryVerify(() => (found = findChild(item.menu, name)) !== null);
+        tryVerify(() => (found = findChild(menu, name)) !== null);
         return found;
     }
 

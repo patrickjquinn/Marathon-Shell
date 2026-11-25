@@ -79,18 +79,20 @@ Page {
 
             contentHeight: Theme.itemSizeLarge
             Accessible.name: (modelData.pinned ? qsTr("Pinned") + ", " : "") + titleLabel.text
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "pinItem"
-                    text: item.modelData.pinned ? qsTr("Unpin") : qsTr("Pin to top")
-                    onClicked: page.store.save(Store.setPinned(page.store.notes, item.modelData.id, !item.modelData.pinned))
-                }
-                MenuItem {
-                    objectName: "deleteItem"
-                    text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function () {
-                        page.store.save(Store.remove(page.store.notes, item.modelData.id));
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "pinItem"
+                        text: item.modelData.pinned ? qsTr("Unpin") : qsTr("Pin to top")
+                        onClicked: page.store.save(Store.setPinned(page.store.notes, item.modelData.id, !item.modelData.pinned))
+                    }
+                    MenuItem {
+                        objectName: "deleteItem"
+                        text: qsTr("Delete")
+                        onClicked: item.remorseDelete(function () {
+                            page.store.save(Store.remove(page.store.notes, item.modelData.id));
+                        })
+                    }
                 }
             }
             onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), {

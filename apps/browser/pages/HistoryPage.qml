@@ -104,13 +104,15 @@ Page {
 
             contentHeight: Theme.itemSizeMedium
             Accessible.name: title
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "deleteItem"
-                    text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function () {
-                        root.browser.removeHistory(item.url);
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "deleteItem"
+                        text: qsTr("Delete")
+                        onClicked: item.remorseDelete(function () {
+                            root.browser.removeHistory(item.url);
+                        })
+                    }
                 }
             }
             onClicked: root.open(url)

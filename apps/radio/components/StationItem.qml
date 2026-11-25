@@ -34,10 +34,12 @@ ListItem {
     contentHeight: Theme.itemSizeMedium
     Accessible.name: station.name
 
-    menu: ContextMenu {
-        MenuItem {
-            text: item.station.favourite ? qsTr("Remove from favourites") : qsTr("Add to favourites")
-            onClicked: item.favouriteToggled()
+    menu: Component {
+        ContextMenu {
+            MenuItem {
+                text: item.station.favourite ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+                onClicked: item.favouriteToggled()
+            }
         }
     }
 

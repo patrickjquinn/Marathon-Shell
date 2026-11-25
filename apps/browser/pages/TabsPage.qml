@@ -68,10 +68,12 @@ Page {
             width: view.width
             contentHeight: Math.round((width - 2 * Theme.horizontalPageMargin) * 2 / 3)
             Accessible.name: (title || qsTr("New tab")) + (current ? ", " + qsTr("current tab") : "")
-            menu: ContextMenu {
-                MenuItem {
-                    text: qsTr("Close tab")
-                    onClicked: root.browser.closeTab(card.tabId)
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        text: qsTr("Close tab")
+                        onClicked: root.browser.closeTab(card.tabId)
+                    }
                 }
             }
             onClicked: root.openTab(tabId)
