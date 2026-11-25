@@ -44,6 +44,11 @@ jobs:
           ls /dev/loop* | head -3
           sudo losetup -f
 
+      # Ubuntu 24.04's AppArmor blocks the capabilities mkosi's unprivileged
+      # sandbox needs in its user namespace.
+      - name: Allow user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Build QEMU image
         env:
           MARATHON_BUILD_DIR: ${{ runner.temp }}/mb
