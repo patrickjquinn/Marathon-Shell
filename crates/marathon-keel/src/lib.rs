@@ -51,10 +51,9 @@ pub struct Host {
 }
 
 impl Host {
-    /// Listens in `runtime_dir` and follows the shell's ambience, read once
-    /// first (up to a second) so the environment carries it. `on_activate`
-    /// runs when the app asks to come forward; `on_ambience` when the
-    /// environment changes.
+    /// Listens in `runtime_dir`. `on_activate` runs when the app asks to
+    /// come forward; `on_ambience` when the environment changes, once
+    /// [`Self::follow_ambience`] has been called.
     pub fn start(
         runtime_dir: &Path,
         dpi: i32,
@@ -92,13 +91,18 @@ impl Host {
                 });
             }
         });
-        let following = host.clone();
+        Ok(host)
+    }
+
+    /// Reads the shell's ambience and follows its changes. A pool spare
+    /// calls it once adopted: until then its bus reaches only dconf.
+    pub fn follow_ambience(&self) {
+        let following = self.clone();
         io::spawn(async move {
-            if let Err(e) = following.follow_ambience().await {
+            if let Err(e) = following.follow().await {
                 log::warn("keel", format_args!("cannot follow the ambience: {e}"));
             }
         });
-        Ok(host)
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
@@ -203,7 +207,7 @@ impl Host {
     }
 
     /// The shell's changes, and a read whenever the shell (re)appears.
-    async fn follow_ambience(&self) -> zbus::Result<()> {
+    async fn follow(&self) -> zbus::Result<()> {
         let bus = io::session_bus().await?;
         let rule = zbus::MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)

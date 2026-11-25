@@ -15,6 +15,7 @@
 )]
 
 mod dbus;
+pub(crate) use dbus::runner_name;
 mod keel;
 pub(crate) use dbus::{playback_changed, uninstalled};
 pub(crate) mod launch;
@@ -527,6 +528,8 @@ pub struct TasksRust {
     // A Keel app → its cover's action strip height.
     cover_strips: HashMap<String, i32>,
     pool: pool::Pool,
+    // Each sandbox's bus proxies (a spare's and its app's), by its instance.
+    bus_proxies: HashMap<String, Vec<crate::bus_proxy::BusProxy>>,
     // The lifecycle.
     lifecycle: lifecycle::Lifecycle,
 }
@@ -534,6 +537,7 @@ pub struct TasksRust {
 impl cxx_qt::Initialize for Tasks {
     fn initialize(self: Pin<&mut Self>) {
         QT.set(self.qt_thread()).ok();
+        crate::bus_proxy::remove_all();
         dbus::export(self.qt_thread());
         keel::export(self.qt_thread());
         self.refill_later(std::time::Duration::from_secs(8));

@@ -7,6 +7,7 @@
   "icon": "icons/shipwright-pacific.svg",
   "author": "Marathon OS",
   "description": "Browse the web",
+  "dbus": { "talk": ["org.shipwright.shoal-keys.Autofill", "org.freedesktop.Tracker3.Miner.Files"], "own": ["org.shipwright.pacific.ui"] },
   "permissions": ["network", "storage", "location", "camera", "microphone", "notifications", "sensors"],
   "permissionReasons": {
     "storage": "Saves downloads to Downloads and lets pages upload your photos and files",

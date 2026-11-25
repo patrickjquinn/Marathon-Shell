@@ -21,6 +21,7 @@ mod audit;
 mod backdrop;
 pub mod bluetooth;
 mod boost;
+mod bus_proxy;
 mod cgroup;
 pub mod clipboard;
 mod clock;

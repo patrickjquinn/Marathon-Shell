@@ -2,9 +2,10 @@
 //! sandbox around it, for an app or for a warm spare that becomes one.
 //!
 //! The sandbox sees `/usr`, `/etc` and the system apps read-only, the
-//! app's own data, cache and config read-write, a runtime dir with only the
-//! session bus, PipeWire, PulseAudio, dconf and the app's own Wayland
-//! security-context socket, only the GPU's render node, and a tmpfs home.
+//! app's own data, cache and config read-write, a runtime dir with only its
+//! bus proxy's sockets (see [`crate::bus_proxy`]), PipeWire, PulseAudio,
+//! dconf and the app's own Wayland security-context socket, only the GPU's
+//! render node, and a tmpfs home.
 //! The network goes only to apps with "network", the media folders only to
 //! apps with "storage". The runner then confines itself to writing where it
 //! was given something writable (`MARATHON_SANDBOX_WRITABLE`).
@@ -16,6 +17,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
 use cxx_qt_lib::{QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
+
+use crate::bus_proxy;
 
 #[cxx_qt::bridge]
 mod ffi {
@@ -40,6 +43,8 @@ pub(crate) struct Runner {
     /// A spare that will become an app with "storage".
     pub storage_spare: bool,
     pub wayland_socket: String,
+    /// Where its bus proxy listens, or will once a spare is adopted.
+    pub bus_dir: String,
     pub render_node: String,
     /// The GPU stack runs WebGL (ANGLE over GLES).
     pub gpu_webgl: bool,
@@ -349,6 +354,16 @@ fn media_folders() -> Vec<PathBuf> {
         .collect()
 }
 
+/// The session bus as an app sees it: its proxy's socket.
+pub(crate) fn session_bus_address() -> String {
+    format!(
+        "unix:path={}/{}/{}",
+        var_or("XDG_RUNTIME_DIR", "/run/user/1000"),
+        bus_proxy::SANDBOX_DIR,
+        bus_proxy::SESSION_SOCKET
+    )
+}
+
 /// The program and its arguments.
 pub(crate) fn argv(runner: &Runner, runner_path: &str) -> Vec<String> {
     let app = app(runner);
@@ -460,8 +475,6 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
         "/sys/class/drm",
         "/sys/devices",
         "/run/systemd/resolve",
-        "/run/dbus",
-        "/var/run/dbus",
     ] {
         args.bind("--ro-bind-try", dir);
     }
@@ -481,8 +494,22 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     args.bind("--bind", &data.to_string_lossy());
     args.bind("--bind", &cache.to_string_lossy());
     args.flags(&["--perms", "0700", "--tmpfs", &runtime]);
-    for socket in ["bus", "pipewire-0", "pulse/native"] {
+    for socket in ["pipewire-0", "pulse/native"] {
         args.bind("--ro-bind-try", &format!("{runtime}/{socket}"));
+    }
+    // The buses only through the proxy, at the paths clients look in.
+    let proxy = format!("{runtime}/{}", bus_proxy::SANDBOX_DIR);
+    let system_bus = "/run/dbus/system_bus_socket";
+    if !runner.bus_dir.is_empty() {
+        args.flags(&["--ro-bind", &runner.bus_dir, &proxy]);
+        args.flags(&[
+            "--symlink",
+            &format!("{proxy}/{}", bus_proxy::SESSION_SOCKET),
+            &format!("{runtime}/bus"),
+            "--symlink",
+            &format!("{proxy}/{}", bus_proxy::SYSTEM_SOCKET),
+            system_bus,
+        ]);
     }
     // WebKit's own bubblewrap binds the accessibility bus's directory for its
     // D-Bus proxy and gives up without it; an empty one lets it start without
@@ -527,7 +554,7 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
         }
     }
     // The home is the sandbox's own (a tmpfs, or a terminal's kept one).
-    let mut writable = vec![home.clone(), data, cache, runtime.into()];
+    let mut writable = vec![home.clone(), data, cache, PathBuf::from(&runtime)];
     writable.extend(["/tmp", "/dev/shm"].map(PathBuf::from));
     if app.map_or(runner.storage_spare, |a| a.has("storage")) {
         for dir in media_folders() {
@@ -559,6 +586,15 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
         ),
         ("MARATHON_SANDBOXED", "1".to_owned()),
         (
+            "DBUS_SESSION_BUS_ADDRESS",
+            if app.is_some() {
+                session_bus_address()
+            } else {
+                format!("unix:path={proxy}/{}", bus_proxy::SPARE_SOCKET)
+            },
+        ),
+        ("DBUS_SYSTEM_BUS_ADDRESS", format!("unix:path={system_bus}")),
+        (
             "MARATHON_SANDBOX_WRITABLE",
             env::join_paths(writable)
                 .unwrap_or_default()
@@ -568,6 +604,17 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     ];
     for (name, value) in variables(runner).into_iter().chain(sandbox_vars) {
         args.flags(&["--setenv", name, &value]);
+    }
+    // Qt's accessibility bridge asks the session bus where the
+    // accessibility bus is, which in a spare would make Qt's connection the
+    // spare proxy's for good. Named here, it asks nothing; nothing listens,
+    // so the bridge stays off, as it does with no accessibility bus in sight.
+    if app.is_none() {
+        args.flags(&[
+            "--setenv",
+            "AT_SPI_BUS_ADDRESS",
+            &format!("unix:path={runtime}/at-spi/bus"),
+        ]);
     }
     for (name, value) in app_environment(runner) {
         args.flags(&["--setenv", &name, &value]);
