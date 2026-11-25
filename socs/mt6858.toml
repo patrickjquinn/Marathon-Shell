@@ -1,0 +1,16 @@
+# Jolla Phone (2026) SoC traits; no kernel policy is installed here.
+schema = 1
+id = "mt6858"
+name = "MediaTek Dimensity 7100 (MT6858)"
+arch = "aarch64"
+cpu = "4x Cortex-A55 + 4x Cortex-A78"
+
+[gpu]
+name = "Mali-G610 MC2"
+
+# Until the GPUEB power path exists the GPU stays off and the shell renders
+# on the CPU into LK's framebuffer through simpledrm.
+[gpu.stacks.llvmpipe]
+driver = "Mesa software rendering (bring-up)"
+gles_max = "3.0"
+msaa = false
