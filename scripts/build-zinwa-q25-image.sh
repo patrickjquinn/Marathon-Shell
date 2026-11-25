@@ -23,9 +23,9 @@
 # IMAGE_VERSION, which an over-the-air update needs.
 #
 # Env:
-#   Q25_CONNSYS_FIRMWARE_DIR  the stock CONNSYS firmware, copied into the
-#                             q25-connsys-firmware aport when it is missing
-#                             there
+#   Q25_CONNSYS_FIRMWARE_DIR  another copy of the CONNSYS firmware, used only
+#                             for files missing from the q25-connsys-firmware
+#                             aport (it ships them)
 #   MARATHON_BUILD_DIR        as for scripts/build-image.sh
 #   Q25_NO_USERDATA           skip the userdata (fresh install) image
 #   Q25_NO_SPACE_CHECK        skip the free-space check, whose sums assume

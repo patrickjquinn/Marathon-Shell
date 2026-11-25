@@ -219,7 +219,6 @@ and its USB gadget does not start. Download mode is the way in.
 ## Building the image yourself
 
 ```sh
-Q25_CONNSYS_FIRMWARE_DIR=…/connsys-firmware \
 ./scripts/build-zinwa-q25-image.sh
 ./scripts/flash/q25-install --image "$MARATHON_BUILD_DIR"/q25/<name>.userdata.img
 ```
