@@ -1542,16 +1542,16 @@ impl Pipeline {
         *lock(&self.on_screen) = None;
     }
 
-    /// The app on screen, if Pilot was opened over one in the last
-    /// [`ON_SCREEN_TTL`]: (app id, name).
     /// Fills the router's cache of option embeddings ahead of the first
     /// question, which otherwise embedded every option first (0.9 s).
-    pub async fn warm(&self) {
+    /// False, at once, while another warm-up runs.
+    pub async fn warm(&self) -> bool {
         if self.warming.swap(true, Ordering::SeqCst) {
-            return;
+            return false;
         }
         self.warm_once().await;
         self.warming.store(false, Ordering::SeqCst);
+        true
     }
 
     async fn warm_once(&self) {
@@ -1627,6 +1627,8 @@ impl Pipeline {
         }
     }
 
+    /// The app on screen, if Pilot was opened over one in the last
+    /// [`ON_SCREEN_TTL`]: (app id, name).
     pub fn on_screen(&self) -> Option<(String, String)> {
         self.on_screen_now().map(|o| (o.app, o.name))
     }

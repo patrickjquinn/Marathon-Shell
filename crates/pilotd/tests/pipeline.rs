@@ -1206,3 +1206,20 @@ async fn sources_are_pages_the_phone_read() {
     let sites: Vec<&str> = sources.iter().map(|s| s.site.as_str()).collect();
     assert_eq!(sites, ["site1.example"]);
 }
+
+/// A second warm-up while one runs returns at once and says so: its
+/// caller then leaves the loading state to the first.
+#[tokio::test]
+async fn a_second_warm_up_says_it_did_not_run() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/embeddings" => Reply {
+            delay: Duration::from_millis(300),
+            ..Reply::ok(json!({"data": []}))
+        },
+        _ => Reply::stamped(chat_text("."), "device"),
+    })
+    .await;
+    let d = local_daemon(&srv.base, 5);
+    let (first, second) = tokio::join!(d.pipeline.warm(), d.pipeline.warm());
+    assert_eq!((first, second), (true, false));
+}
