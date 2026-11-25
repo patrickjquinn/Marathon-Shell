@@ -58,16 +58,25 @@ jobs:
           key: image-spike-mb-${{ github.sha }}
           restore-keys: image-spike-mb-
 
+      # mkosi's Debian tools tree is broken on arm64 (grub-pc-bin, dnf5);
+      # build in Fedora like the developer machines, whose tools tree is
+      # Fedora's.
       - name: Build QEMU image
-        env:
-          MARATHON_BUILD_DIR: ${{ runner.temp }}/mb
-          MARATHON_DEV_SSH_KEY: ""
         run: |
           start=$(date +%s)
           (while sleep 60; do
             echo "::notice::t+$(( $(date +%s)-start ))s free $(df --output=avail -h / | tail -1) mem $(free -h | awk '/Mem/{print $3}')"
           done) &
-          bash scripts/build-qemu-image.sh
+          mkdir -p "$RUNNER_TEMP/mb"
+          sudo podman run --rm --privileged --network host \
+            -v /dev:/dev -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP/mb:/mb" \
+            -e MARATHON_BUILD_DIR=/mb -e MARATHON_DEV_SSH_KEY= -w /src \
+            registry.fedoraproject.org/fedora:44 bash -euc '
+              dnf -y -q install git python3 podman fuse-overlayfs zstd mtools \
+                dosfstools e2fsprogs util-linux binutils qemu-img sshpass \
+                systemd-ukify erofs-utils gnupg2 apk-tools >/dev/null
+              git config --global --add safe.directory "*"
+              bash scripts/build-qemu-image.sh'
           echo "::notice::build took $(( $(date +%s)-start ))s"
 
       - name: Save build tree
