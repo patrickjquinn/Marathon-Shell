@@ -71,4 +71,7 @@ commit_parsers = [
     { sha = "9c6f28f6ba63eeca03af3b854205760d65ac0a40", skip = true },
     { sha = "a5ac3ca2da42b75479f759f6d2998bfe5de208f5", skip = true },
     { sha = "3f94ebbcd03bca84251cfb7ae29509213ac7345c", skip = true },
+    # The e-paper GPU TCON design and simulators, merged without a type.
+    { sha = "e78bc7ad9c3abbcfba9a3cf57bca3f6d5a8309c4", skip = true },
+    { sha = "72cbfbcd9fdc07740ae275344b051f3fbaa0b11d", skip = true },
 ]
