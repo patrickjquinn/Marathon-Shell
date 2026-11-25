@@ -23,24 +23,92 @@ declares it but stock loads no driver for it.
 | Frontlight, warm light | white LEDs on `disp_pwm` (backlight `backlight`, capped at the stock 25% duty), warm LEDs on PWM_1 (LED `amber:frontlight`) | both light (user-confirmed); white needed `mp01-0028` before its PWM reached GPIO84; both come up lit at boot | The shell's brightness slider drives the white string; the night light crossfades it into the warm one by its warmth (profile `frontlight_warm`) |
 | Touch | FocalTech on i2c0 0x38 (IRQ GPIO9, reset GPIO152) | untested | The controller reads 0–600 x 0–800 upright; the DT (`touchscreen-inverted-x`, `touchscreen-swapped-x-y`) reports it in the 800x600 scanout frame, so it turns with the display and needs no `touch_params`. The three keys printed under the panel (back, home, recents) are touch-overlay segments in the DT (`mp01-0037`, `mp01-0038`): KEY_BACK, KEY_HOMEPAGE, KEY_APPSELECT |
 | Keyboard | AW9523B 6x6 matrix on i2c6 0x5b | untested | Keymap goes in the DT (`linux,keymap` on `gpio-matrix-keypad` over `pinctrl-aw9523`). `60-mp01-keyboard.rules` marks it as the built-in keyboard. Symbol layer: open question |
-| Keyboard light | AW9523B LED pins | untested | One LED device per pin |
+| Keyboard light | AW9523B P0_0, P0_1, P1_0, P1_1 in LED mode | built (r8), untested | One LED, `6-005b::kbd_backlight`, on the four outputs stock lights together (`mp01-0041`..`0043` add LED mode to `pinctrl-aw9523`); 0-255 is the constant current, up to 37 mA. The shell lights it on a keypress |
 | Trackpad | — | not fitted | Stock `ff_key` (arrows, enter) is the fingerprint sensor's navigation |
 | Keys | PMIC power and volume up, keypad volume down | untested | Same keypad pins as the Q25 |
 | Wi-Fi, Bluetooth, FM | CONNSYS, `wlan_drv_gen4m_6789`, `wmt_drv`, A-die MT6631 | untested | Same drivers, units and firmware as the Q25 (`mp01-kernel-modules`, `mt6789-platform`, `q25-connsys-firmware`) |
 | GNSS | CONNSYS GNSS, L1 and L5 LNAs | untested | `q25-gnss-firmware` only knows the Q25's `libmnl.so` (sha256 `c0eba0a2…`); the MP01's is another build (`784eb16e…`) whose MT6789 L1 image offset is not yet found |
 | Modem | MD1 over ECCCI, LTE | blocked | `q25-md1-owner` hardcodes the Q25's memory map. The MD1 image is on the phone's own `md1img_a` |
-| Audio | MT6366 codec and AFE, OCA72390 PA (i2c6 0x58) | untested | Card `mp01-mt6366` from the Q25's machine driver (`mp01-audio.dtso`); the PA's Music/Off lists come from the phone's `ocs72xxx_cf.bin`. Stock also loads RT5512 and TFA98xx drivers, which bind nothing |
+| Audio | MT6366 codec and AFE, OCA72390 PA (i2c6 0x58) | binds; reported silent | Card `mp01-mt6366` from the Q25's machine driver (`mp01-audio.dtso`); the PA's Music/Off lists come from the phone's `ocs72xxx_cf.bin`. Stock also loads RT5512 and TFA98xx drivers, which bind nothing. The PA is the card's aux device; DAPM routes DL1 to it through LOL (see "Audio" below) |
 | Headset | MT6358 ACCDET | untested | |
 | Charger | MT6375 (i2c5 0x34), USB-C TCPC | blocked | No mainline driver |
 | Secondary charger | ETA6937 (i2c5 0x6b) | not fitted | |
 | Wireless charging | CPS4021 (i2c5 0x30) | untested | Stock loads `cps_wls_charger` |
 | Fuel gauge | MT6366 coulomb counter | untested | Calibration in "Charging" below |
 | NFC | NXP PN8x on i2c3 0x28 | untested | Shares GPIO12 with the panel enable and the gate IC |
-| Cameras | S5K3P3SP main, BF2553L front | untested | The DT has a third sensor (`main_two`) that `ProjectConfig.mk` doesn't list, so it is probably not fitted |
+| Cameras | S5K3P3SP main (i2c2, 4 lanes), BF2553L front (i2c4, 2 lanes) | not described | No mainline driver for either sensor; Minimal's `mp01-kernel` has both as MTK imgsensor drivers. Rails are GPIO-switched LDOs, not the Q25's WL2868C. The DT has a third sensor (`main_two`, i2c8) that `ProjectConfig.mk` doesn't list, so it is probably not fitted. Plan in "Cameras" below |
 | Flash | LM3643 (i2c6 0x63), OCP81375 (i2c8 0x64) | untested | |
 | Sensors | accelerometer, gyroscope, light, proximity | untested | Behind the SCP, none on the AP |
-| Fingerprint | FocalTech FP (IRQ GPIO8, reset GPIO10) | untested | |
+| Fingerprint | FocalTech FP on SPI (IRQ GPIO8, reset GPIO10) | not described | Stock `focaltech_fp` is a GPIO/IRQ shim: the SPI traffic and matching run in the tkcore TEE, so there is no Linux driver to port. See "Fingerprint" below |
 | SD card | mmc@11240000, card detect GPIO7 | untested | |
+
+## Audio
+
+Checked on the phone without playing anything (r7, mixer, DAPM debugfs,
+the PA's registers):
+
+- The PA is part of the card as its aux device: DAPM shows `LINEOUT L` ->
+  `Speaker IN` -> `Speaker SPK PA` -> `Speaker OUT` -> `Speakers`, and the
+  whole route back to DL1 is connected under the UCM's Speaker device
+  (`LOL Mux` Playback, `HPL/HPR Mux` LoudSPK, `Speakers` on, `Lineout
+  Volume` 18 = +8 dB). PipeWire's default sink is that device, at 1.0 and
+  unmuted. The PA has no controls of its own, so `amixer` lists none.
+- The PA answers at i2c6 0x58 with chip ID 0x11 (OCA72390; stock's
+  `oca72xxx` calls it pid_76). Its registers hold neither the Music nor
+  the Off list, so it has not powered up since boot: no stream has opened
+  since WirePlumber's probe.
+- Minimal's `mp01-kernel` (`mt6789-mt6366.c`, `oca72xxx/`, `Z10.dts`)
+  matches ours. The speaker is LOL into the OCA72390, with no reset or
+  enable line. "Music" is written on power-up and "Off" before power-down,
+  register by register. The mainline MT6358 brings up the line-out only
+  through the HP mux's LoudSPK mode, which the UCM selects.
+- Still open: one stream to the Speaker device with the PA's registers
+  read back (Music list = `0x01` 0x0d ... `0x0b` 0x26) settles whether
+  sound leaves the phone.
+
+## Cameras
+
+Not described. Plan, on the Q25's SENINF/CAMSV/libcamera stack:
+
+| | Main | Front |
+|---|---|---|
+| Sensor | Samsung S5K3P3SP; stock modes 2304x1728 (capture too) and 1280x720 | BYD BF2553L; stock mode 2592x1944 |
+| Bus | i2c2 (EEPROM 0x51, AF 0x72) | i2c4 (EEPROM 0x51) |
+| CSI | 4 lanes, 24 MHz MCLK on GPIO129 | 2 lanes, 24 MHz MCLK on GPIO126 |
+| Reset, power-down | GPIO22, GPIO21 | GPIO16, GPIO15 |
+| AVDD, DVDD, IOVDD, AFVDD | GPIO49, GPIO47, GPIO46, GPIO48 (and GPIO20) | GPIO42, GPIO45, GPIO46 |
+
+1. DT: enable i2c2 and i2c4. Add `regulator-fixed` rails on those
+   enable GPIOs, the CAMTG clocks for MCLK, and the SENINF ports and
+   lanes. Confirm which CSI port each sensor uses from `mp01-kernel`'s
+   `imgsensor_cfg_table.c` and seninf config before writing the
+   endpoints.
+2. Sensor drivers: neither sensor has a mainline, LKML or postmarketOS
+   driver. Minimal's `mp01-kernel` has both as MediaTek imgsensor drivers
+   (`s5k3p3spmipiraw_Sensor.c`, `bf2553lmipiraw_Sensor.c`). They give the
+   register tables, modes, IDs and power sequences for two new V4L2 sensor
+   drivers in the style of mainline `imx111`.
+3. libcamera: a camera-sensor helper per sensor and the Q25's SoftISP
+   path.
+
+Effort: about a week per sensor for a driver that streams, plus 2-3 days
+of DT and bring-up on the Q25 stack. The S5K3P3 (4 lanes, the longer
+register tables) is the larger of the two.
+
+## Fingerprint
+
+FocalTech FP (stock `focaltech_fp`), IRQ GPIO8, reset GPIO10, `ff_vdd`
+regulator, on an SPI bus the TEE owns. Stock builds the driver with
+TrustKernel: the kernel module only does reset, IRQ and power (its
+`ff_spi.o` is left out), and it reads the chip ID through
+`tee_spi_transfer()`. Capture and matching run in the tkcore TEE with
+FocalTech's trusted app. No open driver or matcher for this sensor
+turned up, so a Linux port means a new SPI capture driver
+(protocol from `ff_chip.c`: SFR/SRAM commands 0x08/0x09/0x04/0x05),
+whether the AP can reach that SPI controller at all with the TEE in
+place, and a libfprint driver with its own matching. That is weeks of work
+with no reference to test against. Leave it out until the rest of the
+phone works.
 
 ## Shared and board-specific
 

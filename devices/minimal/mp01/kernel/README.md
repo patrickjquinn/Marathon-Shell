@@ -79,10 +79,15 @@ table's first 36 entries, index row * 6 + column; its private codes become
 `KEY_RIGHTALT` (SYM), `KEY_EMOJI_PICKER` (EM) and `KEY_VOICECOMMAND` (MIC).
 The vendor table's later entries (F9-F12, arrows, copy/paste…) are not
 reached by its matrix scan; an FN layer belongs in the keymap (xkb). The key between the volume keys
-(stock 252, unassigned) is `KEY_REFRESH`. The keyboard LEDs (P0_0, P0_1,
-P1_0, P1_1) need the AW9523's constant-current LED mode, which no upstream
-driver has; driving them as plain GPIOs would sink unlimited current, so they
-are not described.
+(stock 252, unassigned) is `KEY_REFRESH`. The keyboard light is the four
+outputs P0_0, P0_1, P1_0 and P1_1, which Minimal's `aw9523b.c` always sets
+to one level. They need the AW9523's constant-current LED mode, which no
+upstream driver had, so `mp01-0041`/`0042` add `led@N` children to
+`pinctrl-aw9523` (LED mode, the pins taken out of the GPIOs, 256 current
+steps) and `mp01-0043` describes one `kbd_backlight` LED on the four
+outputs. `mp01-0039` drops the irqchip's default trigger that gpiolib
+warned about on every probe; `mp01-0040` fixes the pinmux writing port 0's
+mode register for port 1 pins.
 
 `matrix_keypad` as it was called `disable_irq_nosync()`/`enable_irq()` under
 its spinlock; the AW9523's irqchip takes a mutex there, so `mp01-0008` moves
