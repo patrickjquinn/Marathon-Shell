@@ -937,9 +937,9 @@ fn answer_so_far(text: &str) -> &str {
 }
 
 /// Where the first follow-up label is, and where its text starts: the
-/// model writes it "FOLLOWUPS:", "Follow-ups:", "Follow ups:" and
-/// "FOLUPS:", so a word that is "fol", then l, o and w, then "up" or
-/// "ups", and a colon.
+/// model writes it "FOLLOWUPS:", "Follow-ups:", "Follow ups:", "FOLUPS:"
+/// and "FOLLOWUP:", so a word that is "fol", then l, o and w, then "ups",
+/// or "up" in capitals ("Follow-up: see a doctor" is prose), and a colon.
 fn followup_marker(text: &str) -> Option<(usize, usize)> {
     let lower = text.to_ascii_lowercase();
     for (i, _) in lower.match_indices("fol") {
@@ -962,9 +962,10 @@ fn followup_marker(text: &str) -> Option<(usize, usize)> {
             continue;
         }
         let letters: String = head.chars().filter(char::is_ascii_alphabetic).collect();
+        let capitals = !text[i..i + colon].chars().any(|c| c.is_ascii_lowercase());
         let core = letters
             .strip_suffix("ups")
-            .or_else(|| letters.strip_suffix("up"));
+            .or_else(|| letters.strip_suffix("up").filter(|_| capitals));
         if core.is_some_and(|m| m.starts_with("fol") && m[3..].chars().all(|c| "low".contains(c))) {
             return Some((i, i + colon + 1));
         }
@@ -4525,7 +4526,13 @@ mod answer_tests {
             answer_so_far("Nothing today.\nFOLLOWUPS:\n1. Which?\nFOLLOWUPS: When?"),
             "Nothing today."
         );
-        for not in ["Folding up: the map.", "Scaffolding up: soon", "fold: up"] {
+        for not in [
+            "Folding up: the map.",
+            "Scaffolding up: soon",
+            "fold: up",
+            "See a doctor.\nFollow-up: in two weeks, or sooner if it hurts.",
+            "Follow up: call the bank | then the shop",
+        ] {
             assert!(split_followups(not).1.is_empty(), "{not}");
         }
     }
