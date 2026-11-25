@@ -1,0 +1,162 @@
+#version 310 es
+// The engine's per-pixel step (engine.rs `step`, here `stepPixel`) as a GLES 3.1 compute pass. One invocation
+// owns 16 pixels of a row: one drive word, four target/dc words. Keep bit-exact with the CPU.
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(std430, binding = 0) buffer State { uint st[]; };
+layout(std430, binding = 1) buffer Dc { uint dcw[]; };
+layout(std430, binding = 2) readonly buffer Target { uint tgw[]; };
+layout(std430, binding = 3) writeonly buffer Drive { uint drv[]; };
+layout(std430, binding = 4) readonly buffer Codes { uint codes[]; };
+layout(std430, binding = 5) readonly buffer Lens { uint lens[]; };
+layout(std430, binding = 6) buffer Stats { uint sActive; uint sPending; uint sDriven; uint sRowMin; uint sRowMax; };
+
+uniform uint uWords16;   // row width / 16
+uniform uint uHeight;
+uniform uint uLutWords;
+uniform uint uAllowGrey;
+uniform uint uQuietFrames;
+uniform uint uQuietBonus;
+uniform uint uGreyRewindMax;
+uniform uint uBinTable;
+uniform uint uGreyTable;
+uniform uint uRepay;
+uniform int uWhiteDc;
+
+const uint DONE = 0u, MONO = 1u, GREY = 2u;
+const uint C_AUTO = 0u, C_MONO = 1u, C_GREY = 2u, C_FREEZE = 3u;
+
+bool isRail(uint l) { return l == 0u || l == 15u; }
+uint railOf(uint l) { return l >= 8u ? 15u : 0u; }
+uint invert(uint c) { return c == 1u ? 2u : (c == 2u ? 1u : 0u); }
+
+// One length per word: reading byte-packed lengths with (w >> 8u * (i & 3u)) & 255u gave 0 for
+// byte 3 on Asahi Mesa 26.1.8 (not root-caused).
+uint lutLen(uint table, uint s, uint d) {
+    return lens[table * 256u + s * 16u + d];
+}
+
+uint lutCode(uint table, uint s, uint d, uint f) {
+    uint pair = table * 256u + s * 16u + d;
+    return (codes[pair * uLutWords + (f >> 4)] >> (2u * (f & 15u))) & 3u;
+}
+
+uint stepPixel(inout uint state, int dc, uint tg) {
+    uint lvl = state & 15u;
+    uint tgt = (state >> 4) & 15u;
+    uint frame = (state >> 8) & 255u;
+    uint stage = (state >> 16) & 3u;
+    uint rev = (state >> 18) & 1u;
+    uint last = (state >> 19) & 15u;
+    uint quiet = (state >> 23) & 15u;
+
+    uint grey = tg & 15u;
+    uint stand = (tg & 16u) != 0u ? 15u : 0u;
+    uint cls = (tg >> 5) & 3u;
+
+    if (grey == last) {
+        quiet = min(quiet + 1u + uQuietBonus, 15u);
+    } else {
+        last = grey;
+        quiet = 0u;
+    }
+    bool frozen = cls == C_FREEZE;
+    bool showing = (stage == DONE && lvl == grey) || (stage == GREY && rev == 0u && tgt == grey);
+    bool greyOk = uAllowGrey != 0u || showing;
+    uint want = stand;
+    if (cls == C_AUTO && quiet >= uQuietFrames && greyOk) want = grey;
+    if (cls == C_GREY && greyOk) want = grey;
+
+    if (!frozen) {
+        uint heading = rev == 1u ? lvl : tgt;
+        if (stage == MONO) {
+            uint goal = isRail(want) ? want : railOf(want);
+            if (goal != heading) {
+                if (rev == 0u) rev = 1u;
+                else if (goal == tgt) rev = 0u;
+            }
+        } else if (stage == GREY && want != heading) {
+            if (rev == 0u) {
+                if (frame <= uGreyRewindMax) rev = 1u;
+            } else if (want == tgt) {
+                rev = 0u;
+            }
+        } else if (stage == DONE && want != lvl) {
+            stage = (isRail(want) || !isRail(lvl)) ? MONO : GREY;
+            tgt = (isRail(want) || isRail(lvl)) ? want : railOf(want);
+            frame = 0u;
+            rev = 0u;
+        }
+    }
+
+    uint code = 0u;
+    if (stage != DONE) {
+        uint table = stage == MONO ? uBinTable : uGreyTable;
+        if (rev == 0u) {
+            uint len = lutLen(table, lvl, tgt);
+            if (frame < len) {
+                code = lutCode(table, lvl, tgt, frame);
+                frame += 1u;
+            }
+            if (frame >= len) {
+                stage = DONE;
+                lvl = tgt;
+                frame = 0u;
+            }
+        } else {
+            if (frame > 0u) {
+                frame -= 1u;
+                code = invert(lutCode(table, lvl, tgt, frame));
+            }
+            if (frame == 0u) {
+                stage = DONE;
+                tgt = lvl;
+                rev = 0u;
+            }
+        }
+    } else if (uRepay != 0u && !frozen && want == lvl) {
+        if (lvl == 15u && dc < uWhiteDc) code = 2u;
+        else if (lvl == 0u && dc > 0) code = 1u;
+    }
+    state = lvl | tgt << 4 | frame << 8 | stage << 16 | rev << 18 | last << 19 | quiet << 23;
+    return code;
+}
+
+void main() {
+    uint gx = gl_GlobalInvocationID.x;
+    uint gy = gl_GlobalInvocationID.y;
+    if (gx >= uWords16 || gy >= uHeight) return;
+    uint word = gy * uWords16 + gx;
+    uint out_ = 0u;
+    uint nActive = 0u, nPending = 0u, nDriven = 0u;
+    for (uint q = 0u; q < 4u; ++q) {
+        uint tq = tgw[word * 4u + q];
+        uint dq = dcw[word * 4u + q];
+        uint dOut = 0u;
+        for (uint i = 0u; i < 4u; ++i) {
+            uint px = word * 16u + q * 4u + i;
+            uint tg = bitfieldExtract(tq, int(8u * i), 8);
+            int dc = bitfieldExtract(int(dq), int(8u * i), 8);
+            uint s = st[px];
+            uint code = stepPixel(s, dc, tg);
+            st[px] = s;
+            if (code != 0u) dc = clamp(dc + (code == 2u ? 1 : -1), -128, 127);
+            dOut = bitfieldInsert(dOut, uint(dc), int(8u * i), 8);
+            out_ = bitfieldInsert(out_, code, int(8u * q + 6u - 2u * i), 2);
+            uint stg = (s >> 16) & 3u;
+            uint cls = (tg >> 5) & 3u;
+            if (stg != DONE || code != 0u) nActive += 1u;
+            if (stg == DONE && (cls == C_AUTO || cls == C_GREY) && (s & 15u) != (tg & 15u)) nPending += 1u;
+            if (code != 0u) nDriven += 1u;
+        }
+        dcw[word * 4u + q] = dOut;
+    }
+    drv[word] = out_;
+    if (nActive != 0u) atomicAdd(sActive, nActive);
+    if (nPending != 0u) atomicAdd(sPending, nPending);
+    if (nDriven != 0u) {
+        atomicAdd(sDriven, nDriven);
+        atomicMin(sRowMin, gy);
+        atomicMax(sRowMax, gy);
+    }
+}

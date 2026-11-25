@@ -1,0 +1,18 @@
+[package]
+name = "marathon-epd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Software e-paper timing controller: per-pixel waveform engine (CPU and GLES 3.1 compute) and the DSI drive-frame format for a dumb CPLD bridge"
+
+[features]
+# The GLES 3.1 compute path, through EGL with no window system.
+gles = ["dep:glow", "dep:khronos-egl"]
+
+[dependencies]
+glow = { version = "0.18.0", optional = true }
+khronos-egl = { version = "6.0.0", features = ["static"], optional = true }
+
+[lints]
+workspace = true
