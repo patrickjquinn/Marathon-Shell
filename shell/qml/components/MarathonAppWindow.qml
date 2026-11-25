@@ -23,13 +23,18 @@ Rectangle {
     property var activeDialogs: []
     property bool isClosing: false
     property Component dialogOverlayComponent
-    // Open: 0 sits on the icon or card it came from, 1 is in place.
+    // Open: 0 sits on the icon or card it came from, 1 is in place. The
+    // window itself moves on the render thread (zoomIn's animators, which
+    // leave its x, y, scale and opacity at rest); zoom follows on the GUI
+    // thread for what is drawn with it.
     property real zoom: 1
     property real zoomScaleFrom: 1
+    // Where x and y start, for a scale about the centre.
     property real zoomXFrom: 0
     property real zoomYFrom: 0
     readonly property real zoomScale: zoomScaleFrom + (1 - zoomScaleFrom) * zoom
     readonly property bool zooming: zoomIn.running
+    readonly property bool leaving: slideOut.running
 
     signal closed
     signal retryRequested(string appId)
@@ -298,24 +303,31 @@ Rectangle {
     }
 
     // Scale + translate from the launch origin: the surface keeps its size.
+    // At rest the window sits at 0,0 in its parent.
     function startZoom() {
+        zoomIn.stop();
+        x = 0;
+        y = 0;
+        scale = 1;
+        opacity = 1;
         var origin = WindowOrigins.takeLaunch();
         var r = origin && parent && width > 0 ? parent.mapFromItem(null, origin.rect.x, origin.rect.y, origin.rect.width, origin.rect.height) : null;
+        var left = 0, top = 0;
         if (MMotion.reduceMotion) {
             zoomScaleFrom = 1;
-            zoomXFrom = 0;
-            zoomYFrom = 0;
         } else if (r && r.width > 0) {
             zoomScaleFrom = r.width / width;
-            zoomXFrom = r.x - x;
+            left = r.x;
             // A card shows the app's top; an icon is the middle of the window it becomes.
-            zoomYFrom = (origin.fromCard ? r.y : r.y + (r.height - height * zoomScaleFrom) / 2) - y;
+            top = origin.fromCard ? r.y : r.y + (r.height - height * zoomScaleFrom) / 2;
         } else {
             zoomScaleFrom = 0.92;
-            zoomXFrom = width * (1 - zoomScaleFrom) / 2;
-            zoomYFrom = height * (1 - zoomScaleFrom) / 2;
+            left = width * (1 - zoomScaleFrom) / 2;
+            top = height * (1 - zoomScaleFrom) / 2;
         }
-        zoomIn.restart();
+        zoomXFrom = left - width * (1 - zoomScaleFrom) / 2;
+        zoomYFrom = top - height * (1 - zoomScaleFrom) / 2;
+        zoomIn.start();
     }
 
     function _unminimize(instance) {
@@ -359,16 +371,6 @@ Rectangle {
 
     color: MColors.surface
     focus: true
-    transform: [
-        Scale {
-            xScale: appWindow.zoomScale
-            yScale: appWindow.zoomScale
-        },
-        Translate {
-            x: appWindow.zoomXFrom * (1 - appWindow.zoom)
-            y: appWindow.zoomYFrom * (1 - appWindow.zoom)
-        }
-    ]
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
             console.log("[AppWindow] Back/Escape key pressed");
@@ -559,6 +561,8 @@ Rectangle {
         }
     }
 
+    // Scale and position share duration and easing, so the window's corner
+    // travels in a straight line from the origin, as one transform did.
     ParallelAnimation {
         id: zoomIn
 
@@ -571,9 +575,32 @@ Rectangle {
             easing.type: Easing.Bezier
             easing.bezierCurve: MMotion.easingDecelerateCurve
         }
-        NumberAnimation {
+        ScaleAnimator {
             target: appWindow
-            property: "opacity"
+            from: appWindow.zoomScaleFrom
+            to: 1
+            duration: MMotion.dur(MMotion.slow)
+            easing.type: Easing.Bezier
+            easing.bezierCurve: MMotion.easingDecelerateCurve
+        }
+        XAnimator {
+            target: appWindow
+            from: appWindow.zoomXFrom
+            to: 0
+            duration: MMotion.dur(MMotion.slow)
+            easing.type: Easing.Bezier
+            easing.bezierCurve: MMotion.easingDecelerateCurve
+        }
+        YAnimator {
+            target: appWindow
+            from: appWindow.zoomYFrom
+            to: 0
+            duration: MMotion.dur(MMotion.slow)
+            easing.type: Easing.Bezier
+            easing.bezierCurve: MMotion.easingDecelerateCurve
+        }
+        OpacityAnimator {
+            target: appWindow
             from: 0
             to: 1
             duration: MMotion.reduceMotion ? MMotion.reducedFade : MMotion.dur(MMotion.slow) / 2
@@ -584,17 +611,15 @@ Rectangle {
     ParallelAnimation {
         id: slideOut
 
-        NumberAnimation {
+        OpacityAnimator {
             target: appWindow
-            property: "opacity"
             from: 1
             to: 0
             duration: MMotion.durationFor("nav")
             easing.type: Easing.OutQuad
         }
-        NumberAnimation {
+        ScaleAnimator {
             target: appWindow
-            property: "scale"
             from: 1.0
             to: MMotion.startScale(0.96)
             duration: MMotion.durationFor("nav")

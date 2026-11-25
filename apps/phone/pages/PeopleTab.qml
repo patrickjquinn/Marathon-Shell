@@ -83,20 +83,22 @@ TabItem {
             objectName: "personItem"
             contentHeight: Theme.itemSizeSmall
             Accessible.name: modelData.name || ""
-            menu: ContextMenu {
-                MenuItem {
-                    text: qsTr("Call")
-                    onClicked: root.phone.call(item.modelData.phone)
-                }
-                MenuItem {
-                    text: qsTr("Send message")
-                    onClicked: root.phone.sendMessage(item.modelData.phone)
-                }
-                MenuItem {
-                    text: item.modelData.favorite ? qsTr("Remove from favorites") : qsTr("Add to favorites")
-                    onClicked: Contacts.updateContact(item.modelData.id, {
-                        favorite: !item.modelData.favorite
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        text: qsTr("Call")
+                        onClicked: root.phone.call(item.modelData.phone)
+                    }
+                    MenuItem {
+                        text: qsTr("Send message")
+                        onClicked: root.phone.sendMessage(item.modelData.phone)
+                    }
+                    MenuItem {
+                        text: item.modelData.favorite ? qsTr("Remove from favorites") : qsTr("Add to favorites")
+                        onClicked: Contacts.updateContact(item.modelData.id, {
+                            favorite: !item.modelData.favorite
+                        })
+                    }
                 }
             }
             onClicked: root.phone.pageStack.push(Qt.resolvedUrl("ContactPage.qml"), {

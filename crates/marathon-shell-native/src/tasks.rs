@@ -536,7 +536,7 @@ impl cxx_qt::Initialize for Tasks {
         QT.set(self.qt_thread()).ok();
         dbus::export(self.qt_thread());
         keel::export(self.qt_thread());
-        pool::refill_later(self.qt_thread(), std::time::Duration::from_secs(8));
+        self.refill_later(std::time::Duration::from_secs(8));
     }
 }
 

@@ -78,12 +78,14 @@ Page {
 
             // As tall as its lines need at a large text size.
             contentHeight: Math.max(Theme.itemSizeMedium, rowText.height + 2 * Theme.paddingSmall)
-            menu: ContextMenu {
-                MenuItem {
-                    text: qsTr("Forget")
-                    onClicked: row.remorseDelete(function () {
-                        Reef.removeLicence(row.appId);
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        text: qsTr("Forget")
+                        onClicked: row.remorseDelete(function () {
+                            Reef.removeLicence(row.appId);
+                        })
+                    }
                 }
             }
 

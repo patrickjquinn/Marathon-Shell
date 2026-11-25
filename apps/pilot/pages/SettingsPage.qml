@@ -168,12 +168,14 @@ Page {
                     id: memoryItem
                     required property var modelData
                     contentHeight: Math.max(Theme.itemSizeSmall, memoryText.height + 2 * Theme.paddingMedium)
-                    menu: ContextMenu {
-                        MenuItem {
-                            text: qsTr("Forget")
-                            onClicked: {
-                                Pilot.forget(memoryItem.modelData.id);
-                                page.memories = JSON.parse(Pilot.memories());
+                    menu: Component {
+                        ContextMenu {
+                            MenuItem {
+                                text: qsTr("Forget")
+                                onClicked: {
+                                    Pilot.forget(memoryItem.modelData.id);
+                                    page.memories = JSON.parse(Pilot.memories());
+                                }
                             }
                         }
                     }

@@ -396,14 +396,6 @@ Page {
                         page.send(text);
                         text = "";
                     }
-                    // Enter sends; Shift+Enter is a new line.
-                    Keys.onReturnPressed: function (event) {
-                        event.accepted = !(event.modifiers & Qt.ShiftModifier);
-                        if (event.accepted) {
-                            page.send(text);
-                            text = "";
-                        }
-                    }
                     // Up in an empty field brings back the last question.
                     Keys.onUpPressed: function (event) {
                         event.accepted = text === "" && Conversation.lastQuestion() !== "";

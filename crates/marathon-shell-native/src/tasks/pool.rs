@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
 
-use super::{Launch, Map, Qt, Tasks};
+use super::{Launch, Map, Tasks};
 use crate::{io, log, sandbox};
 
 /// A spare alive this long had finished starting and was warm.
@@ -28,6 +28,8 @@ const REFILL_DELAY: Duration = Duration::from_secs(8);
 /// kind launched in that time to start cold.
 const REFILL_SETTLE: Duration = Duration::from_millis(500);
 const RECENT: usize = 5;
+/// Spares that die before getting warm this many times turn the pool off.
+const MAX_FAILURES: u32 = 3;
 
 struct Spare {
     stdin: Option<ChildStdin>,
@@ -46,15 +48,10 @@ pub(super) struct Pool {
     failures: u32,
     healthy_deaths: u32,
     retry_after: Option<Instant>,
+    /// The one refill timer pending.
+    refill_at: Option<Instant>,
     /// Spares told to leave (EOF on stdin), by pid: their sandbox's socket.
     retired: HashMap<i64, String>,
-}
-
-pub(super) fn refill_later(qt: Qt, after: Duration) {
-    io::spawn(async move {
-        async_io::Timer::after(after).await;
-        qt.queue(super::qobject::Tasks::refill_spares).ok();
-    });
 }
 
 /// The build's runner beside the shell, else the installed one.
@@ -97,14 +94,40 @@ impl Tasks {
         }]
     }
 
+    /// One refill timer at a time: a later request waits for the pending
+    /// one (which re-arms as needed), an earlier one replaces it.
+    pub(super) fn refill_later(mut self: Pin<&mut Self>, after: Duration) {
+        let at = Instant::now() + after;
+        if self.pool.refill_at.is_some_and(|due| due <= at) {
+            return;
+        }
+        self.as_mut().rust_mut().pool.refill_at = Some(at);
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            async_io::Timer::after(after).await;
+            qt.queue(move |obj| obj.refill_due(at)).ok();
+        });
+    }
+
+    fn refill_due(mut self: Pin<&mut Self>, at: Instant) {
+        if self.pool.refill_at != Some(at) {
+            return;
+        }
+        self.as_mut().rust_mut().pool.refill_at = None;
+        self.refill_spares();
+    }
+
     /// A window mapped: an empty spare slot is refilled shortly.
-    pub(super) fn refill_after_map(&self) {
+    pub(super) fn refill_after_map(mut self: Pin<&mut Self>) {
+        if self.pool.failures >= MAX_FAILURES {
+            return;
+        }
         let empty = self
             .wanted_spares()
             .iter()
             .any(|s| self.pool.spares[slot(*s)].is_none());
         if empty {
-            refill_later(self.qt_thread(), REFILL_SETTLE);
+            self.as_mut().refill_later(REFILL_SETTLE);
         }
     }
 
@@ -112,7 +135,7 @@ impl Tasks {
         if let Some(at) = self.pool.retry_after {
             let wait = at.saturating_duration_since(Instant::now());
             if !wait.is_zero() {
-                return refill_later(self.qt_thread(), wait);
+                return self.refill_later(wait);
             }
         }
         let wanted = self.wanted_spares();
@@ -122,7 +145,7 @@ impl Tasks {
             }
             // One at a time: a spare spends seconds of CPU warming up.
             if self.as_mut().spawn_spare(*storage) && i + 1 < wanted.len() {
-                refill_later(self.qt_thread(), REFILL_DELAY);
+                self.as_mut().refill_later(REFILL_DELAY);
             }
             return;
         }
@@ -132,8 +155,7 @@ impl Tasks {
         if self.pool.spares[slot(storage)].is_some() || sandbox::bwrap().is_none() {
             return false;
         }
-        if self.pool.failures >= 3 {
-            log::warn("tasks", "runner pool off after repeated spare failures");
+        if self.pool.failures >= MAX_FAILURES {
             return false;
         }
         let instance = super::launch_uuid();
@@ -233,12 +255,15 @@ impl Tasks {
                 rust.pool.retry_after = Some(Instant::now() + delay);
             } else {
                 rust.pool.failures += 1;
+                if rust.pool.failures == MAX_FAILURES {
+                    log::warn("tasks", "runner pool off after repeated spare failures");
+                }
             }
-            refill_later(self.qt_thread(), delay);
+            self.as_mut().refill_later(delay);
         } else if let Some(instance) = self.as_mut().rust_mut().pool.retired.remove(&pid) {
             self.as_mut()
                 .sandbox_socket_closed(&QString::from(&instance));
-            refill_later(self.qt_thread(), REFILL_DELAY);
+            self.as_mut().refill_later(REFILL_DELAY);
         } else {
             self.app_closed(pid);
         }
@@ -332,7 +357,7 @@ impl Tasks {
             std::mem::forget(spare.stdin);
         }
         rust.pending_route = None;
-        refill_later(self.qt_thread(), REFILL_DELAY);
+        self.as_mut().refill_later(REFILL_DELAY);
         true
     }
 }

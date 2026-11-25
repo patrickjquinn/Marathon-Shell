@@ -32,14 +32,16 @@ Page {
             required property var modelData
 
             contentHeight: check.height
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "openNoteItem"
-                    text: qsTr("Open note")
-                    onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), {
-                        store: page.store,
-                        noteId: item.modelData.noteId
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "openNoteItem"
+                        text: qsTr("Open note")
+                        onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), {
+                            store: page.store,
+                            noteId: item.modelData.noteId
+                        })
+                    }
                 }
             }
 

@@ -123,13 +123,15 @@ Item {
     }
 
     // Woken from saved state a moment ago and not loaded yet, when another
-    // tab takes the front (Pacific started for a link): it stops, and loads
-    // when it is shown again.
+    // tab takes the front (Pacific started for a link): its web process goes
+    // as discard() lets it go, and it loads when it is shown again. The model
+    // still holds the state it was woken from.
     function unwake(): void {
         if (!_waking)
             return;
         _waking = false;
-        view.stop();
+        _parked = true;
+        view.discard();
         tabModel.update(tabId, JSON.stringify({
             live: false
         }));

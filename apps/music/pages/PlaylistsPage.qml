@@ -42,12 +42,14 @@ Page {
                 title: item.modelData.name,
                 playlistId: item.modelData.id
             })
-            menu: ContextMenu {
-                MenuItem {
-                    text: qsTr("Delete")
-                    onClicked: item.remorseDelete(function () {
-                        page.music.savePlaylists(Playlists.remove(page.music.playlists, item.modelData.id));
-                    })
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        text: qsTr("Delete")
+                        onClicked: item.remorseDelete(function () {
+                            page.music.savePlaylists(Playlists.remove(page.music.playlists, item.modelData.id));
+                        })
+                    }
                 }
             }
 
