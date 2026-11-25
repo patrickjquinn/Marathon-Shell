@@ -116,6 +116,7 @@ profile, splash, USB networking, Deckard's settings).
 | Over-the-air root updates, boot counting, bless, rollback | yes | `marathon-carrier-root-install`/`-root-arm`, `packaging/ota/carrier` transfer; the feed `jolla-jp2601_marathon_edge` has no releases yet |
 | Root growth, direct I/O, read-only ESP | yes | `marathon-carrier` |
 | Deckard (Android) | yes, unverified | `deckard` and `deckard-images`, Rust binder (mainline's), legacy iptables; Android renders without a GPU |
+| Slot kept (LK's A/B tries) | yes | `jp2601-mark-boot-successful`, the MP01's, marks slot B successful in misc a minute into the session; without it LK falls back to slot A after seven boots |
 | U-Boot update from the root (`q25-lk-update`) | no | U-Boot is in `boot_b`, written by hand; nothing in the root updates it yet |
 | Q25 hardware services (modem, Wi-Fi, BT, GNSS, audio, camera, NFC, haptics, charger, zram after boot) | no | no drivers on this SoC yet; zram comes from `marathon-base-config` |
 | Firewall, hardening sysctl, logind policy | no | Q25-only files in `device-zinwa-q25-marathon`; they belong in the shared `marathon-phone-base` (WP1) |
