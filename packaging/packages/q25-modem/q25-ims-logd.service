@@ -7,3 +7,5 @@ PartOf=q25-modem.target
 [Service]
 ExecStart=/usr/libexec/q25-modem/q25-ims-logd /run/q25-ims/socket/logdw
 Restart=on-failure
+# The IMS stack logs every timer tick; storing them kept an idle phone's storage awake.
+LogLevelMax=notice
