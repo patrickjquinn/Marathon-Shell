@@ -1117,6 +1117,7 @@ var Glyphs = {
     "phone-disconnect": "\uE3BC",
     "phone-incoming": "\uE3BE",
     "phone-list": "\uE3CC",
+    "phone-missed": "\uE3C4",
     "phone-outgoing": "\uE3C0",
     "phone-pause": "\uE3CA",
     "phone-plus": "\uEC56",

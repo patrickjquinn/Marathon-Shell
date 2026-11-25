@@ -12,7 +12,7 @@ Item {
     property string fallback: "bell"
     property real size: 24
     property color color: MColors.textPrimary
-    readonly property bool hasImage: image.status === Image.Ready
+    readonly property bool hasImage: image.status === Image.Ready && image.implicitWidth > 0
     readonly property bool isGlyph: !!Phosphor.Glyphs[source]
     readonly property var categoryGlyphs: ({
             "call": "phone",
