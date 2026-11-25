@@ -1,0 +1,25 @@
+#!/bin/sh
+# Developer images: open the encrypted /home with the PIN on stdin, for a
+# phone whose screen cannot take it yet (no touch driver). Run over the USB
+# network while marathon-carrier-home-crypt waits for the PIN:
+#
+#   echo PIN | ssh root@172.16.42.1 marathon-carrier-home-unlock
+set -eu
+[ -e /usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf ] || {
+	echo "not a developer image" >&2
+	exit 1
+}
+carrier=$(sed -n 's/^CARRIER_NAME=//p' /usr/share/marathon/carrier.conf | tail -n 1)
+case $carrier in '' | *[!a-z0-9]*) echo "no CARRIER_NAME in carrier.conf" >&2; exit 1 ;; esac
+img=$(cat "/sys/block/$(findmnt -no SOURCE / | sed 's|^/dev/||')/loop/backing_file")
+container=$(dirname "$img")/home.luks
+# The passphrase is the stdin line, as Plymouth and unl0kr give it.
+cryptsetup open --allow-discards --perf-no_read_workqueue --perf-no_write_workqueue \
+	"$container" "$carrier-home"
+: > /run/marathon-carrier/remote-unlock
+# Let the waiting prompt go; marathon-carrier-home-crypt sees the open volume.
+pkill -x unl0kr || :
+if plymouth --ping 2> /dev/null; then
+	plymouth quit
+fi
+echo "/home opened; the boot goes on"

@@ -1,0 +1,13 @@
+[Unit]
+Description=Grow the root image into the carrier filesystem
+DefaultDependencies=no
+After=marathon-carrier-root-dio.service
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/marathon-carrier-root-grow
+
+[Install]
+WantedBy=sysinit.target
