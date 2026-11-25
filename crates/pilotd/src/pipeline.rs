@@ -3464,25 +3464,18 @@ impl Pipeline {
             );
             // On a line of its own: it wrote "The capital of Japan is
             // Tokyo.\nACTION" for a note (the last answer, then the word).
-            if resp.tool_calls.is_empty()
-                && resp
-                    .content
-                    .as_deref()
-                    .is_some_and(|c| c.lines().any(asks_for_tools))
-            {
+            // Without tools, "I've set a reminder" did nothing: the same.
+            let reply = resp.content.as_deref().unwrap_or("");
+            let claimed = escape.is_some() && claims_action(&strip_reasoning(reply));
+            if resp.tool_calls.is_empty() && (claimed || reply.lines().any(asks_for_tools)) {
                 if let Some((full, ask, t)) = escape.take() {
                     log::debug!("something to do: the tools");
                     // What it answered before the word, kept: it added ACTION
                     // to "The moon is about 384,400 km away", then, with the
                     // tools, apologised that it had none for that.
-                    let said: Vec<&str> = resp
-                        .content
-                        .as_deref()
-                        .unwrap_or("")
-                        .lines()
-                        .filter(|l| !asks_for_tools(l))
-                        .collect();
-                    held = Some(said.join("\n").trim().to_owned()).filter(|a| !a.is_empty());
+                    let said: Vec<&str> = reply.lines().filter(|l| !asks_for_tools(l)).collect();
+                    held = Some(said.join("\n").trim().to_owned())
+                        .filter(|a| !a.is_empty() && !claimed);
                     messages.pop();
                     messages.push(ask);
                     messages[0] = full;

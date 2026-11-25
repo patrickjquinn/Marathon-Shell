@@ -1048,3 +1048,26 @@ async fn the_narrow_prompt_knows_the_last_answer() {
     assert!(texts[2].starts_with("Tokyo."), "{texts:?}");
     assert!(texts[3].ends_with("make a note of that"), "{texts:?}");
 }
+
+/// Without tools the phone's model said it had set a reminder: nothing
+/// was done, so it is given the tools, as when it asks for them.
+#[tokio::test]
+async fn a_plain_answer_that_claims_an_action_gets_the_tools() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(jev_reply(&[("open_ended", 0.9)], 0.9, 0.1)),
+        _ if i == 0 => Reply::stamped(chat_text("I've set a reminder for five."), "device"),
+        _ => Reply::stamped(chat_text("What should the reminder say?"), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    let r = d.pipeline.ask("bins at five", false).await;
+    assert_eq!(
+        text_of(r.cards.last().unwrap()),
+        "What should the reminder say?"
+    );
+    let chats = srv.seen("/v1/llm/chat/completions");
+    assert!(chats[0].body.get("tools").is_none());
+    assert!(chats[1].body["tools"]
+        .as_array()
+        .is_some_and(|t| !t.is_empty()));
+}
