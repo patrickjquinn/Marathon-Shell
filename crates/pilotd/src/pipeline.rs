@@ -824,10 +824,14 @@ fn intent_tools(intent: &str) -> Vec<&'static str> {
 /// model: the tool's summary where it is written for them, words for them
 /// where it is written for the model. `None`: the model says it, as it
 /// does in any language but English (these words are English).
-fn confirmation(tool: &str, summary: &str, english: bool) -> Option<String> {
+fn confirmation(tool: &str, args: &Value, summary: &str, english: bool) -> Option<String> {
     if !english {
         return None;
     }
+    let addressed = args
+        .get("to")
+        .and_then(Value::as_str)
+        .is_some_and(|t| !t.trim().is_empty());
     match tool {
         "notes.create" | "settings.open" | "device.toggle" | "call.dial" | "alarm.set"
         | "timer.set" | "reminder.create" => Some(summary.to_owned()),
@@ -835,6 +839,9 @@ fn confirmation(tool: &str, summary: &str, english: bool) -> Option<String> {
         "email.draft" if summary.starts_with("No draft") => Some(
             "There is no e-mail account on the phone yet: Email is open so you can add one.".into(),
         ),
+        "email.draft" if !addressed => {
+            Some("Your e-mail is open in Email: add who it goes to, then check and send it.".into())
+        }
         "email.draft" => Some("Your e-mail is open in Email, ready to check and send.".into()),
         _ => None,
     }
@@ -3870,6 +3877,7 @@ impl Pipeline {
                         if single && narrowed {
                             if let Some(text) = confirmation(
                                 &entry.spec.name,
+                                &real,
                                 &out.summary,
                                 crate::lang::current().is_english(),
                             ) {
@@ -4624,14 +4632,31 @@ mod answer_tests {
 
     #[test]
     fn a_confirmation_without_the_model_is_english_only() {
+        let none = json!({});
         assert_eq!(
-            confirmation("notes.create", "The note is in Notes.", true).as_deref(),
+            confirmation("notes.create", &none, "The note is in Notes.", true).as_deref(),
             Some("The note is in Notes.")
         );
         assert_eq!(
-            confirmation("notes.create", "The note is in Notes.", false),
+            confirmation("notes.create", &none, "The note is in Notes.", false),
             None
         );
+    }
+
+    #[test]
+    fn an_email_with_no_recipient_is_not_ready_to_send() {
+        let open = "The e-mail is open in Email for the person to check and send.";
+        let to = json!({"to": "anna@example.com"});
+        assert!(confirmation("email.draft", &to, open, true)
+            .unwrap()
+            .contains("ready to check and send"));
+        assert!(confirmation("email.draft", &json!({"to": " "}), open, true)
+            .unwrap()
+            .contains("add who it goes to"));
+        let none = "No draft was made: there is no e-mail account on the phone.";
+        assert!(confirmation("email.draft", &to, none, true)
+            .unwrap()
+            .starts_with("There is no e-mail account"));
     }
 
     #[test]
