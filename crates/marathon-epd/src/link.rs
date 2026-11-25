@@ -162,10 +162,9 @@ pub fn pack_frame(h: &Header, drive: &[u8], out: &mut [u8]) {
     assert_eq!(out.len(), FRAME_BYTES);
     out.fill(0);
     out[..HEADER_LEN].copy_from_slice(&h.encode());
-    for (line, row) in out
-        .chunks_exact_mut(LINE_BYTES)
-        .zip(drive.chunks_exact(ROW_BYTES))
-    {
+    let (lines, _) = out.as_chunks_mut::<LINE_BYTES>();
+    let (rows, _) = drive.as_chunks::<ROW_BYTES>();
+    for (line, row) in lines.iter_mut().zip(rows) {
         line[ROW_OFFSET..ROW_OFFSET + ROW_BYTES].copy_from_slice(row);
     }
 }

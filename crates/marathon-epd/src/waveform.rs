@@ -510,7 +510,7 @@ mod tests {
             .unwrap_or_default();
         assert_eq!(t.get(4, 7), &[1, 1, 1, 0, 2]);
         assert_eq!(t.get(9, 15), &[2, 2, 0]);
-        assert!(t.get(15, 15).is_empty());
+        assert_eq!(t.get(15, 15), [0u8; 0]);
         assert!(parse_csv_table("1,2,1,1,1,1,1,1\n", "t", Some(5)).is_err());
         assert!(parse_csv_table("1,16,1\n", "t", None).is_err());
     }
