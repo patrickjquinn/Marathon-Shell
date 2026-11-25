@@ -3389,8 +3389,8 @@ Item {
         function onCallEnded(number, kind) {
             if (kind !== "missed")
                 return;
-            NotificationService.sendNotification("phone", qsTr("Missed Call"), qsTr("From: %1").arg(nameOf(number)), {
-                "icon": "phone-missed",
+            NotificationService.sendNotification("phone", qsTr("Missed Call"), qsTr("From: %1").arg(nameOf(number) || qsTr("Unknown number")), {
+                "icon": "phone-x",
                 "category": "call",
                 "priority": "high",
                 "actions": [
