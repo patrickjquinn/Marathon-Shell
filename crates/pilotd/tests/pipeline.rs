@@ -1120,3 +1120,25 @@ async fn the_phone_caps_words_not_tool_calls() {
     );
     assert!(log.all().is_empty(), "{:?}", log.all());
 }
+
+/// A weather intent the router is unsure of does not keep the web out of
+/// a question that needs it.
+#[tokio::test]
+async fn an_unsure_weather_intent_does_not_block_the_web() {
+    let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
+        "/v1/jev" => Reply::ok(json!({"answers": {
+            "intent": {"probabilities": {"weather": 0.26, "open_ended": 0.24}, "confidence": 0.26},
+            "needs_generation": {"noul": 0.9},
+            "needs_web": {"noul": 0.9},
+            "ambiguity": {"score": 0.1, "confidence": 0.9}
+        }})),
+        "/v1/search" => Reply::ok(json!({"items": [
+            {"title": "Final", "url": "https://example.com/final", "description": "Kerry won."}
+        ]})),
+        _ => Reply::stamped(chat_text("Kerry won."), "device"),
+    })
+    .await;
+    let d = common::phone_model_daemon(&srv.base, &Arc::new(Log::default()));
+    d.pipeline.ask("who won the all-ireland final", false).await;
+    assert_eq!(srv.seen("/v1/search").len(), 1);
+}

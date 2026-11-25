@@ -2379,8 +2379,11 @@ impl Pipeline {
             && answers.get("domain").is_some_and(|a| {
                 matches!(a, crate::jev::Answer::Choice { confidence, .. } if *confidence >= INSIST_FROM)
             });
+        // A weather intent keeps the search out unless the router is unsure
+        // of it: "What is the capital of Japan" was weather at 0.26.
+        let weather_asked = decision.intent == "weather" && decision.confidence >= UNSURE_BELOW;
         let web_first = place_plan
-            || (decision.intent != "weather"
+            || (!weather_asked
                 && !weather
                 && !own_area
                 && matches!(
