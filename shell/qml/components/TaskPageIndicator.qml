@@ -39,8 +39,6 @@ Column {
             height: isActive ? 20 : 6
             radius: 3
             color: isActive ? pageIndicator.activeColor : pageIndicator.inactiveColor
-            layer.enabled: true
-            layer.effect: null
 
             Behavior on height {
                 NumberAnimation {
