@@ -74,7 +74,8 @@ jobs:
             registry.fedoraproject.org/fedora:44 bash -euc '
               dnf -y -q install git python3 podman fuse-overlayfs zstd mtools \
                 dosfstools e2fsprogs util-linux binutils qemu-img sshpass \
-                systemd-ukify erofs-utils gnupg2 apk-tools >/dev/null
+                systemd-ukify erofs-utils gnupg2 apk-tools \
+                qemu-system-aarch64 edk2-aarch64 >/dev/null
               git config --global --add safe.directory "*"
               bash scripts/build-qemu-image.sh'
           echo "::notice::build took $(( $(date +%s)-start ))s"
