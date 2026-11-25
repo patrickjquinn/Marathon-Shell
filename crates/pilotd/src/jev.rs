@@ -103,6 +103,10 @@ pub trait JevClient: Send + Sync {
     async fn decide(&self, req: &DecideRequest, purpose: &str) -> Result<Answers, RemoteError>;
     /// Provider name for the egress log and settings.
     fn provider(&self) -> &str;
+    /// Its questions never leave this machine.
+    fn on_device(&self) -> bool {
+        false
+    }
 }
 
 fn bad(provider: &str, message: impl Into<String>) -> RemoteError {
@@ -637,6 +641,22 @@ impl JevClient for LocalJev {
     fn provider(&self) -> &'static str {
         "local"
     }
+
+    fn on_device(&self) -> bool {
+        loopback(&self.embed_url)
+    }
+}
+
+/// Whether `url` is served on this machine.
+fn loopback(url: &str) -> bool {
+    reqwest::Url::parse(url).is_ok_and(|u| {
+        u.host_str().is_some_and(|h| {
+            h == "localhost"
+                || h.trim_matches(['[', ']'])
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|a| a.is_loopback())
+        })
+    })
 }
 
 /// A label the scorer model can answer with, and its token id in that
@@ -821,6 +841,15 @@ mod tests {
         let w = lexical("How do rainbows form", &options, &descriptions);
         assert!(w[1] <= 0.5, "{w:?}");
         assert!(w.iter().all(|x| *x <= 1.0), "{w:?}");
+    }
+
+    #[test]
+    fn embeddings_on_this_machine_only() {
+        assert!(loopback("http://127.0.0.1:8091/v1/embeddings"));
+        assert!(loopback("http://[::1]:8091/v1/embeddings"));
+        assert!(loopback("http://localhost:8091/v1/embeddings"));
+        assert!(!loopback("https://embed.example.com/v1/embeddings"));
+        assert!(!loopback("not a url"));
     }
 
     #[test]

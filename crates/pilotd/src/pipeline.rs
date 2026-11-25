@@ -2186,9 +2186,10 @@ impl Pipeline {
         // Many remembered facts: the router on the phone ranks them by
         // meaning in the same request, and the prompt gets the few this
         // turn is about (30 facts were 600 tokens, ~10 s on the phone). A
-        // router in the cloud is not sent them.
+        // router off the phone (a "local" one at a remote URL too) is not
+        // sent them.
         let facts = self.store.memories().unwrap_or_default();
-        let rank_memory = backends.jev.provider() == "local" && facts.len() > MEMORY_ALL;
+        let rank_memory = backends.jev.on_device() && facts.len() > MEMORY_ALL;
         if rank_memory {
             let recent = &facts[facts.len().saturating_sub(crate::jev::MAX_CHOICE_OPTIONS)..];
             questions.insert(
