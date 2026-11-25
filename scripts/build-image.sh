@@ -232,15 +232,16 @@ if [ "$DEVICE" = zinwa-q25 ]; then
         "$LIB/build-pilot-apk.sh" "$APORTS_DIR/marathon-gnssd/APKBUILD"
     APORT=modemmanager-mtk-ccci build_if_missing "modemmanager-mtk-ccci" 'modemmanager-mtk-ccci-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/modemmanager-mtk-ccci/APKBUILD"
-    # Its cameras need the software ISP patches, which postmarketOS's lacks.
-    APORT=libcamera build_if_missing "libcamera" 'libcamera-[0-9]*.apk' \
-        "$LIB/build-aport-apk.sh" "$APORTS_DIR/libcamera/APKBUILD"
     # Panfrost's, without the import of every client buffer into mediatek-drm.
     APORT=mesa build_if_missing "mesa" 'mesa-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/mesa/APKBUILD"
 fi
 APORT=umtp-responder \
 build_if_missing "umtp-responder"            'umtp-responder-*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/umtp-responder/APKBUILD"
+# The shell's camera app builds against our libcamera (the software ISP
+# patches postmarketOS's lacks), on every device.
+APORT=libcamera build_if_missing "libcamera" 'libcamera-[0-9]*.apk' \
+    "$LIB/build-aport-apk.sh" "$APORTS_DIR/libcamera/APKBUILD"
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
 
