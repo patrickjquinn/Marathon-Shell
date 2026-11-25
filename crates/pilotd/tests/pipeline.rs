@@ -607,6 +607,10 @@ async fn consent_withdrawn_means_local_only() {
 
 /// Both models on the phone (Marathon's local mode).
 fn local_daemon(base: &str, timeout_secs: u64) -> pilotd::daemon::Daemon {
+    local_daemon_logged(base, timeout_secs, &Arc::new(Log::default()))
+}
+
+fn local_daemon_logged(base: &str, timeout_secs: u64, log: &Arc<Log>) -> pilotd::daemon::Daemon {
     let config = pilotd::config::Config::parse(&format!(
         r#"
         timeout_secs = {timeout_secs}
@@ -628,7 +632,7 @@ fn local_daemon(base: &str, timeout_secs: u64) -> pilotd::daemon::Daemon {
         data_dir: None,
         session: None,
         system: None,
-        adapters: Some(common::fake_adapters(&Arc::new(Log::default()))),
+        adapters: Some(common::fake_adapters(log)),
         credential: Some(pilotd::remote::Credential::None),
         now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
     })
@@ -1222,4 +1226,61 @@ async fn a_second_warm_up_says_it_did_not_run() {
     let d = local_daemon(&srv.base, 5);
     let (first, second) = tokio::join!(d.pipeline.warm(), d.pipeline.warm());
     assert_eq!((first, second), (true, false));
+}
+
+/// The meaning finds two things asked, each likely: not one sure action,
+/// so not the narrow round that ends at its confirmation.
+#[tokio::test]
+async fn two_likely_intents_are_not_one_narrow_action() {
+    let srv = FakeHttp::start(|req: &common::Seen, i| match req.path.as_str() {
+        "/v1/embeddings" => {
+            let data: Vec<Value> = req.body["input"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|t| {
+                    let t = t.as_str().unwrap();
+                    // Bluetooth's toggle at 0.68, a settings page at 0.32.
+                    let v = if t.starts_with("query: ") || t.starts_with("passage: device toggle") {
+                        [1.0, 0.0]
+                    } else if t.starts_with("passage: settings page") {
+                        [0.986, 0.1667]
+                    } else {
+                        [0.0, 1.0]
+                    };
+                    json!({"embedding": v})
+                })
+                .collect();
+            Reply::ok(json!({"data": data}))
+        }
+        _ => Reply::stamped(
+            match i {
+                0 => chat_tool(
+                    "device_toggle",
+                    r#"{"target": "bluetooth", "state": "off"}"#,
+                ),
+                1 => chat_tool("settings_open", r#"{"page": "display"}"#),
+                _ => chat_text("Bluetooth is off and the display settings are open."),
+            },
+            "device",
+        ),
+    })
+    .await;
+    let log = Arc::new(Log::default());
+    let d = local_daemon_logged(&srv.base, 5, &log);
+    let r = d
+        .pipeline
+        .ask("turn off bluetooth and open the display settings", false)
+        .await;
+    assert_eq!(
+        text_of(r.cards.last().unwrap()),
+        "Bluetooth is off and the display settings are open."
+    );
+    assert_eq!(
+        log.all(),
+        [
+            "toggle Bluetooth false",
+            "settings system_settings/look_and_feel/display"
+        ]
+    );
 }

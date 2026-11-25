@@ -498,6 +498,10 @@ const SHARPEN: f64 = 0.02;
 /// score.
 const LEXICAL_MOST: f64 = 2.0;
 
+/// A runner-up intent this likely by meaning is a second thing asked: half
+/// of what the pipeline's sure intent (0.6) leaves to all the others.
+const ALSO_FROM: f64 = 0.2;
+
 /// Options most likely first, from scores (softmax).
 fn distribution(options: &[String], scores: &[f64]) -> Answer {
     let top = scores.iter().copied().fold(f64::MIN, f64::max);
@@ -563,16 +567,18 @@ impl JevClient for LocalJev {
         // What was asked, by meaning: every intent, not only the ones with
         // a handler ("Make a note to buy milk and eggs" is a note, not a
         // question).
-        let meaning = match req.questions.get("intent") {
+        let (meaning, next) = match req.questions.get("intent") {
             Some(Question::Choice {
                 options,
                 descriptions,
                 ..
             }) => match self.rank_by_meaning(utterance, options, descriptions).await {
-                Ok(Answer::Choice { distribution, .. }) => distribution.first().cloned(),
-                _ => None,
+                Ok(Answer::Choice { distribution, .. }) => {
+                    (distribution.first().cloned(), distribution.get(1).cloned())
+                }
+                _ => (None, None),
             },
-            _ => None,
+            _ => (None, None),
         };
         // The words found a handler; the meaning may say another thing was
         // asked ("put the dentist in my calendar" is not a calendar query).
@@ -601,12 +607,18 @@ impl JevClient for LocalJev {
             }
             _ => ("open_ended".to_owned(), 0.5, 1.0),
         };
-        log::debug!("intent {intent} at {confidence:.2}");
+        log::debug!("intent {intent} at {confidence:.2}, next {next:?}");
+        // Something else asked as well ("turn off Bluetooth and open the
+        // display settings"): not one sure action for the pipeline.
+        let also =
+            next.filter(|(_, p)| parsed.is_none() && intent != "open_ended" && *p >= ALSO_FROM);
         let mut out = BTreeMap::new();
         for (name, q) in &req.questions {
             let answer = match (name.as_str(), q) {
                 ("intent", _) => Answer::Choice {
-                    distribution: vec![(intent.clone(), confidence)],
+                    distribution: std::iter::once((intent.clone(), confidence))
+                        .chain(also.clone())
+                        .collect(),
                     confidence,
                 },
                 ("needs_generation", _) => Answer::Noul { p: generation },
