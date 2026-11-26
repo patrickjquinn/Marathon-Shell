@@ -36,6 +36,7 @@ TestCase {
         SessionStore.isLocked = true;
         Security.hasQuickPIN = false;
         Security.firstRunPins = [];
+        Network.wifiAvailable = true;
         SettingsManagerCpp.firstRunComplete = false;
         SettingsManagerCpp.language = "";
         SettingsManagerCpp.reduceMotion = false;
@@ -523,6 +524,33 @@ TestCase {
         compare(oobe.beat, 1);
         verify(!shown);
         compare(Security.firstRunPins, []);
+    }
+
+    function test_noWifiHardwareSkipsGetOnline() {
+        Network.wifiAvailable = false;
+        const progress = child("oobeProgress");
+        swipeUp();
+        compare(oobe.beat, 2);
+        compare(progress.count, 4);
+        compare(progress.current, 1);
+        oobe.beat = 3;
+        compare(progress.current, 2);
+        oobe.beat = 2;
+        swipeBack();
+        compare(oobe.beat, 0);
+    }
+
+    function test_noWifiAndAnExistingPinStartOnMakeItYours() {
+        Network.wifiAvailable = false;
+        Security.hasQuickPIN = true;
+        oobe = createTemporaryObject(oobeComponent, window.contentItem);
+        const progress = child("oobeProgress");
+        swipeUp();
+        compare(oobe.beat, 3);
+        compare(progress.count, 3);
+        compare(progress.current, 1);
+        swipeBack();
+        compare(oobe.beat, 0);
     }
 
     function test_doneFromABeatNotShownIsIgnored() {
