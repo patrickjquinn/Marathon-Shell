@@ -1,0 +1,72 @@
+From e03c19cdb852f0706be92dd7a4b552aaf102d764 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 04:51:43 +0000
+Subject: [PATCH 39/41] arm64: dts: mediatek: mt6858: Add the SPMI arbiter and
+ the MT6363
+
+The MT6858 SPMI arbiter is the MT8196 one. Describe its first bus, and
+on it the MT6363 main PMIC; the second bus, with the MT6369, is left
+for later. The RCS interrupt arrives through EINT 213. Until the
+vlp_cksys clock driver exists, the always-on 26 MHz clock stands in for
+the arbiter's clocks, which the bootloader leaves running.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 36 ++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 2d8a76606..c85f5faae 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -8,6 +8,7 @@
+ #include <dt-bindings/interrupt-controller/irq.h>
+ #include <dt-bindings/phy/phy.h>
+ #include <dt-bindings/power/mediatek,mt6858-power.h>
++#include <dt-bindings/spmi/spmi.h>
+ 
+ / {
+ 	compatible = "mediatek,mt6858";
+@@ -508,6 +509,41 @@ vlpcfg: syscon@1c00c000 {
+ 			compatible = "mediatek,mt6858-vlpcfg", "syscon";
+ 			reg = <0 0x1c00c000 0 0x1000>;
+ 		};
++
++		spmi-arbiter@1c020000 {
++			compatible = "mediatek,mt6858-spmi", "mediatek,mt8196-spmi";
++			ranges = <0 0 0x1c020000 0x8000>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			/* The MT6363 is on the first bus. */
++			spmi: spmi@4000 {
++				reg = <0x4000 0x900>, <0x1000 0x100>;
++				reg-names = "pmif", "spmimst";
++				interrupts-extended = <&pio 213 IRQ_TYPE_LEVEL_HIGH>;
++				interrupt-names = "rcs";
++				interrupt-controller;
++				#interrupt-cells = <3>;
++				/*
++				 * Stand in for the vlp_cksys clocks, which the
++				 * bootloader leaves on.
++				 */
++				clocks = <&clk26m>, <&clk26m>, <&clk26m>;
++				clock-names = "pmif_sys_ck", "pmif_tmr_ck", "spmimst_clk_mux";
++				#address-cells = <2>;
++				#size-cells = <0>;
++
++				mt6363: pmic@4 {
++					compatible = "mediatek,mt6363";
++					reg = <0x4 SPMI_USID>;
++					interrupts = <4 64 IRQ_TYPE_LEVEL_HIGH>;
++					interrupt-controller;
++					#interrupt-cells = <3>;
++					#address-cells = <1>;
++					#size-cells = <0>;
++				};
++			};
++		};
+ 	};
+ 
+ 	timer {
+-- 
+2.55.0
+

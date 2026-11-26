@@ -1,0 +1,28 @@
+From b8cf0a3b2e65091962bfb7f933df4572dff894c9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:48:31 +0000
+Subject: [PATCH 36/41] dt-bindings: mfd: mediatek,mt6363: Add the keys
+
+Describe the keys of the MT6363 as a keys subnode.
+---
+ Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml b/Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml
+index ee90d1605..c418391e4 100644
+--- a/Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml
++++ b/Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml
+@@ -54,6 +54,10 @@ patternProperties:
+     type: object
+     $ref: /schemas/iio/adc/mediatek,mt6359-auxadc.yaml#
+ 
++  "^keys$":
++    type: object
++    $ref: /schemas/input/mediatek,pmic-keys.yaml#
++
+   "^regulators@[0-9a-f]+$":
+     type: object
+     oneOf:
+-- 
+2.55.0
+

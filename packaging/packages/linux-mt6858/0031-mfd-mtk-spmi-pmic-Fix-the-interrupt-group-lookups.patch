@@ -1,0 +1,61 @@
+From 9ad6a5f9707b24293a886d57b5622edcbccc7fdb Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:44:51 +0000
+Subject: [PATCH 31/41] mfd: mtk-spmi-pmic: Fix the interrupt group lookups
+
+Masking or unmasking an interrupt took the first group whose base is at
+or below the interrupt, which is always group 0, and offset the control
+register by the group index instead of by the register within the
+group. Unmasking the MT6363 power key (hwirq 48) wrote bit 48 of the
+first BUCK control register. Take the group whose range holds the
+interrupt, and the control register and bit for the interrupt's offset
+within it.
+
+The chained handler also read each group's number as irq_grp[i] from a
+pointer already at group i, past the end of the table for the later
+groups.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index d1fc8156e..320c2cc35 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -92,15 +92,20 @@ static void mtk_spmi_pmic_irq_set_unmasking(struct irq_data *d, bool unmask)
+ 
+ 	for (i = 0; i < variant->num_groups; i++) {
+ 		const struct mtk_spmi_pmic_irq_grp *irq_grp = &variant->pmic_irq[i];
++		unsigned int offset;
+ 		u32 con_reg;
+-		u8 irq_en_bit;
+ 
+ 		if (hwirq < irq_grp->hwirq_base)
+ 			continue;
+ 
+-		con_reg = irq_grp->con_reg + (variant->con_reg_len * i);
+-		irq_en_bit = hwirq - irq_grp->hwirq_base;
+-		regmap_assign_bits(regmap, con_reg, BIT(irq_en_bit), unmask);
++		offset = hwirq - irq_grp->hwirq_base;
++		if (offset >= irq_grp->num_int_regs * MTK_SPMI_PMIC_VAL_BITS)
++			continue;
++
++		con_reg = irq_grp->con_reg +
++			  variant->con_reg_len * (offset / MTK_SPMI_PMIC_VAL_BITS);
++		regmap_assign_bits(regmap, con_reg,
++				   BIT(offset % MTK_SPMI_PMIC_VAL_BITS), unmask);
+ 
+ 		break;
+ 	}
+@@ -276,7 +281,7 @@ static void mtk_spmi_pmic_handle_chained_irq(struct irq_desc *desc)
+ 
+ 	for (i = 0; i < variant->num_groups; i++) {
+ 		const struct mtk_spmi_pmic_irq_grp *irq_grp = &variant->pmic_irq[i];
+-		u8 group_bit = BIT(irq_grp[i].group_num);
++		u8 group_bit = BIT(irq_grp->group_num);
+ 
+ 		if (val & group_bit) {
+ 			ret = mtk_spmi_pmic_handle_group_irq(pmic, i);
+-- 
+2.55.0
+

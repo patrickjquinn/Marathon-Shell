@@ -1,0 +1,113 @@
+From 514c4bd357a8cadc037b41cfedc22fb36b5baded Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:47:16 +0000
+Subject: [PATCH 33/41] Input: mtk-pmic-keys: Support PMICs on SPMI
+
+The keys of the MediaTek PMICs on SPMI, such as the MT6363, sit under
+the mtk-spmi-pmic MFD, which holds the PMIC's regmap itself and gives
+no mt6397_chip. Take the regmap from the parent device when it has one,
+and from mt6397_chip otherwise.
+
+That MFD describes its sub-devices in the device tree, so take each
+key's interrupts from its own node, as the binding documents them, when
+it has them, and from the MFD cell's named interrupts otherwise.
+---
+ drivers/input/keyboard/Kconfig         |  2 +-
+ drivers/input/keyboard/mtk-pmic-keys.c | 47 +++++++++++++++++++-------
+ 2 files changed, 35 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/input/keyboard/Kconfig b/drivers/input/keyboard/Kconfig
+index d8c64f333..4fec85210 100644
+--- a/drivers/input/keyboard/Kconfig
++++ b/drivers/input/keyboard/Kconfig
+@@ -751,7 +751,7 @@ config KEYBOARD_MT6779
+ 
+ config KEYBOARD_MTK_PMIC
+ 	tristate "MediaTek PMIC keys support"
+-	depends on MFD_MT6397 || COMPILE_TEST
++	depends on MFD_MT6397 || MFD_MTK_SPMI_PMIC || COMPILE_TEST
+ 	help
+ 	  Say Y here if you want to use the pmic keys (powerkey/homekey).
+ 
+diff --git a/drivers/input/keyboard/mtk-pmic-keys.c b/drivers/input/keyboard/mtk-pmic-keys.c
+index 6f14318f3..0657c8687 100644
+--- a/drivers/input/keyboard/mtk-pmic-keys.c
++++ b/drivers/input/keyboard/mtk-pmic-keys.c
+@@ -18,6 +18,7 @@
+ #include <linux/module.h>
+ #include <linux/of_device.h>
+ #include <linux/of.h>
++#include <linux/of_irq.h>
+ #include <linux/platform_device.h>
+ #include <linux/regmap.h>
+ 
+@@ -326,7 +327,6 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
+ {
+ 	int error, index = 0;
+ 	unsigned int keycount;
+-	struct mt6397_chip *pmic_chip = dev_get_drvdata(pdev->dev.parent);
+ 	struct device_node *node = pdev->dev.of_node;
+ 	static const char *const irqnames[] = { "powerkey", "homekey" };
+ 	static const char *const irqnames_r[] = { "powerkey_r", "homekey_r" };
+@@ -341,7 +341,13 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	keys->dev = &pdev->dev;
+-	keys->regmap = pmic_chip->regmap;
++	/* PMICs on SPMI hold the regmap themselves, those on the PWRAP in mt6397_chip */
++	keys->regmap = dev_get_regmap(pdev->dev.parent, NULL);
++	if (!keys->regmap) {
++		struct mt6397_chip *pmic_chip = dev_get_drvdata(pdev->dev.parent);
++
++		keys->regmap = pmic_chip->regmap;
++	}
+ 	mtk_pmic_regs = of_id->data;
+ 
+ 	keys->input_dev = input_dev = devm_input_allocate_device(keys->dev);
+@@ -366,17 +372,32 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
+ 	for_each_child_of_node_scoped(node, child) {
+ 		keys->keys[index].regs = &mtk_pmic_regs->keys_regs[index];
+ 
+-		keys->keys[index].irq =
+-			platform_get_irq_byname(pdev, irqnames[index]);
+-		if (keys->keys[index].irq < 0)
+-			return keys->keys[index].irq;
+-
+-		if (mtk_pmic_regs->key_release_irq) {
+-			keys->keys[index].irq_r = platform_get_irq_byname(pdev,
+-									  irqnames_r[index]);
+-
+-			if (keys->keys[index].irq_r < 0)
+-				return keys->keys[index].irq_r;
++		/* A key's own node may hold its interrupts, else the MFD cell does */
++		if (of_property_present(child, "interrupts")) {
++			keys->keys[index].irq =
++				of_irq_get_byname(child, irqnames[index ? 1 : 0]);
++			if (keys->keys[index].irq <= 0)
++				return keys->keys[index].irq ?: -ENXIO;
++
++			if (mtk_pmic_regs->key_release_irq) {
++				keys->keys[index].irq_r =
++					of_irq_get_byname(child, irqnames_r[index ? 1 : 0]);
++				if (keys->keys[index].irq_r <= 0)
++					return keys->keys[index].irq_r ?: -ENXIO;
++			}
++		} else {
++			keys->keys[index].irq =
++				platform_get_irq_byname(pdev, irqnames[index]);
++			if (keys->keys[index].irq < 0)
++				return keys->keys[index].irq;
++
++			if (mtk_pmic_regs->key_release_irq) {
++				keys->keys[index].irq_r = platform_get_irq_byname(pdev,
++										  irqnames_r[index]);
++
++				if (keys->keys[index].irq_r < 0)
++					return keys->keys[index].irq_r;
++			}
+ 		}
+ 
+ 		error = of_property_read_u32(child,
+-- 
+2.55.0
+

@@ -1,0 +1,34 @@
+From 9093121cd188076fa571a5ec05bcdddfac6c68c9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:48:29 +0000
+Subject: [PATCH 35/41] dt-bindings: input: mediatek,pmic-keys: Add MT6363
+
+The MT6363 SPMI PMIC has the power key and two home keys.
+---
+ .../devicetree/bindings/input/mediatek,pmic-keys.yaml          | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/input/mediatek,pmic-keys.yaml b/Documentation/devicetree/bindings/input/mediatek,pmic-keys.yaml
+index 140a862ec..64a54f5de 100644
+--- a/Documentation/devicetree/bindings/input/mediatek,pmic-keys.yaml
++++ b/Documentation/devicetree/bindings/input/mediatek,pmic-keys.yaml
+@@ -14,7 +14,7 @@ allOf:
+ 
+ description: |
+   There are two key functions provided by MT6397, MT6323 and other MediaTek
+-  PMICs: pwrkey and homekey.
++  PMICs: pwrkey and homekey. The MT6363 has a second homekey.
+   The key functions are defined as the subnode of the function node provided
+   by the PMIC that is defined as a Multi-Function Device (MFD).
+ 
+@@ -31,6 +31,7 @@ properties:
+           - mediatek,mt6357-keys
+           - mediatek,mt6358-keys
+           - mediatek,mt6359-keys
++          - mediatek,mt6363-keys
+           - mediatek,mt6397-keys
+       - items:
+           - enum:
+-- 
+2.55.0
+

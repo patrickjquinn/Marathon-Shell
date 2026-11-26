@@ -1,11 +1,11 @@
 # MT6858 kernel, one for every board on the SoC: mainline at 4dce97c6c
 # (after v7.4-rc4) with the MT6858 series below, built from arm64 defconfig,
 # the series' mt6858.config and marathon.config. The patches are
-# git format-patch 4dce97c6c..7782dc1a7 of the jp2601/initial branch
+# git format-patch 4dce97c6c..fb3cac3f6 of the jp2601/initial branch
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=2
+pkgrel=3
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 pkgdesc="MediaTek Dimensity 7100 (MT6858) kernel"
@@ -64,6 +64,19 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0026-dt-bindings-clock-mediatek-Add-MT6858-clock-controll.patch
 	0027-clk-mediatek-Add-MT6858-clock-drivers.patch
 	0028-arm64-dts-mediatek-mt6858-Add-the-clock-controllers.patch
+	0029-dt-bindings-mfd-Add-binding-for-MediaTek-MT6363-seri.patch
+	0030-mfd-Add-support-for-MediaTek-SPMI-PMICs-and-MT6363-7.patch
+	0031-mfd-mtk-spmi-pmic-Fix-the-interrupt-group-lookups.patch
+	0032-mfd-mtk-spmi-pmic-Check-the-chip-ID-and-mask-the-int.patch
+	0033-Input-mtk-pmic-keys-Support-PMICs-on-SPMI.patch
+	0034-Input-mtk-pmic-keys-Add-support-for-the-MT6363.patch
+	0035-dt-bindings-input-mediatek-pmic-keys-Add-MT6363.patch
+	0036-dt-bindings-mfd-mediatek-mt6363-Add-the-keys.patch
+	0037-dt-bindings-spmi-mediatek-mt8196-spmi-Add-MT6858.patch
+	0038-spmi-mtk-pmif-Set-up-the-software-channel-before-add.patch
+	0039-arm64-dts-mediatek-mt6858-Add-the-SPMI-arbiter-and-t.patch
+	0040-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-power.patch
+	0041-arm64-configs-mt6858-Add-the-SPMI-PMIC-and-its-keys.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -139,5 +152,18 @@ c0967d7b8b980ddf24c5078b8d63205e91b0809caae1737fe31670a082c81cc1063bb1efb5e9305f
 d421b496fc548011fe26fb01995117d1c9f77eb8cdd7e252c67f9ac27f2364f4f8bb01c78e4d981ff00d13faf15485b3b497cac153ce478a812d2ca958b92047  0026-dt-bindings-clock-mediatek-Add-MT6858-clock-controll.patch
 a689c4e221156c97ff500b905e57b02d9f91256233410def1ca6b5637d45946f20324838b26a1bf70e909d35eaf0e3ee9b6bfc5620a3cedca696c02a9db14b9e  0027-clk-mediatek-Add-MT6858-clock-drivers.patch
 7c11cc5baed585429bb2980e7b88e5615b992d7a0826413aad373c2636fa9f38d12d709ae0ac468274e500d2d0db9ad10d80a5878ab9bd35c8420cebcfd130e1  0028-arm64-dts-mediatek-mt6858-Add-the-clock-controllers.patch
+369ec780e38dccd9bf0c9b787f3be0c32d0a6a049f076dd05e926072bd459e9f11674a143f62ded545c434705b73fccacc6147df89cb25faed3367ebc2fd5e5d  0029-dt-bindings-mfd-Add-binding-for-MediaTek-MT6363-seri.patch
+555119587a68aab3b269908258158c23ba2116b563e556e319bf3ee6853eb089f81b80c4a704eb4715b61f6f3f3b000a20b39150a9d580afbe7dd6086de89808  0030-mfd-Add-support-for-MediaTek-SPMI-PMICs-and-MT6363-7.patch
+73f1a9d4803b3b8314aa1440b59128650d1eed5c96ea4db82a76c17d5e5d007f39be4e9cb471d005934b57a49eaa3d45a68e072cd0dca3f3015ab7958e348dce  0031-mfd-mtk-spmi-pmic-Fix-the-interrupt-group-lookups.patch
+45f3d445780d38c6598189ae0915d52cb0a6912971a6d0721b0cdc87ee987ce16fe3a68170cada54bbf596d058b5eb133a652089379e21ea1bd9799c6d0bfe17  0032-mfd-mtk-spmi-pmic-Check-the-chip-ID-and-mask-the-int.patch
+c5621b87933f3aad5d1deaa4d161c53fc6d4f39f84fef7fe24076f414ba69441f01b963ea20eca48d2ee9e093fba121651ef995d22ea65dfef314bc473469676  0033-Input-mtk-pmic-keys-Support-PMICs-on-SPMI.patch
+54901f19dec71a1031d0fad32020b92e8df207e029471236c7a7fad89149a5901d5d1795654c0d47073a319c8c6c1ac883ad84e406240faa6a5bb4c2e1048ff9  0034-Input-mtk-pmic-keys-Add-support-for-the-MT6363.patch
+2094183a1970ab27e51c4b9bce142e58c60de7297abd13abca31692cce5943e1999c1d8cf202c84988af897f85fd3c378f3a09ccc483a6db4563033317641755  0035-dt-bindings-input-mediatek-pmic-keys-Add-MT6363.patch
+2e94936193da56d6ec57bd50fd519a5a2902b944c573d9d93b222fa846670e29e3b310895b812701dd41010f869811095e63ef79f02e6e358a84c386ab94d28e  0036-dt-bindings-mfd-mediatek-mt6363-Add-the-keys.patch
+530f050de4ce60fae5adffac188c891a784a2c638b26de613cb133614c29278742855eea36075a79a0fa221f72e67c67be9c637401b0889967890aa3863e1a45  0037-dt-bindings-spmi-mediatek-mt8196-spmi-Add-MT6858.patch
+1ed8482689d306274173d8589a9cc218480fc6163e68af5a176a9e4ec8a7dafd174e707be6622ae8b653265c0c9eb7250be434b104ae3c84fb403dd0495b8a36  0038-spmi-mtk-pmif-Set-up-the-software-channel-before-add.patch
+1c0c17e70ff99793926b99306073190c5f78c09c0352dde32080c5718d0d6aefb0d9ee9cb0d6f1ef6f4b80f55ff908add2da32ffb80b5106543a64db6ddf06f0  0039-arm64-dts-mediatek-mt6858-Add-the-SPMI-arbiter-and-t.patch
+d9f348cdb9efed06dadf98b1f642f9f2a8642f01b608e634bb21d315cb99f2653849bb99765b54508eb865259464c26a2e030e5c705390372088cfb141b84e7b  0040-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-power.patch
+6e1063c66e68178f24719dacdbb7c62ef8a45d0ab437688312fe4a268087c261a287a115ee2fda5009f06422c91fc0769aad6b8ff6ec86c1ab4068d0a125a434  0041-arm64-configs-mt6858-Add-the-SPMI-PMIC-and-its-keys.patch
 c76960a6f441c9459efd7a39a460eee2067f30b81745d11f263cad4da942e934acd93bb2742dbfacb99ad63bf2ba9c6196c78e5a00b8964e1d1b6b717acf3333  marathon.config
 "

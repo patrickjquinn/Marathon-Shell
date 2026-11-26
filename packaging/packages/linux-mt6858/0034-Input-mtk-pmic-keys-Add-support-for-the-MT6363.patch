@@ -1,0 +1,122 @@
+From eea1f3cb1339eea20e1b942d2f88ce5a8b85723a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:48:18 +0000
+Subject: [PATCH 34/41] Input: mtk-pmic-keys: Add support for the MT6363
+
+The MT6363 reports the power key and two home keys, the second on its
+KPCOL0 pad, in TOPSTATUS, each with a press and a release interrupt.
+Allow a third key for it.
+
+Its key interrupts are enabled in the PSC interrupt controls, which the
+PMIC's own interrupt controller owns, so leave the interrupt selection
+alone. Its long-press reset is spread over two registers, unlike the
+single one the driver programs, so leave it as the bootloader set it.
+---
+ drivers/input/keyboard/mtk-pmic-keys.c    | 36 +++++++++++++++++++++--
+ include/linux/mfd/mt63x3_spmi/registers.h |  1 +
+ 2 files changed, 34 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/input/keyboard/mtk-pmic-keys.c b/drivers/input/keyboard/mtk-pmic-keys.c
+index 0657c8687..dc1173f61 100644
+--- a/drivers/input/keyboard/mtk-pmic-keys.c
++++ b/drivers/input/keyboard/mtk-pmic-keys.c
+@@ -15,6 +15,7 @@
+ #include <linux/mfd/mt6359/registers.h>
+ #include <linux/mfd/mt6397/core.h>
+ #include <linux/mfd/mt6397/registers.h>
++#include <linux/mfd/mt63x3_spmi/registers.h>
+ #include <linux/module.h>
+ #include <linux/of_device.h>
+ #include <linux/of.h>
+@@ -32,7 +33,8 @@
+ 
+ #define MTK_PMIC_PWRKEY_INDEX	0
+ #define MTK_PMIC_HOMEKEY_INDEX	1
+-#define MTK_PMIC_MAX_KEY_COUNT	2
++#define MTK_PMIC_HOMEKEY2_INDEX	2
++#define MTK_PMIC_MAX_KEY_COUNT	3
+ 
+ struct mtk_pmic_keys_regs {
+ 	u32 deb_reg;
+@@ -135,6 +137,24 @@ static const struct mtk_pmic_regs mt6359_regs = {
+ 	.key_release_irq = true,
+ };
+ 
++/*
++ * The MT6363 enables its key interrupts in the PSC interrupt controls,
++ * which the PMIC's interrupt controller owns, and keeps its long-press
++ * reset in two registers: leave both as they are.
++ */
++static const struct mtk_pmic_regs mt6363_regs = {
++	.keys_regs[MTK_PMIC_PWRKEY_INDEX] =
++		MTK_PMIC_KEYS_REGS(MT6363_REG_TOPSTATUS, BIT(1),
++				   MT6363_REG_PSC_TOP_INT_CON0, 0, 0),
++	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
++		MTK_PMIC_KEYS_REGS(MT6363_REG_TOPSTATUS, BIT(3),
++				   MT6363_REG_PSC_TOP_INT_CON0, 0, 0),
++	.keys_regs[MTK_PMIC_HOMEKEY2_INDEX] =
++		MTK_PMIC_KEYS_REGS(MT6363_REG_TOPSTATUS, BIT(4),
++				   MT6363_REG_PSC_TOP_INT_CON0, 0, 0),
++	.key_release_irq = true,
++};
++
+ struct mtk_pmic_keys_info {
+ 	struct mtk_pmic_keys *keys;
+ 	const struct mtk_pmic_keys_regs *regs;
+@@ -165,6 +185,9 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
+ 	u32 value, mask;
+ 	int error;
+ 
++	if (!regs->pmic_rst_reg)
++		return;
++
+ 	kregs_home = &regs->keys_regs[MTK_PMIC_HOMEKEY_INDEX];
+ 	kregs_pwr = &regs->keys_regs[MTK_PMIC_PWRKEY_INDEX];
+ 
+@@ -317,6 +340,9 @@ static const struct of_device_id of_mtk_pmic_keys_match_tbl[] = {
+ 	}, {
+ 		.compatible = "mediatek,mt6359-keys",
+ 		.data = &mt6359_regs,
++	}, {
++		.compatible = "mediatek,mt6363-keys",
++		.data = &mt6363_regs,
+ 	}, {
+ 		/* sentinel */
+ 	}
+@@ -328,8 +354,8 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
+ 	int error, index = 0;
+ 	unsigned int keycount;
+ 	struct device_node *node = pdev->dev.of_node;
+-	static const char *const irqnames[] = { "powerkey", "homekey" };
+-	static const char *const irqnames_r[] = { "powerkey_r", "homekey_r" };
++	static const char *const irqnames[] = { "powerkey", "homekey", "homekey2" };
++	static const char *const irqnames_r[] = { "powerkey_r", "homekey_r", "homekey2_r" };
+ 	struct mtk_pmic_keys *keys;
+ 	const struct mtk_pmic_regs *mtk_pmic_regs;
+ 	struct input_dev *input_dev;
+@@ -371,6 +397,10 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
+ 
+ 	for_each_child_of_node_scoped(node, child) {
+ 		keys->keys[index].regs = &mtk_pmic_regs->keys_regs[index];
++		if (!keys->keys[index].regs->deb_mask) {
++			dev_err(keys->dev, "too many keys defined (%d)\n", keycount);
++			return -EINVAL;
++		}
+ 
+ 		/* A key's own node may hold its interrupts, else the MFD cell does */
+ 		if (of_property_present(child, "interrupts")) {
+diff --git a/include/linux/mfd/mt63x3_spmi/registers.h b/include/linux/mfd/mt63x3_spmi/registers.h
+index 808927280..18a1ab518 100644
+--- a/include/linux/mfd/mt63x3_spmi/registers.h
++++ b/include/linux/mfd/mt63x3_spmi/registers.h
+@@ -8,6 +8,7 @@
+ #define __MFD_MT63X3_SPMI_REGISTERS_H__
+ 
+ /* MT6363 PMIC Registers */
++#define MT6363_REG_TOPSTATUS			0x1e
+ #define MT6363_REG_MISC_TOP_INT_CON0		0x37
+ #define MT6363_REG_MISC_TOP_INT_STATUS0		0x43
+ #define MT6363_REG_TOP_INT_STATUS1		0x4e
+-- 
+2.55.0
+

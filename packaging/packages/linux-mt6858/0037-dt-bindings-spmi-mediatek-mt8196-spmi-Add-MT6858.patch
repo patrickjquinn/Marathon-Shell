@@ -1,0 +1,26 @@
+From a96c7c176cce12e0e8d999d6a1b1e51f1ab23df6 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:48:32 +0000
+Subject: [PATCH 37/41] dt-bindings: spmi: mediatek,mt8196-spmi: Add MT6858
+
+The MT6858 SPMI arbiter is the MT8196 one, with the PMICs all on its
+first bus.
+---
+ Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml b/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
+index 7a534f0a1..281cfe842 100644
+--- a/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
++++ b/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
+@@ -25,6 +25,7 @@ properties:
+           - mediatek,mt8196-spmi
+       - items:
+           - enum:
++              - mediatek,mt6858-spmi
+               - mediatek,mt6991-spmi
+           - const: mediatek,mt8196-spmi
+ 
+-- 
+2.55.0
+
