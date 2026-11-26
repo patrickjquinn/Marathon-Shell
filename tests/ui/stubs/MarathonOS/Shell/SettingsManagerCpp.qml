@@ -5,6 +5,7 @@ QtObject {
     property int appGridColumns: 0
     property string wallpaperPath: ""
     property real userScaleFactor: 1
+    property real defaultUserScaleFactor: 1
     property bool reduceMotion: false
     property bool firstRunComplete: false
     property string language: ""

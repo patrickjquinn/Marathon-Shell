@@ -46,7 +46,8 @@ OobeSheet {
         maximumValue: Scales.factors.length - 1
         stepSize: 1
         value: Scales.nearest(SettingsManagerCpp.userScaleFactor)
-        valueText: Scales.label(value)
+        //: Setup's size slider at the device's own size, e.g. "125% · Default"
+        valueText: Scales.isDefault(value, SettingsManagerCpp.defaultUserScaleFactor) ? qsTr("%1 · Default").arg(Scales.label(value)) : Scales.label(value)
         onValueChanged: {
             if (down)
                 settle.restart();

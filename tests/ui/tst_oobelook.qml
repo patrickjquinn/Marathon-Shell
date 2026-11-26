@@ -56,6 +56,7 @@ TestCase {
     function init() {
         MMotion.reduceMotion = false;
         SettingsManagerCpp.userScaleFactor = 1;
+        SettingsManagerCpp.defaultUserScaleFactor = 1;
         SettingsManagerCpp.wallpaperPath = "";
         size.visible = false;
         wait(50);
@@ -130,8 +131,19 @@ TestCase {
             slider.value = i;
             labels.push(slider.valueText);
         }
-        compare(labels, ["75%", "90%", "100%", "110%", "125%", "140%", "150%"]);
+        compare(labels, ["75%", "90%", "100% · Default", "110%", "125%", "140%", "150%"]);
         slider.value = 2;
+    }
+
+    // A device that starts larger calls its own size the default.
+    function test_sliderNamesTheDevicesDefault() {
+        SettingsManagerCpp.defaultUserScaleFactor = 1.25;
+        SettingsManagerCpp.userScaleFactor = 1.25;
+        size.visible = true;
+        const slider = findChild(size, "sizeSlider");
+        compare(slider.valueText, "125% · Default");
+        slider.value = 2;
+        compare(slider.valueText, "100%");
     }
 
     function test_continueEmitsDone() {
@@ -145,7 +157,7 @@ TestCase {
         size.visible = true;
         const slider = findChild(size, "sizeSlider");
         verify(slider);
-        compare(slider.valueText, "100%");
+        compare(slider.valueText, "100% · Default");
         mousePress(slider, slider.width / 2, slider.height / 2);
         mouseMove(slider, slider.width / 2 + 20, slider.height / 2);
         mouseMove(slider, slider.width - 1, slider.height / 2);

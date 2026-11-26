@@ -174,4 +174,12 @@ TestCase {
         compare(Logic.nearestIndex(factors, 1.0999), 3);
         compare(Logic.nearestIndex(factors, 3), factors.length - 1);
     }
+
+    function test_scaleDescriptionNamesTheDevicesDefault() {
+        const at = f => Logic.scales.find(s => s.factor === f);
+        compare(Logic.scaleDescription(at(1), 1), "Default");
+        compare(Logic.scaleDescription(at(1.25), 1), "Large");
+        compare(Logic.scaleDescription(at(1.25), 1.25), "Default");
+        compare(Logic.scaleDescription(at(1), 1.25), "Medium");
+    }
 }

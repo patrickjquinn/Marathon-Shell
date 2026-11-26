@@ -41,6 +41,7 @@ TestCase {
         SettingsManagerCpp.language = "";
         SettingsManagerCpp.reduceMotion = false;
         SettingsManagerCpp.userScaleFactor = 1;
+        SettingsManagerCpp.defaultUserScaleFactor = 1;
         MMotion.reduceMotion = false;
         window.requestActivate();
         tryVerify(() => window.active);
@@ -196,7 +197,7 @@ TestCase {
         tryVerify(() => toggle.visible);
         mouseClick(toggle);
         compare(SettingsManagerCpp.reduceMotion, true);
-        compare(child("textSizeSlider").valueText, "100%");
+        compare(child("textSizeSlider").valueText, "100% · Default");
         compare(SettingsManagerCpp.userScaleFactor, 1);
     }
 

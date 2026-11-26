@@ -303,7 +303,7 @@ Page {
                         MenuItem {
                             required property var modelData
 
-                            text: modelData.title + " · " + modelData.description
+                            text: modelData.title + " · " + Logic.scaleDescription(modelData, Settings.defaultUserScaleFactor)
                             onClicked: Settings.userScaleFactor = modelData.factor
                         }
                     }
