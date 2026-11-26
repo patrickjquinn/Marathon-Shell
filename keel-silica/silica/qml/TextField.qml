@@ -88,6 +88,7 @@ TextBase {
     }
 
     _editor: textInput
+    _copyProtected: textInput.echoMode !== TextInput.Normal // Modified by Marathon
     _flickableDirection: Flickable.VerticalFlick
     errorHighlight: textInput.touched && !textField.acceptableInput
 
