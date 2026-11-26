@@ -319,8 +319,8 @@ Item {
             }
         }
 
-        // The cover is laid out at the glass's size; a live preview fills it,
-        // cropped from the top. Both draw through rounded WindowTextureItems,
+        // The live preview fills the glass, cropped from the top, under a cover
+        // laid out at the glass's size. Both draw through rounded WindowTextureItems,
         // so the card needs no layer.
         Item {
             id: cardContent
@@ -346,7 +346,9 @@ Item {
                     id: appPreview
 
                     anchors.fill: parent
-                    visible: !coverView.available
+                    // Under a cover, faint enough that the app's text never competes with
+                    // the cover's; e-paper keeps the cover alone rather than redraw behind it.
+                    opacity: !coverView.available ? 1 : MColors.eink ? 0 : 0.15
                     active: !taskCard.secure
                     asynchronous: true
 
@@ -591,7 +593,7 @@ Item {
 
                                 Rectangle {
                                     anchors.fill: parent
-                                    visible: previewContainer.liveApp === null && !taskCard.hasWaylandSurface
+                                    visible: previewContainer.liveApp === null && !taskCard.hasWaylandSurface && !coverView.available
                                     color: "transparent"
 
                                     Column {
