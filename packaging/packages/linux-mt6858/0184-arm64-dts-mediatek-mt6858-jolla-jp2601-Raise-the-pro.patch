@@ -1,0 +1,29 @@
+From 4b1ca13c7099a0fd9171661618a6a7222ae2ec1c Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:43:41 +0000
+Subject: [PATCH 184/186] arm64: dts: mediatek: mt6858-jolla-jp2601: Raise the
+ proximity near level to 2000
+
+Handling the phone with nothing over the earpiece read up to 1200 at
+times, so 1000 would blank the screen in a call; a hand over the sensor
+reads 4000 and up, face down 24000 and up.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 812642e34..abdd218ad 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -299,7 +299,7 @@ magnetometer@30 {
+ 		light-sensor@46 {
+ 			compatible = "sensortek,stk3a5x", "sensortek,stk3310";
+ 			reg = <0x46>;
+-			proximity-near-level = <1000>;
++			proximity-near-level = <2000>;
+ 		};
+ 	};
+ 
+-- 
+2.55.0
+
