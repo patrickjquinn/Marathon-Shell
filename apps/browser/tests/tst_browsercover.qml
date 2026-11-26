@@ -38,7 +38,7 @@ TestCase {
         compare(findChild(cover, "coverTitle").text, "KDE");
         compare(findChild(cover, "coverHost").text, "kde.org");
         verify(findChild(cover, "coverThumbnail").visible);
-        verify(!findChild(cover, "coverText").visible);
+        verify(findChild(cover, "coverText").visible);
         cover.thumbnail = "";
         verify(findChild(cover, "coverText").visible);
     }
