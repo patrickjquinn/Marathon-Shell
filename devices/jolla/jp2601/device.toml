@@ -75,6 +75,8 @@ force_dpi = 392
 panel_dpi = 392
 # No input wakes the screen yet (display.quirks, input.quirks).
 screen_timeout_ms = 0
+# The camera notch, from Sailfish's cutouts=[[310, 0, 414, 66]].
+display_cutout = "310,0,414,66"
 # 12 GB, as on the Q25: a warm spare runner with the media folders and one
 # without.
 runner_pool = 2
