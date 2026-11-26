@@ -286,6 +286,11 @@ static void startTouchInput(const QString &specification) {
         },
         qApp);
     const auto keys        = new TouchDevices(openTouchKeys, qApp);
+    // The reader threads stop before the application tears down the devices they report to.
+    QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, [devices, keys] {
+        delete keys;
+        delete devices;
+    });
     const auto updateCount = [devices] {
         int registered = 0;
         for (QObject *handler : devices->handlers())
