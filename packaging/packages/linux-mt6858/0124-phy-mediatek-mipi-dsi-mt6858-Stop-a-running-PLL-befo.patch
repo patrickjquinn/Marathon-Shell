@@ -1,7 +1,7 @@
 From bf263f71e181fc1dc3c405648127ecae5aae5218 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:50:12 +0000
-Subject: [PATCH 124/168] phy: mediatek: mipi-dsi-mt6858: Stop a running PLL
+Subject: [PATCH 124/181] phy: mediatek: mipi-dsi-mt6858: Stop a running PLL
  before programming it
 
 The bootloader hands over the MIPI TX PLL enabled. Setting PLL_EN again

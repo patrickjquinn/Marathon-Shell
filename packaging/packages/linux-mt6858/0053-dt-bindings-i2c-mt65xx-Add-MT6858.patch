@@ -1,7 +1,7 @@
 From fd8415fd0b0c64dd1d98fada9fd6f1e631d6f475 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 06:56:30 +0000
-Subject: [PATCH 053/168] dt-bindings: i2c: mt65xx: Add MT6858
+Subject: [PATCH 053/181] dt-bindings: i2c: mt65xx: Add MT6858
 
 The MT6858 I2C controllers are the MT6991 ones, which already fall back
 to the MT8188 compatible.

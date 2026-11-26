@@ -1,7 +1,7 @@
 From 90362aadcc72bbf01fff518ec59f88e4fdca25b5 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:09:55 +0000
-Subject: [PATCH 135/168] regulator: mt6369: Add the SD card LDOs
+Subject: [PATCH 135/181] regulator: mt6369: Add the SD card LDOs
 
 The Jolla Phone's microSD slot takes VMCH as card supply and VMC as I/O
 supply. They are MT6369 LDOs of the same kind as VIBR (from the

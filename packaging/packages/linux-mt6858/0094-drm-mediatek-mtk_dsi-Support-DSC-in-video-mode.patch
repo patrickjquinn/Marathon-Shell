@@ -1,7 +1,7 @@
 From b47d5bae3d15ead0987568a6dd4bda4981666c36 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:32:22 +0000
-Subject: [PATCH 094/168] drm/mediatek: mtk_dsi: Support DSC in video mode
+Subject: [PATCH 094/181] drm/mediatek: mtk_dsi: Support DSC in video mode
 
 With DSC the per-line payload is the compressed chunks, not hactive
 times the pixel size, but the video timing code still used the latter

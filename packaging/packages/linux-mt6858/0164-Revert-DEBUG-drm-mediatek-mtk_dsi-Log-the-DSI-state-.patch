@@ -1,7 +1,7 @@
 From 2676d301503fa7b3c9078b3e0ef1454fe016a455 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 13:07:02 +0000
-Subject: [PATCH 164/168] Revert "DEBUG: drm/mediatek: mtk_dsi: Log the DSI
+Subject: [PATCH 164/181] Revert "DEBUG: drm/mediatek: mtk_dsi: Log the DSI
  state at each bring-up step"
 
 This reverts commit 4be39a4dd70aafd9386cc66a10bd1b2b466f287b.

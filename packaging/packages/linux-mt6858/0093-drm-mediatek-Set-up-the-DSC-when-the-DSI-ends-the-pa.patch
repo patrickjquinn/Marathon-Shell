@@ -1,7 +1,7 @@
 From c0f22510bde7b4c4ee11abb7a0b968923611fafa Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:32:20 +0000
-Subject: [PATCH 093/168] drm/mediatek: Set up the DSC when the DSI ends the
+Subject: [PATCH 093/181] drm/mediatek: Set up the DSC when the DSI ends the
  path
 
 mtk_crtc_ddp_hw_init() looked for the DSI only among the components

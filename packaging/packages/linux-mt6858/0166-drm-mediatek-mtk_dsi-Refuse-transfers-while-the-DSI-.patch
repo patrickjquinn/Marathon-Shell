@@ -1,7 +1,7 @@
 From dfc02503e0e053dfa7cbd91e3bf5fdb746583fd0 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 14:19:07 +0000
-Subject: [PATCH 166/168] drm/mediatek: mtk_dsi: Refuse transfers while the DSI
+Subject: [PATCH 166/181] drm/mediatek: mtk_dsi: Refuse transfers while the DSI
  is powered off
 
 A transfer did not check that the DSI was powered on. On the JP2601,

@@ -1,7 +1,7 @@
 From 468059b1e13e49170ad5f31f6a2f5f739eb056df Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:42:41 +0000
-Subject: [PATCH 116/168] arm64: dts: mediatek: mt6858-jolla-jp2601: Disable
+Subject: [PATCH 116/181] arm64: dts: mediatek: mt6858-jolla-jp2601: Disable
  the PWM and IR transmitter
 
 Reading the PWM's registers took a synchronous external abort on the

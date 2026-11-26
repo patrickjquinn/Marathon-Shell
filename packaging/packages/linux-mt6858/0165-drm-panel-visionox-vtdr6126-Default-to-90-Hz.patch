@@ -1,7 +1,7 @@
 From eaf46753f9a28a9495195920b460f54d191ae7f7 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 13:08:07 +0000
-Subject: [PATCH 165/168] drm/panel: visionox-vtdr6126: Default to 90 Hz
+Subject: [PATCH 165/181] drm/panel: visionox-vtdr6126: Default to 90 Hz
 
 The panel runs at 90 Hz from the same 880 Mbit/s lanes and pixel clock,
 with a shorter vertical front porch and DCS 6Ch 01h. Verified on the

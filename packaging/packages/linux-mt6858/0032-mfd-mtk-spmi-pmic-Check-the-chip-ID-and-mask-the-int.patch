@@ -1,7 +1,7 @@
 From 15f42bb14a9120a738f266992f12bcafda25502d Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 04:11:30 +0000
-Subject: [PATCH 032/168] mfd: mtk-spmi-pmic: Check the chip ID and mask the
+Subject: [PATCH 032/181] mfd: mtk-spmi-pmic: Check the chip ID and mask the
  interrupts at probe
 
 Read the chip ID register, which the variants already name, before

@@ -1,7 +1,7 @@
 From a89961afa1b65004bb539e40b3c6350b6f8d270e Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:17:16 +0000
-Subject: [PATCH 067/168] arm64: dts: mediatek: mt6858: Add the display mmsys
+Subject: [PATCH 067/181] arm64: dts: mediatek: mt6858: Add the display mmsys
  and mutex
 
 Describe the display subsystem config (mmsys0) and its mutex, so that

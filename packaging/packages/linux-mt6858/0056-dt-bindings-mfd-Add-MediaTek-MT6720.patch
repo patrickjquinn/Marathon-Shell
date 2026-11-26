@@ -1,7 +1,7 @@
 From 0af6b5e7f993c4ac569e778d51bb0498188b2bce Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 07:58:20 +0000
-Subject: [PATCH 056/168] dt-bindings: mfd: Add MediaTek MT6720
+Subject: [PATCH 056/181] dt-bindings: mfd: Add MediaTek MT6720
 
 The MT6720 is the single cell sibling of the MT6379: a switching
 charger with an ADC, a fuel gauge with its own AUXADC and a USB Type-C

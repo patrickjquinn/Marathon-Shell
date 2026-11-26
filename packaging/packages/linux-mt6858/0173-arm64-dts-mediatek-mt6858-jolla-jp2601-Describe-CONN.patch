@@ -1,0 +1,193 @@
+From 96cb1452708acb125b43213b1db5b0d8a91426f8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:35:59 +0000
+Subject: [PATCH 173/181] arm64: dts: mediatek: mt6858-jolla-jp2601: Describe
+ CONNSYS for the vendor drivers
+
+Wi-Fi, Bluetooth and GNSS run on MediaTek's out-of-tree conninfra,
+gen4m, bt_drv and gps_drv drivers, built as modules, as on the Zinwa Q25.
+Add their nodes as the stock device tree has them, with mainline
+interrupt, power domain and supply references:
+
+- consys: the CONNSYS register windows, the CONN power domain, the three
+  supplies, and the EMI address and size LK writes into its own copy.
+  LK loads the connsys_* partitions there when it finds this node in the
+  vendor_boot device tree, which it does on this boot chain too.
+- wifi: the WFDMA window and the LK-reserved DMA pool, now marked
+  shared-dma-pool as stock LK marks it.
+- bt and gps: their windows and interrupts; the GNSS EMI follows the
+  CONNSYS one.
+- connfem: the FEM parts table. Stock selects hwid 0 (no FEM), so no
+  FEM pin states are described.
+
+These are vendor bindings and stay out of the upstream series.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 145 +++++++++++++++++-
+ 1 file changed, 144 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 5509d212d..38df0b38c 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -134,6 +134,148 @@ switch-privacy {
+ 		};
+ 	};
+ 
++	/*
++	 * CONNSYS (Wi-Fi, Bluetooth, GNSS, FM) for MediaTek's out-of-tree
++	 * conninfra, gen4m, bt_drv and gps_drv drivers, as on the stock
++	 * firmware. LK loads the connsys_* partitions into the reserved EMI
++	 * at 0x8de00000 when it finds /consys@18000000 in its own device tree.
++	 */
++	consys@18000000 {
++		compatible = "mediatek,mt6858-6631-consys";
++		reg = <0 0x18000000 0 0x470>,
++		      <0 0x10001000 0 0xee4>,
++		      <0 0x10005000 0 0xa7c>,
++		      <0 0x11ee0000 0 0xa04>,
++		      <0 0x18001000 0 0x658>,
++		      <0 0x18003000 0 0x204>,
++		      <0 0x1800e000 0 0x118>,
++		      <0 0x18011000 0 0x138>,
++		      <0 0x18012000 0 0x98>,
++		      <0 0x18020000 0 0x4c>,
++		      <0 0x18023000 0 0xe28>,
++		      <0 0x1803b000 0 0x18>,
++		      <0 0x18040000 0 0x2c>,
++		      <0 0x18041000 0 0x140>,
++		      <0 0x18042000 0 0x324>,
++		      <0 0x18046000 0 0x324>,
++		      <0 0x1804b000 0 0x414>,
++		      <0 0x1804d000 0 0x41c>,
++		      <0 0x1804f000 0 0x148>,
++		      <0 0x18053800 0 0x1000>,
++		      <0 0x18060000 0 0xbf8>,
++		      <0 0x18070000 0 0x8004>,
++		      <0 0x1c001000 0 0xfd0>,
++		      <0 0x1c00a000 0 0x51c>,
++		      <0 0x1803c000 0 0x34>,
++		      <0 0x1803e000 0 0x34>;
++		interrupts = <GIC_SPI 607 IRQ_TYPE_LEVEL_HIGH 0>;
++		power-domains = <&spm MT6858_POWER_DOMAIN_CONN>;
++		/* Where LK places it: the start of the connsys carve-out */
++		emi-addr = /bits/ 64 <0x8de00000>;
++		emi-size = <0xc00000>;
++		adie-sku = <0 1>;
++		vrfio18-supply = <&mt6363_vrfio18>;
++		vcn33-1-supply = <&mt6369_vcn33_1>;
++		vcn33-2-supply = <&mt6369_vcn33_2>;
++	};
++
++	wifi@18000000 {
++		compatible = "mediatek,wifi";
++		reg = <0 0x18000000 0 0x700000>;
++		interrupts = <GIC_SPI 484 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 692 IRQ_TYPE_LEVEL_HIGH 0>;
++		memory-region = <&wifi_mem>;
++		emi-size = <0x1400000>;
++	};
++
++	bt@18800000 {
++		compatible = "mediatek,bt";
++		reg = <0 0x18800000 0 0x1000>,
++		      <0 0x18000000 0 0x1000>,
++		      <0 0x18001000 0 0x1000>,
++		      <0 0x18051000 0 0x1000>,
++		      <0 0x18060000 0 0x1000>,
++		      <0 0x18812000 0 0x1000>,
++		      <0 0x10001000 0 0x1000>;
++		interrupts = <GIC_SPI 693 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH 0>;
++	};
++
++	gps@18c00000 {
++		compatible = "mediatek,mt6858-gps";
++		reg = <0 0x18c00000 0 0x100000>,
++		      <0 0x18000000 0 0x100000>,
++		      <0 0x1c000000 0 0x4>,
++		      <0 0x1c013058 0 0x4>,
++		      <0 0x1c013060 0 0x4>,
++		      <0 0x1c0130f8 0 0x28>;
++		reg-names = "conn_gps_base", "conn_infra_base", "status_dummy_cr",
++			    "tia2_gps_on", "tia2_gps_rc_sel", "tia2_gps_debug";
++		interrupts = <GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 381 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 382 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 383 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH 0>;
++		emi-connac-ver = <2>;
++		/* LK's GNSS EMI, right after the CONNSYS one */
++		emi-addr = /bits/ 64 <0x8ea00000>;
++		emi-size = <0x100000>;
++		b13b14-status-addr = <0x1c000008>;
++	};
++
++	/*
++	 * The stock HWID selects "nofem" (no hwid node, no connfem module
++	 * parameter), so no FEM pins are claimed.
++	 */
++	connfem {
++		compatible = "mediatek,connfem";
++
++		connfem_nofem: nofem {
++			vid = <0>;
++			pid = <0>;
++		};
++
++		connfem_sky85320: sky85320 {
++			vid = <1>;
++			pid = <1>;
++		};
++
++		connfem_sky85720: sky85720 {
++			vid = <1>;
++			pid = <2>;
++		};
++
++		connfem_mxd7751s: mxd7751s {
++			vid = <4>;
++			pid = <1>;
++		};
++
++		epa-elna-mtk {
++			parts = <&connfem_nofem &connfem_nofem &connfem_sky85320 &connfem_sky85720
++				 &connfem_mxd7751s &connfem_mxd7751s>;
++
++			wifi {
++				flags-1 {
++				};
++
++				flags-2 {
++				};
++			};
++
++			bt {
++				flags-1 {
++					bypass;
++				};
++
++				flags-2 {
++					bypass;
++				};
++			};
++		};
++	};
++
+ 	memory@40000000 {
+ 		device_type = "memory";
+ 		/* The bootloader fills in the size. */
+@@ -219,7 +361,8 @@ connsys@8de00000 {
+ 			no-map;
+ 		};
+ 
+-		wifi@8eb00000 {
++		wifi_mem: wifi@8eb00000 {
++			compatible = "shared-dma-pool";
+ 			reg = <0 0x8eb00000 0 0x1400000>;
+ 			no-map;
+ 		};
+-- 
+2.55.0
+

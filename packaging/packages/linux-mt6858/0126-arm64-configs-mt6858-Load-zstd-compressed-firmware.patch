@@ -1,7 +1,7 @@
 From bc72f34c82345665b7d8568d2f3340189f878914 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:52:51 +0000
-Subject: [PATCH 126/168] arm64: configs: mt6858: Load zstd-compressed firmware
+Subject: [PATCH 126/181] arm64: configs: mt6858: Load zstd-compressed firmware
 
 Alpine and postmarketOS ship linux-firmware compressed with zstd, so the
 Marathon image has arm/mali/arch10.8/mali_csffw.bin.zst. The built-in

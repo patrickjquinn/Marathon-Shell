@@ -1,7 +1,7 @@
 From cb4d073fd5a1616096de6503e3b2bfa7c92e42c2 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:37:47 +0000
-Subject: [PATCH 112/168] drm/panthor: Add the MediaTek MT6858 compatible
+Subject: [PATCH 112/181] drm/panthor: Add the MediaTek MT6858 compatible
 
 The MT6858's Mali-G610 needs the same ASN hash as the MT8196's GPU: the
 vendor device tree sets #l2-hash-values = <0xb 0xe 0x0>.

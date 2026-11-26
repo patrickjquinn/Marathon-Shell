@@ -1,7 +1,7 @@
 From 7b4fd2ab7989e980f01a014726d72067283cc5f1 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 17:59:30 +0000
-Subject: [PATCH 004/168] dt-bindings: mfd: mediatek,mt8195-scpsys: Add MT6858
+Subject: [PATCH 004/181] dt-bindings: mfd: mediatek,mt8195-scpsys: Add MT6858
 
 The MT6858 SCPSYS block at 0x1c001000 holds the MTCMOS controls that the
 merged mediatek,mt6858-power-controller drives. Add its compatible so the

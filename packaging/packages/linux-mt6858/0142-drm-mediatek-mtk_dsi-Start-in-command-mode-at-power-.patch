@@ -1,7 +1,7 @@
 From e14e6482e6028ee1a1f20c3b5b5de53baef55cac Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:19:54 +0000
-Subject: [PATCH 142/168] drm/mediatek: mtk_dsi: Start in command mode at power
+Subject: [PATCH 142/181] drm/mediatek: mtk_dsi: Start in command mode at power
  on
 
 The DSI is only switched to video mode once the bridge is enabled, so

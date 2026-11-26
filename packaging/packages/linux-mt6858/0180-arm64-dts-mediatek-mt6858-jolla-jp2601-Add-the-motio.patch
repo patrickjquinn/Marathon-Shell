@@ -1,0 +1,105 @@
+From 72f5b120c46e30c5e6faebab257115f3f30ea355 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:38:02 +0000
+Subject: [PATCH 180/181] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ motion and light sensors
+
+The stock firmware runs the sensors from the SCP sensor hub, which has
+no mainline driver. The SCP is never started here (its core stays in
+reset), so the AP can drive the sensor buses itself:
+
+- The TDK ICM-42607-P accelerometer/gyroscope is on the SCP's SPI2
+  pads, GPIO66-69, which also have an AP SPI2 function. It answers
+  WHO_AM_I 0x60 at CS0.
+- The Sensortek STK3A5X light/proximity sensor (0x46) and the MEMSIC
+  MMC5603 magnetometer (0x30) are on the SCP's I2C0 pads, GPIO157/158,
+  which have no AP I2C function, so they get a GPIO I2C bus.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 57 +++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index d82a421d7..b88c3b782 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -276,6 +276,32 @@ flags-2 {
+ 		};
+ 	};
+ 
++	/*
++	 * The light/proximity sensor and the magnetometer sit on the SCP's
++	 * I2C0 pads (GPIO157/158), which have no AP I2C function. The SCP
++	 * never runs, so the AP drives them as a GPIO bus.
++	 */
++	i2c-sensors {
++		compatible = "i2c-gpio";
++		pinctrl-names = "default";
++		pinctrl-0 = <&sensor_i2c_pins>;
++		scl-gpios = <&pio 157 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		sda-gpios = <&pio 158 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		i2c-gpio,delay-us = <2>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		magnetometer@30 {
++			compatible = "memsic,mmc5603";
++			reg = <0x30>;
++		};
++
++		light-sensor@46 {
++			compatible = "sensortek,stk3a5x", "sensortek,stk3310";
++			reg = <0x46>;
++		};
++	};
++
+ 	memory@40000000 {
+ 		device_type = "memory";
+ 		/* The bootloader fills in the size. */
+@@ -1037,6 +1063,23 @@ pins-irq {
+ 		};
+ 	};
+ 
++	sensor_i2c_pins: sensor-i2c-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO157__FUNC_GPIO157>,
++				 <PINMUX_GPIO158__FUNC_GPIO158>;
++			bias-pull-up;
++		};
++	};
++
++	spi2_pins: spi2-pins {
++		pins-spi {
++			pinmux = <PINMUX_GPIO66__FUNC_SPI2_CLK>,
++				 <PINMUX_GPIO67__FUNC_SPI2_CSB>,
++				 <PINMUX_GPIO68__FUNC_SPI2_MO>,
++				 <PINMUX_GPIO69__FUNC_SPI2_MI>;
++		};
++	};
++
+ 	spi3_pins: spi3-pins {
+ 		pins-spi {
+ 			pinmux = <PINMUX_GPIO70__FUNC_SPI3_CLK>,
+@@ -1105,6 +1148,20 @@ &pwm {
+ 	status = "disabled";
+ };
+ 
++/* The accelerometer/gyroscope, on the SCP's SPI2 pads in their AP SPI2 mode */
++&spi2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&spi2_pins>;
++	mediatek,pad-select = <0>;
++	status = "okay";
++
++	imu@0 {
++		compatible = "invensense,icm42607p";
++		reg = <0>;
++		spi-max-frequency = <10000000>;
++	};
++};
++
+ &spi3 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&spi3_pins>;
+-- 
+2.55.0
+

@@ -1,7 +1,7 @@
 From 276a1d0cbf36686fa3ff6a199ff3a7a1af942dc4 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 08:16:20 +0000
-Subject: [PATCH 065/168] arm64: dts: mediatek: mt6858-jolla-jp2601: Wire the
+Subject: [PATCH 065/181] arm64: dts: mediatek: mt6858-jolla-jp2601: Wire the
  MT6720 interrupt and charge limits
 
 The MT6720's interrupt is EINT 118, active low, with a pull-up. Route

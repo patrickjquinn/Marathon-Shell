@@ -1,7 +1,7 @@
 From 94361cd0be828560b2dba5cf8445fde4cda57a82 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:44:26 +0000
-Subject: [PATCH 046/168] dt-bindings: soc: mediatek: mutex: Add MT6858
+Subject: [PATCH 046/181] dt-bindings: soc: mediatek: mutex: Add MT6858
 
 Add the MT6858 display mutex. Like the MT8192 one, it needs its clock.
 ---

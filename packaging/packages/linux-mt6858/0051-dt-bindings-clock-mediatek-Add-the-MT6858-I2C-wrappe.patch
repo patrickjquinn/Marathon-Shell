@@ -1,7 +1,7 @@
 From 4b31a866ef8a6a7947e3b4efd7b54496552f6829 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 06:56:29 +0000
-Subject: [PATCH 051/168] dt-bindings: clock: mediatek: Add the MT6858 I2C
+Subject: [PATCH 051/181] dt-bindings: clock: mediatek: Add the MT6858 I2C
  wrapper clocks
 
 The MT6858 I2C controllers take their clocks from three imp_iic_wrap

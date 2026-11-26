@@ -1,7 +1,7 @@
 From 9b7d20604a19e3222a43d8391fa17c6d79887d54 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:26:34 +0000
-Subject: [PATCH 079/168] dt-bindings: mfd: mediatek,mt6363: Add MT6369
+Subject: [PATCH 079/181] dt-bindings: mfd: mediatek,mt6363: Add MT6369
 
 The MT6369 is the second SPMI PMIC on MT6858 phones (codec, accessory
 detection and the LDOs for the vibrator, fingerprint sensor and SD card).

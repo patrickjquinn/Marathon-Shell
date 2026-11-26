@@ -1,0 +1,460 @@
+From acbdbffbeb1597f79207582d3d8904395868d440 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:19:10 +0000
+Subject: [PATCH 175/181] ASoC: codecs: aw88081: Add AW88271 support
+
+The AW88271 (chip ID 0x2329) uses the AW88081's register layout for
+everything the driver touches except SYSCTRL, where it has an I2C
+write-enable field at bits 11:10 (like the AW88083's at 15:14), the I2S
+transmit enable at bit 13 and the ULS mute at bit 15. It boosts, so the
+status check also waits for the boost to finish (SYSST bit 9), and its
+noise gate is in NGCTRL3 (0x5e) bit 0 rather than PWMCTRL4. It has no
+CCO mux. The register layout is from Awinic's aw882xx driver (pid 2329).
+
+The parts on the Jolla Phone (2026) come up held in reset, so take an
+optional reset GPIO and release it before reading the chip ID.
+
+Tested on the JP2601: both amplifiers (0x34, 0x35) are released from
+reset and probe with ID 0x2329.
+---
+ sound/soc/codecs/Kconfig   |   2 +-
+ sound/soc/codecs/aw88081.c | 215 ++++++++++++++++++++++++++++++++++++-
+ sound/soc/codecs/aw88081.h |  58 ++++++++++
+ 3 files changed, 272 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
+index ba59dabee..05aaec74e 100644
+--- a/sound/soc/codecs/Kconfig
++++ b/sound/soc/codecs/Kconfig
+@@ -710,7 +710,7 @@ config SND_SOC_AW88261
+ 	  the input amplitude.
+ 
+ config SND_SOC_AW88081
+-	tristate "Soc Audio for awinic aw88081/aw88083"
++	tristate "Soc Audio for awinic aw88081/aw88083/aw88271"
+ 	depends on I2C
+ 	select REGMAP_I2C
+ 	select SND_SOC_AW88395_LIB
+diff --git a/sound/soc/codecs/aw88081.c b/sound/soc/codecs/aw88081.c
+index 3bb59ca70..8a9f2366b 100644
+--- a/sound/soc/codecs/aw88081.c
++++ b/sound/soc/codecs/aw88081.c
+@@ -9,6 +9,7 @@
+ 
+ #include <linux/cleanup.h>
+ #include <linux/firmware.h>
++#include <linux/gpio/consumer.h>
+ #include <linux/i2c.h>
+ #include <linux/regmap.h>
+ #include <sound/soc.h>
+@@ -18,6 +19,7 @@
+ enum aw8808x_type {
+ 	AW88081,
+ 	AW88083,
++	AW88271,
+ };
+ 
+ struct aw88081 {
+@@ -46,6 +48,14 @@ static const struct regmap_config aw88083_regmap_config = {
+ 	.val_format_endian = REGMAP_ENDIAN_BIG,
+ };
+ 
++static const struct regmap_config aw88271_regmap_config = {
++	.val_bits = 16,
++	.reg_bits = 8,
++	.max_register = AW88271_REG_MAX,
++	.reg_format_endian = REGMAP_ENDIAN_LITTLE,
++	.val_format_endian = REGMAP_ENDIAN_BIG,
++};
++
+ static int aw88081_dev_get_iis_status(struct aw_device *aw_dev)
+ {
+ 	unsigned int reg_val;
+@@ -245,6 +255,49 @@ static void aw88083_dev_pllpd(struct aw_device *aw_dev, bool pllpd)
+ 				~AW88083_PLL_PD_MASK, AW88083_PLL_PD_POWER_DOWN_VALUE);
+ }
+ 
++static void aw88271_i2c_wen(struct aw_device *aw_dev, bool flag)
++{
++	if (flag)
++		regmap_update_bits(aw_dev->regmap, AW88081_SYSCTRL_REG,
++				~AW88271_I2C_WEN_MASK, AW88271_I2C_WEN_ENABLE_VALUE);
++	else
++		regmap_update_bits(aw_dev->regmap, AW88081_SYSCTRL_REG,
++				~AW88271_I2C_WEN_MASK, AW88271_I2C_WEN_DISABLE_VALUE);
++}
++
++static void aw88271_dev_uls_hmute(struct aw_device *aw_dev, bool uls_hmute)
++{
++	if (uls_hmute)
++		regmap_update_bits(aw_dev->regmap, AW88081_SYSCTRL_REG,
++				~AW88271_ULS_HMUTE_MASK,
++				AW88271_ULS_HMUTE_ENABLE_VALUE);
++	else
++		regmap_update_bits(aw_dev->regmap, AW88081_SYSCTRL_REG,
++				~AW88271_ULS_HMUTE_MASK,
++				AW88271_ULS_HMUTE_DISABLE_VALUE);
++}
++
++static int aw88271_dev_check_sysst(struct aw_device *aw_dev, unsigned int mask)
++{
++	unsigned int reg_val;
++	int ret, i;
++
++	for (i = 0; i < AW88081_DEV_SYSST_CHECK_MAX; i++) {
++		ret = regmap_read(aw_dev->regmap, AW88081_SYSST_REG, &reg_val);
++		if (ret)
++			return ret;
++
++		if ((reg_val & mask) == mask)
++			return 0;
++
++		dev_dbg(aw_dev->dev, "check sysst fail, reg_val=0x%04x, check:0x%x",
++			reg_val, mask);
++		usleep_range(AW88081_2000_US, AW88081_2000_US + 10);
++	}
++
++	return -EPERM;
++}
++
+ static void aw88081_dev_clear_int_status(struct aw_device *aw_dev)
+ {
+ 	unsigned int int_status;
+@@ -390,6 +443,36 @@ static int aw88083_dev_reg_value_check(struct aw_device *aw_dev,
+ 	return 0;
+ }
+ 
++static int aw88271_dev_reg_value_check(struct aw_device *aw_dev,
++					unsigned char reg_addr, unsigned short *reg_val)
++{
++	unsigned int read_vol;
++
++	/* Load the profile with the amplifier off, muted and transmit off */
++	if (reg_addr == AW88081_SYSCTRL_REG) {
++		*reg_val &= ~(~AW88083_AMPPD_MASK |
++			      ~AW88081_PWDN_MASK |
++			      ~AW88081_HMUTE_MASK |
++			      ~AW88271_ULS_HMUTE_MASK |
++			      ~AW88271_I2STXEN_MASK |
++			      ~AW88271_I2C_WEN_MASK);
++
++		*reg_val |= AW88083_AMPPD_POWER_DOWN_VALUE |
++			    AW88081_PWDN_POWER_DOWN_VALUE |
++			    AW88081_HMUTE_ENABLE_VALUE |
++			    AW88271_ULS_HMUTE_ENABLE_VALUE |
++			    AW88271_I2STXEN_DISABLE_VALUE |
++			    AW88271_I2C_WEN_ENABLE_VALUE;
++	}
++
++	if (reg_addr == AW88081_SYSCTRL2_REG) {
++		read_vol = (*reg_val & (~AW88081_VOL_MASK)) >> AW88081_VOL_START_BIT;
++		aw_dev->volume_desc.init_volume = read_vol;
++	}
++
++	return 0;
++}
++
+ static int aw88081_reg_value_check(struct aw88081 *aw88081,
+ 					unsigned char reg_addr, unsigned short *reg_val)
+ {
+@@ -403,6 +486,9 @@ static int aw88081_reg_value_check(struct aw88081 *aw88081,
+ 	case AW88083:
+ 		ret = aw88083_dev_reg_value_check(aw_dev, reg_addr, reg_val);
+ 		break;
++	case AW88271:
++		ret = aw88271_dev_reg_value_check(aw_dev, reg_addr, reg_val);
++		break;
+ 	default:
+ 		dev_err(aw_dev->dev, "unsupported device\n");
+ 		ret = -EINVAL;
+@@ -435,6 +521,9 @@ static int aw88081_dev_reg_update(struct aw88081 *aw88081,
+ 		return -EINVAL;
+ 	}
+ 
++	if (aw88081->devtype == AW88271)
++		aw88271_i2c_wen(aw_dev, true);
++
+ 	for (i = 0; i < data_len; i += 2) {
+ 		reg_addr = reg_data[i];
+ 		reg_val = reg_data[i + 1];
+@@ -610,6 +699,72 @@ static int aw88083_dev_start(struct aw88081 *aw88081)
+ 	return 0;
+ }
+ 
++static int aw88271_dev_start(struct aw88081 *aw88081)
++{
++	struct aw_device *aw_dev = aw88081->aw_pa;
++	unsigned int reg_val, check;
++	int ret;
++
++	if (aw_dev->status == AW88081_DEV_PW_ON) {
++		dev_dbg(aw_dev->dev, "already power on");
++		return 0;
++	}
++
++	aw88271_i2c_wen(aw_dev, true);
++
++	/* power on */
++	aw88081_dev_pwd(aw_dev, false);
++	usleep_range(AW88081_2000_US, AW88081_2000_US + 10);
++
++	ret = aw88271_dev_check_sysst(aw_dev, AW88081_BIT_PLL_CHECK);
++	if (ret) {
++		dev_err(aw_dev->dev, "pll check failed cannot start");
++		goto pll_check_fail;
++	}
++
++	/* amppd on */
++	aw88083_dev_amppd(aw_dev, false);
++	usleep_range(AW88081_1000_US, AW88081_1000_US + 50);
++
++	ret = regmap_read(aw_dev->regmap, AW88271_NGCTRL3_REG, &reg_val);
++	if (ret)
++		goto sysst_check_fail;
++
++	/* With the noise gate on, the output stage need not be switching */
++	if (reg_val & (~AW88271_NOISE_GATE_EN_MASK))
++		check = AW88271_NO_SWS_SYSST_CHECK;
++	else
++		check = AW88271_SWS_SYSST_CHECK;
++
++	ret = aw88271_dev_check_sysst(aw_dev, check);
++	if (ret) {
++		dev_err(aw_dev->dev, "sysst check failed");
++		goto sysst_check_fail;
++	}
++
++	/* close uls mute */
++	aw88271_dev_uls_hmute(aw_dev, false);
++
++	/* close mute */
++	aw88081_dev_mute(aw_dev, false);
++
++	aw88081_dev_clear_int_status(aw_dev);
++	aw88271_i2c_wen(aw_dev, false);
++	aw_dev->status = AW88081_DEV_PW_ON;
++
++	return 0;
++
++sysst_check_fail:
++	aw88081_dev_clear_int_status(aw_dev);
++	aw88083_dev_amppd(aw_dev, true);
++pll_check_fail:
++	aw88081_dev_pwd(aw_dev, true);
++	aw88271_i2c_wen(aw_dev, false);
++	aw_dev->status = AW88081_DEV_PW_OFF;
++
++	return ret;
++}
++
+ static int aw88081_device_start(struct aw88081 *aw88081)
+ {
+ 	int ret;
+@@ -621,6 +776,9 @@ static int aw88081_device_start(struct aw88081 *aw88081)
+ 	case AW88083:
+ 		ret = aw88083_dev_start(aw88081);
+ 		break;
++	case AW88271:
++		ret = aw88271_dev_start(aw88081);
++		break;
+ 	default:
+ 		ret = -EINVAL;
+ 		dev_err(aw88081->aw_pa->dev, "unsupported device\n");
+@@ -691,6 +849,36 @@ static int aw88083_dev_stop(struct aw88081 *aw88081)
+ 	return 0;
+ }
+ 
++static int aw88271_dev_stop(struct aw88081 *aw88081)
++{
++	struct aw_device *aw_dev = aw88081->aw_pa;
++
++	if (aw_dev->status == AW88081_DEV_PW_OFF) {
++		dev_dbg(aw_dev->dev, "already power off");
++		return 0;
++	}
++
++	aw_dev->status = AW88081_DEV_PW_OFF;
++
++	aw88271_i2c_wen(aw_dev, true);
++	aw88081_dev_clear_int_status(aw_dev);
++
++	aw88271_dev_uls_hmute(aw_dev, true);
++	/* set mute */
++	aw88081_dev_mute(aw_dev, true);
++	usleep_range(AW88081_1000_US, AW88081_1000_US + 100);
++
++	/* enable amppd */
++	aw88083_dev_amppd(aw_dev, true);
++
++	/* set power down */
++	aw88081_dev_pwd(aw_dev, true);
++
++	aw88271_i2c_wen(aw_dev, false);
++
++	return 0;
++}
++
+ static int aw88081_stop(struct aw88081 *aw88081)
+ {
+ 	int ret;
+@@ -702,6 +890,9 @@ static int aw88081_stop(struct aw88081 *aw88081)
+ 	case AW88083:
+ 		ret = aw88083_dev_stop(aw88081);
+ 		break;
++	case AW88271:
++		ret = aw88271_dev_stop(aw88081);
++		break;
+ 	default:
+ 		dev_err(aw88081->aw_pa->dev, "unsupported device\n");
+ 		ret = -EINVAL;
+@@ -1075,6 +1266,9 @@ static int aw88081_init(struct aw88081 *aw88081, struct i2c_client *i2c, struct
+ 	case AW88083_CHIP_ID:
+ 		dev_dbg(&i2c->dev, "chip id = 0x%x\n", chip_id);
+ 		break;
++	case AW88271_CHIP_ID:
++		dev_dbg(&i2c->dev, "chip id = 0x%x\n", chip_id);
++		break;
+ 	default:
+ 		dev_err(&i2c->dev, "unsupported device");
+ 		return -ENXIO;
+@@ -1134,17 +1328,21 @@ static int aw88081_dev_init(struct aw88081 *aw88081, struct aw_container *aw_cfg
+ static int aw88081_request_firmware_file(struct aw88081 *aw88081)
+ {
+ 	const struct firmware *cont __free(firmware) = NULL;
++	const char *name = AW88081_ACF_FILE;
+ 	struct aw_container *aw_cfg;
+ 	int ret;
+ 
+ 	aw88081->aw_pa->fw_status = AW88081_DEV_FW_FAILED;
+ 
+-	ret = request_firmware(&cont, AW88081_ACF_FILE, aw88081->aw_pa->dev);
++	if (aw88081->devtype == AW88271)
++		name = AW88271_ACF_FILE;
++
++	ret = request_firmware(&cont, name, aw88081->aw_pa->dev);
+ 	if (ret)
+ 		return ret;
+ 
+ 	dev_dbg(aw88081->aw_pa->dev, "loaded %s - size: %zu\n",
+-			AW88081_ACF_FILE, cont ? cont->size : 0);
++			name, cont ? cont->size : 0);
+ 
+ 	aw_cfg = devm_kzalloc_flex(aw88081->aw_pa->dev, *aw_cfg, data,
+ 				   cont->size);
+@@ -1238,6 +1436,7 @@ static const struct snd_soc_component_driver soc_codec_dev_aw88081 = {
+ static const struct i2c_device_id aw88081_i2c_id[] = {
+ 	{ .name = AW88081_I2C_NAME, .driver_data = AW88081 },
+ 	{ .name = AW88083_I2C_NAME, .driver_data = AW88083 },
++	{ .name = AW88271_I2C_NAME, .driver_data = AW88271 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(i2c, aw88081_i2c_id);
+@@ -1246,6 +1445,7 @@ static int aw88081_i2c_probe(struct i2c_client *i2c)
+ {
+ 	const struct regmap_config *regmap_config;
+ 	const struct i2c_device_id *id;
++	struct gpio_desc *reset;
+ 	struct aw88081 *aw88081;
+ 	int ret;
+ 
+@@ -1270,10 +1470,20 @@ static int aw88081_i2c_probe(struct i2c_client *i2c)
+ 	case AW88083:
+ 		regmap_config = &aw88083_regmap_config;
+ 		break;
++	case AW88271:
++		regmap_config = &aw88271_regmap_config;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+ 
++	/* Take the amplifier out of reset before its ID is read */
++	reset = devm_gpiod_get_optional(&i2c->dev, "reset", GPIOD_OUT_LOW);
++	if (IS_ERR(reset))
++		return dev_err_probe(&i2c->dev, PTR_ERR(reset), "failed to get reset gpio\n");
++	if (reset)
++		usleep_range(AW88081_2000_US, AW88081_2000_US + 10);
++
+ 	aw88081->regmap = devm_regmap_init_i2c(i2c, regmap_config);
+ 	if (IS_ERR(aw88081->regmap))
+ 		return dev_err_probe(&i2c->dev, PTR_ERR(aw88081->regmap),
+@@ -1293,6 +1503,7 @@ static int aw88081_i2c_probe(struct i2c_client *i2c)
+ static const struct of_device_id aw88081_of_match[] = {
+ 	{ .compatible = "awinic,aw88081" },
+ 	{ .compatible = "awinic,aw88083" },
++	{ .compatible = "awinic,aw88271" },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, aw88081_of_match);
+diff --git a/sound/soc/codecs/aw88081.h b/sound/soc/codecs/aw88081.h
+index 7a4564270..a146f8eb4 100644
+--- a/sound/soc/codecs/aw88081.h
++++ b/sound/soc/codecs/aw88081.h
+@@ -274,6 +274,64 @@
+ #define AW88083_I2C_NAME		"aw88083"
+ #define AW88083_CHIP_ID		0x2407
+ 
++#define AW88271_NGCTRL3_REG		(0x5E)
++
++#define AW88271_I2C_WEN_START_BIT	(10)
++#define AW88271_I2C_WEN_BITS_LEN	(2)
++#define AW88271_I2C_WEN_MASK		\
++	(~(((1<<AW88271_I2C_WEN_BITS_LEN)-1) << AW88271_I2C_WEN_START_BIT))
++
++#define AW88271_I2C_WEN_DISABLE	(0)
++#define AW88271_I2C_WEN_DISABLE_VALUE	\
++	(AW88271_I2C_WEN_DISABLE << AW88271_I2C_WEN_START_BIT)
++
++#define AW88271_I2C_WEN_ENABLE		(2)
++#define AW88271_I2C_WEN_ENABLE_VALUE	\
++	(AW88271_I2C_WEN_ENABLE << AW88271_I2C_WEN_START_BIT)
++
++#define AW88271_I2STXEN_START_BIT	(13)
++#define AW88271_I2STXEN_BITS_LEN	(1)
++#define AW88271_I2STXEN_MASK		\
++	(~(((1<<AW88271_I2STXEN_BITS_LEN)-1) << AW88271_I2STXEN_START_BIT))
++
++#define AW88271_I2STXEN_DISABLE	(0)
++#define AW88271_I2STXEN_DISABLE_VALUE	\
++	(AW88271_I2STXEN_DISABLE << AW88271_I2STXEN_START_BIT)
++
++#define AW88271_ULS_HMUTE_START_BIT	(15)
++#define AW88271_ULS_HMUTE_BITS_LEN	(1)
++#define AW88271_ULS_HMUTE_MASK		\
++	(~(((1<<AW88271_ULS_HMUTE_BITS_LEN)-1) << AW88271_ULS_HMUTE_START_BIT))
++
++#define AW88271_ULS_HMUTE_DISABLE	(0)
++#define AW88271_ULS_HMUTE_DISABLE_VALUE	\
++	(AW88271_ULS_HMUTE_DISABLE << AW88271_ULS_HMUTE_START_BIT)
++
++#define AW88271_ULS_HMUTE_ENABLE	(1)
++#define AW88271_ULS_HMUTE_ENABLE_VALUE	\
++	(AW88271_ULS_HMUTE_ENABLE << AW88271_ULS_HMUTE_START_BIT)
++
++#define AW88271_NOISE_GATE_EN_START_BIT	(0)
++#define AW88271_NOISE_GATE_EN_BITS_LEN	(1)
++#define AW88271_NOISE_GATE_EN_MASK	\
++	(~(((1<<AW88271_NOISE_GATE_EN_BITS_LEN)-1) << AW88271_NOISE_GATE_EN_START_BIT))
++
++#define AW88271_BSTS_START_BIT		(9)
++#define AW88271_BSTS_FINISHED		(1)
++#define AW88271_BSTS_FINISHED_VALUE	\
++	(AW88271_BSTS_FINISHED << AW88271_BSTS_START_BIT)
++
++#define AW88271_SWS_SYSST_CHECK \
++	(AW88271_BSTS_FINISHED_VALUE | AW88081_SWS_SYSST_CHECK)
++
++#define AW88271_NO_SWS_SYSST_CHECK \
++	(AW88271_BSTS_FINISHED_VALUE | AW88081_NO_SWS_SYSST_CHECK)
++
++#define AW88271_REG_MAX		(0x80)
++#define AW88271_I2C_NAME		"aw88271"
++#define AW88271_CHIP_ID		0x2329
++#define AW88271_ACF_FILE		"aw88271_acf.bin"
++
+ #define AW88081_START_RETRIES		(5)
+ #define AW88081_START_WORK_DELAY_MS	(0)
+ 
+-- 
+2.55.0
+

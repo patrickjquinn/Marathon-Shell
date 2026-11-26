@@ -1,7 +1,7 @@
 From a09c08d1c59434fa86527020619811a415fc6e47 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:02:29 +0000
-Subject: [PATCH 022/168] arm64: dts: mediatek: mt6858: Add the SPI controllers
+Subject: [PATCH 022/181] arm64: dts: mediatek: mt6858: Add the SPI controllers
 
 Add the eight SPI controllers, disabled. Until a clock driver names
 the SPI muxes and gates, fixed clocks stand in for them at the 208 MHz

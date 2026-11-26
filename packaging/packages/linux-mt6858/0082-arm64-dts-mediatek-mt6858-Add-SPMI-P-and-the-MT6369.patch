@@ -1,7 +1,7 @@
 From 4372957f83f2423f166727e81f06dd7133a921ac Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:26:35 +0000
-Subject: [PATCH 082/168] arm64: dts: mediatek: mt6858: Add SPMI-P and the
+Subject: [PATCH 082/181] arm64: dts: mediatek: mt6858: Add SPMI-P and the
  MT6369
 
 The arbiter's second bus, SPMI-P (PMIF 0x1c026000, master 0x1c020000,

@@ -1,7 +1,7 @@
 From 556f2b167b1eebac035b2170acd08a2b88a8056a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:37:49 +0000
-Subject: [PATCH 113/168] arm64: dts: mediatek: mt6858: Add the GPU
+Subject: [PATCH 113/181] arm64: dts: mediatek: mt6858: Add the GPU
 
 Add the Mali-G610, the GPUEB mailbox and the GPUEB power domain, all
 disabled: the board has to provide the EB's shared memory. Interrupts,

@@ -1,7 +1,7 @@
 From 97e60937e5ba8295828d5e946145a14ed5cddd75 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 07:58:23 +0000
-Subject: [PATCH 059/168] power: supply: Add MediaTek MT6720 charger and
+Subject: [PATCH 059/181] power: supply: Add MediaTek MT6720 charger and
  battery monitor
 
 The charger supply reports power-good, whether the buck and charging

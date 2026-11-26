@@ -1,7 +1,7 @@
 From 09104d1381261be910695c39e968beda9dc53b47 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:02:35 +0000
-Subject: [PATCH 024/168] arm64: configs: mt6858: Add SPI and the touchscreen
+Subject: [PATCH 024/181] arm64: configs: mt6858: Add SPI and the touchscreen
 
 Build in the MT65xx SPI controller, evdev and the Hynitron CST66xx
 driver for the Jolla Phone's touchscreen.

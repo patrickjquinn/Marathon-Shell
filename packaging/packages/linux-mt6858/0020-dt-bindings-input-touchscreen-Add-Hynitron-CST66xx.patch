@@ -1,7 +1,7 @@
 From 0b9fb5ef2dd62bfae18c6b096c9ce217f78de9b2 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:02:28 +0000
-Subject: [PATCH 020/168] dt-bindings: input: touchscreen: Add Hynitron CST66xx
+Subject: [PATCH 020/181] dt-bindings: input: touchscreen: Add Hynitron CST66xx
 
 The CST66xx series are Hynitron touchscreen controllers on SPI, as used
 in the Jolla Phone (JP2601).

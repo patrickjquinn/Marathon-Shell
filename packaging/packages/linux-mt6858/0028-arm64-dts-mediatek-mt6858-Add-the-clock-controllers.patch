@@ -1,7 +1,7 @@
 From 7782dc1a7c75078cb73f048023879d7080fd4c19 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:25:41 +0000
-Subject: [PATCH 028/168] arm64: dts: mediatek: mt6858: Add the clock
+Subject: [PATCH 028/181] arm64: dts: mediatek: mt6858: Add the clock
  controllers
 
 Add the apmixedsys, topckgen and pericfg_ao clock controllers, the

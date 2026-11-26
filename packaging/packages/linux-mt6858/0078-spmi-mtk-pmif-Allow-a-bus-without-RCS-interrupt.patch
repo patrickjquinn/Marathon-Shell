@@ -1,7 +1,7 @@
 From 582baa8b5ce45b68adf9b151dff4ed38b3b8fb55 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:25:14 +0000
-Subject: [PATCH 078/168] spmi: mtk-pmif: Allow a bus without RCS interrupt
+Subject: [PATCH 078/181] spmi: mtk-pmif: Allow a bus without RCS interrupt
 
 On the MT6858 only SPMI-M has an RCS interrupt; SPMI-P's requests share
 it. The driver requires an "rcs" interrupt on every SPMI 2 bus, so

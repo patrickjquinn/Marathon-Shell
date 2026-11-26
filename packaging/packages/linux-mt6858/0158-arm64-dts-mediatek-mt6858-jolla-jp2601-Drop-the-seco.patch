@@ -1,7 +1,7 @@
 From 5b0452fe941b659ea3dab028887336a7f3a0b9e6 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 12:15:09 +0000
-Subject: [PATCH 158/168] arm64: dts: mediatek: mt6858-jolla-jp2601: Drop the
+Subject: [PATCH 158/181] arm64: dts: mediatek: mt6858-jolla-jp2601: Drop the
  second home key
 
 The stock firmware maps both MT6363 home keys to volume down, but on
