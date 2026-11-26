@@ -94,7 +94,10 @@ QtObject {
     // 720 px panel. compactLayout drops the base 64/70 to 48/56 so the
     // dock keeps a tappable height (still ≥ Apple HIG 44pt @1×) without
     // eating the rest of the screen.
-    readonly property real statusBarHeight: Math.round(28 * scaleFactor)
+    // qmllint disable missing-property
+    readonly property rect displayCutout: typeof DeviceProfile !== "undefined" && DeviceProfile.cutout ? DeviceProfile.cutout : Qt.rect(0, 0, 0, 0)
+    // qmllint enable missing-property
+    readonly property real statusBarHeight: Math.max(Math.round(28 * scaleFactor), displayCutout.width > 0 ? displayCutout.y + displayCutout.height : 0)
     // 64 × scaleFactor = 128 px on the L5. Lower the design value so the
     // combined dock + navBar doesn't dominate the bottom of the panel.
     // On the Librem 5 (1440×720, scaleFactor ≈ 1.8) a 56 design-px nav

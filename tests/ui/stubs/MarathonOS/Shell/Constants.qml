@@ -9,6 +9,7 @@ QtObject {
     readonly property real screenWidth: 360
     readonly property real screenHeight: 1140
     readonly property bool isSquareScreen: false
+    property rect displayCutout: Qt.rect(0, 0, 0, 0)
     readonly property real statusBarHeight: 32
     readonly property real navBarHeight: 40
     readonly property real quickSettingsDismissThreshold: 0.3
