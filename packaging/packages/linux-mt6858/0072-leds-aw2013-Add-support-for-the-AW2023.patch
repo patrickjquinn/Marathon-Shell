@@ -1,7 +1,7 @@
 From 5da3e089b37346eab54b79b7baab403b17824722 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:21:07 +0000
-Subject: [PATCH 072/167] leds: aw2013: Add support for the AW2023
+Subject: [PATCH 072/168] leds: aw2013: Add support for the AW2023
 
 The AW2023 keeps the AW2013's channel, brightness and pattern registers
 but sets currents differently: GCR2[1:0] selects one maximum current for

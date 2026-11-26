@@ -1,7 +1,7 @@
 From 0bce1622bb2d1b754cdca25ae7440bb25990d6e8 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:37:05 +0000
-Subject: [PATCH 097/167] dt-bindings: display: mediatek: ovl-2l: Add MT6858
+Subject: [PATCH 097/168] dt-bindings: display: mediatek: ovl-2l: Add MT6858
 
 The MT6858 2-layer OVLs take their layer registers at the MT8192
 offsets; document them with the MT8192 fallback.

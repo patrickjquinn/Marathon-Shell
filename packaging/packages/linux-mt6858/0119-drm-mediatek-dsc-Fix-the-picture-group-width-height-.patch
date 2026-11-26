@@ -1,7 +1,7 @@
 From 9598a3a734fdcbd70df3117e1d03e176fe0b08da Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:49:08 +0000
-Subject: [PATCH 119/167] drm/mediatek: dsc: Fix the picture group width,
+Subject: [PATCH 119/168] drm/mediatek: dsc: Fix the picture group width,
  height and padding
 
 Compared with what the MT6858 bootloader programs for a 1032x2272 panel

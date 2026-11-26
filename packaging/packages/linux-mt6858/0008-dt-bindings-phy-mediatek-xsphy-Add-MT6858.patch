@@ -1,7 +1,7 @@
 From 3a1a83c0b036b6d5d96b0865e78991c43c76ece0 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 18:00:06 +0000
-Subject: [PATCH 008/167] dt-bindings: phy: mediatek,xsphy: Add MT6858
+Subject: [PATCH 008/168] dt-bindings: phy: mediatek,xsphy: Add MT6858
 
 The MT6858 USB 2.0 port uses an XS-PHY at 0x11e10000 with a single U2
 port and no shared U3 bank. Add its compatible.

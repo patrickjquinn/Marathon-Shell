@@ -1,7 +1,7 @@
 From b8cf0a3b2e65091962bfb7f933df4572dff894c9 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:48:31 +0000
-Subject: [PATCH 036/167] dt-bindings: mfd: mediatek,mt6363: Add the keys
+Subject: [PATCH 036/168] dt-bindings: mfd: mediatek,mt6363: Add the keys
 
 Describe the keys of the MT6363 as a keys subnode.
 ---

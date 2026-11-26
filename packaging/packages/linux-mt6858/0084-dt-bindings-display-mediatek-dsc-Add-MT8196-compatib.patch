@@ -1,7 +1,7 @@
 From 4a54628094e363ffcae61cf9dac9b4f7df08d724 Mon Sep 17 00:00:00 2001
 From: AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
 Date: Wed, 1 Jul 2026 14:19:41 +0200
-Subject: [PATCH 084/167] dt-bindings: display: mediatek: dsc: Add MT8196
+Subject: [PATCH 084/168] dt-bindings: display: mediatek: dsc: Add MT8196
  compatible
 
 Add compatible for the Display Stream Compression (DSC) IP found

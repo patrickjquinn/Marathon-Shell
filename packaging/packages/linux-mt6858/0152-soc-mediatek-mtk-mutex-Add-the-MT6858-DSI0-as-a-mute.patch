@@ -1,7 +1,7 @@
 From 9915b08a1a62a6808e8f5dbdeafb95f891b090a3 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 12:03:33 +0000
-Subject: [PATCH 152/167] soc: mediatek: mtk-mutex: Add the MT6858 DSI0 as a
+Subject: [PATCH 152/168] soc: mediatek: mtk-mutex: Add the MT6858 DSI0 as a
  mutex module
 
 On MT6858 the DSI is not only the mutex's start-of-frame source but also

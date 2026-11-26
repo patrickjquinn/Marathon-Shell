@@ -1,7 +1,7 @@
 From da0ae16756d24b2112c362c52ce5ee9ac7ae68e8 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 18:00:04 +0000
-Subject: [PATCH 007/167] dt-bindings: usb: mediatek,mtu3: Add MT6858
+Subject: [PATCH 007/168] dt-bindings: usb: mediatek,mtu3: Add MT6858
 
 The MT6858 has one dual-role USB 2.0 controller of the MTU3 family at
 0x11201000, with its IPPC at 0x11203e00. Add its compatible.

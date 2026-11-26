@@ -1,7 +1,7 @@
 From 94dbecad4735a0f09bc30f437f074460ce181b64 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:25:40 +0000
-Subject: [PATCH 027/167] clk: mediatek: Add MT6858 clock drivers
+Subject: [PATCH 027/168] clk: mediatek: Add MT6858 clock drivers
 
 Add drivers for the MT6858 apmixedsys PLLs, the topckgen dividers and
 muxes, and the pericfg_ao and infracfg_ao gates. The tables come from

@@ -1,7 +1,7 @@
 From fb29c6585600d02ba7ce836029ae69a32fef9db0 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:29:14 +0000
-Subject: [PATCH 088/167] dt-bindings: phy: mediatek,dsi-phy: Add MT6858
+Subject: [PATCH 088/168] dt-bindings: phy: mediatek,dsi-phy: Add MT6858
 
 The MT6858 MIPI TX has the MT8196-style PLL and lane blocks at other
 register offsets, so it gets its own compatible.

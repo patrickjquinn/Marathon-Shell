@@ -1,7 +1,7 @@
 From 277bb14baec0d229a35c05192737ff6349bc757a Mon Sep 17 00:00:00 2001
 From: AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
 Date: Thu, 26 Nov 2026 03:44:40 +0000
-Subject: [PATCH 030/167] mfd: Add support for MediaTek SPMI PMICs and
+Subject: [PATCH 030/168] mfd: Add support for MediaTek SPMI PMICs and
  MT6363/73
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

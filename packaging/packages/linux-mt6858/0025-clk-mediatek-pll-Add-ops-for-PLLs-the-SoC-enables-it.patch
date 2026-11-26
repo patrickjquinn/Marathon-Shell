@@ -1,7 +1,7 @@
 From 3cd33aff2376f50368c7b05ff8c75211cc80de90 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:25:38 +0000
-Subject: [PATCH 025/167] clk: mediatek: pll: Add ops for PLLs the SoC enables
+Subject: [PATCH 025/168] clk: mediatek: pll: Add ops for PLLs the SoC enables
  itself
 
 On MT6858 every apmixedsys PLL is switched on and off by the SoC; the

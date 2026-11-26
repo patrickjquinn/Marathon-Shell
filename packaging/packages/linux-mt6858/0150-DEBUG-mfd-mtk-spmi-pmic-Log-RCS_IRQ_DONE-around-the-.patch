@@ -1,7 +1,7 @@
 From 6c6024b0cf513b5f12db01f36221f8daeb475596 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:58:28 +0000
-Subject: [PATCH 150/167] DEBUG: mfd: mtk-spmi-pmic: Log RCS_IRQ_DONE around
+Subject: [PATCH 150/168] DEBUG: mfd: mtk-spmi-pmic: Log RCS_IRQ_DONE around
  the probe writes
 
 The MT6363's 0x41b read 0x01 in every boot without key interrupts, even

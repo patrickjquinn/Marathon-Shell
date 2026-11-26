@@ -1,7 +1,7 @@
 From bad87d58171b596262b87d0310ab33af46765bab Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:00:20 +0000
-Subject: [PATCH 132/167] drm/mediatek: mtk_dsi: Fix the fractional DSC
+Subject: [PATCH 132/168] drm/mediatek: mtk_dsi: Fix the fractional DSC
  bits-per-pixel check
 
 drm_dsc_config.bits_per_pixel is in 1/16 bpp, so its fractional part is

@@ -1,7 +1,7 @@
 From 9aa2ba000a586d2788ba421c555460e3280744af Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:40:55 +0000
-Subject: [PATCH 104/167] arm64: configs: mt6858: Build in mediatek-drm and the
+Subject: [PATCH 104/168] arm64: configs: mt6858: Build in mediatek-drm and the
  MIPI DSI PHY
 
 The display engines probe from the module-less test initramfs.

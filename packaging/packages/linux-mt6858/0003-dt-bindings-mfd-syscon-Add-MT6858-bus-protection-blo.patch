@@ -1,7 +1,7 @@
 From 475bbbaa3234955eefb959738d6f6268135804a0 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 17:59:26 +0000
-Subject: [PATCH 003/167] dt-bindings: mfd: syscon: Add MT6858 bus protection
+Subject: [PATCH 003/168] dt-bindings: mfd: syscon: Add MT6858 bus protection
  blocks
 
 The MT6858 power controller sets and clears bus protection in six

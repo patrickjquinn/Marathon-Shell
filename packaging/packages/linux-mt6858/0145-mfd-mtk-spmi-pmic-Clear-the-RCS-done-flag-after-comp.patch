@@ -1,7 +1,7 @@
 From ef9b6c059c8a579491c6ff7ecb6d627a6060caa0 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:53:03 +0000
-Subject: [PATCH 145/167] mfd: mtk-spmi-pmic: Clear the RCS done flag after
+Subject: [PATCH 145/168] mfd: mtk-spmi-pmic: Clear the RCS done flag after
  completing at probe
 
 Writing RCS_IRQ_DONE at probe completes a request the bootloader left

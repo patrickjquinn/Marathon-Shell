@@ -1,7 +1,7 @@
 From afb0ce094c9f813d97c91f47911407587c434c5d Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:21:07 +0000
-Subject: [PATCH 073/167] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 073/168] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  status LED
 
 The status LED is an RGB LED on an AW2023 at 0x45 on I2C12. The stock

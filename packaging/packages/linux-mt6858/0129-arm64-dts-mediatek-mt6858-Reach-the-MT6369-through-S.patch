@@ -1,7 +1,7 @@
 From 4ae7490738be5becfc880dd021859448d8445c24 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:00:59 +0000
-Subject: [PATCH 129/167] arm64: dts: mediatek: mt6858: Reach the MT6369
+Subject: [PATCH 129/168] arm64: dts: mediatek: mt6858: Reach the MT6369
  through SPMI-M
 
 The MT6369 read 0x00 from every ID register through the SPMI-P PMIF.

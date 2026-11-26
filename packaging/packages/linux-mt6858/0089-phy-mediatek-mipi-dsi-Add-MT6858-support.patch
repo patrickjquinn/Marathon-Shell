@@ -1,7 +1,7 @@
 From 75558b1927fca545b99d48770a4b0da719c21116 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:29:19 +0000
-Subject: [PATCH 089/167] phy: mediatek: mipi-dsi: Add MT6858 support
+Subject: [PATCH 089/168] phy: mediatek: mipi-dsi: Add MT6858 support
 
 The MT6858 MIPI TX is close to the MT8196 one, but
 with the bandgap controls at 0x0c, the PRD reference select at 0x10,

@@ -1,7 +1,7 @@
 From 9ad6a5f9707b24293a886d57b5622edcbccc7fdb Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:44:51 +0000
-Subject: [PATCH 031/167] mfd: mtk-spmi-pmic: Fix the interrupt group lookups
+Subject: [PATCH 031/168] mfd: mtk-spmi-pmic: Fix the interrupt group lookups
 
 Masking or unmasking an interrupt took the first group whose base is at
 or below the interrupt, which is always group 0, and offset the control

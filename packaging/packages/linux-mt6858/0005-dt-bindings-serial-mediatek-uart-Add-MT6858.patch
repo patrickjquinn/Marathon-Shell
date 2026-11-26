@@ -1,7 +1,7 @@
 From c5c4e15a91b8f4a3751e751d7e93c2f789c537f3 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 17:59:42 +0000
-Subject: [PATCH 005/167] dt-bindings: serial: mediatek,uart: Add MT6858
+Subject: [PATCH 005/168] dt-bindings: serial: mediatek,uart: Add MT6858
 
 The MT6858 UARTs at 0x11001000-0x11003000 are the usual MT6577-style
 8250 ports; the stock firmware's earlycon drives uart0 as

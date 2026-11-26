@@ -1,7 +1,7 @@
 From a96c7c176cce12e0e8d999d6a1b1e51f1ab23df6 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:48:32 +0000
-Subject: [PATCH 037/167] dt-bindings: spmi: mediatek,mt8196-spmi: Add MT6858
+Subject: [PATCH 037/168] dt-bindings: spmi: mediatek,mt8196-spmi: Add MT6858
 
 The MT6858 SPMI arbiter is the MT8196 one, with the PMICs all on its
 first bus.

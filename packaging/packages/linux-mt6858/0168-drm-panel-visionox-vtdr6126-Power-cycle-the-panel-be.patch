@@ -1,0 +1,85 @@
+From 37f8097fb4241d0af92b8a029d17052797c1dc40 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 15:19:15 +0000
+Subject: [PATCH 168/168] drm/panel: visionox-vtdr6126: Power-cycle the panel
+ before the first init
+
+The bootloader leaves the panel on and lit. Our first prepare found the
+supplies already on, so it only pulsed reset and sent the init: the
+panel accepted every command (power mode 0x9c) but showed no video.
+Every later enable, after unprepare had switched the supplies off,
+lit it.
+The vendor kernel never re-initialises a running panel without powering
+it off first.
+
+On the first prepare, take the supplies and run the power-off sequence
+(reset, then vsp, vsn and vddio off, 5 ms apart, as the vendor's
+unprepare does), wait 50 ms, then power on as usual.
+---
+ .../gpu/drm/panel/panel-visionox-vtdr6126.c   | 31 ++++++++++++++-----
+ 1 file changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+index 9b18b3a45..94acc9661 100644
+--- a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
++++ b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+@@ -30,6 +30,7 @@ struct visionox_vtdr6126 {
+ 	struct regulator_bulk_data *supplies;
+ 	struct drm_dsc_config dsc;
+ 	bool enabled;
++	bool power_cycled;
+ };
+ 
+ /* In power-on order; vsp follows vsn after a longer delay in prepare(). */
+@@ -352,11 +353,33 @@ static int visionox_vtdr6126_disable(struct drm_panel *panel)
+ 	return dsi_ctx.accum_err;
+ }
+ 
++static void visionox_vtdr6126_power_off(struct visionox_vtdr6126 *ctx)
++{
++	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++	usleep_range(5000, 6000);
++	regulator_disable(ctx->supplies[2].consumer);
++	usleep_range(5000, 6000);
++	regulator_disable(ctx->supplies[1].consumer);
++	usleep_range(5000, 6000);
++	regulator_disable(ctx->supplies[0].consumer);
++}
++
+ static int visionox_vtdr6126_prepare(struct drm_panel *panel)
+ {
+ 	struct visionox_vtdr6126 *ctx = to_visionox_vtdr6126(panel);
+ 	int ret;
+ 
++	/* A reset alone does not restart a panel the bootloader left on */
++	if (!ctx->power_cycled) {
++		ret = regulator_bulk_enable(ARRAY_SIZE(visionox_vtdr6126_supplies),
++					    ctx->supplies);
++		if (ret)
++			return ret;
++		visionox_vtdr6126_power_off(ctx);
++		msleep(50);
++		ctx->power_cycled = true;
++	}
++
+ 	ret = regulator_enable(ctx->supplies[0].consumer);
+ 	if (ret)
+ 		return ret;
+@@ -395,13 +418,7 @@ static int visionox_vtdr6126_unprepare(struct drm_panel *panel)
+ {
+ 	struct visionox_vtdr6126 *ctx = to_visionox_vtdr6126(panel);
+ 
+-	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+-	usleep_range(5000, 6000);
+-	regulator_disable(ctx->supplies[2].consumer);
+-	usleep_range(5000, 6000);
+-	regulator_disable(ctx->supplies[1].consumer);
+-	usleep_range(5000, 6000);
+-	regulator_disable(ctx->supplies[0].consumer);
++	visionox_vtdr6126_power_off(ctx);
+ 
+ 	return 0;
+ }
+-- 
+2.55.0
+

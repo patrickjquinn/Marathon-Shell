@@ -1,7 +1,7 @@
 From 45909a3eb45ce5257c63933a74364dd48a8d8977 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:50:23 +0000
-Subject: [PATCH 118/167] mfd: mtk-spmi-pmic: Log the ID registers on an
+Subject: [PATCH 118/168] mfd: mtk-spmi-pmic: Log the ID registers on an
  unexpected chip ID
 
 The MT6369 on the Jolla Phone's SPMI-P reads 0x00 as its chip ID with no

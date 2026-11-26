@@ -1,7 +1,7 @@
 From 3c24c52302ca96029d34c23372dbafca93f28744 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 14:19:35 +0000
-Subject: [PATCH 167/167] drm/panel: visionox-vtdr6126: Send the brightness
+Subject: [PATCH 167/168] drm/panel: visionox-vtdr6126: Send the brightness
  only while the panel is on
 
 The brightness is a DCS command, and the DSI host can only send it while

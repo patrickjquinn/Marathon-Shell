@@ -1,7 +1,7 @@
 From b87bf61a2b83e5615a206abee8b269da0814a2a5 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:36:43 +0000
-Subject: [PATCH 108/167] mailbox: mtk-gpueb: Add the MT6858 GPUEB mailbox
+Subject: [PATCH 108/168] mailbox: mtk-gpueb: Add the MT6858 GPUEB mailbox
 
 The MT6858's GPUEB mailbox has the MT8196's registers, but eleven
 channels: there is no "ppb" channel, and "brisket" sends three words,
