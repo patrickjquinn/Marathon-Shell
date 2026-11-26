@@ -15,6 +15,9 @@ deviceinfo_drm="true"
 # The microSD slot has no mainline driver yet.
 deviceinfo_external_storage="false"
 deviceinfo_rootfs_image_sector_size="4096"
+# linux-mt6858 builds zram with the LZO backend only; zramstart's zstd
+# default fails and leaves the phone with no swap.
+deviceinfo_zram_swap_algo="lzo-rle"
 
 # U-Boot, loaded from boot_b by the stock LK, boots systemd-boot from the ESP
 # nested in userdata through its EFI implementation.
