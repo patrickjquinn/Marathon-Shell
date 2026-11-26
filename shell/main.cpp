@@ -2,6 +2,7 @@
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QStyleHints>
+#include <QRect>
 #include <QScreen>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
@@ -823,7 +824,9 @@ int main(int argc, char *argv[]) {
         QVariantMap{{QStringLiteral("panelDither"), device.panel_dither},
                     {QStringLiteral("panelDepth"), device.panel_depth},
                     {QStringLiteral("panelDpi"), device.panel_dpi},
-                    {QStringLiteral("displayTechnology"), device.display_technology}});
+                    {QStringLiteral("displayTechnology"), device.display_technology},
+                    {QStringLiteral("cutout"), QRect(device.cutout_x, device.cutout_y,
+                                                     device.cutout_width, device.cutout_height)}});
     ctx->setContextProperty(QStringLiteral("Platform"),
                             QVariantMap{{QStringLiteral("hasHardwareKeyboard"),
                                          marathon::device::has_hardware_keyboard()}});

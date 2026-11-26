@@ -128,6 +128,7 @@ location (for host testing).
 | `TOUCH_PARAMS` | `MARATHON_TOUCH_PARAMS` | empty | Extra evdevtouch parameters for a panel whose touch axes don't match the display, colon-separated: `rotate=90\|180\|270`, `invertx`, `inverty`, `prediction=<ms>` |
 | `DISPLAY_TECHNOLOGY` | `MARATHON_DISPLAY_TECHNOLOGY` | `lcd` | `lcd` \| `oled` \| `epaper`; on `epaper` the shell always reduces motion |
 | `PANEL_ORIENTATION` | `MARATHON_PANEL_ORIENTATION` | `none` | `kms` = the compositor reads the DRM connector's `panel orientation` (which the panel driver sets from the DT `rotation`), turns the scene upright and advertises the matching `wl_output` transform; touch must report in the scanout's frame (DT `touchscreen-swapped-x-y` / `-inverted-*`). `none` ignores it |
+| `DISPLAY_CUTOUT` | `MARATHON_DISPLAY_CUTOUT` | unset | The camera cutout at the top of the panel, `x,y,width,height` in pixels of the upright screen (the Jolla Phone (2026): `310,0,414,66`). The status bar moves the clock left and the indicators right of it, and is at least as deep as it |
 | `FRONTLIGHT_WARM` | `MARATHON_FRONTLIGHT_WARM` | unset | A front light's warm LEDs, e.g. `/sys/class/leds/amber:frontlight`: the night light crossfades the white string (the backlight) into them by its warmth instead of tinting the frame. Needs group `video` write on the LED's `brightness` (`udev/70-marathon-shell.rules`, for LEDs named `*:frontlight`) |
 | `FORCE_DPI` | `MARATHON_FORCE_DPI` | unset | Read by marathon-shell-session; pins the shell's DPI and so its scale factor (= DPI/160) |
 
