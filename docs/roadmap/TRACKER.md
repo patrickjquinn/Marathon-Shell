@@ -46,4 +46,5 @@ Finding numbers refer to the review's Findings table.
 | R39 | OTA experience like iOS/Android: update notifications, automatic overnight install, "Finishing update…" splash, "Updated to" notice | user | – | done | verified on device: background download, restart notification, "Updated to", rollback notice |
 | R40 | A/B OTA on the Raspberry Pi 5 / HackberryPi CM5: GPT slots, tryboot, marathon-health commit | user | – | done | validated on the HackberryPi 2026-10-17: flash, update + commit, bad update falls back (docs/OTA.md) |
 | R41 | App install/uninstall through the shell (sandboxes see installs read-only since R28); no Uninstall for built-in apps | OEM F45 | – | done | c051ca4c..823ddb3c; verified on the HackberryPi via OTA 26101707 |
+| R42 | An app's orientation preference reaches the compositor: a portrait-only app keeps a portrait window while the phone is sideways (only foreground apps turn since bd06a9733; nothing says which ones may) | user | – | todo | needs a protocol addition (e.g. marathon_surface_v1 request) and Keel's allowedOrientations to send it |
 | R25 | Integration build, device test on HackberryPi, OTA test on QEMU | – | 4 | todo | |
