@@ -45,11 +45,6 @@ Item {
     // A marathon_surface_v1 secure window, or a secure app's: its content stays off the card.
     readonly property var marathonSurface: compositor && compositor.marathonSurfaces ? compositor.marathonSurfaces[surfaceId] : undefined
     readonly property bool secure: (marathonSurface ? marathonSurface.secure : false) || (Tasks.secureApps || []).indexOf(taskCard.appId) >= 0
-    // On screen in the switcher, the app runs instead of sitting frozen, so
-    // its cover and preview can redraw. Not on e-paper, which shows neither moving.
-    readonly property bool onScreen: taskSwitcherVisible && !pooled && !MColors.eink && GridView.view !== null && y + height > GridView.view.contentY && y < GridView.view.contentY + GridView.view.height
-    property string heldAppId: ""
-    property bool pooled: false
 
     signal closed
     signal taskClosed(string appId)
@@ -132,18 +127,6 @@ Item {
         frozen = false;
     }
 
-    function holdApp(appId) {
-        if (appId === heldAppId)
-            return;
-        if (heldAppId !== "")
-            Tasks.removeCapability(heldAppId, "switcher");
-        heldAppId = appId;
-        if (appId !== "") {
-            Tasks.wakeApp(appId);
-            Tasks.addCapability(appId, "switcher");
-        }
-    }
-
     function updateRegisteredSurface() {
         if (taskCard.surfaceId <= 0) {
             registeredSurfaceItem = null;
@@ -170,19 +153,11 @@ Item {
         restoreTimer.stop();
         freeze();
     }
-    GridView.onReused: {
-        pooled = false;
-        reset();
-    }
-    GridView.onPooled: pooled = true
-    onOnScreenChanged: holdApp(onScreen ? appId : "")
-    onAppIdChanged: holdApp(onScreen ? appId : "")
+    GridView.onReused: reset()
     Component.onCompleted: {
         refreshNativeSurface();
         updateRegisteredSurface();
-        holdApp(onScreen ? appId : "");
     }
-    Component.onDestruction: holdApp("")
 
     // Swipe-to-close: value is the cover's upward travel in px.
     GestureTracker {
