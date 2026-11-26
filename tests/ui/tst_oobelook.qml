@@ -164,6 +164,14 @@ TestCase {
         compare(sizeDone.count, 1);
     }
 
+    function test_tallPreviewRowsKeepHomesPitch() {
+        const preview = findChild(look, "lookPreview");
+        tryVerify(() => (preview.rowSpace - (preview.rows - 1) * preview.rowGap) / preview.rows > preview.homeCell);
+        compare(preview.cellHeight, preview.homeCell);
+        const grid = preview.grid;
+        compare(grid.height, preview.gridTop + preview.rows * preview.homeCell + (preview.rows - 1) * preview.rowGap + Constants.bottomBarHeight + 12);
+    }
+
     property real shortRatio: 0
 
     function cleanup() {
