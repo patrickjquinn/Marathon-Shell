@@ -4,10 +4,43 @@ import Sailfish.Silica 1.0 as Silica
 
 // The status area: battery left, clock (or lock glyph) centre,
 // radios right. No background; small regular-weight text.
+// Around a centre camera cutout: clock left, radios then battery right.
 Item {
     id: statusBar
 
+    readonly property bool aroundCutout: Constants.displayCutout.width > 0 && Constants.displayCutout.x < width / 2 && Constants.displayCutout.x + Constants.displayCutout.width > width / 2
+
     height: Constants.statusBarHeight
+
+    states: State {
+        when: statusBar.aroundCutout
+
+        AnchorChanges {
+            target: centerContent
+            anchors.horizontalCenter: undefined
+            anchors.left: statusBar.left
+        }
+        AnchorChanges {
+            target: activityChipLoader
+            anchors.horizontalCenter: undefined
+            anchors.left: statusBar.left
+        }
+        AnchorChanges {
+            target: leftIconGroup
+            anchors.left: undefined
+            anchors.right: statusBar.right
+        }
+        AnchorChanges {
+            target: rightIconGroup
+            anchors.right: leftIconGroup.left
+        }
+        PropertyChanges {
+            centerContent.anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            activityChipLoader.anchors.leftMargin: Silica.Theme.horizontalPageMargin
+            leftIconGroup.anchors.rightMargin: Silica.Theme.horizontalPageMargin
+            rightIconGroup.anchors.rightMargin: Silica.Theme.paddingMedium
+        }
+    }
 
     // Ongoing-activity chip; replaces the clock while non-null.
     property Component activityChip: null
@@ -70,6 +103,7 @@ Item {
     Row {
         id: leftIconGroup
 
+        objectName: "statusBattery"
         anchors.left: parent.left
         anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.verticalCenter: parent.verticalCenter
@@ -187,6 +221,7 @@ Item {
     Item {
         id: centerContent
 
+        objectName: "statusClock"
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(clockText.implicitWidth, lockIcon.width)
@@ -267,6 +302,7 @@ Item {
     Row {
         id: rightIconGroup
 
+        objectName: "statusRadios"
         anchors.right: parent.right
         anchors.rightMargin: Silica.Theme.horizontalPageMargin
         anchors.verticalCenter: parent.verticalCenter

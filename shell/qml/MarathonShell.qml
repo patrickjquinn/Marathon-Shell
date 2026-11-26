@@ -3087,7 +3087,7 @@ Item {
         function onNativeTextInputPanelRequested(show) {
             if (!Platform.hasHardwareKeyboard) {
                 Logger.info("Shell", "Native app text input panel requested: " + show);
-                if (show && !virtualKeyboard.active)
+                if (show && !virtualKeyboard.active && !SessionStore.isLocked)
                     virtualKeyboard.active = true;
                 else if (!show && virtualKeyboard.active)
                     virtualKeyboard.active = false;

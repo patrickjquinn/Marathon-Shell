@@ -42,8 +42,9 @@ interface = "dsi"
 width = 1032
 height = 2272
 diagonal_in = 6.36
-# The panel's pitch, 2495 px of diagonal over 6.36 in: 2.45x.
-scale_dpi = 392
+# UI policy (2.1x): the Q25's physical size (1.5x at 295 ppi, 0.129 mm a
+# unit) plus 5 %, which the user preferred on this larger screen.
+scale_dpi = 336
 quirks = [
   "simpledrm on LK's framebuffer, 1056 pixels a line: no DSI or panel driver, so no brightness control or display power-off",
 ]
@@ -71,10 +72,12 @@ quirks = [
 
 [profile]
 # Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
-force_dpi = 392
+force_dpi = 336
 panel_dpi = 392
 # No input wakes the screen yet (display.quirks, input.quirks).
 screen_timeout_ms = 0
+# The camera notch, from Sailfish's cutouts=[[310, 0, 414, 66]].
+display_cutout = "310,0,414,66"
 # 12 GB, as on the Q25: a warm spare runner with the media folders and one
 # without.
 runner_pool = 2

@@ -49,7 +49,7 @@ QtObject {
     readonly property color borderGlass: eink ? "#777777" : Qt.rgba(1, 1, 1, 0.06)
 
     // The nav bar under dark and light content: Keel's overlay backgrounds.
-    readonly property color barDark: eink ? "#ffffff" : Qt.rgba(0.04, 0.04, 0.06, 0.9)
+    readonly property color barDark: eink ? "#ffffff" : "#000000"
     readonly property color barLight: eink ? "#ffffff" : Qt.rgba(0.96, 0.96, 0.96, 0.9)
 
     readonly property color ripple: eink ? "transparent" : Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, 0.12)

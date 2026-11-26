@@ -49,6 +49,17 @@ Item {
     signal closed
     signal taskClosed(string appId)
 
+    // One step of the frost: its source at `fraction` of the card, sampled
+    // smoothly. Unseen; the next step or the frost's face samples it.
+    component FrostStep: ShaderEffectSource {
+        property real fraction
+
+        anchors.fill: parent
+        opacity: 0
+        smooth: true
+        textureSize: Qt.size(Math.max(1, Math.ceil(width * fraction)), Math.max(1, Math.ceil(height * fraction)))
+    }
+
     // A function, not a derived property, and every term read straight from
     // its source: this is called from onTaskSwitcherVisibleChanged, and Qt
     // does not guarantee a binding has been re-evaluated by the time a change
@@ -319,9 +330,9 @@ Item {
             }
         }
 
-        // The cover is laid out at the glass's size; a live preview fills it,
-        // cropped from the top. Both draw through rounded WindowTextureItems,
-        // so the card needs no layer.
+        // The live preview fills the glass, cropped from the top. A cover is laid
+        // out at the glass's size over the preview frosted. Both draw through
+        // rounded WindowTextureItems, so the card needs no layer.
         Item {
             id: cardContent
 
@@ -342,15 +353,115 @@ Item {
                     radius: glass.radius
                 }
 
+                // The QS shade's frost, made the same way: the preview reduced
+                // to a 64th (keelambience's blur, 7.5% of the width) and
+                // smoothly scaled back, under the ambience's tone. The steps
+                // redraw only when the preview does.
+                Item {
+                    id: frost
+
+                    anchors.fill: parent
+                    z: 1
+                    visible: coverView.available && !MColors.eink && GraphicsInfo.api !== GraphicsInfo.Software && appPreview.item !== null && appPreview.item.ready // qmllint disable missing-property
+
+                    FrostStep {
+                        id: frost2
+
+                        fraction: 1 / 2
+                        sourceItem: frost.visible ? appPreview : null
+                    }
+                    FrostStep {
+                        id: frost4
+
+                        fraction: 1 / 4
+                        sourceItem: frost2
+                    }
+                    FrostStep {
+                        id: frost8
+
+                        fraction: 1 / 8
+                        sourceItem: frost4
+                    }
+                    FrostStep {
+                        id: frost16
+
+                        fraction: 1 / 16
+                        sourceItem: frost8
+                    }
+                    FrostStep {
+                        id: frost32
+
+                        fraction: 1 / 32
+                        sourceItem: frost16
+                    }
+                    FrostStep {
+                        id: frost64
+
+                        fraction: 1 / 64
+                        sourceItem: frost32
+                    }
+                    FrostStep {
+                        id: frostUp32
+
+                        fraction: 1 / 32
+                        sourceItem: frost64
+                    }
+                    FrostStep {
+                        id: frostUp16
+
+                        fraction: 1 / 16
+                        sourceItem: frostUp32
+                    }
+                    FrostStep {
+                        id: frostUp8
+
+                        fraction: 1 / 8
+                        sourceItem: frostUp16
+                    }
+
+                    WindowTextureItem {
+                        anchors.fill: parent
+                        source: frostUp8
+                        radius: glass.radius
+                    }
+
+                    // Its tone for any wallpaper: the app's frame can be anything.
+                    KeelAmbienceBackground {
+                        id: frostTone
+
+                        visible: false
+                        light: AmbienceService.light
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: glass.radius
+                        color: frostTone.light ? "white" : "black"
+                        opacity: frostTone.tone
+                    }
+
+                    // The dimmer keelambience lays over a dark ambience.
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: glass.radius
+                        visible: !frostTone.light
+                        color: Theme.highlightDimmerColor
+                        opacity: 0.12
+                    }
+                }
+
                 Loader {
                     id: appPreview
 
                     anchors.fill: parent
-                    visible: !coverView.available
+                    // Under a cover only the frost draws it; e-paper keeps the cover alone.
+                    opacity: coverView.available ? 0 : 1
                     active: !taskCard.secure
                     asynchronous: true
 
                     sourceComponent: Item {
+                        readonly property bool ready: liveTexture.ready
+
                         anchors.fill: parent
                         clip: true
                         enabled: false
@@ -591,7 +702,7 @@ Item {
 
                                 Rectangle {
                                     anchors.fill: parent
-                                    visible: previewContainer.liveApp === null && !taskCard.hasWaylandSurface
+                                    visible: previewContainer.liveApp === null && !taskCard.hasWaylandSurface && !coverView.available
                                     color: "transparent"
 
                                     Column {

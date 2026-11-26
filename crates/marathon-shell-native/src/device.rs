@@ -62,6 +62,11 @@ mod ffi {
         /// "none", or "kms": the scene turns by the DRM connector's
         /// "panel orientation", for a panel mounted turned.
         panel_orientation: QString,
+        /// The camera cutout in panel pixels, upright; zero width for none.
+        cutout_x: i32,
+        cutout_y: i32,
+        cutout_width: i32,
+        cutout_height: i32,
     }
 
     #[namespace = "marathon::device"]
@@ -156,6 +161,20 @@ impl Values {
             .map(std::path::PathBuf::from)
     }
 
+    /// "x,y,width,height"; anything else is no cutout.
+    pub fn display_cutout(&self) -> [i32; 4] {
+        self.get("MARATHON_DISPLAY_CUTOUT", "DISPLAY_CUTOUT")
+            .and_then(|v| {
+                let n: Vec<i32> = v
+                    .split(',')
+                    .map(|p| p.trim().parse().ok())
+                    .collect::<Option<_>>()?;
+                let rect: [i32; 4] = n.try_into().ok()?;
+                (rect[0] >= 0 && rect[1] >= 0 && rect[2] > 0 && rect[3] > 0).then_some(rect)
+            })
+            .unwrap_or_default()
+    }
+
     pub fn runner_size(&self) -> (i32, i32) {
         (
             self.number("MARATHON_APP_WIDTH", "RUNNER_WIDTH", 540, |n| *n > 0),
@@ -185,6 +204,7 @@ fn profile() -> Profile {
         })
         .unwrap_or((2, 0));
     let (runner_width, runner_height) = v.runner_size();
+    let [cutout_x, cutout_y, cutout_width, cutout_height] = v.display_cutout();
     Profile {
         device_id: q(v.text("MARATHON_DEVICE_ID", "DEVICE_ID", "generic")),
         gpu_stack: q(v.gpu_stack()),
@@ -222,6 +242,10 @@ fn profile() -> Profile {
         touch_params: q(v.text("MARATHON_TOUCH_PARAMS", "TOUCH_PARAMS", "")),
         display_technology: q(v.display_technology()),
         panel_orientation: q(v.panel_orientation()),
+        cutout_x,
+        cutout_y,
+        cutout_width,
+        cutout_height,
     }
 }
 
@@ -365,6 +389,31 @@ mod tests {
         assert_eq!(panel_rotation("Upside Down"), 180);
         assert_eq!(panel_rotation("Right Side Up"), 90);
         assert_eq!(panel_rotation("left side up"), 0);
+    }
+
+    #[test]
+    fn display_cutout_needs_four_numbers() {
+        assert_eq!(values(&[]).display_cutout(), [0; 4]);
+        assert_eq!(
+            values(&[("DISPLAY_CUTOUT", "310,0,414,66")]).display_cutout(),
+            [310, 0, 414, 66]
+        );
+        assert_eq!(
+            values(&[("DISPLAY_CUTOUT", "310, 0, 414, 66")]).display_cutout(),
+            [310, 0, 414, 66]
+        );
+        assert_eq!(
+            values(&[("DISPLAY_CUTOUT", "310,0,414")]).display_cutout(),
+            [0; 4]
+        );
+        assert_eq!(
+            values(&[("DISPLAY_CUTOUT", "310,0,0,66")]).display_cutout(),
+            [0; 4]
+        );
+        assert_eq!(
+            values(&[("DISPLAY_CUTOUT", "notch")]).display_cutout(),
+            [0; 4]
+        );
     }
 
     #[test]

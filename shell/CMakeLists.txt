@@ -18,6 +18,8 @@ set(SOURCES
     src/services/waketouchfilter.cpp
     src/services/inputcontext.h
     src/services/inputcontext.cpp
+    src/services/homeunlock.h
+    src/services/homeunlock.cpp
     src/services/remotetextinput.h
     src/services/remotetextinput.cpp
     src/services/translations.h
@@ -102,6 +104,7 @@ endif()
 
 set(QML_FILES
     qml/Main.qml
+    qml/HomeUnlock.qml
     qml/MarathonShell.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonNightshade.qml
@@ -121,6 +124,7 @@ set(QML_FILES
     qml/components/WeatherSheet.qml
     qml/components/WeatherTile.qml
     qml/components/MarathonPinScreen.qml
+    qml/components/MarathonHomeUnlock.qml
     qml/components/MarathonAppWindow.qml
     qml/components/KeelAmbienceBackground.qml
     qml/components/WallpaperTone.qml
