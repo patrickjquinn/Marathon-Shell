@@ -44,7 +44,7 @@ Item {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             //: Last setup step: how to finish
-            text: qsTr("Flick the bar up, the way you began, to go home.")
+            text: qsTr("Flick the bar up to go home.")
             color: Silica.Theme.secondaryHighlightColor
             wrapMode: Text.Wrap
         }
