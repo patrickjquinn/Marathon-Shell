@@ -41,6 +41,8 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/waylandcompositor.cpp
         src/wayland/securitycontextv1.h
         src/wayland/securitycontextv1.cpp
+        src/wayland/sharedclipboard.h
+        src/wayland/sharedclipboard.cpp
         src/wayland/fifov1.h
         src/wayland/fifov1.cpp
         src/wayland/committimingv1.h

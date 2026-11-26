@@ -10,6 +10,7 @@
 #include "src/wayland/nativeclientscale.h"
 #include "src/wayland/popupplacement.h"
 #include "src/wayland/securitycontextv1.h"
+#include "src/wayland/sharedclipboard.h"
 #include "src/wayland/xdgactivationv1.h"
 #include "src/wayland/marathonsurfacev1.h"
 #include "src/wayland/toplevelconfigure.h"
@@ -318,6 +319,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // names /dev/dri/renderD128 + advertises PRIME so Mesa renders on etnaviv
     // while buffers still import through Qt's v3 dmabuf. See wldrm.h.
     m_wlDrmManager = new WlDrmManager(this);
+
+    m_sharedClipboard = new SharedClipboard(this);
 
     m_xdgActivation = new XdgActivationV1(this);
     connect(m_xdgActivation, &XdgActivationV1::activated, this,
@@ -3100,6 +3103,10 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
     }
 
     return QObject::eventFilter(watched, event);
+}
+
+void WaylandCompositor::retainedSelectionReceived(QMimeData *data) {
+    m_sharedClipboard->take(data);
 }
 
 void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended) {

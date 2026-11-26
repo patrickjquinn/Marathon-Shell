@@ -36,6 +36,8 @@ class WlDrmManager;
 class NativeClientScale;
 class XdgActivationV1;
 class MarathonSurfaceManagerV1;
+class SharedClipboard;
+class QMimeData;
 class QWaylandPresentationTime;
 struct wl_client;
 
@@ -196,6 +198,7 @@ class WaylandCompositor : public QWaylandCompositor {
 
   protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void retainedSelectionReceived(QMimeData *data) override;
 
   public:
     // The surface of a Keel app's cover window, or null.
@@ -276,6 +279,7 @@ class WaylandCompositor : public QWaylandCompositor {
     CommitTimingManagerV1                  *m_commitTimingManager    = nullptr;
     LinuxDmabufManagerV1                   *m_linuxDmabufManager     = nullptr;
     WlDrmManager                           *m_wlDrmManager           = nullptr;
+    SharedClipboard                        *m_sharedClipboard        = nullptr;
     NativeClientScale                      *m_nativeClientScale      = nullptr;
     XdgActivationV1                        *m_xdgActivation          = nullptr;
     MarathonSurfaceManagerV1               *m_marathonSurfaceManager = nullptr;
