@@ -32,6 +32,13 @@ pub mod qobject {
     extern "RustQt" {
         #[qobject]
         #[qproperty(f64, user_scale_factor, cxx_name = "userScaleFactor", READ, WRITE = set_user_scale_factor, NOTIFY)]
+        #[qproperty(
+            f64,
+            default_user_scale_factor,
+            cxx_name = "defaultUserScaleFactor",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(QString, wallpaper_path, cxx_name = "wallpaperPath", READ, WRITE = set_wallpaper_path, NOTIFY)]
         #[qproperty(QString, device_name, cxx_name = "deviceName", READ, WRITE = set_device_name, NOTIFY)]
         #[qproperty(bool, auto_lock, cxx_name = "autoLock", READ, WRITE = set_auto_lock, NOTIFY)]
@@ -260,11 +267,12 @@ use qobject::Settings;
 
 const SETTINGS: Service = Service::shell("Settings");
 
-/// The properties: field, type and any default, the shell's name, and setter.
+/// The properties: field, type and any default, the shell's name, and the
+/// setter (none for one only the shell sets).
 macro_rules! properties {
     (@default $ty:ty) => { <$ty>::default() };
     (@default $ty:ty, $default:expr) => { $default };
-    ($($field:ident: $ty:ty $(= $default:expr)?, $key:literal, $changed:ident, $setter:ident($arg:ty);)*) => {
+    ($($field:ident: $ty:ty $(= $default:expr)?, $key:literal, $changed:ident $(, $setter:ident($arg:ty))?;)*) => {
         pub struct SettingsRust {
             $($field: $ty,)*
         }
@@ -276,9 +284,9 @@ macro_rules! properties {
         }
 
         impl Settings {
-            $(fn $setter(self: Pin<&mut Self>, value: $arg) {
+            $($(fn $setter(self: Pin<&mut Self>, value: $arg) {
                 store($key, value.wire().into());
-            })*
+            })?)*
         }
 
         /// The shell's `name` changed to `value`.
@@ -298,6 +306,7 @@ macro_rules! properties {
 
 properties! {
     user_scale_factor: f64 = 1.0, "userScaleFactor", user_scale_factor_changed, set_user_scale_factor(f64);
+    default_user_scale_factor: f64 = 1.0, "defaultUserScaleFactor", default_user_scale_factor_changed;
     wallpaper_path: QString, "wallpaperPath", wallpaper_path_changed, set_wallpaper_path(&QString);
     device_name: QString, "deviceName", device_name_changed, set_device_name(&QString);
     auto_lock: bool = true, "autoLock", auto_lock_changed, set_auto_lock(bool);

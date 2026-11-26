@@ -47,6 +47,13 @@ pub mod qobject {
     extern "RustQt" {
         #[qobject]
         #[qproperty(f64, user_scale_factor, cxx_name = "userScaleFactor", READ, WRITE = set_user_scale_factor, NOTIFY)]
+        #[qproperty(
+            f64,
+            default_user_scale_factor,
+            cxx_name = "defaultUserScaleFactor",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(QString, wallpaper_path, cxx_name = "wallpaperPath", READ, WRITE = set_wallpaper_path, NOTIFY)]
         #[qproperty(QString, device_name, cxx_name = "deviceName", READ, WRITE = set_device_name, NOTIFY)]
         #[qproperty(bool, auto_lock, cxx_name = "autoLock", READ, WRITE = set_auto_lock, NOTIFY)]
@@ -490,6 +497,7 @@ macro_rules! properties {
 
 properties! {
     user_scale_factor: f64 = 1.0, "ui/userScaleFactor", "userScaleFactor", user_scale_factor_changed, on_user_scale_factor_changed, set_user_scale_factor(f64) custom;
+    default_user_scale_factor: f64 = 1.0, "", "defaultUserScaleFactor", default_user_scale_factor_changed, on_default_user_scale_factor_changed, set_default_user_scale_factor(f64) custom;
     wallpaper_path: QString = QString::from(&asset_url("wallpapers/carbon.svg")), "ui/wallpaperPath", "wallpaperPath", wallpaper_path_changed, on_wallpaper_path_changed, set_wallpaper_path(&QString);
     device_name: QString = QString::from(&model_name()), "system/deviceName", "deviceName", device_name_changed, on_device_name_changed, set_device_name(&QString) custom;
     auto_lock: bool = true, "system/autoLock", "autoLock", auto_lock_changed, on_auto_lock_changed, set_auto_lock(bool);
@@ -955,6 +963,9 @@ impl Settings {
         }
     }
 
+    /// The device profile's, set at load: Settings1 cannot change it.
+    fn set_default_user_scale_factor(self: Pin<&mut Self>, _value: f64) {}
+
     fn set_status_bar_clock_position(mut self: Pin<&mut Self>, value: &QString) {
         if ["left", "center", "right"].contains(&value.to_string().as_str()) {
             set!(
@@ -1039,6 +1050,7 @@ impl Settings {
         rust.ini = ini;
         rust.screen_timeout = screen_timeout;
         rust.user_scale_factor = user_scale;
+        rust.default_user_scale_factor = user_scale;
         rust.dirty = migrated;
         self.as_mut().read_properties();
         self.as_mut().resolve_units();
@@ -1551,7 +1563,9 @@ impl Settings1 {
 
 #[cfg(test)]
 mod tests {
-    use super::{migrate, nightshade_due, sound_name, within, Field, Ini, SettingsRust, Value};
+    use super::{
+        migrate, nightshade_due, sound_name, state, within, Field, Ini, SettingsRust, Value,
+    };
     use cxx_qt_lib::QString;
 
     #[test]
@@ -1591,6 +1605,16 @@ mod tests {
         assert!(!within(60, 5 * 60, 23 * 60));
         assert!(!within(8 * 60, 8 * 60, 8 * 60));
         assert!(within(-120, 25 * 60, 23 * 60), "out-of-range minutes wrap");
+    }
+
+    #[test]
+    fn apps_read_the_device_default_size() {
+        let mut rust = SettingsRust::default();
+        rust.default_user_scale_factor = 1.25;
+        let shown = state(&rust)
+            .remove("defaultUserScaleFactor")
+            .map(|v| Value::from_dbus(&v));
+        assert_eq!(shown.as_ref().and_then(Value::as_f64), Some(1.25));
     }
 
     #[test]
