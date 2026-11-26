@@ -1,0 +1,12 @@
+#!/bin/sh
+# The controller starts unconfigured: give it the factory BD address from
+# the NVRAM copy (the first six bytes of BT_Addr) before bluetoothd uses it.
+set -eu
+addr=$(od -An -tx1 -N6 /var/lib/mt6858-connsys/BT_Addr | tr -d ' \n' |
+	sed 's/../&:/g; s/:$//' | tr a-f A-F)
+# hci0 joins the management interface shortly after the module loads.
+for _ in $(seq 50); do
+	btmgmt --index hci0 public-addr "$addr" >/dev/null 2>&1 && exit 0
+	sleep 0.2
+done
+exec btmgmt --index hci0 public-addr "$addr"

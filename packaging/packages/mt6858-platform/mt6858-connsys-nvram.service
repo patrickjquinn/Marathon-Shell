@@ -1,0 +1,13 @@
+[Unit]
+Description=MT6858 CONNSYS: copy the factory Wi-Fi/BT NVRAM from nvdata
+ConditionPathExists=!/var/lib/mt6858-connsys/WIFI
+Requires=dev-disk-by\x2dpartlabel-nvdata.device
+After=dev-disk-by\x2dpartlabel-nvdata.device local-fs.target
+Before=mt6858-wifi.service mt6858-bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon/mt6858-connsys-nvram
+
+[Install]
+WantedBy=multi-user.target

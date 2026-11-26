@@ -1,0 +1,24 @@
+# MediaTek CONNSYS firmware for the Jolla Phone (2026) (MT6858 SOC7_0 with
+# the MT6631 A-die): the Bluetooth MCU and controller patches and the
+# conninfra/BT settings. They are proprietary and not committed: the image
+# build copies them from a stock /vendor/firmware dump
+# (JP2601_CONNSYS_FIRMWARE_DIR) into this directory. The Wi-Fi and GNSS RAM
+# code are not here: LK loads them from the connsys_* partitions.
+pkgname=jp2601-connsys-firmware
+pkgver=20260923
+pkgrel=0
+pkgdesc="Jolla Phone (2026) Bluetooth/CONNSYS firmware from the stock vendor partition"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="noarch"
+license="custom:proprietary"
+options="!check !strip !tracedeps"
+source="soc7_0_ram_mcu_1_1_hdr.bin soc7_0_ram_mcu_1a_1_hdr.bin soc7_0_ram_mcu_1b_1_hdr.bin
+ soc7_0_ram_bt_1_1_hdr.bin soc7_0_ram_bt_1a_1_hdr.bin soc7_0_ram_bt_1b_1_hdr.bin
+ BT_FW.cfg conninfra.cfg"
+
+package() {
+	local f
+	for f in $source; do
+		install -Dm644 "$srcdir/$f" "$pkgdir/usr/lib/firmware/$f"
+	done
+}
