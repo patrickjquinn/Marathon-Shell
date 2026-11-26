@@ -1,0 +1,106 @@
+From af83321bf6b4cd07bb3c047237a6cae99c54c892 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:19:53 +0000
+Subject: [PATCH 125/128] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ Visionox VTDR6126 panel
+
+Describe the panel on DSI0 and its three GPIO-switched supplies: the
+I/O supply on GPIO 133, the negative bias on GPIO 134 and the positive
+bias on GPIO 132. The bootloader leaves all three on with the panel
+running, so they are marked boot-on and not switched off at probe; the
+panel driver then resets the panel before its init sequence.
+
+With a panel attached the DSI registers its component, mediatek-drm
+binds and takes the display over from simple-framebuffer, at 60 Hz.
+Build in the panel driver and the backlight class it needs.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 50 ++++++++++++++++++-
+ arch/arm64/configs/mt6858.config              |  2 +
+ 2 files changed, 51 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index c8f41b518..df17cee05 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -374,6 +374,34 @@ dramc-rk1@33fff0000 {
+ 		};
+ 	};
+ 
++	/*
++	 * The panel's supplies, each switched by a GPIO. The bootloader
++	 * leaves them on with the panel running.
++	 */
++	reg_panel_vddio: regulator-panel-vddio {
++		compatible = "regulator-fixed";
++		regulator-name = "panel-vddio";
++		gpio = <&pio 133 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	reg_panel_vsn: regulator-panel-vsn {
++		compatible = "regulator-fixed";
++		regulator-name = "panel-vsn";
++		gpio = <&pio 134 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	reg_panel_vsp: regulator-panel-vsp {
++		compatible = "regulator-fixed";
++		regulator-name = "panel-vsp";
++		gpio = <&pio 132 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
+ 	/* The touchscreen's two supplies, each switched by a GPIO. */
+ 	reg_ts_vdd: regulator-ts-vdd {
+ 		compatible = "regulator-fixed";
+@@ -402,9 +430,29 @@ &dsc0 {
+ 	status = "okay";
+ };
+ 
+-/* No panel yet: the drivers bind, but the bootloader keeps scanning out. */
+ &dsi0 {
+ 	status = "okay";
++
++	panel@0 {
++		compatible = "visionox,vtdr6126";
++		reg = <0>;
++		vddio-supply = <&reg_panel_vddio>;
++		vsn-supply = <&reg_panel_vsn>;
++		vsp-supply = <&reg_panel_vsp>;
++		reset-gpios = <&pio 97 GPIO_ACTIVE_LOW>;
++
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&dsi0_out>;
++			};
++		};
++	};
++
++	port {
++		dsi0_out: endpoint {
++			remote-endpoint = <&panel_in>;
++		};
++	};
+ };
+ 
+ &gpu {
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 88ac0c562..fa2454c3f 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -62,6 +62,8 @@ CONFIG_INPUT_MISC=y
+ CONFIG_INPUT_REGULATOR_HAPTIC=y
+ CONFIG_DRM_MEDIATEK=y
+ CONFIG_PHY_MTK_MIPI_DSI=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_DRM_PANEL_VISIONOX_VTDR6126=y
+ # The Mali-G610, under the GPUEB's power and frequency control.
+ CONFIG_MTK_GPUEB_MBOX=y
+ CONFIG_MTK_MFG_PM_DOMAIN=y
+-- 
+2.55.0
+

@@ -1,0 +1,36 @@
+From ea2d1c7d0b59f96dc40824cc016c39bb6cd9bc14 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:59:02 +0000
+Subject: [PATCH 128/128] Revert "dt-bindings: spmi: mediatek,mt8196-spmi:
+ Allow a bus without RCS interrupt"
+
+This reverts commit 8af8c6c46b518ba5821c24047709cc009fe9fda2.
+
+The MT6369 is reached through SPMI-M, as the downstream driver does
+(spmi-dev-mask = 0 routes every SID through the SPMI-M PMIF), so no bus
+without an RCS interrupt is described any more.
+---
+ .../devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml     | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml b/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
+index 8723f32f1..281cfe842 100644
+--- a/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
++++ b/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
+@@ -86,9 +86,10 @@ patternProperties:
+       - reg-names
+       - clocks
+       - clock-names
+-
+-    dependentRequired:
+-      interrupt-controller: [interrupts, interrupt-names, "#interrupt-cells"]
++      - interrupts
++      - interrupt-names
++      - interrupt-controller
++      - "#interrupt-cells"
+ 
+ required:
+   - compatible
+-- 
+2.55.0
+

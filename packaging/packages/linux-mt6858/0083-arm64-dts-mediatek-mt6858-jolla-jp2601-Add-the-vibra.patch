@@ -1,0 +1,90 @@
+From 731041e0e8ed86a4d5092fd972015276d04bfbfd Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:26:35 +0000
+Subject: [PATCH 083/128] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ vibrator
+
+The vibration motor runs from the MT6369's VIBR LDO. The stock driver
+sets it to 2.8-3.5 V, so it runs at 2.8 V: pin both the regulator and
+regulator-haptic to 2.8 V, so no other voltage is ever set. Enable
+SPMI-P for the MT6369 and build in its regulator driver and
+regulator-haptic.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 28 +++++++++++++++++++
+ arch/arm64/configs/mt6858.config              |  3 ++
+ 2 files changed, 31 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 7bb4ebbd1..0054a3cd0 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -31,6 +31,7 @@ aliases {
+ 		i2c12 = &i2c12;
+ 		serial0 = &uart0;
+ 		spmi0 = &spmi;
++		spmi1 = &spmi_p;
+ 	};
+ 
+ 	battery: battery {
+@@ -86,6 +87,14 @@ framebuffer@fe450000 {
+ 		};
+ 	};
+ 
++	/* The vibration motor, on the MT6369's VIBR LDO at the stock 2.8 V */
++	vibrator {
++		compatible = "regulator-haptic";
++		haptic-supply = <&mt6369_vibr>;
++		min-microvolt = <2800000>;
++		max-microvolt = <2800000>;
++	};
++
+ 	/* The IR LED, on PWM_3 (GPIO25) */
+ 	ir-transmitter {
+ 		compatible = "pwm-ir-tx";
+@@ -558,6 +567,20 @@ home2-key {
+ 	};
+ };
+ 
++&mt6369 {
++	regulators {
++		compatible = "mediatek,mt6369-regulator";
++
++		mt6369_vibr: vibr {
++			regulator-name = "vibr";
++			/* The stock driver asks for 2.8-3.5 V, so runs at 2.8 V */
++			regulator-min-microvolt = <2800000>;
++			regulator-max-microvolt = <2800000>;
++			regulator-enable-ramp-delay = <680>;
++		};
++	};
++};
++
+ &pio {
+ 	/* Gives the status LED's red channel to the AW2023, as the stock driver does */
+ 	status-led-red-hog {
+@@ -708,6 +731,11 @@ &pwm {
+ 	status = "okay";
+ };
+ 
++&spmi_p {
++
++	status = "okay";
++};
++
+ &spi3 {
+ 
+ 	pinctrl-names = "default";
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 687397d39..2d59190d4 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -55,3 +55,6 @@ CONFIG_RC_CORE=y
+ CONFIG_LIRC=y
+ CONFIG_RC_DEVICES=y
+ CONFIG_IR_PWM_TX=y
++CONFIG_REGULATOR_MT6369=y
++CONFIG_INPUT_MISC=y
++CONFIG_INPUT_REGULATOR_HAPTIC=y
+-- 
+2.55.0
+

@@ -1,0 +1,53 @@
+From 9598a3a734fdcbd70df3117e1d03e176fe0b08da Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:49:08 +0000
+Subject: [PATCH 119/128] drm/mediatek: dsc: Fix the picture group width,
+ height and padding
+
+Compared with what the MT6858 bootloader programs for a 1032x2272 panel
+with two 516x8 slices (and with the DSC spec):
+
+- PIC_W's group width is the picture width in 3-pixel groups (344), not
+  4/3 of a slice width (688).
+- PIC_H's extended height is the height rounded up to whole slices
+  (2272), not height + slice height - 1 (2279).
+- The pad count is (3 - (2 * chunk) % 3) % 3; the operator precedence
+  made it 3 for a chunk that needs no padding.
+- The pre-pad size was built in a u16, which dropped the width half.
+---
+ drivers/gpu/drm/mediatek/mtk_disp_dsc.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+index 7d05478d8..9dc1f8571 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+@@ -252,11 +252,12 @@ void mtk_dsc_setup(struct device *dev, struct drm_dsc_config *dsc_cfg)
+ 	u32 dsc_slice_w, dsc_slice_h, dsc_mode, dsc_cfg_rval, dsc_shadow;
+ 	u32 dsc_dbg_con, dsc_con, dsc_enc_width, dsc_pic_w, dsc_pic_h;
+ 	u16 pic_group_width, pic_height_ext_num, slice_group_width;
+-	u16 chunk_size, dsc_pad_num, dsc_pre_pad_sz;
++	u16 chunk_size, dsc_pad_num;
++	u32 dsc_pre_pad_sz;
+ 
+-	pic_height_ext_num = dsc_cfg->pic_height + dsc_cfg->slice_height - 1;
+-	pic_group_width = dsc_cfg->slice_width * 4;
+-	pic_group_width /= 3;
++	/* The picture rounded up to whole slices, and in groups of 3 pixels */
++	pic_height_ext_num = roundup(dsc_cfg->pic_height, dsc_cfg->slice_height);
++	pic_group_width = DIV_ROUND_UP(dsc_cfg->pic_width, 3);
+ 
+ 	slice_group_width = dsc_cfg->slice_width + 2;
+ 	slice_group_width /= 3;
+@@ -281,7 +282,7 @@ void mtk_dsc_setup(struct device *dev, struct drm_dsc_config *dsc_cfg)
+ 				  (pic_height_ext_num / dsc_cfg->slice_height) - 1);
+ 	dsc_slice_h |= FIELD_PREP(DSC_SLICE_HEIGHT_M1, dsc_cfg->slice_height - 1);
+ 
+-	dsc_pad_num = 3 - ((chunk_size * 2) % 3) % 3;
++	dsc_pad_num = (3 - (chunk_size * 2) % 3) % 3;
+ 	dsc_pad_num = FIELD_PREP(DSC_PAD_NUMBER, dsc_pad_num);
+ 
+ 	dsc_pre_pad_sz = FIELD_PREP(DSC_PIC_PREPAD_HEIGHT, dsc_cfg->pic_height);
+-- 
+2.55.0
+

@@ -1,0 +1,37 @@
+From e32ddc31349a2dc1c601ff68d8f0aafbcaf2dfe3 Mon Sep 17 00:00:00 2001
+From: AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
+Date: Wed, 1 Jul 2026 14:19:48 +0200
+Subject: [PATCH 087/128] drm/mediatek: mtk_dsi: Enable PM Runtime on probe
+
+Enable PM Runtime at the end of mtk_dsi_probe() so that the
+mediatek-drm mtk_ddp_comp_power_on() function is able to do
+pm_runtime_resume_and_get() and, analogously, the function
+mtk_ddp_comp_power_off() to pm_runtime_put() for the DSI
+device.
+
+This makes sure that the power domains for the DSI IP are
+turned on and off when necessary.
+
+Signed-off-by: AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index 3b29454d3..bf4bf4596 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -1361,6 +1361,10 @@ static int mtk_dsi_probe(struct platform_device *pdev)
+ 	dsi->bridge.of_node = dev->of_node;
+ 	dsi->bridge.type = DRM_MODE_CONNECTOR_DSI;
+ 
++	ret = devm_pm_runtime_enable(dev);
++	if (ret)
++		return ret;
++
+ 	return 0;
+ }
+ 
+-- 
+2.55.0
+

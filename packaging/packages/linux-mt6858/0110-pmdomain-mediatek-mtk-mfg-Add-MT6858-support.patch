@@ -1,0 +1,448 @@
+From 183c265f70638660ac3f0df86791fd4d50694062 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:37:15 +0000
+Subject: [PATCH 110/128] pmdomain: mediatek: mtk-mfg: Add MT6858 support
+
+The MT6858 speaks the MT8196's GPU-DVFS IPI protocol, but differs in
+three ways:
+
+- The bootloader starts the EB, and the EB stays on: the vendor kernel
+  runs without GHPM and never powers it on or off. So there is no EB
+  power sequence and no sleep channel. The IPI magic is read once, at
+  probe, after checking in the SPM that MFG0 (the EB's domain) is on;
+  without that check, a missing EB would hang the bus.
+- Its firmware's shared status has two more words after the activity
+  counter and different tables before the OPP tables. Move the offsets
+  that the driver uses into a per-variant layout. The MT6858 offsets
+  come from the vendor gpufreq wrapper that matches this firmware.
+- It has a single buck, and the vendor kernel sets OPPs with CMD_COMMIT
+  on the GPU target, which also keeps the EB's own thermal and battery
+  limits in force. Do the same.
+
+Since an always-on EB answers at once, give it its shared memory before
+the first power request, as the vendor driver does. After a power-on,
+check that the EB counted the GPU MTCMOS on before letting the GPU
+driver at its registers.
+---
+ drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c | 218 ++++++++++++++++---
+ 1 file changed, 187 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c b/drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c
+index 093f8fac2..0f5896796 100644
+--- a/drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c
++++ b/drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c
+@@ -17,10 +17,12 @@
+ #include <linux/of_address.h>
+ #include <linux/of_platform.h>
+ #include <linux/of_reserved_mem.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/overflow.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+ #include <linux/pm_opp.h>
++#include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/units.h>
+ 
+@@ -125,6 +127,9 @@
+ #define GF_REG_LIMIT_TABLE		0x1d54
+ #define GF_REG_GPM3_TABLE		0x223C
+ 
++#define SPM_MFG0_PWR_CON		0x0eb0
++#define   MFG0_PWR_ACK_M		GENMASK(31, 30)
++
+ #define MFG_MT8196_E2_ID		0x101
+ #define GPUEB_SLEEP_MAGIC		0x55667788UL
+ #define GPUEB_MEM_MAGIC			0xBABADADAUL
+@@ -136,6 +141,8 @@
+ 
+ #define GPUEB_MBOX_MAX_RX_SIZE		32 /* in bytes */
+ 
++#define GPUFREQ_TARGET_GPU		1
++
+ /*
+  * This enum is part of the ABI of the GPUEB firmware. Don't change the
+  * numbering, as you would wreak havoc.
+@@ -245,6 +252,25 @@ struct mtk_mfg_opp_entry {
+ 	__le32 power_mw;
+ } __packed;
+ 
++/**
++ * struct mtk_mfg_shmem_layout - where the EB firmware keeps things in the
++ * shared memory; it differs between firmware builds
++ * @mtcmos_count: number of power-on requests for the GPU MTCMOS
++ * @freq_out_gpu: current GPU frequency, in kilohertz
++ * @freq_out_stk: current Stack frequency, in kilohertz
++ * @shader_present: mask of the shader cores that are usable
++ * @opp_table_gpu: the GPU OPP table, &struct mtk_mfg_opp_entry entries
++ * @opp_table_stk: the Stack OPP table, &struct mtk_mfg_opp_entry entries
++ */
++struct mtk_mfg_shmem_layout {
++	u16 mtcmos_count;
++	u16 freq_out_gpu;
++	u16 freq_out_stk;
++	u16 shader_present;
++	u16 opp_table_gpu;
++	u16 opp_table_stk;
++};
++
+ struct mtk_mfg_mbox {
+ 	struct mbox_client cl;
+ 	struct completion rx_done;
+@@ -261,6 +287,7 @@ struct mtk_mfg {
+ 	struct clk_hw clk_core_hw;
+ 	struct clk_hw clk_stack_hw;
+ 	struct regulator_bulk_data *gpu_regs;
++	struct regmap *spm;
+ 	void __iomem *rpc;
+ 	void __iomem *gpr;
+ 	void __iomem *shared_mem;
+@@ -284,6 +311,16 @@ struct mtk_mfg_variant {
+ 	unsigned int num_regulators;
+ 	/** @turbo_below: opp indices below this value are considered turbo */
+ 	unsigned int turbo_below;
++	/** @shmem: the firmware's shared memory layout */
++	const struct mtk_mfg_shmem_layout *shmem;
++	/**
++	 * @eb_always_on: the bootloader starts the EB, and it stays on: the
++	 * driver neither powers it on nor puts it to sleep, and reads the IPI
++	 * magic only once
++	 */
++	bool eb_always_on;
++	/** @single_commit: set OPPs with CMD_COMMIT on the GPU target */
++	bool single_commit;
+ 	int (*init)(struct mtk_mfg *mfg);
+ };
+ 
+@@ -307,7 +344,7 @@ static unsigned long mtk_mfg_recalc_rate_gpu(struct clk_hw *hw,
+ {
+ 	struct mtk_mfg *mfg = container_of(hw, struct mtk_mfg, clk_core_hw);
+ 
+-	return readl(mfg->shared_mem + GF_REG_FREQ_OUT_GPU) * HZ_PER_KHZ;
++	return readl(mfg->shared_mem + mfg->variant->shmem->freq_out_gpu) * HZ_PER_KHZ;
+ }
+ 
+ static unsigned long mtk_mfg_recalc_rate_stack(struct clk_hw *hw,
+@@ -315,7 +352,7 @@ static unsigned long mtk_mfg_recalc_rate_stack(struct clk_hw *hw,
+ {
+ 	struct mtk_mfg *mfg = container_of(hw, struct mtk_mfg, clk_stack_hw);
+ 
+-	return readl(mfg->shared_mem + GF_REG_FREQ_OUT_STK) * HZ_PER_KHZ;
++	return readl(mfg->shared_mem + mfg->variant->shmem->freq_out_stk) * HZ_PER_KHZ;
+ }
+ 
+ static const struct clk_ops mtk_mfg_clk_gpu_ops = {
+@@ -502,9 +539,15 @@ static int mtk_mfg_set_oppidx(struct mtk_mfg *mfg, unsigned int opp_idx)
+ 	if (opp_idx >= mfg->num_gpu_opps)
+ 		return -EINVAL;
+ 
+-	msg.cmd = CMD_FIX_DUAL_TARGET_OPPIDX;
+-	msg.u.dual_commit.gpu_oppidx = opp_idx;
+-	msg.u.dual_commit.stack_oppidx = opp_idx;
++	if (mfg->variant->single_commit) {
++		msg.cmd = CMD_COMMIT;
++		msg.target = GPUFREQ_TARGET_GPU;
++		msg.u.oppidx = opp_idx;
++	} else {
++		msg.cmd = CMD_FIX_DUAL_TARGET_OPPIDX;
++		msg.u.dual_commit.gpu_oppidx = opp_idx;
++		msg.u.dual_commit.stack_oppidx = opp_idx;
++	}
+ 
+ 	ret = mtk_mfg_send_ipi(mfg, &msg);
+ 	if (ret) {
+@@ -550,7 +593,8 @@ static int mtk_mfg_read_opp_tables(struct mtk_mfg *mfg)
+ 	}
+ 
+ 	for (i = 0; i < mfg->num_gpu_opps; i++) {
+-		memcpy_fromio(&e, mfg->shared_mem + GF_REG_OPP_TABLE_GPU + i * sizeof(e),
++		memcpy_fromio(&e, mfg->shared_mem + mfg->variant->shmem->opp_table_gpu +
++			      i * sizeof(e),
+ 			      sizeof(e));
+ 		if (mem_is_zero(&e, sizeof(e))) {
+ 			dev_err(dev, "ran into an empty GPU OPP at index %u\n",
+@@ -565,7 +609,8 @@ static int mtk_mfg_read_opp_tables(struct mtk_mfg *mfg)
+ 	}
+ 
+ 	for (i = 0; i < mfg->num_stack_opps; i++) {
+-		memcpy_fromio(&e, mfg->shared_mem + GF_REG_OPP_TABLE_STK + i * sizeof(e),
++		memcpy_fromio(&e, mfg->shared_mem + mfg->variant->shmem->opp_table_stk +
++			      i * sizeof(e),
+ 			      sizeof(e));
+ 		if (mem_is_zero(&e, sizeof(e))) {
+ 			dev_err(dev, "ran into an empty Stack OPP at index %u\n",
+@@ -615,15 +660,78 @@ static int mtk_mfg_mt8196_init(struct mtk_mfg *mfg)
+ 	return 0;
+ }
+ 
++static const struct mtk_mfg_shmem_layout mtk_mfg_mt8196_shmem = {
++	.mtcmos_count = GF_REG_MTCMOS_COUNT,
++	.freq_out_gpu = GF_REG_FREQ_OUT_GPU,
++	.freq_out_stk = GF_REG_FREQ_OUT_STK,
++	.shader_present = GF_REG_SHADER_PRESENT,
++	.opp_table_gpu = GF_REG_OPP_TABLE_GPU,
++	.opp_table_stk = GF_REG_OPP_TABLE_STK,
++};
++
+ static const struct mtk_mfg_variant mtk_mfg_mt8196_variant = {
+ 	.clk_names = mtk_mfg_mt8196_clk_names,
+ 	.num_clks = ARRAY_SIZE(mtk_mfg_mt8196_clk_names),
+ 	.regulator_names = mtk_mfg_mt8196_regulators,
+ 	.num_regulators = ARRAY_SIZE(mtk_mfg_mt8196_regulators),
+ 	.turbo_below = 7,
++	.shmem = &mtk_mfg_mt8196_shmem,
+ 	.init = mtk_mfg_mt8196_init,
+ };
+ 
++/*
++ * The MT6858 EB firmware has two more words after GF_REG_ACTIVE_COUNT,
++ * and a different set of tables before the OPP tables.
++ */
++static const struct mtk_mfg_shmem_layout mtk_mfg_mt6858_shmem = {
++	.mtcmos_count = 0x0024,
++	.freq_out_gpu = 0x0054,
++	.freq_out_stk = 0x0058,
++	.shader_present = 0x00e0,
++	.opp_table_gpu = 0x0484,
++	.opp_table_stk = 0x0b14,
++};
++
++static int mtk_mfg_mt6858_init(struct mtk_mfg *mfg)
++{
++	struct device *dev = &mfg->pdev->dev;
++	u32 val;
++	int ret;
++
++	/*
++	 * The EB sits in MFG0, which only the bootloader powers on. Touching
++	 * the EB with MFG0 off would hang the bus, so check it first.
++	 */
++	mfg->spm = syscon_regmap_lookup_by_phandle(dev->of_node, "mediatek,spm");
++	if (IS_ERR(mfg->spm))
++		return dev_err_probe(dev, PTR_ERR(mfg->spm), "Couldn't get SPM\n");
++
++	ret = regmap_read(mfg->spm, SPM_MFG0_PWR_CON, &val);
++	if (ret)
++		return ret;
++
++	if ((val & MFG0_PWR_ACK_M) != MFG0_PWR_ACK_M)
++		return dev_err_probe(dev, -ENODEV,
++				     "MFG0 is off (0x%08x): the bootloader did not start the EB\n",
++				     val);
++
++	mfg->ipi_magic = readl(mfg->gpr + GPR_IPI_MAGIC);
++	if (!mfg->ipi_magic)
++		return dev_err_probe(dev, -ENODEV, "EB firmware is not running\n");
++
++	dev_info(dev, "EB running, MFG0 0x%08x, LP state 0x%x\n", val,
++		 readl(mfg->gpr + GPR_LP_STATE));
++
++	return 0;
++}
++
++static const struct mtk_mfg_variant mtk_mfg_mt6858_variant = {
++	.shmem = &mtk_mfg_mt6858_shmem,
++	.eb_always_on = true,
++	.single_commit = true,
++	.init = mtk_mfg_mt6858_init,
++};
++
+ static void mtk_mfg_mbox_rx_callback(struct mbox_client *cl, void *mssg)
+ {
+ 	struct mtk_mfg_mbox *mb = container_of(cl, struct mtk_mfg_mbox, cl);
+@@ -715,16 +823,30 @@ static int mtk_mfg_power_on(struct generic_pm_domain *pd)
+ 	if (ret)
+ 		goto err_disable_eb_clk;
+ 
+-	ret = mtk_mfg_eb_on(mfg);
+-	if (ret)
+-		goto err_disable_clks;
++	if (!mfg->variant->eb_always_on) {
++		ret = mtk_mfg_eb_on(mfg);
++		if (ret)
++			goto err_disable_clks;
+ 
+-	mfg->ipi_magic = readl(mfg->gpr + GPR_IPI_MAGIC);
++		mfg->ipi_magic = readl(mfg->gpr + GPR_IPI_MAGIC);
++	}
+ 
+ 	ret = mtk_mfg_power_control(mfg, true);
+ 	if (ret)
+ 		goto err_eb_off;
+ 
++	/*
++	 * Before the shared memory is set up, there is nothing to check;
++	 * after that, the EB counts the MTCMOS on.
++	 */
++	if (mfg->variant->eb_always_on && mfg->gpu_opps &&
++	    (int)readl(mfg->shared_mem + mfg->variant->shmem->mtcmos_count) <= 0) {
++		dev_err(&mfg->pdev->dev, "EB did not power on the GPU\n");
++		mtk_mfg_power_control(mfg, false);
++		ret = -EIO;
++		goto err_eb_off;
++	}
++
+ 	/* Don't try to set a OPP in probe before OPPs have been read from EB */
+ 	if (mfg->gpu_opps) {
+ 		/* The aforementioned deferred setting of pmdomain's state */
+@@ -736,7 +858,8 @@ static int mtk_mfg_power_on(struct generic_pm_domain *pd)
+ 	return 0;
+ 
+ err_eb_off:
+-	mtk_mfg_eb_off(mfg);
++	if (!mfg->variant->eb_always_on)
++		mtk_mfg_eb_off(mfg);
+ err_disable_clks:
+ 	clk_bulk_disable_unprepare(mfg->variant->num_clks, mfg->gpu_clks);
+ err_disable_eb_clk:
+@@ -759,10 +882,12 @@ static int mtk_mfg_power_off(struct generic_pm_domain *pd)
+ 		return ret;
+ 	}
+ 
+-	ret = mtk_mfg_eb_off(mfg);
+-	if (ret) {
+-		dev_err(dev, "eb_off failed: %pe\n", ERR_PTR(ret));
+-		return ret;
++	if (!mfg->variant->eb_always_on) {
++		ret = mtk_mfg_eb_off(mfg);
++		if (ret) {
++			dev_err(dev, "eb_off failed: %pe\n", ERR_PTR(ret));
++			return ret;
++		}
+ 	}
+ 
+ 	clk_bulk_disable_unprepare(mfg->variant->num_clks, mfg->gpu_clks);
+@@ -801,6 +926,10 @@ static int mtk_mfg_init_mbox(struct mtk_mfg *mfg)
+ 
+ 	mfg->gf_mbox = gf;
+ 
++	/* An EB that never sleeps has no use for the sleep channel */
++	if (mfg->variant->eb_always_on)
++		return 0;
++
+ 	slp = devm_kzalloc_obj(dev, *slp);
+ 	if (!slp)
+ 		return -ENOMEM;
+@@ -893,7 +1022,7 @@ static int mtk_mfg_init_nvmem_provider(struct mtk_mfg *mfg)
+ 		return dev_err_probe(dev, PTR_ERR(nvdev), "Couldn't register nvmem provider\n");
+ 
+ 	cell.name = "shader-present";
+-	cell.offset = GF_REG_SHADER_PRESENT;
++	cell.offset = mfg->variant->shmem->shader_present;
+ 	cell.bytes = 4;
+ 	cell.np = of_get_child_by_name(dev->of_node, cell.name);
+ 
+@@ -930,12 +1059,14 @@ static int mtk_mfg_probe(struct platform_device *pdev)
+ 		return dev_err_probe(dev, PTR_ERR(mfg->gpr),
+ 				     "Couldn't retrieve GPR MMIO registers\n");
+ 
+-	mfg->rpc = devm_platform_ioremap_resource(pdev, 1);
+-	if (IS_ERR(mfg->rpc))
+-		return dev_err_probe(dev, PTR_ERR(mfg->rpc),
+-				     "Couldn't retrieve RPC MMIO registers\n");
++	if (!data->eb_always_on) {
++		mfg->rpc = devm_platform_ioremap_resource(pdev, 1);
++		if (IS_ERR(mfg->rpc))
++			return dev_err_probe(dev, PTR_ERR(mfg->rpc),
++					     "Couldn't retrieve RPC MMIO registers\n");
++	}
+ 
+-	mfg->clk_eb = devm_clk_get(dev, "eb");
++	mfg->clk_eb = devm_clk_get_optional(dev, "eb");
+ 	if (IS_ERR(mfg->clk_eb))
+ 		return dev_err_probe(dev, PTR_ERR(mfg->clk_eb),
+ 				     "Couldn't get 'eb' clock\n");
+@@ -997,16 +1128,27 @@ static int mtk_mfg_probe(struct platform_device *pdev)
+ 		goto err_remove_genpd;
+ 	}
+ 
++	/* An always-on EB takes requests at once, and wants its memory first */
++	if (data->eb_always_on) {
++		ret = mtk_mfg_init_shared_mem(mfg);
++		if (ret) {
++			dev_err_probe(dev, ret, "Couldn't initialize EB shared memory\n");
++			goto err_free_mbox;
++		}
++	}
++
+ 	ret = mtk_mfg_power_on(&mfg->pd);
+ 	if (ret) {
+ 		dev_err_probe(dev, ret, "Failed to power on MFG\n");
+ 		goto err_free_mbox;
+ 	}
+ 
+-	ret = mtk_mfg_init_shared_mem(mfg);
+-	if (ret) {
+-		dev_err_probe(dev, ret, "Couldn't initialize EB shared memory\n");
+-		goto err_power_off;
++	if (!data->eb_always_on) {
++		ret = mtk_mfg_init_shared_mem(mfg);
++		if (ret) {
++			dev_err_probe(dev, ret, "Couldn't initialize EB shared memory\n");
++			goto err_power_off;
++		}
+ 	}
+ 
+ 	ret = mtk_mfg_read_opp_tables(mfg);
+@@ -1015,6 +1157,14 @@ static int mtk_mfg_probe(struct platform_device *pdev)
+ 		goto err_power_off;
+ 	}
+ 
++	dev_info(dev, "%u GPU and %u Stack OPPs, %lu-%lu kHz, now %u kHz, shader mask 0x%x, MTCMOS count %d\n",
++		 mfg->num_gpu_opps, mfg->num_stack_opps,
++		 mfg->gpu_opps[mfg->num_gpu_opps - 1].freq / HZ_PER_KHZ,
++		 mfg->gpu_opps[0].freq / HZ_PER_KHZ,
++		 readl(mfg->shared_mem + data->shmem->freq_out_gpu),
++		 readl(mfg->shared_mem + data->shmem->shader_present),
++		 (int)readl(mfg->shared_mem + data->shmem->mtcmos_count));
++
+ 	ret = mtk_mfg_init_clk_provider(mfg);
+ 	if (ret)
+ 		goto err_power_off;
+@@ -1034,8 +1184,10 @@ static int mtk_mfg_probe(struct platform_device *pdev)
+ err_power_off:
+ 	mtk_mfg_power_off(&mfg->pd);
+ err_free_mbox:
+-	mbox_free_channel(mfg->slp_mbox->ch);
+-	mfg->slp_mbox->ch = NULL;
++	if (mfg->slp_mbox) {
++		mbox_free_channel(mfg->slp_mbox->ch);
++		mfg->slp_mbox->ch = NULL;
++	}
+ 	mbox_free_channel(mfg->gf_mbox->ch);
+ 	mfg->gf_mbox->ch = NULL;
+ err_remove_genpd:
+@@ -1045,6 +1197,7 @@ static int mtk_mfg_probe(struct platform_device *pdev)
+ }
+ 
+ static const struct of_device_id mtk_mfg_of_match[] = {
++	{ .compatible = "mediatek,mt6858-gpufreq", .data = &mtk_mfg_mt6858_variant },
+ 	{ .compatible = "mediatek,mt8196-gpufreq", .data = &mtk_mfg_mt8196_variant },
+ 	{}
+ };
+@@ -1054,7 +1207,8 @@ static void mtk_mfg_remove(struct platform_device *pdev)
+ {
+ 	struct mtk_mfg *mfg = dev_get_drvdata(&pdev->dev);
+ 
+-	if (mtk_mfg_is_powered_on(mfg))
++	if (mfg->variant->eb_always_on ? mfg->pd.status == GENPD_STATE_ON :
++					 mtk_mfg_is_powered_on(mfg))
+ 		mtk_mfg_power_off(&mfg->pd);
+ 
+ 	of_genpd_del_provider(pdev->dev.of_node);
+@@ -1063,8 +1217,10 @@ static void mtk_mfg_remove(struct platform_device *pdev)
+ 	mbox_free_channel(mfg->gf_mbox->ch);
+ 	mfg->gf_mbox->ch = NULL;
+ 
+-	mbox_free_channel(mfg->slp_mbox->ch);
+-	mfg->slp_mbox->ch = NULL;
++	if (mfg->slp_mbox) {
++		mbox_free_channel(mfg->slp_mbox->ch);
++		mfg->slp_mbox->ch = NULL;
++	}
+ }
+ 
+ static struct platform_driver mtk_mfg_driver = {
+-- 
+2.55.0
+

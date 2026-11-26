@@ -1,0 +1,25 @@
+From 34e141d149fd1ac1ca3189f037505fe584f360a8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:32:17 +0000
+Subject: [PATCH 092/128] dt-bindings: display: mediatek: dsc: Add MT6858
+
+The MT6858 DSC wrapper has the MT8195 register layout.
+---
+ .../devicetree/bindings/display/mediatek/mediatek,dsc.yaml       | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,dsc.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,dsc.yaml
+index c8b3e8694..ad985ca86 100644
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,dsc.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,dsc.yaml
+@@ -24,6 +24,7 @@ properties:
+           - mediatek,mt8195-disp-dsc
+       - items:
+           - enum:
++              - mediatek,mt6858-disp-dsc
+               - mediatek,mt8188-disp-dsc
+               - mediatek,mt8196-disp-dsc
+           - const: mediatek,mt8195-disp-dsc
+-- 
+2.55.0
+

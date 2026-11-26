@@ -1,0 +1,49 @@
+From c0f22510bde7b4c4ee11abb7a0b968923611fafa Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:32:20 +0000
+Subject: [PATCH 093/128] drm/mediatek: Set up the DSC when the DSI ends the
+ path
+
+mtk_crtc_ddp_hw_init() looked for the DSI only among the components
+that connect to a next one, so a DSI at the end of the path, where it
+always is, was never found and the DSC stayed in bypass. Check the last
+component too.
+
+The DSC setup also runs after the components have been started, and
+rewrote DSC_CON without DSC_EN, which left the encoder off. Keep the
+enable bit in the value it writes.
+---
+ drivers/gpu/drm/mediatek/mtk_crtc.c     | 3 +++
+ drivers/gpu/drm/mediatek/mtk_disp_dsc.c | 2 ++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_crtc.c b/drivers/gpu/drm/mediatek/mtk_crtc.c
+index 89a2d70ea..a4dda3780 100644
+--- a/drivers/gpu/drm/mediatek/mtk_crtc.c
++++ b/drivers/gpu/drm/mediatek/mtk_crtc.c
+@@ -413,6 +413,9 @@ static int mtk_crtc_ddp_hw_init(struct mtk_crtc *mtk_crtc)
+ 	}
+ 	if (!mtk_ddp_comp_add(mtk_crtc->ddp_comp[i], mtk_crtc->mutex))
+ 		mtk_mutex_add_comp(mtk_crtc->mutex, mtk_crtc->ddp_comp[i]->id);
++	if (!comp_dsi && mtk_crtc->ddp_comp[i]->id >= DDP_COMPONENT_DSI0 &&
++	    mtk_crtc->ddp_comp[i]->id <= DDP_COMPONENT_DSI3)
++		comp_dsi = mtk_crtc->ddp_comp[i];
+ 	mtk_mutex_enable(mtk_crtc->mutex);
+ 
+ 	for (i = 0; i < mtk_crtc->ddp_comp_nr; i++) {
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+index 79b66bd7e..f4bb26cd6 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+@@ -327,6 +327,8 @@ void mtk_dsc_setup(struct device *dev, struct drm_dsc_config *dsc_cfg)
+ 	dsc_con = FIELD_PREP_CONST(DSC_EMPTY_FLAG_SEL, DSC_EMPTY_FLAG_ALWAYS_LOW);
+ 	dsc_con |= DSC_V1_1_EXT | DSC_UFOE_SEL | DSC_PT_MEM_EN;
+ 	dsc_con |= DSC_ZERO_FIFO_STALL_DISABLE;
++	/* Setup runs after the component start, so keep the engine enabled */
++	dsc_con |= DSC_EN;
+ 
+ 	writel(dsc_con, disp_dsc->reg + DISP_REG_DSC_CON);
+ 
+-- 
+2.55.0
+

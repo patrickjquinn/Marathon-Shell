@@ -1,0 +1,113 @@
+From c44fb0776754f67a2b5df7c19ab1071fb6302213 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:38:30 +0000
+Subject: [PATCH 099/128] arm64: dts: mediatek: mt6858: Add the display engines
+
+Describe the three 2-layer OVLs, the DSC wrapper, DSI0 and its MIPI TX
+D-PHY, with the vendor interrupts and the mmsys clock gates. The OVLs
+get aliases, which mediatek-drm needs to tell them apart.
+
+All stay disabled: a board turns them on together with its panel.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 71 ++++++++++++++++++++++++
+ 1 file changed, 71 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index bd490938e..3ba7adfd3 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -16,6 +16,13 @@ / {
+ 	#address-cells = <2>;
+ 	#size-cells = <2>;
+ 
++	/* mediatek-drm tells the 2-layer OVLs apart by these */
++	aliases {
++		ovl-2l0 = &ovl_2l0;
++		ovl-2l1 = &ovl_2l1;
++		ovl-2l2 = &ovl_2l2;
++	};
++
+ 	/*
+ 	 * Stands in for the UFS and USB gates, which the bootloader leaves
+ 	 * running, until an MT6858 clock driver can name them. Its rate is
+@@ -632,6 +639,16 @@ u2port0: usb-phy@0 {
+ 			};
+ 		};
+ 
++		mipi_tx0: dsi-phy@11e50000 {
++			compatible = "mediatek,mt6858-mipi-tx";
++			reg = <0 0x11e50000 0 0x1000>;
++			clocks = <&clk26m>;
++			clock-output-names = "mipi_tx0_pll";
++			#clock-cells = <0>;
++			#phy-cells = <0>;
++			status = "disabled";
++		};
++
+ 		mmsys: syscon@14000000 {
+ 			compatible = "mediatek,mt6858-mmsys", "syscon";
+ 			reg = <0 0x14000000 0 0x1000>;
+@@ -647,6 +664,60 @@ mutex: mutex@14001000 {
+ 			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
+ 		};
+ 
++		ovl_2l0: ovl@14002000 {
++			compatible = "mediatek,mt6858-disp-ovl-2l",
++				     "mediatek,mt8192-disp-ovl-2l";
++			reg = <0 0x14002000 0 0x1000>;
++			interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&mmsys CLK_MM_DISP_OVL0_2L>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
++			status = "disabled";
++		};
++
++		ovl_2l1: ovl@14003000 {
++			compatible = "mediatek,mt6858-disp-ovl-2l",
++				     "mediatek,mt8192-disp-ovl-2l";
++			reg = <0 0x14003000 0 0x1000>;
++			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&mmsys CLK_MM_DISP_OVL1_2L>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
++			status = "disabled";
++		};
++
++		ovl_2l2: ovl@14004000 {
++			compatible = "mediatek,mt6858-disp-ovl-2l",
++				     "mediatek,mt8192-disp-ovl-2l";
++			reg = <0 0x14004000 0 0x1000>;
++			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&mmsys CLK_MM_DISP_OVL2_2L>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
++			status = "disabled";
++		};
++
++		dsc0: dsc@14019000 {
++			compatible = "mediatek,mt6858-disp-dsc", "mediatek,mt8195-disp-dsc";
++			reg = <0 0x14019000 0 0x1000>;
++			interrupts = <GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&mmsys CLK_MM_DISP_DSC_WRAP0>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
++			status = "disabled";
++		};
++
++		dsi0: dsi@1401a000 {
++			compatible = "mediatek,mt6858-dsi";
++			reg = <0 0x1401a000 0 0x1000>;
++			interrupts = <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&mmsys CLK_MM_DISP_DSI0>, <&mmsys CLK_MM_DSI0_CK>,
++				 <&mipi_tx0>;
++			clock-names = "engine", "digital", "hs";
++			phys = <&mipi_tx0>;
++			phy-names = "dphy";
++			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
+ 		img_sub0_bus: syscon@1502f000 {
+ 			compatible = "mediatek,mt6858-img-sub0-bus", "syscon";
+ 			reg = <0 0x1502f000 0 0x1000>;
+-- 
+2.55.0
+

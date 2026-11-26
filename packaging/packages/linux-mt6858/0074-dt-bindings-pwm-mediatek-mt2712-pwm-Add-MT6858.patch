@@ -1,0 +1,27 @@
+From d8845344a1b0b4f1ae57ad00ba5132947d9db961 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:24:33 +0000
+Subject: [PATCH 074/128] dt-bindings: pwm: mediatek,mt2712-pwm: Add MT6858
+
+The MT6858's general-purpose PWM has the MT6991 layout: four channels
+with registers at 0x100 + 0x100 * n and the 26 MHz select at 0x74, as
+the stock driver's version-3 paths show. Add it with an MT6991 fallback.
+---
+ Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml b/Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml
+index fc31758a4..f391eb1d7 100644
+--- a/Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml
++++ b/Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml
+@@ -35,6 +35,7 @@ properties:
+           - const: mediatek,mt8183-pwm
+       - items:
+           - enum:
++              - mediatek,mt6858-pwm
+               - mediatek,mt8196-pwm
+           - const: mediatek,mt6991-pwm
+ 
+-- 
+2.55.0
+

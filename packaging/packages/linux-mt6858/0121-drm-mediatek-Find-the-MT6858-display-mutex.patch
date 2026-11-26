@@ -1,0 +1,28 @@
+From ec8f8a286b035f270f2db2ff25adec65e28fdb1c Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:49:42 +0000
+Subject: [PATCH 121/128] drm/mediatek: Find the MT6858 display mutex
+
+mediatek-drm looks the mutex up among its own component compatibles, so
+without the MT6858 one it stopped with "Failed to find disp-mutex node"
+(seen on the JP2601).
+---
+ drivers/gpu/drm/mediatek/mtk_drm_drv.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_drm_drv.c b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+index ed53c48db..226bdf831 100644
+--- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c
++++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+@@ -760,6 +760,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
+ 	  .data = (void *)MTK_DISP_MUTEX },
+ 	{ .compatible = "mediatek,mt2712-disp-mutex",
+ 	  .data = (void *)MTK_DISP_MUTEX },
++	{ .compatible = "mediatek,mt6858-disp-mutex",
++	  .data = (void *)MTK_DISP_MUTEX },
+ 	{ .compatible = "mediatek,mt8167-disp-mutex",
+ 	  .data = (void *)MTK_DISP_MUTEX },
+ 	{ .compatible = "mediatek,mt8173-disp-mutex",
+-- 
+2.55.0
+

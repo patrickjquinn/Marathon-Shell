@@ -1,0 +1,236 @@
+From 75558b1927fca545b99d48770a4b0da719c21116 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:29:19 +0000
+Subject: [PATCH 089/128] phy: mediatek: mipi-dsi: Add MT6858 support
+
+The MT6858 MIPI TX is close to the MT8196 one, but
+with the bandgap controls at 0x0c, the PRD reference select at 0x10,
+PLL_EN at bit 4 of PLL_CON1, the lane software-control registers 0x18
+lower, and a PLL that runs at the full lane rate rather than half of
+it. Sequence and values follow the vendor driver's MT6858 PLL
+prepare/unprepare: bandgap core, then low-pass filter; lanes held in
+software LP-11 while the SDM powers up and leaves isolation; PCW in 8.24
+fixed point from the 26 MHz crystal; PLL enable, then the clock output
+enable at 0x60. Lanes go to the DSI engine in power_on_signal.
+
+The impedance calibration the bootloader leaves in place is not touched.
+---
+ drivers/phy/mediatek/Makefile                 |   1 +
+ .../phy/mediatek/phy-mtk-mipi-dsi-mt6858.c    | 167 ++++++++++++++++++
+ drivers/phy/mediatek/phy-mtk-mipi-dsi.c       |   1 +
+ drivers/phy/mediatek/phy-mtk-mipi-dsi.h       |   1 +
+ 4 files changed, 170 insertions(+)
+ create mode 100644 drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
+
+diff --git a/drivers/phy/mediatek/Makefile b/drivers/phy/mediatek/Makefile
+index 7e984c7cf..98c53468f 100644
+--- a/drivers/phy/mediatek/Makefile
++++ b/drivers/phy/mediatek/Makefile
+@@ -20,6 +20,7 @@ obj-$(CONFIG_PHY_MTK_HDMI)		+= phy-mtk-hdmi-drv.o
+ obj-$(CONFIG_PHY_MTK_MIPI_CSI_0_5)	+= phy-mtk-mipi-csi-0-5.o
+ 
+ phy-mtk-mipi-dsi-drv-y			:= phy-mtk-mipi-dsi.o
++phy-mtk-mipi-dsi-drv-y			+= phy-mtk-mipi-dsi-mt6858.o
+ phy-mtk-mipi-dsi-drv-y			+= phy-mtk-mipi-dsi-mt8173.o
+ phy-mtk-mipi-dsi-drv-y			+= phy-mtk-mipi-dsi-mt8183.o
+ phy-mtk-mipi-dsi-drv-y			+= phy-mtk-mipi-dsi-mt8196.o
+diff --git a/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c b/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
+new file mode 100644
+index 000000000..587e3760d
+--- /dev/null
++++ b/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
+@@ -0,0 +1,167 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * MT6858 MIPI TX D-PHY. Same blocks as the MT8196 one, at other offsets:
++ * the bandgap controls sit at 0x0c, PLL_EN is bit 4, and the PLL runs at
++ * the full lane rate. Register use follows the vendor driver's
++ * mtk_mipi_tx_pll_prepare_mt6858() and _unprepare_mt6858().
++ */
++
++#include "phy-mtk-io.h"
++#include "phy-mtk-mipi-dsi.h"
++
++#define MIPITX_LANE_CON		0x000c
++#define RG_DSI_BG_LPF_EN		BIT(6)
++#define RG_DSI_BG_CORE_EN		BIT(7)
++#define RG_DSI_PAD_TIEL_SEL		BIT(8)
++#define RG_DSI_LANE_CON_DEF		0x3fff0000
++
++#define MIPITX_VOLTAGE_SEL	0x0010
++#define RG_DSI_PRD_REF_SEL		GENMASK(5, 0)
++
++#define MIPITX_PLL_PWR		0x0028
++#define AD_DSI_PLL_SDM_PWR_ON		BIT(0)
++#define AD_DSI_PLL_SDM_ISO_EN		BIT(1)
++#define MIPITX_PLL_CON0		0x002c
++#define MIPITX_PLL_CON1		0x0030
++#define RG_DSI_PLL_EN			BIT(4)
++#define RG_DSI_PLL_POSDIV		GENMASK(10, 8)
++#define MIPITX_PLL_CON8		0x0060
++#define RG_DSI_PLL_CKOUT_EN		BIT(0)
++
++#define MIPITX_D2_SW_CTL_EN	0x0144
++#define MIPITX_D0_SW_CTL_EN	0x0244
++#define MIPITX_CK_SW_CTL_EN	0x0344
++#define MIPITX_D1_SW_CTL_EN	0x0444
++#define MIPITX_D3_SW_CTL_EN	0x0544
++#define DSI_SW_CTL_EN			BIT(0)
++
++#define DSI_PHY_XTAL_CLK_HZ		26000000
++#define DSI_PHY_PLL_MIN_RATE_HZ		125000000
++#define DSI_PHY_PLL_MAX_RATE_HZ		2500000000UL
++
++static const u16 mtk_mipi_tx_sw_ctl_en[] = {
++	MIPITX_D0_SW_CTL_EN, MIPITX_D1_SW_CTL_EN, MIPITX_D2_SW_CTL_EN,
++	MIPITX_D3_SW_CTL_EN, MIPITX_CK_SW_CTL_EN,
++};
++
++static void mtk_mipi_tx_sw_ctl(void __iomem *base, bool en)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(mtk_mipi_tx_sw_ctl_en); i++) {
++		if (en)
++			mtk_phy_set_bits(base + mtk_mipi_tx_sw_ctl_en[i], DSI_SW_CTL_EN);
++		else
++			mtk_phy_clear_bits(base + mtk_mipi_tx_sw_ctl_en[i], DSI_SW_CTL_EN);
++	}
++}
++
++static int mtk_mipi_tx_pll_enable(struct clk_hw *hw)
++{
++	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
++	void __iomem *base = mipi_tx->regs;
++	unsigned int txdiv, posdiv;
++	u64 pcw;
++
++	dev_dbg(mipi_tx->dev, "enable: %u bps\n", mipi_tx->data_rate);
++
++	if (mipi_tx->data_rate >= 2000000000) {
++		txdiv = 1;
++		posdiv = 0;
++	} else if (mipi_tx->data_rate >= 1000000000) {
++		txdiv = 2;
++		posdiv = 1;
++	} else if (mipi_tx->data_rate >= 500000000) {
++		txdiv = 4;
++		posdiv = 2;
++	} else if (mipi_tx->data_rate > 250000000) {
++		txdiv = 8;
++		posdiv = 3;
++	} else if (mipi_tx->data_rate >= DSI_PHY_PLL_MIN_RATE_HZ) {
++		txdiv = 16;
++		posdiv = 4;
++	} else {
++		return -EINVAL;
++	}
++
++	/* 8.24 fixed point: VCO = lane rate * txdiv, from the 26 MHz crystal */
++	pcw = div_u64((u64)mipi_tx->data_rate * txdiv << 24, DSI_PHY_XTAL_CLK_HZ);
++	if (pcw > U32_MAX)
++		return -EINVAL;
++
++	mtk_phy_clear_bits(base + MIPITX_VOLTAGE_SEL, RG_DSI_PRD_REF_SEL);
++
++	writel(RG_DSI_LANE_CON_DEF | RG_DSI_BG_CORE_EN, base + MIPITX_LANE_CON);
++	udelay(1);
++	writel(RG_DSI_LANE_CON_DEF | RG_DSI_BG_CORE_EN | RG_DSI_BG_LPF_EN,
++	       base + MIPITX_LANE_CON);
++
++	/* The lanes stay in software-controlled LP-11 until power_on_signal */
++	mtk_mipi_tx_sw_ctl(base, true);
++
++	mtk_phy_set_bits(base + MIPITX_PLL_PWR, AD_DSI_PLL_SDM_PWR_ON);
++	udelay(10);
++	mtk_phy_clear_bits(base + MIPITX_PLL_PWR, AD_DSI_PLL_SDM_ISO_EN);
++
++	writel(pcw, base + MIPITX_PLL_CON0);
++	mtk_phy_update_field(base + MIPITX_PLL_CON1, RG_DSI_PLL_POSDIV, posdiv);
++	mtk_phy_set_bits(base + MIPITX_PLL_CON1, RG_DSI_PLL_EN);
++	udelay(50);
++
++	mtk_phy_set_bits(base + MIPITX_PLL_CON8, RG_DSI_PLL_CKOUT_EN);
++
++	return 0;
++}
++
++static void mtk_mipi_tx_pll_disable(struct clk_hw *hw)
++{
++	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
++	void __iomem *base = mipi_tx->regs;
++
++	mtk_phy_clear_bits(base + MIPITX_PLL_CON1, RG_DSI_PLL_EN);
++
++	mtk_phy_set_bits(base + MIPITX_PLL_PWR, AD_DSI_PLL_SDM_ISO_EN);
++	mtk_phy_clear_bits(base + MIPITX_PLL_PWR, AD_DSI_PLL_SDM_PWR_ON);
++
++	writel(RG_DSI_LANE_CON_DEF | RG_DSI_PAD_TIEL_SEL | RG_DSI_BG_CORE_EN,
++	       base + MIPITX_LANE_CON);
++	writel(RG_DSI_LANE_CON_DEF | RG_DSI_PAD_TIEL_SEL, base + MIPITX_LANE_CON);
++}
++
++static int mtk_mipi_tx_pll_determine_rate(struct clk_hw *hw,
++					  struct clk_rate_request *req)
++{
++	req->rate = clamp_val(req->rate,
++			      DSI_PHY_PLL_MIN_RATE_HZ, DSI_PHY_PLL_MAX_RATE_HZ);
++
++	return 0;
++}
++
++static const struct clk_ops mtk_mipi_tx_pll_ops = {
++	.enable = mtk_mipi_tx_pll_enable,
++	.disable = mtk_mipi_tx_pll_disable,
++	.determine_rate = mtk_mipi_tx_pll_determine_rate,
++	.set_rate = mtk_mipi_tx_pll_set_rate,
++	.recalc_rate = mtk_mipi_tx_pll_recalc_rate,
++};
++
++static void mtk_mipi_tx_power_on_signal(struct phy *phy)
++{
++	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
++
++	/* Hand the lanes to the DSI engine */
++	mtk_mipi_tx_sw_ctl(mipi_tx->regs, false);
++}
++
++static void mtk_mipi_tx_power_off_signal(struct phy *phy)
++{
++	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
++
++	mtk_mipi_tx_sw_ctl(mipi_tx->regs, true);
++}
++
++const struct mtk_mipitx_data mt6858_mipitx_data = {
++	.mipi_tx_clk_ops = &mtk_mipi_tx_pll_ops,
++	.mipi_tx_enable_signal = mtk_mipi_tx_power_on_signal,
++	.mipi_tx_disable_signal = mtk_mipi_tx_power_off_signal,
++};
+diff --git a/drivers/phy/mediatek/phy-mtk-mipi-dsi.c b/drivers/phy/mediatek/phy-mtk-mipi-dsi.c
+index 29168a40b..278c4a53e 100644
+--- a/drivers/phy/mediatek/phy-mtk-mipi-dsi.c
++++ b/drivers/phy/mediatek/phy-mtk-mipi-dsi.c
+@@ -181,6 +181,7 @@ static int mtk_mipi_tx_probe(struct platform_device *pdev)
+ 
+ static const struct of_device_id mtk_mipi_tx_match[] = {
+ 	{ .compatible = "mediatek,mt2701-mipi-tx", .data = &mt2701_mipitx_data },
++	{ .compatible = "mediatek,mt6858-mipi-tx", .data = &mt6858_mipitx_data },
+ 	{ .compatible = "mediatek,mt8173-mipi-tx", .data = &mt8173_mipitx_data },
+ 	{ .compatible = "mediatek,mt8183-mipi-tx", .data = &mt8183_mipitx_data },
+ 	{ .compatible = "mediatek,mt8196-mipi-tx", .data = &mt8196_mipitx_data },
+diff --git a/drivers/phy/mediatek/phy-mtk-mipi-dsi.h b/drivers/phy/mediatek/phy-mtk-mipi-dsi.h
+index e6f967078..6215cefbd 100644
+--- a/drivers/phy/mediatek/phy-mtk-mipi-dsi.h
++++ b/drivers/phy/mediatek/phy-mtk-mipi-dsi.h
+@@ -40,6 +40,7 @@ unsigned long mtk_mipi_tx_pll_recalc_rate(struct clk_hw *hw,
+ 					  unsigned long parent_rate);
+ 
+ extern const struct mtk_mipitx_data mt2701_mipitx_data;
++extern const struct mtk_mipitx_data mt6858_mipitx_data;
+ extern const struct mtk_mipitx_data mt8173_mipitx_data;
+ extern const struct mtk_mipitx_data mt8183_mipitx_data;
+ extern const struct mtk_mipitx_data mt8196_mipitx_data;
+-- 
+2.55.0
+

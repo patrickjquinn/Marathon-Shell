@@ -1,0 +1,26 @@
+From cb4d073fd5a1616096de6503e3b2bfa7c92e42c2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:37:47 +0000
+Subject: [PATCH 112/128] drm/panthor: Add the MediaTek MT6858 compatible
+
+The MT6858's Mali-G610 needs the same ASN hash as the MT8196's GPU: the
+vendor device tree sets #l2-hash-values = <0xb 0xe 0x0>.
+---
+ drivers/gpu/drm/panthor/panthor_drv.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/panthor_drv.c
+index dc8d0191a..63f84636e 100644
+--- a/drivers/gpu/drm/panthor/panthor_drv.c
++++ b/drivers/gpu/drm/panthor/panthor_drv.c
+@@ -1878,6 +1878,7 @@ static const struct panthor_soc_data soc_data_mediatek_mt8196 = {
+ };
+ 
+ static const struct of_device_id dt_match[] = {
++	{ .compatible = "mediatek,mt6858-mali", .data = &soc_data_mediatek_mt8196, },
+ 	{ .compatible = "mediatek,mt8196-mali", .data = &soc_data_mediatek_mt8196, },
+ 	{ .compatible = "rockchip,rk3588-mali" },
+ 	{ .compatible = "arm,mali-valhall-csf" },
+-- 
+2.55.0
+

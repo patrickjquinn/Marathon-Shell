@@ -1,0 +1,39 @@
+From ea7ba4cb1a64397fe71845fbaa8675128746fc7a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:49:53 +0000
+Subject: [PATCH 122/128] phy: mediatek: mipi-dsi-mt6858: Put the clock lane in
+ clock mode
+
+The clock lane's CKMODE_EN is at 0x328 on MT6858: the bootloader's
+running PHY has bit 0 set there and nowhere else in the clock lane
+block, as MT8196 sets its CK_CKMODE_EN at power-on. Set it when handing
+the lanes to the DSI engine.
+---
+ drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c b/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
+index 587e3760d..22a973b5d 100644
+--- a/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
++++ b/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
+@@ -28,6 +28,9 @@
+ #define MIPITX_PLL_CON8		0x0060
+ #define RG_DSI_PLL_CKOUT_EN		BIT(0)
+ 
++#define MIPITX_CK_CKMODE_EN	0x0328
++#define DSI_CK_CKMODE_EN		BIT(0)
++
+ #define MIPITX_D2_SW_CTL_EN	0x0144
+ #define MIPITX_D0_SW_CTL_EN	0x0244
+ #define MIPITX_CK_SW_CTL_EN	0x0344
+@@ -151,6 +154,7 @@ static void mtk_mipi_tx_power_on_signal(struct phy *phy)
+ 
+ 	/* Hand the lanes to the DSI engine */
+ 	mtk_mipi_tx_sw_ctl(mipi_tx->regs, false);
++	mtk_phy_set_bits(mipi_tx->regs + MIPITX_CK_CKMODE_EN, DSI_CK_CKMODE_EN);
+ }
+ 
+ static void mtk_mipi_tx_power_off_signal(struct phy *phy)
+-- 
+2.55.0
+

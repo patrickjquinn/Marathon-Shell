@@ -1,0 +1,39 @@
+From 4f3b98631848f605c898594d5ed1566e48793d31 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:18:58 +0000
+Subject: [PATCH 068/128] mfd: mtk-spmi-pmic: Complete a pending RCS request at
+ probe
+
+An SPMI PMIC raises its interrupts as RCS requests, and sends no further
+request until the host writes RCS_IRQ_DONE. The bootloader can hand over
+with a request outstanding: on the Jolla Phone (MT6858 with MT6363),
+SPMI-M's SLV_7_4_EINT latch reads 0x4 for SID 4 when Linux starts. The
+arbiter driver clears that latch at probe, but nothing completes the
+request on the PMIC side, so the MT6363 never raises another one and its
+keys stay silent.
+
+Write RCS_IRQ_DONE once the interrupts are masked and cleared, as the
+downstream driver does at probe.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index f1b0b3eb8..8ce15dd18 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -342,6 +342,11 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ 		}
+ 	}
+ 
++	/* Complete a request left pending at boot, or the PMIC sends no more */
++	ret = regmap_write(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 1);
++	if (ret)
++		return dev_err_probe(dev, ret, "Cannot complete the RCS request\n");
++
+ 	pmic->dom = irq_domain_create_tree(fwnode, &mtk_spmi_pmic_irq_domain_ops, pmic);
+ 	if (!pmic->dom)
+ 		return dev_err_probe(dev, -ENOMEM, "Cannot create IRQ domain\n");
+-- 
+2.55.0
+

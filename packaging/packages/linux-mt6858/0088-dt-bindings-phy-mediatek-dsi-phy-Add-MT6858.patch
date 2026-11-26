@@ -1,0 +1,26 @@
+From fb29c6585600d02ba7ce836029ae69a32fef9db0 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:29:14 +0000
+Subject: [PATCH 088/128] dt-bindings: phy: mediatek,dsi-phy: Add MT6858
+
+The MT6858 MIPI TX has the MT8196-style PLL and lane blocks at other
+register offsets, so it gets its own compatible.
+---
+ Documentation/devicetree/bindings/phy/mediatek,dsi-phy.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/phy/mediatek,dsi-phy.yaml b/Documentation/devicetree/bindings/phy/mediatek,dsi-phy.yaml
+index 9df1dbe12..02eb399cf 100644
+--- a/Documentation/devicetree/bindings/phy/mediatek,dsi-phy.yaml
++++ b/Documentation/devicetree/bindings/phy/mediatek,dsi-phy.yaml
+@@ -37,6 +37,7 @@ properties:
+               - mediatek,mt8365-mipi-tx
+           - const: mediatek,mt8183-mipi-tx
+       - const: mediatek,mt2701-mipi-tx
++      - const: mediatek,mt6858-mipi-tx
+       - const: mediatek,mt8173-mipi-tx
+       - const: mediatek,mt8183-mipi-tx
+       - const: mediatek,mt8196-mipi-tx
+-- 
+2.55.0
+

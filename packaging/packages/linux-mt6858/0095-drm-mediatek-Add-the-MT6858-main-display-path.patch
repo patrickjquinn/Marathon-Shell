@@ -1,0 +1,58 @@
+From 3a585bdecf29d67766a50f234e8431f8a99347c9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:35:14 +0000
+Subject: [PATCH 095/128] drm/mediatek: Add the MT6858 main display path
+
+MT6858 links its engines through mmsys crossbars, with the
+picture-quality chain (RSZ, TDSHP, C3D, COLOR, CCORR, AAL, GAMMA,
+POSTMASK, DITHER) in between. RSZ, TDSHP and C3D have no driver here,
+so the main path goes OVL_2L1 -> OVL_2L2 -> DSC0 -> DSI0 and mmsys
+routes around the PQ engines.
+---
+ drivers/gpu/drm/mediatek/mtk_drm_drv.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_drm_drv.c b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+index 5521afd4d..9ad516b94 100644
+--- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c
++++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+@@ -122,6 +122,14 @@ static unsigned int mt8167_mtk_ddp_main[] = {
+ 	DDP_COMPONENT_DSI0,
+ };
+ 
++/* The PQ engines are bypassed in mmsys: no drivers for RSZ/TDSHP/C3D yet */
++static const unsigned int mt6858_mtk_ddp_main[] = {
++	DDP_COMPONENT_OVL_2L1,
++	DDP_COMPONENT_OVL_2L2,
++	DDP_COMPONENT_DSC0,
++	DDP_COMPONENT_DSI0,
++};
++
+ static const unsigned int mt8173_mtk_ddp_main[] = {
+ 	DDP_COMPONENT_OVL0,
+ 	DDP_COMPONENT_COLOR0,
+@@ -259,6 +267,12 @@ static const struct mtk_mmsys_driver_data mt2712_mmsys_driver_data = {
+ 	.mmsys_dev_num = 1,
+ };
+ 
++static const struct mtk_mmsys_driver_data mt6858_mmsys_driver_data = {
++	.main_path = mt6858_mtk_ddp_main,
++	.main_len = ARRAY_SIZE(mt6858_mtk_ddp_main),
++	.mmsys_dev_num = 1,
++};
++
+ static const struct mtk_mmsys_driver_data mt8167_mmsys_driver_data = {
+ 	.main_path = mt8167_mtk_ddp_main,
+ 	.main_len = ARRAY_SIZE(mt8167_mtk_ddp_main),
+@@ -338,6 +352,8 @@ static const struct of_device_id mtk_drm_of_ids[] = {
+ 	  .data = &mt7623_mmsys_driver_data},
+ 	{ .compatible = "mediatek,mt2712-mmsys",
+ 	  .data = &mt2712_mmsys_driver_data},
++	{ .compatible = "mediatek,mt6858-mmsys",
++	  .data = &mt6858_mmsys_driver_data},
+ 	{ .compatible = "mediatek,mt8167-mmsys",
+ 	  .data = &mt8167_mmsys_driver_data},
+ 	{ .compatible = "mediatek,mt8173-mmsys",
+-- 
+2.55.0
+

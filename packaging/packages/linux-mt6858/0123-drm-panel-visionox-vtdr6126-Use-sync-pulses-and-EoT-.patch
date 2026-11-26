@@ -1,0 +1,31 @@
+From 67aa88db023413ac3383ea551785868561518aca Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:49:53 +0000
+Subject: [PATCH 123/128] drm/panel: visionox-vtdr6126: Use sync pulses and
+ EoT, like the bootloader
+
+The bootloader's DSI0 runs this panel in sync-pulse video mode (MODE_CTRL
+1) with EoT packets on and a non-continuous HS clock (TXRX_CTRL
+HSTX_CKLP_EN set, DIS_EOT clear). Use the same mode flags.
+---
+ drivers/gpu/drm/panel/panel-visionox-vtdr6126.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+index 2db25eff8..0bfb80bd9 100644
+--- a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
++++ b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+@@ -497,8 +497,8 @@ static int visionox_vtdr6126_probe(struct mipi_dsi_device *dsi)
+ 	dsi->dsc = &ctx->dsc;
+ 	dsi->lanes = 4;
+ 	dsi->format = MIPI_DSI_FMT_RGB888;
+-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			  MIPI_DSI_MODE_NO_EOT_PACKET;
++	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
++			  MIPI_DSI_CLOCK_NON_CONTINUOUS;
+ 	ctx->panel.prepare_prev_first = true;
+ 
+ 	ctx->panel.backlight = devm_backlight_device_register(dev, dev_name(dev),
+-- 
+2.55.0
+
