@@ -84,6 +84,72 @@ Item {
         }
     }
 
+    // The edge the Hub comes from: a few passes, then still; still under reduce motion.
+    Item {
+        id: edgeCue
+
+        property real reveal: 1
+
+        objectName: "oobeHubEdgeCue"
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        width: Silica.Theme.itemSizeSmall
+        height: parent.height / 3
+        visible: !root.succeeded && peek.peekProgress === 0
+        opacity: reveal
+
+        MGlowLine {
+            width: parent.height
+            height: Math.max(2, Math.round(Silica.Theme.paddingSmall / 2))
+            rotation: 90
+            x: (height - width) / 2
+            y: (parent.height - height) / 2
+        }
+
+        GlyphIcon {
+            anchors.verticalCenter: parent.verticalCenter
+            x: Silica.Theme.paddingSmall + Silica.Theme.paddingLarge * edgeCue.reveal
+            name: "caret-right"
+            size: Silica.Theme.iconSizeMedium
+            color: Silica.Theme.highlightColor
+        }
+
+        SequentialAnimation {
+            running: MMotion.gate(root.visible && edgeCue.visible)
+            onStopped: edgeCue.reveal = 1
+
+            SequentialAnimation {
+                loops: 3
+
+                NumberAnimation {
+                    target: edgeCue
+                    property: "reveal"
+                    from: 0
+                    to: 1
+                    duration: 700
+                    easing.type: Easing.OutCubic
+                }
+                PauseAnimation {
+                    duration: 1200
+                }
+                NumberAnimation {
+                    target: edgeCue
+                    property: "reveal"
+                    to: 0.3
+                    duration: 700
+                    easing.type: Easing.InOutSine
+                }
+            }
+            NumberAnimation {
+                target: edgeCue
+                property: "reveal"
+                to: 1
+                duration: 700
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
     MarathonPeek {
         id: peek
 
