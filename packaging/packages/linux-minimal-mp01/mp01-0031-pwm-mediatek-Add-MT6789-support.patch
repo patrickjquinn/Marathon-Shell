@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 06:58:45 +0000
+Subject: [PATCH] pwm: mediatek: Add MT6789 support
+
+The MT6789's general-purpose PWM keeps its channel registers at 0x80,
+0xc0 and 0x100 and its 26 MHz clock select at 0x74, where the MT6991
+has it too; MediaTek's own driver calls this layout "PWM_V2". The
+SoC's pin functions name three outputs, PWM_0 to PWM_2, and its vendor
+device tree feeds three channel clocks.
+
+The Minimal Phone MP01 drives the warm half of its front light from
+PWM_1.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/pwm/pwm-mediatek.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/pwm/pwm-mediatek.c b/drivers/pwm/pwm-mediatek.c
+index 9d20630..58e03dd 100644
+--- a/drivers/pwm/pwm-mediatek.c
++++ b/drivers/pwm/pwm-mediatek.c
+@@ -508,6 +508,14 @@ static const struct pwm_mediatek_of_data mt6795_pwm_data = {
+ 	.chanreg_width = 0x40,
+ };
+ 
++static const struct pwm_mediatek_of_data mt6789_pwm_data = {
++	.num_pwms = 3,
++	.pwm45_fixup = false,
++	.pwm_ck_26m_sel_reg = PWM_CK_26M_SEL_V3,
++	.chanreg_base = 0x80,
++	.chanreg_width = 0x40,
++};
++
+ static const struct pwm_mediatek_of_data mt7622_pwm_data = {
+ 	.num_pwms = 6,
+ 	.pwm45_fixup = false,
+@@ -594,6 +602,7 @@ static const struct pwm_mediatek_of_data mt6991_pwm_data = {
+ 
+ static const struct of_device_id pwm_mediatek_of_match[] = {
+ 	{ .compatible = "mediatek,mt2712-pwm", .data = &mt2712_pwm_data },
++	{ .compatible = "mediatek,mt6789-pwm", .data = &mt6789_pwm_data },
+ 	{ .compatible = "mediatek,mt6795-pwm", .data = &mt6795_pwm_data },
+ 	{ .compatible = "mediatek,mt6991-pwm", .data = &mt6991_pwm_data },
+ 	{ .compatible = "mediatek,mt7622-pwm", .data = &mt7622_pwm_data },

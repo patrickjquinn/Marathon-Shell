@@ -1,0 +1,92 @@
+# Minimal Phone MP01 (board Z10) bring-up policy; README.md has the state of
+# each subsystem and the bring-up checklist.
+schema = 1
+vendor = "minimal"
+codename = "mp01"
+id = "minimal-mp01"
+name = "Minimal Phone MP01"
+manufacturer = "Minimal Company"
+soc = "mt6789"
+status = "bring-up"
+package = "device-minimal-mp01-marathon"
+
+# mkosi builds the root alone; the wrapper puts it on the userdata carrier
+# beside an ESP made from the root's /boot, as for the Q25.
+[build]
+target = "minimal-mp01"
+wrapper = "scripts/build-minimal-mp01-image.sh"
+flash = "scripts/flash/flash-minimal-mp01.sh"
+bootloader = "none"
+
+# The stock LK stays in lk_a/lk_b and loads a U-Boot packed as boot_b's
+# kernel (FLASHING.md); that much has run on the phone. U-Boot maps the
+# image in userdata with blkmap and starts systemd-boot from its ESP: not
+# yet tried with a Marathon kernel.
+[boot]
+method = "android-u-boot"
+partition_table = "gpt"
+
+[boot.carrier]
+name = "mp01"
+dtb = "mediatek/mt6789-minimal-mp01-vendor.dtb"
+
+# Release 7.0.0-mp01, from the MT6789 tree the Q25's kernel uses.
+[kernel]
+package = "linux-minimal-mp01"
+version = "7.0.0"
+
+[display]
+panel = "Z10 e-paper (z10,eink,vdo) behind a Pango CPLD on i2c7 0x4b"
+interface = "dsi"
+width = 600
+height = 800
+diagonal_in = 4.3
+# UI policy: stock Android's density (ro.sf.lcd_density), 1.125x.
+scale_dpi = 180
+quirks = [
+  "scanout is 800x600: the panel is mounted at 270 degrees (MTK_LCM_PHYSICAL_ROTATION); the DT's rotation = <270> gives the connector a panel orientation of left side up, which the shell turns the scene by (profile.panel_orientation)",
+  "DSI data lanes 2 and 3 are crossed on the board: data-lanes = <1 2 4 3> (linux-minimal-mp01 mp01-0009 to 0012)",
+  "visible grey levels and the CPLD's refresh modes (partial, full, clear) are unknown",
+]
+
+[input]
+touch = "FocalTech on i2c0 0x38, 600x800 upright, reported in the 800x600 scanout frame (DT touchscreen-inverted-x, touchscreen-swapped-x-y)"
+keyboard = "AW9523B 6x6 key matrix on i2c6 0x5b (gpio-matrix-keypad)"
+quirks = [
+  "no trackpad: stock's ff_key arrows and enter are the fingerprint sensor's navigation",
+]
+
+[hardware]
+modem = "MT6789 MD1 over ECCCI, LTE; its image is on the phone's md1img partition"
+gps = "CONNSYS GNSS, L1 and L5"
+wifi = "CONNSYS gen4m (wlan_drv_gen4m_6789); A-die MT6631, as the Q25 (stock vendor.connsys.adie.chipid 0x6631)"
+bluetooth = "CONNSYS"
+battery = "MT6366 coulomb counter; MT6375 charger and USB-C TCPC"
+nfc = "NXP PN8x (nxp,nxpnfc) on i2c3 0x28; its enable shares GPIO12 with the panel"
+cameras = "unknown: S5K3P3SP main, BF2553L front and a third sensor in the stock DT"
+sensors = []
+quirks = [
+  "CPS4021 wireless charging receiver on i2c5 0x30",
+  "accelerometer, light and proximity sensors sit behind the SCP, not on the AP",
+]
+
+# The Q25's: same SoC and MT6631 A-die, and the MP01's stock vendor
+# partition holds the same WMT_SOC.cfg and FM files, with the same Wi-Fi/BT
+# RAM code branch (soc2_2-2118, E1 MT6631 MINIROM) in a later build.
+[[firmware]]
+package = "q25-connsys-firmware"
+version = "20261030"
+
+[profile]
+display_technology = "epaper"
+force_dpi = 180
+# The true pitch, 1000 px of diagonal over 4.3 in, for the wl_output size.
+panel_dpi = 233
+# The scanout is landscape on a portrait phone: follow the connector's
+# panel orientation, which the panel driver takes from the DT.
+panel_orientation = "kms"
+# A front light, not a backlight: the e-paper reads without it, so the
+# slider runs down to the lowest PWM step instead of the LCD default 28%.
+brightness_floor = 0.0
+# The warm half of the front light (PWM_1), which the night light drives.
+frontlight_warm = "/sys/class/leds/amber:frontlight"

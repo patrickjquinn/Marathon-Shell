@@ -137,13 +137,13 @@ Rectangle {
     // The ambience, or the screen it peeks over, frosted.
     color: "transparent"
 
-    // The window's size, not the hub's: the peek animates the hub's width,
+    // The scene's size, not the hub's: the peek animates the hub's width,
     // and each new size would reload the blurred wallpaper mid-animation.
     KeelAmbienceBackground {
         id: ambience
 
-        width: hub.Window.width
-        height: hub.Window.height
+        width: hub.Window.contentItem ? hub.Window.contentItem.width : 0
+        height: hub.Window.contentItem ? hub.Window.contentItem.height : 0
         wallpaper: AmbienceService.wallpaperUrl
         toneOpacity: 0.4
         light: AmbienceService.light
@@ -188,13 +188,13 @@ Rectangle {
         displaced: Transition {
             NumberAnimation {
                 property: "y"
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 property: "opacity"
                 to: 1
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
         }
@@ -382,11 +382,17 @@ Rectangle {
         }
     }
 
-    // What scrolls up fades out under the status bar.
+    // What scrolls up fades out under the status bar; on e-paper it goes
+    // under flat paper.
     Rectangle {
         width: parent.width
         height: Constants.statusBarHeight + Silica.Theme.paddingLarge
-        gradient: Gradient {
+        color: MColors.background
+        gradient: MColors.eink ? undefined : topFade
+
+        Gradient {
+            id: topFade
+
             GradientStop {
                 position: 0.6
                 color: Silica.Theme.rgba("black", 0.85)
@@ -403,7 +409,12 @@ Rectangle {
         anchors.bottom: parent.bottom
         width: parent.width
         height: Silica.Theme.itemSizeMedium + Silica.Theme.paddingLarge
-        gradient: Gradient {
+        color: MColors.background
+        gradient: MColors.eink ? undefined : bottomFade
+
+        Gradient {
+            id: bottomFade
+
             GradientStop {
                 position: 0.0
                 color: "transparent"

@@ -411,11 +411,15 @@ int main(int argc, char *argv[]) {
     // Keel reads its host environment when its plugin first creates the Shell
     // client, which in a pool spare happens during warm-up, so the host must
     // exist before then.
-    auto startKeelHost = [&keelHost]() {
+    // A spare's bus reaches only dconf until it is adopted and given its
+    // app's, so it follows the ambience from then.
+    auto startKeelHost = [&keelHost, &launch]() {
         keelHost = std::make_unique<marathon::platform::KeelHost>();
         if (!keelHost->start(qRound(QGuiApplication::primaryScreen()->physicalDotsPerInch()))) {
             qWarning() << "[marathon-app-runner] Keel host failed to start";
             keelHost.reset();
+        } else if (!launch.app_id.isEmpty()) {
+            keelHost->followAmbience();
         }
     };
     if (poolMode) {
@@ -564,6 +568,8 @@ int main(int argc, char *argv[]) {
             qCritical() << "[marathon-app-runner] Bad pool adopt message:" << line;
             return 2;
         }
+        if (keelHost)
+            keelHost->followAmbience();
         // Report adopt -> frame: the portion of launch the pool influences.
         startupTimer.restart();
         if (logStartup) {

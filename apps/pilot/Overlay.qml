@@ -400,12 +400,6 @@ Item {
                             text = ""
                         EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                         EnterKey.onClicked: overlay.send(text)
-                        // Enter sends; Shift+Enter is a new line.
-                        Keys.onReturnPressed: function (event) {
-                            event.accepted = !(event.modifiers & Qt.ShiftModifier);
-                            if (event.accepted)
-                                overlay.send(text);
-                        }
                         Keys.onUpPressed: function (event) {
                             event.accepted = text === "" && Conversation.lastQuestion() !== "";
                             if (event.accepted)

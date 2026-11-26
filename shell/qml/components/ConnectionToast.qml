@@ -39,9 +39,9 @@ Item {
         width: Math.min(toastRow.width + Silica.Theme.paddingLarge * 2, parent.width - Silica.Theme.paddingSmall * 2)
         height: Silica.Theme.itemSizeSmall
         radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
         visible: connectionToast.shown || hideTimer.running
 
         Row {
@@ -101,7 +101,7 @@ Item {
             enabled: !swipeArea.pressed
 
             NumberAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.Bezier
                 easing.bezierCurve: MMotion.easingDecelerateCurve
             }

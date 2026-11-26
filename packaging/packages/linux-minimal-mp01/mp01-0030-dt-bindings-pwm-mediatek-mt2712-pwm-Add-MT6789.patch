@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 06:58:45 +0000
+Subject: [PATCH] dt-bindings: pwm: mediatek,mt2712-pwm: Add MT6789
+
+The MT6789 general-purpose PWM has three channels at the second
+register layout (channel registers from 0x80 in steps of 0x40, the
+26 MHz select at 0x74), so it needs its own compatible.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml b/Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml
+index fc31758..592cea5 100644
+--- a/Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml
++++ b/Documentation/devicetree/bindings/pwm/mediatek,mt2712-pwm.yaml
+@@ -17,6 +17,7 @@ properties:
+     oneOf:
+       - enum:
+           - mediatek,mt2712-pwm
++          - mediatek,mt6789-pwm
+           - mediatek,mt6795-pwm
+           - mediatek,mt6991-pwm
+           - mediatek,mt7622-pwm

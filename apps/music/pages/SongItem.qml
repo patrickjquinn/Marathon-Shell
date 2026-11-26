@@ -18,33 +18,35 @@ ListItem {
     Accessible.name: current ? qsTr("%1 by %2, playing").arg(track.title).arg(track.artist) : qsTr("%1 by %2").arg(track.title).arg(track.artist)
     onClicked: playRequested()
 
-    menu: ContextMenu {
-        MenuItem {
-            text: qsTr("Add to playlist")
-            onClicked: pageStack.push(Qt.resolvedUrl("AddToPlaylistPage.qml"), {
-                music: item.music,
-                track: item.track
-            })
-        }
-        MenuItem {
-            objectName: "enqueueAction"
-            text: qsTr("Add to play queue")
-            onClicked: {
-                item.music.player.enqueue(item.track);
-                Notices.show(qsTr("Added to play queue"));
+    menu: Component {
+        ContextMenu {
+            MenuItem {
+                text: qsTr("Add to playlist")
+                onClicked: pageStack.push(Qt.resolvedUrl("AddToPlaylistPage.qml"), {
+                    music: item.music,
+                    track: item.track
+                })
             }
-        }
-        MenuItem {
-            objectName: "removeAction"
-            visible: item.playlistId >= 0
-            text: qsTr("Remove from playlist")
-            onClicked: {
-                const music = item.music;
-                const playlistId = item.playlistId;
-                const path = item.track.path;
-                item.remorseAction(qsTr("Removed"), function () {
-                    music.savePlaylists(Playlists.removeTrack(music.playlists, playlistId, path));
-                });
+            MenuItem {
+                objectName: "enqueueAction"
+                text: qsTr("Add to play queue")
+                onClicked: {
+                    item.music.player.enqueue(item.track);
+                    Notices.show(qsTr("Added to play queue"));
+                }
+            }
+            MenuItem {
+                objectName: "removeAction"
+                visible: item.playlistId >= 0
+                text: qsTr("Remove from playlist")
+                onClicked: {
+                    const music = item.music;
+                    const playlistId = item.playlistId;
+                    const path = item.track.path;
+                    item.remorseAction(qsTr("Removed"), function () {
+                        music.savePlaylists(Playlists.removeTrack(music.playlists, playlistId, path));
+                    });
+                }
             }
         }
     }

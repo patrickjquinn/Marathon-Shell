@@ -48,14 +48,14 @@ Column {
             target: card
             property: "pulse"
             to: 0.45
-            duration: 700
+            duration: MMotion.ms(700)
             easing.type: Easing.InOutSine
         }
         NumberAnimation {
             target: card
             property: "pulse"
             to: 1
-            duration: 700
+            duration: MMotion.ms(700)
             easing.type: Easing.InOutSine
         }
     }
@@ -175,7 +175,7 @@ Column {
 
                 Behavior on rotation {
                     NumberAnimation {
-                        duration: MMotion.moderate
+                        duration: MMotion.ms(MMotion.moderate)
                         easing.type: Easing.OutCubic
                     }
                 }
@@ -208,7 +208,7 @@ Column {
 
         Behavior on height {
             NumberAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
         }

@@ -154,16 +154,18 @@ Page {
             objectName: "account-" + modelData.id
             contentHeight: Theme.itemSizeMedium
             Accessible.name: modelData.displayName + ", " + modelData.username
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "enableItem"
-                    text: item.syncOff ? qsTr("Turn on sync") : qsTr("Turn off sync")
-                    onClicked: page.dav.enableAccount(item.modelData.id, item.syncOff)
-                }
-                MenuItem {
-                    objectName: "removeItem"
-                    text: qsTr("Remove")
-                    onClicked: item.remorseDelete(() => page.dav.removeAccount(item.modelData.id))
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "enableItem"
+                        text: item.syncOff ? qsTr("Turn on sync") : qsTr("Turn off sync")
+                        onClicked: page.dav.enableAccount(item.modelData.id, item.syncOff)
+                    }
+                    MenuItem {
+                        objectName: "removeItem"
+                        text: qsTr("Remove")
+                        onClicked: item.remorseDelete(() => page.dav.removeAccount(item.modelData.id))
+                    }
                 }
             }
             onClicked: openMenu()

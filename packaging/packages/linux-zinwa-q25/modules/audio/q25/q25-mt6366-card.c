@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Zinwa Q25 (MT6789 AFE + MT6366 codec + OCA72390 speaker PA) machine driver.
+ * Zinwa Q25 (MT6789 AFE + MT6366 codec + OCA72390 speaker PA) machine driver,
+ * also bound by the Minimal Phone MP01, which has the same three parts.
  *
  * One playback FE (DL1) and one capture FE (UL1/VUL12) on the ADDA BE.
  * Routing follows the stock audio_device.xml: speaker = LOL -> PA,
@@ -296,8 +297,6 @@ static const struct snd_kcontrol_new q25_controls[] = {
 static struct snd_soc_aux_dev q25_amp_aux;
 
 static struct snd_soc_card q25_card = {
-	.name = "q25-mt6366",
-	.driver_name = "q25-mt6366",
 	.owner = THIS_MODULE,
 	.dai_link = q25_links,
 	.num_links = ARRAY_SIZE(q25_links),
@@ -361,6 +360,8 @@ static int q25_card_probe(struct platform_device *pdev)
 	}
 	card->late_probe = q25_late_routes;
 	card->dev = &pdev->dev;
+	card->name = of_device_get_match_data(&pdev->dev);
+	card->driver_name = card->name;
 	of_property_read_string(pdev->dev.of_node, "model", &card->long_name);
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
@@ -373,7 +374,8 @@ static int q25_card_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id q25_card_of_match[] = {
-	{ .compatible = "zinwa,q25-mt6366-sound" },
+	{ .compatible = "minimal,mp01-mt6366-sound", .data = "mp01-mt6366" },
+	{ .compatible = "zinwa,q25-mt6366-sound", .data = "q25-mt6366" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, q25_card_of_match);
@@ -388,5 +390,5 @@ static struct platform_driver q25_card_driver = {
 };
 module_platform_driver(q25_card_driver);
 
-MODULE_DESCRIPTION("Zinwa Q25 MT6789/MT6366 ASoC machine driver");
+MODULE_DESCRIPTION("Zinwa Q25 and Minimal MP01 MT6789/MT6366 ASoC machine driver");
 MODULE_LICENSE("GPL");

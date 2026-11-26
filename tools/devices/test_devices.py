@@ -70,6 +70,10 @@ class Check(unittest.TestCase):
         self.edit("devices/qemu/aarch64/device.toml", 'status = "working"', 'status = "great"')
         self.assertError("status: 'great' is not one of")
 
+    def test_display_technology_outside_the_enum(self):
+        self.edit("devices/hackberrypi/cm5/device.toml", "[profile]\n", '[profile]\ndisplay_technology = "plasma"\n')
+        self.assertError("display_technology: 'plasma' is not one of")
+
     def test_carrier_on_a_bootable_image(self):
         self.edit("devices/zinwa/q25/device.toml", 'bootloader = "none"', 'bootloader = "systemd-boot"')
         self.assertError("build.bootloader must be \"none\"")
@@ -152,6 +156,12 @@ class Carrier(unittest.TestCase):
             "CARRIER_DTB": "mediatek/mt8781-zinwa-q25.dtb",
             "CARRIER_CMDLINE": "/usr/lib/kernel-cmdline.d/50-device-zinwa-q25.conf",
         })
+
+    def test_mp01(self):
+        conf = devices.parse_conf(self.tree.render_carrier("minimal-mp01"))
+        self.assertEqual(conf["CARRIER_NAME"], "mp01")
+        self.assertEqual(conf["CARRIER_DTB"], "mediatek/mt6789-minimal-mp01-vendor.dtb")
+        self.assertEqual(conf["CARRIER_CMDLINE"], "/usr/lib/kernel-cmdline.d/50-device-minimal-mp01.conf")
 
     def test_target_without_a_carrier(self):
         self.assertEqual(self.tree.render_carrier("raspberry-pi5"), "")

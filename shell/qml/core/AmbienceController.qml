@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import QtQuick
 import Keel 1.0
 import Nemo.Configuration 1.0
@@ -45,9 +46,27 @@ QtObject {
             _timeFormat24.value = keelTimeFormat(settings.timeFormat);
     }
 
+    // E-paper: ink on paper whatever the wallpaper, on the panel's grey
+    // levels; a press darkens a row by three of them.
+    readonly property var einkMap: ({
+            "/desktop/jolla/theme/color/highlight": "#000000",
+            "/desktop/jolla/theme/color/primary": "#000000",
+            "/desktop/jolla/theme/color/secondary": "#444444",
+            "/desktop/jolla/theme/color/secondary_highlight": "#444444",
+            "/desktop/jolla/theme/color/highlight_background": "#000000",
+            "/desktop/jolla/theme/color/highlight_background_opacity": 0.2,
+            "/desktop/jolla/theme/color/highlight_dimmer": "#ffffff",
+            "/desktop/jolla/theme/color/overlay_background": "#ffffff",
+            "/desktop/jolla/theme/color/error": "#000000",
+            "/desktop/jolla/theme/color_scheme": "darkonlight",
+            "/desktop/jolla/theme/wallpaper": "",
+            // Keel's lists move a page a swipe instead of following the finger.
+            "/desktop/sailfish/silica/paged_scrolling": true
+        })
+
     function buildMap() {
         const scheme = service.light ? 1 : 0;
-        const map = {
+        const map = MColors.eink ? Object.assign({}, einkMap) : {
             "/desktop/jolla/theme/color/highlight": Ambience.highlightFromColor(service.baseColor, scheme),
             "/desktop/jolla/theme/color_scheme": service.light ? "darkonlight" : "lightondark",
             "/desktop/jolla/theme/wallpaper": service.wallpaperUrl
@@ -58,7 +77,8 @@ QtObject {
     }
 
     function apply() {
-        if (!service || !service.baseColor.valid)
+        // E-paper's palette needs no wallpaper seed.
+        if (!service || (!MColors.eink && !service.baseColor.valid))
             return;
         const map = buildMap();
         Ambience.applyForwarded(Object.keys(map).map(k => k + "=" + map[k]).join("\n"));

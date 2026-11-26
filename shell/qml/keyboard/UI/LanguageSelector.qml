@@ -17,7 +17,7 @@ Item {
     Behavior on height {
         enabled: !MMotion.reduceMotion
         NumberAnimation {
-            duration: MMotion.quick
+            duration: MMotion.ms(MMotion.quick)
             easing.type: Easing.OutCubic
         }
     }

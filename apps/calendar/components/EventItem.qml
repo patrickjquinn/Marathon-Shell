@@ -17,20 +17,22 @@ ListItem {
 
     Accessible.name: [modelData.title || qsTr("Untitled event"), showDate ? app.dateText(modelData) : "", app.timeRangeText(modelData), modelData.location || ""].filter(s => s !== "").join(", ")
     onClicked: app.openEvent(modelData)
-    menu: ContextMenu {
-        MenuItem {
-            objectName: "editItem"
-            text: qsTr("Edit")
-            onClicked: item.app.editEvent(item.modelData)
-        }
-        MenuItem {
-            objectName: "deleteItem"
-            text: qsTr("Delete")
-            onClicked: {
-                const id = item.modelData.id;
-                item.remorseDelete(function () {
-                    item.app.deleteEvent(id);
-                });
+    menu: Component {
+        ContextMenu {
+            MenuItem {
+                objectName: "editItem"
+                text: qsTr("Edit")
+                onClicked: item.app.editEvent(item.modelData)
+            }
+            MenuItem {
+                objectName: "deleteItem"
+                text: qsTr("Delete")
+                onClicked: {
+                    const id = item.modelData.id;
+                    item.remorseDelete(function () {
+                        item.app.deleteEvent(id);
+                    });
+                }
             }
         }
     }

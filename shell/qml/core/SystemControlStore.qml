@@ -20,6 +20,9 @@ QtObject {
     readonly property string hotspotPassword: Network.hotspotPassword
     readonly property bool isVibrationOn: HapticManager.enabled
     readonly property bool isNightLightOn: Display.nightLightEnabled
+    // A front light's warm LEDs, which the night light lights (display.rs).
+    readonly property bool hasWarmLight: Display.warmLightAvailable
+    readonly property int nightLightWarmth: Display.nightLightWarmth
     readonly property bool isLowPowerMode: Power.isPowerSaveMode
     readonly property int brightness: Math.round(Math.min(Math.max(Display.brightness, 0), 1) * 100)
     readonly property int volume: Math.round(Math.min(Math.max(AudioManagerCpp.volume, 0), 1) * 100)
@@ -166,6 +169,10 @@ QtObject {
 
     function toggleNightLight() {
         Display.nightLightEnabled = !isNightLightOn;
+    }
+
+    function setNightLightWarmth(value) {
+        Display.nightLightWarmth = Math.min(Math.max(value, 0), 100);
     }
 
     function captureScreenshot() {

@@ -35,11 +35,13 @@ Page {
             onClicked: page.app.compose({
                 draftKey: modelData.key
             })
-            menu: ContextMenu {
-                MenuItem {
-                    objectName: "deleteItem"
-                    text: qsTr("Delete")
-                    onClicked: item.remorseDelete(() => page.app.deleteDraft(item.modelData.key))
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        objectName: "deleteItem"
+                        text: qsTr("Delete")
+                        onClicked: item.remorseDelete(() => page.app.deleteDraft(item.modelData.key))
+                    }
                 }
             }
 

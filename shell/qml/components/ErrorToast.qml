@@ -61,9 +61,9 @@ Item {
         width: parent.width - Silica.Theme.paddingSmall * 2
         height: errorContent.height + Silica.Theme.paddingMedium * 2
         radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
         visible: errorToast.shown || hideTimer.running
 
         MouseArea {
@@ -161,7 +161,7 @@ Item {
             enabled: !swipeArea.pressed
 
             NumberAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.Bezier
                 easing.bezierCurve: MMotion.easingDecelerateCurve
             }

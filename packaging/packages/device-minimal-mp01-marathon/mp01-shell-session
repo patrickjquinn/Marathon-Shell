@@ -1,0 +1,23 @@
+#!/bin/sh
+# Panfrost through mediatek-drm once both have probed; until then (or on a
+# kernel without them) the software framebuffer, so bring-up still shows
+# the shell.
+set -eu
+if udevadm wait --timeout=15 /dev/dri/mp01-display /dev/dri/renderD128 2>/dev/null; then
+    export QT_QPA_PLATFORM=eglfs
+    export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+    export QT_QPA_EGLFS_KMS_CONFIG=/etc/mp01/eglfs-kms.json
+    export QSG_RHI_BACKEND=opengl
+    export GBM_BACKENDS_PATH=/usr/lib/gbm
+    unset QT_QUICK_BACKEND
+else
+    echo 'mp01-session: no mediatek-drm display or Panfrost render node; software framebuffer' >&2
+    export QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
+    export QT_QUICK_BACKEND=software
+    export QSG_RENDER_LOOP=basic
+    export QT_QPA_FB_FORCE_FULLSCREEN=1
+fi
+# AFBC corrupts through mediatek-drm on the Q25; off until checked here.
+export PAN_MESA_DEBUG=noafbc
+unset QT_SCALE_FACTOR QT_SCREEN_SCALE_FACTORS QT_FONT_DPI
+exec /usr/bin/marathon-shell-session "$@"

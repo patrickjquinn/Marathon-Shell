@@ -97,6 +97,16 @@ function routeBody(paramsJson) {
     }
 }
 
+// A draft with text added to it: kept as it was, the text on a new line,
+// and nothing added twice.
+function withText(draft, text) {
+    const d = (draft || "").trim();
+    const t = text.trim();
+    if (d.includes(t))
+        return d;
+    return d === "" ? t : d + "\n" + t;
+}
+
 function unreadTotal(conversations) {
     return conversations.reduce((n, c) => n + (c.unreadCount || 0), 0);
 }

@@ -265,10 +265,14 @@ Item {
             height: parent.height - searchBarContainer.height - parent.spacing
             clip: true
             model: searchOverlay.searchResults
-            interactive: true
+            interactive: !MMotion.instant
             flickDeceleration: MMotion.flickDeceleration
             maximumFlickVelocity: MMotion.flickVelocity
             boundsBehavior: Flickable.DragAndOvershootBounds
+
+            MEinkScroll {
+                flickable: resultsList
+            }
             Keys.onUpPressed: {
                 if (currentIndex === 0)
                     searchInput.forceActiveFocus();
@@ -545,7 +549,7 @@ Item {
 
                     Behavior on color {
                         ColorAnimation {
-                            duration: 150
+                            duration: MMotion.ms(150)
                         }
                     }
                 }
@@ -588,7 +592,7 @@ Item {
         enabled: !searchOverlay.active
 
         NumberAnimation {
-            duration: 200
+            duration: MMotion.ms(200)
             easing.type: Easing.OutCubic
         }
     }

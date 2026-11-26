@@ -68,7 +68,7 @@ Rectangle {
 
                 Behavior on color {
                     ColorAnimation {
-                        duration: 100
+                        duration: MMotion.ms(100)
                         easing.type: Easing.OutCubic
                     }
                 }

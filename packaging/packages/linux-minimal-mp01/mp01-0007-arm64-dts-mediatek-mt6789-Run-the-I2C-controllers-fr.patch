@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt6789: Run the I2C controllers from MAINPLL
+
+Parented to UNIVPLL, the I2C controllers' always-prepared clocks kept
+UNIVPLL running and the SoC out of its 26 MHz-off idle. MAINPLL runs
+anyway. This is a property of the SoC's clock tree, not of a board, so
+it belongs in the SoC DT; the Zinwa Q25 sets the same parent in its
+board DT.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789.dtsi b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+--- a/arch/arm64/boot/dts/mediatek/mt6789.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+@@ -762,6 +762,13 @@
+ 			compatible = "mediatek,mt6789-topckgen", "syscon";
+ 			reg = <0 0x10000000 0 0x1000>;
+ 			#clock-cells = <1>;
++			/*
++			 * I2C from MAINPLL, which runs anyway: from UNIVPLL the
++			 * controllers' prepared clocks keep UNIVPLL running and
++			 * the SoC out of its 26 MHz-off idle.
++			 */
++			assigned-clocks = <&topckgen CLK_TOP_I2C_SEL>;
++			assigned-clock-parents = <&topckgen CLK_TOP_MAINPLL_D4_D8>;
+ 		};
+ 
+ 		infracfg_ao: syscon@10001000 {
+-- 
+2.47.0
+

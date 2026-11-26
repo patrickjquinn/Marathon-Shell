@@ -394,6 +394,20 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 
     setDefaultOutput(m_output);
 
+    // A panel mounted turned (the MP01's landscape scanout in a portrait
+    // phone): the scene stands upright and the wl_output says so, as on
+    // weston and mutter. Queued: QQuickWindow resets the content item's size
+    // on every resize.
+    if (marathon::device::profile().panel_orientation == QLatin1String("kms"))
+        m_baseRotation = panelRotation();
+    if (m_baseRotation) {
+        connect(window, &QWindow::widthChanged, this, &WaylandCompositor::applySceneRotation,
+                Qt::QueuedConnection);
+        connect(window, &QWindow::heightChanged, this, &WaylandCompositor::applySceneRotation,
+                Qt::QueuedConnection);
+        applySceneRotation();
+    }
+
     calculateAndSetPhysicalSize();
 
     qInfo() << "[WaylandCompositor] Initialized on socket:" << socketName()
@@ -957,6 +971,8 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     connect(process, &QProcess::started, this, [this, command, process]() {
         const qint64 pid = process ? process->processId() : -1;
         if (pid > 0) {
+            // processId() is 0 again by the time finished() is emitted.
+            process->setProperty("marathonPid", pid);
             qInfo() << "[WaylandCompositor] Started PID" << pid;
             emit appLaunched(command, static_cast<int>(pid));
         }
@@ -1298,15 +1314,13 @@ QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
     const qreal scale = configureScale(surface);
     if (m_appViewportSize.width() > 0 && m_appViewportSize.height() > 0)
         return NativeClientScale::toLogical(m_appViewportSize, scale);
-    return NativeClientScale::toLogical(
-        (m_output && m_output->window()) ? m_output->window()->size() : QSize(), scale);
+    return NativeClientScale::toLogical((m_output && m_output->window()) ? sceneSize() : QSize(),
+                                        scale);
 }
 
 QSize WaylandCompositor::fullOutputConfigureSize(QWaylandSurface *surface) const {
     const qreal scale = configureScale(surface);
-    const QSize physical =
-        (m_output && m_output->window()) ? m_output->window()->size() : m_window->size();
-    return NativeClientScale::toLogical(physical, scale);
+    return NativeClientScale::toLogical(sceneSize(), scale);
 }
 
 QVariantMap WaylandCompositor::marathonSurfaces() const {
@@ -1905,7 +1919,7 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
         return;
 
     QString       command       = m_processes.value(process, "unknown");
-    qint64        pid           = process->processId();
+    qint64        pid           = process->property("marathonPid").toLongLong();
     const bool    alreadyClosed = process->property("marathonAppClosedEmitted").toBool();
 
     const QString desktopFile = process->property("marathonDesktopFile").toString();
@@ -1988,7 +2002,7 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
 
     const QSize windowSize = m_window->size();
     m_output->setAvailableGeometry(
-        QRect(QPoint(0, 0), m_appViewportSize.isValid() ? m_appViewportSize : windowSize));
+        QRect(QPoint(0, 0), m_appViewportSize.isValid() ? m_appViewportSize : sceneSize()));
 
     QSize       physicalSizeMm(0, 0);
     const qreal panelDpi = marathon::device::profile().panel_dpi;
@@ -2098,7 +2112,7 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
         qWarning() << "[WaylandCompositor] stderr tail for" << command << ":\n" << err.trimmed();
 
     if (error == QProcess::Crashed) {
-        const qint64 pid = process->processId();
+        const qint64 pid = process->property("marathonPid").toLongLong();
         if (pid > 0 && !process->property("marathonAppClosedEmitted").toBool()) {
             process->setProperty("marathonAppClosedEmitted", true);
             emit appClosed(pid);
@@ -2516,26 +2530,21 @@ void WaylandCompositor::setOutputOrientation(const QString &orientation) {
         return;
     }
 
-    QWaylandOutput::Transform transform      = QWaylandOutput::TransformNormal;
-    qreal                     rotation       = 0.0;
-    bool                      swapDimensions = false;
+    QWaylandOutput::Transform transform = QWaylandOutput::TransformNormal;
+    qreal                     rotation  = 0.0;
 
     if (orientation == "portrait") {
-        transform      = QWaylandOutput::TransformNormal;
-        rotation       = 0.0;
-        swapDimensions = false;
+        transform = QWaylandOutput::TransformNormal;
+        rotation  = 0.0;
     } else if (orientation == "landscape") {
-        transform      = QWaylandOutput::Transform90;
-        rotation       = 90.0;
-        swapDimensions = true;
+        transform = QWaylandOutput::Transform90;
+        rotation  = 90.0;
     } else if (orientation == "portrait-inverted") {
-        transform      = QWaylandOutput::Transform180;
-        rotation       = 180.0;
-        swapDimensions = false;
+        transform = QWaylandOutput::Transform180;
+        rotation  = 180.0;
     } else if (orientation == "landscape-inverted") {
-        transform      = QWaylandOutput::Transform270;
-        rotation       = 270.0;
-        swapDimensions = true;
+        transform = QWaylandOutput::Transform270;
+        rotation  = 270.0;
     } else {
         qWarning() << "[WaylandCompositor] Invalid rotation request:" << orientation;
         return;
@@ -2544,54 +2553,81 @@ void WaylandCompositor::setOutputOrientation(const QString &orientation) {
     qInfo() << "[WaylandCompositor] Applying rotation:" << orientation << "(" << rotation
             << "degrees, Transform =" << transform << ")";
 
+    m_userRotation  = static_cast<int>(rotation);
+    m_userTransform = transform;
+    applySceneRotation();
+}
+
+int WaylandCompositor::panelRotation() const {
+    // eglfs_kms has them; the software framebuffer fallback has none.
+    QPlatformNativeInterface *ni = QGuiApplication::platformNativeInterface();
+    void                     *fd = ni ? ni->nativeResourceForIntegration("dri_fd") : nullptr;
+    void                     *connector =
+        ni ? ni->nativeResourceForScreen("dri_connectorid", m_window->screen()) : nullptr;
+    if (!fd || !connector) {
+        qWarning() << "[WaylandCompositor] panel orientation: no DRM connector from the QPA";
+        return 0;
+    }
+    const int      driFd       = static_cast<int>(reinterpret_cast<qintptr>(fd));
+    const uint32_t connectorId = static_cast<uint32_t>(reinterpret_cast<qintptr>(connector));
+    drmModeObjectProperties *props =
+        drmModeObjectGetProperties(driFd, connectorId, DRM_MODE_OBJECT_CONNECTOR);
+    if (!props)
+        return 0;
+    int rotation = 0;
+    for (uint32_t i = 0; i < props->count_props; ++i) {
+        drmModePropertyRes *p = drmModeGetProperty(driFd, props->props[i]);
+        if (!p)
+            continue;
+        if (qstrcmp(p->name, "panel orientation") == 0 &&
+            drm_property_type_is(p, DRM_MODE_PROP_ENUM)) {
+            for (int e = 0; e < p->count_enums; ++e) {
+                if (p->enums[e].value == props->prop_values[i]) {
+                    rotation = marathon::device::panel_rotation(rust::Str(p->enums[e].name));
+                    qInfo() << "[WaylandCompositor] panel orientation" << p->enums[e].name
+                            << "of connector" << connectorId << ": the scene turns" << rotation;
+                }
+            }
+        }
+        drmModeFreeProperty(p);
+    }
+    drmModeFreeObjectProperties(props);
+    return rotation;
+}
+
+void WaylandCompositor::applySceneRotation() {
     QQuickItem *contentItem = m_window->contentItem();
-    if (contentItem) {
-        qreal W = m_window->width();
-        qreal H = m_window->height();
+    const int   rotation    = (m_baseRotation + m_userRotation) % 360;
+    const qreal W           = m_window->width();
+    const qreal H           = m_window->height();
 
-        contentItem->setTransformOrigin(QQuickItem::TopLeft);
-        contentItem->setRotation(rotation);
-
-        if (swapDimensions) {
-            contentItem->setWidth(H);
-            contentItem->setHeight(W);
-        } else {
-            contentItem->setWidth(W);
-            contentItem->setHeight(H);
-        }
-
-        switch (static_cast<int>(rotation)) {
-            case 0:
-                contentItem->setX(0);
-                contentItem->setY(0);
-                break;
-
-            case 90:
-                contentItem->setX(W);
-                contentItem->setY(0);
-                break;
-
-            case 180:
-                contentItem->setX(W);
-                contentItem->setY(H);
-                break;
-
-            case 270:
-                contentItem->setX(0);
-                contentItem->setY(H);
-                break;
-
-            default:
-                qWarning() << "[WaylandCompositor] Unexpected rotation angle:" << rotation
-                           << "(expected 0/90/180/270); leaving content position unchanged";
-                break;
-        }
-    } else {
-        qWarning() << "[WaylandCompositor] No content item to rotate";
+    contentItem->setTransformOrigin(QQuickItem::TopLeft);
+    contentItem->setRotation(rotation);
+    contentItem->setSize(rotation % 180 ? QSizeF(H, W) : QSizeF(W, H));
+    switch (rotation) {
+        case 90: contentItem->setPosition(QPointF(W, 0)); break;
+        case 180: contentItem->setPosition(QPointF(W, H)); break;
+        case 270: contentItem->setPosition(QPointF(0, H)); break;
+        default: contentItem->setPosition(QPointF(0, 0)); break;
     }
 
+    // wl_output turns counter-clockwise, Qt Quick clockwise.
+    QWaylandOutput::Transform transform = m_userTransform;
+    if (m_baseRotation) {
+        switch ((360 - rotation) % 360) {
+            case 90: transform = QWaylandOutput::Transform90; break;
+            case 180: transform = QWaylandOutput::Transform180; break;
+            case 270: transform = QWaylandOutput::Transform270; break;
+            default: transform = QWaylandOutput::TransformNormal; break;
+        }
+    }
     m_output->setTransform(transform);
     calculateAndSetPhysicalSize();
+}
+
+QSize WaylandCompositor::sceneSize() const {
+    const QSize size = m_window->size();
+    return m_baseRotation && (m_baseRotation + m_userRotation) % 180 ? size.transposed() : size;
 }
 
 void WaylandCompositor::injectKey(int key, int modifiers, bool pressed) {

@@ -220,17 +220,46 @@ Page {
             }
 
             SectionHeader {
+                text: qsTr("Fingerprint")
+                visible: Security.hasFingerprintReader
+            }
+            ListItem {
+                id: fingerprintItem
+
+                objectName: "fingerprintItem"
+                visible: Security.hasFingerprintReader
+                // A finger needs the PIN behind it.
+                enabled: Security.hasQuickPIN
+                contentHeight: fingerprintText.height + 2 * Theme.paddingMedium
+                onClicked: pageStack.push(Qt.resolvedUrl("FingerprintPage.qml"))
+
+                Column {
+                    id: fingerprintText
+
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Label {
+                        width: parent.width
+                        text: qsTr("Fingerprints")
+                        color: fingerprintItem.highlighted ? Theme.highlightColor : fingerprintItem.enabled ? Theme.primaryColor : Theme.secondaryColor
+                    }
+                    Label {
+                        objectName: "fingerprintSummary"
+                        width: parent.width
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: fingerprintItem.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                        truncationMode: TruncationMode.Fade
+                        text: Logic.fingerprintSummary(Security.hasQuickPIN, Security.enrolledFingers)
+                    }
+                }
+            }
+
+            SectionHeader {
                 objectName: "statusHeader"
                 text: qsTr("Status")
-                visible: fingerprint.visible || failedAttempts.visible || accountStatus.visible
-            }
-            DetailItem {
-                id: fingerprint
-
-                objectName: "fingerprint"
-                visible: Security.fingerprintAvailable
-                label: qsTr("Fingerprint")
-                value: qsTr("Enrolled")
+                visible: failedAttempts.visible || accountStatus.visible
             }
             DetailItem {
                 id: failedAttempts

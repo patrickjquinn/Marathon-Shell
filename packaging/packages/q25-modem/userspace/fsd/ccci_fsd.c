@@ -426,9 +426,6 @@ static const char *fs_drive_dir(const char *path)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-/* A routine operation: a warning only when it failed. */
-#define LOGR(failed, ...) __android_log_print((failed) ? ANDROID_LOG_WARN : ANDROID_LOG_INFO, \
-					      LOG_TAG, __VA_ARGS__)
 
 #define FS_MAX_SEGS	8
 
@@ -1175,8 +1172,17 @@ int main(void)
 					if (req.nseg >= 2 && req.seglen[1] >= 4)
 						memcpy(&flags, req.seg[1], sizeof(flags));
 					h = fs_handle_open(real, flags);
-					LOGR(h < 0, "Main: Open \"%s\" -> %s flags=0x%x: %d", path,
-					     real, flags, h);
+					/* WARN, not INFO, whenever the modem asks for anything but a
+					 * plain read: on this device those paths sit under NVRAM, and
+					 * the first live exercise of the write side must be visible at
+					 * a glance rather than buried in the request stream. */
+					if (flags & ~FS_FLAG_READ_ONLY & (FS_FLAG_CREATE |
+					    FS_FLAG_CREATE_ALWAYS))
+						LOGW("Main: Open(WRITE) \"%s\" -> %s flags=0x%x: %d",
+						     path, real, flags, h);
+					else
+						LOGI("Main: Open \"%s\" -> %s flags=0x%x: %d", path,
+						     real, flags, h);
 					resp_len = build_result_resp(txbuf, sizeof(txbuf), &hdr,
 								      req.op_id, h);
 					goto send_resp;
@@ -1296,8 +1302,8 @@ int main(void)
 					put = fs_handle_write(h, req.seg[1], req.seglen[1]);
 					res = (put < 0) ? FS_ERR_GENERIC_MAPPED : FS_NO_ERROR;
 					cnt = (put < 0) ? 0 : (int32_t)put;
-					LOGR(put < 0, "Main: Write handle=%d len=%u -> %zd", h,
-					     req.seglen[1], put);
+					LOGW("Main: Write handle=%d len=%u -> %zd", h, req.seglen[1],
+					     put);
 					segs[0].data = &res; segs[0].len = sizeof(res);
 					segs[1].data = &cnt; segs[1].len = sizeof(cnt);
 					resp_len = build_resp(txbuf, sizeof(txbuf), &hdr, req.op_id,
@@ -1327,7 +1333,7 @@ int main(void)
 #else
 					rc = FS_ERR_GENERIC_MAPPED;
 #endif
-					LOGR(rc, "Main: RemoveDir \"%s\" -> %s: %d", path, real, rc);
+					LOGW("Main: RemoveDir \"%s\" -> %s: %d", path, real, rc);
 					resp_len = build_result_resp(txbuf, sizeof(txbuf), &hdr,
 								      req.op_id, rc);
 					goto send_resp;
@@ -1341,7 +1347,7 @@ int main(void)
 #else
 					rc = FS_ERR_GENERIC_MAPPED;
 #endif
-					LOGR(rc, "Main: Delete \"%s\" -> %s: %d", path, real, rc);
+					LOGW("Main: Delete \"%s\" -> %s: %d", path, real, rc);
 					resp_len = build_result_resp(txbuf, sizeof(txbuf), &hdr,
 								      req.op_id, rc);
 					goto send_resp;
@@ -1352,8 +1358,7 @@ int main(void)
 #else
 					rc = FS_ERR_GENERIC_MAPPED;
 #endif
-					LOGR(rc, "Main: XDelete(recursive) \"%s\" -> %s: %d", path, real,
-					     rc);
+					LOGW("Main: XDelete(recursive) \"%s\" -> %s: %d", path, real, rc);
 					resp_len = build_result_resp(txbuf, sizeof(txbuf), &hdr,
 								      req.op_id, rc);
 					goto send_resp;
@@ -1368,7 +1373,7 @@ int main(void)
 #else
 					rc = FS_ERR_GENERIC_MAPPED;
 #endif
-					LOGR(rc, "Main: %s \"%s\" -> \"%s\": %d",
+					LOGW("Main: %s \"%s\" -> \"%s\": %d",
 					     (req.op_id == FS_OP_MOVE) ? "Move" : "Rename",
 					     path, path2, rc);
 					resp_len = build_result_resp(txbuf, sizeof(txbuf), &hdr,
@@ -1669,7 +1674,7 @@ int main(void)
 						goto not_served;
 					wr = (const struct ccci_fs_cmpt_write_req *)req.seg[1];
 					o.err = handle_cmpt_write(wr, req.seglen[1], real, &o);
-					LOGR(o.err, "Main: CMPT_Write \"%s\" -> %s opid_map=0x%x flag=0x%x: "
+					LOGW("Main: CMPT_Write \"%s\" -> %s opid_map=0x%x flag=0x%x: "
 					     "done=0x%x err=%d handle=%d written=%u",
 					     path, real, wr->opid_map, wr->flag, o.done, o.err,
 					     o.handle, o.written);

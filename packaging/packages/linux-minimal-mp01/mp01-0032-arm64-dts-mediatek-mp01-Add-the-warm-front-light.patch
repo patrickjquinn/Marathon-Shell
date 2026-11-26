@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 06:59:47 +0000
+Subject: [PATCH] arm64: dts: mediatek: mp01: Add the warm front light
+
+The MP01's front light has two LED strings. The white one is the
+backlight on DISP_PWM; the warm one is driven from the SoC's general
+PWM channel 1 on GPIO68. Stock exposes it as the LED "led-warmlight"
+with 256 levels, off by default (mtk_pwm/pwm_warmlight).
+
+Describe it as a PWM LED. The 39385 ns period is the white string's:
+stock drives this one in MediaTek's old mode from 26 MHz / 1625, which
+the upstream driver cannot select, and the LED driver's input range is
+not documented.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt6789-minimal-mp01.dts | 24 +++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+index 147e322..c3523f4 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+@@ -22,6 +22,7 @@
+ #include <dt-bindings/pinctrl/mediatek,mt6789-pinfunc.h>
+ #include <dt-bindings/pinctrl/mt65xx.h>
+ #include <dt-bindings/iio/adc/mediatek,mt6358-auxadc.h>
++#include <dt-bindings/leds/common.h>
+ #include "mt6789.dtsi"
+ 
+ / {
+@@ -237,6 +238,23 @@
+ 		default-brightness-level = <32>;
+ 	};
+ 
++	/*
++	 * The front light's warm LEDs, a second string beside the white ones
++	 * above, dimmed by PWM_1. Stock calls it led-warmlight, 0 to 255.
++	 */
++	led-controller {
++		compatible = "pwm-leds";
++		pinctrl-names = "default";
++		pinctrl-0 = <&warm_light_pins>;
++
++		led-0 {
++			color = <LED_COLOR_ID_AMBER>;
++			function = "frontlight";
++			pwms = <&pwm0 1 39385>;
++			max-brightness = <255>;
++		};
++	};
++
+ 	/*
+ 	 * The pack's profile, from the factory gauge configuration: the 25 C
+ 	 * OCV curve and its capacity, the 4.465 V charge voltage of the Z10
+@@ -751,6 +769,12 @@
+ 		};
+ 	};
+ 
++	warm_light_pins: warm-light-default-state {
++		pins-pwm {
++			pinmux = <PINMUX_GPIO68__FUNC_PWM_1>;
++		};
++	};
++
+ 	keypad_pins: keypad-default-state {
+ 		pins-cols {
+ 			pinmux = <PINMUX_GPIO66__FUNC_KPCOL0>,

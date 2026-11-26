@@ -398,8 +398,10 @@ impl PilotService {
             let (pipeline, models) = (Arc::clone(&self.pipeline), Arc::clone(&self.models));
             self.runtime.spawn(async move {
                 models.set_loading(true);
-                pipeline.warm().await;
-                models.set_loading(false);
+                // The warm-up already running clears it when it ends.
+                if pipeline.warm().await {
+                    models.set_loading(false);
+                }
             });
         }
         let adapters = Arc::clone(&self.adapters);

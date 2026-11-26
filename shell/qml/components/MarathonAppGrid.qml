@@ -13,8 +13,8 @@ Item {
     property int pageIndex: 0
     // The window's size, which is the screen's on a phone; LauncherGrid's
     // pager uses the same.
-    property int columns: LauncherGrid.columns(Window.width > 0 ? Window.width : Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns)
-    property int rows: LauncherGrid.rows(Window.height > 0 ? Window.height : Constants.screenHeight, Silica.Theme.iconSizeLauncher)
+    property int columns: LauncherGrid.columns(Window.contentItem && Window.contentItem.width > 0 ? Window.contentItem.width : Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns)
+    property int rows: LauncherGrid.rows(Window.contentItem && Window.contentItem.height > 0 ? Window.contentItem.height : Constants.screenHeight, Silica.Theme.iconSizeLauncher)
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
     property bool searchGestureActive: false
@@ -818,7 +818,7 @@ Item {
         enabled: !appGrid.searchGestureActive && appGrid.searchPullProgress > 0.01 && !UIStore.searchOpen
 
         NumberAnimation {
-            duration: 200
+            duration: MMotion.ms(200)
             easing.type: Easing.OutCubic
             onRunningChanged: {
                 if (!running && appGrid.searchPullProgress < 0.02)

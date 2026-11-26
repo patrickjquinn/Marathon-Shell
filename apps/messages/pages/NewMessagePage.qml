@@ -15,6 +15,7 @@ Page {
     property string sharedText: ""
     property var sharedAttachments: []
     property bool submitted: false
+    readonly property bool started: typed !== "" || sharedText !== "" || sharedAttachments.length > 0
     readonly property bool hasLetters: /[A-Za-z]/.test(typed)
     readonly property bool isNumber: !hasLetters && Logic.isPhoneNumber(typed)
     readonly property var matches: Contacts.contacts.filter(c => Logic.matches(typed, c.name, c.phone, ""))

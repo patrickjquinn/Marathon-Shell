@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * The MP01's CONNSYS (WMT, the AXI Wi-Fi core, BTIF and GNSS) for the
+ * vendor drivers in mp01-kernel-modules. Their compatibles are not
+ * upstream, so they stay out of the board DT; the kernel package merges
+ * this into mt6789-minimal-mp01-vendor.dtb. The register, interrupt and
+ * EMI values are those of the MP01 factory DT, which match the Zinwa Q25's.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/mediatek,mt6789-clk.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mediatek,mt6789-pinfunc.h>
+#include <dt-bindings/power/mediatek,mt6789-power.h>
+#include <dt-bindings/reset/mediatek,mt6789-resets.h>
+
+&pio {
+	/* GPIO177-185: CONN_TOP_CLK/DATA, BT_CLK/DATA, HRST_B, WB_PTA, WF_CTRL0-2. */
+	conn_adie_on_pins: conn-adie-on-pins {
+		pins {
+			pinmux = <PINMUX_GPIO177__FUNC_CONN_TOP_CLK>,
+				 <PINMUX_GPIO178__FUNC_CONN_TOP_DATA>,
+				 <PINMUX_GPIO179__FUNC_CONN_BT_CLK>,
+				 <PINMUX_GPIO180__FUNC_CONN_BT_DATA>,
+				 <PINMUX_GPIO181__FUNC_CONN_HRST_B>,
+				 <PINMUX_GPIO182__FUNC_CONN_WB_PTA>,
+				 <PINMUX_GPIO183__FUNC_CONN_WF_CTRL0>,
+				 <PINMUX_GPIO184__FUNC_CONN_WF_CTRL1>,
+				 <PINMUX_GPIO185__FUNC_CONN_WF_CTRL2>;
+		};
+	};
+
+	conn_adie_off_pins: conn-adie-off-pins {
+		pins {
+			pinmux = <PINMUX_GPIO177__FUNC_GPIO177>,
+				 <PINMUX_GPIO178__FUNC_GPIO178>,
+				 <PINMUX_GPIO179__FUNC_GPIO179>,
+				 <PINMUX_GPIO180__FUNC_GPIO180>,
+				 <PINMUX_GPIO181__FUNC_GPIO181>,
+				 <PINMUX_GPIO182__FUNC_GPIO182>,
+				 <PINMUX_GPIO183__FUNC_GPIO183>,
+				 <PINMUX_GPIO184__FUNC_GPIO184>,
+				 <PINMUX_GPIO185__FUNC_GPIO185>;
+		};
+	};
+
+	/* The MP01 has both an L1 (GPIO25) and an L5 (GPIO26) LNA. */
+	gnss_lna_off_pins: gnss-lna-off-pins {
+		pins {
+			pinmux = <PINMUX_GPIO25__FUNC_GPIO25>,
+				 <PINMUX_GPIO26__FUNC_GPIO26>;
+			output-low;
+		};
+	};
+
+	gnss_lna_dsp_pins: gnss-lna-dsp-pins {
+		pins {
+			pinmux = <PINMUX_GPIO25__FUNC_GPS_L1_ELNA_EN>,
+				 <PINMUX_GPIO26__FUNC_GPS_L5_ELNA_EN>;
+		};
+	};
+};
+
+&{/soc} {
+	consys: consys@18002000 {
+		compatible = "mediatek,mt6789-consys";
+		/* Order is CONSYS_BASE_ADDRESS_INDEX in mtk_wcn_consys_hw.h. */
+		reg = <0 0x18002000 0 0x1000>,
+		      <0 0x10007000 0 0x100>,
+		      <0 0x10001000 0 0x1000>,
+		      <0 0x10006000 0 0x1000>,
+		      <0 0x18007000 0 0x1000>,
+		      <0 0x180b1000 0 0x1000>,
+		      <0 0x180a3000 0 0x1000>,
+		      <0 0x180a5000 0 0x800>,
+		      <0 0x180c1000 0 0x1000>,
+		      <0 0x18004000 0 0x1000>,
+		      <0 0x1024c000 0 0x40>,
+		      <0 0x10003000 0 0x1000>;
+		interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains = <&spm MT6789_POWER_DOMAIN_CONN>;
+		clocks = <&infracfg_ao CLK_IFRAO_CCIF4_AP>;
+		clock-names = "ccif";
+		resets = <&toprgu MT6789_TOPRGU_CONN_MCU_SW_RST>;
+		vcn18-supply = <&mt6366_vcn18_reg>;
+		vcn28-supply = <&mt6366_vcn28_reg>;
+		vcn33-supply = <&mt6366_vcn33_reg>;
+		pmic = <&pmic>;
+		memory-region = <&consys_emi>;
+		emi-addr = <0x7e000000>;
+		emi-size = <0x500000>;
+		emi-alignment = <0x1000000>;
+		emi-max-addr = <0x80000000>;
+		/* No "default" state: the pins stay GPIO until WMT powers the A-die. */
+		pinctrl-names = "on", "off";
+		pinctrl-0 = <&conn_adie_on_pins>;
+		pinctrl-1 = <&conn_adie_off_pins>;
+		#thermal-sensor-cells = <0>;
+
+		gnss {
+			compatible = "mediatek,mt6789-gnss";
+			pinctrl-names = "default", "active";
+			pinctrl-0 = <&gnss_lna_off_pins>;
+			pinctrl-1 = <&gnss_lna_dsp_pins>;
+		};
+	};
+
+	wifi@18000000 {
+		compatible = "mediatek,wifi";
+		reg = <0 0x18000000 0 0x100000>;
+		interrupts = <GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH 0>;
+		memory-region = <&wifi_mem>;
+		emi-size = <0x600000>;
+	};
+
+	/* WMT/STP transport to CONNSYS. */
+	btif@1100c000 {
+		compatible = "mediatek,btif";
+		reg = <0 0x1100c000 0 0x1000>,
+		      <0 0x10217b00 0 0x80>,
+		      <0 0x10217b80 0 0x80>;
+		interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&infracfg_ao CLK_IFRAO_BTIF>, <&infracfg_ao CLK_IFRAO_AP_DMA>;
+		clock-names = "btifc", "apdmac";
+	};
+};

@@ -1,0 +1,13 @@
+[Unit]
+Description=MT6789 Bluetooth address
+Requires=mt6789-bluetooth.service
+After=mt6789-bluetooth.service
+Before=bluetooth.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/mt6789-bt-address
+
+[Install]
+WantedBy=bluetooth.target multi-user.target

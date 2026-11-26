@@ -139,7 +139,7 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: MMotion.quick
+            duration: MMotion.ms(MMotion.quick)
             easing.type: Easing.OutCubic
         }
     }

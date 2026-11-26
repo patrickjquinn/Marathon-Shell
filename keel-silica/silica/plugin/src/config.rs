@@ -50,6 +50,7 @@ pub enum Prop {
     AmbienceName,
     FontSizeCategory,
     FontSizeMultiplier,
+    PagedScrolling,
 }
 
 fn normalise(key: &str) -> String {
@@ -92,6 +93,9 @@ pub fn property_for_key(key: &str) -> Option<Prop> {
         // Settings > Display > Text size (jolla-settings FontSizeSetting.qml).
         "fontsizecategory" => Prop::FontSizeCategory,
         "fontsizemultiplier" => Prop::FontSizeMultiplier,
+        // A panel that cannot follow a finger (e-paper): lists move a page
+        // a swipe instead.
+        "pagedscrolling" => Prop::PagedScrolling,
         _ => return None,
     })
 }
@@ -134,6 +138,7 @@ pub struct Layer {
     pub ambience_name: Option<String>,
     pub font_size_category: Option<String>,
     pub font_size_multiplier: Option<f64>,
+    pub paged_scrolling: Option<bool>,
 }
 
 fn unquote(v: &str) -> String {
@@ -177,6 +182,13 @@ impl Layer {
             Prop::FontSizeCategory => self.font_size_category = Some(unquote(value)),
             Prop::FontSizeMultiplier => {
                 self.font_size_multiplier = parse_number(value).filter(|v| *v > 0.0);
+            }
+            Prop::PagedScrolling => {
+                self.paged_scrolling = match unquote(value).as_str() {
+                    "true" | "1" => Some(true),
+                    "false" | "0" => Some(false),
+                    _ => None,
+                };
             }
         }
         true
@@ -250,6 +262,7 @@ impl Layer {
             ambience_name: pick!(ambience_name),
             font_size_category: pick!(font_size_category),
             font_size_multiplier: pick!(font_size_multiplier),
+            paged_scrolling: pick!(paged_scrolling),
         }
     }
 }
@@ -276,6 +289,8 @@ pub struct Resolved {
     pub font_size_category: usize,
     /// A multiplier set in dconf instead of a category; 0 when unset.
     pub font_size_multiplier: f64,
+    /// Lists move a page a swipe instead of following the finger.
+    pub paged_scrolling: bool,
 }
 
 /// Settings > Display > Text size, in the order Settings lists them.
@@ -383,6 +398,7 @@ impl Layer {
                 .and_then(|c| FONT_SIZE_CATEGORIES.iter().position(|n| *n == c))
                 .unwrap_or(0),
             font_size_multiplier: self.font_size_multiplier.unwrap_or(0.0),
+            paged_scrolling: self.paged_scrolling.unwrap_or(false),
         }
     }
 }
@@ -441,6 +457,23 @@ mod tests {
             Some("KEEL_SILICA_THEME_PIXEL_RATIO")
         );
         assert_eq!(env_name_for_forwarded_key("/other/key"), None);
+    }
+
+    #[test]
+    fn paged_scrolling_comes_from_the_ambience() {
+        assert_eq!(
+            property_for_key("/desktop/sailfish/silica/paged_scrolling"),
+            Some(Prop::PagedScrolling)
+        );
+        assert!(!Layer::default().resolve().paged_scrolling);
+        let on = Layer::from_lines("/desktop/sailfish/silica/paged_scrolling=true\n");
+        assert!(on.resolve().paged_scrolling);
+        let off = on.overlay(&Layer::from_lines("pagedScrolling='false'\n"));
+        assert!(!off.resolve().paged_scrolling);
+        assert_eq!(
+            env_name_for_forwarded_key("/desktop/sailfish/silica/paged_scrolling").as_deref(),
+            Some("KEEL_SILICA_PAGED_SCROLLING")
+        );
     }
 
     #[test]

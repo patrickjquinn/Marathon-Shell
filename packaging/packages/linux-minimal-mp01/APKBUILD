@@ -1,0 +1,419 @@
+# Minimal Phone MP01 (board Z10) kernel: the MT6789 tree linux-zinwa-q25
+# builds (ellyq's mtk_g99-mainline at 978b8b67), with the SoC and MT6366
+# patches of that package's series taken by reference ($_mt6789, applied
+# without their Zinwa Q25 board-DTS hunks), then this package's mp01-*
+# series and config fragment, plus the CONNSYS, modem and audio modules of
+# linux-zinwa-q25/modules built for this board. devices/minimal/mp01/kernel/
+# README.md says what is shared, what is board, and what is untested.
+pkgname=linux-minimal-mp01
+pkgver=7.0.0
+pkgrel=8
+_commit=978b8b672d68e43b08c891132b974255489889aa
+_mindone=9cd73c15f312cfd1e40a22d871de65a2fb2c5791
+_sound=996ec48145f6746ecc664e92c6e5892b6978e3ae
+_gigaset=6a574a88769691ee4d1da23c80226cf5e237f607
+_afe="
+	mt6789-afe-clk.c
+	mt6789-afe-clk.h
+	mt6789-afe-common.h
+	mt6789-afe-control.c
+	mt6789-afe-gpio.c
+	mt6789-afe-gpio.h
+	mt6789-afe-pcm.c
+	mt6789-dai-adda.c
+	mt6789-dai-hostless.c
+	mt6789-dai-hw-gain.c
+	mt6789-dai-i2s.c
+	mt6789-dai-pcm.c
+	mt6789-dai-src.c
+	mt6789-interconnection.h
+	mt6789-misc-control.c
+	mt6789-mt6366.c
+	mt6789-reg.h
+"
+# The shared MT6789 series: every SoC, PMIC and generic patch of
+# linux-zinwa-q25, none of its board patches. A Q25 patch that changes is
+# picked up here by its checksum failing.
+_q25=../linux-zinwa-q25
+_mt6789="
+	0001-drm-mediatek-Add-MT6789-display-support.patch
+	0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
+	0004-iio-adc-mt6359-auxadc-Include-the-ADC-resolution-in-.patch
+	0009-mfd-mt6358-Fix-AUD-and-MISC-top-interrupt-status-bit.patch
+	0026-pinctrl-mediatek-mt6789-Drop-the-unused-EH-driving-t.patch
+	0027-dt-bindings-gnss-add-MediaTek-MT6789-CONNSYS-GNSS.patch
+	0032-clk-mediatek-mt6789-Parent-the-I2C-wrapper-gates-to-.patch
+	0033-dt-bindings-power-mediatek-Add-MT6789-power-controll.patch
+	0034-pmdomain-mediatek-Add-MT6789-power-domains.patch
+	0035-dt-bindings-watchdog-mediatek-mtk-wdt-Add-MT6789.patch
+	0036-watchdog-mtk_wdt-Add-MT6789-TOPRGU-reset-support.patch
+	0037-arm64-dts-mediatek-mt6789-Make-the-TOPRGU-a-reset-co.patch
+	0044-soc-mediatek-mtk-mutex-Defer-until-the-mutex-device-.patch
+	0045-clk-mediatek-mt6789-Park-the-GPU-mux-during-MFGPLL-r.patch
+	0046-drm-mediatek-mtk_dsi-Stop-the-engine-the-bootloader-.patch
+	0047-drm-mediatek-dsi-Register-DSI-host-after-preparing-e.patch
+	0048-drm-mediatek-mtk_dsi-Run-the-link-at-the-peripheral-.patch
+	0060-ASoC-dt-bindings-awinic-aw87390-Add-Orient-Chip-OCA7.patch
+	0061-ASoC-codecs-aw87390-Add-OCA72390-support-for-the-Zin.patch
+	0063-power-supply-core-Fix-supplied_from-for-nodes-with-s.patch
+	0064-dt-bindings-power-supply-Add-MediaTek-MT6358-fuel-ga.patch
+	0065-dt-bindings-mfd-mediatek-mt6397-Add-the-MT6358-fuel-.patch
+	0066-mfd-mt6397-Add-the-MT6358-fuel-gauge.patch
+	0067-power-supply-Add-MediaTek-MT6358-fuel-gauge-driver.patch
+	0069-dt-bindings-mfd-mediatek-mt6397-Describe-the-MT6358-.patch
+	0070-mfd-mt6397-Add-the-MT6358-clock-buffers.patch
+	0071-clk-Add-MediaTek-MT6358-clock-buffer-driver.patch
+	0076-clk-mediatek-mt6789-Keep-the-SCP-clock-on.patch
+	0077-drm-mediatek-Add-the-MT6789-DSI-to-the-DDP-component.patch
+	0078-drm-mediatek-Remove-conflicting-framebuffers.patch
+	0081-dt-bindings-display-mediatek-gamma-Add-MT6789.patch
+	0082-drm-mediatek-gamma-Run-the-MT6789-gamma-in-relay-mod.patch
+	0083-drm-mediatek-dsi-Stop-a-link-the-bootloader-left-run.patch
+	0085-dt-bindings-input-mediatek-mt6779-keypad-Add-MT6789.patch
+	0086-arm64-dts-mediatek-mt6789-Add-the-keypad-controller.patch
+	0097-arm64-dts-mediatek-mt6789-Add-the-CPU-idle-states.patch
+	0098-clk-mediatek-mt6789-Keep-the-bus-thermal-debug-and-C.patch
+	0099-clk-mediatek-mt6789-Keep-the-trace-bus-clock-on.patch
+	0100-clk-mediatek-mt6789-Parent-the-IMGSYS-gates-to-img1_.patch
+	0101-dt-bindings-ufs-mediatek-ufs-Add-MT6789.patch
+	0102-dt-bindings-ufs-mediatek-ufs-Describe-the-resets-and.patch
+	0103-dt-bindings-phy-mediatek-ufs-phy-Add-MT6789.patch
+	0104-arm64-dts-mediatek-mt6789-Give-the-UFS-host-its-tick.patch
+	0105-arm64-dts-mediatek-mt6789-Add-the-MCUSYS-and-system-.patch
+	0107-soc-mediatek-mtk-mutex-Enable-runtime-PM.patch
+	0108-drm-mediatek-Let-the-display-power-domain-go-off-wit.patch
+	0109-drm-mediatek-Link-the-DRM-device-to-its-components-S.patch
+	0110-arm64-dts-mediatek-Describe-the-Zinwa-Q25-display-s-.patch
+	0111-memory-mtk-smi-Restore-the-MT6789-display-SMI-as-the.patch
+	0112-memory-mtk-smi-Keep-the-MT6789-display-ports-untrans.patch
+	0113-usb-musb-mediatek-Suspend-a-peripheral-port-without-.patch
+	0115-drm-mediatek-Bind-the-display-components-without-a-d.patch
+	0117-spi-mt65xx-Unprepare-the-clock-between-transfers-on-.patch
+	0118-arm64-dts-mediatek-mt6789-Bring-up-the-display-s-reg.patch
+	0120-sched-psi-Do-not-wake-idle-CPUs-to-update-the-averag.patch
+	0122-drm-mediatek-Keep-the-system-idle-states-off-while-a.patch
+	0123-mfd-mt6397-Power-off-MT6358-through-the-PMIC.patch
+	0125-mfd-mt6397-Clear-the-MT6358-start-latches-the-bootlo.patch
+	0126-usb-musb-gadget-Don-t-drop-an-OUT-packet-that-arrives.patch
+	0128-power-supply-mt6358-gauge-Seed-again-once-the-batter.patch
+	0129-power-supply-mt6358-gauge-Follow-the-voltage-down-ne.patch
+	0135-i2c-mt65xx-Hold-a-CPU-latency-request-during-transfe.patch
+	0137-xfrm-use-compat-translator-only-for-u64-alignment-mismatch.patch
+"
+_board="
+	mp01-0001-dt-bindings-vendor-prefixes-Add-The-Minimal-Company.patch
+	mp01-0002-dt-bindings-arm-mediatek-Add-the-Minimal-Phone-MP01.patch
+	mp01-0003-arm64-dts-mediatek-mt6789-Fix-the-dither-unit-address.patch
+	mp01-0004-dt-bindings-display-mediatek-Add-the-MT6789-display-p.patch
+	mp01-0005-dt-bindings-soc-mediatek-mutex-Add-MT6789.patch
+	mp01-0006-arm64-dts-mediatek-mt6789-Add-the-display-processors.patch
+	mp01-0007-arm64-dts-mediatek-mt6789-Run-the-I2C-controllers-fr.patch
+	mp01-0008-Input-matrix_keypad-Switch-the-row-interrupts-outsid.patch
+	mp01-0009-dt-bindings-display-mediatek-dsi-Describe-the-data-la.patch
+	mp01-0010-phy-Add-the-data-lane-order-to-the-MIPI-D-PHY-config.patch
+	mp01-0011-phy-mediatek-mipi-dsi-Route-the-data-lanes-in-the-co.patch
+	mp01-0012-drm-mediatek-dsi-Take-the-data-lane-order-from-the-e.patch
+	mp01-0013-dt-bindings-display-panel-Add-the-Minimal-Z10-e-pape.patch
+	mp01-0014-drm-panel-Add-the-Minimal-Z10-e-paper-display-driver.patch
+	mp01-0015-arm64-dts-mediatek-Add-the-Minimal-Phone-MP01.patch
+	mp01-0016-drm-mediatek-dsi-Meet-the-D-PHY-clock-lane-minimums.patch
+	mp01-0017-arm64-dts-mediatek-mp01-Keep-the-bootloader-s-display-alive.patch
+	mp01-0018-drm-mediatek-Unbind-the-display-stub-driver-last.patch
+	mp01-0019-dt-bindings-power-supply-Add-the-MediaTek-MT6375-cha.patch
+	mp01-0020-dt-bindings-mfd-Add-the-MediaTek-MT6375-SubPMIC.patch
+	mp01-0021-mfd-Add-the-MediaTek-MT6375-SubPMIC-core.patch
+	mp01-0022-power-supply-Add-the-MediaTek-MT6375-charger-driver.patch
+	mp01-0023-arm64-dts-mediatek-mt6789-minimal-mp01-Charge-from-t.patch
+	mp01-0024-dt-bindings-display-mediatek-dsi-Add-mediatek-vendor-l.patch
+	mp01-0025-drm-mediatek-dsi-Program-the-vendor-link-timing-on-req.patch
+	mp01-0026-arm64-dts-mediatek-mp01-Use-the-vendor-DSI-link-timing.patch
+	mp01-0027-arm64-dts-mediatek-mp01-Run-the-e-paper-I2C-at-400-kHz.patch
+	mp01-0028-pwm-mtk-disp-Drive-the-MT6789-PWM-as-the-MT8183-s.patch
+	mp01-0029-dt-bindings-leds-backlight-pwm-backlight-Add-max-dut.patch
+	mp01-0030-dt-bindings-pwm-mediatek-mt2712-pwm-Add-MT6789.patch
+	mp01-0031-pwm-mediatek-Add-MT6789-support.patch
+	mp01-0032-arm64-dts-mediatek-mp01-Add-the-warm-front-light.patch
+	mp01-0033-ASoC-dt-bindings-awinic-aw87390-Add-the-Minimal-Phon.patch
+	mp01-0034-ASoC-codecs-aw87390-Add-the-Minimal-Phone-MP01-ampli.patch
+	mp01-0035-backlight-pwm_bl-Cap-the-duty-cycle-on-request.patch
+	mp01-0036-arm64-dts-mediatek-mp01-Cap-the-white-front-light.patch
+	mp01-0037-Input-edt-ft5x06-Add-touch-overlay-support.patch
+	mp01-0038-arm64-dts-mediatek-mp01-Map-the-keys-under-the-panel.patch
+	mp01-0039-pinctrl-aw9523-Leave-the-interrupt-trigger-to-the-co.patch
+	mp01-0040-pinctrl-aw9523-Set-the-mode-of-port-1-pins-in-port-1.patch
+	mp01-0041-dt-bindings-pinctrl-awinic-aw9523-Describe-LEDs-on-t.patch
+	mp01-0042-pinctrl-aw9523-Drive-LEDs-on-the-outputs.patch
+	mp01-0043-arm64-dts-mediatek-mp01-Light-the-keyboard.patch
+"
+_release=7.0.0-mp01
+pkgdesc="Minimal Phone MP01 kernel"
+url="https://gitlab.nura.eco/ellyq/mtk_g99-mainline"
+arch="aarch64"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps"
+makedepends="
+	bison
+	clang
+	dtc
+	findutils
+	flex
+	kmod
+	lld
+	llvm
+	openssl-dev
+	patch
+	perl
+	python3
+	zstd
+"
+subpackages="mp01-kernel-modules:_modules"
+install="mp01-kernel-modules.post-install mp01-kernel-modules.post-upgrade"
+source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-mainline/-/archive/$_commit/mtk_g99-mainline-$_commit.tar.gz
+	android_kernel_ikko_mindone-$_mindone.tar.gz::https://github.com/iasnezhkov/android_kernel_ikko_mindone/archive/$_mindone.tar.gz
+	android_kernel_gigaset_mt6789-extras-$_gigaset.tar.gz::https://github.com/Gigaset-dev/android_kernel_gigaset_mt6789-extras/archive/$_gigaset.tar.gz
+	$_q25/config-zinwa-q25.aarch64
+	config-minimal-mp01.fragment
+	mp01-connsys.dtso
+	mp01-audio.dtso
+	mp01-modem.dtso
+	$_board
+"
+for _f in $_mt6789; do
+	source="$source $_q25/$_f"
+done
+for _f in $_afe; do
+	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
+done
+builddir="$srcdir/mtk_g99-mainline-$_commit"
+_dtb=mediatek/mt6789-minimal-mp01.dtb
+
+unpack() {
+	tar -C "$srcdir" -xzf "$SRCDEST/mtk_g99-mainline-$_commit.tar.gz"
+	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_ikko_mindone-$_mindone.tar.gz" \
+		"android_kernel_ikko_mindone-$_mindone/mindone/modules"
+	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_gigaset_mt6789-extras-$_gigaset.tar.gz" \
+		"android_kernel_gigaset_mt6789-extras-$_gigaset/connectivity/fmradio"
+}
+
+prepare() {
+	cd "$builddir"
+	local p
+	# Without their hunks to the Q25's board DT, which only its package builds.
+	for p in $_mt6789; do
+		msg "$p"
+		awk '/^diff /{skip = index($0, "mt8781-zinwa-q25.dts") > 0} !skip' \
+			"$srcdir/$p" | patch -p1 -N --no-backup-if-mismatch
+	done
+	for p in $_board; do
+		msg "$p"
+		patch -p1 -N --no-backup-if-mismatch -i "$srcdir/$p"
+	done
+	cp "$srcdir/config-zinwa-q25.aarch64" .config
+	ARCH=arm64 scripts/kconfig/merge_config.sh -m .config \
+		"$srcdir/config-minimal-mp01.fragment"
+	make ARCH=arm64 LLVM=1 olddefconfig
+	local afe="$srcdir/mt6789-sound/sound/soc/mediatek/mt6789" f
+	mkdir -p "$afe"
+	for f in $_afe; do
+		cp "$srcdir/$f" "$afe/"
+	done
+}
+
+build() {
+	unset LDFLAGS
+	export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@$SOURCE_DATE_EPOCH")"
+	make ARCH=arm64 LLVM=1 Image vmlinuz.efi modules $_dtb
+	[ "$(cat include/config/kernel.release)" = "$_release" ]
+	_vendor_dtb
+	BOARD=mp01 MT6789_SOUND="$srcdir/mt6789-sound" JOBS="${JOBS:-2}" \
+		FMRADIO="$srcdir/android_kernel_gigaset_mt6789-extras-$_gigaset/connectivity/fmradio" \
+		sh "$startdir/$_q25/modules/build.sh" "$builddir" "$builddir" \
+		"$srcdir/android_kernel_ikko_mindone-$_mindone" "$srcdir/mp01-modules"
+}
+
+# The board DTB with the vendor-driver nodes merged in, for images that
+# ship mp01-kernel-modules; the modem overlay is built but not merged.
+_vendor_dtb() {
+	local o="$srcdir/overlays" d
+	mkdir -p "$o"
+	for d in mp01-connsys mp01-audio mp01-modem; do
+		cpp -nostdinc -undef -x assembler-with-cpp -P -I include \
+			"$srcdir/$d.dtso" > "$o/$d.dts"
+		scripts/dtc/dtc -q -@ -I dts -O dtb -o "$o/$d.dtbo" "$o/$d.dts"
+	done
+	fdtoverlay -i arch/arm64/boot/dts/$_dtb -o "$o/mt6789-minimal-mp01-vendor.dtb" \
+		"$o/mp01-connsys.dtbo" "$o/mp01-audio.dtbo"
+}
+
+package() {
+	make ARCH=arm64 LLVM=1 INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
+		modules_install
+	rm -f "$pkgdir"/usr/lib/modules/$_release/build
+	install -Dm644 arch/arm64/boot/vmlinuz.efi "$pkgdir"/boot/linux.efi
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/boot/vmlinuz
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/usr/lib/modules/$_release/vmlinuz
+	install -Dm644 arch/arm64/boot/dts/$_dtb "$pkgdir"/boot/dtbs/$_dtb
+	install -Dm644 "$srcdir"/overlays/mt6789-minimal-mp01-vendor.dtb \
+		"$pkgdir"/boot/dtbs/mediatek/mt6789-minimal-mp01-vendor.dtb
+	install -Dm644 include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/minimal-mp01/kernel.release
+}
+
+# Out-of-tree modules by directory under extra/; every built module is listed.
+_connsys="connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
+	q25-btmtk-stp mtk-connsys-gnss fmradio_drv_mt6631_6635"
+_audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe
+	q25-mt6366-card q25-mt6358-accdet"
+_modem="ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif"
+
+_modules() {
+	pkgdesc="Minimal Phone MP01 out-of-tree drivers for linux-minimal-mp01"
+	depends="kmod $pkgname=$pkgver-r$pkgrel"
+	local out="$srcdir/mp01-modules" extra="$subpkgdir/usr/lib/modules/$_release/extra"
+	local d m n=0
+	for d in connsys audio modem; do
+		local list
+		eval "list=\$_$d"
+		for m in $list; do
+			install -Dm644 "$out/modules/$m.ko" "$extra/mp01-$d/$m.ko"
+			n=$((n + 1))
+		done
+	done
+	[ "$n" = "$(ls "$out"/modules/*.ko | wc -l)" ]
+	install -Dm644 "$srcdir"/overlays/mp01-modem.dtbo \
+		"$subpkgdir"/usr/lib/firmware/mp01-modem.dtbo
+}
+
+sha512sums="
+9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
+36633b752a148bf5c6b4b7f255f6d0ef134d2a17029e1e74827a3387c3ce0ae58b363cf00e275ffad4506e43caf4ee6978b536659bdbb9ebab1728c65cd274f8  android_kernel_ikko_mindone-9cd73c15f312cfd1e40a22d871de65a2fb2c5791.tar.gz
+9b17c10f1183073a818d5bb211751c2535f582865f4d9150ed0c417e84b9494c7a944c57dc67bf77da176898c653bc36d709f138cdd5ae36c64a1867f16f17d3  android_kernel_gigaset_mt6789-extras-6a574a88769691ee4d1da23c80226cf5e237f607.tar.gz
+1660d66c18f7324ebd8a3f342418ea41bf74c97dbb91a65c35150bdf0cc4626302dc99469c128d835e1a2cf3ae2d4f8efe4e89ded9f0d02cd2c69fbd88b6fee6  config-zinwa-q25.aarch64
+c9f2ba720159ea3a55c22d121412a6bec8cc6cbe09ad94126a29ef4c1557d95bc5206ea130d14da98efb302d8fc298c5e0189632c420747a38e8d4f01dcb5186  config-minimal-mp01.fragment
+465f72031dc240ac3a344b8de3a768feb7c83626843e247695232d1db3cdbc306f85af300e61d7a5c5a67ad8ce8db21ce25997ccfcd4d64cada02b915e453ddc  mp01-connsys.dtso
+166d33cfc860799af8f85ac8ec38c0caddd51ec2d8dc5eb348d8a0f92e3d35e53c5f5bacd8510367b33af5f36aa0396e1b496b700b2e43923d6edb5dbc90232d  mp01-audio.dtso
+45618cff8b7d921e557d1079567d530586661a35a5e82d181ba5855b3d3f90c29ab91849be8ba1bf5b7659abfdc4465d0aff212f0ad0dc2a6e863c0ab02b087d  mp01-modem.dtso
+02de4a996ea6a00bda3d0dc4c1fb85d2b2f1add63e6cc0b4a0226baacf9d1ebe4b796ce8976a8544dd5f50d1a439870771e668909fd8f239921f2351701c9f6e  mp01-0001-dt-bindings-vendor-prefixes-Add-The-Minimal-Company.patch
+fb6a687d90bc6b861bcc35569e651119f839bf43014ffc2b4a2d0b448dadc9658d2d97443c09b145d1977ac989945314a0f005e4c5a05f0f5e5c6457f5880382  mp01-0002-dt-bindings-arm-mediatek-Add-the-Minimal-Phone-MP01.patch
+0a1a02d5ac3ea8ecda8bbd409e9932ba69dbf91189a21b9d61cc0019fdc8ddfa2174468bb21f5d4e190a8ee31cd08c07c767aa9d960d3d0dbb6d0fee22722ed4  mp01-0003-arm64-dts-mediatek-mt6789-Fix-the-dither-unit-address.patch
+14a6295517530beb3f9058f4f29f3b3cf1ee89b5d0322b4e541455ed4ba79453cb50da5494792acb4c212a7907cf821334153eaa91677bcc89700a8deb747245  mp01-0004-dt-bindings-display-mediatek-Add-the-MT6789-display-p.patch
+90417fdd34d8fac6ca69039797dc52f88a292c8ad25203ae52aba2db838d0d94f6910c6aabf0c9c07fdc152f598f1f57341ae84b19aa8b0323561a902f94d697  mp01-0005-dt-bindings-soc-mediatek-mutex-Add-MT6789.patch
+cb6a2f58167d18e6f8538b85ba91191a7cd03b20a93ced7c324124f0c375dc341199dc17509b2632067c56f99581e9d772753eaa5d9e51239a184ca49103b7e2  mp01-0006-arm64-dts-mediatek-mt6789-Add-the-display-processors.patch
+dbcea4f4cdd51a5cf374aaaf7db2134b4fbb9ee3d11450e5c6aa0dea40ada758269eceb506f6ee93aff6892754fe13685d2284c01871d7e723b6350d4bd82039  mp01-0007-arm64-dts-mediatek-mt6789-Run-the-I2C-controllers-fr.patch
+4dc9480fcf62bd43b5f1471cf8c228e5814e0e0dab9ffa1dfaea7b01cc88ffce914ccd8540f0287b167b67ad8d91d555c2ca5520db69af9671bddb2d43ce6ce9  mp01-0008-Input-matrix_keypad-Switch-the-row-interrupts-outsid.patch
+b46e04d589b9458b3b633081a6aa88c3c7a34aa78d13fcde2e200d14e1c7d4c795e330330e51f2a2b9750988b163f01d9b3864260e9bdf9a29ad400ca5f3651f  mp01-0009-dt-bindings-display-mediatek-dsi-Describe-the-data-la.patch
+b621b76db989aa9dcfb76927701ec689957e59e86852d92f6763ecb89cdb573600dfb0141281bd478d59e347d404d9cacfc0e6c9ca32424ba6af89adac636183  mp01-0010-phy-Add-the-data-lane-order-to-the-MIPI-D-PHY-config.patch
+bc4796c5ced115e0e565d24e70ae22016c90c632597ade2f7f094ddd7e79d26842d163080a82c7be84bd6c04602768ae47a024600ac192275de98dba3971ac21  mp01-0011-phy-mediatek-mipi-dsi-Route-the-data-lanes-in-the-co.patch
+60c47f46fb341d2d22d35d35ea465e63eb87552808bc24a9961b6ffddbe96613e7ce7657a1153da82984ad9b66f2f510667a826e744ae83aab251e6bba96d701  mp01-0012-drm-mediatek-dsi-Take-the-data-lane-order-from-the-e.patch
+22c1a0d0c6a5bad47f5db0d0ab2149604347980f2f5c691b23eae29389ac0ab930a73ba0e2f768a51176024370bece963498962522ce8af72304747224512407  mp01-0013-dt-bindings-display-panel-Add-the-Minimal-Z10-e-pape.patch
+9bb4e737f6409142ed2a398b711d74555f6d5ae755cc3407e828fea324393e2e83a21e62b950ae0081ed0dce3653a0f8ed79c1d461cb01d47d6ac4b26eeb61f3  mp01-0014-drm-panel-Add-the-Minimal-Z10-e-paper-display-driver.patch
+e2fd05c9bea450636a3a6341d580080c3598291b7e13b2114385d8ca8fd21bb537e660e819820ca438cac7afa93dd33bb01c3043d3fc33e132b210b41ad47e33  mp01-0015-arm64-dts-mediatek-Add-the-Minimal-Phone-MP01.patch
+9dbe360a7bca64dc0281c37460e90256cc17ffd5a2d36b9674ea0b713f119a3c1ea72d53b9896d45734a6cbe301c0e1b956d16e59c831ff64bc67b15885f993e  mp01-0016-drm-mediatek-dsi-Meet-the-D-PHY-clock-lane-minimums.patch
+8367bfa53971b60b1c3a296eff48dce5152f632e30d229f810d95088864818741d3384648043f30e5bdd74128f9811dba7b44ad7458ab4fda1b5fbbef82a9269  mp01-0017-arm64-dts-mediatek-mp01-Keep-the-bootloader-s-display-alive.patch
+8bc991e08f0aba3a51e0966ad3e0258d42467e75fef7fb76dc41b2a788ba17d3541349c646622ed311a98e455408d574e35209e0033b7484568313d5e0dfd451  mp01-0018-drm-mediatek-Unbind-the-display-stub-driver-last.patch
+61aafe10187ce5dc83dce8b9d456e5715a9bbcb8c161209557694db9d64855134a794239c5406ff3d9bd4195533d226e1a6ceb79c6115a937ac3aeaccf5d1b1c  mp01-0019-dt-bindings-power-supply-Add-the-MediaTek-MT6375-cha.patch
+c498516d719328c30b13d02aee03fec7493000fda30469131e04c604c3496660b3dab3fd7772ba12f1e6852069a794ea35f3d8b4b72ac7e6d8b49931c4eb1ebe  mp01-0020-dt-bindings-mfd-Add-the-MediaTek-MT6375-SubPMIC.patch
+6ea26e179bb7f81176f8e6e628857bb635cf0db4ca4227e714c57452b9bf5d901bee7e15187b501fcdc7a72d3eedb6ae441d46a6851d6ff3494f4d983032655e  mp01-0021-mfd-Add-the-MediaTek-MT6375-SubPMIC-core.patch
+fdc226b3030640650d5d523a7e978cd550ffb83f7f7165e77fa30b21fe696b66db2cd874f0fded00248ed26f23deec9d243b6d0778486edfd54908026df3d300  mp01-0022-power-supply-Add-the-MediaTek-MT6375-charger-driver.patch
+543750c817998dd16e7cc28806d19b1f4225c295c572c5c7a1da8e2885b799590e4f5722b78f2485da4513450344e8f5acdc25aeca5a83e99de4dec4b34048b7  mp01-0023-arm64-dts-mediatek-mt6789-minimal-mp01-Charge-from-t.patch
+2698d8e371966349f6151936c723ef1fdefa8faa2672a01f82b3b24f6a850439d493909fc464bb89b54f62abefe981f64228914549f2ff0878cfa2a1ee41a486  mp01-0024-dt-bindings-display-mediatek-dsi-Add-mediatek-vendor-l.patch
+bbea5685a55bb90607ff960bcd76d6bd4957520853189fe31887a3d43ad62830623dc7110d9826f63aaee9b928225b782d535089b7b1f62687916466205bbef1  mp01-0025-drm-mediatek-dsi-Program-the-vendor-link-timing-on-req.patch
+2b14b15839b7d3881cea9a199456d07873b9a502a8c58248c4b0d9b40563eab1c97cfae206bd0c03340a4453699a77dad4110034a537b4bd2c8e553d29939a5d  mp01-0026-arm64-dts-mediatek-mp01-Use-the-vendor-DSI-link-timing.patch
+9697991d2fbaac9a438989a07d570a356dfba33f6966fa255a5b63b758f7bf95c28a8fa9ff710ce6178549279a942b07f165f65e5e534916af115a76bd356470  mp01-0027-arm64-dts-mediatek-mp01-Run-the-e-paper-I2C-at-400-kHz.patch
+326c33c0be65be14e90e3c34d28424dfe13280f06d2818caff3ae9e9694721987647746aeac05bb9189ecf60f9f7d43882df428bf5fd891bf3171fac4e593ea5  mp01-0028-pwm-mtk-disp-Drive-the-MT6789-PWM-as-the-MT8183-s.patch
+b58189fc8f1b8ea144d9b5c4aaf3c21901d4a20f00367cc5fa989102d45f898813d377353cfcb591e816088a1e63db984797d95f7482bf15a21c6542feda514a  mp01-0029-dt-bindings-leds-backlight-pwm-backlight-Add-max-dut.patch
+684268a9bbaecaff75bd503210dd2f0164a9549e5a8d0a263ce9aaaff883e27ad7f9588d029bd3c20bd7720f5e25fd87c4e572b0c1d3b8caf2b27a299f640a4e  mp01-0030-dt-bindings-pwm-mediatek-mt2712-pwm-Add-MT6789.patch
+607ad67496d4ca8c0fc5085adca2defcc8d15fab8e70c948d8732f0a2d20a25887cba4f1a9f1190279651e48e9f74ba7901e9dca2c93b319cbea7f4f0fa93e6f  mp01-0031-pwm-mediatek-Add-MT6789-support.patch
+6ee8d5653fd62a507e25ba1ff32bd9362a8bcebbea3c68d68f65bca98f00ed059a6f06a9d66c8fc156a26eb399df998dc6db4266da4c17225301685490f41a92  mp01-0032-arm64-dts-mediatek-mp01-Add-the-warm-front-light.patch
+201c3f9d39bffd07294524ece2f75d529bb42b7d49610afae186d8514c5eaed7181be342a6955060c8ab821cbc54d1a07892002d5fb10ea45d1689746cf25c01  mp01-0033-ASoC-dt-bindings-awinic-aw87390-Add-the-Minimal-Phon.patch
+4b03485c78380165f615b76142a7ce14c677d8b62eea379b5fe74b06d662a8a699c09ea0fa75200567cb5ce60b8e00cb803275d1ada92eb0044d43e2d10467cf  mp01-0034-ASoC-codecs-aw87390-Add-the-Minimal-Phone-MP01-ampli.patch
+1850ac9220ab743e025da5cb892042da2c8c9c4f46acf4ddbccb2399f523587e69ebc3fac8a138a512274a59e0bf2fbce4cd1d36ad6f3c3753b907204d05f6bd  mp01-0035-backlight-pwm_bl-Cap-the-duty-cycle-on-request.patch
+f7883386e345a001a2f62a962926f1afc7167472d6b675c798ff5323f35bb11ca371e02c92bdef3fa04885927375b209e84d46b116ab3adabc51467e54f8b728  mp01-0036-arm64-dts-mediatek-mp01-Cap-the-white-front-light.patch
+1451c89f8cbc20e1fe3ebecfab744f9d111a7fd0a1dc88977f97d8fb0ebf589587178a6afab5a77a89f49fae9b519ab6dcb16f2d42136b22d1453c3e11dd7660  mp01-0037-Input-edt-ft5x06-Add-touch-overlay-support.patch
+c9ff4a268295b66691e67b88f27d9c98ce2d5d8f43b30f2e920df59573190a578b276c2569079a0b91be17b274d9d20bbd0f9b746c6280b083aa80426970b371  mp01-0038-arm64-dts-mediatek-mp01-Map-the-keys-under-the-panel.patch
+7857264a492806c3d3bfb1f1d4c752f639f60fd17b0906ac2dc37d30691b8e51f02bf7dbb4c45d2d306df749aa7f8f5d50b8752895ad4104379a37f376151543  mp01-0039-pinctrl-aw9523-Leave-the-interrupt-trigger-to-the-co.patch
+ee4d33d99598764c4b44e65e927a2d2bc795b71a65d4946dbd93993e3e8ea665b66f23219d259dc3b10bdc91e4cf7fc7446a8b02ef26bb8ff96760c5accf38d7  mp01-0040-pinctrl-aw9523-Set-the-mode-of-port-1-pins-in-port-1.patch
+c0404b159325d5b8769ce96afe0c54453fbee97eea933a9e618785483d50f9947727ad3aad69b9b0f574d0aeb6553ed1e3d90d7123f52d31164acd8fa229a0a5  mp01-0041-dt-bindings-pinctrl-awinic-aw9523-Describe-LEDs-on-t.patch
+7fb1d9906f041b562c84c6a678c828965888eba9f6065d869a6b547890e4dc105c67dc582aa9a571f62e51d7074deca4e07cfe15f414809a7076dedf4a2798e8  mp01-0042-pinctrl-aw9523-Drive-LEDs-on-the-outputs.patch
+82f8ee6f6dd8ec1a00677bc2658ca104374212b0e40b503efddf3d103baf5603f4cb868817a38402ef7d3cbb048769c4e48e467248a64ff8107af049b2307928  mp01-0043-arm64-dts-mediatek-mp01-Light-the-keyboard.patch
+718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
+af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
+9f0586dc6ec86a5893e8fcf64e91255a9f64375d33e96d57bc199b15807b38610b2c1b5fd03ade40f8bc787a0a33bc717d0e9d97f167526d471cf000166c85d5  0004-iio-adc-mt6359-auxadc-Include-the-ADC-resolution-in-.patch
+c46f161e14ae3e7632768fd4cb7c581080b9a62de18c4dac9254f2e7b9089150e6f68a7e0a4c1797603291180e89211e0122700d37fefa894c64a0daedf8eab9  0009-mfd-mt6358-Fix-AUD-and-MISC-top-interrupt-status-bit.patch
+df3d58b0c34a2381ca05818b91bbad8a34d1154f989ed28a458923a80a110c95091d10413007a98cef7c1286b4bc3779138a0ac042da65eca0a615521455ae49  0026-pinctrl-mediatek-mt6789-Drop-the-unused-EH-driving-t.patch
+67b85898c333744b875f5ba0bb31563d951e4c176c8f908ba7d8a96555b021a30b18929ab14c37660e831ba90bab7d1a3353243ebf2730e709a19e667ff49f35  0027-dt-bindings-gnss-add-MediaTek-MT6789-CONNSYS-GNSS.patch
+8ae9f5846691b36194087b04c11fe35cc42f610c1aad1da1eb82c4b97d7d1cf72d2244b09b59b5ccbd09c13700c871e49426cee6a66bbae8eac01a2a064aa682  0032-clk-mediatek-mt6789-Parent-the-I2C-wrapper-gates-to-.patch
+a64957c3c048ea0a308d7704843212506bc99bb26d7be1fd05e7ca0c06ba250bee9dc9f0d76b48fcd8d3672bce9b95923d19ad0cfadf0dd4f7517d0761bdf63f  0033-dt-bindings-power-mediatek-Add-MT6789-power-controll.patch
+b1bb91bee8874aac17450ecd681c6e7065bece324beda81c187f99b020c6bc76e6c873b1fbbd2f162db8e712cc3fef3feec17a146d5ace809f801609eef6dd3f  0034-pmdomain-mediatek-Add-MT6789-power-domains.patch
+e79a6181fe1b5c5549bc9bce62df1a0bc19521bedb1f3166568844cec304eb8e9f7eb0e480fa704a1017c7f4535b69113c3b4f98b6be3e8b22c0fca7d9edde96  0035-dt-bindings-watchdog-mediatek-mtk-wdt-Add-MT6789.patch
+c542777721b20fb01d8f407e88dfe0e6590beadb2e0b0cdec45dc983b8208e550528fe8f19601464fa5944c7914fac650fa2940a747c5cd93e067b054186c777  0036-watchdog-mtk_wdt-Add-MT6789-TOPRGU-reset-support.patch
+2c2199950a2b06c9d4c256a740df967ead7c9025a82e061d93df036c200cae0d998f42b0a842fbbec3ff6a055423a3f6e123b209b6b8c910bd491451e4a1b25d  0037-arm64-dts-mediatek-mt6789-Make-the-TOPRGU-a-reset-co.patch
+25b30e94af219e836f9161dc0809dc3c11fd72195ca2dbfb4642fa111970cdf0e072872e478b64728a70f361d2c7079a28d65594414656e466e9c7fce4f25b40  0044-soc-mediatek-mtk-mutex-Defer-until-the-mutex-device-.patch
+2215cbb9faed0cbda9338d12e4fe983d738337faa6b9d839da64fbfe5cc18c90581156a911c4da771fa5ecb6af2b02c1a0389b8ca62b8903ddde908b4419e265  0045-clk-mediatek-mt6789-Park-the-GPU-mux-during-MFGPLL-r.patch
+ab5913bdfebb0a5124ccb4112eadf729de0e619dc9c160bacee6a26db42e2da266ccd2728b06203a5f700fed9ae61279a6919e3e66446cb8bb9ff45b7d476a1f  0046-drm-mediatek-mtk_dsi-Stop-the-engine-the-bootloader-.patch
+a8e4674c2f29d3cd8e1b5d2c508480e9e1282f479345f656aa5fd5a5d4eb500bcf7f7f2a6a6e564270e8c23c3444a325873b7456ebe505852a227049308205d6  0047-drm-mediatek-dsi-Register-DSI-host-after-preparing-e.patch
+a8fa8215b51938cea3445420b142ff4612d3426376d9c7cc4cff0dab0e9a3294babdfaaed5612a33f7ad545eaa6dc1c2e717278c86d56e95d2bb12dfb6fcc491  0048-drm-mediatek-mtk_dsi-Run-the-link-at-the-peripheral-.patch
+6fd50356462ceccb1672c64871256e1e014bdf953b18c50095d55d04f0e2cd3a16060f509e602399d5551c7ded97791c538e9cc74c15f4bcebb8f496fc10fc52  0060-ASoC-dt-bindings-awinic-aw87390-Add-Orient-Chip-OCA7.patch
+017ce5ea8d1746d09b1ae902892f1670aab940e656210e7c5e05979e863e8f2baaeb322c38cdec9a07881e7a07165039b75e7383c1a966b6992fe26f995d6ff9  0061-ASoC-codecs-aw87390-Add-OCA72390-support-for-the-Zin.patch
+04b2ae3b39e10c732354d56016246bb0a180b6449ace9b9d33c669828d90858ffdfe3397b6601c13528ee0e0acc1079149a5877cc249baeba6518c5ab2e7bb9b  0063-power-supply-core-Fix-supplied_from-for-nodes-with-s.patch
+19f87b6a20d145fd94d5e6f034bd3ea72dc8bb4d4d4ea746b81c2f91e0326fab8aaa67e2c4b1cb7724cc40606b228f414ae715a6db498b5dc6ca2da30dd30c41  0064-dt-bindings-power-supply-Add-MediaTek-MT6358-fuel-ga.patch
+8274fabebffd523e5504c35c2e5c4ae0fd4fba229cd38dd87b642d0ff4fee8f18ac7468f4c272e0b3583a000eb7989dd4f6a3ef032c1b1273f9f5258f0f50bc0  0065-dt-bindings-mfd-mediatek-mt6397-Add-the-MT6358-fuel-.patch
+2d5295c80e374e3dc705e7eba38de77413ea17080bdca408f4552c2f13bef40a0a516b19e2075d1189841ab94e0b11299fc9aaaf7cff81ac5312052424626396  0066-mfd-mt6397-Add-the-MT6358-fuel-gauge.patch
+6b2e216024f60d44a6f41879e189b20b742a452a752ce7725ade7416e588b0003647de61ef4cf84fd5e418d03a86beea5b2727b3c57258aaca991c4c5c43f6a7  0067-power-supply-Add-MediaTek-MT6358-fuel-gauge-driver.patch
+72752b03d98ca01ca35c3eb4fd40517eed760c909aa73baaf41b0d0879640c4bd4b6124ccdc2ff2831a1746e478cff7eb16d34c6536ed781ac0efc4864274661  0069-dt-bindings-mfd-mediatek-mt6397-Describe-the-MT6358-.patch
+d8509e9b5921aeac0906495a4616c302f4d46fcae350fe342e7c16f7b6dbdd22cc434dc602abf04c5ad1e43547a07da79b17e9286353551798d11b6fc7989112  0070-mfd-mt6397-Add-the-MT6358-clock-buffers.patch
+f7f2b01eb3226d240c4732ae8a30361719e2eb808086bd0ddfa19e4c3fb7e3953eebecdef3cc41193117d8cb8a2a89e3af84c15cfc8540fc77ae948e8527acde  0071-clk-Add-MediaTek-MT6358-clock-buffer-driver.patch
+979fd2d158d3cbe1c5f3a7d24bb4d3f98e82180891b6ed5214176638eab583ec6d3912fada4a52d37beb7ad209573bd6e9d20ca90ad9fc15952b27edf69077b8  0076-clk-mediatek-mt6789-Keep-the-SCP-clock-on.patch
+abda8855ffec284501810cbd8026e12adaa20abaeb028d3de47f85111fac50fdf4d2412ec9a1b099e33e83c5873fddfc6e69097d5b2d4fccbe04f7d28810a787  0077-drm-mediatek-Add-the-MT6789-DSI-to-the-DDP-component.patch
+b265234c80a51e26ae9a901a875d12a67af4f43f5e5de592bf5e9a8dc29043f014ed16d8e375b9467007f887172188952dff4bd57ce06f1303dcf1b467d1b538  0078-drm-mediatek-Remove-conflicting-framebuffers.patch
+8beb0b111dab337dfcc05282e2cadc097a7929be58dc16f67c2dccc31261ed08514967042e11756f5009aa01a20aeb9d30cbc4ab23a6b0dd55187d6fa194ea06  0081-dt-bindings-display-mediatek-gamma-Add-MT6789.patch
+991a121fd8ce7e0f9f4de54aa0637198b9ab2ba103d80cc24d2f3836f07377636f6f30c898b9e85e1595667272eaf296e0a8bb30e5b0a55f7f046f6142322ed9  0082-drm-mediatek-gamma-Run-the-MT6789-gamma-in-relay-mod.patch
+8b860342b2dc4a3a1175b01b2cbc34f73b002dcb60f450ee8086e2fc997cfca6ec99c17e7c4e1f69941c23e3ea2474f3b08f9fba28929d9c155300f406fb1c44  0083-drm-mediatek-dsi-Stop-a-link-the-bootloader-left-run.patch
+07ec17c416827d08d844970691156421fe62b01e108973387e51b9e488b9e135cc085734195a7083f33c28e29b6db20f5951fda20dc59e0d3d83ab000b78da3d  0085-dt-bindings-input-mediatek-mt6779-keypad-Add-MT6789.patch
+b26bb1a75708b9041fee919269c49fa500ed8295069e2d0aab9cd8f66103f517c5e15ebef5a5fb02135117a108ba28a3da3f5034e33cfd8890e161547fc5f035  0086-arm64-dts-mediatek-mt6789-Add-the-keypad-controller.patch
+edd702e60f3dd71af43a6c0cc886c538b08857032e89660bea4783e8257fdc208ba2c4e1ec87407b080c9571763c7cbfa210b08cd0e7d623220cd484828f81f2  0097-arm64-dts-mediatek-mt6789-Add-the-CPU-idle-states.patch
+de234330673d2b7f2642bc1b4477db181fd005e3f1660bdde80bd6255a794b92dc4f50b55d03fe3d740be86e69a358414cdf1089bb873ecd64c95762ac4f93b0  0098-clk-mediatek-mt6789-Keep-the-bus-thermal-debug-and-C.patch
+472f264adf4a51f5c5944f06a7ad6027caca30c73d911ca358016a4e260d9e22a326ad49bb801d71c7a485ae9f972c86009185926d9439d8ebba18174076e653  0099-clk-mediatek-mt6789-Keep-the-trace-bus-clock-on.patch
+f736054af18af87662190cda57b219ade70a697983cd452b99849a8b26724bdbae13903538a63c704611ace8d1373245c3eb9209a71a0be134b599762e4d271d  0100-clk-mediatek-mt6789-Parent-the-IMGSYS-gates-to-img1_.patch
+5af3d650ac3ac881926c969ad4382a5cc501c80b2244b63790bb13b3b3014f630449e5d64f01cc98725728926b1d6ad471780de655c57b296bb90f080da64698  0101-dt-bindings-ufs-mediatek-ufs-Add-MT6789.patch
+e82807f0e63dd30aea21fc1ae37744c7908edec9ae61fadcaa59ab35edbd11013cdfe0c2a7c0b2f25513394c66efcc5dae9e385f01051c1d26292a911ce15802  0102-dt-bindings-ufs-mediatek-ufs-Describe-the-resets-and.patch
+e7f3125fc6a7eea1b41a9f88016f531671542c67e4d5fc86a294e5330a188f018e24b5fcae0df7094d2d25c0bed9b8082182c556596d2232d433092222517ee7  0103-dt-bindings-phy-mediatek-ufs-phy-Add-MT6789.patch
+4826004e525a4d1c321af7cf30d3cef1613f2e2d0019e980ba66c2d2ad7cc2397f76b6719b6077e656f2adebada924fd16572a36eb8747a0a69331374fa0b4ab  0104-arm64-dts-mediatek-mt6789-Give-the-UFS-host-its-tick.patch
+9a8d7a06c462fc77aacb3f7c413b7c8711554e253b9c84c5881ed60881b1373a1d0b6f89aea2d61a929f71c28d94cce1daf7a5bfd0077c5e6f68c502a9daff62  0105-arm64-dts-mediatek-mt6789-Add-the-MCUSYS-and-system-.patch
+247f3136e1b76b6586e3615b260109a411cf1b02b10932c63d9fac1c9bb5cdb69f2232d788ca5a40951d4657813d51091157d86c94cd3d66829397909aca1214  0107-soc-mediatek-mtk-mutex-Enable-runtime-PM.patch
+eb13320d2e5e130257f06ed56623956e8aa21bd72604d99ea0d3042e930c454209925de8a622079652fc97a040f443b116ef4de5b4beb42286c794adc48a6151  0108-drm-mediatek-Let-the-display-power-domain-go-off-wit.patch
+e85a31d1572a57fa994830699b817b8709d82fa26969d9fb5466353b321afbe06fd9deb52813af8f9a88bb95a6aa7cbf74ccbeb50fea5ff29c59ea0e48515e36  0109-drm-mediatek-Link-the-DRM-device-to-its-components-S.patch
+973776f6293412c4d282f0aec30615040924ff7e0316b24a199c885ce209795b371e0b8609eb1f185c0064c339018b98fda3364da99b63c9cb6e41ef42fb161c  0110-arm64-dts-mediatek-Describe-the-Zinwa-Q25-display-s-.patch
+d6570db0481bb04a0518218c5b7a18a79fcb883929f357e93071afad9c8fc127f2fd676eedf85ecd84789209cbe9188f0391d8055d2c1b157c785e368b284931  0111-memory-mtk-smi-Restore-the-MT6789-display-SMI-as-the.patch
+246550bb7b5ef3cfe37c546712af914dcfee74d80de6dded25684ab7c0e0cce283faf6588225a6ecff969ff1f9b0b0c5169db59060b7613fc9749efc5001887a  0112-memory-mtk-smi-Keep-the-MT6789-display-ports-untrans.patch
+e3cbd9107c06add4ba4d6a95a00f5cfad11f38e0187080ac730fb951436102dacde080487511778731df408ccf044b15f9ed1907e00c7901708a32facdfbeb13  0113-usb-musb-mediatek-Suspend-a-peripheral-port-without-.patch
+4a81d12e27a822ac863c04d3ab4a3e2a3f9fa8a954c73cd03dea56ee0b681454d2e5cf03d0bbb432202a67c7655cb0fc134eeada77c6684b0c4bf1d7669eba31  0115-drm-mediatek-Bind-the-display-components-without-a-d.patch
+328c1f317d0235802eb64794589e7909f70d1d6831eb6c5abf6e9958d207656ef6f96acb6db2bce2646cb4a3028475d37f001c2729a59b3dc007eda023f9c10e  0117-spi-mt65xx-Unprepare-the-clock-between-transfers-on-.patch
+6e872663efd87c0047745bd09be78096d7ae760571466e200c37800a3c192464b8c01f35cfa25c35f46e283ac007d9e9762bbef8a094d9c21920b2152b6adf0c  0118-arm64-dts-mediatek-mt6789-Bring-up-the-display-s-reg.patch
+a619e92848a54652eabe741dba2e32fadaa359168bf3688ccfa6c6981bcb6deac3447fe0a8827e75da663f37b4efe6890b284f49716af08837104d59e312ed32  0120-sched-psi-Do-not-wake-idle-CPUs-to-update-the-averag.patch
+96714b388754bde02c492f3a3a6ab0b981ed9f278717f8b4b7daf62fd44bd6b919cd9528dbd7dc072c1490bd8d9753342eaddca2899aab0b212ce02673ff29a4  0122-drm-mediatek-Keep-the-system-idle-states-off-while-a.patch
+1179f35dda0efda0bbc37a532d634414711484028c3713f64740c9fa0a7908ac8d872c5fae733195237edc4f6366d001b6b1b9a6facdae86ba303cd3ba282b86  0123-mfd-mt6397-Power-off-MT6358-through-the-PMIC.patch
+2c5cc00d7614c803ad21767b0795e89365d529e513a2073c0f300f393a873880aa64983f816bd8aeab8fef1fa3d9497ac4a42c439ab4dd67fca88633e26f3df2  0125-mfd-mt6397-Clear-the-MT6358-start-latches-the-bootlo.patch
+f394ab16e759c83ea4449ea897b88cc1ecf451f0d83347eb37d50e5a92dd5fcf5a11722da1f35ec593bfba7cbbd7bf4f715530cb0617823bb98edd9fd4ab1c5b  0126-usb-musb-gadget-Don-t-drop-an-OUT-packet-that-arrives.patch
+0d7e1db7b6f9080bae6688eff2f56b7d065402525e3fde47d39cc0db1b23d8e7b6dc1bfe840328f68654aa2390e10b2f71b78fc01bde207c5a5827bd90d277b2  0128-power-supply-mt6358-gauge-Seed-again-once-the-batter.patch
+e135c9b202af8728506a53af79f0033c553027f99108f93edee09581c12994d7f1e16b6fdd379332dcd64d166696d2e4ca4f8ed5a575c2d2d294b28939f8e2f9  0129-power-supply-mt6358-gauge-Follow-the-voltage-down-ne.patch
+08c2c4ca80b44ea834ea90bbcc3cc23baee7d10f9d40e81dbdae37274c993b23ad902c877acc183d5259810f11647cb29ab9b71ecefa05aedc5bcd19236fad3f  0135-i2c-mt65xx-Hold-a-CPU-latency-request-during-transfe.patch
+67ec788e00b900c9723ae5ced6b8e900d14b8d07b15b6b44e01615d1a530b1c1a65d10be5752edd19e12807bb9c3e51056309e8eb2efc03829e62c87b956895d  0137-xfrm-use-compat-translator-only-for-u64-alignment-mismatch.patch
+7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
+4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
+d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
+bcaaaee61f9c6b3cbf4771715975cd8c90f01009637624b36c18569e4ae6c04056e9cdd06127643f0c9ddeaa3d0ee56b7eba643a044fa436d0cfbc916a9b356c  mt6789-afe-control.c
+fc6d70cdc7a53076e56fc7d04ae98009687f6b3023f1eed87f517e0aad6246fee0f83c572899ccf73b2aa85a5d6554bd67f8c16ede412badf5f77e731a0411b5  mt6789-afe-gpio.c
+f402410a5846bf3fd86ba0fbe78229abeb091d933ec670a62f3819a241532efd467d616d192ef2e1e60e05886cf81b1b84e653439c235c10a37f202fbaa62876  mt6789-afe-gpio.h
+39bb1d247dd66ebe3842a4ab4a0bfd27a96c9e2a99fd7272c388d5463bdbc92643cb21d6448bf8f4731b351c923c19ef3c83433bf09835bfc0bdb9051af8912a  mt6789-afe-pcm.c
+f36d900da43bd03dd40b0ba77cd953227aa91066cb4370671ffd097b253a0fdd64dc4f6ff5529625f67fd553d7916161bfd46baf094eabbc4f82ce7cf102ee0a  mt6789-dai-adda.c
+21310c5d736230578e43009d359ff048c35c2614e252df8a76275e1559e3597cd928f9fb5292833a60de2a289cbc83de6a67a34c98f8be87436413ebbf8b6f3f  mt6789-dai-hostless.c
+6c1e45aa621ca1ca80bdcdbc7364498500f5d56d7658f981f68b1afa1809a4e1a8ba36a3a1b121990bb65a86f34510b3b0dee6ed071f58766cf282cb0a922c58  mt6789-dai-hw-gain.c
+83b682c2ea4d9781086dc8935f0d346a8a97841fcce11e6b18eb59a8b8d10151fa7489d1fb3309324a6150410fef44291bda0f073ee1c114ba5d189747bfad05  mt6789-dai-i2s.c
+c3fb1d607374dd688886a4f65721f30dc0f094a89e0c53368cc997d9e7dac7a9ae24029c00e447f84cd3b6e052c1665956ab9921952c062f0913a6e10d54d27f  mt6789-dai-pcm.c
+42398f0e08e745105c78b77e50c61b26f8401703e9e63c828df82c811dc999636d8f345c260c548b053cbad5647ab02cce5be9061b6b3440dccfefb78316303f  mt6789-dai-src.c
+25c44e1f1512f5a00c61ea76030478860b5dba5861e4ddc815bb956558fca2906552bbd6d94b3e9d9bbf830e1bbf632040f214eecd6d92ad0a1c6f1541eb4236  mt6789-interconnection.h
+5e216cb71372137c2362d71f20c62826d5d650876005501ddc4acdb836a2cc674124584bd6773a78918e24405fcbbb1060847c13788a12e97e76d0d244c0e940  mt6789-misc-control.c
+d9bad2600e2476271cc81c6760218213493071c80a9c75900b99017a5bea0d4458b39f1555742d47868e76a0f4826907664039bc53fc9c457f3b1482932563cf  mt6789-mt6366.c
+870a4627bfc6ecdae2bd34c124d97561f3010ccc9867a4c2fef896dffdd5f2d9c4041e6f0b088e9191b15bea14e823593a0d83983003cdf523b76a727cde057f  mt6789-reg.h
+"

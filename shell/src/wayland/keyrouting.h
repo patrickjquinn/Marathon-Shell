@@ -26,6 +26,18 @@ namespace KeyRouting {
     inline constexpr quint32 EnterScanCode  = 28 + 8;
     inline constexpr quint32 ReturnKeysym   = 0xff0d;
 
+    // A key a touchscreen reports beside its touch (the MP01's under the
+    // panel), as the Qt key libinput would give; -1 for buttons (BTN_*).
+    inline int touchscreenKey(quint16 code) {
+        if (code == 158)
+            return Qt::Key_Back;
+        if (code == 172)
+            return Qt::Key_HomePage;
+        const bool button =
+            (code >= 0x100 && code < 0x160) || (code >= 0x220 && code < 0x224) || code >= 0x2c0;
+        return button ? -1 : 0;
+    }
+
     // The system action a hardware key triggers before the focused app sees it.
     // Keel apps get Escape: their menus, dialogs and remorse timers use it, and
     // an Escape nothing uses becomes back inside the app. A phone keyboard's
@@ -38,12 +50,14 @@ namespace KeyRouting {
         if (key == Qt::Key_Back)
             return Back;
         // The Q25's keys, as its bbqx0kbd driver sends them (pickup, hangup,
-        // menu) and as its older driver did (appselect for end, homepage for
-        // the menu key).
+        // menu) and as its older driver did (homepage for the menu key).
         if (key == Qt::Key_Call || key == Qt::Key_Send || scanCode == PickupScanCode)
             return Call;
-        if (scanCode == HangupScanCode || scanCode == AppSelectScanCode)
+        if (scanCode == HangupScanCode)
             return Hangup;
+        // Recents, as the MP01's keys under the screen send it.
+        if (scanCode == AppSelectScanCode)
+            return Switcher;
         if (key == Qt::Key_HomePage || scanCode == MenuScanCode)
             return Home;
         if (key == Qt::Key_Hangup)

@@ -23,11 +23,13 @@
 # IMAGE_VERSION, which an over-the-air update needs.
 #
 # Env:
-#   Q25_CONNSYS_FIRMWARE_DIR  the stock CONNSYS firmware, copied into the
-#                             q25-connsys-firmware aport when it is missing
-#                             there
+#   Q25_CONNSYS_FIRMWARE_DIR  another copy of the CONNSYS firmware, used only
+#                             for files missing from the q25-connsys-firmware
+#                             aport (it ships them)
 #   MARATHON_BUILD_DIR        as for scripts/build-image.sh
 #   Q25_NO_USERDATA           skip the userdata (fresh install) image
+#   Q25_NO_SPACE_CHECK        skip the free-space check, whose sums assume
+#                             every part peaks at once (watch the disk instead)
 #   PODMAN                    for the U-Boot build, and the userdata image
 #                             where the host has e2fsprogs 1.47.3 (default podman)
 set -euo pipefail
@@ -64,7 +66,7 @@ check_space() {
     done
     [ -z "$fail" ]
 }
-check_space << SPACE
+[ -n "${Q25_NO_SPACE_CHECK:-}" ] || check_space << SPACE
 ${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output 5
 ${XDG_CACHE_HOME:-$HOME/.cache}/mkosi 8
 $DEST $([ -n "${Q25_NO_USERDATA:-}" ] && echo 5 || echo 11)

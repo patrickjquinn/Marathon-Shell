@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 60 patches. **There is no 0011**: it vendored a loose
+There are 62 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -74,6 +74,8 @@ There are 60 patches. **There is no 0011**: it vendored a loose
 | 0059 | fix(finalize): name the OS Marathon in os-release | `mkosi.finalize` sets `NAME` and `PRETTY_NAME` to Marathon OS: `postmarketos-release` now calls the OS Nura, and Settings showed that as the system name. `ID` stays. |
 | 0060 | feat(carrier): a userdata carrier root from the device manifest | `mkosi-configure.py` and `mkosi.finalize` key 0053's root-only layout, 0053's kept `/etc` and 0055's mkinitfs on `/usr/share/marathon/carrier.conf`, which `build-image.sh` writes into `mkosi.extra` from the manifest's `boot.carrier` with the shared initramfs hook (`packaging/carrier/`), instead of on `zinwa-q25`. The Q25 configures as before; the Minimal Phone MP01 builds the same way. |
 | 0061 | fix(finalize): keep a synthesized entry's DTB where it already is | When 0007 synthesizes a loader entry, its `devicetree` line already names `/dtbs/<deviceinfo_dtb>.dtb`, where the kernel package put it; the UKI step's move of `/boot/<basename>.dtb` then failed the build. The MP01, the first carrier device with a `deviceinfo_dtb`, hit it. |
+| 0062 | fix(build): pass the developer SSH key through an environment file | mkosi splits `--environment` values on spaces, so `MARATHON_DEV_SSH_KEY` reached the image as `ssh-ed25519` alone; `build-image.py` hands the variables it forwards to mkosi in an environment file, read a line at a time, and removes it after mkosi. |
+| 0063 | fix(base): merge /usr/sbin into /usr/bin, as postmarketOS now does | The base `mkosi.postinst` runs pmOS's `merge-usr --bins`: postmarketOS packages (systemd 262.2-r3 among them) ship `/usr/sbin`'s files in `/usr/bin` only, but mkosi makes `/usr/sbin` a directory, so `/sbin/udevd` was missing, mkinitfs made no initramfs, and `/sbin/init` was busybox's. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.
 

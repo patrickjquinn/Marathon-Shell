@@ -218,6 +218,15 @@
         "pattern": "^[^\\u0000-\\u001f]*$"
       }
     },
+    "dbus": {
+      "description": "Session bus services beyond the platform's own that the app talks to, and names it owns besides org.marathonos.<id>. Honoured only for an app the OS installed or signed with a system key.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "talk": { "$ref": "#/$defs/busNames" },
+        "own": { "$ref": "#/$defs/busNames" }
+      }
+    },
     "testedOn": {
       "description": "The window widths and input modes the app's tests run it at.",
       "type": "object",
@@ -293,6 +302,16 @@
     }
   ],
   "$defs": {
+    "busNames": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "maxLength": 255,
+        "pattern": "^[A-Za-z_-][A-Za-z0-9_-]*(\\.[A-Za-z_-][A-Za-z0-9_-]*)+$"
+      }
+    },
     "semver": {
       "type": "string",
       "maxLength": 64,

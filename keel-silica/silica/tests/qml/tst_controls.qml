@@ -146,7 +146,7 @@ Item {
 
         function test_labels() {
             compare(section.horizontalAlignment, Text.AlignRight)
-            verify(Qt.colorEqual(section.color, Theme.highlightColor))
+            verify(Qt.colorEqual(section.color, Theme.secondaryColor))
             compare(detail.label, "Size")
             compare(detail.value, "12 MB")
             compare(separator.height, 2)

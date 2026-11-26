@@ -13,8 +13,12 @@ Item {
     property string error: ""
     property real entryProgress: 0
     property bool passwordMode: false
-    property bool biometricInProgress: false
     property bool authenticating: false
+    // The sensor listens on its own while locked (MarathonShell); this says
+    // so, or why the PIN is needed instead, in the error line while it is free.
+    readonly property string fingerprintHint: !Security.fingerprintAvailable || passwordMode ? "" : Security.fingerprintBlocked === "restart" ? qsTr("Your PIN is needed after a restart") : Security.fingerprintBlocked === "attempts" ? qsTr("Too many fingerprint attempts") : qsTr("Or touch the fingerprint sensor")
+    // What the sensor last asked for, for a moment.
+    property string sensorPrompt: ""
 
     // Compact layout for short/square screens (e.g. HyperPixel 4.0 Square
     // 720×720 on the Hackberry CM5). The DS-canvas (390×844) keypad with
@@ -109,23 +113,6 @@ Item {
         Security.authenticatePassword(password);
     }
 
-    function startBiometric() {
-        if (Security.isLockedOut) {
-            var secs = Security.lockoutSecondsRemaining;
-            error = qsTr("Locked for %1s").arg(secs);
-            HapticManager.heavy();
-            return;
-        }
-        if (!Security.fingerprintAvailable) {
-            error = qsTr("Fingerprint not enrolled");
-            HapticManager.light();
-            return;
-        }
-        biometricInProgress = true;
-        error = qsTr("Place your finger...");
-        Security.authenticateBiometric(0);
-    }
-
     function switchToPasswordMode() {
         passwordMode = true;
         pin = "";
@@ -152,6 +139,7 @@ Item {
         password = "";
         passwordTextInput.text = "";
         error = "";
+        sensorPrompt = "";
         entryProgress = 0;
     }
 
@@ -234,12 +222,16 @@ Item {
             HapticManager.heavy();
             pinScreen.pin = "";
             pinScreen.error = reason;
-            pinScreen.biometricInProgress = false;
             SessionStore.triggerShakeAnimation();
         }
 
         function onBiometricPrompt(message) {
-            Logger.info("PinScreen", "Biometric prompt:", message);
+            pinScreen.sensorPrompt = message;
+            sensorPromptTimer.restart();
+        }
+
+        function onFingerprintMismatch(message) {
+            HapticManager.heavy();
             pinScreen.error = message;
         }
 
@@ -331,7 +323,7 @@ Item {
 
                 Behavior on opacity {
                     NumberAnimation {
-                        duration: 150
+                        duration: MMotion.ms(150)
                         easing.type: Easing.OutCubic
                     }
                 }
@@ -361,7 +353,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             width: pinScreen.width - 2 * Silica.Theme.horizontalPageMargin
             height: Math.ceil(errorMetrics.height * 2)
-            opacity: pinScreen.error !== "" ? 1 : 0
+            opacity: errorText.text !== "" ? 1 : 0
 
             FontMetrics {
                 id: errorMetrics
@@ -372,14 +364,15 @@ Item {
             Text {
                 id: errorText
 
+                objectName: "pinMessage"
                 anchors.centerIn: parent
                 maximumLineCount: 2
                 elide: Text.ElideRight
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                text: pinScreen.error
-                color: Silica.Theme.errorColor
+                text: pinScreen.error || pinScreen.sensorPrompt || pinScreen.fingerprintHint
+                color: pinScreen.error !== "" ? Silica.Theme.errorColor : Silica.Theme.secondaryColor
                 font.family: Silica.Theme.fontFamily
                 font.pixelSize: Silica.Theme.fontSizeSmall
                 renderType: Text.QtRendering
@@ -387,7 +380,7 @@ Item {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 150
+                    duration: MMotion.ms(150)
                     easing.type: Easing.OutCubic
                 }
             }
@@ -397,27 +390,27 @@ Item {
 
                 NumberAnimation {
                     to: 8
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
 
                 NumberAnimation {
                     to: -8
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
 
                 NumberAnimation {
                     to: 4
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
 
                 NumberAnimation {
                     to: -4
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
 
                 NumberAnimation {
                     to: 0
-                    duration: 40
+                    duration: MMotion.ms(40)
                 }
             }
         }
@@ -616,7 +609,7 @@ Item {
 
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: 150
+                            duration: MMotion.ms(150)
                             easing.type: Easing.OutCubic
                         }
                     }
@@ -642,20 +635,6 @@ Item {
                     enabled: !pinScreen.authenticating
                     onClicked: pinScreen.verifyPasswordInput()
                 }
-            }
-        }
-
-        MCircularIconButton {
-            anchors.horizontalCenter: parent.horizontalCenter
-            iconName: "fingerprint"
-            iconSize: 28
-            buttonSize: 64
-            variant: "secondary"
-            visible: Security.fingerprintAvailable && !pinScreen.biometricInProgress && !pinScreen.passwordMode
-            enabled: !Security.isLockedOut
-            onClicked: {
-                HapticManager.light();
-                pinScreen.startBiometric();
             }
         }
     }
@@ -711,6 +690,13 @@ Item {
 
         interval: 100
         onTriggered: pinScreen.verifyPin()
+    }
+
+    Timer {
+        id: sensorPromptTimer
+
+        interval: 2500
+        onTriggered: pinScreen.sensorPrompt = ""
     }
 
     Timer {

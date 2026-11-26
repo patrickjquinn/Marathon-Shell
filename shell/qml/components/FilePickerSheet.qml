@@ -166,11 +166,9 @@ Item {
         topPadding: Constants.statusBarHeight
 
         // A swipe down on the header cancels.
-        DragHandler {
-            target: null
-            yAxis.enabled: true
-            xAxis.enabled: false
-            onActiveChanged: if (!active && centroid.scenePosition.y - centroid.scenePressPosition.y > Silica.Theme.itemSizeLarge)
+        MAxisDrag {
+            horizontal: false
+            onActiveChanged: if (!active && travel() > Silica.Theme.itemSizeLarge)
                 picker.cancel()
         }
 

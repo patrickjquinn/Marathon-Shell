@@ -37,6 +37,7 @@ pub mod qobject {
         /// Settings > Display > Text size: 0 normal to 3 gigantic.
         #[qproperty(i32, font_size_category, cxx_name = "fontSizeCategory", READ, NOTIFY = ambience_changed)]
         /// A text size multiplier set in dconf instead; 0 when unset.
+        #[qproperty(bool, paged_scrolling, cxx_name = "pagedScrolling", READ, NOTIFY = ambience_changed)]
         #[qproperty(f64, font_size_multiplier, cxx_name = "fontSizeMultiplier", READ, NOTIFY = ambience_changed)]
         type Ambience = super::AmbienceRust;
 
@@ -105,6 +106,7 @@ pub struct AmbienceRust {
     source: QString,
     font_size_category: i32,
     font_size_multiplier: f64,
+    paged_scrolling: bool,
     /// The values last stored, so `refresh()` only notifies on a change.
     resolved: Option<Resolved>,
 
@@ -153,6 +155,7 @@ impl AmbienceRust {
         let category = r.font_size_category as i32;
         self.font_size_category = category;
         self.font_size_multiplier = r.font_size_multiplier;
+        self.paged_scrolling = r.paged_scrolling;
         true
     }
 
@@ -186,6 +189,7 @@ impl Default for AmbienceRust {
             source: QString::default(),
             font_size_category: 0,
             font_size_multiplier: 0.0,
+            paged_scrolling: false,
             resolved: None,
             forwarded,
             runtime: Layer::default(),

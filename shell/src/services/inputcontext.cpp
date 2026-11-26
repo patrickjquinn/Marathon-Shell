@@ -1,5 +1,7 @@
 #include "inputcontext.h"
 
+#include "marathon-shell-native/src/eink.cxxqt.h"
+
 #include <algorithm>
 
 #include <QCoreApplication>
@@ -175,11 +177,13 @@ void InputContext::insertText(const QString &text) {
     if (text.isEmpty())
         return;
     sendCommit(text);
+    marathon::eink::key();
     emit textInserted(text);
 }
 
 void InputContext::handleBackspace() {
     sendKey(Qt::Key_Backspace, 14 + 8, 0xff08 /* XKB_KEY_BackSpace */);
+    marathon::eink::key();
     emit backspacePressed();
 }
 
@@ -187,6 +191,7 @@ void InputContext::handleBackspace() {
 // commit of "\r", which GTK inserts instead of activating the field.
 void InputContext::handleEnter() {
     sendKey(Qt::Key_Return, 28 + 8, 0xff0d /* XKB_KEY_Return */);
+    marathon::eink::key();
     emit enterPressed();
 }
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=MT6789 WMT firmware patch server
+Requires=mt6789-connsys.service
+After=mt6789-connsys.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/libexec/marathon/mt6789-wmt launch -p /lib/firmware
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

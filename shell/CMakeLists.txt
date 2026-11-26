@@ -9,6 +9,7 @@ set(SOURCES
     src/managers/marathoninputmethodengine.cpp
     src/managers/marathoninputcontext.cpp
     src/services/inputboost.h
+    src/services/einkinput.h
     src/services/touchresampler.h
     src/services/touchresampler.cpp
     src/services/wakeonkeyfilter.h
@@ -197,7 +198,10 @@ set(QML_FILES
     qml/ui/GlyphIcon.qml
     qml/ui/MApp.qml
     qml/ui/MAppIcon.qml
+    qml/ui/MAxisDrag.qml
     qml/ui/MCircularIconButton.qml
+    qml/ui/MEinkScroll.qml
+    qml/ui/MEinkSwipe.qml
     qml/ui/MEntrance.qml
     qml/ui/MGlowLine.qml
     qml/ui/MPressHighlight.qml
@@ -339,6 +343,7 @@ qt_add_resources(marathon-shell "shell_shaders"
         shaders/windowcorner.frag.qsb
         shaders/nightlight.vert.qsb
         shaders/nightlight.frag.qsb
+        shaders/eink.frag.qsb
 )
 qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"

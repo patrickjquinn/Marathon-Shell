@@ -192,11 +192,13 @@ Page {
                         enabled: location !== ""
                         Accessible.name: (modelData.name || qsTr("Attachment")) + ", " + page.size(modelData.size || 0)
                         onClicked: page.openAttachment(location)
-                        menu: ContextMenu {
-                            MenuItem {
-                                objectName: "saveItem"
-                                text: qsTr("Save to Downloads")
-                                onClicked: page.saveAttachment(attachment.location, false)
+                        menu: Component {
+                            ContextMenu {
+                                MenuItem {
+                                    objectName: "saveItem"
+                                    text: qsTr("Save to Downloads")
+                                    onClicked: page.saveAttachment(attachment.location, false)
+                                }
                             }
                         }
 

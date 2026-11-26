@@ -114,7 +114,7 @@ Item {
                     NumberAnimation {
                         from: 0.5
                         to: 0.0
-                        duration: 1200
+                        duration: MMotion.ms(1200)
                         easing.type: Easing.OutCubic
                     }
                     NumberAnimation {
@@ -181,13 +181,13 @@ Item {
                             NumberAnimation {
                                 from: bar.fullHeight
                                 to: visualiser.unit
-                                duration: 280 + bar.index * 70
+                                duration: MMotion.ms(280 + bar.index * 70)
                                 easing.type: Easing.InOutQuad
                             }
                             NumberAnimation {
                                 from: visualiser.unit
                                 to: bar.fullHeight
-                                duration: 280 + bar.index * 70
+                                duration: MMotion.ms(280 + bar.index * 70)
                                 easing.type: Easing.InOutQuad
                             }
                         }

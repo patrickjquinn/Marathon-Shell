@@ -94,14 +94,14 @@ FocusScope {
             target: content
             property: "x"
             to: row.width
-            duration: MMotion.quick
+            duration: MMotion.ms(MMotion.quick)
             easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: row
             property: "collapse"
             to: 0
-            duration: MMotion.quick
+            duration: MMotion.ms(MMotion.quick)
             easing.type: Easing.InOutQuad
         }
         ScriptAction {
@@ -115,7 +115,7 @@ FocusScope {
         target: content
         property: "x"
         to: 0
-        duration: MMotion.quick
+        duration: MMotion.ms(MMotion.quick)
         easing.type: Easing.OutCubic
     }
 
@@ -286,7 +286,7 @@ FocusScope {
                         Behavior on width {
                             enabled: fill.known
                             NumberAnimation {
-                                duration: MMotion.moderate
+                                duration: MMotion.ms(MMotion.moderate)
                                 easing.type: Easing.OutCubic
                             }
                         }
@@ -295,7 +295,7 @@ FocusScope {
                             running: MMotion.gate(!fill.known && row.ongoing && row.visible)
                             from: -fill.width
                             to: track.width
-                            duration: 1200
+                            duration: MMotion.ms(1200)
                             loops: Animation.Infinite
                             onRunningChanged: if (!running)
                                 fill.x = 0

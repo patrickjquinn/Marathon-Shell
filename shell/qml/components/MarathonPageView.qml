@@ -155,14 +155,14 @@ Item {
             target: pageView
             property: "contentX"
             to: nudgeAnimation.peakX
-            duration: 110
+            duration: MMotion.ms(110)
             easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: pageView
             property: "contentX"
             to: nudgeAnimation.fromX
-            duration: 200
+            duration: MMotion.ms(200)
             easing.type: Easing.OutCubic
         }
     }
@@ -203,21 +203,23 @@ Item {
     ListView {
         id: pageView
 
+        objectName: "pageList"
         // currentPage exposes the app-grid page number (0-based).
         // Hub is at index 0 → currentPage -2.
         // Frames (task switcher) at index 1 → currentPage -1.
         // App-grid pages start at index 2 → currentPage 0, 1, 2…
         property int currentPage: currentIndex - 2
         property bool isGestureActive: false
-        property int _itemsPerPage: LauncherGrid.columns(Window.width > 0 ? Window.width : Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns) * LauncherGrid.rows(Window.height > 0 ? Window.height : Constants.screenHeight, Silica.Theme.iconSizeLauncher)
+        property int _itemsPerPage: LauncherGrid.columns(Window.contentItem && Window.contentItem.width > 0 ? Window.contentItem.width : Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns) * LauncherGrid.rows(Window.contentItem && Window.contentItem.height > 0 ? Window.contentItem.height : Constants.screenHeight, Silica.Theme.iconSizeLauncher)
         property int pageCount: LauncherGrid.pageCount(sharedAppModel.count, _itemsPerPage)
 
         anchors.fill: parent
         orientation: ListView.Horizontal
         snapMode: ListView.SnapOneItem
         highlightRangeMode: ListView.StrictlyEnforceRange
-        // The Hub's weather sheet keeps the pages still under it.
-        interactive: !pageViewContainer.hubOverlayOpen
+        // The Hub's weather sheet keeps the pages still under it. On
+        // e-paper the pages never follow the finger: einkSwipe turns them.
+        interactive: !pageViewContainer.hubOverlayOpen && !MMotion.instant
         // pressDelay 200 ate fast horizontal flicks before the Flickable
         // could steal — the user reported swipe Drawer→Hub silently failed.
         // Per-icon MouseAreas already reject tap-on-release when drag > 15 px,
@@ -229,7 +231,7 @@ Item {
         currentIndex: 2
         // Rubber-band at the first/last page instead of a hard stop.
         boundsBehavior: Flickable.DragAndOvershootBounds
-        highlightMoveDuration: 180
+        highlightMoveDuration: MMotion.ms(180)
         // A SnapOneItem flick starts at maximumFlickVelocity and decelerates
         // onto the next page, so at release the cap becomes the finger's
         // speed: the snap carries on from it, as Android's ViewPager does.
@@ -243,6 +245,18 @@ Item {
                 maximumFlickVelocity = MMotion.pagerFlickVelocity;
             } else {
                 maximumFlickVelocity = Math.max(400, Math.abs(Silica.Velocity.rate(_motion, 1)));
+            }
+        }
+
+        MEinkSwipe {
+            id: einkSwipe
+
+            extent: pageView.width
+            enabled: MMotion.instant && !pageViewContainer.hubOverlayOpen && !pageViewContainer.appEditing
+            onTurn: step => {
+                const page = Math.max(0, Math.min(pageView.count - 1, pageView.currentIndex + step));
+                pageView.positionViewAtIndex(page, ListView.Beginning);
+                pageView.currentIndex = page;
             }
         }
         preferredHighlightBegin: 0

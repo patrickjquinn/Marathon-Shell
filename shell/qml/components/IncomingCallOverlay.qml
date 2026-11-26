@@ -116,7 +116,7 @@ Item {
 
             Behavior on scale {
                 NumberAnimation {
-                    duration: MMotion.micro
+                    duration: MMotion.ms(MMotion.micro)
                     easing.type: Easing.OutCubic
                 }
             }
@@ -151,9 +151,11 @@ Item {
         darkest: AmbienceService.darkest
     }
 
-    // Darker towards the buttons, so they read over any wallpaper.
+    // Darker towards the buttons, so they read over any wallpaper; e-paper
+    // has none.
     Rectangle {
         anchors.fill: parent
+        visible: !MColors.eink
         gradient: Gradient {
             GradientStop {
                 position: 0
@@ -228,7 +230,7 @@ Item {
                             property: "scale"
                             from: 1
                             to: 1.6
-                            duration: 1800
+                            duration: MMotion.ms(1800)
                             easing.type: Easing.OutCubic
                         }
                         NumberAnimation {
@@ -236,7 +238,7 @@ Item {
                             property: "opacity"
                             from: 0.45
                             to: 0
-                            duration: 1800
+                            duration: MMotion.ms(1800)
                         }
                     }
                 }
@@ -406,7 +408,7 @@ Item {
 
         Behavior on y {
             NumberAnimation {
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.OutCubic
             }
         }
@@ -414,7 +416,7 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: MMotion.fast
+            duration: MMotion.ms(MMotion.fast)
             easing.type: Easing.OutCubic
         }
     }

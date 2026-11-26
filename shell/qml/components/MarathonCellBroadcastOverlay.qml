@@ -101,16 +101,16 @@ Item {
         height: Silica.Theme.paddingSmall
         color: overlay.current ? overlay.categoryColor(overlay.current.category) : Silica.Theme.errorColor
         SequentialAnimation on opacity {
-            running: overlay.visible
+            running: MMotion.gate(overlay.visible)
             loops: Animation.Infinite
             NumberAnimation {
                 to: 0.4
-                duration: 700
+                duration: MMotion.ms(700)
                 easing.type: Easing.InOutSine
             }
             NumberAnimation {
                 to: 1.0
-                duration: 700
+                duration: MMotion.ms(700)
                 easing.type: Easing.InOutSine
             }
         }

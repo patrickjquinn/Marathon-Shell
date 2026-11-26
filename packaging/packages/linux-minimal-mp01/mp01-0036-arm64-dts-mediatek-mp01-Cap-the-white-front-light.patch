@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 10:00:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: mp01: Cap the white front light, light both at boot
+
+The white LEDs are now driven (the disp_pwm fix), so cap them at the 25%
+duty cycle Minimal's leds-mtk change never exceeds, and bring both strings
+up lit: white at half its range, warm on, as the bootloader leaves it.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+--- a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+@@ -258,6 +258,11 @@
+ 		regulator-boot-on;
+ 	};
+ 
++	/*
++	 * The front light's white LEDs. Minimal's leds-mtk change drives them
++	 * at most 25% of the PWM period (9846 ns at its top level), so cap
++	 * them there.
++	 */
+ 	frontlight: backlight {
+ 		compatible = "pwm-backlight";
+ 		pwms = <&disp_pwm0 0 39385>;
+@@ -265,12 +270,14 @@
+ 		pinctrl-0 = <&disp_pwm_pins>;
+ 		brightness-levels = <0 255>;
+ 		num-interpolated-steps = <255>;
+-		default-brightness-level = <32>;
++		default-brightness-level = <128>;
++		max-duty-cycle-percent = <25>;
+ 	};
+ 
+ 	/*
+-	 * The front light's warm LEDs, a second string beside the white ones
+-	 * above, dimmed by PWM_1. Stock calls it led-warmlight, 0 to 255.
++	 * The front light's warm LEDs, a second string beside the white ones,
++	 * dimmed by PWM_1. Stock calls it led-warmlight, 0 to 255. It comes up
++	 * lit, as the bootloader leaves it.
+ 	 */
+ 	led-controller {
+ 		compatible = "pwm-leds";
+@@ -282,6 +289,7 @@
+ 			function = "frontlight";
+ 			pwms = <&pwm0 1 39385>;
+ 			max-brightness = <255>;
++			default-state = "on";
+ 		};
+ 	};
+ 
+-- 
+2.47.0

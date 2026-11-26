@@ -52,7 +52,7 @@ ESP_SECTORS=60416
 CARRIER_START=$((ESP_START + ESP_SECTORS))
 GPT_TAIL=256
 
-WORK=$(mktemp -d -p "$(dirname "$OUT")" .carrier-userdata.XXXXXX)
+WORK=$(mktemp -d -p "$(dirname "$ROOT")" .carrier-userdata.XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 
 # Files from ROOT, as its packages installed them.

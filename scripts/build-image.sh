@@ -216,12 +216,12 @@ if [ "$DEVICE" = raspberry-pi5 ] || [ "$DEVICE" = zinwa-q25 ] || [ "$DEVICE" = j
 APORT=deckard-images NO_DEPS=1 \
 build_if_missing "deckard-images"            'deckard-images-*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/deckard-images/APKBUILD"
 fi
-# Zinwa Q25: its device package and every q25-* and *-q25 aport, the kernel
-# (linux-zinwa-q25) among them, which depend on each other; the modem's
-# ModemManager depends only on Alpine packages, which abuild needs installed
-# to trace libmm-glib.
+# Zinwa Q25: its device package and every q25-*, *-q25 and mt6789-* aport,
+# the kernel (linux-zinwa-q25) among them, which depend on each other; the
+# modem's ModemManager depends only on Alpine packages, which abuild needs
+# installed to trace libmm-glib.
 if [ "$DEVICE" = zinwa-q25 ]; then
-    for aport in "$APORTS_DIR"/device-zinwa-q25 "$APORTS_DIR"/q25-* "$APORTS_DIR"/*-q25; do
+    for aport in "$APORTS_DIR"/device-zinwa-q25 "$APORTS_DIR"/q25-* "$APORTS_DIR"/*-q25 "$APORTS_DIR"/mt6789-*; do
         [ -f "$aport/APKBUILD" ] || continue
         name="$(basename "$aport")"
         APORT="$name" NO_DEPS=1 build_if_missing "$name" "$name-[0-9]*.apk" \
@@ -233,6 +233,25 @@ if [ "$DEVICE" = zinwa-q25 ]; then
     APORT=modemmanager-mtk-ccci build_if_missing "modemmanager-mtk-ccci" 'modemmanager-mtk-ccci-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/modemmanager-mtk-ccci/APKBUILD"
     # Panfrost's, without the import of every client buffer into mediatek-drm.
+    APORT=mesa build_if_missing "mesa" 'mesa-[0-9]*.apk' \
+        "$LIB/build-aport-apk.sh" "$APORTS_DIR/mesa/APKBUILD"
+fi
+# Minimal Phone MP01: its kernel, named by device-minimal-mp01, its device
+# package, the MT6789 aports, and the Q25's CONNSYS firmware and Panfrost
+# mesa.
+if [ "$DEVICE" = minimal-mp01 ]; then
+    # shellcheck source=/dev/null disable=SC2154 # _kernel comes from the APKBUILD
+    kernel=$(set +u; . "$APORTS_DIR/device-minimal-mp01/APKBUILD"; echo "$_kernel")
+    if [ ! -f "$APORTS_DIR/$kernel/APKBUILD" ]; then
+        echo "error: device-minimal-mp01 needs $kernel, which has no aport in $APORTS_DIR yet" >&2
+        exit 1
+    fi
+    for aport in "$APORTS_DIR/$kernel" "$APORTS_DIR"/device-minimal-mp01 "$APORTS_DIR"/mt6789-* \
+        "$APORTS_DIR"/q25-connsys-firmware; do
+        name="$(basename "$aport")"
+        APORT="$name" NO_DEPS=1 build_if_missing "$name" "$name-[0-9]*.apk" \
+            "$LIB/build-aport-apk.sh" "$aport/APKBUILD"
+    done
     APORT=mesa build_if_missing "mesa" 'mesa-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/mesa/APKBUILD"
 fi

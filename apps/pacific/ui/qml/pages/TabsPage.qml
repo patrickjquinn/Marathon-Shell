@@ -14,7 +14,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Sailfish.Silica.private 1.0 as Private
@@ -348,6 +347,8 @@ Page {
                             anchors.top: header.bottom
                             width: parent.width
                             height: Math.round(width * page.pictureAspect)
+                            // Drawn by the ShaderEffect below in one pass, no
+                            // layers; at opacity 0 its texture still updates.
                             Image {
                                 id: thumb
                                 anchors.fill: parent
@@ -355,31 +356,21 @@ Page {
                                 fillMode: Image.PreserveAspectCrop
                                 verticalAlignment: Image.AlignTop
                                 asynchronous: true
-                                visible: status === Image.Ready
-                                layer.enabled: visible
-                                layer.effect: MultiEffect {
-                                    maskEnabled: true
-                                    maskSource: cornerMask
-                                    maskThresholdMin: 0.5
-                                    maskSpreadAtMin: 1.0
-                                }
+                                opacity: 0
                             }
-                            Item {
-                                id: cornerMask
+                            ShaderEffect {
+                                readonly property Image source: thumb
+                                readonly property vector4d crop: thumb.paintedWidth > 0 && thumb.paintedHeight > 0 ? Qt.vector4d((1 - width / thumb.paintedWidth) / 2, 0, width / thumb.paintedWidth, height / thumb.paintedHeight) : Qt.vector4d(0, 0, 1, 1)
+                                readonly property size size: Qt.size(width, height)
+                                readonly property real radius: card.radius
+
                                 anchors.fill: parent
-                                visible: false
-                                layer.enabled: true
-                                Rectangle {
-                                    anchors {
-                                        fill: parent
-                                        topMargin: -card.radius
-                                    }
-                                    radius: card.radius
-                                }
+                                visible: thumb.status === Image.Ready
+                                fragmentShader: Qt.resolvedUrl("../shaders/tabthumb.frag.qsb")
                             }
                             LetterIcon {
                                 anchors.centerIn: parent
-                                visible: !thumb.visible
+                                visible: thumb.status !== Image.Ready
                                 text: cell.url === "" ? "+" : Logic.initial(cell.title, cell.url)
                                 url: cell.url
                                 iconSource: cell.icon

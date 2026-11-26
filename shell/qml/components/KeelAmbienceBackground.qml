@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0
 
@@ -29,8 +30,8 @@ Item {
     Rectangle {
         objectName: "base"
         anchors.fill: parent
-        visible: !root.ready
-        color: root.light ? "#e9eff2" : "#060b12"
+        visible: !root.ready || MColors.eink
+        color: MColors.eink ? MColors.background : root.light ? "#e9eff2" : "#060b12"
     }
 
     Image {
@@ -43,7 +44,7 @@ Item {
         asynchronous: true
         // The tone and, on a dark ambience, the dimmer come baked in, so the
         // image is opaque: one quad, no layer to flatten them.
-        source: root.visible && root.wallpaper !== "" && width > 0 && height > 0 ? "image://keelambience/" + encodeURIComponent(root.wallpaper) + "?w=" + Math.round(width) + "&h=" + Math.round(height) + "&tone=" + root.tone.toFixed(3) + (root.light ? "&light=1" : "&dim=" + Theme.highlightDimmerColor.toString().slice(1)) : ""
+        source: root.visible && !MColors.eink && root.wallpaper !== "" && width > 0 && height > 0 ? "image://keelambience/" + encodeURIComponent(root.wallpaper) + "?w=" + Math.round(width) + "&h=" + Math.round(height) + "&tone=" + root.tone.toFixed(3) + (root.light ? "&light=1" : "&dim=" + Theme.highlightDimmerColor.toString().slice(1)) : ""
 
         // Another ambience's wallpaper cross-fades in, as Keel's own window
         // and Silica's wallpaper window do; a resize swaps in place.
@@ -81,7 +82,7 @@ Item {
 
             running: false
             to: 0
-            duration: 400
+            duration: MMotion.ms(400)
             easing.type: Easing.InOutQuad
             onFinished: previous.source = ""
         }

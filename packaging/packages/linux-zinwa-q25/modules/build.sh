@@ -15,9 +15,17 @@
 # (branch adomerle/mt6789-sound).
 # OUT is created: OUT/modules holds the modules, OUT/firmware the camera
 # overlay; nothing else is written.
+# BOARD (default q25) picks the set: mp01 (linux-minimal-mp01) takes the
+# MT6789 drivers (CONNSYS, modem, audio) and none of the Q25's board ones
+# (MD1 owner, haptics, cameras).
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 ksrc=$1 kobj=$2 donor=$3/mindone/modules out=$4
+case ${BOARD:-q25} in
+q25) own="md1 cam-dt cam-pmic audio haptic" camera=1 ;;
+mp01) own="audio" camera= ;;
+*) echo "build.sh: unknown BOARD ${BOARD}" >&2; exit 1 ;;
+esac
 mt6789=${MT6789_SOUND:?set MT6789_SOUND to the linux-mediatek checkout}/sound/soc/mediatek/mt6789
 fmradio=${FMRADIO:?set FMRADIO to the fmradio driver tree}
 mkdir -p "$out"
@@ -35,7 +43,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in md1 cam-dt cam-pmic bt audio haptic gnss; do
+for d in $own bt gnss; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -78,17 +86,19 @@ for p in "$here"/fm/*.patch; do
 done
 
 m=$out/src/media
-rm -rf "$m"
-mkdir -p "$m"
-cp "$here/media/Kbuild" "$m/"
-cp -r "$ksrc/drivers/media/common/videobuf2" "$m/"
-mkdir -p "$m/mediatek"
-cp "$here/camera/Kbuild" "$m/mediatek/"
-cp -r "$here/camera/seninf" "$here/camera/camsv" "$here/camera/phy" "$m/mediatek/"
-cp "$ksrc/drivers/phy/mediatek/phy-mtk-io.h" "$m/mediatek/phy/"
-for p in "$here"/camera/0*.patch; do
-	(cd "$m/mediatek" && patch -p1 -s < "$p")
-done
+if [ "$camera" ]; then
+	rm -rf "$m"
+	mkdir -p "$m"
+	cp "$here/media/Kbuild" "$m/"
+	cp -r "$ksrc/drivers/media/common/videobuf2" "$m/"
+	mkdir -p "$m/mediatek"
+	cp "$here/camera/Kbuild" "$m/mediatek/"
+	cp -r "$here/camera/seninf" "$here/camera/camsv" "$here/camera/phy" "$m/mediatek/"
+	cp "$ksrc/drivers/phy/mediatek/phy-mtk-io.h" "$m/mediatek/phy/"
+	for p in "$here"/camera/0*.patch; do
+		(cd "$m/mediatek" && patch -p1 -s < "$p")
+	done
+fi
 
 rm -rf "$out/src/modem"
 mkdir -p "$out/src/modem"
@@ -97,7 +107,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in md1 cam-dt cam-pmic audio haptic; do
+for d in $own; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$out/src/wmt" "$out/obj/wmt"
@@ -111,7 +121,7 @@ kmake "$out/src/fm" "$out/obj/fm" WMTSRC="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers"
 # videobuf2, which no in-tree driver selects, and the camera receive
 # drivers that use it, as one set (media/Kbuild).
-kmake "$out/src/media" "$out/obj/media" \
+[ -z "$camera" ] || kmake "$out/src/media" "$out/obj/media" \
 	CONFIG_VIDEOBUF2_CORE=m CONFIG_VIDEOBUF2_V4L2=m CONFIG_VIDEOBUF2_MEMOPS=m \
 	CONFIG_VIDEOBUF2_DMA_CONTIG=m \
 	CONFIG_MTK_SENINF6S=m CONFIG_MTK_CAMSV6S=m CONFIG_PHY_MTK_MIPI_CSI_2_1=m
@@ -132,6 +142,7 @@ while read -r ko; do
 		llvm-strip --strip-debug -o "$out/modules/$(basename "$ko")" "$ko" ;;
 	esac
 done
+[ "$camera" ] || exit 0
 mkdir -p "$out/firmware"
 cpp -nostdinc -undef -x assembler-with-cpp -P -I "$ksrc/include" \
 	"$here/camera/q25-camera.dtso" > "$out/obj/q25-camera.dts"

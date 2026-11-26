@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """carrier-userdata-image.sh on small synthetic roots carrying the Q25's and
-the Jolla Phone's carrier.conf, checked by reading the sparse image back. Where the
+the MP01's and the Jolla Phone's carrier.conf, checked by reading the sparse image
+back. Where the
 host's mke2fs is 1.47.3 the script runs itself in an Alpine container."""
 import re
 import shutil
@@ -140,6 +141,10 @@ class UserdataImage:
 
 class Q25(UserdataImage, unittest.TestCase):
     NAME, DEVICE, DTB = 'q25', 'zinwa-q25', 'mediatek/mt8781-zinwa-q25.dtb'
+
+
+class MP01(UserdataImage, unittest.TestCase):
+    NAME, DEVICE, DTB = 'mp01', 'minimal-mp01', 'mediatek/mt6789-minimal-mp01-vendor.dtb'
 
 
 class JP2601(UserdataImage, unittest.TestCase):

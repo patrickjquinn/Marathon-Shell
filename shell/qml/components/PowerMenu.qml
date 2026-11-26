@@ -214,7 +214,7 @@ Item {
             target: backdrop
             property: "opacity"
             to: 1
-            duration: MMotion.quick
+            duration: MMotion.ms(MMotion.quick)
             easing.type: Easing.OutCubic
         }
 
@@ -222,7 +222,7 @@ Item {
             target: dialog
             property: "opacity"
             to: 1
-            duration: MMotion.quick
+            duration: MMotion.ms(MMotion.quick)
             easing.type: Easing.OutCubic
         }
 
@@ -243,7 +243,7 @@ Item {
                 target: backdrop
                 property: "opacity"
                 to: 0
-                duration: MMotion.fast
+                duration: MMotion.ms(MMotion.fast)
                 easing.type: Easing.OutCubic
             }
 
@@ -251,7 +251,7 @@ Item {
                 target: dialog
                 property: "opacity"
                 to: 0
-                duration: MMotion.fast
+                duration: MMotion.ms(MMotion.fast)
                 easing.type: Easing.OutCubic
             }
 

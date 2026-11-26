@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] dt-bindings: display: mediatek: Add the MT6789 display processors
+
+The MT6789's OVL, RDMA, COLOR, CCORR, AAL, POSTMASK and DITHER blocks
+are the MT8186's, and each falls back to the compatible the MT8186's
+does (its gamma is already listed, with its own driver data).
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,aal.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,aal.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,aal.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,aal.yaml
+@@ -36,6 +36,7 @@
+           - const: mediatek,mt8173-disp-aal
+       - items:
+           - enum:
++              - mediatek,mt6789-disp-aal
+               - mediatek,mt8186-disp-aal
+               - mediatek,mt8188-disp-aal
+               - mediatek,mt8192-disp-aal
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,ccorr.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,ccorr.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,ccorr.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,ccorr.yaml
+@@ -29,6 +29,7 @@
+           - const: mediatek,mt8183-disp-ccorr
+       - items:
+           - enum:
++              - mediatek,mt6789-disp-ccorr
+               - mediatek,mt8186-disp-ccorr
+               - mediatek,mt8188-disp-ccorr
+               - mediatek,mt8195-disp-ccorr
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,color.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,color.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,color.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,color.yaml
+@@ -40,6 +40,7 @@
+           - enum:
+               - mediatek,mt6795-disp-color
+               - mediatek,mt8183-disp-color
++              - mediatek,mt6789-disp-color
+               - mediatek,mt8186-disp-color
+               - mediatek,mt8188-disp-color
+               - mediatek,mt8192-disp-color
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,dither.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,dither.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,dither.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,dither.yaml
+@@ -26,6 +26,7 @@
+           - mediatek,mt8183-disp-dither
+       - items:
+           - enum:
++              - mediatek,mt6789-disp-dither
+               - mediatek,mt8186-disp-dither
+               - mediatek,mt8188-disp-dither
+               - mediatek,mt8192-disp-dither
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,ovl.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,ovl.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,ovl.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,ovl.yaml
+@@ -39,6 +39,7 @@
+           - const: mediatek,mt8173-disp-ovl
+       - items:
+           - enum:
++              - mediatek,mt6789-disp-ovl
+               - mediatek,mt8186-disp-ovl
+               - mediatek,mt8365-disp-ovl
+           - const: mediatek,mt8192-disp-ovl
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,rdma.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,rdma.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,rdma.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,rdma.yaml
+@@ -43,6 +43,7 @@
+           - const: mediatek,mt8173-disp-rdma
+       - items:
+           - enum:
++              - mediatek,mt6789-disp-rdma
+               - mediatek,mt8186-disp-rdma
+               - mediatek,mt8192-disp-rdma
+               - mediatek,mt8365-disp-rdma
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,postmask.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,postmask.yaml
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,postmask.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,postmask.yaml
+@@ -25,6 +25,7 @@
+           - mediatek,mt8192-disp-postmask
+       - items:
+           - enum:
++              - mediatek,mt6789-disp-postmask
+               - mediatek,mt8186-disp-postmask
+               - mediatek,mt8188-disp-postmask
+           - const: mediatek,mt8192-disp-postmask
+-- 
+2.47.0
+
