@@ -229,6 +229,8 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
+            // Over the Hub's peek, which opens in this surface.
+            z: 1
         }
 
         OobeProgress {
@@ -305,6 +307,7 @@ Item {
 
                 objectName: "oobeHub"
                 anchors.fill: parent
+                peekLayer: surface
                 visible: oobeRoot.beat === 5
                 onDone: oobeRoot.next(hub)
             }

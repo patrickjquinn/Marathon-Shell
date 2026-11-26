@@ -12,6 +12,8 @@ Item {
     property bool succeeded: false
     property int failedTries: 0
     property real pullPeak: 0
+    // Where the peek opens: as on home, over everything but the status bar.
+    property Item peekLayer: root
 
     signal done
 
@@ -86,7 +88,9 @@ Item {
         id: peek
 
         objectName: "oobeHubPeek"
+        parent: root.peekLayer
         anchors.fill: parent
+        visible: root.visible
         onIconsShownChanged: if (iconsShown)
             root.succeed()
         onIsFullyOpenChanged: if (isFullyOpen)
