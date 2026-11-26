@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=5
+pkgrel=6
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -69,7 +69,7 @@ package() {
 }
 
 sha512sums="
-80714b4ba1d76f0cde6466e4c5c2d4b482e4183c1dd3b34715a4d8ecf7ba7bba5a26362c26500c606d63e5edc7bd094ba236fc6abf96e62c2f7680ac1df6dba9  device-profile.conf
+8c58b1ad6446d1b6495d5f8da06cd576bac6e0e1315230c4ec1aca678230019af51e97101f096a960d965bfcc87a4df6e78e700081d8a4f80ae899d1d24c7bec  device-profile.conf
 4ca97e07d92e23acb04e89dea51e7267b5a14b315d723efcc6d2c0402a2d1e966dc1416317da626d05103dd3efc2919e77f69a5bf875c4776d0856b17ca07581  jp2601-shell-session
 01eae87fbcffb4114817bd08cfa0a28c0c0e07000ae2214436db2652f05dd09aa0c6b2250c9bcda2f0437926f0234779592bdcb9cdaba463935e7ddd6d01b17d  greetd-jp2601.toml
 230e022144e6ff3928840afaf03499977ad232394702a7412160a8ac8df88cdf7d71451ed41f929ba682b1c9c062b88f0db23cdc79316dde63424bb75f1b00eb  50-jp2601-session.conf

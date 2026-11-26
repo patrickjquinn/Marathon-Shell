@@ -47,6 +47,8 @@ mod ffi {
         wifi_power_save: bool,
         /// Idle screen-off, 0 for never.
         screen_timeout_ms: i32,
+        /// The interface size a fresh install starts at.
+        ui_scale: f64,
         /// Bits per channel the panel shows; below 8 the frame is dithered.
         panel_depth: i32,
         /// A physical key wakes a blanked screen.
@@ -233,6 +235,9 @@ fn profile() -> Profile {
             300_000,
             |n| *n >= 0,
         ),
+        ui_scale: v.number("MARATHON_UI_SCALE", "UI_SCALE", 1.0, |f| {
+            (0.5..=2.0).contains(f)
+        }),
         panel_depth: v.number("MARATHON_PANEL_DEPTH", "PANEL_DEPTH", 8, |n| {
             (4..=10).contains(n)
         }),

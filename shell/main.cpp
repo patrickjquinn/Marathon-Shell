@@ -876,7 +876,7 @@ int main(int argc, char *argv[]) {
     startupMark("stores");
     auto *settingsManager = new marathon::Settings();
     settingsManager->setParent(&app);
-    settingsManager->load(device.screen_timeout_ms);
+    settingsManager->load(device.screen_timeout_ms, device.ui_scale);
     qmlRegisterSingletonInstance<marathon::Settings>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                      settingsManager);
 

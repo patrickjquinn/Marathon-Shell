@@ -250,8 +250,8 @@ pub mod qobject {
         #[cxx_name = "setUnthemedApps"]
         fn set_unthemed_apps(self: Pin<&mut Settings>, value: &QStringList);
 
-        /// Reads the file; `screen_timeout` is the device's default.
-        fn load(self: Pin<&mut Settings>, screen_timeout: i32);
+        /// Reads the file; `screen_timeout` and `user_scale` are the device's defaults.
+        fn load(self: Pin<&mut Settings>, screen_timeout: i32, user_scale: f64);
         /// Any key: an app's own `<appId>/...` or one of the shell's.
         #[qinvokable]
         fn get(self: &Settings, key: &QString, default_value: &QVariant) -> QVariant;
@@ -1032,12 +1032,13 @@ impl Settings {
         }
     }
 
-    fn load(mut self: Pin<&mut Self>, screen_timeout: i32) {
+    fn load(mut self: Pin<&mut Self>, screen_timeout: i32, user_scale: f64) {
         let mut ini = fs::read_to_string(file()).map_or_default(|t| Ini::parse(&t));
         let migrated = migrate(&mut ini);
         let mut rust = self.as_mut().rust_mut();
         rust.ini = ini;
         rust.screen_timeout = screen_timeout;
+        rust.user_scale_factor = user_scale;
         rust.dirty = migrated;
         self.as_mut().read_properties();
         self.as_mut().resolve_units();
