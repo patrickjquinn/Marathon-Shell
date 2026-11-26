@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QtGlobal>
+
 class QEvent;
 class QObject;
 class QWaylandSeat;
@@ -14,7 +16,9 @@ class SymControl {
     bool filter(QObject *watched, QEvent *event, QWaylandSeat *seat);
 
   private:
-    bool m_symHeld = false;
-    bool m_sending = false;
-    int  m_key     = 0;
+    bool    m_symHeld = false;
+    bool    m_sending = false;
+    bool    m_app     = false;
+    quint32 m_symCode = 0;
+    int     m_key     = 0;
 };

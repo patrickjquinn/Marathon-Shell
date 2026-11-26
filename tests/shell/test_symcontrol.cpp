@@ -180,6 +180,25 @@ class TestSymControl : public QObject {
         QTRY_COMPARE(QGuiApplication::clipboard()->text(), QStringLiteral("cut me"));
     }
 
+    // As Android reads keys, with no modifiers: Sym is up while Ctrl and the
+    // letter are down, and down again after while it is still held.
+    void appKeysCarryCtrlWithoutSym() {
+        setField(QStringLiteral("abc"));
+        m_printed.clear();
+        withSym({kC});
+        const auto keys = [this]() {
+            QStringList       out;
+            const QStringList lines = m_printed.split(u'\n');
+            for (const QString &line : lines) {
+                const qsizetype at = line.indexOf(QLatin1String("KEY"));
+                if (at >= 0)
+                    out << line.mid(at + 3).trimmed();
+            }
+            return out.join(u' ');
+        };
+        QTRY_COMPARE(keys(), QStringLiteral("+108 -108 +37 +54 -54 -37 +108 -108"));
+    }
+
     void symKeepsItsOwnKeysAfterACopy() {
         setField(QStringLiteral("abc"));
         // Sym+H is Home: the cursor moves, nothing is typed.
@@ -205,6 +224,14 @@ int main(int argc, char **argv) {
                     focus: true
                     onActiveFocusChanged: if (activeFocus) console.info("FOCUSED")
                     onTextChanged: console.info("TEXT[" + text + "]END")
+                    Keys.onPressed: (event) => {
+                        console.info("KEY+" + event.nativeScanCode);
+                        event.accepted = false;
+                    }
+                    Keys.onReleased: (event) => {
+                        console.info("KEY-" + event.nativeScanCode);
+                        event.accepted = false;
+                    }
                 }
             }
         )");

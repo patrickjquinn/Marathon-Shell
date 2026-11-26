@@ -4,7 +4,10 @@
 
 #include <QCoreApplication>
 #include <QKeyEvent>
+#include <QQuickWindow>
 #include <QScopedValueRollback>
+#include <QWaylandKeyboard>
+#include <QWaylandQuickItem>
 #include <QWaylandSeat>
 #include <QtWaylandCompositor/private/qwaylandkeyboard_p.h>
 #include <wayland-server-protocol.h>
@@ -17,6 +20,7 @@ bool SymControl::filter(QObject *watched, QEvent *event, QWaylandSeat *seat) {
     const bool  press    = type == QEvent::KeyPress;
     if (keyEvent->nativeVirtualKey() == KeyRouting::Level5ShiftKeysym) {
         m_symHeld = press;
+        m_symCode = keyEvent->nativeScanCode();
         return false;
     }
     // The Ctrl form comes back through the window's filters.
@@ -26,9 +30,18 @@ bool SymControl::filter(QObject *watched, QEvent *event, QWaylandSeat *seat) {
     if (!(press && m_symHeld && KeyRouting::symIsControl(key)) && !(m_key != 0 && key == m_key))
         return false;
 
-    QWaylandKeyboardPrivate *keyboard = QWaylandKeyboardPrivate::get(seat->keyboard());
+    QWaylandKeyboard        *keyboard = seat->keyboard();
+    QWaylandKeyboardPrivate *state    = QWaylandKeyboardPrivate::get(keyboard);
     if (press && m_key == 0) {
-        keyboard->updateModifierState(KeyRouting::ControlScanCode, WL_KEYBOARD_KEY_STATE_PRESSED);
+        // Android reads modifiers from the keys themselves, and takes Ctrl+C
+        // as copy only without Alt: an app's window gets Sym up and Ctrl down.
+        const auto *window = qobject_cast<QQuickWindow *>(watched);
+        m_app              = window && qobject_cast<QWaylandQuickItem *>(window->activeFocusItem());
+        if (m_app) {
+            keyboard->sendKeyReleaseEvent(m_symCode);
+            keyboard->sendKeyPressEvent(KeyRouting::ControlScanCode);
+        }
+        state->updateModifierState(KeyRouting::ControlScanCode, WL_KEYBOARD_KEY_STATE_PRESSED);
         m_key = key;
     }
     QKeyEvent control(type, key, keyEvent->modifiers() | Qt::ControlModifier,
@@ -40,7 +53,12 @@ bool SymControl::filter(QObject *watched, QEvent *event, QWaylandSeat *seat) {
         QCoreApplication::sendEvent(watched, &control);
     }
     if (!press && !keyEvent->isAutoRepeat() && key == m_key) {
-        keyboard->updateModifierState(KeyRouting::ControlScanCode, WL_KEYBOARD_KEY_STATE_RELEASED);
+        state->updateModifierState(KeyRouting::ControlScanCode, WL_KEYBOARD_KEY_STATE_RELEASED);
+        if (m_app) {
+            keyboard->sendKeyReleaseEvent(KeyRouting::ControlScanCode);
+            if (m_symHeld)
+                keyboard->sendKeyPressEvent(m_symCode);
+        }
         m_key = 0;
     }
     return true;
