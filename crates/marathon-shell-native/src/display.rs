@@ -4,7 +4,8 @@
 //! write, and a vcnl4000-class sensor measures while its read waits. The one
 //! exception is the doze blank, which must land before the CRTC goes off.
 //! The orientation comes from iio-sensor-proxy, claimed only while the screen
-//! is on and unlocked.
+//! is on, rotation is unlocked and an app, the one thing that turns, is in
+//! the foreground.
 
 use std::collections::VecDeque;
 use std::fs;
@@ -198,6 +199,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setProximityWanted"]
         fn set_proximity_wanted(self: Pin<&mut Display>, wanted: bool);
+        /// An app is in the foreground: the only thing that turns.
+        #[qinvokable]
+        #[cxx_name = "setRotationWanted"]
+        fn set_rotation_wanted(self: Pin<&mut Display>, wanted: bool);
         /// A key was pressed: the keyboard lights while the screen is on.
         #[qinvokable]
         #[cxx_name = "keyboardUsed"]
@@ -260,6 +265,7 @@ pub struct DisplayRust {
     keyboard_presses: u64,
     sensors: Option<Sender<(bool, bool)>>,
     accelerometer: Option<Sender<bool>>,
+    rotation_wanted: bool,
     proximity_wanted: bool,
     proximity_blanked: bool,
     curve: Curve,
@@ -309,6 +315,7 @@ impl Default for DisplayRust {
             keyboard_presses: 0,
             sensors: None,
             accelerometer: None,
+            rotation_wanted: false,
             proximity_wanted: false,
             proximity_blanked: false,
             curve: Curve::default(),
@@ -874,6 +881,11 @@ impl Display {
         self.proximity_blanked_changed();
     }
 
+    fn set_rotation_wanted(mut self: Pin<&mut Self>, wanted: bool) {
+        self.as_mut().rust_mut().rotation_wanted = wanted;
+        self.want_sensors();
+    }
+
     fn set_proximity_wanted(mut self: Pin<&mut Self>, wanted: bool) {
         self.as_mut().rust_mut().proximity_wanted = wanted;
         // A stale "near" must not outlive the call.
@@ -913,7 +925,8 @@ impl Display {
     }
 
     /// Light while auto-brightness has a lit screen to set; proximity while
-    /// a call wants it; the accelerometer while a lit screen may rotate.
+    /// a call wants it; the accelerometer while a lit screen shows an app
+    /// that may rotate.
     fn want_sensors(&self) {
         if let Some(sensors) = &self.sensors {
             sensors
@@ -925,7 +938,7 @@ impl Display {
         }
         if let Some(accelerometer) = &self.accelerometer {
             accelerometer
-                .try_send(self.screen_on && !self.rotation_locked)
+                .try_send(self.screen_on && self.rotation_wanted && !self.rotation_locked)
                 .ok();
         }
     }
@@ -1424,6 +1437,16 @@ async fn rotation(qt: cxx_qt::CxxQtThread<Display>, wanted: Receiver<bool>) {
                 }
                 claimed = want;
                 if !want {
+                    // Stale once released: the next claim reads it afresh.
+                    qt.queue(|mut obj| {
+                        set!(
+                            obj,
+                            orientation,
+                            orientation_changed,
+                            QString::from("portrait")
+                        );
+                    })
+                    .ok();
                     continue;
                 }
                 proxy.accelerometer_orientation().await.ok()

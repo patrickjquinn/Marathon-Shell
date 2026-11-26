@@ -8,7 +8,10 @@ QtObject {
     property var shell: null
     property var compositor: null
     // Only an app turns with the phone; the shell's own screens stay upright.
-    readonly property string orientation: shell && shell.state === "app" && !Display.rotationLocked ? Display.orientation : "portrait"
+    readonly property bool appForeground: shell !== null && shell.state === "app"
+    readonly property string orientation: appForeground && !Display.rotationLocked ? Display.orientation : "portrait"
+
+    onAppForegroundChanged: Display.setRotationWanted(appForeground)
 
     onOrientationChanged: {
         Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);

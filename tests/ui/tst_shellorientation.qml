@@ -65,6 +65,15 @@ TestCase {
         compare(init.orientation, "landscape");
     }
 
+    // The accelerometer runs only for an app.
+    function test_onlyAnAppWantsTheAccelerometer() {
+        verify(!Display.rotationWanted);
+        shell.state = "app";
+        verify(Display.rotationWanted);
+        shell.state = "locked";
+        verify(!Display.rotationWanted);
+    }
+
     function test_theRotationLockKeepsAppsUpright() {
         Display.rotationLocked = true;
         shell.state = "app";
