@@ -27,9 +27,9 @@ pub mod qobject {
         #[qproperty(QList_QVariant, history, READ, NOTIFY)]
         type Clipboard = super::ClipboardRust;
 
+        /// Puts text the clipboard took at the top of the history.
         #[qinvokable]
-        #[cxx_name = "copyToClipboard"]
-        fn copy_to_clipboard(self: Pin<&mut Clipboard>, text: &QString);
+        fn remember(self: Pin<&mut Clipboard>, text: &QString);
         #[qinvokable]
         #[cxx_name = "deleteItem"]
         fn delete_item(self: Pin<&mut Clipboard>, index: i32);
@@ -81,7 +81,7 @@ impl cxx_qt::Initialize for Clipboard {
 }
 
 impl Clipboard {
-    fn copy_to_clipboard(mut self: Pin<&mut Self>, text: &QString) {
+    fn remember(mut self: Pin<&mut Self>, text: &QString) {
         let text = text.to_string();
         if text.is_empty() {
             return;

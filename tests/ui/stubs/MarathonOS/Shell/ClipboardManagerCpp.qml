@@ -13,8 +13,6 @@ QtObject {
         cleared = true;
         history = [];
     }
-    function copyToClipboard(text) {
-    }
     function deleteItem(index) {
     }
 }

@@ -1,5 +1,6 @@
 #include <cmath>
 #include <QClipboard>
+#include <QMimeData>
 #include <QGuiApplication>
 #include <QStyleHints>
 #include <QRect>
@@ -1160,6 +1161,13 @@ int main(int argc, char *argv[]) {
     auto *clipboard = new Clipboard();
     clipboard->setParent(&app);
     ctx->setContextProperty("ClipboardManagerCpp", clipboard);
+    QObject::connect(
+        QGuiApplication::clipboard(), &QClipboard::dataChanged, clipboard, [clipboard] {
+            const QMimeData *data = QGuiApplication::clipboard()->mimeData();
+            // A password manager's copy stays out of the history.
+            if (data && data->hasText() && data->data("x-kde-passwordManagerHint") != "secret")
+                clipboard->remember(data->text());
+        });
     auto *alarmManager = new Alarms();
     alarmManager->setParent(&app);
     ctx->setContextProperty("AlarmManagerCpp", alarmManager);
