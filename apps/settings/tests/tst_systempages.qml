@@ -27,6 +27,7 @@ TestCase {
     function init() {
         Settings.reset();
         Security.reset();
+        Haptics.reset();
         Updates.reset();
         DavSync.reset();
         Power.reset();
@@ -74,18 +75,16 @@ TestCase {
     function test_securityStatusHiddenWhenQuiet() {
         const s = open("security");
         verify(!child(s.page, "statusHeader").visible);
-        verify(!child(s.page, "fingerprint").visible);
+        verify(!child(s.page, "fingerprintItem").visible);
         verify(!child(s.page, "failedAttempts").visible);
         verify(!child(s.page, "accountStatus").visible);
     }
 
     function test_securityStatus() {
-        Security.fingerprintAvailable = true;
         Security.failedAttempts = 2;
         const s = open("security");
         compare(findChild(s.page, "lockMethod"), null);
         compare(findChild(s.page, "autoLockSwitch"), null);
-        compare(child(s.page, "fingerprint").value, "Enrolled");
         compare(child(s.page, "failedAttempts").value, "2");
         verify(child(s.page, "statusHeader").visible);
         verify(!child(s.page, "accountStatus").visible);
@@ -95,6 +94,117 @@ TestCase {
         compare(child(s.page, "accountStatus").value, "Locked (30s remaining)");
         verify(!child(s.page, "removePinItem").visible);
         compare(child(s.page, "pinItem").text, "Set quick PIN");
+    }
+
+    function test_fingerprintWaitsForAPin() {
+        Security.hasFingerprintReader = true;
+        const s = open("security");
+        const item = child(s.page, "fingerprintItem");
+        verify(item.visible);
+        verify(!item.enabled);
+        compare(child(s.page, "fingerprintSummary").text, "Set a quick PIN first");
+        Security.hasQuickPIN = true;
+        verify(item.enabled);
+        compare(child(s.page, "fingerprintSummary").text, "None added");
+        Security.enrolledFingers = ["right-thumb", "left-index-finger"];
+        compare(child(s.page, "fingerprintSummary").text, "Right thumb, Left index finger");
+    }
+
+    // Security > Fingerprints > Add fingerprint > the enrolment page.
+    function openEnrollment() {
+        Security.hasFingerprintReader = true;
+        Security.hasQuickPIN = true;
+        Security.enrolledFingers = ["right-thumb"];
+        Security.fingerprintStages = 4;
+        const s = open("security");
+        child(s.page, "fingerprintItem").clicked(null);
+        const fingers = pushed(s.app, s.page);
+        verify(child(fingers, "finger-right-thumb"));
+        child(fingers, "addFinger").clicked(null);
+        const dialog = pushed(s.app, fingers);
+        compare(dialog.finger, "right-index-finger");
+        compare(dialog.choices.indexOf("right-thumb"), -1);
+        verify(!dialog.canAccept);
+        dialog.pin = "1234";
+        verify(dialog.canAccept);
+        dialog.accept();
+        const enroll = pushed(s.app, dialog);
+        tryCompare(enroll, "started", true);
+        return {
+            app: s.app,
+            fingers: fingers,
+            page: enroll
+        };
+    }
+
+    function test_fingerprintEnrollment() {
+        const e = openEnrollment();
+        compare(Security.calls, [["enroll", "right-index-finger", "1234"]]);
+        compare(child(e.page, "enrollTitle").text, "Touch the sensor");
+        compare(child(e.page, "enrollStep").text, "0 of 4");
+        Security.fingerprintEnrollStatus("enroll-stage-passed", 1, 4);
+        compare(child(e.page, "enrollTitle").text, "Lift, then touch again");
+        compare(child(e.page, "enrollStep").text, "1 of 4");
+        compare(child(e.page, "coverage").coverage, 0.25);
+        Security.fingerprintEnrollStatus("enroll-retry-scan", 1, 4);
+        compare(child(e.page, "enrollTitle").text, "Didn't catch that");
+        Security.fingerprintEnrollStatus("enroll-stage-passed", 2, 4);
+        compare(child(e.page, "enrollTitle").text, "Now the edges");
+        compare(Haptics.played, ["light", "medium", "light"]);
+        Security.fingerprintEnrolled("right-index-finger");
+        compare(child(e.page, "enrollTitle").text, "Fingerprint added");
+        compare(child(e.page, "coverage").coverage, 1);
+        verify(!child(e.page, "enrollStep").visible);
+        const done = child(e.page, "enrollButton");
+        compare(done.text, "Done");
+        done.clicked(null);
+        tryVerify(() => e.app.pageStack.currentPage === e.fingers);
+        compare(Security.calls.length, 1);
+    }
+
+    function test_fingerprintEnrollmentFailureGoesBackToThePin() {
+        const e = openEnrollment();
+        Security.fingerprintFailed("Incorrect PIN");
+        compare(child(e.page, "enrollTitle").text, "Couldn't add it");
+        compare(child(e.page, "enrollDetail").text, "Incorrect PIN");
+        const retry = child(e.page, "enrollButton");
+        compare(retry.text, "Try again");
+        retry.clicked(null);
+        const dialog = pushed(e.app, e.page);
+        compare(dialog.finger, "right-index-finger");
+        compare(dialog.error, "Incorrect PIN");
+        compare(dialog.pin, "");
+        dialog.pin = "4";
+        compare(dialog.error, "");
+    }
+
+    function test_leavingStopsTheEnrollment() {
+        const e = openEnrollment();
+        e.app.pageStack.pop();
+        tryVerify(() => e.app.pageStack.currentPage === e.fingers);
+        compare(Security.calls, [["enroll", "right-index-finger", "1234"], ["cancelEnroll"]]);
+    }
+
+    function test_removeFingerprint() {
+        Security.hasFingerprintReader = true;
+        Security.hasQuickPIN = true;
+        Security.enrolledFingers = ["right-thumb", "left-thumb"];
+        const s = open("security");
+        child(s.page, "fingerprintItem").clicked(null);
+        const fingers = pushed(s.app, s.page);
+        fingers.openRemoveDialog("left-thumb");
+        const dialog = pushed(s.app, fingers);
+        compare(dialog.title, "Left thumb");
+        dialog.pin = "1234";
+        dialog.accept();
+        tryVerify(() => s.app.pageStack.currentPage === fingers);
+        compare(Security.calls, [["deleteFinger", "left-thumb", "1234"]]);
+        compare(child(fingers, "finger-left-thumb").text, "Removing…");
+        verify(!child(fingers, "addFinger").enabled);
+        Security.enrolledFingers = ["right-thumb"];
+        Security.fingerprintDeleted("left-thumb");
+        compare(fingers.removing, "");
+        verify(child(fingers, "addFinger").enabled);
     }
 
     function test_lockDelay() {

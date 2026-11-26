@@ -1,0 +1,282 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 19:59:02 +0000
+Subject: [PATCH 42/43] pinctrl: aw9523: Drive LEDs on the outputs
+
+The AW9523B's pins can sink a constant current for an LED, which a
+write-only register per pin sets in 256 steps, but the driver keeps
+every pin a GPIO and its register map has no room for those registers.
+A board that wires an LED to the chip, such as the Minimal Phone MP01
+with its keyboard light, can only switch it as a GPIO, without the
+current limit or the dimming the LED was wired for.
+
+Register an LED class device for each led@N child: put its outputs in
+LED mode, take them out of the GPIOs, and set its brightness on each
+of them. The current registers are writable and volatile; they cannot
+be read back.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/pinctrl/Kconfig          |   1 +
+ drivers/pinctrl/pinctrl-aw9523.c | 153 ++++++++++++++++++++++++++++++-
+ 2 files changed, 150 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/pinctrl/Kconfig b/drivers/pinctrl/Kconfig
+index afecd94..86dc8d1 100644
+--- a/drivers/pinctrl/Kconfig
++++ b/drivers/pinctrl/Kconfig
+@@ -160,6 +160,7 @@ config PINCTRL_AW9523
+ 	  expander with PWM functionality. This driver bundles a
+ 	  pinctrl driver to select the function muxing and a GPIO
+ 	  driver to handle GPIO, when the GPIO function is selected.
++	  LEDs on its outputs are LED class devices.
+ 
+ 	  Say yes to enable pinctrl and GPIO support for the AW9523(B).
+ 
+diff --git a/drivers/pinctrl/pinctrl-aw9523.c b/drivers/pinctrl/pinctrl-aw9523.c
+index 9d635b7..29396e8 100644
+--- a/drivers/pinctrl/pinctrl-aw9523.c
++++ b/drivers/pinctrl/pinctrl-aw9523.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <linux/bitfield.h>
++#include <linux/bitmap.h>
+ #include <linux/errno.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/gpio/driver.h>
+@@ -12,6 +13,7 @@
+ #include <linux/init.h>
+ #include <linux/interrupt.h>
+ #include <linux/irq.h>
++#include <linux/leds.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/property.h>
+@@ -27,6 +29,7 @@
+ #define AW9523_MAX_FUNCS		2
+ #define AW9523_NUM_PORTS		2
+ #define AW9523_PINS_PER_PORT		8
++#define AW9523_NUM_PINS			(AW9523_NUM_PORTS * AW9523_PINS_PER_PORT)
+ 
+ /*
+  * HW needs at least 20uS for reset and at least 1-2uS to recover from
+@@ -51,6 +54,12 @@
+ #define AW9523_GCR_GPOMD_MASK		BIT(4)
+ 
+ #define AW9523_REG_PORT_MODE(pin)	(0x12 + AW9523_PIN_TO_PORT(pin))
++
++/* LED current, one register per pin: P1_0-P1_3, P0_0-P0_7, P1_4-P1_7 */
++#define AW9523_REG_DIM_P1_0		0x20
++#define AW9523_REG_DIM_P0_0		0x24
++#define AW9523_REG_DIM_P1_4		0x2c
++#define AW9523_REG_DIM_LAST		0x2f
+ #define AW9523_REG_SOFT_RESET		0x7f
+ #define AW9523_VAL_RESET		0x00
+ 
+@@ -74,6 +83,7 @@ struct aw9523_irq {
+  * @pctl: pinctrl handle for current device
+  * @gpio: structure holding gpiochip params
+  * @irq: Interrupt controller structure
++ * @led_pins: Pins in LED mode, which are not GPIOs
+  */
+ struct aw9523 {
+ 	struct device *dev;
+@@ -84,6 +94,19 @@ struct aw9523 {
+ 	struct pinctrl_dev *pctl;
+ 	struct gpio_chip gpio;
+ 	struct aw9523_irq *irq;
++	unsigned long led_pins;
++};
++
++/*
++ * struct aw9523_led - An LED on one or more constant-current outputs
++ * @cdev: LED class device
++ * @awi: the chip
++ * @pins: the outputs it is wired to
++ */
++struct aw9523_led {
++	struct led_classdev cdev;
++	struct aw9523 *awi;
++	unsigned long pins;
+ };
+ 
+ static const struct pinctrl_pin_desc aw9523_pins[] = {
+@@ -764,6 +787,16 @@ static int aw9523_hw_reset(struct aw9523 *awi)
+ 	return ret;
+ }
+ 
++static int aw9523_init_valid_mask(struct gpio_chip *gc,
++				  unsigned long *valid_mask,
++				  unsigned int ngpios)
++{
++	struct aw9523 *awi = gpiochip_get_data(gc);
++
++	bitmap_andnot(valid_mask, valid_mask, &awi->led_pins, ngpios);
++	return 0;
++}
++
+ static int aw9523_init_gpiochip(struct aw9523 *awi, unsigned int npins)
+ {
+ 	struct device *dev = awi->dev;
+@@ -783,6 +816,7 @@ static int aw9523_init_gpiochip(struct aw9523 *awi, unsigned int npins)
+ 	gc->set = aw9523_gpio_set;
+ 	gc->set_multiple = aw9523_gpio_set_multiple;
+ 	gc->set_config = gpiochip_generic_config;
++	gc->init_valid_mask = aw9523_init_valid_mask;
+ 	gc->parent = dev;
+ 	gc->owner = THIS_MODULE;
+ 	gc->can_sleep = true;
+@@ -836,20 +870,26 @@ static int aw9523_init_irq(struct aw9523 *awi, int irq)
+ static bool aw9523_is_reg_hole(unsigned int reg)
+ {
+ 	return (reg > AW9523_REG_PORT_MODE(AW9523_PINS_PER_PORT) &&
+-		reg < AW9523_REG_SOFT_RESET) ||
++		reg < AW9523_REG_DIM_P1_0) ||
++	       (reg > AW9523_REG_DIM_LAST && reg < AW9523_REG_SOFT_RESET) ||
+ 	       (reg > AW9523_REG_INTR_DIS(AW9523_PINS_PER_PORT) &&
+ 		reg < AW9523_REG_CHIPID);
+ }
+ 
++/* The LED current registers are write-only */
++static bool aw9523_is_dim_reg(unsigned int reg)
++{
++	return reg >= AW9523_REG_DIM_P1_0 && reg <= AW9523_REG_DIM_LAST;
++}
++
+ static bool aw9523_readable_reg(struct device *dev, unsigned int reg)
+ {
+-	/* All available registers (minus holes) can be read */
+-	return !aw9523_is_reg_hole(reg);
++	return !aw9523_is_reg_hole(reg) && !aw9523_is_dim_reg(reg);
+ }
+ 
+ static bool aw9523_volatile_reg(struct device *dev, unsigned int reg)
+ {
+-	return aw9523_is_reg_hole(reg) ||
++	return aw9523_is_reg_hole(reg) || aw9523_is_dim_reg(reg) ||
+ 	       reg == AW9523_REG_IN_STATE(0) ||
+ 	       reg == AW9523_REG_IN_STATE(AW9523_PINS_PER_PORT) ||
+ 	       reg == AW9523_REG_CHIPID ||
+@@ -950,6 +990,107 @@ static int aw9523_hw_init(struct aw9523 *awi)
+ 	return regmap_reinit_cache(awi->regmap, &aw9523_regmap);
+ }
+ 
++static unsigned int aw9523_dim_reg(unsigned int pin)
++{
++	if (pin < AW9523_PINS_PER_PORT)
++		return AW9523_REG_DIM_P0_0 + pin;
++	if (pin < AW9523_PINS_PER_PORT + 4)
++		return AW9523_REG_DIM_P1_0 + pin - AW9523_PINS_PER_PORT;
++	return AW9523_REG_DIM_P1_4 + pin - AW9523_PINS_PER_PORT - 4;
++}
++
++static int aw9523_led_brightness_set(struct led_classdev *cdev,
++				     enum led_brightness brightness)
++{
++	struct aw9523_led *led = container_of(cdev, struct aw9523_led, cdev);
++	struct aw9523 *awi = led->awi;
++	unsigned int pin;
++	int ret = 0;
++
++	mutex_lock(&awi->i2c_lock);
++	for_each_set_bit(pin, &led->pins, AW9523_NUM_PINS) {
++		ret = regmap_write(awi->regmap, aw9523_dim_reg(pin), brightness);
++		if (ret)
++			break;
++	}
++	mutex_unlock(&awi->i2c_lock);
++	return ret;
++}
++
++static int aw9523_led_pins(struct device *dev, struct fwnode_handle *child,
++			   unsigned long *pins)
++{
++	u32 out[AW9523_NUM_PINS];
++	int i, n, ret;
++
++	n = fwnode_property_count_u32(child, "led-sources");
++	if (n == -EINVAL) {
++		n = 1;
++		ret = fwnode_property_read_u32(child, "reg", out);
++	} else if (n < 1 || n > AW9523_NUM_PINS) {
++		ret = -EINVAL;
++	} else {
++		ret = fwnode_property_read_u32_array(child, "led-sources", out, n);
++	}
++	if (ret)
++		return dev_err_probe(dev, ret, "%pfw: cannot read its outputs\n",
++				     child);
++
++	*pins = 0;
++	for (i = 0; i < n; i++) {
++		if (out[i] >= AW9523_NUM_PINS)
++			return dev_err_probe(dev, -EINVAL, "%pfw: no output %u\n",
++					     child, out[i]);
++		*pins |= BIT(out[i]);
++	}
++	return 0;
++}
++
++static int aw9523_init_leds(struct aw9523 *awi)
++{
++	struct device *dev = awi->dev;
++	unsigned int pin;
++	int ret;
++
++	if (!IS_REACHABLE(CONFIG_LEDS_CLASS))
++		return 0;
++
++	device_for_each_named_child_node_scoped(dev, child, "led") {
++		struct led_init_data init_data = {
++			.fwnode = child,
++			.devicename = dev_name(dev),
++			.devname_mandatory = true,
++		};
++		struct aw9523_led *led;
++
++		led = devm_kzalloc(dev, sizeof(*led), GFP_KERNEL);
++		if (!led)
++			return -ENOMEM;
++
++		ret = aw9523_led_pins(dev, child, &led->pins);
++		if (ret)
++			return ret;
++
++		/* A low port mode bit is LED mode */
++		for_each_set_bit(pin, &led->pins, AW9523_NUM_PINS) {
++			ret = regmap_clear_bits(awi->regmap,
++						AW9523_REG_PORT_MODE(pin),
++						BIT(pin % AW9523_PINS_PER_PORT));
++			if (ret)
++				return ret;
++		}
++		awi->led_pins |= led->pins;
++
++		led->awi = awi;
++		led->cdev.max_brightness = U8_MAX;
++		led->cdev.brightness_set_blocking = aw9523_led_brightness_set;
++		ret = devm_led_classdev_register_ext(dev, &led->cdev, &init_data);
++		if (ret)
++			return ret;
++	}
++	return 0;
++}
++
+ static int aw9523_probe(struct i2c_client *client)
+ {
+ 	struct device *dev = &client->dev;
+@@ -999,6 +1140,10 @@ static int aw9523_probe(struct i2c_client *client)
+ 	pdesc->pins = aw9523_pins;
+ 	pdesc->npins = ARRAY_SIZE(aw9523_pins);
+ 
++	ret = aw9523_init_leds(awi);
++	if (ret)
++		return ret;
++
+ 	ret = aw9523_init_gpiochip(awi, pdesc->npins);
+ 	if (ret)
+ 		return ret;
+-- 
+2.55.0
+

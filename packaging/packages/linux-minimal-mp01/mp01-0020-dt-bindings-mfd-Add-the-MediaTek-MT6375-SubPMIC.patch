@@ -1,0 +1,83 @@
+From 95f4aa0d92c7846b43a594bf55a3780874ca3bc1 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 23 Nov 2026 22:00:00 +0000
+Subject: [PATCH 2/5] dt-bindings: mfd: Add the MediaTek MT6375 SubPMIC
+
+The MT6375 combines a switching charger, a USB Type-C and PD port
+controller, a fuel gauge and an ADC. Each answers at its own I2C
+address, but one interrupt line and one interrupt controller, in the
+PMU, serve them all, so the device is described at the PMU's address
+with its functions as children. Only the charger is described for now.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../bindings/mfd/mediatek,mt6375.yaml         | 57 +++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/mfd/mediatek,mt6375.yaml
+
+diff --git a/Documentation/devicetree/bindings/mfd/mediatek,mt6375.yaml b/Documentation/devicetree/bindings/mfd/mediatek,mt6375.yaml
+new file mode 100644
+index 0000000..0122d3f
+--- /dev/null
++++ b/Documentation/devicetree/bindings/mfd/mediatek,mt6375.yaml
+@@ -0,0 +1,57 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/mfd/mediatek,mt6375.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: MediaTek MT6375 SubPMIC
++
++maintainers:
++  - Patrick Quinn <patrick.jm.quinn@gmail.com>
++
++description:
++  The MT6375 is a SubPMIC with a single cell switching charger with BC1.2
++  detection, a USB Type-C and Power Delivery port controller, a fuel gauge
++  and an ADC. Each function answers at its own I2C address; the node's
++  address is that of the PMU, which holds the charger and the interrupt
++  controller for all of them.
++
++properties:
++  compatible:
++    const: mediatek,mt6375
++
++  reg:
++    maxItems: 1
++
++  interrupts:
++    maxItems: 1
++
++  charger:
++    $ref: /schemas/power/supply/mediatek,mt6375-charger.yaml#
++
++required:
++  - compatible
++  - reg
++  - interrupts
++
++additionalProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/interrupt-controller/irq.h>
++
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        pmic@34 {
++            compatible = "mediatek,mt6375";
++            reg = <0x34>;
++            interrupts-extended = <&pio 4 IRQ_TYPE_LEVEL_LOW>;
++
++            charger {
++                compatible = "mediatek,mt6375-charger";
++                monitored-battery = <&battery>;
++            };
++        };
++    };
+-- 
+2.55.0
+

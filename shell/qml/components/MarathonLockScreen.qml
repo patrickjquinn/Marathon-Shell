@@ -45,6 +45,11 @@ Item {
     property real swipeProgress: 0
     // The app whose notification stack is open; the others show their newest.
     property string expandedApp: ""
+    // A finger on the sensor unlocks from here (MarathonShell listens).
+    readonly property bool fingerprintReady: Security.fingerprintAvailable && Security.fingerprintBlocked === ""
+    // A miss, or what the sensor asked for, in place of the hint for a moment.
+    property string fingerprintNote: ""
+    property bool fingerprintMissed: false
     // Finger travel that takes swipeProgress from 0 to 1.
     readonly property real swipeTravel: height * 0.15
     // Short/square screens (HackberryPi, Q25) place by height, not design px.
@@ -283,13 +288,15 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: "black"
-            visible: lockWallpaper.status !== Image.Ready
+            color: MColors.eink ? MColors.background : "black"
+            visible: MColors.eink || lockWallpaper.status !== Image.Ready
         }
+        // E-paper shows paper, not the wallpaper.
         Image {
             id: lockWallpaper
 
             anchors.fill: parent
+            visible: !MColors.eink
             source: SettingsManagerCpp.wallpaperPath
             // The home screen's size too, so both share one decoded image.
             sourceSize: Qt.size(width, height)
@@ -382,9 +389,9 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: Silica.Theme.paddingMedium
-                color: Silica.Theme.rgba("black", 0.85)
+                color: MColors.badge
                 border.width: 1
-                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
 
                 Rectangle {
                     id: callAvatar
@@ -491,8 +498,12 @@ Item {
             anchors.bottomMargin: Silica.Theme.paddingLarge
             contentHeight: lockStack.height
             clip: true
-            interactive: contentHeight > height
+            interactive: contentHeight > height && !MMotion.instant
             boundsBehavior: Flickable.StopAtBounds
+
+            MEinkScroll {
+                flickable: lockScroller
+            }
             z: 10
 
             Column {
@@ -508,7 +519,7 @@ Item {
 
                     Behavior on height {
                         NumberAnimation {
-                            duration: MMotion.moderate
+                            duration: MMotion.ms(MMotion.moderate)
                             easing.type: Easing.OutCubic
                         }
                     }
@@ -659,14 +670,14 @@ Item {
                                     target: cardBody
                                     property: "x"
                                     to: notifCard.width
-                                    duration: MMotion.quick
+                                    duration: MMotion.ms(MMotion.quick)
                                     easing.type: Easing.OutCubic
                                 }
                                 NumberAnimation {
                                     target: notifCard
                                     property: "collapse"
                                     to: 0
-                                    duration: MMotion.quick
+                                    duration: MMotion.ms(MMotion.quick)
                                     easing.type: Easing.InOutQuad
                                 }
                                 ScriptAction {
@@ -680,7 +691,7 @@ Item {
                                 target: cardBody
                                 property: "x"
                                 to: 0
-                                duration: MMotion.quick
+                                duration: MMotion.ms(MMotion.quick)
                                 easing.type: Easing.OutCubic
                             }
 
@@ -735,10 +746,10 @@ Item {
                                         radius: width / 2
                                         color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.16)
 
-                                        GlyphIcon {
+                                        NotificationIcon {
                                             anchors.centerIn: parent
-                                            name: notifCard.icon
-                                            size: Silica.Theme.iconSizeExtraSmall
+                                            source: notifCard.icon
+                                            size: hasImage ? notifIcon.width : Silica.Theme.iconSizeExtraSmall
                                             color: Silica.Theme.highlightColor
                                         }
                                     }
@@ -942,6 +953,7 @@ Item {
         Column {
             id: unlockHint
 
+            objectName: "unlockHint"
             visible: UIStore.quickSettingsHeight === 0 && lockScreen.comboLength === 0
 
             anchors.horizontalCenter: parent.horizontalCenter
@@ -949,42 +961,111 @@ Item {
             anchors.bottomMargin: Silica.Theme.paddingLarge
             spacing: Silica.Theme.paddingSmall
             z: 11
+            transform: Translate {
+                id: missShake
+            }
 
             GlyphIcon {
-                name: "chevron-up"
+                objectName: "unlockGlyph"
+                name: lockScreen.fingerprintReady ? "fingerprint" : "chevron-up"
                 size: Silica.Theme.iconSizeSmall
-                color: hintTone.glyph
+                color: lockScreen.fingerprintMissed ? Silica.Theme.errorColor : hintTone.glyph
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 SequentialAnimation on y {
                     // One bob each time the lock screen appears, then rest: it
                     // is seen on every wake, and any running animation makes
                     // the scene graph redraw the whole screen every frame.
-                    running: MMotion.gate(lockScreen.visible)
+                    // The fingerprint glyph is a place to touch: it stays still.
+                    running: MMotion.gate(lockScreen.visible) && !lockScreen.fingerprintReady
                     loops: 1
 
                     NumberAnimation {
                         to: -Silica.Theme.paddingSmall
-                        duration: 800
+                        duration: MMotion.ms(800)
                         easing.type: Easing.InOutQuad
                     }
 
                     NumberAnimation {
                         to: 0
-                        duration: 800
+                        duration: MMotion.ms(800)
                         easing.type: Easing.InOutQuad
                     }
                 }
             }
 
             Silica.Label {
-                text: qsTr("Swipe up to unlock")
+                objectName: "unlockLabel"
+                text: lockScreen.fingerprintNote || (lockScreen.fingerprintReady ? qsTr("Touch the sensor or swipe up") : qsTr("Swipe up to unlock"))
                 color: hintTone.glyph
                 style: Text.Outline
                 styleColor: hintTone.halo
                 font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 anchors.horizontalCenter: parent.horizontalCenter
             }
+        }
+    }
+
+    Connections {
+        function onFingerprintMismatch(message) {
+            HapticManager.heavy();
+            lockScreen.fingerprintMissed = true;
+            lockScreen.fingerprintNote = message;
+            noteTimer.restart();
+            if (!MMotion.reduceMotion)
+                missShakeAnimation.restart();
+        }
+
+        function onBiometricPrompt(message) {
+            lockScreen.fingerprintMissed = false;
+            lockScreen.fingerprintNote = message;
+            noteTimer.restart();
+        }
+
+        // Too many misses: the PIN is next.
+        function onAuthenticationFailed(reason) {
+            if (!lockScreen.visible)
+                return;
+            lockScreen.fingerprintMissed = true;
+            lockScreen.fingerprintNote = reason;
+            noteTimer.restart();
+        }
+
+        target: Security
+    }
+
+    Timer {
+        id: noteTimer
+
+        interval: 2500
+        onTriggered: {
+            lockScreen.fingerprintNote = "";
+            lockScreen.fingerprintMissed = false;
+        }
+    }
+
+    SequentialAnimation {
+        id: missShakeAnimation
+
+        NumberAnimation {
+            target: missShake
+            property: "x"
+            to: Silica.Theme.paddingSmall
+            duration: 40
+        }
+
+        NumberAnimation {
+            target: missShake
+            property: "x"
+            to: -Silica.Theme.paddingSmall
+            duration: 80
+        }
+
+        NumberAnimation {
+            target: missShake
+            property: "x"
+            to: 0
+            duration: 40
         }
     }
 

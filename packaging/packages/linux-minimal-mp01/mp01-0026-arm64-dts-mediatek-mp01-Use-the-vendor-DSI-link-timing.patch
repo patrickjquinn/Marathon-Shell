@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 07:30:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: mp01: Use the vendor DSI link timing
+
+The e-paper controller decodes the DSI link only with the vendor kernel's
+blanking and lane timings: with them the picture is live and clean, with
+mainline's it is garbled or streaked (seen on the phone).
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+--- a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+@@ -988,6 +988,8 @@
+  * board (the vendor's lane_swap table).
+  */
+ &dsi0 {
++	/* The e-paper controller decodes only the vendor kernel's link timing. */
++	mediatek,vendor-link-timing;
+ 	status = "okay";
+ 
+ 	port {
+-- 
+2.47.0

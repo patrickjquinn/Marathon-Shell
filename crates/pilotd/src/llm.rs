@@ -121,8 +121,6 @@ pub enum Effort {
     Medium,
 }
 
-/// Is handed the reply's text so far while a model on this phone writes
-/// it, so the person reads the answer as it comes.
 /// The most a reply from the model on the phone may write (~300 words).
 const PHONE_MAX_TOKENS: u32 = 400;
 
@@ -310,8 +308,9 @@ impl OpenAiClient {
         // The model on the phone writes ~13 tokens a second: a reply that
         // runs on is cut at a phone's length, not left for a minute or more
         // (LFM2.5 wrote 1,024 tokens of markdown, 80 s, and a turn's rounds
-        // made it 250 s).
-        let cap = if self.provider == "local" {
+        // made it 250 s). Not a round with tools: a long note's call, cut,
+        // is no call.
+        let cap = if self.provider == "local" && req.tools.is_empty() {
             self.max_completion_tokens.min(PHONE_MAX_TOKENS)
         } else {
             self.max_completion_tokens
@@ -486,8 +485,8 @@ impl LlmClient for OpenAiClient {
                     body: whole.unwrap_or_else(|| acc.into_reply()),
                 }
             }
-            // Reading a route ahead takes as long as it takes: a 5,900-token
-            // route is ~2 minutes on the phone, past a turn's timeout.
+            // A warm-up reads the whole system prompt and tools: on the
+            // phone, past a turn's timeout.
             None if req.purpose == "warm" => {
                 self.remote
                     .with_timeout(READ_AHEAD_TIMEOUT)

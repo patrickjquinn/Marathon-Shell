@@ -166,7 +166,7 @@ Item {
 
                     Behavior on color {
                         ColorAnimation {
-                            duration: 120
+                            duration: MMotion.ms(120)
                         }
                     }
                 }

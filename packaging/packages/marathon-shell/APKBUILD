@@ -59,6 +59,7 @@ depends="
 	greetd
 	libcap
 	bubblewrap
+	xdg-dbus-proxy
 	ffmpeg
 	gst-plugins-bad
 	gst-plugins-base

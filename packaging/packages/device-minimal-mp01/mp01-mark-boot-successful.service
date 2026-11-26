@@ -1,0 +1,14 @@
+[Unit]
+Description=MP01: mark the slot LK booted successful
+After=greetd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# The session has to have come up and stayed up.
+ExecStartPre=/bin/sleep 60
+ExecStartPre=/usr/bin/systemctl -q is-active greetd.service
+ExecStart=/usr/libexec/marathon/mp01-mark-boot-successful
+
+[Install]
+WantedBy=graphical.target

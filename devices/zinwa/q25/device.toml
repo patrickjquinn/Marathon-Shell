@@ -22,6 +22,12 @@ bootloader = "none"
 method = "uefi"
 partition_table = "gpt"
 
+# The root is a file on the userdata carrier. Installed phones boot by
+# q25.rootfs_file= and keep the carrier at /.q25-carrier/root.
+[boot.carrier]
+name = "q25"
+dtb = "mediatek/mt8781-zinwa-q25.dtb"
+
 # 7.0.0-q25, built from source; every module package is pinned
 # to it.
 [kernel]
@@ -63,10 +69,6 @@ cpu_governor = "schedutil"
 brightness_floor = 0.05
 # The bias floor (4.0 V) is still bright: the slider's bottom fifth dims the frame to 35%.
 brightness_dim = 0.35
-gpu_stack = "mesa-panfrost"
-# PanVK rejects the Mali-G57, so the loader finds no Vulkan device and GTK 4
-# renders with GL instead of on the CPU through lavapipe.
-vulkan_driver = "panfrost"
 # 12 GB: a warm spare runner for apps with the media folders and one for
 # apps without (~180 MB RSS each). With one, an app of the other kind
 # started cold: Calculator after Notes, 0.9 s to its first frame, 0.23 s

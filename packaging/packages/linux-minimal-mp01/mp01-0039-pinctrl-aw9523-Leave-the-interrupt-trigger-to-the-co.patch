@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 19:55:52 +0000
+Subject: [PATCH 39/43] pinctrl: aw9523: Leave the interrupt trigger to the
+ consumer
+
+The driver gives its irqchip a default trigger of both edges. gpiolib
+refuses a default trigger on a chip described by firmware, since the
+consumer's description sets the trigger, and warns on every probe:
+
+  /soc/i2c@1101a000/gpio@5b: Ignoring 3 default trigger
+  WARNING: drivers/gpio/gpiolib.c:2107 at gpiochip_add_irqchip+0x4e4/0x500
+
+Set no default. gpiolib already replaced the default with none, so the
+interrupts behave as before; consumers asking for both edges still get
+them through irq_set_type().
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/pinctrl/pinctrl-aw9523.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pinctrl/pinctrl-aw9523.c b/drivers/pinctrl/pinctrl-aw9523.c
+index 02a24ac..5ccacef 100644
+--- a/drivers/pinctrl/pinctrl-aw9523.c
++++ b/drivers/pinctrl/pinctrl-aw9523.c
+@@ -824,7 +824,7 @@ static int aw9523_init_irq(struct aw9523 *awi, int irq)
+ 	girq->parent_handler = NULL;
+ 	girq->num_parents = 0;
+ 	girq->parents = NULL;
+-	girq->default_type = IRQ_TYPE_EDGE_BOTH;
++	girq->default_type = IRQ_TYPE_NONE;
+ 	girq->handler = handle_simple_irq;
+ 	girq->threaded = true;
+ 
+-- 
+2.55.0
+

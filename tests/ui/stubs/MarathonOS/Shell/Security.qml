@@ -6,6 +6,7 @@ QtObject {
     property bool isLockedOut: false
     property int lockoutSecondsRemaining: 0
     property bool fingerprintAvailable: false
+    property string fingerprintBlocked: ""
     property bool hasTrackpadCombo: false
     property bool recordingCombo: false
     property string recordedCombo: ""
@@ -21,6 +22,7 @@ QtObject {
     signal authenticationSuccess
     signal authenticationFailed(string reason)
     signal biometricPrompt(string message)
+    signal fingerprintMismatch(string message)
     signal lockoutStateChanged
 
     function authenticateQuickPIN(pin) {
@@ -30,6 +32,8 @@ QtObject {
         attempts = attempts.concat([password]);
     }
     function authenticateBiometric(type) {
+    }
+    function cancelAuthentication() {
     }
     function setQuickPINFirstRun(pin) {
         if (hasQuickPIN)

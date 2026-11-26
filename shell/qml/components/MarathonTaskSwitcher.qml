@@ -243,7 +243,8 @@ Item {
         }
         flickableDirection: Flickable.VerticalFlick
         pressDelay: 0
-        interactive: pages > 1
+        // On e-paper the cards never follow the finger: einkPages turns them.
+        interactive: pages > 1 && !MMotion.instant
         // Past the first or last page the cards give, then spring back.
         boundsBehavior: Flickable.DragAndOvershootBounds
         model: Tasks
@@ -258,6 +259,15 @@ Item {
             dragStartPage = Math.round((contentY - originY) / pageHeight);
         }
         onDragEnded: settle()
+
+        MEinkSwipe {
+            id: einkPages
+
+            extent: taskGrid.pageHeight
+            horizontal: false
+            enabled: MMotion.instant && taskGrid.pages > 1
+            onTurn: step => taskGrid.showPage(Math.round((taskGrid.contentY - taskGrid.originY) / taskGrid.pageHeight) + step)
+        }
         onFlickStarted: cancelFlick()
 
         NumberAnimation {
@@ -265,7 +275,7 @@ Item {
 
             target: taskGrid
             property: "contentY"
-            duration: MMotion.moderate
+            duration: MMotion.ms(MMotion.moderate)
             easing.type: Easing.OutCubic
         }
 
@@ -279,7 +289,8 @@ Item {
             taskSwitcherVisible: taskSwitcher.visible && taskSwitcher.pageActive
             gridMoving: taskGrid.moving
             gridDragging: taskGrid.dragging
-            swipeClaimsDrag: !taskGrid.interactive || taskGrid.atYEnd
+            // On the last page, or the only one: up anywhere else turns the page.
+            swipeClaimsDrag: taskGrid.pages <= 1 || taskGrid.atYEnd
             onClosed: taskSwitcher.closed()
         }
 
@@ -304,13 +315,13 @@ Item {
             NumberAnimation {
                 property: "opacity"
                 to: 0
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 property: "scale"
                 to: 0.9
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.OutCubic
             }
         }
@@ -319,13 +330,13 @@ Item {
         displaced: Transition {
             NumberAnimation {
                 properties: "x,y"
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 properties: "opacity,scale"
                 to: 1
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
         }
@@ -367,7 +378,7 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: Constants.animationSlow
+            duration: MMotion.ms(Constants.animationSlow)
             easing.type: Easing.OutCubic
         }
     }

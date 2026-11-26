@@ -393,6 +393,72 @@ function dataEncryptionNote(state) {
     return qsTr("Marathon doesn't encrypt data on this phone yet.");
 }
 
+// fprintd's finger names, in the order Add fingerprint offers them.
+const fingers = ["right-thumb", "right-index-finger", "left-thumb", "left-index-finger", "right-middle-finger", "left-middle-finger", "right-ring-finger", "left-ring-finger", "right-little-finger", "left-little-finger"];
+
+function fingerName(finger) {
+    switch (finger) {
+    case "right-thumb":
+        return qsTr("Right thumb");
+    case "right-index-finger":
+        return qsTr("Right index finger");
+    case "right-middle-finger":
+        return qsTr("Right middle finger");
+    case "right-ring-finger":
+        return qsTr("Right ring finger");
+    case "right-little-finger":
+        return qsTr("Right little finger");
+    case "left-thumb":
+        return qsTr("Left thumb");
+    case "left-index-finger":
+        return qsTr("Left index finger");
+    case "left-middle-finger":
+        return qsTr("Left middle finger");
+    case "left-ring-finger":
+        return qsTr("Left ring finger");
+    case "left-little-finger":
+        return qsTr("Left little finger");
+    }
+    return finger;
+}
+
+function fingersLeft(enrolled) {
+    return fingers.filter(f => enrolled.indexOf(f) < 0);
+}
+
+function fingerprintSummary(hasPin, enrolled) {
+    if (!hasPin)
+        return qsTr("Set a quick PIN first");
+    if (enrolled.length === 0)
+        return qsTr("None added");
+    return enrolled.map(fingerName).join(", ");
+}
+
+// What to say after fprintd's latest enrolment result ("" before the first
+// touch): { title, detail, retry }. The second half of the touches asks for
+// the edges, which the first, flat touches miss.
+function enrollGuidance(result, passed, stages, scanType) {
+    const swipe = scanType === "swipe";
+    const edges = stages > 0 && passed * 2 >= stages;
+    switch (result) {
+    case "enroll-stage-passed":
+        if (swipe)
+            return { title: qsTr("Swipe again"), detail: edges ? qsTr("Now a little to each side, to take in the edges") : qsTr("Keep the same speed"), retry: false };
+        if (edges)
+            return { title: qsTr("Now the edges"), detail: qsTr("Tilt your finger to place its sides and tip"), retry: false };
+        return { title: qsTr("Lift, then touch again"), detail: qsTr("Move your finger a little each time"), retry: false };
+    case "enroll-retry-scan":
+        return { title: qsTr("Didn't catch that"), detail: swipe ? qsTr("Swipe in one smooth movement") : qsTr("Hold still a moment longer"), retry: true };
+    case "enroll-swipe-too-short":
+        return { title: qsTr("Swipe too short"), detail: qsTr("Swipe the whole length of the sensor"), retry: true };
+    case "enroll-finger-not-centered":
+        return { title: qsTr("Off center"), detail: qsTr("Place your finger in the middle of the sensor"), retry: true };
+    case "enroll-remove-and-retry":
+        return { title: qsTr("Lift your finger"), detail: qsTr("Then touch the sensor again"), retry: true };
+    }
+    return swipe ? { title: qsTr("Swipe your finger"), detail: qsTr("Down the sensor, from the top joint to the tip"), retry: false } : { title: qsTr("Touch the sensor"), detail: qsTr("Rest the pad of your finger flat on it"), retry: false };
+}
+
 // SettingsController.remoteAddresses()' kinds.
 function remoteAddressLabel(kind) {
     return kind === "usb" ? qsTr("USB") : kind === "wifi" ? qsTr("Wi-Fi") : qsTr("Ethernet");

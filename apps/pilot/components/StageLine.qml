@@ -47,6 +47,8 @@ Item {
         fill.duration = readLeft * 1.5;
         fill.start();
     }
+    on_AnimateChanged: if (!_animate)
+        fill.stop()
     NumberAnimation {
         id: fill
         target: line

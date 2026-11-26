@@ -1,0 +1,187 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 20:30:00 +0000
+Subject: [PATCH] phy: mediatek: mipi-dsi: Route the data lanes in the
+ configured order
+
+The MT8183-family MIPI TX, which MT6789 also uses, picks the pads that
+each lane drives in MIPITX_PHY_SEL0-3. The field layout here is taken
+from MediaTek's own mtk_mipi_tx_dphy_lane_config(), which the MT6789
+vendor kernel uses to swap the Minimal Phone MP01's lanes 2 and 3.
+
+Take the order through phy_configure() and program it at power on. The
+LP receiver follows logical lane 0, because that is where turnaround reads
+come back. A partial map routes the unused lanes to the remaining pads,
+so that no two lanes drive one pad. Without a configured order nothing
+is written, so existing boards are unchanged. MT2701 and MT8173 refuse
+an order rather than ignore it.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/phy/mediatek/phy-mtk-mipi-dsi.h        |   2 ++
+ drivers/phy/mediatek/phy-mtk-mipi-dsi.c        |  35 +++++++++++++++++++++++++++++++++++
+ drivers/phy/mediatek/phy-mtk-mipi-dsi-mt8183.c |  65 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 102 insertions(+)
+
+diff --git a/drivers/phy/mediatek/phy-mtk-mipi-dsi.h b/drivers/phy/mediatek/phy-mtk-mipi-dsi.h
+--- a/drivers/phy/mediatek/phy-mtk-mipi-dsi.h
++++ b/drivers/phy/mediatek/phy-mtk-mipi-dsi.h
+@@ -18,6 +18,7 @@
+ 
+ struct mtk_mipitx_data {
+ 	const u32 mppll_preserve;
++	const bool lane_remap;
+ 	const struct clk_ops *mipi_tx_clk_ops;
+ 	void (*mipi_tx_enable_signal)(struct phy *phy);
+ 	void (*mipi_tx_disable_signal)(struct phy *phy);
+@@ -29,6 +30,7 @@
+ 	u32 data_rate;
+ 	u32 mipitx_drive;
+ 	u32 rt_code[5];
++	u8 data_lanes[4];
+ 	const struct mtk_mipitx_data *driver_data;
+ 	struct clk_hw pll_hw;
+ };
+diff --git a/drivers/phy/mediatek/phy-mtk-mipi-dsi.c b/drivers/phy/mediatek/phy-mtk-mipi-dsi.c
+--- a/drivers/phy/mediatek/phy-mtk-mipi-dsi.c
++++ b/drivers/phy/mediatek/phy-mtk-mipi-dsi.c
+@@ -58,9 +58,44 @@
+ 	return 0;
+ }
+ 
++static int mtk_mipi_tx_configure(struct phy *phy,
++				 union phy_configure_opts *opts)
++{
++	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
++	const unsigned char *map = opts->mipi_dphy.data_lanes;
++	unsigned int lanes = opts->mipi_dphy.lanes;
++	const unsigned int max = ARRAY_SIZE(mipi_tx->data_lanes);
++	unsigned long used = 0;
++	unsigned int i, phys;
++
++	memset(mipi_tx->data_lanes, 0, sizeof(mipi_tx->data_lanes));
++	if (!map[0])
++		return 0;
++
++	if (!mipi_tx->driver_data->lane_remap)
++		return -EOPNOTSUPP;
++
++	if (!lanes || lanes > max)
++		return -EINVAL;
++
++	for (i = 0; i < lanes; i++) {
++		if (map[i] < 1 || map[i] > max || __test_and_set_bit(map[i], &used))
++			return -EINVAL;
++	}
++
++	memcpy(mipi_tx->data_lanes, map, lanes);
++	/* Route the unused lanes to the unused pads, so no two share one. */
++	for (phys = 1; i < max; phys++)
++		if (!test_bit(phys, &used))
++			mipi_tx->data_lanes[i++] = phys;
++
++	return 0;
++}
++
+ static const struct phy_ops mtk_mipi_tx_ops = {
+ 	.power_on = mtk_mipi_tx_power_on,
+ 	.power_off = mtk_mipi_tx_power_off,
++	.configure = mtk_mipi_tx_configure,
+ 	.owner = THIS_MODULE,
+ };
+ 
+diff --git a/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt8183.c b/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt8183.c
+--- a/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt8183.c
++++ b/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt8183.c
+@@ -28,6 +28,13 @@
+ #define MIPITX_PLL_CON3		0x0038
+ #define MIPITX_PLL_CON4		0x003c
+ #define RG_DSI_PLL_IBIAS		GENMASK(11, 10)
++
++#define MIPITX_PHY_SEL0		0x0040
++#define MIPITX_PHY_SEL1		0x0044
++#define MIPITX_PHY_SEL2		0x0048
++#define MIPITX_PHY_SEL3		0x004c
++#define FLD_MIPI_TX_LPRX0AB_SEL		GENMASK(15, 12)
++#define FLD_MIPI_TX_LPRX0BC_SEL		GENMASK(19, 16)
+ 
+ #define MIPITX_D2P_RTCODE	0x0100
+ #define MIPITX_D2_SW_CTL_EN	0x0144
+@@ -131,10 +138,67 @@
+ 	}
+ }
+ 
++/*
++ * The pad selected for each logical data lane: its P pad, its N pad
++ * (numbered P + 1) and its HS data source. Pads 0 to 9 are D2P, D2N,
++ * D0P, D0N, CKP, CKN, D1P, D1N, D3P and D3N.
++ */
++struct mtk_mipi_tx_lane_sel {
++	u16 p_reg, n_reg, hs_reg;
++	u32 p_mask, n_mask, hs_mask;
++};
++
++static const struct mtk_mipi_tx_lane_sel mtk_mipi_tx_lane_sel[] = {
++	{ MIPITX_PHY_SEL0, MIPITX_PHY_SEL0, MIPITX_PHY_SEL2,
++	  GENMASK(15, 12), GENMASK(19, 16), GENMASK(11, 8) },
++	{ MIPITX_PHY_SEL0, MIPITX_PHY_SEL1, MIPITX_PHY_SEL2,
++	  GENMASK(31, 28), GENMASK(3, 0), GENMASK(27, 24) },
++	{ MIPITX_PHY_SEL0, MIPITX_PHY_SEL0, MIPITX_PHY_SEL2,
++	  GENMASK(7, 4), GENMASK(11, 8), GENMASK(3, 0) },
++	{ MIPITX_PHY_SEL1, MIPITX_PHY_SEL1, MIPITX_PHY_SEL3,
++	  GENMASK(7, 4), GENMASK(11, 8), GENMASK(3, 0) },
++};
++
++/* The P pad of physical data lanes 1 to 4 (D0 to D3) */
++static const u8 mtk_mipi_tx_data_pad[] = { 2, 6, 0, 8 };
++
++static void mtk_mipi_tx_remap_lanes(struct mtk_mipi_tx *mipi_tx)
++{
++	const struct mtk_mipi_tx_lane_sel *sel;
++	void __iomem *base = mipi_tx->regs;
++	unsigned int i;
++	u8 pad;
++
++	for (i = 0; i < ARRAY_SIZE(mipi_tx->data_lanes); i++) {
++		if (!mipi_tx->data_lanes[i])
++			break;
++
++		sel = &mtk_mipi_tx_lane_sel[i];
++		pad = mtk_mipi_tx_data_pad[mipi_tx->data_lanes[i] - 1];
++		mtk_phy_update_bits(base + sel->p_reg, sel->p_mask,
++				    field_prep(sel->p_mask, pad));
++		mtk_phy_update_bits(base + sel->n_reg, sel->n_mask,
++				    field_prep(sel->n_mask, pad + 1));
++		mtk_phy_update_bits(base + sel->hs_reg, sel->hs_mask,
++				    field_prep(sel->hs_mask, pad));
++
++		/* Turnaround and LP reads come back on logical lane 0. */
++		if (i == 0) {
++			mtk_phy_update_field(base + MIPITX_PHY_SEL1,
++					     FLD_MIPI_TX_LPRX0AB_SEL, pad);
++			mtk_phy_update_field(base + MIPITX_PHY_SEL1,
++					     FLD_MIPI_TX_LPRX0BC_SEL, pad + 1);
++		}
++	}
++}
++
+ static void mtk_mipi_tx_power_on_signal(struct phy *phy)
+ {
+ 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+ 	void __iomem *base = mipi_tx->regs;
++
++	if (mipi_tx->data_lanes[0])
++		mtk_mipi_tx_remap_lanes(mipi_tx);
+ 
+ 	/* BG_LPF_EN / BG_CORE_EN */
+ 	writel(RG_DSI_PAD_TIEL_SEL | RG_DSI_BG_CORE_EN, base + MIPITX_LANE_CON);
+@@ -173,6 +237,7 @@
+ }
+ 
+ const struct mtk_mipitx_data mt8183_mipitx_data = {
++	.lane_remap = true,
+ 	.mipi_tx_clk_ops = &mtk_mipi_tx_pll_ops,
+ 	.mipi_tx_enable_signal = mtk_mipi_tx_power_on_signal,
+ 	.mipi_tx_disable_signal = mtk_mipi_tx_power_off_signal,
+-- 
+2.55.0

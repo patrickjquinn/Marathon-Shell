@@ -378,7 +378,7 @@ pub(crate) fn uninstalled(app_id: &str, error: &str) {
 }
 
 /// The runner's bus name, as it sanitises it.
-fn runner_name(app_id: &str) -> String {
+pub(crate) fn runner_name(app_id: &str) -> String {
     let id: String = app_id
         .chars()
         .map(|c| {

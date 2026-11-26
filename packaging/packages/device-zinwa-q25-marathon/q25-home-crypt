@@ -92,7 +92,7 @@ e2fsck -p "$mapper"
 	log "$mapper has errors"
 	exit 1
 }
-mount -t ext4 -o noatime "$mapper" /home || exit 1
+mount -t ext4 -o noatime,commit=60 "$mapper" /home || exit 1
 if [ ! -e /home/.marathon-seeded ]; then
 	log "copying /home in"
 	# The root's own /home, under the new mount.

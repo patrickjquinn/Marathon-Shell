@@ -31,7 +31,9 @@ Item {
         anchors.topMargin: Silica.Theme.paddingSmall / 2
         anchors.bottomMargin: Silica.Theme.paddingSmall / 2
         radius: height / 2
-        color: trackHit.pressed ? Qt.rgba(1, 1, 1, 0.16) : MColors.controlFill
+        color: trackHit.pressed ? MColors.whiteOverlay16 : MColors.controlFill
+        border.width: MColors.eink ? 1 : 0
+        border.color: MColors.border
 
         Rectangle {
             width: Math.max(parent.height, parent.width * root.fraction)
@@ -45,7 +47,8 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             name: root.iconName
             size: Silica.Theme.iconSizeSmall
-            color: Silica.Theme.primaryColor
+            // Over the fill: paper on e-paper's black.
+            color: MColors.eink ? MColors.textOnAccent : Silica.Theme.primaryColor
         }
 
         Text {

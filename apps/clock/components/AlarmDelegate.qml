@@ -16,18 +16,20 @@ ListItem {
     objectName: "alarmItem"
     contentHeight: Theme.itemSizeLarge
     Accessible.name: [timeText, modelData.label || qsTr("Alarm"), repeatText].filter(s => s).join(", ")
-    menu: ContextMenu {
-        MenuItem {
-            objectName: "editAlarm"
-            text: qsTr("Edit")
-            onClicked: root.app.editAlarm(root.modelData)
-        }
-        MenuItem {
-            text: qsTr("Delete")
-            onClicked: {
-                const app = root.app;
-                const id = root.modelData.id;
-                root.remorseDelete(() => app.deleteAlarm(id));
+    menu: Component {
+        ContextMenu {
+            MenuItem {
+                objectName: "editAlarm"
+                text: qsTr("Edit")
+                onClicked: root.app.editAlarm(root.modelData)
+            }
+            MenuItem {
+                text: qsTr("Delete")
+                onClicked: {
+                    const app = root.app;
+                    const id = root.modelData.id;
+                    root.remorseDelete(() => app.deleteAlarm(id));
+                }
             }
         }
     }

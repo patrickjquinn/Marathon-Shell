@@ -219,7 +219,7 @@ Item {
             }
 
             PauseAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
             }
 
             ScriptAction {
@@ -604,17 +604,17 @@ Item {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
-                                        // On the card's dark glass, whatever the ambience.
+                                        // On the card's dark glass, whatever the ambience; ink on e-paper.
                                         Label {
                                             text: taskCard.title || taskCard.appId
-                                            color: Theme.lightPrimaryColor
+                                            color: MColors.eink ? Theme.primaryColor : Theme.lightPrimaryColor
                                             font.pixelSize: Theme.fontSizeSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
                                         Label {
                                             text: qsTr("Preview unavailable")
-                                            color: Theme.lightSecondaryColor
+                                            color: MColors.eink ? Theme.secondaryColor : Theme.lightSecondaryColor
                                             font.pixelSize: Theme.fontSizeExtraSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
@@ -798,7 +798,7 @@ Item {
 
         Behavior on closeFade {
             NumberAnimation {
-                duration: MMotion.moderate
+                duration: MMotion.ms(MMotion.moderate)
                 easing.type: Easing.OutCubic
             }
         }
@@ -822,7 +822,7 @@ Item {
         enabled: Constants.enableAnimations
 
         NumberAnimation {
-            duration: 250
+            duration: MMotion.ms(250)
             easing.type: Easing.OutCubic
         }
     }

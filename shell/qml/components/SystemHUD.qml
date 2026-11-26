@@ -49,9 +49,9 @@ Item {
         anchors.margins: Silica.Theme.paddingSmall
         height: Silica.Theme.itemSizeSmall
         radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
         opacity: 0
         visible: hudContainer.hudVisible
 
@@ -84,7 +84,7 @@ Item {
 
                     Behavior on width {
                         NumberAnimation {
-                            duration: MMotion.quick
+                            duration: MMotion.ms(MMotion.quick)
                             easing.type: Easing.OutCubic
                         }
                     }
@@ -109,7 +109,7 @@ Item {
             enabled: Constants.enableAnimations
 
             NumberAnimation {
-                duration: Constants.animationNormal
+                duration: MMotion.ms(Constants.animationNormal)
                 easing.type: Easing.OutCubic
             }
         }
@@ -128,7 +128,7 @@ Item {
         target: hud
         property: "opacity"
         to: 0
-        duration: 200
+        duration: MMotion.ms(200)
         easing.type: Easing.OutCubic
     }
 }

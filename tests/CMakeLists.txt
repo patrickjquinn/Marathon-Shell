@@ -33,6 +33,8 @@ add_test(NAME Script_UpdateSplash COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging
 
 # The startup PIN's keyslot helper against a LUKS2 image (skips without cryptsetup)
 add_test(NAME Script_DataKey COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-data-key.sh ${CMAKE_SOURCE_DIR}/tools/marathon-data-key/marathon-data-key)
+# The fingerprint helper against fake fprintd tools
+add_test(NAME Script_Fingerprint COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-fingerprint.sh ${CMAKE_SOURCE_DIR}/tools/marathon-fingerprint/marathon-fingerprint)
 
 # Reef links Keel's SailfishApp, which only keel-silica-dev provides.
 find_path(_KEEL_SAILFISHAPP sailfishapp.h PATHS /usr/include/keel/sailfishapp NO_DEFAULT_PATH)
@@ -102,8 +104,8 @@ if(Python3_FOUND)
     add_test(NAME Q25_GpuPackaging COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/qemu/test_q25_gpu_packaging.py)
     add_test(NAME Q25_RootDiff COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/q25/test_q25_root_diff.py)
     add_test(NAME Q25_RootInstall COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/q25/test_q25_root_install.py)
-    add_test(NAME Q25_CarrierHook COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/q25/test_q25_carrier_hook.py)
-    add_test(NAME Q25_UserdataImage COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/q25/test_q25_userdata_image.py)
+    add_test(NAME Carrier_Hook COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/carrier/test_carrier_hook.py)
+    add_test(NAME Carrier_UserdataImage COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/carrier/test_carrier_userdata_image.py)
     add_test(NAME Q25_GnssFrames COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/devices/zinwa/q25/gnss/test_mtk_gnss_frames.py)
     # Alpine has no systemd-tmpfiles; CI runs this on its Ubuntu host as well.
     find_program(SYSTEMD_TMPFILES_EXECUTABLE systemd-tmpfiles)

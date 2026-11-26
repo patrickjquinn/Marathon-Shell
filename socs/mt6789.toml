@@ -1,4 +1,4 @@
-# Q25/Helio G99 traits; no kernel policy is installed here.
+# Helio G99 traits shared by its boards; no kernel policy is installed here.
 schema = 1
 id = "mt6789"
 name = "MediaTek Helio G99 (MT6789)"
@@ -19,3 +19,9 @@ msaa = false
 driver = "Mesa software rendering (bring-up)"
 gles_max = "3.0"
 msaa = false
+
+[profile]
+gpu_stack = "mesa-panfrost"
+# PanVK rejects the Mali-G57, so the loader finds no Vulkan device and GTK 4
+# renders with GL instead of on the CPU through lavapipe.
+vulkan_driver = "panfrost"

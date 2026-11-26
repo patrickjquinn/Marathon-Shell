@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 15:30:32 +0000
+Subject: [PATCH 38/38] arm64: dts: mediatek: mp01: Map the keys under the
+ panel
+
+The MP01's back, home and recents keys are printed on the touch glass
+under the e-paper panel. Describe them as touch-overlay segments, so
+they report KEY_BACK, KEY_HOMEPAGE and KEY_APPSELECT as the vendor's
+driver did, and keep the screen's touches to the panel's area.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt6789-minimal-mp01.dts | 43 +++++++++++++++++++
+ 1 file changed, 43 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+index c25f9a6..2c1d72c 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+@@ -874,6 +874,49 @@
+ 		touchscreen-size-y = <800>;
+ 		touchscreen-inverted-x;
+ 		touchscreen-swapped-x-y;
++
++		/*
++		 * Back, home and recents are printed under the panel, past its
++		 * 800 rows: the controller reports them at y 1000 and x 120,
++		 * 300 and 480 (the vendor DT's focaltech,key-*-coords), which
++		 * the turn above makes x 1000 and y 479, 299 and 119.
++		 */
++		touch-overlay {
++			segment-screen {
++				label = "screen";
++				x-origin = <0>;
++				x-size = <800>;
++				y-origin = <0>;
++				y-size = <600>;
++			};
++
++			segment-back {
++				label = "back";
++				x-origin = <900>;
++				x-size = <200>;
++				y-origin = <390>;
++				y-size = <180>;
++				linux,code = <KEY_BACK>;
++			};
++
++			segment-home {
++				label = "home";
++				x-origin = <900>;
++				x-size = <200>;
++				y-origin = <210>;
++				y-size = <180>;
++				linux,code = <KEY_HOMEPAGE>;
++			};
++
++			segment-recents {
++				label = "recents";
++				x-origin = <900>;
++				x-size = <200>;
++				y-origin = <30>;
++				y-size = <180>;
++				linux,code = <KEY_APPSELECT>;
++			};
++		};
+ 	};
+ };
+ 
+-- 
+2.55.0
+

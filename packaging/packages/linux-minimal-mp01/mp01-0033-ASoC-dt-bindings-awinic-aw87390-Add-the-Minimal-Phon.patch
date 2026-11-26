@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 07:02:02 +0000
+Subject: [PATCH] ASoC: dt-bindings: awinic,aw87390: Add the Minimal Phone
+ MP01 amplifier
+
+The Minimal Phone MP01's speaker amplifier is an Orient Chip OCA72390
+on I2C6 at 0x58, as on the Zinwa Q25. Its register configuration
+differs from the Q25's, so it gets its own board compatible with the
+chip as the fallback.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/sound/awinic,aw87390.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/sound/awinic,aw87390.yaml b/Documentation/devicetree/bindings/sound/awinic,aw87390.yaml
+index b3d7789..a1b073f 100644
+--- a/Documentation/devicetree/bindings/sound/awinic,aw87390.yaml
++++ b/Documentation/devicetree/bindings/sound/awinic,aw87390.yaml
+@@ -28,6 +28,7 @@ properties:
+           - const: awinic,aw87391
+       - items:
+           - enum:
++              - minimal,mp01-amp
+               - zinwa,q25-amp
+           - const: ocs,oca72390
+ 

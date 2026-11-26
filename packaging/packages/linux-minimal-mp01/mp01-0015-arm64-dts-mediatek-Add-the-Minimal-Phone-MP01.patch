@@ -1,0 +1,1047 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: Add the Minimal Phone MP01
+
+The Minimal Phone MP01 (board Z10) is an MT6789 phone with a 4.3"
+e-paper panel behind a Pango controller on a 4-lane DSI link, an
+AW9523B-scanned keyboard, a FocalTech FT5446U touchscreen, an NXP PN8x
+NFC controller, the MT6366 PMIC with its fuel gauge, and UFS storage.
+
+The pins, buses, supplies and the gauge configuration are those of
+Minimal's Z10 overlay and the phone's factory DT. Notes on the choices
+that are not visible from the vendor sources:
+
+- GPIO12 is claimed by four nodes in the factory DT. It is the NFC
+  controller's VEN line: the vendor panel driver never requests its
+  "pm-enable" GPIO, the gate IC it powers is disabled in the panel
+  driver, and the pin's boot default is low while LK shows its logo,
+  so nothing on the display depends on it.
+- GPIO5 is the AW9523B's interrupt; the RT5133 that the factory base DT
+  also wires to it never probes on the stock firmware and is left out.
+- The keyboard is the upstream AW9523 GPIO driver under
+  gpio-matrix-keypad, with the vendor driver's scan-code table (rows
+  P1_2-P1_7, columns P0_2-P0_7). Its custom SYM, EM and MIC codes map
+  to KEY_RIGHTALT, KEY_EMOJI_PICKER and KEY_VOICECOMMAND, and the key
+  between the volume keys, an unassigned 252 on the stock firmware, to
+  KEY_REFRESH.
+- The panel module is the Pango controller at I2C7 0x4b, which takes
+  the DSI video and registers its DSI device itself (the
+  minimal,z10-eink binding of the panel driver series). The board crosses
+  data lanes 2 and 3, which the DSI output endpoint describes with
+  data-lanes.
+- The module scans out 800x600 and is held in portrait. LK, and a
+  U-Boot it chain-loads, turn their text by 270 degrees to read it, so
+  the panel's rotation is 270 (left side up), which turns fbcon the
+  same way. The touchscreen, upright on the phone, reports in that
+  scanout frame (x inverted, then x and y swapped), as touch on a
+  turned panel does, so both turn together.
+- The reserved memory is the MP01 LK's, as its stock boot log lists it
+  in the unlocked (orange) state the phone boots this kernel in. Three
+  windows cover what LK places at boot: SCP, ATF log, CCCI tag and rank
+  0's last page; the modem's four regions; the debug dump and the logo
+  framebuffer.
+
+The MT6375 charger and Type-C controller and the MP01's OCA72390
+configuration have no upstream driver yet; the cameras with their
+RT5133 rails and the microSD slot are left for later. None of them is
+described.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/arch/arm64/boot/dts/mediatek/Makefile b/arch/arm64/boot/dts/mediatek/Makefile
+--- a/arch/arm64/boot/dts/mediatek/Makefile
++++ b/arch/arm64/boot/dts/mediatek/Makefile
+@@ -2,6 +2,7 @@
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt2712-evb.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6755-evb.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6779-evb.dtb
++dtb-$(CONFIG_ARCH_MEDIATEK) += mt6789-minimal-mp01.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6789-motorola-vicky.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6795-evb.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6795-sony-xperia-m5.dtb
+@@ -175,6 +176,7 @@
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt8781-zinwa-q25.dtb
+ 
+ # Device tree overlays support
++DTC_FLAGS_mt6789-minimal-mp01 := -@
+ DTC_FLAGS_mt7986a-bananapi-bpi-r3 := -@
+ DTC_FLAGS_mt7986a-bananapi-bpi-r3-mini := -@
+ DTC_FLAGS_mt7988a-bananapi-bpi-r4 := -@
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+new file mode 100644
+--- /dev/null
++++ b/arch/arm64/boot/dts/mediatek/mt6789-minimal-mp01.dts
+@@ -0,0 +1,969 @@
++// SPDX-License-Identifier: GPL-2.0-only OR MIT
++/*
++ * Minimal Phone MP01 (board "Z10"): MediaTek MT6789 (Helio G99), 6 GiB,
++ * UFS, a 4.3" electrophoretic panel behind a Pango controller on a 4-lane
++ * DSI link, an AW9523B keyboard matrix and a FocalTech touchscreen.
++ *
++ * Pins, buses and supplies follow Minimal's Z10 overlay and the MP01's
++ * factory DT (Z10.dts, mp01-kernel 6ca3cc4); the shared SoC parts come
++ * from mt6789.dtsi.
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/clock/mediatek,mt6358-clk.h>
++#include <dt-bindings/clock/mediatek,mt6789-clk.h>
++#include <dt-bindings/power/mediatek,mt6789-power.h>
++#include <dt-bindings/regulator/mediatek,mt6397-regulator.h>
++#include <dt-bindings/pinctrl/mediatek,mt6789-pinfunc.h>
++#include <dt-bindings/pinctrl/mt65xx.h>
++#include <dt-bindings/iio/adc/mediatek,mt6358-auxadc.h>
++#include "mt6789.dtsi"
++
++/ {
++	model = "Minimal Phone MP01";
++	chassis-type = "handset";
++	compatible = "minimal,mp01", "mediatek,mt6789";
++
++	#address-cells = <2>;
++	#size-cells = <2>;
++
++	/* The bootloader writes the real size; 6 GiB is the shipped part. */
++	memory@40000000 {
++		device_type = "memory";
++		reg = <0 0x40000000 0x1 0x80000000>;
++	};
++
++	/*
++	 * What the boot firmware owns: the MP01 LK's mblock regions, unlocked
++	 * (orange), which adds debug-met and moves sspm-ap below it. Windows
++	 * cover the regions LK places at boot (SCP, CCCI tag, ATF log, the
++	 * modem, the debug dump and the logo framebuffer).
++	 */
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		aee-kinfo@48080000 {
++			reg = <0 0x48080000 0 0x10000>;
++			no-map;
++		};
++
++		ramoops@48090000 {
++			compatible = "ramoops";
++			reg = <0 0x48090000 0 0xe0000>;
++			console-size = <0x40000>;
++			pmsg-size = <0x10000>;
++			record-size = <0x10000>;
++			no-map;
++		};
++
++		minirdump@48170000 {
++			reg = <0 0x48170000 0 0x10000>;
++			no-map;
++		};
++
++		bl31@48200000 {
++			reg = <0 0x48200000 0 0x200000>;
++			no-map;
++		};
++
++		crypto-hw@48401000 {
++			reg = <0 0x48401000 0 0x1000>;
++			no-map;
++		};
++
++		aee-lk@50700000 {
++			reg = <0 0x50700000 0 0x800000>;
++		};
++
++		tee@70000000 {
++			reg = <0 0x70000000 0 0x4600000>;
++			no-map;
++		};
++
++		consys_emi: consys-emi@7e000000 {
++			reg = <0 0x7e000000 0 0x500000>;
++			no-map;
++		};
++
++		tee-secmem@7ea00000 {
++			reg = <0 0x7ea00000 0 0x800000>;
++			no-map;
++		};
++
++		gz-log@7f200000 {
++			reg = <0 0x7f200000 0 0x41000>;
++		};
++
++		unmap@7f400000 {
++			reg = <0 0x7f400000 0 0x400000>;
++			no-map;
++		};
++
++		gz@7f800000 {
++			reg = <0 0x7f800000 0 0x600000>;
++			no-map;
++		};
++
++		mcupm@7feb0000 {
++			reg = <0 0x7feb0000 0 0x100000>;
++			no-map;
++		};
++
++		log-store@7ffbf000 {
++			reg = <0 0x7ffbf000 0 0x40000>;
++		};
++
++		emi-mbist@7ffff000 {
++			reg = <0 0x7ffff000 0 0x1000>;
++			no-map;
++		};
++
++		ap-md-c-smem@8c000000 {
++			reg = <0 0x8c000000 0 0x16a0000>;
++			no-map;
++		};
++
++		ap-md-nc-smem@8e000000 {
++			reg = <0 0x8e000000 0 0xe10000>;
++			no-map;
++		};
++
++		scp-share@8f000000 {
++			reg = <0 0x8f000000 0 0x7a0000>;
++			no-map;
++		};
++
++		sspm-ap@9f560000 {
++			reg = <0 0x9f560000 0 0x110000>;
++			no-map;
++		};
++
++		debug-met@9f670000 {
++			reg = <0 0x9f670000 0 0x800000>;
++			no-map;
++		};
++
++		sspm@9fe70000 {
++			reg = <0 0x9fe70000 0 0x180000>;
++			no-map;
++		};
++
++		wifi_mem: wifi@bf000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0xbf000000 0 0x600000>;
++			no-map;
++		};
++
++		/* SCP, ATF log, CCCI tag and the last page of DRAM rank 0. */
++		lk-carveouts@bf600000 {
++			reg = <0 0xbf600000 0 0xa00000>;
++			no-map;
++		};
++
++		/* The modem's four regions, the DSP image last at 0xe5200000. */
++		md1@de000000 {
++			reg = <0 0xde000000 0 0x8000000>;
++			no-map;
++		};
++
++		/* Debug dump and the logo framebuffer. */
++		lk-top@fd000000 {
++			reg = <0 0xfd000000 0 0x3000000>;
++			no-map;
++		};
++
++		/* Last page of DRAM rank 1, the DRAM controller's. */
++		dramc-rk1@1bffff000 {
++			reg = <0x1 0xbffff000 0 0x1000>;
++			no-map;
++		};
++	};
++
++	reg_vsys: regulator-vsys {
++		compatible = "regulator-fixed";
++		regulator-name = "vsys";
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	/*
++	 * The e-paper controller's rails. LK leaves them on to keep its logo
++	 * on the panel; the panel driver owns them from there.
++	 */
++	epd_1v2: regulator-epd-1v2 {
++		compatible = "regulator-fixed";
++		regulator-name = "epd_1v2";
++		regulator-min-microvolt = <1200000>;
++		regulator-max-microvolt = <1200000>;
++		gpio = <&pio 158 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	epd_3v3: regulator-epd-3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "epd_3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&pio 159 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	epd_1v8: regulator-epd-1v8 {
++		compatible = "regulator-fixed";
++		regulator-name = "epd_1v8";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		gpio = <&pio 43 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	frontlight: backlight {
++		compatible = "pwm-backlight";
++		pwms = <&disp_pwm0 0 39385>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&disp_pwm_pins>;
++		brightness-levels = <0 255>;
++		num-interpolated-steps = <255>;
++		default-brightness-level = <32>;
++	};
++
++	/*
++	 * The pack's profile, from the factory gauge configuration: the 25 C
++	 * OCV curve and its capacity, the 4.465 V charge voltage of the Z10
++	 * charger node, the gauge's 70 mOhm meter resistance and 3.4 V
++	 * shutdown level. The pack itself is not identified.
++	 */
++	battery: battery {
++		compatible = "simple-battery";
++		device-chemistry = "lithium-ion";
++		charge-full-design-microamp-hours = <3112000>;
++		voltage-min-design-microvolt = <3400000>;
++		voltage-max-design-microvolt = <4465000>;
++		constant-charge-voltage-max-microvolt = <4465000>;
++		factory-internal-resistance-micro-ohms = <70000>;
++		ocv-capacity-celsius = <25>;
++		ocv-capacity-table-0 = <4439000 100>, <4429783 99>, <4408063 98>,
++					<4392952 97>, <4379813 96>, <4367815 95>, <4355824 94>,
++					<4344670 93>, <4333603 92>, <4321687 91>, <4310325 90>,
++					<4297636 89>, <4285461 88>, <4273370 87>, <4261312 86>,
++					<4249141 85>, <4236362 84>, <4224176 83>, <4211927 82>,
++					<4199265 81>, <4187048 80>, <4175036 79>, <4162996 78>,
++					<4150913 77>, <4139126 76>, <4127684 75>, <4116074 74>,
++					<4104818 73>, <4093815 72>, <4082469 71>, <4071183 70>,
++					<4060491 69>, <4049656 68>, <4038588 67>, <4027841 66>,
++					<4017313 65>, <4006808 64>, <3996261 63>, <3985731 62>,
++					<3975470 61>, <3965440 60>, <3955089 59>, <3944194 58>,
++					<3933171 57>, <3922129 56>, <3911415 55>, <3901567 54>,
++					<3892378 53>, <3883671 52>, <3875822 51>, <3868650 50>,
++					<3861967 49>, <3855778 48>, <3849733 47>, <3844064 46>,
++					<3838910 45>, <3833899 44>, <3828908 43>, <3823863 42>,
++					<3819177 41>, <3815060 40>, <3811043 39>, <3807041 38>,
++					<3803019 37>, <3799027 36>, <3795314 35>, <3791939 34>,
++					<3788279 33>, <3784918 32>, <3781238 31>, <3778202 30>,
++					<3775200 29>, <3772158 28>, <3769165 27>, <3766118 26>,
++					<3762872 25>, <3758818 24>, <3754778 23>, <3750794 22>,
++					<3746762 21>, <3742777 20>, <3738678 19>, <3734104 18>,
++					<3728045 17>, <3721790 16>, <3714942 15>, <3708363 14>,
++					<3700409 13>, <3693053 12>, <3687991 11>, <3685273 10>,
++					<3682904 9>, <3679529 8>, <3674777 7>, <3666670 6>,
++					<3648600 5>, <3610835 4>, <3552366 3>, <3468482 2>,
++					<3234000 0>;
++	};
++
++	vibrator {
++		compatible = "regulator-haptic";
++		haptic-supply = <&mt6366_vibr_reg>;
++		min-microvolt = <2800000>;
++		max-microvolt = <3300000>;
++	};
++
++	/* AW9523B P1_2..P1_7 are the rows, P0_2..P0_7 the columns. */
++	keyboard {
++		compatible = "gpio-matrix-keypad";
++		row-gpios = <&keyboard_expander 10 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 11 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 12 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 13 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 14 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 15 GPIO_ACTIVE_HIGH>;
++		col-gpios = <&keyboard_expander 2 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 3 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 4 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 5 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 6 GPIO_ACTIVE_HIGH>,
++			    <&keyboard_expander 7 GPIO_ACTIVE_HIGH>;
++		gpio-activelow;
++		debounce-delay-ms = <10>;
++		col-scan-delay-us = <5>;
++		/* The vendor driver's scan-code table, row * 6 + column. */
++		linux,keymap = <MATRIX_KEY(0, 0, KEY_SPACE)
++				MATRIX_KEY(0, 1, KEY_FN)
++				MATRIX_KEY(0, 2, KEY_RIGHTALT)
++				MATRIX_KEY(0, 3, KEY_EMOJI_PICKER)
++				MATRIX_KEY(0, 4, KEY_LEFTSHIFT)
++				MATRIX_KEY(0, 5, KEY_RIGHTSHIFT)
++				MATRIX_KEY(1, 0, KEY_LEFTALT)
++				MATRIX_KEY(1, 1, KEY_Z)
++				MATRIX_KEY(1, 2, KEY_S)
++				MATRIX_KEY(1, 3, KEY_A)
++				MATRIX_KEY(1, 4, KEY_Q)
++				MATRIX_KEY(1, 5, KEY_W)
++				MATRIX_KEY(2, 0, KEY_X)
++				MATRIX_KEY(2, 1, KEY_C)
++				MATRIX_KEY(2, 2, KEY_F)
++				MATRIX_KEY(2, 3, KEY_D)
++				MATRIX_KEY(2, 4, KEY_E)
++				MATRIX_KEY(2, 5, KEY_R)
++				MATRIX_KEY(3, 0, KEY_V)
++				MATRIX_KEY(3, 1, KEY_B)
++				MATRIX_KEY(3, 2, KEY_H)
++				MATRIX_KEY(3, 3, KEY_G)
++				MATRIX_KEY(3, 4, KEY_T)
++				MATRIX_KEY(3, 5, KEY_Y)
++				MATRIX_KEY(4, 0, KEY_N)
++				MATRIX_KEY(4, 1, KEY_M)
++				MATRIX_KEY(4, 2, KEY_K)
++				MATRIX_KEY(4, 3, KEY_J)
++				MATRIX_KEY(4, 4, KEY_U)
++				MATRIX_KEY(4, 5, KEY_I)
++				MATRIX_KEY(5, 0, KEY_VOICECOMMAND)
++				MATRIX_KEY(5, 1, KEY_ENTER)
++				MATRIX_KEY(5, 2, KEY_BACKSPACE)
++				MATRIX_KEY(5, 3, KEY_L)
++				MATRIX_KEY(5, 4, KEY_O)
++				MATRIX_KEY(5, 5, KEY_P)>;
++	};
++};
++
++&pwrap {
++	status = "okay";
++
++	pmic: pmic {
++		compatible = "mediatek,mt6358";
++		interrupt-controller;
++		system-power-controller;
++		interrupts-extended = <&pio 137 IRQ_TYPE_LEVEL_HIGH>;
++		#interrupt-cells = <2>;
++
++		mt6366_regulator: regulators {
++			compatible = "mediatek,mt6366-regulator", "mediatek,mt6358-regulator";
++
++			vsys-ldo1-supply = <&reg_vsys>;
++			vsys-ldo2-supply = <&reg_vsys>;
++			vsys-ldo3-supply = <&reg_vsys>;
++			vsys-vs1-supply = <&reg_vsys>;
++			vsys-vs2-supply = <&reg_vsys>;
++			vsys-vdram1-supply = <&reg_vsys>;
++			vsys-vcore-supply = <&reg_vsys>;
++			vsys-vpa-supply = <&reg_vsys>;
++			vsys-vproc11-supply = <&reg_vsys>;
++			vsys-vproc12-supply = <&reg_vsys>;
++			vsys-vgpu-supply = <&reg_vsys>;
++			vsys-vmodem-supply = <&reg_vsys>;
++			vs1-ldo1-supply = <&mt6366_vs1_reg>;
++			vs2-ldo1-supply = <&mt6366_vdram1_reg>;
++			vs2-ldo2-supply = <&mt6366_vs2_reg>;
++			vs2-ldo3-supply = <&mt6366_vs2_reg>;
++
++			mt6366_vdram1_reg: vdram1 {
++				regulator-name = "vdram1";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <2087500>;
++				regulator-ramp-delay = <12500>;
++				regulator-enable-ramp-delay = <0>;
++				regulator-always-on;
++				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
++							   MT6397_BUCK_MODE_FORCE_PWM>;
++			};
++
++			mt6366_vcore_reg: vcore {
++				regulator-name = "vcore";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <1293750>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <200>;
++				regulator-always-on;
++				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
++							   MT6397_BUCK_MODE_FORCE_PWM>;
++			};
++
++			mt6366_vpa_reg: vpa {
++				regulator-name = "vpa";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <3650000>;
++				regulator-ramp-delay = <50000>;
++				regulator-enable-ramp-delay = <250>;
++				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
++							   MT6397_BUCK_MODE_FORCE_PWM>;
++				/* The modem drives it; no Linux consumer. */
++				regulator-always-on;
++			};
++
++			mt6366_vproc11_reg: vproc11 {
++				regulator-name = "vproc11";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <1293750>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <200>;
++				regulator-always-on;
++				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
++							   MT6397_BUCK_MODE_FORCE_PWM>;
++			};
++
++			mt6366_vproc12_reg: vproc12 {
++				regulator-name = "vproc12";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <1293750>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <200>;
++				regulator-always-on;
++				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
++							   MT6397_BUCK_MODE_FORCE_PWM>;
++			};
++
++			mt6366_vgpu_reg: vgpu {
++				regulator-name = "vgpu";
++				regulator-min-microvolt = <675000>;
++				regulator-max-microvolt = <900000>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <200>;
++				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
++							   MT6397_BUCK_MODE_FORCE_PWM>;
++				regulator-coupled-with = <&mt6366_vsram_gpu_reg>;
++				regulator-coupled-max-spread = <100000>;
++			};
++
++			mt6366_vs2_reg: vs2 {
++				regulator-name = "vs2";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <2087500>;
++				regulator-ramp-delay = <12500>;
++				regulator-enable-ramp-delay = <0>;
++				regulator-always-on;
++			};
++
++			mt6366_vmodem_reg: vmodem {
++				regulator-name = "vmodem";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <1293750>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <900>;
++				regulator-always-on;
++				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
++							   MT6397_BUCK_MODE_FORCE_PWM>;
++			};
++
++			mt6366_vs1_reg: vs1 {
++				regulator-name = "vs1";
++				regulator-min-microvolt = <1000000>;
++				regulator-max-microvolt = <2587500>;
++				regulator-ramp-delay = <12500>;
++				regulator-enable-ramp-delay = <0>;
++				regulator-always-on;
++			};
++
++			mt6366_vdram2_reg: vdram2 {
++				regulator-name = "vdram2";
++				regulator-min-microvolt = <600000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-enable-ramp-delay = <3300>;
++				regulator-always-on;
++			};
++
++			mt6366_vsim1_reg: vsim1 {
++				regulator-name = "vsim1";
++				regulator-min-microvolt = <1700000>;
++				regulator-max-microvolt = <3100000>;
++				regulator-enable-ramp-delay = <540>;
++				/* The modem drives it; no Linux consumer. */
++				regulator-always-on;
++			};
++
++			mt6366_vibr_reg: vibr {
++				regulator-name = "vibr";
++				regulator-min-microvolt = <1200000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-enable-ramp-delay = <60>;
++			};
++
++			mt6366_vrf12_reg: vrf12 {
++				regulator-name = "vrf12";
++				regulator-min-microvolt = <1200000>;
++				regulator-max-microvolt = <1200000>;
++				regulator-enable-ramp-delay = <120>;
++				regulator-always-on;
++				regulator-boot-on;
++			};
++
++			mt6366_vio18_reg: vio18 {
++				regulator-name = "vio18";
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-enable-ramp-delay = <2700>;
++				regulator-always-on;
++				regulator-boot-on;
++			};
++
++			mt6366_vusb_reg: vusb {
++				regulator-name = "vusb";
++				regulator-min-microvolt = <3000000>;
++				regulator-max-microvolt = <3100000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-always-on;
++			};
++
++
++			mt6366_vcn18_reg: vcn18 {
++				regulator-name = "vcn18";
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			mt6366_vfe28_reg: vfe28 {
++				regulator-name = "vfe28";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			mt6366_vsram_proc11_reg: vsram-proc11 {
++				regulator-name = "vsram_proc11";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <1293750>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <240>;
++				regulator-always-on;
++			};
++
++			mt6366_vcn28_reg: vcn28 {
++				regulator-name = "vcn28";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			mt6366_vsram_others_reg: vsram-others {
++				regulator-name = "vsram_others";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <1293750>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <240>;
++				regulator-always-on;
++			};
++
++			mt6366_vsram_core_reg: vsram-core {
++				regulator-name = "vsram_core";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <1293750>;
++				regulator-enable-ramp-delay = <240>;
++				regulator-always-on;
++			};
++
++			mt6366_vsram_gpu_reg: vsram-gpu {
++				regulator-name = "vsram_gpu";
++				regulator-min-microvolt = <850000>;
++				regulator-max-microvolt = <1000000>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <240>;
++				regulator-coupled-with = <&mt6366_vgpu_reg>;
++				regulator-coupled-max-spread = <100000>;
++			};
++
++			mt6366_vxo22_reg: vxo22 {
++				regulator-name = "vxo22";
++				regulator-min-microvolt = <2200000>;
++				regulator-max-microvolt = <2200000>;
++				regulator-enable-ramp-delay = <120>;
++				regulator-always-on;
++				regulator-boot-on;
++			};
++
++			mt6366_vefuse_reg: vefuse {
++				regulator-name = "vefuse";
++				regulator-min-microvolt = <1700000>;
++				regulator-max-microvolt = <1900000>;
++				regulator-enable-ramp-delay = <270>;
++			};
++
++			mt6366_vaux18_reg: vaux18 {
++				regulator-name = "vaux18";
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-always-on;
++				regulator-boot-on;
++			};
++
++			mt6366_vmch_reg: vmch {
++				regulator-name = "vmch";
++				regulator-min-microvolt = <2900000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-enable-ramp-delay = <60>;
++				regulator-always-on;
++			};
++
++			mt6366_vbif28_reg: vbif28 {
++				regulator-name = "vbif28";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-always-on;
++			};
++
++			mt6366_vsram_proc12_reg: vsram-proc12 {
++				regulator-name = "vsram_proc12";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <1293750>;
++				regulator-ramp-delay = <6250>;
++				regulator-enable-ramp-delay = <240>;
++				regulator-always-on;
++			};
++
++			mt6366_vemc_reg: vemc {
++				regulator-name = "vemc";
++				regulator-min-microvolt = <2900000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-enable-ramp-delay = <60>;
++				regulator-boot-on;
++			};
++
++			mt6366_vio28_reg: vio28 {
++				regulator-name = "vio28";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			mt6366_va12_reg: va12 {
++				regulator-name = "va12";
++				regulator-min-microvolt = <1200000>;
++				regulator-max-microvolt = <1200000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-always-on;
++			};
++
++			mt6366_vrf18_reg: vrf18 {
++				regulator-name = "vrf18";
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-enable-ramp-delay = <120>;
++			};
++
++			mt6366_vcn33_reg: vcn33 {
++				regulator-name = "vcn33";
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3500000>;
++				regulator-enable-ramp-delay = <270>;
++			};
++
++			mt6366_vmc_reg: vmc {
++				regulator-name = "vmc";
++				regulator-min-microvolt = <2900000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-enable-ramp-delay = <60>;
++			};
++
++			mt6366_vaud28_reg: vaud28 {
++				regulator-name = "vaud28";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-enable-ramp-delay = <270>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			mt6366_vsim2_reg: vsim2 {
++				regulator-name = "vsim2";
++				regulator-min-microvolt = <1700000>;
++				regulator-max-microvolt = <3100000>;
++				regulator-enable-ramp-delay = <540>;
++			};
++		};
++
++		mt6366codec: audio-codec {
++			compatible = "mediatek,mt6366-sound", "mediatek,mt6358-sound";
++			Avdd-supply = <&mt6366_vaud28_reg>;
++			mediatek,dmic-mode = <0>;
++		};
++
++		mt6358_rtc: rtc {
++			compatible = "mediatek,mt6358-rtc";
++		};
++
++		mt6358_keys: keys {
++			compatible = "mediatek,mt6358-keys";
++			power-off-time-sec = <10>;
++			mediatek,long-press-mode = <1>;
++
++			power {
++				linux,keycodes = <KEY_POWER>;
++				wakeup-source;
++			};
++
++			home {
++				linux,keycodes = <KEY_VOLUMEUP>;
++			};
++		};
++
++		pmic_adc: adc {
++			compatible = "mediatek,mt6358-auxadc";
++			#io-channel-cells = <1>;
++		};
++
++		mt6358_clk: clocks {
++			compatible = "mediatek,mt6358-clk";
++			#clock-cells = <1>;
++		};
++
++		/* The factory 5 mOhm shunt with its 1.01 counter tuning folded in. */
++		fuel-gauge {
++			compatible = "mediatek,mt6358-gauge";
++			io-channels = <&pmic_adc MT6358_AUXADC_BATADC>;
++			monitored-battery = <&battery>;
++			shunt-resistor-micro-ohms = <4950>;
++		};
++	};
++};
++
++&pio {
++	disp_pwm_pins: disp-pwm-default-state {
++		pins-pwm {
++			pinmux = <PINMUX_GPIO84__FUNC_DISP_PWM>;
++		};
++	};
++
++	keypad_pins: keypad-default-state {
++		pins-cols {
++			pinmux = <PINMUX_GPIO66__FUNC_KPCOL0>,
++				 <PINMUX_GPIO67__FUNC_KPCOL1>;
++			input-enable;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++	};
++
++	keyboard_pins: keyboard-default-state {
++		pins-irq {
++			pinmux = <PINMUX_GPIO5__FUNC_GPIO5>;
++			input-enable;
++			bias-pull-up;
++		};
++	};
++
++	touchscreen_pins: touchscreen-default-state {
++		pins-irq {
++			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
++			input-enable;
++			bias-pull-up;
++		};
++	};
++};
++
++/*
++ * FocalTech FT5446U, 600x800 upright; reported in the panel's 800x600
++ * scanout frame, which userspace turns with the panel's rotation.
++ */
++&i2c0 {
++	clock-frequency = <100000>;
++	status = "okay";
++
++	touchscreen@38 {
++		compatible = "focaltech,ft5426";
++		reg = <0x38>;
++		interrupts-extended = <&pio 9 IRQ_TYPE_EDGE_FALLING>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&touchscreen_pins>;
++		reset-gpios = <&pio 152 GPIO_ACTIVE_LOW>;
++		touchscreen-size-x = <600>;
++		touchscreen-size-y = <800>;
++		touchscreen-inverted-x;
++		touchscreen-swapped-x-y;
++	};
++};
++
++/* NXP PN8x NCI controller; GPIO12 is its VEN line (see the board README). */
++&i2c3 {
++	clock-frequency = <100000>;
++	status = "okay";
++
++	nfc@28 {
++		compatible = "nxp,nxp-nci-i2c";
++		reg = <0x28>;
++		interrupts-extended = <&pio 1 IRQ_TYPE_EDGE_RISING>;
++		enable-gpios = <&pio 12 GPIO_ACTIVE_HIGH>;
++		firmware-gpios = <&pio 3 GPIO_ACTIVE_HIGH>;
++	};
++};
++
++&i2c6 {
++	clock-frequency = <100000>;
++	status = "okay";
++
++	/* The keyboard matrix scanner; INTN is the only user of GPIO5. */
++	keyboard_expander: gpio@5b {
++		compatible = "awinic,aw9523-pinctrl";
++		reg = <0x5b>;
++		interrupts-extended = <&pio 5 IRQ_TYPE_LEVEL_LOW>;
++		interrupt-controller;
++		#interrupt-cells = <2>;
++		gpio-controller;
++		#gpio-cells = <2>;
++		gpio-ranges = <&keyboard_expander 0 0 16>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&keyboard_pins>;
++		/* The driver drives RSTN's level: high runs the chip. */
++		reset-gpios = <&pio 35 GPIO_ACTIVE_HIGH>;
++	};
++};
++
++/*
++ * The panel module: a Pango controller that takes the DSI video and drives
++ * the e-paper, controlled over I2C at its factory 1 MHz. It registers its
++ * DSI device on the host its port leads to.
++ */
++&i2c7 {
++	clock-frequency = <1000000>;
++	status = "okay";
++
++	display@4b {
++		compatible = "minimal,z10-eink";
++		reg = <0x4b>;
++		vdd12-supply = <&epd_1v2>;
++		vdd18-supply = <&epd_1v8>;
++		vdd33-supply = <&epd_3v3>;
++		reset-gpios = <&pio 85 GPIO_ACTIVE_LOW>;
++		backlight = <&frontlight>;
++		rotation = <270>;
++
++		port {
++			eink_in: endpoint {
++				remote-endpoint = <&dsi_out>;
++			};
++		};
++	};
++};
++
++/* Volume down and the refresh key between the volume keys. */
++&keypad {
++	pinctrl-names = "default";
++	pinctrl-0 = <&keypad_pins>;
++	keypad,num-rows = <1>;
++	keypad,num-columns = <2>;
++	debounce-delay-ms = <32>;
++	linux,keymap = <MATRIX_KEY(0, 0, KEY_VOLUMEDOWN)
++			MATRIX_KEY(0, 1, KEY_REFRESH)>;
++	status = "okay";
++};
++
++&mfg0 {
++	domain-supply = <&mt6366_vsram_gpu_reg>;
++};
++
++&mfg1 {
++	domain-supply = <&mt6366_vgpu_reg>;
++};
++
++&gpu {
++	mali-supply = <&mt6366_vgpu_reg>;
++	status = "okay";
++};
++
++&ufsphy {
++	status = "okay";
++};
++
++&ufs {
++	vcc-supply = <&mt6366_vemc_reg>;
++	status = "okay";
++};
++
++/* No Type-C driver for the MT6375 yet: device mode only. */
++&usb2 {
++	dr_mode = "peripheral";
++	status = "okay";
++};
++
++&smi_common_disp {
++	status = "okay";
++};
++
++&larb0 {
++	status = "okay";
++};
++
++&larb1 {
++	status = "okay";
++};
++
++&mutex {
++	status = "okay";
++};
++
++&ovl0 {
++	status = "okay";
++};
++
++&rdma0 {
++	status = "okay";
++};
++
++&color0 {
++	status = "okay";
++};
++
++&ccorr0 {
++	status = "okay";
++};
++
++&aal0 {
++	status = "okay";
++};
++
++&gamma0 {
++	status = "okay";
++};
++
++&postmask0 {
++	status = "okay";
++};
++
++&dither0 {
++	status = "okay";
++};
++
++&mipi_tx0 {
++	status = "okay";
++};
++
++/*
++ * 800x600 RGB888 video on four lanes, data lanes 2 and 3 crossed on the
++ * board (the vendor's lane_swap table).
++ */
++&dsi0 {
++	status = "okay";
++
++	port {
++		dsi_out: endpoint {
++			remote-endpoint = <&eink_in>;
++			data-lanes = <1 2 4 3>;
++		};
++	};
++};
+-- 
+2.47.0
+

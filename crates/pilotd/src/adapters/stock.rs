@@ -133,6 +133,18 @@ pub fn email_account(db: &std::path::Path) -> bool {
     .is_ok_and(|n| n > 0)
 }
 
+/// Whether Marathon Mail has an account (marathon-maild's database, the
+/// person's own file).
+pub fn marathon_mail_account(db: &std::path::Path) -> bool {
+    let Ok(c) =
+        rusqlite::Connection::open_with_flags(db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+    else {
+        return false;
+    };
+    c.query_row("SELECT COUNT(*) FROM accounts", [], |r| r.get::<_, i64>(0))
+        .is_ok_and(|n| n > 0)
+}
+
 /// The stock apps on the session bus.
 pub struct JollaApps {
     pub session: zbus::Connection,
@@ -196,7 +208,9 @@ impl StockApps for JollaApps {
                 &serde_json::json!({"to": to, "subject": subject, "body": body}),
             )
             .await?;
-            return Ok(true);
+            return Ok(marathon_mail_account(
+                &marathon_rt::dirs::data().join("marathon/mail/mail.db"),
+            ));
         }
         let ready = accounts.is_some_and(|p| email_account(&p));
         self.session
@@ -399,6 +413,23 @@ mod tests {
             .unwrap();
         assert!(email_account(&db));
         assert!(!email_account(&dir.path().join("missing.db")));
+    }
+
+    #[test]
+    fn marathon_mail_needs_an_account() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("mail.db");
+        let c = rusqlite::Connection::open(&db).unwrap();
+        c.execute_batch("CREATE TABLE accounts (id INTEGER PRIMARY KEY, address TEXT);")
+            .unwrap();
+        assert!(!marathon_mail_account(&db));
+        c.execute(
+            "INSERT INTO accounts (address) VALUES ('a@example.com')",
+            [],
+        )
+        .unwrap();
+        assert!(marathon_mail_account(&db));
+        assert!(!marathon_mail_account(&dir.path().join("missing.db")));
     }
 
     #[test]

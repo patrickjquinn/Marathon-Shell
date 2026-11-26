@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 10:00:00 +0000
+Subject: [PATCH] pwm: mtk-disp: Drive the MT6789 PWM as the MT8183's
+
+The MT6789 entry copied the commit-register variant (a commit at 0xC), but
+on the Minimal Phone MP01 the period and high width written that way never
+reach the output: the controller reports 25% programmed (CON1 0x010003ff)
+while GPIO84's pad, sampled 3000 times, never reads high. Setting
+BLS_DEBUG (0x80) bits 0-1 makes the output follow the registers (pad
+sampled at 12.7%, 26% and 79.7% for 12.5%, 25% and 78% programmed), which
+is the MT8183 layout: CON0 0x18, CON1 0x1c and no commit register.
+
+Use the MT8183 data for MT6789.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/pwm/pwm-mtk-disp.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/drivers/pwm/pwm-mtk-disp.c b/drivers/pwm/pwm-mtk-disp.c
+--- a/drivers/pwm/pwm-mtk-disp.c
++++ b/drivers/pwm/pwm-mtk-disp.c
+@@ -274,16 +274,6 @@
+ 	.bls_debug_mask = 0x3,
+ };
+ 
+-static const struct mtk_pwm_data mt6789_pwm_data = {
+-	.enable_mask = BIT(0),
+-	.con0 = 0x18,
+-	.con0_sel = 0x0,
+-	.con1 = 0x1C,
+-	.has_commit = true,
+-	.commit = 0xC,
+-	.commit_mask = 0x1,
+-};
+-
+ static const struct mtk_pwm_data mt8173_pwm_data = {
+ 	.enable_mask = BIT(0),
+ 	.con0 = 0x10,
+@@ -307,7 +297,7 @@
+ static const struct of_device_id mtk_disp_pwm_of_match[] = {
+ 	{ .compatible = "mediatek,mt2701-disp-pwm", .data = &mt2701_pwm_data},
+ 	{ .compatible = "mediatek,mt6595-disp-pwm", .data = &mt8173_pwm_data},
+-	{ .compatible = "mediatek,mt6789-disp-pwm", .data = &mt6789_pwm_data},
++	{ .compatible = "mediatek,mt6789-disp-pwm", .data = &mt8183_pwm_data},
+ 	{ .compatible = "mediatek,mt8173-disp-pwm", .data = &mt8173_pwm_data},
+ 	{ .compatible = "mediatek,mt8183-disp-pwm", .data = &mt8183_pwm_data},
+ 	{ }
+-- 
+2.47.0

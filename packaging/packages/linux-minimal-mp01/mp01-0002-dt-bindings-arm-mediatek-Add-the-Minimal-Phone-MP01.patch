@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 22 Nov 2026 23:00:00 +0000
+Subject: [PATCH] dt-bindings: arm: mediatek: Add the Minimal Phone MP01
+
+The Minimal Phone MP01 (board Z10) is built on the MediaTek MT6789
+(Helio G99).
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+diff --git a/Documentation/devicetree/bindings/arm/mediatek.yaml b/Documentation/devicetree/bindings/arm/mediatek.yaml
+--- a/Documentation/devicetree/bindings/arm/mediatek.yaml
++++ b/Documentation/devicetree/bindings/arm/mediatek.yaml
+@@ -69,6 +69,10 @@
+           - const: mediatek,mt6795
+       - items:
+           - enum:
++              - minimal,mp01
++          - const: mediatek,mt6789
++      - items:
++          - enum:
+               - archermind,mt6797-x20-dev
+               - mediatek,mt6797-evb
+           - const: mediatek,mt6797
+-- 
+2.47.0
+

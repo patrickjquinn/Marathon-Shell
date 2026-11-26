@@ -48,7 +48,17 @@
         "loader": {"description": "Package that ships the first-stage loader.", "type": "string", "minLength": 1},
         "loader_blob": {"description": "Loader image inside the rootfs that the build writes raw to the disk.", "type": "string", "minLength": 1},
         "loader_offset_kib": {"type": "integer", "minimum": 1},
-        "script": {"description": "U-Boot script source in the overlay aport, compiled to /boot/boot.scr.", "type": "string", "minLength": 1}
+        "script": {"description": "U-Boot script source in the overlay aport, compiled to /boot/boot.scr.", "type": "string", "minLength": 1},
+        "carrier": {
+          "description": "The root boots as an ext4 file on a carrier partition in userdata, beside an ESP made from the root's /boot (scripts/carrier/carrier-userdata-image.sh). build-image.sh writes these into the image as /usr/share/marathon/carrier.conf.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "dtb"],
+          "properties": {
+            "name": {"description": "Names the kernel argument <name>.rootfs_file= and the carrier's mount point /.<name>-carrier/root.", "type": "string", "pattern": "^[a-z0-9]+$"},
+            "dtb": {"description": "The board DTB under the root's /boot/dtbs, which the ESP's loader entry loads.", "type": "string", "pattern": "^[a-z0-9_-]+(/[a-z0-9_.-]+)*\\.dtb$"}
+          }
+        }
       },
       "dependentRequired": {"loader_blob": ["loader_offset_kib"], "loader_offset_kib": ["loader_blob"]}
     },
@@ -115,6 +125,9 @@
         "wifi": {"type": "string", "minLength": 1},
         "bluetooth": {"type": "string", "minLength": 1},
         "battery": {"type": "string", "minLength": 1},
+        "nfc": {"description": "NFC controller, or \"none\".", "type": "string", "minLength": 1},
+        "cameras": {"description": "Camera sensors and how far they work, or \"none\".", "type": "string", "minLength": 1},
+        "fingerprint": {"description": "Fingerprint sensor and how Linux reaches it, or \"none\". Informational: Settings and the lock screen offer a finger only when fprintd finds a reader.", "type": "string", "minLength": 1},
         "sensors": {"$ref": "#/$defs/strings"},
         "quirks": {"$ref": "#/$defs/strings"}
       }
@@ -168,6 +181,9 @@
         "runner_pool": {"description": "Warm spare app runners: 1 in the sandbox recent launches needed, 2 one with the media folders and one without, 0 none.", "type": "integer", "minimum": 0, "maximum": 2},
         "panel_depth": {"description": "Bits per channel; below 8 the shell dithers the frame.", "type": "integer", "minimum": 4, "maximum": 10},
         "touch_filter": {"description": "Smooth touch with Qt evdevtouch's Kalman filter, one point a frame: even steps, more lag; false = each report as it comes.", "type": "boolean"},
+        "display_technology": {"description": "What the panel is: lcd, oled, or epaper (which ghosts under motion).", "enum": ["lcd", "oled", "epaper"]},
+        "panel_orientation": {"description": "kms: the compositor turns the scene and the wl_output by the DRM connector's \"panel orientation\", which the panel driver sets from the DT rotation, for a panel mounted turned; none (the default) ignores it.", "enum": ["none", "kms"]},
+        "frontlight_warm": {"description": "The LED class directory of a front light's warm LEDs, which the night light drives instead of tinting the screen.", "type": "string", "pattern": "^/sys/class/leds/[^/]+$"},
         "touch_params": {"description": "Extra Qt evdevtouch parameters for the panel, colon-separated (rotate=90, invertx, inverty, prediction=ms).", "type": "string", "pattern": "^(rotate=(90|180|270)|invertx|inverty|prediction=[0-9]+)(:(rotate=(90|180|270)|invertx|inverty|prediction=[0-9]+))*$"},
         "force_dpi": {"description": "Read by marathon-shell-session: pins the shell's DPI and so its scale.", "type": "number", "exclusiveMinimum": 0},
         "vulkan_driver": {"description": "Read by marathon-shell-session: the one Mesa Vulkan driver apps' loader opens, by ICD manifest name; unset = every installed driver.", "type": "string", "pattern": "^[a-z0-9_]+$"}

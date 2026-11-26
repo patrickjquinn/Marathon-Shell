@@ -297,10 +297,24 @@ async fn drain(core: &Core, bus: &zbus::Connection) -> zbus::Result<()> {
     Ok(())
 }
 
-/// Drains the modem at start, on each `Messaging.Added` and once a minute.
+/// Drains the modem at start, on each `Messaging.Added`, when `ModemManager`
+/// comes onto the bus and, while it is there, once a minute. While it is not
+/// there nothing is asked of it (asking would try to start it) and a failure
+/// is logged once, not each minute.
 pub async fn watch(core: &Core) {
     let Ok(bus) = io::system_bus().await else {
         return log::warn("Sms", "no system bus");
+    };
+    let dbus = zbus::fdo::DBusProxy::new(&bus).await.ok();
+    let mut owner_changed = match &dbus {
+        Some(dbus) => match dbus.receive_name_owner_changed_with_args(&[(0, MM)]).await {
+            Ok(stream) => stream.map(|_| ()).boxed(),
+            Err(e) => {
+                log::warn("Sms", format_args!("cannot follow ModemManager: {e}"));
+                futures_lite::stream::pending().boxed()
+            }
+        },
+        None => futures_lite::stream::pending().boxed(),
     };
     let rule = MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
@@ -320,15 +334,44 @@ pub async fn watch(core: &Core) {
         }
     };
     let mut mcc = None;
+    let mut failing: Option<String> = None;
     loop {
-        follow_region(core, &bus, &mut mcc).await;
-        if let Err(e) = drain(core, &bus).await {
-            log::warn("Sms", format_args!("cannot read the modem's texts: {e}"));
+        let present = match &dbus {
+            Some(dbus) => match zbus::names::BusName::try_from(MM) {
+                Ok(name) => dbus.name_has_owner(name).await.unwrap_or(true),
+                Err(_) => true,
+            },
+            None => true,
+        };
+        let result = if present {
+            follow_region(core, &bus, &mut mcc).await;
+            drain(core, &bus).await.map_err(|e| e.to_string())
+        } else {
+            Err("ModemManager is not running".to_owned())
+        };
+        match result {
+            Err(e) if failing.as_ref() != Some(&e) => {
+                log::warn("Sms", format_args!("cannot read the modem's texts: {e}"));
+                failing = Some(e);
+            }
+            Err(_) => {}
+            Ok(()) => {
+                if failing.take().is_some() {
+                    log::warn("Sms", "the modem's texts can be read again");
+                }
+            }
         }
-        futures_lite::future::or(async { added.next().await.unwrap_or(()) }, async {
-            Timer::after(Duration::from_mins(1)).await;
-        })
-        .await;
+        let signal = futures_lite::future::or(async { added.next().await.unwrap_or(()) }, async {
+            owner_changed.next().await.unwrap_or(());
+        });
+        if present {
+            futures_lite::future::or(signal, async {
+                Timer::after(Duration::from_mins(1)).await;
+            })
+            .await;
+        } else {
+            signal.await;
+        }
     }
 }
 

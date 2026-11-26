@@ -8,7 +8,7 @@
 #                                     package)
 #   q25-duranium-<date>-<rev>.userdata.img(.zst)  the whole userdata
 #                                     partition for a new install
-#                                     (scripts/q25/q25-userdata-image.sh)
+#                                     (scripts/carrier/carrier-userdata-image.sh)
 #   u-boot-q25.bin, gimme-uboot.py    U-Boot for lk_a/lk_b, and the tool
 #                                     that puts it into the phone's own lk
 #                                     image (scripts/q25/build-q25-uboot.sh)
@@ -23,11 +23,13 @@
 # IMAGE_VERSION, which an over-the-air update needs.
 #
 # Env:
-#   Q25_CONNSYS_FIRMWARE_DIR  the stock CONNSYS firmware, copied into the
-#                             q25-connsys-firmware aport when it is missing
-#                             there
+#   Q25_CONNSYS_FIRMWARE_DIR  another copy of the CONNSYS firmware, used only
+#                             for files missing from the q25-connsys-firmware
+#                             aport (it ships them)
 #   MARATHON_BUILD_DIR        as for scripts/build-image.sh
 #   Q25_NO_USERDATA           skip the userdata (fresh install) image
+#   Q25_NO_SPACE_CHECK        skip the free-space check, whose sums assume
+#                             every part peaks at once (watch the disk instead)
 #   PODMAN                    for the U-Boot build, and the userdata image
 #                             where the host has e2fsprogs 1.47.3 (default podman)
 set -euo pipefail
@@ -64,7 +66,7 @@ check_space() {
     done
     [ -z "$fail" ]
 }
-check_space << SPACE
+[ -n "${Q25_NO_SPACE_CHECK:-}" ] || check_space << SPACE
 ${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output 5
 ${XDG_CACHE_HOME:-$HOME/.cache}/mkosi 8
 $DEST $([ -n "${Q25_NO_USERDATA:-}" ] && echo 5 || echo 11)
@@ -119,16 +121,7 @@ if [ -n "${Q25_NO_USERDATA:-}" ]; then
 fi
 # The carrier holds the root by its feed name, so sysupdate counts it as
 # installed and does not offer the same version as an update.
-# e2fsprogs 1.47.3 cannot copy the root into the carrier; Alpine's can.
-if [ "$(mke2fs -V 2>&1 | sed -n 's/^mke2fs \([0-9.]*\).*/\1/p')" = 1.47.3 ]; then
-    # shellcheck disable=SC2016
-    "${PODMAN:-podman}" run --rm --security-opt label=disable -v "$DEST:/out" -v "$SCRIPT_DIR/q25:/s:ro" \
-        docker.io/library/alpine:edge sh -euc '
-apk add -q bash coreutils e2fsprogs e2fsprogs-extra dosfstools mtools sfdisk android-tools
-bash /s/q25-userdata-image.sh "/out/$2" "/out/$1.userdata.img"' sh "$NAME" "$FEED"
-else
-    bash "$SCRIPT_DIR/q25/q25-userdata-image.sh" "$DEST/$FEED" "$DEST/$NAME.userdata.img"
-fi
+bash "$SCRIPT_DIR/carrier/carrier-userdata-image.sh" "$DEST/$FEED" "$DEST/$NAME.userdata.img"
 zstd -T0 -10 -f "$DEST/$NAME.userdata.img" -o "$DEST/$NAME.userdata.img.zst"
 cp "$DEST/u-boot/u-boot-q25.bin" "$DEST/u-boot/src/gimme-uboot.py" "$DEST/"
 (cd "$DEST" && sha256sum "$NAME.ext4" "$NAME.ext4.zst" "$NAME.userdata.img" "$NAME.userdata.img.zst" \

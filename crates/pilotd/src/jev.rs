@@ -103,6 +103,10 @@ pub trait JevClient: Send + Sync {
     async fn decide(&self, req: &DecideRequest, purpose: &str) -> Result<Answers, RemoteError>;
     /// Provider name for the egress log and settings.
     fn provider(&self) -> &str;
+    /// Its questions never leave this machine.
+    fn on_device(&self) -> bool {
+        false
+    }
 }
 
 fn bad(provider: &str, message: impl Into<String>) -> RemoteError {
@@ -396,7 +400,9 @@ impl LocalJev {
             f64::from(dot / (norm(a) * norm(b)))
         };
         // e5's similarities sit close together: sharpened, and the words
-        // the request shares with an option added (hybrid retrieval).
+        // the request shares with an option added (hybrid retrieval), at
+        // most LEXICAL_MOST: a tie-breaker, as an app's many action lines
+        // share stray words with anything ("How do rainbows form", forms).
         let words = lexical(utterance, options, descriptions);
         let scores: Vec<f64> = lines
             .iter()
@@ -405,8 +411,8 @@ impl LocalJev {
                 ps.iter()
                     .map(|p| cache.get(p).map_or(0.0, |v| cosine(&query, v)))
                     .fold(0.0, f64::max)
-                    / 0.02
-                    + w
+                    / SHARPEN
+                    + w * LEXICAL_MOST
             })
             .collect();
         Ok(distribution(options, &scores))
@@ -434,13 +440,19 @@ fn words(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// The options most like `utterance`, most likely first, by [`lexical`].
+/// The options most like `utterance`, most likely first, by [`lexical`]
+/// alone: its share read as a similarity, on the embeddings' scale, so a
+/// clear match still reaches the phone's 0.6 for an app.
 fn rank(utterance: &str, options: &[String], descriptions: &[String]) -> Answer {
-    distribution(options, &lexical(utterance, options, descriptions))
+    let scores: Vec<f64> = lexical(utterance, options, descriptions)
+        .iter()
+        .map(|w| w / SHARPEN)
+        .collect();
+    distribution(options, &scores)
 }
 
-/// Each request word an option shares counts the more, the fewer options
-/// have it.
+/// The share of the request (0 to 1) each option's words cover; a word
+/// counts the more, the fewer options have it.
 fn lexical(utterance: &str, options: &[String], descriptions: &[String]) -> Vec<f64> {
     let asked = words(utterance);
     let texts: Vec<Vec<String>> = options
@@ -463,10 +475,6 @@ fn lexical(utterance: &str, options: &[String], descriptions: &[String]) -> Vec<
         (n / with).ln() + 1.0
     };
     let all: f64 = asked.iter().map(weight).sum();
-    // The share of the request an option's words cover, at most
-    // LEXICAL_MOST: a tie-breaker. Summed as it was, one rare shared word
-    // outweighed meaning: an app's 24 action lines share stray words with
-    // anything ("How do rainbows form" went to Pacific's forms at 0.92).
     texts
         .iter()
         .map(|t| {
@@ -479,14 +487,20 @@ fn lexical(utterance: &str, options: &[String], descriptions: &[String]) -> Vec<
                 .map(weight)
                 .sum::<f64>()
                 / all
-                * LEXICAL_MOST
         })
         .collect()
 }
 
-/// The most the words a request shares with an option add to its score
-/// (meaning scores are cosine / 0.02).
+/// e5's cosine similarities are divided by this.
+const SHARPEN: f64 = 0.02;
+
+/// The most the words a request shares with an option add to its meaning
+/// score.
 const LEXICAL_MOST: f64 = 2.0;
+
+/// A runner-up intent this likely by meaning is a second thing asked: half
+/// of what the pipeline's sure intent (0.6) leaves to all the others.
+const ALSO_FROM: f64 = 0.2;
 
 /// Options most likely first, from scores (softmax).
 fn distribution(options: &[String], scores: &[f64]) -> Answer {
@@ -551,18 +565,20 @@ impl JevClient for LocalJev {
             .unwrap_or_default();
         let mut parsed = crate::intents::local_intent(utterance).map(|(intent, _)| intent);
         // What was asked, by meaning: every intent, not only the ones with
-        // a handler. Without it everything else was "open_ended", and "Make
-        // a note to buy milk and eggs" went to the model as a question.
-        let meaning = match req.questions.get("intent") {
+        // a handler ("Make a note to buy milk and eggs" is a note, not a
+        // question).
+        let (meaning, next) = match req.questions.get("intent") {
             Some(Question::Choice {
                 options,
                 descriptions,
                 ..
             }) => match self.rank_by_meaning(utterance, options, descriptions).await {
-                Ok(Answer::Choice { distribution, .. }) => distribution.first().cloned(),
-                _ => None,
+                Ok(Answer::Choice { distribution, .. }) => {
+                    (distribution.first().cloned(), distribution.get(1).cloned())
+                }
+                _ => (None, None),
             },
-            _ => None,
+            _ => (None, None),
         };
         // The words found a handler; the meaning may say another thing was
         // asked ("put the dentist in my calendar" is not a calendar query).
@@ -591,12 +607,18 @@ impl JevClient for LocalJev {
             }
             _ => ("open_ended".to_owned(), 0.5, 1.0),
         };
-        log::debug!("intent {intent} at {confidence:.2}");
+        log::debug!("intent {intent} at {confidence:.2}, next {next:?}");
+        // Something else asked as well ("turn off Bluetooth and open the
+        // display settings"): not one sure action for the pipeline.
+        let also =
+            next.filter(|(_, p)| parsed.is_none() && intent != "open_ended" && *p >= ALSO_FROM);
         let mut out = BTreeMap::new();
         for (name, q) in &req.questions {
             let answer = match (name.as_str(), q) {
                 ("intent", _) => Answer::Choice {
-                    distribution: vec![(intent.clone(), confidence)],
+                    distribution: std::iter::once((intent.clone(), confidence))
+                        .chain(also.clone())
+                        .collect(),
                     confidence,
                 },
                 ("needs_generation", _) => Answer::Noul { p: generation },
@@ -631,6 +653,22 @@ impl JevClient for LocalJev {
     fn provider(&self) -> &'static str {
         "local"
     }
+
+    fn on_device(&self) -> bool {
+        loopback(&self.embed_url)
+    }
+}
+
+/// Whether `url` is served on this machine.
+fn loopback(url: &str) -> bool {
+    reqwest::Url::parse(url).is_ok_and(|u| {
+        u.host_str().is_some_and(|h| {
+            h == "localhost"
+                || h.trim_matches(['[', ']'])
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|a| a.is_loopback())
+        })
+    })
 }
 
 /// A label the scorer model can answer with, and its token id in that
@@ -813,8 +851,34 @@ mod tests {
             "Send a form on a page.\nFill in a field on a page.".to_owned(),
         ];
         let w = lexical("How do rainbows form", &options, &descriptions);
-        assert!(w[1] <= LEXICAL_MOST / 2.0, "{w:?}");
-        assert!(w.iter().all(|x| *x <= LEXICAL_MOST), "{w:?}");
+        assert!(w[1] <= 0.5, "{w:?}");
+        assert!(w.iter().all(|x| *x <= 1.0), "{w:?}");
+    }
+
+    #[test]
+    fn embeddings_on_this_machine_only() {
+        assert!(loopback("http://127.0.0.1:8091/v1/embeddings"));
+        assert!(loopback("http://[::1]:8091/v1/embeddings"));
+        assert!(loopback("http://localhost:8091/v1/embeddings"));
+        assert!(!loopback("https://embed.example.com/v1/embeddings"));
+        assert!(!loopback("not a url"));
+    }
+
+    #[test]
+    fn ranking_by_words_alone_can_be_sure() {
+        let mut options: Vec<String> = (0..24).map(|i| format!("org.example.app{i}")).collect();
+        let mut descriptions: Vec<String> = (0..24).map(|i| format!("Open page {i}.")).collect();
+        options.push("org.example.notes".into());
+        descriptions.push("Make a note.\nSearch notes for text.".into());
+        let Answer::Choice {
+            distribution,
+            confidence,
+        } = rank("search my notes for the cabin", &options, &descriptions)
+        else {
+            panic!("a choice")
+        };
+        assert_eq!(distribution[0].0, "org.example.notes");
+        assert!(confidence >= 0.6, "{confidence}");
     }
 
     use super::*;

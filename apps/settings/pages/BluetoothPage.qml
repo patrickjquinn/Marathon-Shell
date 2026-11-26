@@ -234,17 +234,19 @@ Page {
 
                     enabled: !pending
                     subtitle: pending ? (page.pendingConnect ? qsTr("Connecting…") : qsTr("Disconnecting…")) : modelData.connected ? qsTr("Connected") : qsTr("Not connected")
-                    menu: ContextMenu {
-                        MenuItem {
-                            text: paired.modelData.connected ? qsTr("Disconnect") : qsTr("Connect")
-                            onClicked: page.toggleConnection(paired.modelData)
-                        }
-                        MenuItem {
-                            objectName: "removeItem"
-                            text: qsTr("Remove")
-                            onClicked: {
-                                const address = paired.modelData.address;
-                                paired.remorseDelete(() => Bluetooth.unpairDevice(address));
+                    menu: Component {
+                        ContextMenu {
+                            MenuItem {
+                                text: paired.modelData.connected ? qsTr("Disconnect") : qsTr("Connect")
+                                onClicked: page.toggleConnection(paired.modelData)
+                            }
+                            MenuItem {
+                                objectName: "removeItem"
+                                text: qsTr("Remove")
+                                onClicked: {
+                                    const address = paired.modelData.address;
+                                    paired.remorseDelete(() => Bluetooth.unpairDevice(address));
+                                }
                             }
                         }
                     }

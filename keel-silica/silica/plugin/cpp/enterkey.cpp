@@ -51,9 +51,13 @@ bool KeelEnterKeyAttached::eventFilter(QObject *watched, QEvent *event)
     QQuickItem *focus = m_window->activeFocusItem();
     if (!item || !focus || (focus != item && !item->isAncestorOf(focus)))
         return false;
+    // A multi-line editor (TextArea) still gets its new line, and Shift+Enter
+    // there is only a new line.
+    const bool multiLine = focus->inherits("QQuickTextEdit");
+    if (multiLine && (ke->modifiers() & Qt::ShiftModifier))
+        return false;
     emit clicked();
-    // A multi-line editor (TextArea) still gets its new line.
-    return !focus->inherits("QQuickTextEdit");
+    return !multiLine;
 }
 
 void KeelEnterKeyAttached::setEnabled(bool v)

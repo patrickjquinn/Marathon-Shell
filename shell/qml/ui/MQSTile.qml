@@ -66,12 +66,15 @@ Item {
         radius: width / 2
         color: lit ? MColors.accentFill : MColors.controlFill
         opacity: pressed ? 0.6 : 1
+        border.width: MColors.eink && !lit ? 1 : 0
+        border.color: MColors.border
 
         GlyphIcon {
             anchors.centerIn: parent
             name: tile.iconName
             size: Silica.Theme.iconSizeSmall
-            color: "white"
+            // Ink on an off tile's paper on e-paper.
+            color: MColors.eink && !parent.lit ? Silica.Theme.primaryColor : "white"
         }
     }
 

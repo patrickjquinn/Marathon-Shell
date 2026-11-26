@@ -1,0 +1,83 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 07:30:00 +0000
+Subject: [PATCH] drm/mediatek: dsi: Program the vendor link timing on request
+
+mtk_dsi takes the LP transitions out of the horizontal porches so that a
+line lasts as long as the panel's mode says, and computes the data lane
+timings from the D-PHY minimums. MediaTek's vendor driver for the same
+SoCs sends the porches as the mode gives them, rounded up to four bytes,
+and derives longer lane timings from the byte clock. On the Minimal
+Phone MP01 (MT6789, 208 Mbit/s on four lanes) the e-paper controller
+shows only garbled lines with mainline's word counts (HSA/HBP/HFP 38/15/18
+against the vendor's 40/52/48) and a streaked picture with mainline's
+lane timings (LPX/HS-PREPARE/HS-ZERO/HS-TRAIL 2/2/4/3 against 2/3/3/2).
+
+When the DSI node has mediatek,vendor-link-timing, program both the way
+the vendor driver does. Without it nothing changes.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -224,6 +224,7 @@
+ 	int refcount;
+ 	bool enabled;
+ 	bool lanes_ready;
++	bool vendor_timing;
+ 	u32 irq_data;
+ 	wait_queue_head_t irq_wait_queue;
+ 	const struct mtk_dsi_driver_data *driver_data;
+@@ -263,6 +264,21 @@
+ 	timing->ta_get = 4 * timing->lpx;
+ 	timing->da_hs_exit = 2 * timing->lpx + 1;
+ 
++	if (dsi->vendor_timing) {
++		u32 cycle = 8000 / data_rate_mhz, ui = max(1000 / data_rate_mhz, 1U);
++
++		timing->lpx = 75 / cycle + 1;
++		timing->da_hs_prepare = (64 + 5 * ui) / cycle + 1;
++		timing->da_hs_zero = (200 + 10 * ui) / cycle;
++		if (timing->da_hs_zero > timing->da_hs_prepare)
++			timing->da_hs_zero -= timing->da_hs_prepare;
++		timing->da_hs_trail = max(9 * ui / cycle, (80 + 5 * ui) / cycle);
++		timing->ta_go = 4 * timing->lpx;
++		timing->ta_sure = 3 * timing->lpx / 2;
++		timing->ta_get = 5 * timing->lpx;
++		timing->da_hs_exit = 125 / cycle + 1;
++	}
++
+ 	timing->clk_hs_prepare = 70 * data_rate_mhz / (8 * 1000);
+ 	timing->clk_hs_post = timing->clk_hs_prepare + 8;
+ 	/* D-PHY: TCLK-TRAIL >= 60 ns, TCLK-PREPARE + TCLK-ZERO >= 300 ns */
+@@ -566,6 +582,15 @@
+ 			(vm->hactive * dsi_tmp_buf_bpp + 2) % dsi->lanes;
+ 	}
+ 
++	if (dsi->vendor_timing) {
++		horizontal_sync_active_byte =
++			ALIGN(vm->hsync_len * dsi_tmp_buf_bpp - 10, 4);
++		horizontal_backporch_byte =
++			ALIGN(vm->hback_porch * dsi_tmp_buf_bpp - 10, 4);
++		horizontal_frontporch_byte =
++			ALIGN(vm->hfront_porch * dsi_tmp_buf_bpp - 12, 4);
++	}
++
+ 	writel(horizontal_sync_active_byte, dsi->regs + DSI_HSA_WC);
+ 	writel(horizontal_backporch_byte, dsi->regs + DSI_HBP_WC);
+ 	writel(horizontal_frontporch_byte, dsi->regs + DSI_HFP_WC);
+@@ -1297,6 +1322,8 @@
+ 		return PTR_ERR(dsi);
+ 
+ 	dsi->driver_data = of_device_get_match_data(dev);
++	dsi->vendor_timing = of_property_read_bool(dev->of_node,
++						"mediatek,vendor-link-timing");
+ 
+ 	dsi->engine_clk = devm_clk_get(dev, "engine");
+ 	if (IS_ERR(dsi->engine_clk))
+-- 
+2.47.0

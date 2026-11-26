@@ -118,7 +118,7 @@ Item {
         opacity: active ? 1 : 0
         Behavior on opacity {
             NumberAnimation {
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.OutCubic
             }
         }
@@ -195,7 +195,7 @@ Item {
         visible: opacity > 0.01
         Behavior on opacity {
             NumberAnimation {
-                duration: MMotion.quick
+                duration: MMotion.ms(MMotion.quick)
                 easing.type: Easing.OutCubic
             }
         }
@@ -217,7 +217,7 @@ Item {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: MMotion.quick
+                    duration: MMotion.ms(MMotion.quick)
                     easing.type: Easing.OutCubic
                 }
             }
@@ -245,19 +245,19 @@ Item {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: MMotion.quick
+                    duration: MMotion.ms(MMotion.quick)
                     easing.type: Easing.OutCubic
                 }
             }
             Behavior on scale {
                 NumberAnimation {
-                    duration: MMotion.moderate
+                    duration: MMotion.ms(MMotion.moderate)
                     easing.type: Easing.OutCubic
                 }
             }
             Behavior on rotation {
                 NumberAnimation {
-                    duration: MMotion.moderate
+                    duration: MMotion.ms(MMotion.moderate)
                     easing.type: Easing.OutCubic
                 }
             }

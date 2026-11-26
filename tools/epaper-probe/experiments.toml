@@ -1,0 +1,149 @@
+# Trial definitions for the MP01 CPLD characterisation (EPAPER_GPU_TCON.md §4.3).
+# Levels are 0..15 and mean L(k) = round(255k/15). Patches are P0..P23 (6x4 grid).
+# Modes are the driver's names: quality=0, clean=1, text=2, fast=3.
+# `epdplan.py --profile NAME` compiles one profile into a plan and a manifest.
+
+[conventions]
+idle_ms = 1500        # after full_refresh, in the trial's mode (§4.2)
+settle_ms = 1000      # after the base frame
+phase_ms = 200        # random extra settle: one 60 Hz x 85 Hz beat period
+jitter_ms = 2.0       # uniform +-jitter on every delta
+watch_ms = 2500
+static_hold_ms = 5000 # 4K static captures
+start_delay_ms = 2000 # after each start touch
+
+[E0]
+strobes = 10
+gap_ms = 600
+static_ms = 5000
+
+[E1]
+modes = ["quality", "text", "fast"]
+transitions = [[0, 15], [15, 0], [0, 7], [7, 0], [15, 7], [7, 15], [3, 12], [12, 3]]
+repeats = 8
+watch_ms = 2000
+poll = true
+
+[E2]
+a = 7
+pair = 11             # variant inbox: a two-patch update P7+P11
+variants = { far = 16, inbox = 9, adjacent = 8 }
+deltas = { quality = [12, 35, 70, 140, 280, 420], fast = [12, 35, 70, 105] }
+repeats = 2
+watch_ms = 2000
+poll = true
+
+[E3]
+patch = 3
+modes = ["fast", "quality"]
+deltas = [25, 50, 75, 100, 200]
+targets = [15, 7]
+burst = [0, 15, 0, 15, 7]
+burst_gap_ms = 20
+repeats = 2
+watch_ms = 3000
+poll = true
+
+[E4]
+mode = "quality"
+period_ms = 300
+cycles = 5
+repeats = 2
+pairs = [
+  { name = "128-129", patch = 7, a = [128, 128, 128], b = [129, 129, 129] },
+  { name = "128-135", patch = 8, a = [128, 128, 128], b = [135, 135, 135] },
+  { name = "in-bin", patch = 9, a = [120, 120, 120], b = [126, 126, 126] },
+  { name = "bin-edge", patch = 10, a = [127, 127, 127], b = [128, 128, 128] },
+  { name = "R16", patch = 13, a = [128, 128, 128], b = [144, 128, 128] },
+  { name = "G16", patch = 14, a = [128, 128, 128], b = [128, 144, 128] },
+  { name = "B16", patch = 15, a = [128, 128, 128], b = [128, 128, 144] },
+]
+
+[E5]
+mode = "quality"
+
+[E6]
+a_deltas = [100, 200]
+a_repeats = 3
+b_repeats = 3
+b_watch_ms = 2000
+c_pairs = [["fast", "quality"], ["quality", "fast"], ["text", "quality"], ["fast", "text"], ["quality", "text"]]
+c_watch_ms = 1500
+c_last = ["quality", "clean"]   # the only `clean` in any plan; it double-flashes
+
+[E7]
+a_modes = ["fast", "text"]
+a_repeats = 2
+b_modes = ["fast", "text"]
+c_hold_ms = 5000
+c_level = 7
+c_cell = 16
+c_repeats = 2
+
+[E8]
+mode = "fast"
+speed_px = 4
+frames = 120
+bar_w = 24
+ks = [1, 2, 3, 4, 5, 6, 7, 8]
+watch_ms = 1500
+
+[E9]
+# Passive: register polling during E1, E2 and E3 (their `poll = true`).
+
+[E10]
+variants = ["alone", "change-then-clear", "change-during-clear"]
+during_ms = 300
+repeats = 1
+watch_ms = 3500
+
+[E11]
+steps = [1, 5, 20, 50]
+step_px = 24
+step_ms = 150
+variants = ["dithered", "grey"]
+settle_ms = 2500
+
+[E12]
+modes = ["quality", "fast"]
+transitions = [[0, 15], [15, 0], [0, 7], [7, 15]]
+repeats = 5
+watch_ms = 2000
+
+[E14]
+observe_s = 180
+
+[profile.full]
+experiments = ["E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E10", "E11"]
+
+# Fourth look (§4.3 E12): the same probe after 20 min at ~5 °C.
+[profile.cold]
+experiments = ["E0", "E12"]
+
+# E14: shell running, run the probe with --no-drm; the plan only strobes and observes.
+[profile.e14]
+experiments = ["E14"]
+
+# A short plan for the synthetic round trip (M-A0 exit criterion).
+[profile.synth]
+experiments = ["E0", "E1", "E2", "E3"]
+conventions = { idle_ms = 900, settle_ms = 700, start_delay_ms = 1500, phase_ms = 200 }
+E0 = { strobes = 6, static_ms = 1000, gap_ms = 500 }
+E1 = { modes = ["quality", "fast"], repeats = 2, watch_ms = 900 }
+E2 = { variants = { far = 16, inbox = 9 }, deltas = { fast = [12, 35, 70, 105] }, repeats = 1, watch_ms = 600 }
+E3 = { modes = ["fast", "quality"], deltas = [25, 50], targets = [15], burst = [], repeats = 1, watch_ms = 1200 }
+
+# Every experiment once, for an end-to-end synthetic run of all analysis paths.
+[profile.cover]
+experiments = ["E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E10", "E11"]
+conventions = { idle_ms = 900, settle_ms = 700, start_delay_ms = 1500, phase_ms = 200, static_hold_ms = 3000 }
+E0 = { strobes = 4, static_ms = 1000, gap_ms = 500 }
+E1 = { modes = ["quality", "fast"], repeats = 1, watch_ms = 900 }
+E2 = { variants = { far = 16, inbox = 9 }, deltas = { fast = [12, 35, 70] }, repeats = 1, watch_ms = 600 }
+E3 = { modes = ["fast"], deltas = [25], targets = [15], burst = [0, 15, 0, 15, 7], repeats = 1, watch_ms = 1000 }
+E4 = { repeats = 1 }
+E6 = { a_deltas = [100], a_repeats = 1, b_repeats = 1, c_pairs = [["fast", "quality"]] }
+E7 = { a_modes = ["fast"], a_repeats = 1, b_modes = ["fast"], c_hold_ms = 1500, c_repeats = 1 }
+E8 = { ks = [1, 4] }
+E10 = { variants = ["alone", "change-during-clear"] }
+E11 = { steps = [1, 5], variants = ["dithered"], settle_ms = 1200 }

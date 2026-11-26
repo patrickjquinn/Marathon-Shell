@@ -105,29 +105,31 @@ Page {
             objectName: "conversation-" + modelData.id
             contentHeight: Math.max(Theme.itemSizeMedium, name.height + preview.height + 2 * Theme.paddingMedium)
             Accessible.name: Logic.displayName(modelData) + (unread > 0 ? ", " + qsTr("%n unread", "", unread) : "")
-            menu: ContextMenu {
-                MenuItem {
-                    visible: item.unread > 0
-                    text: qsTr("Mark as read")
-                    onClicked: Sms.markAsRead(item.modelData.id)
-                }
-                MenuItem {
-                    text: item.pinned ? qsTr("Unpin") : qsTr("Pin")
-                    onClicked: root.app.setPinned(item.modelData.id, !item.pinned)
-                }
-                MenuItem {
-                    text: item.archived ? qsTr("Move to inbox") : qsTr("Archive")
-                    onClicked: root.app.setArchived(item.modelData.id, !item.archived)
-                }
-                MenuItem {
-                    objectName: "deleteItem"
-                    text: qsTr("Delete")
-                    onClicked: {
-                        const app = root.app;
-                        const id = item.modelData.id;
-                        item.remorseDelete(function () {
-                            app.deleteConversation(id);
-                        });
+            menu: Component {
+                ContextMenu {
+                    MenuItem {
+                        visible: item.unread > 0
+                        text: qsTr("Mark as read")
+                        onClicked: Sms.markAsRead(item.modelData.id)
+                    }
+                    MenuItem {
+                        text: item.pinned ? qsTr("Unpin") : qsTr("Pin")
+                        onClicked: root.app.setPinned(item.modelData.id, !item.pinned)
+                    }
+                    MenuItem {
+                        text: item.archived ? qsTr("Move to inbox") : qsTr("Archive")
+                        onClicked: root.app.setArchived(item.modelData.id, !item.archived)
+                    }
+                    MenuItem {
+                        objectName: "deleteItem"
+                        text: qsTr("Delete")
+                        onClicked: {
+                            const app = root.app;
+                            const id = item.modelData.id;
+                            item.remorseDelete(function () {
+                                app.deleteConversation(id);
+                            });
+                        }
                     }
                 }
             }

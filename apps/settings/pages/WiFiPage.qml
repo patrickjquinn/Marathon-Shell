@@ -194,24 +194,26 @@ Page {
                 visible: Network.wifiEnabled && Network.wifiConnected
                 contentHeight: Theme.itemSizeMedium
                 Accessible.name: qsTr("Connected to %1").arg(Network.wifiSsid)
-                menu: ContextMenu {
-                    MenuItem {
-                        objectName: "signInItem"
-                        visible: current.portal
-                        text: qsTr("Sign in to network")
-                        onClicked: Network.openPortal()
-                    }
-                    MenuItem {
-                        objectName: "disconnectItem"
-                        text: qsTr("Disconnect")
-                        onClicked: Network.disconnectWifi()
-                    }
-                    MenuItem {
-                        objectName: "forgetCurrentItem"
-                        text: qsTr("Forget network")
-                        onClicked: {
-                            const ssid = Network.wifiSsid;
-                            current.remorseDelete(() => Network.forgetNetwork(ssid));
+                menu: Component {
+                    ContextMenu {
+                        MenuItem {
+                            objectName: "signInItem"
+                            visible: current.portal
+                            text: qsTr("Sign in to network")
+                            onClicked: Network.openPortal()
+                        }
+                        MenuItem {
+                            objectName: "disconnectItem"
+                            text: qsTr("Disconnect")
+                            onClicked: Network.disconnectWifi()
+                        }
+                        MenuItem {
+                            objectName: "forgetCurrentItem"
+                            text: qsTr("Forget network")
+                            onClicked: {
+                                const ssid = Network.wifiSsid;
+                                current.remorseDelete(() => Network.forgetNetwork(ssid));
+                            }
                         }
                     }
                 }

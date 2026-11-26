@@ -117,7 +117,7 @@ Item {
 
                     Behavior on shownness {
                         NumberAnimation {
-                            duration: 800
+                            duration: MMotion.ms(800)
                         }
                     }
                 }

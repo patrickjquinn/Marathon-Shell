@@ -1,0 +1,10 @@
+[package]
+name = "marathon-eink"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The e-paper waveform policy: which refresh mode the panel drives changes with, and when it clears"
+
+[lints]
+workspace = true

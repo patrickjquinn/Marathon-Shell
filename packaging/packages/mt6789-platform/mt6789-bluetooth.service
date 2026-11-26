@@ -1,0 +1,13 @@
+[Unit]
+Description=MT6789 Bluetooth HCI (CONNSYS over WMT/STP)
+Requires=mt6789-wmt-launcher.service
+After=mt6789-wmt-launcher.service
+Before=bluetooth.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/modprobe q25-btmtk-stp
+
+[Install]
+WantedBy=bluetooth.target multi-user.target

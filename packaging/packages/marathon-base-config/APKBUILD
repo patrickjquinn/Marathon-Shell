@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=67
+pkgrel=68
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -324,17 +324,44 @@ Type=oneshot
 ExecStart=/usr/bin/journalctl --sync
 EOF
 
+	# Commit ext4 journals once a minute: at the 5 s default an idle phone
+	# woke its storage every few seconds. The root is loop-mounted by the
+	# initramfs, so no fstab line can set it.
+	install -d "$pkgdir/usr/libexec/marathon"
+	cat > "$pkgdir/usr/libexec/marathon/ext4-commit" <<'EOF'
+#!/bin/sh
+awk '$3 == "ext4" { print $2 }' /proc/mounts | while read -r m; do
+	mount -o remount,commit=60 "$m"
+done
+EOF
+	chmod 755 "$pkgdir/usr/libexec/marathon/ext4-commit"
+	cat > "$pkgdir/usr/lib/systemd/system/marathon-ext4-commit.service" <<'EOF'
+[Unit]
+Description=Commit the ext4 journals once a minute
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon/ext4-commit
+
+[Install]
+WantedBy=multi-user.target
+EOF
+	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	ln -sf ../marathon-ext4-commit.service \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-ext4-commit.service"
+
 	# Persistent journald. A volatile journal lost every hang's record on
 	# the reboot that followed it. After a long-press power-off journald
 	# reports the last file "uncleanly shut down", sets it aside and
-	# starts a fresh one; at most the last seconds are lost. Synced often
-	# so the lines before a hang reach the disk.
+	# starts a fresh one. Synced every 15 min so an idle phone's storage
+	# can sleep; crit and emerg lines are still written at once.
 	install -d "$pkgdir/usr/lib/systemd/journald.conf.d"
 	cat > "$pkgdir/usr/lib/systemd/journald.conf.d/50-marathon.conf" <<'EOF'
 [Journal]
 Storage=persistent
 SystemMaxUse=200M
-SyncIntervalSec=15s
+SyncIntervalSec=15min
 RuntimeMaxUse=32M
 RuntimeKeepFree=64M
 RuntimeMaxFileSize=8M
@@ -363,7 +390,7 @@ EOF
 		"$pkgdir/etc/systemd/system/default.target"
 }
 sha512sums="
-6adf88d527f653bf562520a4cb3307c19c8c916e99d6a43d4c2fb1ecc1ea24ca24634f3cc009d2c26804a25473c35cee350d6c5d25e3341bb33c32694455b888  99-marathon.conf
+43c9a1a240a5812835e4ad620761e5388b5a7c07372a987bbeaf739e8b82f8ef030dc5e4184812248c81e3cf03fd1ce0aac633e473c8d45fb05424c7fcc29f20  99-marathon.conf
 68ec412f971bd5e77394f75c617e9d00de495dac37b4f1ceba102a116475d20a6d6752bd85cd997fe422e4436461453b804b0f6a145ad3a321b8720f9e12c4eb  50-marathon-zram.conf
 a2cd824ccd1d9eda1f781f0fe00abc0a18112c03388b21c1ce04847ed790b7c83f6896642e3b42be2cbbbf0b68829124991dda217879cc94fe68a99b564ab35f  60-marathon-cpufreq.rules
 73ef62b855c99c444597be0d9bfd85d0539240968d1921df295cf3fdac0f7c15564b74a70a2d11684f53cd32314ae0b156dc7be53745b6d8622b847ef8a6644a  61-marathon-iosched.rules

@@ -9,6 +9,11 @@ QtObject {
     readonly property int normal: 0
     readonly property var easingDecelerateCurve: [0, 0, 0.2, 1, 1, 1]
     property bool reduceMotion: false
+    property bool instant: false
+    readonly property real swipeShare: 0.1
+    function ms(duration) {
+        return instant ? 0 : duration;
+    }
     readonly property int flickDecelerationFast: 8000
     readonly property real flickDeceleration: 3500
     readonly property real flickVelocity: 16000

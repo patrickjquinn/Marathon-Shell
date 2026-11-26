@@ -42,9 +42,9 @@ Item {
         width: Math.round(parent.width / 4) + Silica.Theme.paddingMedium * 2
         height: thumb.height + caption.height + Silica.Theme.paddingMedium * 2 + Silica.Theme.paddingSmall
         radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
+        color: MColors.badge
         border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, MColors.badgeEdgeOpacity)
         visible: screenshotPreview.showing
         opacity: 0
         Accessible.role: Accessible.Button
@@ -115,7 +115,7 @@ Item {
         property: "opacity"
         from: 0
         to: 1
-        duration: 250
+        duration: MMotion.ms(250)
         easing.type: Easing.OutCubic
     }
 
@@ -125,7 +125,7 @@ Item {
         target: previewCard
         property: "opacity"
         to: 0
-        duration: 200
+        duration: MMotion.ms(200)
         easing.type: Easing.OutCubic
         onFinished: {
             screenshotPreview.showing = false;
@@ -154,7 +154,7 @@ Item {
                 target: flashOverlay
                 property: "opacity"
                 to: 0.8
-                duration: 50
+                duration: MMotion.ms(50)
                 easing.type: Easing.OutCubic
             }
 
@@ -162,7 +162,7 @@ Item {
                 target: flashOverlay
                 property: "opacity"
                 to: 0
-                duration: 200
+                duration: MMotion.ms(200)
                 easing.type: Easing.OutCubic
             }
         }

@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 24 Nov 2026 19:57:18 +0000
+Subject: [PATCH 41/43] dt-bindings: pinctrl: awinic,aw9523: Describe LEDs on
+ the outputs
+
+Each of the AW9523B's sixteen pins can run in LED mode, sinking a
+constant current that a register sets in 256 steps. Boards wire LEDs to
+them; the Minimal Phone MP01's keyboard light takes two.
+
+Describe such an LED as an led@N child with the common LED properties:
+reg is its output, and led-sources lists every output when the LED is
+wired to more than one.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../pinctrl/awinic,aw9523-pinctrl.yaml        | 57 +++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/pinctrl/awinic,aw9523-pinctrl.yaml b/Documentation/devicetree/bindings/pinctrl/awinic,aw9523-pinctrl.yaml
+index 98c310a..73e40c3 100644
+--- a/Documentation/devicetree/bindings/pinctrl/awinic,aw9523-pinctrl.yaml
++++ b/Documentation/devicetree/bindings/pinctrl/awinic,aw9523-pinctrl.yaml
+@@ -46,6 +46,12 @@ properties:
+   reset-gpios:
+     maxItems: 1
+ 
++  '#address-cells':
++    const: 1
++
++  '#size-cells':
++    const: 0
++
+ # PIN CONFIGURATION NODES
+ patternProperties:
+   '-pins$':
+@@ -88,6 +94,32 @@ patternProperties:
+ 
+     additionalProperties: false
+ 
++  '^led@([0-9]|1[0-5])$':
++    type: object
++    $ref: /schemas/leds/common.yaml#
++    unevaluatedProperties: false
++    description:
++      An LED on the constant-current outputs. Its outputs run in LED mode, with
++      256 steps of the current the chip is set to, and are not GPIOs.
++
++    properties:
++      reg:
++        description:
++          The LED's output, 0-7 for P0_0-P0_7 and 8-15 for P1_0-P1_7.
++        maximum: 15
++
++      led-sources:
++        description:
++          Every output the LED is wired to, numbered as reg, when it is wired
++          to more than the one in reg.
++        minItems: 1
++        maxItems: 16
++        items:
++          maximum: 15
++
++    required:
++      - reg
++
+ required:
+   - compatible
+   - reg
+@@ -137,3 +169,28 @@ examples:
+                 };
+         };
+     };
++
++  # Example configuration for an LED wired to two outputs
++  - |
++    #include <dt-bindings/leds/common.h>
++
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        gpio-expander@5b {
++                compatible = "awinic,aw9523-pinctrl";
++                reg = <0x5b>;
++                gpio-controller;
++                #gpio-cells = <2>;
++                gpio-ranges = <&tlmm 0 0 16>;
++                #address-cells = <1>;
++                #size-cells = <0>;
++
++                led@0 {
++                        reg = <0>;
++                        led-sources = <0>, <1>;
++                        function = LED_FUNCTION_KBD_BACKLIGHT;
++                };
++        };
++    };
+-- 
+2.55.0
+
