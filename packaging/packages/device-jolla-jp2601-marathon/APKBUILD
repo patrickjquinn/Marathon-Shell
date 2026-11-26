@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=7
+pkgrel=8
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -18,7 +18,7 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  jp2601-splash-plymouth-quit.conf jp2601-splash-plymouth-quit-wait.conf jp2601-splash-plymouth-start.conf
  jp2601.preset unudhcpd-usb0.conf jp2601-usb.nm.conf jp2601-usb-gadget jp2601-usb-gadget.service
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
- eglfs-kms.json 60-jp2601-display.rules jp2601-gpu.files"
+ eglfs-kms.json 60-jp2601-display.rules jp2601-gpu.files jp2601-power.sysctl"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
@@ -31,6 +31,9 @@ package() {
 	install -Dm644 "$srcdir/eglfs-kms.json" "$pkgdir/etc/jp2601/eglfs-kms.json"
 	install -Dm644 "$srcdir/60-jp2601-display.rules" "$pkgdir/usr/lib/udev/rules.d/60-jp2601-display.rules"
 	install -Dm644 "$srcdir/jp2601-gpu.files" "$pkgdir/usr/share/mkinitfs/files/50-jp2601-gpu.files"
+
+	# Fewer idle wakeups, as on the Q25.
+	install -Dm644 "$srcdir/jp2601-power.sysctl" "$pkgdir/usr/lib/sysctl.d/60-jp2601-power.conf"
 
 	# One Plymouth from the initramfs to the shell. It outlives switch_root,
 	# so its font and plugins come from the real root.
@@ -94,4 +97,5 @@ e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99
 78d4df2860723e8d28ad09241ea93dbb63bdfb4643cebedd80a887b724819a5451f73cd6e759fa9906df3ee3478030be593a4bf3e4c956a084e88b18d893426c  eglfs-kms.json
 89c9f9c50f486405f3f729a305c0433bf223a0f20d2bdba2a2896842b9927c7cab2dc16fce7b69a32c4d492ff70752e356c699ad287f7f3cc883f6465b18c1d5  60-jp2601-display.rules
 8d1809de50ed5ec279cabdefa131057c846e77d33b545a73c9c4edc92ea1982c8a3b8490752e10c06ba7921485c51813d40071a7fe4b97191bbab01a38ed513d  jp2601-gpu.files
+3121f0278c66b8a4f998c3842d7607ad0752f3513947a11b7eb2672e857aa315468db8cf1eb5cd965c9228ce0e3b4fec7f91b048aa8b341f112a2094c89c3f1d  jp2601-power.sysctl
 "
