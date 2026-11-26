@@ -6,7 +6,7 @@
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=11
+pkgrel=12
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 # MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
@@ -487,5 +487,5 @@ b9da94e4ed27fd519dee8125c8148994f353812e842cb9fb401d0396630246e14920ec413062cc0b
 80b13d7c2d639920bb2c57e9d1ebcfae8f595e03dcd6a7610722b1b95f8ddd663186b1ef165d0a40afcb4ad562ec42152418c680a4f207c5f3095227bffef33f  0184-arm64-dts-mediatek-mt6858-jolla-jp2601-Raise-the-pro.patch
 726c6989562ece9a4ed314c1f3c7748219413956d5fe3db2f757ad36767b2b683ebbb37fe3792c5fae7eb3d464ad25412335fafe18e3fac96ad1be93f6d92186  0185-rust-bindgen-Keep-the-alignment-of-an-empty-sched_st.patch
 c0a1a7259e24bf34fb4004f006b4180f2b0fd97858074282987d3592402c84e6be54ca492537c13a14653bec33c0ae135e0c4c23d839a70117ada2337095a9d9  0186-rust_binder-Look-up-freeze-targets-in-the-caller-s-p.patch
-8dba29ad9a5ae02354237d38039c94d45f4dd16139d17ada4e67ea14166afc030d94570245833773806c0c94c97738fec776ee120cbc31f75650b7a6b5b43054  marathon.config
+569598dc9a7f605879fc9c3d54b3af00270793078ac071c191e104a34ccc534cd9d2fb1dfd10a3aca450ba64cd48a017b168cead39f1d4623a2c3bbb5863202b  marathon.config
 "
