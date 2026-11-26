@@ -25,5 +25,4 @@ class SharedClipboard : public QObject {
     bool                hasDataDevice(QWaylandSurface *surface) const;
 
     QWaylandCompositor *m_compositor;
-    bool                m_taking = false;
 };

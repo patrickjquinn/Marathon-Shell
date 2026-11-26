@@ -315,15 +315,17 @@ if(TARGET Qt6::WaylandCompositor)
         "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
 
-# Copy and paste between apps and the shell through the compositor
-if(TARGET Qt6::WaylandCompositorPrivate)
+# Copy and paste between apps, Android and the shell through the compositor
+if(TARGET Qt6::WaylandCompositorPrivate AND WAYLAND_CLIENT_FOUND)
     add_executable(test_shell_sharedclipboard
         test_sharedclipboard.cpp
         ../../shell/src/wayland/sharedclipboard.cpp
     )
     target_link_libraries(test_shell_sharedclipboard
-        Qt6::Test Qt6::Quick Qt6::Qml Qt6::WaylandCompositor Qt6::WaylandCompositorPrivate)
-    target_include_directories(test_shell_sharedclipboard PRIVATE ${CMAKE_SOURCE_DIR}/shell)
+        Qt6::Test Qt6::Quick Qt6::Qml Qt6::WaylandCompositor Qt6::WaylandCompositorPrivate
+        ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(test_shell_sharedclipboard PRIVATE ${CMAKE_SOURCE_DIR}/shell
+        ${WAYLAND_CLIENT_INCLUDE_DIRS})
     add_test(NAME Shell_SharedClipboard COMMAND test_shell_sharedclipboard)
     set_tests_properties(Shell_SharedClipboard PROPERTIES ENVIRONMENT
         "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")

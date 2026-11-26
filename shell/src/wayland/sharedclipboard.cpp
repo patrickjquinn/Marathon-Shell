@@ -4,7 +4,6 @@
 #include <QGuiApplication>
 #include <QHash>
 #include <QMimeData>
-#include <QScopedValueRollback>
 #include <QSocketNotifier>
 #include <QWaylandCompositor>
 #include <QWaylandSeat>
@@ -12,6 +11,7 @@
 #include <QtWaylandCompositor/private/qwaylandseat_p.h>
 #include <QtWaylandCompositor/private/qwldatadevice_p.h>
 
+#include <cstring>
 #include <memory>
 
 #include <csignal>
@@ -108,29 +108,26 @@ SharedClipboard::SharedClipboard(QWaylandCompositor *compositor)
 }
 
 void SharedClipboard::take(const QMimeData *data) {
-    if (m_taking)
-        return;
-    const QScopedValueRollback taking(m_taking, true);
     QGuiApplication::clipboard()->setMimeData(copyOf(data).release());
 }
 
-// The shell copied: an app's own copy, which it would paste in preference to
-// any offer, is cancelled.
+// Whoever copied, the clipboard is now the shell's: an app's own copy, which
+// it would paste in preference to any offer and Qt would offer to the next
+// app even once its owner is frozen, is cancelled.
 void SharedClipboard::claim() {
-    if (m_taking)
-        return;
-    QWaylandSurface *focus = m_compositor->defaultSeat()->keyboardFocus();
-    // overrideSelection dereferences the focused client's data device.
-    if (focus && !hasDataDevice(focus))
-        return;
-    const QMimeData *clipboard = QGuiApplication::clipboard()->mimeData();
-    if (!clipboard)
-        return;
-    const QScopedValueRollback       taking(m_taking, true);
-    const std::unique_ptr<QMimeData> data = copyOf(clipboard);
-    m_compositor->overrideSelection(data.get());
-    // Qt's override reaches one of the app's data devices; Qt apps have two.
-    offer(focus);
+    wl_client *client = nullptr;
+    wl_client_for_each(client, wl_display_get_client_list(m_compositor->display())) {
+        wl_client_for_each_resource(
+            client,
+            [](wl_resource *resource, void *) {
+                if (std::strcmp(wl_resource_get_class(resource), wl_data_source_interface.name) ==
+                    0)
+                    wl_data_source_send_cancelled(resource);
+                return WL_ITERATOR_CONTINUE;
+            },
+            nullptr);
+    }
+    offer(m_compositor->defaultSeat()->keyboardFocus());
 }
 
 void SharedClipboard::offer(QWaylandSurface *focus) const {
