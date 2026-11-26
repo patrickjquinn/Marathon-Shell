@@ -2874,6 +2874,15 @@ void PacificWebView::keyPressEvent(QKeyEvent *event) {
     }
     if (!m_backend)
         return;
+    // The engine's pasteboard is its own: Ctrl+V pastes the system clipboard,
+    // and what Ctrl+C or Ctrl+X take goes to it.
+    if (event->matches(QKeySequence::Paste) && m_im.focused) {
+        executeEditingCommand(Paste);
+        event->accept();
+        return;
+    }
+    if (event->matches(QKeySequence::Copy) || event->matches(QKeySequence::Cut))
+        copySelection();
     // Soft keys carry no scan code. In ScriptInput mode their text goes in by
     // script like the rest of the keyboard's text.
     const bool soft = event->nativeScanCode() == 0;
