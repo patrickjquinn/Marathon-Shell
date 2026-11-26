@@ -6,7 +6,7 @@
 # the Q25's q25-* units made generic; the Q25 still ships its own.
 pkgname=marathon-carrier
 pkgver=1.0.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Marathon userdata carrier: encrypted /home, root growth and over-the-air root install"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="noarch"
@@ -67,7 +67,7 @@ package() {
 }
 
 sha512sums="
-982372b4fc7e37878b6b4bfc0ca3c7ceb0fa076b2624718e338c5aaa7d0abbad96a7f9049dbd4c9d5f4e534393edc41c77298762d6ff660bc851ec2351531a89  marathon-carrier-home-crypt
+490f465c27c68a4712591959bb17c41159f6d99430a4e66d689a5e1d02781c72bf40b22ef395e035a9b3299cab64aa749643e849db9ebe6a10343536f37a483e  marathon-carrier-home-crypt
 4a981e472bbaa686df63dafa7ec6ba94d66131ca9822e6261abc34e7e120e125be30e89cc9a30e87e58b0cb7eb2814db2738903324c8c6123da8bbcd6fca1983  marathon-carrier-home-crypt.service
 ba07389a8b40d2dda3b5b519e76c3691d727b21edeb280dff28e2ab8d0470c12c678d6a9da36f4a54030af21d5d594b8952c0f8d4a6a449e4b56b9bc694ed734  marathon-carrier-home-unlock
 084cf44a6a681f386a06913e434098a2b2a2f124b675fe29c9431abdb8e020bd3a863e33c39812e6dc2775ccdb52cbefad534d07f77f40a40aa14738fdca04a2  marathon-carrier-unl0kr.conf

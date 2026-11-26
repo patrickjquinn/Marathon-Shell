@@ -14,6 +14,7 @@ case $carrier in '' | *[!a-z0-9]*) echo "home-crypt: no CARRIER_NAME in $conf" >
 name=$carrier-home
 mapper=/dev/mapper/$name
 remote=/run/marathon-carrier/remote-unlock
+touch_rule=/run/udev/rules.d/71-marathon-touch.rules
 
 log() {
 	echo "$carrier-home-crypt: $*" > /dev/kmsg
@@ -69,6 +70,23 @@ remote_stop() {
 	rm -f "$remote.sshd.pid"
 }
 
+# unl0kr reads touchscreens through libinput, which 71-marathon-touch.rules
+# keeps away from them for the shell's own reader.
+touch_for_libinput() {
+	[ -L "$touch_rule" ] && return 0
+	mkdir -p "${touch_rule%/*}"
+	ln -s /dev/null "$touch_rule"
+	udevadm control --reload
+	udevadm trigger --action=change --subsystem-match=input --property-match=ID_INPUT_TOUCHSCREEN=1 --settle
+}
+
+touch_for_shell() {
+	[ -L "$touch_rule" ] || return 0
+	rm -f "$touch_rule"
+	udevadm control --reload
+	udevadm trigger --action=change --subsystem-match=input --property-match=ID_INPUT_TOUCHSCREEN=1 --settle
+}
+
 unlock() {
 	# Already open: a failed attempt left it, or the initramfs debug shell
 	# opened it over USB for an unattended test boot.
@@ -94,6 +112,7 @@ unlock() {
 		if plymouth --ping 2> /dev/null; then
 			plymouth ask-for-password --prompt="$prompt" --number-of-tries=1 --command="$open" && pin_typed=1 && return 0
 		elif command -v unl0kr > /dev/null; then
+			touch_for_libinput
 			unl0kr | $open && pin_typed=1 && return 0
 		elif [ ! -r "$remote.sshd.pid" ]; then
 			return 1
@@ -124,6 +143,7 @@ if [ -e "$container" ]; then
 	unlock
 	ok=$?
 	remote_stop
+	touch_for_shell
 	[ "$ok" = 0 ] || {
 		log "no way to ask for the PIN; /home stays on the root"
 		exit 1
