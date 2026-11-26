@@ -575,37 +575,23 @@ static int errno_to_fs_result(int err)
 }
 
 /* ------------------------------------------------------------------ */
-/* file_handle table                                                    */
+/* CMPT_Write handles live in the same table as Open's (g_fs_handles):   */
+/* the MT6858 modem keeps a CMPT_Write handle open (no CLOSE bit) and    */
+/* closes it later with a plain Close, so the two must agree.            */
 /* ------------------------------------------------------------------ */
-#define MAX_OPEN_HANDLES 32
-
-struct fs_handle {
-	int fd;		/* -1 if free */
-	char path[PATH_MAX];
-};
-static struct fs_handle g_handles[MAX_OPEN_HANDLES];
-
 static void handles_init(void)
 {
-	int i;
-
-	for (i = 0; i < MAX_OPEN_HANDLES; i++)
-		g_handles[i].fd = -1;
 }
 
-/* Handle numbers we hand back are 1-based slot indices. 0/negative means
- * "no handle" on the wire (struct ccci_fs_cmpt_write_req.file_handle < 0
- * means "please open fresh", per the stock CMPT_Write logic).
- */
 static int handle_alloc(int fd, const char *path)
 {
-	int i;
+	unsigned i;
 
-	for (i = 0; i < MAX_OPEN_HANDLES; i++) {
-		if (g_handles[i].fd < 0) {
-			g_handles[i].fd = fd;
-			snprintf(g_handles[i].path, sizeof(g_handles[i].path), "%s", path);
-			return i + 1;
+	(void)path;
+	for (i = 1; i < FS_HANDLE_MAX; i++) {
+		if (g_fs_handles[i] < 0) {
+			g_fs_handles[i] = fd;
+			return (int)i;
 		}
 	}
 	return -1;
@@ -613,16 +599,16 @@ static int handle_alloc(int fd, const char *path)
 
 static int handle_get_fd(int handle)
 {
-	if (handle < 1 || handle > MAX_OPEN_HANDLES)
+	if (handle <= 0 || handle >= FS_HANDLE_MAX)
 		return -1;
-	return g_handles[handle - 1].fd;
+	return g_fs_handles[handle];
 }
 
 static void handle_free(int handle)
 {
-	if (handle < 1 || handle > MAX_OPEN_HANDLES)
+	if (handle <= 0 || handle >= FS_HANDLE_MAX)
 		return;
-	g_handles[handle - 1].fd = -1;
+	g_fs_handles[handle] = -1;
 }
 
 static void log_hexdump(const char *tag, const void *buf, size_t len)
