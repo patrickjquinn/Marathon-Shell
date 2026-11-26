@@ -1,0 +1,27 @@
+From 09104d1381261be910695c39e968beda9dc53b47 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:02:35 +0000
+Subject: [PATCH 24/24] arm64: configs: mt6858: Add SPI and the touchscreen
+
+Build in the MT65xx SPI controller, evdev and the Hynitron CST66xx
+driver for the Jolla Phone's touchscreen.
+---
+ arch/arm64/configs/mt6858.config | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index acc8385b5..e8b89579c 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -34,3 +34,8 @@ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_PMSG=y
+ # LK's hypervisor keeps EL2, so the kernel runs at EL1: no KVM.
+ # CONFIG_KVM is not set
++CONFIG_SPI=y
++CONFIG_SPI_MT65XX=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_HYNITRON_CST66XX=y
+-- 
+2.55.0
+

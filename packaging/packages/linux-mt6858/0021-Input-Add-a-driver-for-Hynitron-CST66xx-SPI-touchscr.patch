@@ -1,0 +1,356 @@
+From 2794710eb6185336b2ad6eaf2d1d8174de41f4f1 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:02:28 +0000
+Subject: [PATCH 21/24] Input: Add a driver for Hynitron CST66xx SPI
+ touchscreens
+
+The CST66xx series take big-endian commands in their own SPI message
+and answer in the next message, clocked by a zero-filled transmit
+buffer. After reset the firmware takes 50 ms to start. A 2-byte wake-up
+and three work-mode commands follow, then 0xD0030000 returns the panel
+information (chip type, firmware, resolution, channel counts). On each
+falling edge of the interrupt, 0xD0070000 returns the touch report: 9
+bytes, 5 more per further contact, guarded by a 16-bit sum, then
+acknowledged with 0xD00002AB.
+
+The protocol follows Hynitron's GPLv2 driver for the family; there is
+no public datasheet.
+---
+ drivers/input/touchscreen/Kconfig            |  12 +
+ drivers/input/touchscreen/Makefile           |   1 +
+ drivers/input/touchscreen/hynitron-cst66xx.c | 288 +++++++++++++++++++
+ 3 files changed, 301 insertions(+)
+ create mode 100644 drivers/input/touchscreen/hynitron-cst66xx.c
+
+diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
+index 9b9ae8ac3..69ab19d19 100644
+--- a/drivers/input/touchscreen/Kconfig
++++ b/drivers/input/touchscreen/Kconfig
+@@ -487,6 +487,18 @@ config TOUCHSCREEN_HYNITRON_CST816X
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called hynitron-cst816x.
+ 
++config TOUCHSCREEN_HYNITRON_CST66XX
++	tristate "Hynitron CST66xx SPI touchscreen"
++	depends on SPI
++	help
++	  Say Y here if you have a touchscreen using a Hynitron CST66xx
++	  series touchscreen controller on SPI.
++
++	  If unsure, say N.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called hynitron-cst66xx.
++
+ config TOUCHSCREEN_ILI210X
+ 	tristate "Ilitek ILI210X based touchscreen"
+ 	depends on I2C
+diff --git a/drivers/input/touchscreen/Makefile b/drivers/input/touchscreen/Makefile
+index bfd9de833..f139c2171 100644
+--- a/drivers/input/touchscreen/Makefile
++++ b/drivers/input/touchscreen/Makefile
+@@ -52,6 +52,7 @@ obj-$(CONFIG_TOUCHSCREEN_HIDEEP)	+= hideep.o
+ obj-$(CONFIG_TOUCHSCREEN_HIMAX_HX852X)	+= himax_hx852x.o
+ obj-$(CONFIG_TOUCHSCREEN_HYNITRON_CSTXXX)	+= hynitron_cstxxx.o
+ obj-$(CONFIG_TOUCHSCREEN_HYNITRON_CST816X)	+= hynitron-cst816x.o
++obj-$(CONFIG_TOUCHSCREEN_HYNITRON_CST66XX)	+= hynitron-cst66xx.o
+ obj-$(CONFIG_TOUCHSCREEN_ILI210X)	+= ili210x.o
+ obj-$(CONFIG_TOUCHSCREEN_ILITEK)	+= ilitek_ts_i2c.o
+ obj-$(CONFIG_TOUCHSCREEN_IMAGIS)	+= imagis.o
+diff --git a/drivers/input/touchscreen/hynitron-cst66xx.c b/drivers/input/touchscreen/hynitron-cst66xx.c
+new file mode 100644
+index 000000000..6ef9595eb
+--- /dev/null
++++ b/drivers/input/touchscreen/hynitron-cst66xx.c
+@@ -0,0 +1,288 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Hynitron CST66xx touchscreen controllers on SPI
++ *
++ * The controller takes big-endian commands in their own SPI message and
++ * answers in the next one, clocked by zeros: 0xD007xxxx reads the touch
++ * report, 0xD003xxxx the panel information, 0xD000xxxx sets the work
++ * mode. Reports are 9 bytes, then 5 more per further contact, guarded by
++ * a 16-bit sum. The protocol follows Hynitron's GPLv2 driver for the
++ * family; there is no datasheet.
++ */
++
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/gpio/consumer.h>
++#include <linux/input.h>
++#include <linux/input/mt.h>
++#include <linux/input/touchscreen.h>
++#include <linux/interrupt.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/regulator/consumer.h>
++#include <linux/spi/spi.h>
++#include <linux/unaligned.h>
++
++#define CST66XX_CMD_WAKE		0x02ab
++#define CST66XX_CMD_MODE_NORMAL		0xd0000000
++#define CST66XX_CMD_MODE_REPORT		0xd0000100
++#define CST66XX_CMD_STOP_LP		0xd0000400
++#define CST66XX_CMD_MODE_GESTURE_OFF	0xd0000c00
++#define CST66XX_CMD_REPORT_DONE		0xd00002ab
++#define CST66XX_CMD_INFO		0xd0030000
++#define CST66XX_CMD_REPORT		0xd0070000
++
++#define CST66XX_INFO_LEN		50
++#define CST66XX_INFO_SIG		0xcaca
++#define CST66XX_REPORT_HDR		4
++#define CST66XX_POINT_LEN		5
++#define CST66XX_REPORT_POS		0xff
++#define CST66XX_MAX_CONTACTS		10
++#define CST66XX_BUF_LEN			64
++
++struct cst66xx {
++	struct spi_device *spi;
++	struct input_dev *input;
++	struct gpio_desc *reset;
++	struct touchscreen_properties prop;
++	u8 cmd[4];
++	u8 zero[CST66XX_BUF_LEN] __aligned(ARCH_DMA_MINALIGN);
++	u8 buf[CST66XX_BUF_LEN] __aligned(ARCH_DMA_MINALIGN);
++};
++
++static int cst66xx_xfer(struct cst66xx *ts, const void *tx, void *rx, size_t len)
++{
++	struct spi_transfer xfer = {
++		.tx_buf = tx,
++		.rx_buf = rx,
++		.len = len,
++		.delay = { .value = 10, .unit = SPI_DELAY_UNIT_USECS },
++	};
++
++	return spi_sync_transfer(ts->spi, &xfer, 1);
++}
++
++static int cst66xx_read(struct cst66xx *ts, u8 *rbuf, size_t len)
++{
++	return cst66xx_xfer(ts, ts->zero, rbuf, len);
++}
++
++/* A command of clen bytes, then rlen bytes read back in a second message. */
++static int cst66xx_cmd_len(struct cst66xx *ts, u32 cmd, size_t clen, u8 *rbuf, size_t rlen)
++{
++	int ret;
++
++	put_unaligned_be32(cmd << (8 * (4 - clen)), ts->cmd);
++	ret = cst66xx_xfer(ts, ts->cmd, NULL, clen);
++	if (ret || !rlen)
++		return ret;
++	udelay(20);
++	return cst66xx_read(ts, rbuf, rlen);
++}
++
++static int cst66xx_cmd(struct cst66xx *ts, u32 cmd, u8 *rbuf, size_t rlen)
++{
++	return cst66xx_cmd_len(ts, cmd, 4, rbuf, rlen);
++}
++
++static u16 cst66xx_sum16(const u8 *buf, size_t len)
++{
++	u16 sum = 0x55;
++
++	while (len--)
++		sum += *buf++;
++	return sum;
++}
++
++static void cst66xx_reset(struct cst66xx *ts)
++{
++	gpiod_set_value_cansleep(ts->reset, 1);
++	usleep_range(5000, 6000);
++	gpiod_set_value_cansleep(ts->reset, 0);
++	/* The firmware takes 50 ms to start. */
++	msleep(50);
++}
++
++static int cst66xx_start(struct cst66xx *ts)
++{
++	int ret;
++
++	ret = cst66xx_cmd_len(ts, CST66XX_CMD_WAKE, 2, NULL, 0);
++	usleep_range(1000, 1500);
++	ret = ret ?: cst66xx_cmd(ts, CST66XX_CMD_MODE_NORMAL, NULL, 0);
++	ret = ret ?: cst66xx_cmd(ts, CST66XX_CMD_MODE_GESTURE_OFF, NULL, 0);
++	return ret ?: cst66xx_cmd(ts, CST66XX_CMD_MODE_REPORT, NULL, 0);
++}
++
++static int cst66xx_read_info(struct cst66xx *ts, u32 *res_x, u32 *res_y)
++{
++	struct device *dev = &ts->spi->dev;
++	u8 *info = ts->buf;
++	int ret, retry;
++
++	for (retry = 0; retry < 5; retry++) {
++		ret = cst66xx_start(ts);
++		ret = ret ?: cst66xx_cmd(ts, CST66XX_CMD_INFO, info, CST66XX_INFO_LEN);
++		if (!ret && get_unaligned_le16(info + 2) == CST66XX_INFO_SIG)
++			break;
++		msleep(10);
++		cst66xx_cmd(ts, CST66XX_CMD_STOP_LP, NULL, 0);
++	}
++	if (retry == 5) {
++		dev_err(dev, "no CST66xx answers (%d): %*ph\n", ret, 16, info);
++		return ret ?: -ENODEV;
++	}
++
++	*res_x = get_unaligned_le16(info + 28);
++	*res_y = get_unaligned_le16(info + 30);
++	dev_info(dev, "chip %08x firmware %08x project %08x, %u keys, %ux%u, %u tx %u rx\n",
++		 get_unaligned_le32(info), get_unaligned_le32(info + 32),
++		 get_unaligned_le32(info + 36), info[27], *res_x, *res_y,
++		 info[48], info[49]);
++	return 0;
++}
++
++static void cst66xx_report(struct cst66xx *ts)
++{
++	struct device *dev = &ts->spi->dev;
++	u8 *buf = ts->buf;
++	unsigned int fingers, keys, i;
++	int ret;
++
++	ret = cst66xx_cmd(ts, CST66XX_CMD_REPORT, buf, CST66XX_REPORT_HDR + CST66XX_POINT_LEN);
++	if (ret)
++		goto done;
++
++	fingers = buf[3] & 0x0f;
++	keys = buf[3] >> 4;
++	if (fingers + keys > CST66XX_MAX_CONTACTS) {
++		dev_dbg(dev, "bad report: %*ph\n", 9, buf);
++		goto done;
++	}
++	if (fingers + keys > 1) {
++		ret = cst66xx_read(ts, buf + CST66XX_REPORT_HDR + CST66XX_POINT_LEN,
++				   (fingers + keys - 1) * CST66XX_POINT_LEN);
++		if (ret)
++			goto done;
++	}
++	if (cst66xx_sum16(buf + CST66XX_REPORT_HDR, (fingers + keys) * CST66XX_POINT_LEN) !=
++	    get_unaligned_le16(buf)) {
++		dev_dbg(dev, "report checksum mismatch\n");
++		goto done;
++	}
++	if (buf[2] != CST66XX_REPORT_POS)
++		goto done;
++
++	for (i = keys; i < keys + fingers; i++) {
++		const u8 *p = buf + CST66XX_REPORT_HDR + i * CST66XX_POINT_LEN;
++		unsigned int id = p[4] & 0x0f;
++		bool down = p[4] >> 4;
++		unsigned int x = p[0] | (p[3] & 0x0f) << 8;
++		unsigned int y = p[1] | (p[3] & 0xf0) << 4;
++		int slot = input_mt_get_slot_by_key(ts->input, id);
++
++		if (slot < 0)
++			continue;
++		input_mt_slot(ts->input, slot);
++		input_mt_report_slot_state(ts->input, MT_TOOL_FINGER, down);
++		if (down) {
++			touchscreen_report_pos(ts->input, &ts->prop, x, y, true);
++			input_report_abs(ts->input, ABS_MT_PRESSURE, p[2]);
++		}
++	}
++	input_mt_sync_frame(ts->input);
++	input_sync(ts->input);
++
++done:
++	cst66xx_cmd(ts, CST66XX_CMD_REPORT_DONE, NULL, 0);
++}
++
++static irqreturn_t cst66xx_irq(int irq, void *data)
++{
++	struct cst66xx *ts = data;
++
++	cst66xx_report(ts);
++	return IRQ_HANDLED;
++}
++
++static const char * const cst66xx_supplies[] = { "vdd", "vddio" };
++
++static int cst66xx_probe(struct spi_device *spi)
++{
++	struct device *dev = &spi->dev;
++	struct cst66xx *ts;
++	u32 res_x, res_y;
++	int ret;
++
++	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
++	if (!ts)
++		return -ENOMEM;
++	ts->spi = spi;
++	spi_set_drvdata(spi, ts);
++
++	ts->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
++	if (IS_ERR(ts->reset))
++		return dev_err_probe(dev, PTR_ERR(ts->reset), "no reset gpio\n");
++
++	ret = devm_regulator_bulk_get_enable(dev, ARRAY_SIZE(cst66xx_supplies),
++					     cst66xx_supplies);
++	if (ret)
++		return dev_err_probe(dev, ret, "cannot enable supplies\n");
++
++	ret = spi_setup(spi);
++	if (ret)
++		return ret;
++
++	cst66xx_reset(ts);
++	ret = cst66xx_read_info(ts, &res_x, &res_y);
++	if (ret)
++		return ret;
++
++	ts->input = devm_input_allocate_device(dev);
++	if (!ts->input)
++		return -ENOMEM;
++	ts->input->name = "Hynitron CST66xx";
++	ts->input->id.bustype = BUS_SPI;
++	input_set_abs_params(ts->input, ABS_MT_POSITION_X, 0, res_x ? res_x - 1 : 0, 0, 0);
++	input_set_abs_params(ts->input, ABS_MT_POSITION_Y, 0, res_y ? res_y - 1 : 0, 0, 0);
++	input_set_abs_params(ts->input, ABS_MT_PRESSURE, 0, 255, 0, 0);
++	touchscreen_parse_properties(ts->input, true, &ts->prop);
++	ret = input_mt_init_slots(ts->input, CST66XX_MAX_CONTACTS,
++				  INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED | INPUT_MT_TRACK);
++	if (ret)
++		return ret;
++	ret = input_register_device(ts->input);
++	if (ret)
++		return ret;
++
++	ret = devm_request_threaded_irq(dev, spi->irq, NULL, cst66xx_irq, IRQF_ONESHOT,
++					dev_name(dev), ts);
++	if (ret)
++		return dev_err_probe(dev, ret, "cannot request irq %d\n", spi->irq);
++	return 0;
++}
++
++static const struct of_device_id cst66xx_of_match[] = {
++	{ .compatible = "hynitron,cst66xx" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, cst66xx_of_match);
++
++static const struct spi_device_id cst66xx_spi_ids[] = {
++	{ "cst66xx" },
++	{ }
++};
++MODULE_DEVICE_TABLE(spi, cst66xx_spi_ids);
++
++static struct spi_driver cst66xx_driver = {
++	.driver = {
++		.name = "hynitron-cst66xx",
++		.of_match_table = cst66xx_of_match,
++	},
++	.id_table = cst66xx_spi_ids,
++	.probe = cst66xx_probe,
++};
++module_spi_driver(cst66xx_driver);
++
++MODULE_DESCRIPTION("Hynitron CST66xx SPI touchscreen driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

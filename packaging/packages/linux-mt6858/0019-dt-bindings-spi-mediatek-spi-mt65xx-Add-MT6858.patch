@@ -1,0 +1,26 @@
+From 3842457c02f44a63163f1422e83b805e829b82cf Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:02:27 +0000
+Subject: [PATCH 19/24] dt-bindings: spi: mediatek,spi-mt65xx: Add MT6858
+
+The MT6858 SPI controllers are the MT6991 IP: add mediatek,mt6858-spi
+with mediatek,mt6991-spi as the fallback.
+---
+ Documentation/devicetree/bindings/spi/mediatek,spi-mt65xx.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/spi/mediatek,spi-mt65xx.yaml b/Documentation/devicetree/bindings/spi/mediatek,spi-mt65xx.yaml
+index 3bf3eb1f8..5b2629966 100644
+--- a/Documentation/devicetree/bindings/spi/mediatek,spi-mt65xx.yaml
++++ b/Documentation/devicetree/bindings/spi/mediatek,spi-mt65xx.yaml
+@@ -41,6 +41,7 @@ properties:
+           - const: mediatek,spi-ipm
+       - items:
+           - enum:
++              - mediatek,mt6858-spi
+               - mediatek,mt8196-spi
+           - const: mediatek,mt6991-spi
+       - items:
+-- 
+2.55.0
+

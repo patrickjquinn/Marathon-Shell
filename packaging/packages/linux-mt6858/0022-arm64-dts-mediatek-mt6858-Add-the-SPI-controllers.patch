@@ -1,0 +1,142 @@
+From a09c08d1c59434fa86527020619811a415fc6e47 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:02:29 +0000
+Subject: [PATCH 22/24] arm64: dts: mediatek: mt6858: Add the SPI controllers
+
+Add the eight SPI controllers, disabled. Until a clock driver names
+the SPI muxes and gates, fixed clocks stand in for them at the 208 MHz
+univpll_d6_d2 source the bootloader leaves them on.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 109 +++++++++++++++++++++++
+ 1 file changed, 109 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 327282748..ff9552a74 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -26,6 +26,27 @@ clk_lk_gate: clock-lk-gate {
+ 		clock-output-names = "lk_gate";
+ 	};
+ 
++	/*
++	 * Stands in for the SPI muxes and gates, which the bootloader leaves
++	 * on, with the source it leaves them on (univpll_d6_d2, 208 MHz),
++	 * until the MT6858 clock driver can name them.
++	 */
++	clk_spi_lk: clock-spi-lk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <208000000>;
++		clock-output-names = "spi_lk";
++	};
++
++	clk_spi_lk_sel: clock-spi-lk-sel {
++		compatible = "fixed-factor-clock";
++		#clock-cells = <0>;
++		clocks = <&clk_spi_lk>;
++		clock-div = <1>;
++		clock-mult = <1>;
++		clock-output-names = "spi_lk_sel";
++	};
++
+ 	cpus {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+@@ -241,6 +262,94 @@ uart2: serial@11003000 {
+ 			status = "disabled";
+ 		};
+ 
++		spi0: spi@11010800 {
++			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
++			reg = <0 0x11010800 0 0x100>;
++			interrupts = <GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clock-names = "parent-clk", "sel-clk", "spi-clk";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		spi1: spi@11011800 {
++			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
++			reg = <0 0x11011800 0 0x100>;
++			interrupts = <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clock-names = "parent-clk", "sel-clk", "spi-clk";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		spi2: spi@11012800 {
++			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
++			reg = <0 0x11012800 0 0x100>;
++			interrupts = <GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clock-names = "parent-clk", "sel-clk", "spi-clk";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		spi3: spi@11013800 {
++			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
++			reg = <0 0x11013800 0 0x100>;
++			interrupts = <GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clock-names = "parent-clk", "sel-clk", "spi-clk";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		spi4: spi@11014800 {
++			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
++			reg = <0 0x11014800 0 0x100>;
++			interrupts = <GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clock-names = "parent-clk", "sel-clk", "spi-clk";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		spi5: spi@11015800 {
++			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
++			reg = <0 0x11015800 0 0x100>;
++			interrupts = <GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clock-names = "parent-clk", "sel-clk", "spi-clk";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		spi6: spi@11016800 {
++			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
++			reg = <0 0x11016800 0 0x100>;
++			interrupts = <GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clock-names = "parent-clk", "sel-clk", "spi-clk";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		spi7: spi@11017800 {
++			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
++			reg = <0 0x11017800 0 0x100>;
++			interrupts = <GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clock-names = "parent-clk", "sel-clk", "spi-clk";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
+ 		ssusb: usb@11201000 {
+ 			compatible = "mediatek,mt6858-mtu3", "mediatek,mtu3";
+ 			reg = <0 0x11201000 0 0x2e00>,
+-- 
+2.55.0
+

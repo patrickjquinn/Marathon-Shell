@@ -1,0 +1,106 @@
+From 2a7a85aa334e109e1dcefe5b1c492b8cab727019 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:02:34 +0000
+Subject: [PATCH 23/24] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ touchscreen
+
+The panel's Hynitron CST66xx touch controller sits on SPI3, chip select
+0, with its interrupt on EINT 6, reset on GPIO 137 and its two supplies
+switched by GPIOs 130 and 131. Like the stock driver, run the bus at
+1 MHz in mode 0. The controller ignores commands unless chip select
+leads the clock by about 20 us, so set spi-cs-setup-delay-ns.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 63 +++++++++++++++++++
+ 1 file changed, 63 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index af040a810..6147ce5ca 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -5,6 +5,9 @@
+ 
+ /dts-v1/;
+ #include "mt6858.dtsi"
++#include "mt6858-pinfunc.h"
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/interrupt-controller/irq.h>
+ 
+ / {
+ 	model = "Jolla Phone (JP2601)";
+@@ -266,6 +269,21 @@ dramc-rk1@33fff0000 {
+ 		};
+ 	};
+ 
++	/* The touchscreen's two supplies, each switched by a GPIO. */
++	reg_ts_vdd: regulator-ts-vdd {
++		compatible = "regulator-fixed";
++		regulator-name = "ts-vdd";
++		gpio = <&pio 130 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
++	reg_ts_vddio: regulator-ts-vddio {
++		compatible = "regulator-fixed";
++		regulator-name = "ts-vddio";
++		gpio = <&pio 131 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
+ 	/* An MT6363 LDO that LK leaves on; no driver can name it yet. */
+ 	reg_vemc: regulator-vemc {
+ 		compatible = "regulator-fixed";
+@@ -275,6 +293,51 @@ reg_vemc: regulator-vemc {
+ 	};
+ };
+ 
++&pio {
++	spi3_pins: spi3-pins {
++		pins-spi {
++			pinmux = <PINMUX_GPIO70__FUNC_SPI3_CLK>,
++				 <PINMUX_GPIO71__FUNC_SPI3_CSB>,
++				 <PINMUX_GPIO72__FUNC_SPI3_MO>,
++				 <PINMUX_GPIO73__FUNC_SPI3_MI>;
++		};
++	};
++
++	ts_pins: touchscreen-pins {
++		pins-irq {
++			pinmux = <PINMUX_GPIO6__FUNC_GPIO6>;
++			input-enable;
++		};
++
++		pins-reset {
++			pinmux = <PINMUX_GPIO137__FUNC_GPIO137>;
++		};
++	};
++};
++
++&spi3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&spi3_pins>;
++	mediatek,pad-select = <0>;
++	status = "okay";
++
++	touchscreen@0 {
++		compatible = "hynitron,cst66xx";
++		reg = <0>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&ts_pins>;
++		spi-max-frequency = <1000000>;
++		/* The controller misses commands with a shorter chip select setup. */
++		spi-cs-setup-delay-ns = <20000>;
++		interrupts-extended = <&pio 6 IRQ_TYPE_EDGE_FALLING>;
++		reset-gpios = <&pio 137 GPIO_ACTIVE_LOW>;
++		vdd-supply = <&reg_ts_vdd>;
++		vddio-supply = <&reg_ts_vddio>;
++		touchscreen-size-x = <1032>;
++		touchscreen-size-y = <2272>;
++	};
++};
++
+ &ssusb {
+ 	dr_mode = "peripheral";
+ 	maximum-speed = "high-speed";
+-- 
+2.55.0
+

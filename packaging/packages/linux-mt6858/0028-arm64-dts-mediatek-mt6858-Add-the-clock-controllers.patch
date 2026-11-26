@@ -1,0 +1,235 @@
+From 7782dc1a7c75078cb73f048023879d7080fd4c19 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:25:41 +0000
+Subject: [PATCH 28/28] arm64: dts: mediatek: mt6858: Add the clock controllers
+
+Add the apmixedsys, topckgen and pericfg_ao clock controllers, the
+hardware voter and the fixed clocks they take, make infracfg_ao a
+clock provider, and give the SPI controllers their real muxes and
+gates in place of the fixed stand-ins.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 101 ++++++++++++++++-------
+ 1 file changed, 72 insertions(+), 29 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index ff9552a74..2d8a76606 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -3,6 +3,7 @@
+  * MediaTek MT6858 (Dimensity 7100) SoC
+  */
+ 
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
+ #include <dt-bindings/phy/phy.h>
+@@ -26,27 +27,6 @@ clk_lk_gate: clock-lk-gate {
+ 		clock-output-names = "lk_gate";
+ 	};
+ 
+-	/*
+-	 * Stands in for the SPI muxes and gates, which the bootloader leaves
+-	 * on, with the source it leaves them on (univpll_d6_d2, 208 MHz),
+-	 * until the MT6858 clock driver can name them.
+-	 */
+-	clk_spi_lk: clock-spi-lk {
+-		compatible = "fixed-clock";
+-		#clock-cells = <0>;
+-		clock-frequency = <208000000>;
+-		clock-output-names = "spi_lk";
+-	};
+-
+-	clk_spi_lk_sel: clock-spi-lk-sel {
+-		compatible = "fixed-factor-clock";
+-		#clock-cells = <0>;
+-		clocks = <&clk_spi_lk>;
+-		clock-div = <1>;
+-		clock-mult = <1>;
+-		clock-output-names = "spi_lk_sel";
+-	};
+-
+ 	cpus {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+@@ -152,6 +132,13 @@ core7 {
+ 		};
+ 	};
+ 
++	clk13m: oscillator-13m {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <13000000>;
++		clock-output-names = "clk13m";
++	};
++
+ 	clk26m: oscillator-26m {
+ 		compatible = "fixed-clock";
+ 		#clock-cells = <0>;
+@@ -159,6 +146,13 @@ clk26m: oscillator-26m {
+ 		clock-output-names = "clk26m";
+ 	};
+ 
++	clk32k: oscillator-32k {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <32000>;
++		clock-output-names = "clk32k";
++	};
++
+ 	pmu-a55 {
+ 		compatible = "arm,cortex-a55-pmu";
+ 		interrupt-parent = <&gic>;
+@@ -171,6 +165,13 @@ pmu-a78 {
+ 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster1>;
+ 	};
+ 
++	ulposc: oscillator-ulposc {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <260000000>;
++		clock-output-names = "ulposc";
++	};
++
+ 	psci {
+ 		compatible = "arm,psci-1.0";
+ 		method = "smc";
+@@ -203,9 +204,17 @@ ppi_cluster1: interrupt-partition-1 {
+ 			};
+ 		};
+ 
++		topckgen: syscon@10000000 {
++			compatible = "mediatek,mt6858-topckgen", "syscon";
++			reg = <0 0x10000000 0 0x1000>;
++			mediatek,hardware-voter = <&hwv>;
++			#clock-cells = <1>;
++		};
++
+ 		infracfg_ao: syscon@10001000 {
+ 			compatible = "mediatek,mt6858-infracfg-ao", "syscon";
+ 			reg = <0 0x10001000 0 0x1000>;
++			#clock-cells = <1>;
+ 		};
+ 
+ 		pio: pinctrl@10005000 {
+@@ -235,6 +244,17 @@ pio: pinctrl@10005000 {
+ 			#interrupt-cells = <2>;
+ 		};
+ 
++		apmixedsys: syscon@1000c000 {
++			compatible = "mediatek,mt6858-apmixedsys", "syscon";
++			reg = <0 0x1000c000 0 0x1000>;
++			#clock-cells = <1>;
++		};
++
++		hwv: syscon@10320000 {
++			compatible = "mediatek,mt6858-hwv", "syscon";
++			reg = <0 0x10320000 0 0x2000>;
++		};
++
+ 		uart0: serial@11001000 {
+ 			compatible = "mediatek,mt6858-uart", "mediatek,mt6577-uart";
+ 			reg = <0 0x11001000 0 0x1000>;
+@@ -266,7 +286,9 @@ spi0: spi@11010800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11010800 0 0x100>;
+ 			interrupts = <GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clocks = <&topckgen CLK_TOP_UNIVPLL_D6_D2>,
++				 <&topckgen CLK_TOP_SPI0_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_SPI0_B>;
+ 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -277,7 +299,9 @@ spi1: spi@11011800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11011800 0 0x100>;
+ 			interrupts = <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clocks = <&topckgen CLK_TOP_UNIVPLL_D6_D2>,
++				 <&topckgen CLK_TOP_SPI1_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_SPI1_B>;
+ 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -288,7 +312,9 @@ spi2: spi@11012800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11012800 0 0x100>;
+ 			interrupts = <GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clocks = <&topckgen CLK_TOP_UNIVPLL_D6_D2>,
++				 <&topckgen CLK_TOP_SPI2_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_SPI2_B>;
+ 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -299,7 +325,9 @@ spi3: spi@11013800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11013800 0 0x100>;
+ 			interrupts = <GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clocks = <&topckgen CLK_TOP_UNIVPLL_D6_D2>,
++				 <&topckgen CLK_TOP_SPI3_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_SPI3_B>;
+ 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -310,7 +338,9 @@ spi4: spi@11014800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11014800 0 0x100>;
+ 			interrupts = <GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clocks = <&topckgen CLK_TOP_UNIVPLL_D6_D2>,
++				 <&topckgen CLK_TOP_SPI4_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_SPI4_B>;
+ 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -321,7 +351,9 @@ spi5: spi@11015800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11015800 0 0x100>;
+ 			interrupts = <GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clocks = <&topckgen CLK_TOP_UNIVPLL_D6_D2>,
++				 <&topckgen CLK_TOP_SPI5_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_SPI5_B>;
+ 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -332,7 +364,9 @@ spi6: spi@11016800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11016800 0 0x100>;
+ 			interrupts = <GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clocks = <&topckgen CLK_TOP_UNIVPLL_D6_D2>,
++				 <&topckgen CLK_TOP_SPI6_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_SPI6_B>;
+ 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -343,13 +377,22 @@ spi7: spi@11017800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11017800 0 0x100>;
+ 			interrupts = <GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&clk_spi_lk>, <&clk_spi_lk_sel>, <&clk_spi_lk_sel>;
++			clocks = <&topckgen CLK_TOP_UNIVPLL_D6_D2>,
++				 <&topckgen CLK_TOP_SPI7_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_SPI7_B>;
+ 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 			status = "disabled";
+ 		};
+ 
++		pericfg_ao: syscon@11032000 {
++			compatible = "mediatek,mt6858-pericfg-ao", "syscon";
++			reg = <0 0x11032000 0 0x1000>;
++			mediatek,hardware-voter = <&hwv>;
++			#clock-cells = <1>;
++		};
++
+ 		ssusb: usb@11201000 {
+ 			compatible = "mediatek,mt6858-mtu3", "mediatek,mtu3";
+ 			reg = <0 0x11201000 0 0x2e00>,
+-- 
+2.55.0
+
