@@ -70,9 +70,6 @@ quirks = [
 ]
 
 [profile]
-# No GPU driver yet (GPUEB power path): the shell renders on the CPU into
-# simpledrm's framebuffer.
-gpu_stack = "llvmpipe"
 # Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
 force_dpi = 392
 panel_dpi = 392

@@ -108,14 +108,15 @@ profile, splash, USB networking, Deckard's settings).
 
 | Q25 feature | JP2601 | Notes |
 |---|---|---|
-| Marathon shell, base config, apps | yes | the shell renders on the CPU (Qt Quick software, linuxfb on simpledrm's fbdev): no GPU driver |
+| Marathon shell, base config, apps | yes | on the Mali-G610: Panthor (power through the GPUEB), eglfs on simpledrm's KMS device, which Mesa's kmsro pairs with Panthor; Qt Quick software on simpledrm's fbdev when Panthor has no render node |
 | Encrypted `/home` (LUKS2 file on the carrier) | yes | `marathon-carrier-home-crypt`, the Q25's script made generic; opens with no prompt until a PIN is set |
 | Startup PIN entry | yes, needs touch | no keyboard, so Plymouth's prompt (keyboard only) gives way to unl0kr's on-screen keyboard; it can take the PIN only once touch works. A developer image also takes it over USB: `echo PIN \| ssh root@172.16.42.1 marathon-carrier-home-unlock` |
-| Plymouth splash, initramfs to shell | yes | `plymouth.use-simpledrm` (simpledrm is the real card here), one daemon, handover once the shell has `/dev/fb0` open |
+| Plymouth splash, initramfs to shell | yes | `plymouth.use-simpledrm` (simpledrm is the real card here), one daemon, handover once the shell has `/dev/fb0` or the simpledrm card open |
 | Boot reason, charger boot | yes | U-Boot passes `marathon,boot-reason`/`boot-mode` from LK; `marathon-charger` reads them. No charger driver, so nothing to show yet |
 | Over-the-air root updates, boot counting, bless, rollback | yes | `marathon-carrier-root-install`/`-root-arm`, `packaging/ota/carrier` transfer; the feed `jolla-jp2601_marathon_edge` has no releases yet |
 | Root growth, direct I/O, read-only ESP | yes | `marathon-carrier` |
-| Deckard (Android) | yes, unverified | `deckard` and `deckard-images`, Rust binder (mainline's), legacy iptables; Android renders without a GPU |
+| Deckard (Android) | yes, unverified | `deckard` and `deckard-images`, Rust binder (mainline's), legacy iptables; Android renders without the GPU |
+| Vulkan | yes, unverified in the image | PanVK (`mesa-vulkan-panfrost`); an offscreen render test passes on the phone from the bring-up initramfs |
 | Slot kept (LK's A/B tries) | yes | `jp2601-mark-boot-successful`, the MP01's, marks slot B successful in misc a minute into the session; without it LK falls back to slot A after seven boots |
 | U-Boot update from the root (`q25-lk-update`) | no | U-Boot is in `boot_b`, written by hand; nothing in the root updates it yet |
 | Q25 hardware services (modem, Wi-Fi, BT, GNSS, audio, camera, NFC, haptics, charger, zram after boot) | no | no drivers on this SoC yet; zram comes from `marathon-base-config` |

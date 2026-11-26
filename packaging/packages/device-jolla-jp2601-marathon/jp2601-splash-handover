@@ -1,11 +1,13 @@
 #!/bin/sh
-# Keep the splash on screen until the shell has the framebuffer open, then
-# let Plymouth go: the shell draws into simpledrm's fbdev, which shows once
-# Plymouth no longer holds the card.
+# Keep the splash on screen until the shell has the display open, then let
+# Plymouth go: the shell draws into simpledrm's fbdev, or on the GPU into
+# simpledrm's KMS device, which shows once Plymouth no longer holds the
+# card.
+card=$(readlink -f /dev/dri/jp2601-display 2> /dev/null)
 i=0
 while [ $i -lt 150 ]; do
 	for fd in /proc/[0-9]*/fd/*; do
-		[ "$(readlink "$fd" 2> /dev/null)" = /dev/fb0 ] || continue
+		case "$(readlink "$fd" 2> /dev/null)" in /dev/fb0|"${card:-/dev/fb0}") ;; *) continue ;; esac
 		pid=${fd#/proc/}
 		pid=${pid%%/*}
 		case $(cat "/proc/$pid/comm" 2> /dev/null) in marathon-shell*) exec /usr/bin/plymouth quit ;; esac
