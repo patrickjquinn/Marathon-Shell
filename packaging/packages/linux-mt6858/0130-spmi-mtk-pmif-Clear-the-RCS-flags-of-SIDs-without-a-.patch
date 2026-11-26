@@ -1,0 +1,44 @@
+From efc34f8b31bb793039dfe5f9613538c3e9363d53 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:00:59 +0000
+Subject: [PATCH 130/165] spmi: mtk-pmif: Clear the RCS flags of SIDs without a
+ handler
+
+The chained handler skips a SID whose interrupt is not enabled but
+leaves its flags set. Those flags hold the arbiter's level interrupt
+asserted, so one request from a PMIC whose interrupts nobody claims
+(the MT6369 on the MT6858's SPMI-M) would storm.
+
+Clear such a SID's flags as they are found.
+
+While here, drop a blank line an earlier fix left in the SID decode.
+---
+ drivers/spmi/spmi-mtk-pmif.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/spmi/spmi-mtk-pmif.c b/drivers/spmi/spmi-mtk-pmif.c
+index b1c147c3e..8d0172e07 100644
+--- a/drivers/spmi/spmi-mtk-pmif.c
++++ b/drivers/spmi/spmi-mtk-pmif.c
+@@ -514,14 +514,15 @@ static void mtk_spmi_handle_chained_irq(struct irq_desc *desc)
+ 		while (val) {
+ 			u8 bit = __ffs(val);
+ 			u8 bank = bit / 8;
+-
+ 			u8 sid = ((i - SPMI_SLV_3_0_EINT) * 4) + bank;
+ 
+ 			val &= ~(PMIF_RCS_IRQ_MASK << (8 * bank));
+ 
+-			/* Check if IRQs for this SID are enabled */
+-			if (!(pbus->irq_en & BIT(sid)))
++			/* Clear a SID nobody handles, or its flags hold the interrupt up */
++			if (!(pbus->irq_en & BIT(sid))) {
++				mtk_spmi_writel(arb, pbus, PMIF_RCS_IRQ_MASK << (8 * bank), i);
+ 				continue;
++			}
+ 
+ 			generic_handle_domain_irq_safe(pbus->dom, sid);
+ 			irq_handled = true;
+-- 
+2.55.0
+

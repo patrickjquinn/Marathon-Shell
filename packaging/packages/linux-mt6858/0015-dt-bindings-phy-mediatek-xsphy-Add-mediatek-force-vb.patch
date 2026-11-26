@@ -1,7 +1,7 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 040d8a8e4173b6c206beb8ddb643016b9582cbeb Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 22:44:04 +0000
-Subject: [PATCH 15/18] dt-bindings: phy: mediatek,xsphy: Add
+Subject: [PATCH 015/165] dt-bindings: phy: mediatek,xsphy: Add
  mediatek,force-vbus
 
 On some phones VBUS is not wired to a U2 port's VBUS and session
@@ -30,3 +30,6 @@ index fdbe04a52..3e15f2557 100644
        mediatek,efuse-intr:
          description:
            The selection of Internal Resistor (U2/U3 phy)
+-- 
+2.55.0
+

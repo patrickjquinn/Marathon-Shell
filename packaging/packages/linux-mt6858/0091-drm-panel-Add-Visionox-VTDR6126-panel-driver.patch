@@ -1,7 +1,7 @@
 From 6ebd8c6a1213fcf56dd6144fcc8d5840f84b4e45 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:29:42 +0000
-Subject: [PATCH 091/128] drm/panel: Add Visionox VTDR6126 panel driver
+Subject: [PATCH 091/165] drm/panel: Add Visionox VTDR6126 panel driver
 
 Add a driver for the Visionox VTDR6126, as used in the Jolla Phone
 (JP2601). The init sequence, power sequencing and timings come from the

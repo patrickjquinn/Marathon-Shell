@@ -1,0 +1,36 @@
+From 451a8f05bdd77945bf0d6a1470e904ca72260d6a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:06:15 +0000
+Subject: [PATCH 134/165] drm/mediatek: Clear the background input of the other
+ path components
+
+mtk_crtc_ddp_hw_init() turns on the background-from-previous-OVL input
+of the second component, but never turns it off on the others. The
+MT6858 bootloader cascades OVL_2L0 -> OVL_2L1 -> OVL_2L2 and leaves
+BGCLR_SEL_IN set on OVL_2L1, which heads the kernel's path: OVL_2L1 then
+waits for a background that no longer comes, no frame completes, and
+the DSI never finishes a video frame ("Wait DSI IRQ(0x00000008)
+Timeout"). Turn the input off on every component but the second.
+---
+ drivers/gpu/drm/mediatek/mtk_crtc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_crtc.c b/drivers/gpu/drm/mediatek/mtk_crtc.c
+index a4dda3780..8684ccb41 100644
+--- a/drivers/gpu/drm/mediatek/mtk_crtc.c
++++ b/drivers/gpu/drm/mediatek/mtk_crtc.c
+@@ -421,8 +421,11 @@ static int mtk_crtc_ddp_hw_init(struct mtk_crtc *mtk_crtc)
+ 	for (i = 0; i < mtk_crtc->ddp_comp_nr; i++) {
+ 		struct mtk_ddp_comp *comp = mtk_crtc->ddp_comp[i];
+ 
++		/* A bootloader cascade may have left it on elsewhere */
+ 		if (i == 1)
+ 			mtk_ddp_comp_bgclr_in_on(comp);
++		else
++			mtk_ddp_comp_bgclr_in_off(comp);
+ 
+ 		mtk_ddp_comp_config(comp, width, height, vrefresh, bpc, NULL);
+ 		mtk_ddp_comp_start(comp);
+-- 
+2.55.0
+

@@ -1,7 +1,8 @@
 From fb3cac3f62cb47954c903cfb75b152de6f835a3a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 04:51:43 +0000
-Subject: [PATCH 41/41] arm64: configs: mt6858: Add the SPMI PMIC and its keys
+Subject: [PATCH 041/165] arm64: configs: mt6858: Add the SPMI PMIC and its
+ keys
 
 Build in the MediaTek SPMI controller, the SPMI PMIC MFD and the PMIC
 keys driver for the Jolla Phone's power and volume keys.

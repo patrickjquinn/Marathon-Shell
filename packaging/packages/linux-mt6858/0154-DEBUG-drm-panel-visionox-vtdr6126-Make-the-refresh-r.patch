@@ -1,0 +1,30 @@
+From 6fe56bd88dc6f113e92bd7e96fb7474f205054ca Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 12:06:00 +0000
+Subject: [PATCH 154/165] DEBUG: drm/panel: visionox-vtdr6126: Make the refresh
+ rate writable
+
+Bring-up only: writing 60 or 90 to the refresh parameter and then
+reprobing the connector (any GETCONNECTOR) offers the other mode, and
+the next modeset re-runs the init with the matching 6c command. This
+lets one boot test both rates.
+---
+ drivers/gpu/drm/panel/panel-visionox-vtdr6126.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+index 0bfb80bd9..7a6c8ef57 100644
+--- a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
++++ b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+@@ -20,7 +20,7 @@
+ #include <video/mipi_display.h>
+ 
+ static unsigned int refresh = 60;
+-module_param(refresh, uint, 0444);
++module_param(refresh, uint, 0644);
+ MODULE_PARM_DESC(refresh, "Refresh rate in Hz: 60 or 90");
+ 
+ struct visionox_vtdr6126 {
+-- 
+2.55.0
+

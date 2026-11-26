@@ -1,0 +1,41 @@
+From 9d2368e1f5f9e9ae4d15fcedfccdc3a6e6c09821 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 12:14:48 +0000
+Subject: [PATCH 157/165] Revert "DEBUG: mfd: mtk-spmi-pmic: Log RCS_IRQ_DONE
+ around the probe writes"
+
+The log showed what it was for: the bootloader leaves a request waiting,
+probe completes it, and the request lost afterwards is now completed by
+the delayed check. Back to the plain done write at probe.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index 544636c51..67d3eb299 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -339,7 +339,6 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ {
+ 	struct fwnode_handle *fwnode = of_fwnode_handle(dev->of_node);
+ 	struct mtk_spmi_pmic *pmic;
+-	unsigned int rcs[2] = {};
+ 	int i, j, ret;
+ 
+ 	pmic = devm_kzalloc(dev, sizeof(*pmic), GFP_KERNEL);
+@@ -367,12 +366,9 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ 	}
+ 
+ 	/* Complete a request left pending at boot, or the PMIC sends no more */
+-	regmap_read(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &rcs[0]);
+ 	ret = regmap_write(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 1);
+-	regmap_read(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &rcs[1]);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Cannot complete the RCS request\n");
+-	dev_info(dev, "RCS done %#x, after 1: %#x\n", rcs[0], rcs[1]);
+ 
+ 	pmic->dom = irq_domain_create_tree(fwnode, &mtk_spmi_pmic_irq_domain_ops, pmic);
+ 	if (!pmic->dom)
+-- 
+2.55.0
+

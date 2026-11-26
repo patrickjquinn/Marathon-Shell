@@ -1,0 +1,83 @@
+From e2a2e00bbc484407054f9f6b3f4aeb2a8d245ab4 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 12:12:57 +0000
+Subject: [PATCH 155/165] drm/panel: visionox-vtdr6126: Exit sleep in enable,
+ with video running
+
+The vendor driver sends the init sequence in prepare, while the host is
+still in command mode, but exit-sleep and display-on only in enable,
+once the host streams video (lcm_prepare / lcm_enable). With both sent
+from prepare, before any video, the panel took every command and stayed
+black while frames streamed. Do it in the vendor order, and turn the
+display off and enter sleep in disable, while video still runs.
+---
+ .../gpu/drm/panel/panel-visionox-vtdr6126.c   | 24 ++++++++++++++++---
+ 1 file changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+index 7a6c8ef57..d7b647f45 100644
+--- a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
++++ b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+@@ -309,6 +309,19 @@ static int visionox_vtdr6126_on(struct visionox_vtdr6126 *ctx)
+ 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xf0, 0xaa, 0x00);
+ 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0x00);
+ 
++	ctx->dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
++
++	return dsi_ctx.accum_err;
++}
++
++/* Sleep out and display on once the host sends video, as the vendor does */
++static int visionox_vtdr6126_enable(struct drm_panel *panel)
++{
++	struct visionox_vtdr6126 *ctx = to_visionox_vtdr6126(panel);
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	ctx->dsi->mode_flags |= MIPI_DSI_MODE_LPM;
++
+ 	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
+ 	mipi_dsi_msleep(&dsi_ctx, 120);
+ 	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
+@@ -319,8 +332,9 @@ static int visionox_vtdr6126_on(struct visionox_vtdr6126 *ctx)
+ 	return dsi_ctx.accum_err;
+ }
+ 
+-static void visionox_vtdr6126_off(struct visionox_vtdr6126 *ctx)
++static int visionox_vtdr6126_disable(struct drm_panel *panel)
+ {
++	struct visionox_vtdr6126 *ctx = to_visionox_vtdr6126(panel);
+ 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
+ 
+ 	ctx->dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+@@ -329,6 +343,10 @@ static void visionox_vtdr6126_off(struct visionox_vtdr6126 *ctx)
+ 	mipi_dsi_msleep(&dsi_ctx, 20);
+ 	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
+ 	mipi_dsi_msleep(&dsi_ctx, 100);
++
++	ctx->dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
++
++	return dsi_ctx.accum_err;
+ }
+ 
+ static int visionox_vtdr6126_prepare(struct drm_panel *panel)
+@@ -374,8 +392,6 @@ static int visionox_vtdr6126_unprepare(struct drm_panel *panel)
+ {
+ 	struct visionox_vtdr6126 *ctx = to_visionox_vtdr6126(panel);
+ 
+-	visionox_vtdr6126_off(ctx);
+-
+ 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+ 	usleep_range(5000, 6000);
+ 	regulator_disable(ctx->supplies[2].consumer);
+@@ -441,6 +457,8 @@ static int visionox_vtdr6126_get_modes(struct drm_panel *panel,
+ 
+ static const struct drm_panel_funcs visionox_vtdr6126_panel_funcs = {
+ 	.prepare = visionox_vtdr6126_prepare,
++	.enable = visionox_vtdr6126_enable,
++	.disable = visionox_vtdr6126_disable,
+ 	.unprepare = visionox_vtdr6126_unprepare,
+ 	.get_modes = visionox_vtdr6126_get_modes,
+ };
+-- 
+2.55.0
+

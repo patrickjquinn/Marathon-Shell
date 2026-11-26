@@ -1,0 +1,40 @@
+From fab19d2f9208c81daa31e8f3f9fdda5f6b0569ca Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:16:45 +0000
+Subject: [PATCH 141/165] arm64: dts: mediatek: mt6858-jolla-jp2601: Fix the
+ microSD probe
+
+mtk-sd fails its probe without a "state_uhs" pin state; the stock device
+tree gives it the same pin setup as the default one, so do the same.
+
+GPIO9, the stock card detect, read 1 with a card in as without, so poll
+for the card instead (broken-cd) until its detect is understood.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 4389805d2..4ee854721 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -618,12 +618,15 @@ &mipi_tx0 {
+ };
+ 
+ &mmc1 {
+-	pinctrl-names = "default";
++	/* mtk-sd requires a UHS state; stock uses the same pin setup */
++	pinctrl-names = "default", "state_uhs";
+ 	pinctrl-0 = <&mmc1_pins>;
++	pinctrl-1 = <&mmc1_pins>;
+ 	bus-width = <4>;
+ 	max-frequency = <50000000>;
+ 	cap-sd-highspeed;
+-	cd-gpios = <&pio 9 GPIO_ACTIVE_LOW>;
++	/* Stock card detect is GPIO9, but it reads 1 with and without a card */
++	broken-cd;
+ 	vmmc-supply = <&mt6369_vmch>;
+ 	vqmmc-supply = <&mt6369_vmc>;
+ 	no-mmc;
+-- 
+2.55.0
+

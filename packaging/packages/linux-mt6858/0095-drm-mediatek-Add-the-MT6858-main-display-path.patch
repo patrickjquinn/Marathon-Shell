@@ -1,7 +1,7 @@
 From 3a585bdecf29d67766a50f234e8431f8a99347c9 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:35:14 +0000
-Subject: [PATCH 095/128] drm/mediatek: Add the MT6858 main display path
+Subject: [PATCH 095/165] drm/mediatek: Add the MT6858 main display path
 
 MT6858 links its engines through mmsys crossbars, with the
 picture-quality chain (RSZ, TDSHP, C3D, COLOR, CCORR, AAL, GAMMA,

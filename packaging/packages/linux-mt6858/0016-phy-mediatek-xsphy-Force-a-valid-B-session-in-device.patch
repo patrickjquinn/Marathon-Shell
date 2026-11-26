@@ -1,8 +1,8 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 1d46b77ca237df44406a6da84353f04fa05035b5 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 22:44:04 +0000
-Subject: [PATCH 16/18] phy: mediatek: xsphy: Force a valid B-session in device
- mode when asked
+Subject: [PATCH 016/165] phy: mediatek: xsphy: Force a valid B-session in
+ device mode when asked
 
 On the Jolla Phone (MT6858) VBUS reaches the charger and the Type-C
 controller but not the U2 PHY's VBUS and session comparators, so the
@@ -80,3 +80,6 @@ index 4c2db497a..7e45a549a 100644
  		dev_dbg(dev, "intr:%d, src:%d, vrt:%d, term:%d\n",
  			inst->efuse_intr, inst->eye_src,
  			inst->eye_vrt, inst->eye_term);
+-- 
+2.55.0
+

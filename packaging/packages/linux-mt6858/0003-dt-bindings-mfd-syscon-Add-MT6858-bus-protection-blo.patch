@@ -1,7 +1,7 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 475bbbaa3234955eefb959738d6f6268135804a0 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 17:59:26 +0000
-Subject: [PATCH 03/18] dt-bindings: mfd: syscon: Add MT6858 bus protection
+Subject: [PATCH 003/165] dt-bindings: mfd: syscon: Add MT6858 bus protection
  blocks
 
 The MT6858 power controller sets and clears bus protection in six
@@ -34,3 +34,6 @@ index 80ff0e1ca..870fc51ed 100644
                - mediatek,mt7981-topmisc
                - mediatek,mt7988-topmisc
                - mediatek,mt8135-pctl-a-syscfg
+-- 
+2.55.0
+

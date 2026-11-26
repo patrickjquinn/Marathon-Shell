@@ -1,7 +1,7 @@
 From 8fe9b820fd56c8311fb52f695441447a3d623236 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:16:27 +0000
-Subject: [PATCH 066/128] arm64: configs: mt6858: Build in the display mmsys
+Subject: [PATCH 066/165] arm64: configs: mt6858: Build in the display mmsys
  and mutex
 
 The JP2601 test images boot an initramfs without modules, so the

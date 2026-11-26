@@ -1,7 +1,7 @@
 From 3404af7f6f13d0149d607f9ed90d26c0a16c0d7b Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:36:29 +0000
-Subject: [PATCH 107/128] dt-bindings: mailbox: mediatek,mt8196-gpueb-mbox: Add
+Subject: [PATCH 107/165] dt-bindings: mailbox: mediatek,mt8196-gpueb-mbox: Add
  MT6858
 
 The MT6858 has the same GPUEB mailbox as the MT8196, with one channel

@@ -1,7 +1,7 @@
 From 183c265f70638660ac3f0df86791fd4d50694062 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:37:15 +0000
-Subject: [PATCH 110/128] pmdomain: mediatek: mtk-mfg: Add MT6858 support
+Subject: [PATCH 110/165] pmdomain: mediatek: mtk-mfg: Add MT6858 support
 
 The MT6858 speaks the MT8196's GPU-DVFS IPI protocol, but differs in
 three ways:

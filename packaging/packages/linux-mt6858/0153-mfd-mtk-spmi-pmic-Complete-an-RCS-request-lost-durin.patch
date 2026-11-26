@@ -1,0 +1,126 @@
+From 24d95ffea48067e918dc038bb3eac8def4716b02 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 12:08:21 +0000
+Subject: [PATCH 153/165] mfd: mtk-spmi-pmic: Complete an RCS request lost
+ during bus setup
+
+On the Jolla Phone the MT6363's key interrupts worked in one boot and
+never in others, with the same kernel. In the bad boots RCS_IRQ_DONE
+(0x41b) read 1 at probe, cleared when probe completed that request, and
+read 1 again from shortly after on: the PMIC raised a request that
+neither SPMI master latched, and waited for its done forever while key
+presses piled up in its status registers.
+
+A second later, once the arbiter's chained handler is in place, complete
+a request that is still waiting, so the PMIC raises its interrupts
+again. This also drops the extra clear of the done flag at probe, which
+did not help: the flag is set again by the lost request, not left over.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 40 ++++++++++++++++++++++++++++---------
+ 1 file changed, 31 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index b32496392..544636c51 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/device.h>
++#include <linux/devm-helpers.h>
+ #include <linux/errno.h>
+ #include <linux/gfp.h>
+ #include <linux/irq.h>
+@@ -25,10 +26,12 @@
+ #include <linux/regmap.h>
+ #include <linux/spmi.h>
+ #include <linux/types.h>
++#include <linux/workqueue.h>
+ 
+ #define MTK_SPMI_PMIC_VAL_BITS		8
+ #define MTK_SPMI_PMIC_REG_CHIP_ID	0xb
+ #define MTK_SPMI_PMIC_RCS_IRQ_DONE	0x41b
++#define MTK_SPMI_PMIC_RCS_CHECK_MS	1000
+ 
+ /**
+  * struct mtk_spmi_pmic_irq_group - Group of interrupts in SPMI PMIC
+@@ -81,6 +84,7 @@ struct mtk_spmi_pmic {
+ 	struct device *dev;
+ 	struct irq_domain *dom;
+ 	struct regmap *regmap;
++	struct delayed_work rcs_check;
+ 	int irq;
+ };
+ 
+@@ -303,6 +307,25 @@ static void mtk_spmi_pmic_handle_chained_irq(struct irq_desc *desc)
+ 	chained_irq_exit(chip, desc);
+ }
+ 
++/*
++ * A request the PMIC raises while its bus is still being set up can be
++ * lost: the PMIC then waits for RCS_IRQ_DONE forever and raises no other
++ * interrupt. Once the bus has had time to come up, complete a request that
++ * is still waiting.
++ */
++static void mtk_spmi_pmic_rcs_check(struct work_struct *work)
++{
++	struct mtk_spmi_pmic *pmic = container_of(to_delayed_work(work),
++						  struct mtk_spmi_pmic, rcs_check);
++	unsigned int val;
++
++	if (regmap_read(pmic->regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &val) || !val)
++		return;
++
++	dev_info(pmic->dev, "completing an RCS request that was not delivered\n");
++	regmap_write(pmic->regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 1);
++}
++
+ static void mtk_spmi_pmic_irq_remove(void *data)
+ {
+ 	struct mtk_spmi_pmic *pmic = (struct mtk_spmi_pmic *)data;
+@@ -316,7 +339,7 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ {
+ 	struct fwnode_handle *fwnode = of_fwnode_handle(dev->of_node);
+ 	struct mtk_spmi_pmic *pmic;
+-	unsigned int rcs[3] = {};
++	unsigned int rcs[2] = {};
+ 	int i, j, ret;
+ 
+ 	pmic = devm_kzalloc(dev, sizeof(*pmic), GFP_KERNEL);
+@@ -343,19 +366,13 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ 		}
+ 	}
+ 
+-	/*
+-	 * Complete a request left pending at boot, or the PMIC sends no more.
+-	 * With none pending the done flag stays set and blocks the next one,
+-	 * so clear it again.
+-	 */
++	/* Complete a request left pending at boot, or the PMIC sends no more */
+ 	regmap_read(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &rcs[0]);
+ 	ret = regmap_write(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 1);
+ 	regmap_read(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &rcs[1]);
+-	ret = ret ?: regmap_write(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 0);
+-	regmap_read(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &rcs[2]);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Cannot complete the RCS request\n");
+-	dev_info(dev, "RCS done %#x, after 1: %#x, after 0: %#x\n", rcs[0], rcs[1], rcs[2]);
++	dev_info(dev, "RCS done %#x, after 1: %#x\n", rcs[0], rcs[1]);
+ 
+ 	pmic->dom = irq_domain_create_tree(fwnode, &mtk_spmi_pmic_irq_domain_ops, pmic);
+ 	if (!pmic->dom)
+@@ -369,6 +386,11 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ 
+ 	irq_set_chained_handler_and_data(pmic->irq, mtk_spmi_pmic_handle_chained_irq, pmic);
+ 
++	ret = devm_delayed_work_autocancel(dev, &pmic->rcs_check, mtk_spmi_pmic_rcs_check);
++	if (ret)
++		return ret;
++	schedule_delayed_work(&pmic->rcs_check, msecs_to_jiffies(MTK_SPMI_PMIC_RCS_CHECK_MS));
++
+ 	return 0;
+ }
+ 
+-- 
+2.55.0
+

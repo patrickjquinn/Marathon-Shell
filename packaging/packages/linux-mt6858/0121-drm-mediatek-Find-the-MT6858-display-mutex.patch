@@ -1,7 +1,7 @@
 From ec8f8a286b035f270f2db2ff25adec65e28fdb1c Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:49:42 +0000
-Subject: [PATCH 121/128] drm/mediatek: Find the MT6858 display mutex
+Subject: [PATCH 121/165] drm/mediatek: Find the MT6858 display mutex
 
 mediatek-drm looks the mutex up among its own component compatibles, so
 without the MT6858 one it stopped with "Failed to find disp-mutex node"

@@ -1,0 +1,44 @@
+From 6c6024b0cf513b5f12db01f36221f8daeb475596 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:58:28 +0000
+Subject: [PATCH 150/165] DEBUG: mfd: mtk-spmi-pmic: Log RCS_IRQ_DONE around
+ the probe writes
+
+The MT6363's 0x41b read 0x01 in every boot without key interrupts, even
+after the probe wrote 1 then 0. Log its value before and after each
+write, to tell an ignored write from a flag the PMIC sets again. Drop
+once the RCS handshake is understood.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index 2aa700741..b32496392 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -316,6 +316,7 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ {
+ 	struct fwnode_handle *fwnode = of_fwnode_handle(dev->of_node);
+ 	struct mtk_spmi_pmic *pmic;
++	unsigned int rcs[3] = {};
+ 	int i, j, ret;
+ 
+ 	pmic = devm_kzalloc(dev, sizeof(*pmic), GFP_KERNEL);
+@@ -347,10 +348,14 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ 	 * With none pending the done flag stays set and blocks the next one,
+ 	 * so clear it again.
+ 	 */
++	regmap_read(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &rcs[0]);
+ 	ret = regmap_write(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 1);
++	regmap_read(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &rcs[1]);
+ 	ret = ret ?: regmap_write(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 0);
++	regmap_read(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, &rcs[2]);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Cannot complete the RCS request\n");
++	dev_info(dev, "RCS done %#x, after 1: %#x, after 0: %#x\n", rcs[0], rcs[1], rcs[2]);
+ 
+ 	pmic->dom = irq_domain_create_tree(fwnode, &mtk_spmi_pmic_irq_domain_ops, pmic);
+ 	if (!pmic->dom)
+-- 
+2.55.0
+

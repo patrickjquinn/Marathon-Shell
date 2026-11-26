@@ -1,0 +1,42 @@
+From 5c2a1ae04ae975c33dfccd54df446192f5f546ed Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:09:55 +0000
+Subject: [PATCH 136/165] dt-bindings: mmc: mtk-sd: Add MT6858
+
+The MT6858's MSDC is an MT8183-style controller with a top register
+range, clocked like the MT8196's: source, hclk and a source clock gate.
+---
+ Documentation/devicetree/bindings/mmc/mtk-sd.yaml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/mmc/mtk-sd.yaml b/Documentation/devicetree/bindings/mmc/mtk-sd.yaml
+index a4d032224..0fda64b6f 100644
+--- a/Documentation/devicetree/bindings/mmc/mtk-sd.yaml
++++ b/Documentation/devicetree/bindings/mmc/mtk-sd.yaml
+@@ -18,6 +18,7 @@ properties:
+           - mediatek,mt2712-mmc
+           - mediatek,mt6779-mmc
+           - mediatek,mt6795-mmc
++          - mediatek,mt6858-mmc
+           - mediatek,mt7620-mmc
+           - mediatek,mt7622-mmc
+           - mediatek,mt7986-mmc
+@@ -185,6 +186,7 @@ allOf:
+             - mediatek,mt2701-mmc
+             - mediatek,mt6779-mmc
+             - mediatek,mt6795-mmc
++            - mediatek,mt6858-mmc
+             - mediatek,mt7620-mmc
+             - mediatek,mt7622-mmc
+             - mediatek,mt7623-mmc
+@@ -238,6 +240,7 @@ allOf:
+         compatible:
+           contains:
+             enum:
++              - mediatek,mt6858-mmc
+               - mediatek,mt7986-mmc
+               - mediatek,mt7988-mmc
+               - mediatek,mt8183-mmc
+-- 
+2.55.0
+

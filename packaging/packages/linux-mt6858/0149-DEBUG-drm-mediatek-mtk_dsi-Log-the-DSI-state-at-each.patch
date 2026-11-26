@@ -1,0 +1,142 @@
+From 4be39a4dd70aafd9386cc66a10bd1b2b466f287b Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:53:58 +0000
+Subject: [PATCH 149/165] DEBUG: drm/mediatek: mtk_dsi: Log the DSI state at
+ each bring-up step
+
+Bring-up only, not for upstream: log the main DSI registers, the
+interrupt count and the GIC pending state after the clocks come on,
+after stopping a bootloader stream, after power on, when the lanes are
+ready, after the first two commands, when video starts and at every
+interrupt timeout. On a timeout with the flag already set in INTSTA,
+report the interrupt as not delivered and carry on.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 41 ++++++++++++++++++++++++++++--
+ 1 file changed, 39 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index cca95fbd9..e096e6f7c 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -233,6 +233,8 @@ struct mtk_dsi {
+ 	bool enabled;
+ 	bool lanes_ready;
+ 	u32 irq_data;
++	int dbg_irq;
++	unsigned int dbg_irqs, dbg_cmds;
+ 	wait_queue_head_t irq_wait_queue;
+ 	const struct mtk_dsi_driver_data *driver_data;
+ };
+@@ -254,6 +256,23 @@ static void mtk_dsi_mask(struct mtk_dsi *dsi, u32 offset, u32 mask, u32 data)
+ 	writel((temp & ~mask) | (data & mask), dsi->regs + offset);
+ }
+ 
++/* DEBUG (bring-up only): DSI state at each step */
++static void mtk_dsi_dbg(struct mtk_dsi *dsi, const char *step)
++{
++	void __iomem *r = dsi->regs;
++	bool pending = false;
++
++	if (dsi->dbg_irq > 0)
++		irq_get_irqchip_state(dsi->dbg_irq, IRQCHIP_STATE_PENDING, &pending);
++	dev_info(dsi->host.dev,
++		 "dbg %s: start %08x inten %08x intsta %08x con %08x mode %08x txrx %08x ps %08x cmdq_sz %08x ckl_wc %08x lc %08x ld0 %08x tim %08x %08x %08x %08x shadow %08x cmdq0 %08x vm_cmd %08x irqs %u gic_pending %d\n",
++		 step, readl(r), readl(r + 0x08), readl(r + 0x0c), readl(r + 0x10),
++		 readl(r + 0x14), readl(r + 0x18), readl(r + 0x1c), readl(r + 0x60),
++		 readl(r + 0x64), readl(r + 0x104), readl(r + 0x108), readl(r + 0x110),
++		 readl(r + 0x114), readl(r + 0x118), readl(r + 0x11c), readl(r + 0xc00),
++		 readl(r + 0xd00), readl(r + 0x200), dsi->dbg_irqs, pending);
++}
++
+ static void mtk_dsi_phy_timconfig(struct mtk_dsi *dsi)
+ {
+ 	u32 timcon0, timcon1, timcon2, timcon3;
+@@ -741,7 +760,17 @@ static s32 mtk_dsi_wait_for_irq_done(struct mtk_dsi *dsi, u32 irq_flag,
+ 					       dsi->irq_data & irq_flag,
+ 					       jiffies);
+ 	if (ret == 0) {
++		u32 sta = readl(dsi->regs + DSI_INTSTA);
++
+ 		drm_warn(drm, "Wait DSI IRQ(0x%08x) Timeout\n", irq_flag);
++		mtk_dsi_dbg(dsi, "irq timeout");
++		if (sta & irq_flag) {
++			/* DEBUG: done in hardware, interrupt not delivered */
++			drm_warn(drm, "DSI IRQ 0x%08x set in INTSTA but not delivered\n",
++				 sta & irq_flag);
++			mtk_dsi_mask(dsi, DSI_INTSTA, sta & irq_flag, 0);
++			return 1;
++		}
+ 
+ 		mtk_dsi_enable(dsi);
+ 		mtk_dsi_reset_engine(dsi);
+@@ -757,6 +786,7 @@ static irqreturn_t mtk_dsi_irq(int irq, void *dev_id)
+ 	u32 flag = LPRX_RD_RDY_INT_FLAG | CMD_DONE_INT_FLAG | VM_DONE_INT_FLAG;
+ 
+ 	status = readl(dsi->regs + DSI_INTSTA) & flag;
++	dsi->dbg_irqs++;
+ 
+ 	if (status) {
+ 		do {
+@@ -798,6 +828,7 @@ static void mtk_dsi_lane_ready(struct mtk_dsi *dsi)
+ 		mtk_dsi_clk_hs_mode(dsi, 0);
+ 		usleep_range(1000, 3000);
+ 		/* The reaction time after pulling up the mipi signal for dsi_rx */
++		mtk_dsi_dbg(dsi, "lanes ready");
+ 	}
+ }
+ 
+@@ -843,6 +874,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 	}
+ 
+ 	mtk_dsi_enable(dsi);
++	mtk_dsi_dbg(dsi, "clocks on");
+ 
+ 	if (dsi->driver_data->has_shadow_ctl)
+ 		writel(FORCE_COMMIT | BYPASS_SHADOW,
+@@ -860,6 +892,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 		if (readl_poll_timeout(dsi->regs + DSI_INTSTA, val,
+ 				       !(val & DSI_BUSY), 10, 50000))
+ 			dev_warn(dev, "DSI still busy after stopping video\n");
++		mtk_dsi_dbg(dsi, "video stopped");
+ 	}
+ 	mtk_dsi_reset_engine(dsi);
+ 	mtk_dsi_set_cmd_mode(dsi);
+@@ -872,6 +905,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 		goto err_disable_digital_clk;
+ 
+ 	mtk_dsi_set_interrupt_enable(dsi);
++	mtk_dsi_dbg(dsi, "poweron done");
+ 
+ 	return 0;
+ err_disable_digital_clk:
+@@ -929,6 +963,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
+ 			     FIELD_PREP(TXRX_VDO_SEL, dsi->driver_data->vdo_txrx_sel));
+ 	mtk_dsi_set_mode(dsi);
+ 	mtk_dsi_start(dsi);
++	mtk_dsi_dbg(dsi, "video started");
+ 
+ 	dsi->enabled = true;
+ }
+@@ -1282,8 +1317,9 @@ static ssize_t mtk_dsi_host_send_cmd(struct mtk_dsi *dsi,
+ 
+ 	if (!mtk_dsi_wait_for_irq_done(dsi, flag, 2000))
+ 		return -ETIME;
+-	else
+-		return 0;
++	if (dsi->dbg_cmds++ < 2)
++		mtk_dsi_dbg(dsi, "command done");
++	return 0;
+ }
+ 
+ static ssize_t mtk_dsi_host_transfer(struct mipi_dsi_host *host,
+@@ -1403,6 +1439,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
+ 	irq_num = platform_get_irq(pdev, 0);
+ 	if (irq_num < 0)
+ 		return irq_num;
++	dsi->dbg_irq = irq_num;
+ 
+ 	dsi->host.ops = &mtk_dsi_ops;
+ 	dsi->host.dev = dev;
+-- 
+2.55.0
+

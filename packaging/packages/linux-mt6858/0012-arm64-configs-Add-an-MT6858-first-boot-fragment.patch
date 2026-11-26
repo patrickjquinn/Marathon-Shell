@@ -1,7 +1,7 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 4edcaf3ab1646cf25c52530e59eeef8d2b1f3667 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 18:07:37 +0000
-Subject: [PATCH 12/18] arm64: configs: Add an MT6858 first-boot fragment
+Subject: [PATCH 012/165] arm64: configs: Add an MT6858 first-boot fragment
 
 The arm64 defconfig builds the MT6858 pinctrl and power domains but
 leaves the XS-PHY, UFS PHY, watchdog, simpledrm and ramoops out or as
@@ -57,3 +57,6 @@ index 000000000..d80ec12f9
 +CONFIG_PSTORE_RAM=y
 +CONFIG_PSTORE_CONSOLE=y
 +CONFIG_PSTORE_PMSG=y
+-- 
+2.55.0
+

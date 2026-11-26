@@ -1,7 +1,7 @@
 From 6388f18ed2e715cdcf1f82e71231750fefa58244 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:44:28 +0000
-Subject: [PATCH 47/65] dt-bindings: clock: mediatek: Add the MT6858 mmsys
+Subject: [PATCH 047/165] dt-bindings: clock: mediatek: Add the MT6858 mmsys
  clock IDs
 
 Add the IDs of the MT6858 display mmsys clock gates.

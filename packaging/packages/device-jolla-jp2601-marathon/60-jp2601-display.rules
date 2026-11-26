@@ -1,3 +1,5 @@
 # The KMS device the shell draws on, whatever card number it gets beside
-# Panthor's and mediatek-drm's: simpledrm on LK's framebuffer.
+# Panthor's: mediatek-drm driving the panel, or simpledrm on LK's
+# framebuffer on a kernel without the display takeover.
+SUBSYSTEM=="drm", KERNEL=="card[0-9]*", DRIVERS=="mediatek-drm", SYMLINK+="dri/jp2601-display"
 SUBSYSTEM=="drm", KERNEL=="card[0-9]*", DRIVERS=="simple-framebuffer", SYMLINK+="dri/jp2601-display"

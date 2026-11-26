@@ -1,0 +1,31 @@
+From 8831bbea7bab703f729979996d36fb2a0837497a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 12:00:16 +0000
+Subject: [PATCH 151/165] arm64: configs: mt6858: Reserve 128 MiB of CMA for
+ scanout buffers
+
+The JP2601 display engines run without an IOMMU, so mediatek-drm
+allocates every scanout buffer physically contiguous, from CMA. One
+1032x2272 XRGB8888 buffer is 9.4 MB: the fbdev console plus a
+double-buffered client already take ~30 MB of the default 32 MB, before
+any other CMA user. The phone has 12 GB.
+---
+ arch/arm64/configs/mt6858.config | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 2d76a34cf..15a337e40 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -64,6 +64,8 @@ CONFIG_DRM_MEDIATEK=y
+ CONFIG_PHY_MTK_MIPI_DSI=y
+ CONFIG_BACKLIGHT_CLASS_DEVICE=y
+ CONFIG_DRM_PANEL_VISIONOX_VTDR6126=y
++# The display engines have no IOMMU here: scanout buffers come from CMA.
++CONFIG_CMA_SIZE_MBYTES=128
+ # The Mali-G610, under the GPUEB's power and frequency control.
+ CONFIG_MTK_GPUEB_MBOX=y
+ CONFIG_MTK_MFG_PM_DOMAIN=y
+-- 
+2.55.0
+

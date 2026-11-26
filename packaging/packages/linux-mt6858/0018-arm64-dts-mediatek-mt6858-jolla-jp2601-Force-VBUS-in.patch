@@ -1,7 +1,7 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From f2a34448c73104ff788e182fd26e5b9a46af8d83 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 22:44:04 +0000
-Subject: [PATCH 18/18] arm64: dts: mediatek: mt6858-jolla-jp2601: Force VBUS
+Subject: [PATCH 018/165] arm64: dts: mediatek: mt6858-jolla-jp2601: Force VBUS
  in the USB PHY
 
 VBUS reaches the charger and the Type-C controller, not the U2 PHY:
@@ -23,3 +23,6 @@ index c20a2ce35..af040a810 100644
 +	/* VBUS reaches the charger and Type-C controller, not the PHY. */
 +	mediatek,force-vbus;
 +};
+-- 
+2.55.0
+

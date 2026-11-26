@@ -1,0 +1,30 @@
+From bad87d58171b596262b87d0310ab33af46765bab Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:00:20 +0000
+Subject: [PATCH 132/165] drm/mediatek: mtk_dsi: Fix the fractional DSC
+ bits-per-pixel check
+
+drm_dsc_config.bits_per_pixel is in 1/16 bpp, so its fractional part is
+the low four bits; checking the low eight rejected every integer rate
+from 8 bpp up (8 bpp = 128) with "Fractional bits_per_pixel not
+supported", and the DSI never powered on.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index 32d737e6d..8a9142824 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -624,7 +624,7 @@ static int mtk_dsi_set_dsc_params(struct mtk_dsi *dsi)
+ 	struct device *dev = dsi->host.dev;
+ 	int ret;
+ 
+-	if (dsc->bits_per_pixel & GENMASK(7, 0)) {
++	if (dsc->bits_per_pixel & GENMASK(3, 0)) {
+ 		dev_err(dev, "Fractional bits_per_pixel not supported\n");
+ 		return -EINVAL;
+ 	}
+-- 
+2.55.0
+

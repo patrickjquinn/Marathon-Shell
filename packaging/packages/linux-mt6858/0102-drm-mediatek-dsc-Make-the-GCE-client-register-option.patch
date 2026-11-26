@@ -1,7 +1,7 @@
 From 7576e2581db8ed095f4deec6d70fa8c304a8a643 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:55:43 +0000
-Subject: [PATCH 102/128] drm/mediatek: dsc: Make the GCE client register
+Subject: [PATCH 102/165] drm/mediatek: dsc: Make the GCE client register
  optional
 
 Like every other display component, the DSC can be programmed with CPU

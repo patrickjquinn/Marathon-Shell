@@ -1,0 +1,33 @@
+From e14e6482e6028ee1a1f20c3b5b5de53baef55cac Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:19:54 +0000
+Subject: [PATCH 142/165] drm/mediatek: mtk_dsi: Start in command mode at power
+ on
+
+The DSI is only switched to video mode once the bridge is enabled, so
+power-on assumes command mode, but the engine reset does not clear
+DSI_MODE_CTRL. On MT6858 the bootloader hands over DSI0 in video mode,
+so the panel's init commands, sent before the bridge enable, found the
+DSI in video mode and waited for a video-frame-done that never came
+("Wait DSI IRQ(0x00000008) Timeout", "failed to switch cmd mode"), and
+every command failed with -ETIME. Select command mode after the reset.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index 8a9142824..c6ce0e274 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -832,6 +832,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 		       dsi->regs + dsi->driver_data->reg_shadow_dbg_off);
+ 
+ 	mtk_dsi_reset_engine(dsi);
++	/* The bootloader may hand over a DSI running in video mode */
++	mtk_dsi_set_cmd_mode(dsi);
+ 	mtk_dsi_phy_timconfig(dsi);
+ 
+ 	mtk_dsi_ps_control(dsi, true);
+-- 
+2.55.0
+

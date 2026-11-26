@@ -1,7 +1,7 @@
 From 2a7a85aa334e109e1dcefe5b1c492b8cab727019 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:02:34 +0000
-Subject: [PATCH 23/24] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 023/165] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  touchscreen
 
 The panel's Hynitron CST66xx touch controller sits on SPI3, chip select

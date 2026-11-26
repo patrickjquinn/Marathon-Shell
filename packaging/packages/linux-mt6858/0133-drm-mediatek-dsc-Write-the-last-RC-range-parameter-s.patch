@@ -1,0 +1,29 @@
+From 0840da727002dde12c80c3ec1dcded65623edeaa Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:00:35 +0000
+Subject: [PATCH 133/165] drm/mediatek: dsc: Write the last RC range parameter
+ set
+
+PPS12..PPS19 hold the 15 RC range parameter sets, two per register and
+one in PPS19, but the loop stopped after PPS18, so the 15th set was
+never written (the MT6858 bootloader has it in PPS19's low half).
+---
+ drivers/gpu/drm/mediatek/mtk_disp_dsc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+index c6f0a618b..527326fa1 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+@@ -239,7 +239,7 @@ static void mtk_dsc_pps_setup(struct mtk_dsc *disp_dsc, struct drm_dsc_config *d
+ 	}
+ 
+ 	/* PPS 12..19 - Each register holds two sets of RC range parameters (19 has one) */
+-	for (i = 0; i < 7; i++) {
++	for (i = 0; i < 8; i++) {
+ 		struct drm_dsc_rc_range_parameters *rcrp = dsc_cfg->rc_range_params;
+ 		u8 block_num = i * 2;
+ 		data = 0;
+-- 
+2.55.0
+

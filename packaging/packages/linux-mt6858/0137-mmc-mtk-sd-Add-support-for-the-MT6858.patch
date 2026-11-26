@@ -1,0 +1,51 @@
+From 86b576d57e1456285308f1416d93c83475f07131 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:09:56 +0000
+Subject: [PATCH 137/165] mmc: mtk-sd: Add support for the MT6858
+
+The downstream driver's MT6858 data has the MT8196's stop and pop
+timings (stop_dly_sel 1, pop_en_cnt 2) but not its new tx/rx paths, so
+neither MT8189 nor MT8196 data fits. Add its own.
+---
+ drivers/mmc/host/mtk-sd.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/drivers/mmc/host/mtk-sd.c b/drivers/mmc/host/mtk-sd.c
+index c9c636755..6cd4ea84b 100644
+--- a/drivers/mmc/host/mtk-sd.c
++++ b/drivers/mmc/host/mtk-sd.c
+@@ -580,6 +580,23 @@ static const struct mtk_mmc_compatible mt6795_compat = {
+ 	.support_64g = false,
+ };
+ 
++/* From the downstream mt6858_compat: MT8196-like stop and pop timings, old tx/rx */
++static const struct mtk_mmc_compatible mt6858_compat = {
++	.clk_div_bits = 12,
++	.recheck_sdio_irq = false,
++	.hs400_tune = false,
++	.needs_top_base = true,
++	.pad_tune_reg = MSDC_PAD_TUNE0,
++	.async_fifo = true,
++	.data_tune = true,
++	.busy_check = true,
++	.stop_clk_fix = true,
++	.stop_dly_sel = 1,
++	.pop_en_cnt = 2,
++	.enhance_rx = true,
++	.support_64g = true,
++};
++
+ static const struct mtk_mmc_compatible mt7620_compat = {
+ 	.clk_div_bits = 8,
+ 	.recheck_sdio_irq = true,
+@@ -717,6 +734,7 @@ static const struct of_device_id msdc_of_ids[] = {
+ 	{ .compatible = "mediatek,mt2712-mmc", .data = &mt2712_compat},
+ 	{ .compatible = "mediatek,mt6779-mmc", .data = &mt6779_compat},
+ 	{ .compatible = "mediatek,mt6795-mmc", .data = &mt6795_compat},
++	{ .compatible = "mediatek,mt6858-mmc", .data = &mt6858_compat},
+ 	{ .compatible = "mediatek,mt7620-mmc", .data = &mt7620_compat},
+ 	{ .compatible = "mediatek,mt7622-mmc", .data = &mt7622_compat},
+ 	{ .compatible = "mediatek,mt7986-mmc", .data = &mt7986_compat},
+-- 
+2.55.0
+

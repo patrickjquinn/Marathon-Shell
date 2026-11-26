@@ -1,7 +1,7 @@
 From c5c832024985196593e3116db32eecc4a8bb5cd1 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:45:33 +0000
-Subject: [PATCH 49/65] soc: mediatek: mmsys: Add MT6858 routing
+Subject: [PATCH 049/165] soc: mediatek: mmsys: Add MT6858 routing
 
 MT6858 connects its display engines through crossbars. The bootloader
 and the vendor driver use OVL0..2_2L, then the resizer, sharpness,
