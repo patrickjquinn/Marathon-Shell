@@ -26,7 +26,7 @@ Page {
     function summary(name) {
         switch (name) {
         case "wifi":
-            return Logic.wifiSummary(Network.wifiEnabled, Network.wifiConnected, Network.wifiSsid);
+            return !Network.wifiAvailable ? "" : Logic.wifiSummary(Network.wifiEnabled, Network.wifiConnected, Network.wifiSsid);
         case "bluetooth":
             return Logic.bluetoothSummary(Bluetooth.enabled, Bluetooth.pairedDevices);
         case "cellular":
