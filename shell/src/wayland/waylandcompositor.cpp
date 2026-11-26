@@ -3051,6 +3051,8 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
                 return true;
             }
         }
+        if (m_symControl.filter(watched, event, defaultSeat()))
+            return true;
         if ((type == QEvent::KeyPress || type == QEvent::KeyRelease) &&
             static_cast<QKeyEvent *>(event)->nativeScanCode() == KeyRouting::SelectScanCode) {
             const auto *select = static_cast<QKeyEvent *>(event);

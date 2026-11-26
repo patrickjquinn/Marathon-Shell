@@ -27,6 +27,7 @@
 #include <functional>
 
 #include "src/wayland/hiddenframethrottle.h"
+#include "src/wayland/symcontrol.h"
 
 class SecurityContextManagerV1;
 class FifoManagerV1;
@@ -351,6 +352,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QElapsedTimer           m_activityEmitted;
     bool                    m_superShortcut = false;
     bool                    m_level3Held    = false;
+    SymControl              m_symControl;
     QElapsedTimer           m_keyboardFocusSince;
     QStringList             m_secureApps;
     QTimer                  m_hiddenFrameTimer;
