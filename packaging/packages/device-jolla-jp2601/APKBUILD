@@ -11,7 +11,7 @@
 pkgname=device-jolla-jp2601
 pkgdesc="Jolla Phone (2026)"
 pkgver=1
-pkgrel=1
+pkgrel=2
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="MIT"
 arch="aarch64"
@@ -47,7 +47,7 @@ package() {
 
 sha512sums="
 79a53f236c2ea6e5bfbf0fa735818f39ab35db1eac6bc629e4089cac0d9e3c6db9be4121cbd9aae66bd94ca95ded51c77673219386af67830ecfb5f3099492fa  deviceinfo
-05c8c10bc9586728508f21fcb31bd0b9795846f8e17259afa5dc8267fea510c9e3ef7e62ff588f5f3992525288cf4575a913829845d51622ff7e9fd8c2c42be0  kernel-cmdline.conf
+d9c37c6603fcabf1c1e2a87dcf81acb951df1c0cef5114d19d9bf229ececc121e62a94f847637b0a1edf8ea70ac0a0dbcf9c6c79222c159078e25a92ac25ae68  kernel-cmdline.conf
 086613bf243f4fd95785314a0f5b834b38c02c3edea88a1de531e12441b0c5be73eb9da55de68a78d64dccfaf520df26a1fcbf6af430f219e596e1c2723ad5df  jp2601-mark-boot-successful
 3459fcfe05b6c0237994817649512014e13ff038d753a14e1d0beff90d0a08ee458f41382b01eafe8770c81e79b9a32b5094d943f84fcb62d9d58adc0151ddf3  jp2601-mark-boot-successful.service
 "
