@@ -1,13 +1,17 @@
 # MT6858 kernel, one for every board on the SoC: mainline at 4dce97c6c
 # (after v7.4-rc4) with the MT6858 series below, built from arm64 defconfig,
 # the series' mt6858.config and marathon.config. The patches are
-# git format-patch 4dce97c6c..56b7ce2a4 of the jp2601/initial branch
+# git format-patch 4dce97c6c..a0313f487 of the jp2601/initial branch
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=9
+pkgrel=10
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
+# MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
+# the vendor connectivity tree and the connectivity adapter's sources.
+_conn=9fe8054b021c59e1abfc9c8ca52a9e6c19156749
+_devmods=a7f9e9efa1ec7e31dd8aade57716cd61ae50da1a
 pkgdesc="MediaTek Dimensity 7100 (MT6858) kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -28,6 +32,7 @@ makedepends="
 	lld
 	llvm
 	openssl-dev
+	patch
 	perl
 	python3
 	rust
@@ -35,7 +40,11 @@ makedepends="
 	rust-src
 	zstd
 "
+subpackages="mt6858-connsys-modules:_connsys"
+install="mt6858-connsys-modules.post-install mt6858-connsys-modules.post-upgrade"
 source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commit.tar.gz
+	kernel_xiaomi_tanzanite-mediatek_modules-$_conn.tar.gz::https://github.com/YaAlex3/kernel_xiaomi_tanzanite-mediatek_modules/archive/$_conn.tar.gz
+	kernel_xiaomi_tanzanite-modules-$_devmods.tar.gz::https://github.com/YaAlex3/kernel_xiaomi_tanzanite-modules/archive/$_devmods.tar.gz
 	0001-dt-bindings-vendor-prefixes-Add-Jolla-Mobile-Ltd.patch
 	0002-dt-bindings-arm-mediatek-Add-Jolla-Phone-JP2601.patch
 	0003-dt-bindings-mfd-syscon-Add-MT6858-bus-protection-blo.patch
@@ -217,9 +226,19 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0179-dt-bindings-iio-light-stk33xx-Add-STK3A5X.patch
 	0180-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-motio.patch
 	0181-arm64-configs-mt6858-Add-the-sensor-drivers.patch
+	0182-iio-light-stk3310-Add-support-for-the-STK3A5X.patch
+	0183-arm64-dts-mediatek-mt6858-jolla-jp2601-Orient-the-IM.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
+
+unpack() {
+	tar -C "$srcdir" -xzf "$SRCDEST/linux-$_commit.tar.gz"
+	tar -C "$srcdir" -xzf "$SRCDEST/kernel_xiaomi_tanzanite-mediatek_modules-$_conn.tar.gz" \
+		"kernel_xiaomi_tanzanite-mediatek_modules-$_conn/connectivity"
+	tar -C "$srcdir" -xzf "$SRCDEST/kernel_xiaomi_tanzanite-modules-$_devmods.tar.gz" \
+		"kernel_xiaomi_tanzanite-modules-$_devmods/drivers/misc/mediatek/connectivity"
+}
 
 prepare() {
 	default_prepare
@@ -246,6 +265,9 @@ build() {
 	export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@$SOURCE_DATE_EPOCH")"
 	make ARCH=arm64 LLVM=1 DTC_FLAGS=-@ Image vmlinuz.efi modules $(_dtbs)
 	[ "$(cat include/config/kernel.release)" = "$_release" ]
+	JOBS="${JOBS:-2}" sh "$startdir/modules/build.sh" "$builddir" "$builddir" \
+		"$srcdir/kernel_xiaomi_tanzanite-mediatek_modules-$_conn" \
+		"$srcdir/kernel_xiaomi_tanzanite-modules-$_devmods" "$srcdir/connsys"
 }
 
 package() {
@@ -262,8 +284,19 @@ package() {
 		"$pkgdir"/usr/share/kernel/mt6858/kernel.release
 }
 
+_connsys() {
+	pkgdesc="MediaTek MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers for linux-mt6858"
+	depends="kmod $pkgname=$pkgver-r$pkgrel"
+	local m
+	for m in "$srcdir"/connsys/modules/*.ko; do
+		install -Dm644 "$m" "$subpkgdir/usr/lib/modules/$_release/extra/mt6858-connsys/${m##*/}"
+	done
+}
+
 sha512sums="
 f2bc059644b6199343e6c2667e10f1e17dac3fef8f59227af3a2d3c332ef22417eb883aea7225edef1edcb87a3fec589578e067c5d870f55269f602303221098  linux-4dce97c6c265544342e716e62fd24bbb232590c5.tar.gz
+cf56e889525f6d9d0b753b370b17a2417c168a67bb48475f18167f157e3867ed5f7bfbfbfd1791a628c1192df6dbffbeb7ee74ced2c8defe91e25c5cbe4e396b  kernel_xiaomi_tanzanite-mediatek_modules-9fe8054b021c59e1abfc9c8ca52a9e6c19156749.tar.gz
+4e30570d16ab00055a8664a8a4b76a03c66ebd5c60c42d135a790b4802e622ab9d7049ca954da2457f6c54e83abb8036e8c9e4b24c7d694c2a2351fd2871d3fd  kernel_xiaomi_tanzanite-modules-a7f9e9efa1ec7e31dd8aade57716cd61ae50da1a.tar.gz
 9b6fc6c312d09e98b8997f4aa7286137a109fa414b29f15c7d2fdb553d30ed4452c2ddab9078ab5ec4b282c51fab134aa4a3a87cb48634adf8327707751bac73  0001-dt-bindings-vendor-prefixes-Add-Jolla-Mobile-Ltd.patch
 fb737de20eb61d67d2e9ce7ffc70fc783d880b97b70fcff8d9705effde79238ccbbb618699e2022566b3e6aa0e646b2a348a03d7592d790acda1c44bea3f805c  0002-dt-bindings-arm-mediatek-Add-Jolla-Phone-JP2601.patch
 11aea23e774a057c711506e9a9fffd4b59e991847e9327ad8606545e46816e9990cbf7c63650d735dd7a4e17d1f7ff2a1ee066b8d967dee462a0892c7b111f7b  0003-dt-bindings-mfd-syscon-Add-MT6858-bus-protection-blo.patch
@@ -445,5 +478,7 @@ fb3f0e7efc9539cefcc95d25125e17d37f956ec08dc86cc1468f55de40682394cb946080268b41e9
 20a677ece520689813d378b9429c69578674af5d3cf0044c3c95e60da9af0224914a2e0a15de7e8793b8eff7dd2938d028cde60994ca7a78464ad9f292309f0a  0179-dt-bindings-iio-light-stk33xx-Add-STK3A5X.patch
 9adfb31f69e1cbf364a5a67bd08aa38f9331d4b926bd9dccb1d1f8633120c57931247080bf727bc181793897d8f004a092ce7a3657e89da668cccfb032c62526  0180-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-motio.patch
 b6f796cd5a3bd61e4a735ebe6cb8dac06e3262ad8c0ee2cf436c73482ffe40f04664d9241cb43586e070abe0d6d5b7b001ecd839c4a4cd6436db7829ad5e2dd5  0181-arm64-configs-mt6858-Add-the-sensor-drivers.patch
+7d6c82853b92da70a09596bdfeb0888a627e86be5042ba4eb9d05001ddaa06d1fa34767e9d67f645f035f0e11e57d876e37e029ef45dafefacc3a01aa8921d97  0182-iio-light-stk3310-Add-support-for-the-STK3A5X.patch
+b9da94e4ed27fd519dee8125c8148994f353812e842cb9fb401d0396630246e14920ec413062cc0b12caff710e755a4a8fd18304249b61a11dcae808d8769bee  0183-arm64-dts-mediatek-mt6858-jolla-jp2601-Orient-the-IM.patch
 8dba29ad9a5ae02354237d38039c94d45f4dd16139d17ada4e67ea14166afc030d94570245833773806c0c94c97738fec776ee120cbc31f75650b7a6b5b43054  marathon.config
 "

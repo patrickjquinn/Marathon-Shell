@@ -1,0 +1,3484 @@
+diff --git a/bt/Kbuild b/bt/Kbuild
+new file mode 100644
+index 0000000..27cc8de
+--- /dev/null
++++ b/bt/Kbuild
+@@ -0,0 +1,13 @@
++# SPDX-License-Identifier: GPL-2.0
++# bt_drv for the MT6858 CONNSYS, as bt/mt66xx/6858 builds it.
++BT_PLATFORM := 6858
++LOG_TAG := [BT_Drv][btif]
++KO_PATH := $(src)
++CONN_TOP := $(src)/..
++TARGET_BUILD_VARIANT := user
++
++include $(KO_PATH)/btif/Kbuild
++
++ccflags-y += -I$(CONN_TOP)/compat/include -include $(CONN_TOP)/compat/include/mtk_conn_compat.h
++ccflags-y += -I$(CONN_TOP)/connadp/common -I$(CONN_TOP)/connadp/power_throttling
++ccflags-y += -I$(src)/include -I$(src)/include/btif
+diff --git a/bt/btif/Kbuild b/bt/btif/Kbuild
+index 31ba50f..0215d4a 100644
+--- a/bt/btif/Kbuild
++++ b/bt/btif/Kbuild
+@@ -132,8 +132,8 @@ endif
+ # build btif interface
+ ccflags-y += -D CHIP_IF_BTIF
+ 
+-# Use device node or hci_dev as native interface
+-ccflags-y += -D USE_DEVICE_NODE=1
++# hci_dev for BlueZ, not the Android HAL's /dev/stpbt
++ccflags-y += -D USE_DEVICE_NODE=0
+ 
+ # Customized fw update feature
+ ccflags-y += -D CUSTOMER_FW_UPDATE=0
+@@ -150,9 +150,9 @@ ccflags-y += -D CONFIG_MP_WAKEUP_SOURCE_SYSFS_STAT=1
+ # ---------------------------------------------------
+ # Include Path
+ # ---------------------------------------------------
+-CONN_INFRA_SRC := $(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra
+-CONNFEM_SRC := $(TOP)/vendor/mediatek/kernel_modules/connectivity/connfem
+-WMT_SRC := $(TOP)/vendor/mediatek/kernel_modules/connectivity/common
++CONN_INFRA_SRC := $(CONN_TOP)/conninfra
++CONNFEM_SRC := $(CONN_TOP)/connfem
++WMT_SRC := $(CONN_TOP)/common
+ BTIF_SRC := $(DEVICE_MODULES_PATH)/drivers/misc/mediatek/btif
+ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/connectivity/common
+ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/
+diff --git a/bt/btif/btmtk_beif.c b/bt/btif/btmtk_beif.c
+index 5158782..2dc8fce 100644
+--- a/bt/btif/btmtk_beif.c
++++ b/bt/btif/btmtk_beif.c
+@@ -626,8 +626,10 @@ static int beif_rx_thread(void *p_data)
+ 	struct sched_param sch_param;
+ 	int ret;
+ 
+-	sch_param.sched_priority = MAX_RT_PRIO - 10;
+-	ret = sched_setscheduler(current, SCHED_RR, &sch_param);
++	/* Modules can only ask for the kernel's default RT priority */
++	sch_param.sched_priority = MAX_RT_PRIO / 2;
++	sched_set_fifo(current);
++	ret = 0;
+ 	pr_info("%s prio = %d, ret = %d\n", __func__, sch_param.sched_priority, ret);
+ 
+ 	while (1) {
+diff --git a/bt/btif/btmtk_btif_main.c b/bt/btif/btmtk_btif_main.c
+index 7fd05f1..97aef30 100644
+--- a/bt/btif/btmtk_btif_main.c
++++ b/bt/btif/btmtk_btif_main.c
+@@ -586,7 +586,7 @@ void bt_notify_state(void)
+  *     0 if success, otherwise error code
+  *
+  */
+-void bt_report_hw_error()
++void bt_report_hw_error(void)
+ {
+ 	const uint8_t HCI_EVT_HW_ERROR[] = {0x04, 0x10, 0x01, 0x00};
+ 	btmtk_recv(g_sbdev->hdev, HCI_EVT_HW_ERROR, sizeof(HCI_EVT_HW_ERROR));
+@@ -1680,7 +1680,6 @@ static int btmtk_cif_probe(struct platform_device *pdev)
+ 	btmtk_allocate_hci_device(g_sbdev, HCI_UART);
+ #if (USE_DEVICE_NODE == 0)
+ 	SET_HCIDEV_DEV(g_sbdev->hdev, BTMTK_GET_DEV(cif_dev));
+-	btmtk_register_hci_device(g_sbdev);
+ #endif
+ 
+ 	/* 3. Init power manager */
+@@ -1745,6 +1744,14 @@ static int btmtk_cif_probe(struct platform_device *pdev)
+ 	/* Set ICB cif state */
+ 	btmtk_set_chip_state((void *)g_sbdev, BTMTK_STATE_WORKING);
+ 
++#if (USE_DEVICE_NODE == 0)
++	/*
++	 * Only now: hci_register_dev() opens and sets up the controller at
++	 * once for BlueZ, and bt_open() refuses a chip that is not WORKING.
++	 */
++	btmtk_register_hci_device(g_sbdev);
++#endif
++
+ 	BTMTK_INFO("%s: Done", __func__);
+ 	return 0;
+ }
+@@ -1764,6 +1771,11 @@ static void btmtk_cif_remove(struct platform_device *pdev)
+ {
+ 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
+ 
++#if (USE_DEVICE_NODE == 0)
++	/* Unregistering closes the controller, which needs everything below. */
++	btmtk_deregister_hci_device(g_sbdev);
++#endif
++
+ 	conninfra_sub_drv_ops_unregister(CONNDRV_TYPE_BT);
+ 
+ 	bt_dev_dbg_deinit();
+@@ -1782,12 +1794,11 @@ static void btmtk_cif_remove(struct platform_device *pdev)
+ 	bt_psm_deinit(&cif_dev->psm);
+ 
+ #if (USE_DEVICE_NODE == 0)
+-	btmtk_deregister_hci_device(g_sbdev);
+ 	btmtk_free_hci_device(g_sbdev, HCI_UART);
+ #endif
+ 
+ #if SUPPORT_COREDUMP
+-	if (!cif_dev->coredump_handle)
++	if (cif_dev->coredump_handle)
+ 		connsys_coredump_deinit(cif_dev->coredump_handle);
+ #endif
+ 
+diff --git a/bt/btif/btmtk_dbg.c b/bt/btif/btmtk_dbg.c
+index 9517e95..c7aed62 100644
+--- a/bt/btif/btmtk_dbg.c
++++ b/bt/btif/btmtk_dbg.c
+@@ -8,7 +8,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/gpio.h>
+ #include <linux/of.h>
+-#include <linux/of_gpio.h>
++#include <linux/of.h>
+ 
+ #include "btmtk_define.h"
+ #include "btmtk_chip_if.h"
+@@ -313,7 +313,16 @@ int bt_dbg_set_rt_thread_runtime(int par1, int par2, int par3)
+ 	}
+ 	policy = par2;
+ 	params.sched_priority = par3;
+-	ret = sched_setscheduler(cif_dev->tx_thread, policy, &params);
++	/* Only the default RT class is open to modules */
++	if (policy == SCHED_NORMAL) {
++		sched_set_normal(cif_dev->tx_thread, 0);
++		ret = 0;
++	} else if (policy == SCHED_FIFO || policy == SCHED_RR) {
++		sched_set_fifo(cif_dev->tx_thread);
++		ret = 0;
++	} else {
++		ret = -EINVAL;
++	}
+ 	BTMTK_INFO("%s: ret[%d], policy[%d], sched_priority[%d]", __func__, ret, policy, params.sched_priority);
+ 
+ 	return 0;
+diff --git a/bt/btif/btmtk_mt66xx.c b/bt/btif/btmtk_mt66xx.c
+index 1d4ac6a..7143362 100644
+--- a/bt/btif/btmtk_mt66xx.c
++++ b/bt/btif/btmtk_mt66xx.c
+@@ -1907,7 +1907,8 @@ int32_t btmtk_set_power_on(struct hci_dev *hdev, u_int8_t for_precal)
+ 
+ 	if(g_bt_dbg_st.rt_thd_enable) {
+ 		sch_param.sched_priority = MAX_RT_PRIO - 20;
+-		sch_ret = sched_setscheduler(cif_dev->tx_thread, SCHED_FIFO, &sch_param);
++		sched_set_fifo(cif_dev->tx_thread);
++		sch_ret = 0;
+ 		BTMTK_INFO("sch_ret = %d", sch_ret);
+ 		if (sch_ret != 0)
+ 			BTMTK_INFO("set RT thread failed");
+diff --git a/bt/btmtk_main.c b/bt/btmtk_main.c
+index cc2f7aa..23952c5 100644
+--- a/bt/btmtk_main.c
++++ b/bt/btmtk_main.c
+@@ -3384,6 +3384,22 @@ unsigned long dummy_func(const char *ptr) {
+ 	return 0;
+ }
+ 
++#if CFG_SUPPORT_BLUEZ
++/* MediaTek's vendor command, as for the MT79xx in drivers/bluetooth/btmtk.c */
++static int bt_set_bdaddr(struct hci_dev *hdev, const bdaddr_t *bdaddr)
++{
++	struct sk_buff *skb;
++
++	skb = __hci_cmd_sync(hdev, 0xfc1a, 6, bdaddr, HCI_INIT_TIMEOUT);
++	if (IS_ERR(skb)) {
++		bt_dev_err(hdev, "setting the address failed (%ld)", PTR_ERR(skb));
++		return PTR_ERR(skb);
++	}
++	kfree_skb(skb);
++	return 0;
++}
++#endif
++
+ static int bt_open(struct hci_dev *hdev)
+ {
+ 	int ret = -1;
+@@ -3758,6 +3774,20 @@ int btmtk_allocate_hci_device(struct btmtk_dev *bdev, int hci_bus_type)
+ 	hdev->flush    = bt_flush;
+ 	hdev->send	   = bt_send_frame;
+ 	hdev->setup    = bt_setup;
++#if CFG_SUPPORT_BLUEZ
++	/*
++	 * The controller sets the synchronization train LMP feature on page 2
++	 * but answers HCI Read Synchronization Train Parameters with "unknown
++	 * command", which fails BlueZ's init. Don't read page 2.
++	 */
++	hci_set_quirk(hdev, HCI_QUIRK_BROKEN_LOCAL_EXT_FEATURES_PAGE_2);
++	/*
++	 * The controller's own address is a placeholder: stay unconfigured
++	 * until user space sets the factory one from the NVRAM.
++	 */
++	hci_set_quirk(hdev, HCI_QUIRK_INVALID_BDADDR);
++	hdev->set_bdaddr = bt_set_bdaddr;
++#endif
+ 
+ 	init_waitqueue_head(&bdev->p_wait_event_q);
+ 
+diff --git a/bt/include/btmtk_chip_if.h b/bt/include/btmtk_chip_if.h
+index c48f083..e527368 100644
+--- a/bt/include/btmtk_chip_if.h
++++ b/bt/include/btmtk_chip_if.h
+@@ -16,7 +16,7 @@
+ #include "btmtk_btif.h"
+ #define CFG_SUPPORT_BT_DL_WIFI_PATCH    0
+ #define CFG_SUPPORT_DVT                 0
+-#define CFG_SUPPORT_BLUEZ               0
++#define CFG_SUPPORT_BLUEZ               1
+ 
+ #if (CONNAC20_CHIPID == 6885)
+ 	#include "platform_6885.h"
+diff --git a/bt/include/btmtk_define.h b/bt/include/btmtk_define.h
+index 81ef1d9..f1bc453 100644
+--- a/bt/include/btmtk_define.h
++++ b/bt/include/btmtk_define.h
+@@ -28,7 +28,7 @@
+ 
+ /* Define for whole chip reset */
+ #include <linux/of.h>
+-#include <linux/of_gpio.h>
++#include <linux/of.h>
+ 
+ #include <linux/kthread.h>
+ #include <linux/freezer.h>
+diff --git a/compat/include/dvfsrc-exp.h b/compat/include/dvfsrc-exp.h
+new file mode 100644
+index 0000000..10758c8
+--- /dev/null
++++ b/compat/include/dvfsrc-exp.h
+@@ -0,0 +1,13 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* The vendor DVFSRC's DRAM OPP table: none here, so no DRAM boost levels. */
++#ifndef _COMPAT_DVFSRC_EXP_H
++#define _COMPAT_DVFSRC_EXP_H
++
++struct device_node;
++
++static inline unsigned int dvfsrc_get_required_opp_peak_bw(struct device_node *np, int level)
++{
++	return 0;
++}
++
++#endif
+diff --git a/compat/include/mtk_ccci_common.h b/compat/include/mtk_ccci_common.h
+new file mode 100644
+index 0000000..2307859
+--- /dev/null
++++ b/compat/include/mtk_ccci_common.h
+@@ -0,0 +1,18 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* No CCCI share memory for CONNSYS yet: the modem's MCIF region is unknown. */
++#ifndef _COMPAT_MTK_CCCI_COMMON_H
++#define _COMPAT_MTK_CCCI_COMMON_H
++
++#include <linux/types.h>
++
++#define MD_SYS1 0
++#define SMEM_USER_RAW_MD_CONSYS 0
++
++static inline phys_addr_t get_smem_phy_start_addr(int md_id, int user, int *size)
++{
++	if (size)
++		*size = 0;
++	return 0;
++}
++
++#endif
+diff --git a/compat/include/mtk_conn_compat.h b/compat/include/mtk_conn_compat.h
+new file mode 100644
+index 0000000..2818ee8
+--- /dev/null
++++ b/compat/include/mtk_conn_compat.h
+@@ -0,0 +1,48 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* Kernel API changes between the vendor's 6.12 base and 7.4. */
++#ifndef _MTK_CONN_COMPAT_H
++#define _MTK_CONN_COMPAT_H
++
++#include <linux/string.h>
++#include <linux/timer.h>
++
++#ifndef from_timer
++#define from_timer(var, t, field) timer_container_of(var, t, field)
++/* gen4m indicates events through wireless extensions, which 7.4 builds without. */
++#include <net/iw_handler.h>
++#if !IS_ENABLED(CONFIG_WEXT_CORE)
++#define wireless_send_event(dev, cmd, wrqu, extra) \
++	((void)(dev), (void)(cmd), (void)(wrqu), (void)(extra))
++#endif
++
++#endif
++
++/* Vendor SiP calls; the stock TF-A implements them. */
++#include <linux/soc/mediatek/mtk_sip_svc.h>
++#define MTK_SIP_KERNEL_CONNSYS_CONTROL	MTK_SIP_SMC_CMD(0x534)
++#define MTK_SIP_KERNEL_WLAN_CONTROL	MTK_SIP_SMC_CMD(0x535)
++#define MTK_SIP_KERNEL_BT_CONTROL	MTK_SIP_SMC_CMD(0x536)
++#define MTK_SIP_KERNEL_GPS_CONTROL	MTK_SIP_SMC_CMD(0x537)
++
++#define alarm_start(alarm, ktime) alarm_start_timer(alarm, ktime, false)
++#define alarm_start_relative(alarm, ktime) alarm_start_timer(alarm, ktime, true)
++
++/* 7.4 dropped strncpy(); the vendor code relies on its zero padding. */
++static inline char *mtk_compat_strncpy(char *dst, const char *src, size_t n)
++{
++	size_t len = strnlen(src, n);
++
++	memcpy(dst, src, len);
++	memset(dst + len, 0, n - len);
++	return dst;
++}
++#define strncpy mtk_compat_strncpy
++
++/* gen4m indicates events through wireless extensions, which 7.4 builds without. */
++#include <net/iw_handler.h>
++#if !IS_ENABLED(CONFIG_WEXT_CORE)
++#define wireless_send_event(dev, cmd, wrqu, extra) \
++	((void)(dev), (void)(cmd), (void)(wrqu), (void)(extra))
++#endif
++
++#endif
+diff --git a/compat/include/mtk_disp_notify.h b/compat/include/mtk_disp_notify.h
+new file mode 100644
+index 0000000..b7edd78
+--- /dev/null
++++ b/compat/include/mtk_disp_notify.h
+@@ -0,0 +1,23 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* The vendor display driver's blank notifier; mainline DRM has none. */
++#ifndef _MTK_DISP_NOTIFY_H_
++#define _MTK_DISP_NOTIFY_H_
++
++#include <linux/notifier.h>
++
++#define MTK_DISP_EARLY_EVENT_BLANK	0x00
++#define MTK_DISP_EVENT_BLANK		0x01
++#define MTK_DISP_BLANK_UNBLANK		0x00
++#define MTK_DISP_BLANK_POWERDOWN	0x01
++
++static inline int mtk_disp_notifier_register(const char *source, struct notifier_block *nb)
++{
++	return 0;
++}
++
++static inline int mtk_disp_notifier_unregister(struct notifier_block *nb)
++{
++	return 0;
++}
++
++#endif
+diff --git a/compat/include/mtk_low_battery_throttling.h b/compat/include/mtk_low_battery_throttling.h
+new file mode 100644
+index 0000000..078fafb
+--- /dev/null
++++ b/compat/include/mtk_low_battery_throttling.h
+@@ -0,0 +1,13 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* The levels conn_power_throttling names; no MTK low-battery framework here. */
++#ifndef __MTK_LOW_BATTERY_THROTTLING_H__
++#define __MTK_LOW_BATTERY_THROTTLING_H__
++
++enum LOW_BATTERY_LEVEL_TAG {
++	LOW_BATTERY_LEVEL_0 = 0,
++	LOW_BATTERY_LEVEL_1 = 1,
++	LOW_BATTERY_LEVEL_2 = 2,
++	LOW_BATTERY_LEVEL_NUM
++};
++
++#endif
+diff --git a/compat/include/mtk_wcn_cmb_stub.h b/compat/include/mtk_wcn_cmb_stub.h
+new file mode 100644
+index 0000000..70397ce
+--- /dev/null
++++ b/compat/include/mtk_wcn_cmb_stub.h
+@@ -0,0 +1,25 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* The SDIO combo-chip stub interface; CONNSYS on MT6858 has no SDIO. */
++#ifndef _MTK_WCN_CMB_STUB_H_
++#define _MTK_WCN_CMB_STUB_H_
++
++#include <linux/pm.h>
++
++enum COMBO_IF {
++	COMBO_IF_UART = 0,
++	COMBO_IF_MSDC = 1,
++	COMBO_IF_BTIF = 2,
++	COMBO_IF_MAX,
++};
++
++typedef void (*msdc_sdio_irq_handler_t)(void *);
++typedef void (*pm_callback_t)(pm_message_t state, void *data);
++
++struct sdio_ops {
++	void (*sdio_request_eirq)(msdc_sdio_irq_handler_t irq_handler, void *data);
++	void (*sdio_enable_eirq)(void);
++	void (*sdio_disable_eirq)(void);
++	void (*sdio_register_pm)(pm_callback_t pm_cb, void *data);
++};
++
++#endif
+diff --git a/connadp/Kbuild b/connadp/Kbuild
+new file mode 100644
+index 0000000..803b88d
+--- /dev/null
++++ b/connadp/Kbuild
+@@ -0,0 +1,7 @@
++# SPDX-License-Identifier: GPL-2.0
++# The connectivity adapter the vendor builds into its kernel_device_modules.
++ccflags-y += -I$(src)/../compat/include -include $(src)/../compat/include/mtk_conn_compat.h
++ccflags-y += -I$(src)/common -I$(src)/power_throttling
++obj-m += connadp.o
++connadp-y := common/connadp.o \
++	power_throttling/adapter.o power_throttling/core.o
+diff --git a/connadp/common/connadp.c b/connadp/common/connadp.c
+new file mode 100644
+index 0000000..dd06d0b
+--- /dev/null
++++ b/connadp/common/connadp.c
+@@ -0,0 +1,81 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * The part of MediaTek's connectivity adapter (connadp) that the MT6858
++ * conninfra, gen4m and bt_drv modules call. The vendor's version also
++ * bridges to Android-only frameworks (SCP connectivity, CPU boost, MMC,
++ * the MT6306 GPIO expander); those calls do nothing here.
++ * Original (c) 2019 MediaTek Inc.
++ */
++#include <linux/module.h>
++#include <linux/sched.h>
++#include <linux/sched/debug.h>
++
++#include "conn_dbg.h"
++#include "connectivity_build_in_adapter.h"
++#include "wmt_build_in_adapter.h"
++
++void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
++{
++	sched_show_task(tsk);
++}
++EXPORT_SYMBOL(connectivity_export_show_stack);
++
++/* There is no SCP connectivity firmware to tell about CONNSYS. */
++void connectivity_export_conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
++{
++}
++EXPORT_SYMBOL(connectivity_export_conap_scp_init);
++
++void connectivity_export_conap_scp_deinit(void)
++{
++}
++EXPORT_SYMBOL(connectivity_export_conap_scp_deinit);
++
++void connectivity_export_conap_scp_trigger_cmd(enum conn_hif_dbg_drv_type drv_type,
++					       enum conn_hif_dbg_cmd cmd, int param)
++{
++}
++EXPORT_SYMBOL(connectivity_export_conap_scp_trigger_cmd);
++
++/*
++ * conninfra registers callbacks here for platform code (thermal, the
++ * Android debug node) that this kernel does not have; keep them anyway.
++ */
++static struct wmt_platform_bridge platform_bridge;
++static const struct wmt_platform_dbg_bridge *platform_dbg_bridge;
++
++void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
++{
++	if (cb)
++		platform_bridge = *cb;
++}
++EXPORT_SYMBOL(wmt_export_platform_bridge_register);
++
++void wmt_export_platform_bridge_unregister(void)
++{
++	memset(&platform_bridge, 0, sizeof(platform_bridge));
++}
++EXPORT_SYMBOL(wmt_export_platform_bridge_unregister);
++
++void wmt_export_platform_dbg_bridge_register(const struct wmt_platform_dbg_bridge *cb)
++{
++	platform_dbg_bridge = cb;
++}
++EXPORT_SYMBOL(wmt_export_platform_dbg_bridge_register);
++
++void wmt_export_platform_dbg_bridge_unregister(void)
++{
++	platform_dbg_bridge = NULL;
++}
++EXPORT_SYMBOL(wmt_export_platform_dbg_bridge_unregister);
++
++/* The vendor keeps these in a debug ring; the kernel log does here. */
++int conn_dbg_add_log(enum conn_dbg_log_type type, const char *buf)
++{
++	pr_info("connsys[%d]: %s\n", type, buf);
++	return 0;
++}
++EXPORT_SYMBOL(conn_dbg_add_log);
++
++MODULE_DESCRIPTION("MediaTek connectivity adapter (MT6858 subset)");
++MODULE_LICENSE("GPL");
+diff --git a/connfem/Kbuild b/connfem/Kbuild
+index 5546664..fddcbf5 100644
+--- a/connfem/Kbuild
++++ b/connfem/Kbuild
+@@ -1,4 +1,6 @@
+ ###############################################################################
++# The 7.4 compat header, ahead of the vendor build.
++ccflags-y += -I$(src)/../compat/include -include $(src)/../compat/include/mtk_conn_compat.h
+ # Necessary Check
+ ###############################################################################
+ KBUILD_CONNFEM_ENABLED = yes
+diff --git a/connfem/connfem_dt_parser.c b/connfem/connfem_dt_parser.c
+index 38f3188..3aa86ef 100644
+--- a/connfem/connfem_dt_parser.c
++++ b/connfem/connfem_dt_parser.c
+@@ -7,7 +7,8 @@
+ #include <linux/of_platform.h>
+ #include <linux/of_device.h>
+ #include <linux/platform_device.h>
+-#include <linux/of_gpio.h>
++#include <linux/gpio/consumer.h>
++#include <linux/of.h>
+ #include <linux/pinctrl/consumer.h>
+ #include <linux/iio/consumer.h>
+ #include <linux/slab.h>
+@@ -620,7 +621,8 @@ static int cfm_dt_epaelna_hwid_gpio_parse(struct device_node *np,
+ 				     unsigned int *hwid_out,
+ 				     unsigned int *nbits_out)
+ {
+-	int i, cnt = 0, gpio_num;
++	int i, cnt = 0;
++	struct gpio_desc *gpio;
+ 	unsigned int hwid = 0;
+ 	unsigned int consumed_bits = 0;
+ 	unsigned int gpio_value = 0;
+@@ -644,24 +646,25 @@ static int cfm_dt_epaelna_hwid_gpio_parse(struct device_node *np,
+ 
+ 	/* Retrieve hardware ID based on GPIO PIN(s) value */
+ 	for (i = 0; i < cnt; i++) {
+-		/* Retrieve GPIO PIN number */
+-		gpio_num = of_get_named_gpio(np, CFM_DT_PROP_GPIO, i);
++		/* The "gpio" property is one of gpiolib's two names */
++		gpio = fwnode_gpiod_get_index(of_fwnode_handle(np), NULL, i,
++					      GPIOD_ASIS, "connfem-hwid");
+ 
+ 		/* Abort if it's not valid */
+-		if (!gpio_is_valid(gpio_num)) {
+-			pr_info("Invalid '%s' property: idx(%d)err(%d)",
++		if (IS_ERR(gpio)) {
++			pr_info("Invalid '%s' property: idx(%d)err(%ld)",
+ 				CFM_DT_NODE_HWID,
+-				i, gpio_num);
++				i, PTR_ERR(gpio));
+ 			hwid = 0;
+ 			return -EINVAL;
+ 		}
+ 
+ 		/* Read GPIO PIN */
+-		gpio_value = gpio_get_value(gpio_num);
++		gpio_value = gpiod_get_raw_value_cansleep(gpio);
++		gpiod_put(gpio);
+ 		hwid |= ((gpio_value & 0x1) << i);
+-		pr_info("%s[%d]: GPIO(%d)=%d, hwid(%u)",
+-			CFM_DT_NODE_HWID, i,
+-			gpio_num, gpio_value, hwid);
++		pr_info("%s[%d]: GPIO=%d, hwid(%u)",
++			CFM_DT_NODE_HWID, i, gpio_value, hwid);
+ 
+ 		consumed_bits++;
+ 	}
+diff --git a/connfem/connfem_module.c b/connfem/connfem_module.c
+index 297f0fb..9ac8fb3 100644
+--- a/connfem/connfem_module.c
++++ b/connfem/connfem_module.c
+@@ -1085,6 +1085,7 @@ module_init(connfem_mod_init);
+ module_exit(connfem_mod_exit);
+ 
+ MODULE_LICENSE("GPL");
++MODULE_IMPORT_NS("IIO_CONSUMER");
+ MODULE_DESCRIPTION("Connsys FEM (Front-End-Module) Driver");
+ MODULE_AUTHOR("Dennis Lin <dennis.lin@mediatek.com>");
+ MODULE_AUTHOR("Brad Chou <brad.chou@mediatek.com>");
+diff --git a/conninfra/Kbuild b/conninfra/Kbuild
+index 239b3ef..671e48e 100644
+--- a/conninfra/Kbuild
++++ b/conninfra/Kbuild
+@@ -1,651 +1,60 @@
+-###############################################################################
+-# Support GKI mixed build
+-ifeq ($(DEVICE_MODULES_PATH),)
+-DEVICE_MODULES_PATH = $(srctree)
+-else
+-LINUXINCLUDE := $(DEVCIE_MODULES_INCLUDE) $(LINUXINCLUDE)
+-endif
+-
+-# Necessary Check
+-
+-ifneq ($(KERNEL_OUT),)
+-    ccflags-y += -imacros $(KERNEL_OUT)/include/generated/autoconf.h
+-endif
+-
+-ifndef TOP
+-    TOP := $(srctree)/..
+-endif
+-
+-# Force build fail on modpost warning
+-KBUILD_MODPOST_FAIL_ON_WARNINGS := y
+-
+-###############################################################################
+-# Option for some ALPS specific feature, ex: AEE.
+-ifeq ($(CONFIG_ARCH_MEDIATEK),y)
+-ccflags-y += -D CONNINFRA_PLAT_ALPS=1
+-ccflags-y += -D MTK_CONNINFRA_CLOCK_BUFFER_API_AVAILABLE=1
+-else
+-ccflags-y += -D CONNINFRA_PLAT_ALPS=0
+-ccflags-y += -D MTK_CONNINFRA_CLOCK_BUFFER_API_AVAILABLE=0
+-endif
+-
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/base/power/include/clkbuf_v1
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/clkbuf/src/
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/connectivity/common
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/connectivity/power_throttling
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/pmic/include/
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/include/linux/soc/mediatek/
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/gpu/drm/mediatek/mediatek_v2
+-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/memory/mediatek/
+-
+-###############################################################################
+-ccflags-y += -Werror
+-ccflags-y += -Wno-error=format
+-ccflags-y += -Wno-error=format-extra-args
+-
+-###############################################################################
+-KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+-
+-MODULE_NAME := conninfra
+-ifeq ($(CONFIG_WLAN_DRV_BUILD_IN),y)
+-$(warning $(MODULE_NAME) build-in boot.img)
+-obj-y += $(MODULE_NAME).o
+-PATH_TO_CONNINFRA_DRV := $(srctree)/$(src)
+-else
+-$(warning $(MODULE_NAME) is kernel module)
+-obj-m += $(MODULE_NAME).o
+-PATH_TO_CONNINFRA_DRV := $(KO_CODE_PATH)
+-endif
+-
+-$(info [conninfra_drv] $$PATH_TO_CONNINFRA_DRV is [${PATH_TO_CONNINFRA_DRV}])
+-$(info [conninfra_drv] $$KO_CODE_PATH is [${KO_CODE_PATH}])
+-$(info [conninfra_drv] $$KBUILD_EXTRA_SYMBOLS is [${KBUILD_EXTRA_SYMBOLS}])
+-
+-ifeq ($(CFG_CONNINFRA_COCLOCK_SUPPORT),y)
+-    $(info [conninfra_drv][Kbuild] co-clock flag=1)
+-    PATH_TO_MD_FSM ?= $(PATH_TO_CONNINFRA_DRV)/../../wwan/tmi3
+-    $(info [conninfra_drv] $$PATH_TO_MD_FSM is [${PATH_TO_MD_FSM}])
+-    ifneq ($(wildcard $(PATH_TO_MD_FSM)),)
+-        ccflags-y += -I$(PATH_TO_MD_FSM)
+-        ccflags-y += -I$(PATH_TO_MD_FSM)/common
+-    else
+-        $(info [conninfra_drv] $$PATH_TO_MD_FSM not found)
+-    endif
+-else
+-    $(info [conninfra_drv] $$CFG_CONNINFRA_COCLOCK_SUPPORT not support)
+-endif
+-
+-###############################################################################
+-# Common_main
+-###############################################################################
+-ccflags-y += -I$(KO_CODE_PATH)/include
+-ccflags-y += -I$(KO_CODE_PATH)/base/include
+-ccflags-y += -I$(KO_CODE_PATH)/conf/include
+-
+-# adaptor
+-ccflags-y += -I$(KO_CODE_PATH)/adaptor/connsyslog
+-ccflags-y += -I$(KO_CODE_PATH)/adaptor/coredump
+-ccflags-y += -I$(KO_CODE_PATH)/adaptor/include
+-
+-# connv2
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/src
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/core/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/drv_init/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/debug_utility
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/debug_utility/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/debug_utility/connsyslog
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/debug_utility/connsyslog/platform/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/debug_utility/coredump
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/debug_utility/coredump/platform/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/debug_utility/metlog
+-
+-# connv3
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/src
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/core/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/debug_utility
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/debug_utility/include
+-
+-# By Plaftfrom
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6885),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6885),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6885/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6885/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6893),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6893),)
+-$(warning $(MODULE_NAME) build mt6893)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6893/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6893/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6877),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6877),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6877/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6877/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6886),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6886),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6886/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6886/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6897),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6897),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6897/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6897/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6983),y)
+-# V2
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6983),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6983/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6983/include/CODA
+-endif
+-#V3
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6983),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6983/include
+-endif
+-#V3 combo chip
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6639),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6639/include
+-endif
+-
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6879),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6879),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6879/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6879/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6895),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6895),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6895/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6895/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6985),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6985),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6985/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6985/include/CODA
+-endif
+-#V3
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6985),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6985/include
+-endif
+-#V3 combo chip
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6639),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6639/include
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6989),y)
+-#V2
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6989),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6989/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6989/include/CODA
+-endif
+-#V3
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6989),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6989/include
+-endif
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6376),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6376/include
+-endif
+-#V3 combo chip
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6639),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6639/include
+-endif
+-#Add mt6653 for de-risk
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6653),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6653/include
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6878),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6878),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6878/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6878/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6991),y)
+-#V2
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6991),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6991/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6991/include/CODA
+-endif
+-#V3
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6991),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6991/include
+-endif
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6376),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6376/include
+-endif
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6653),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6653/include
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6899),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6899),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6899/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6899/include/CODA
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6993),y)
+-#V2
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6993),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6993/include
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv2/platform/mt6993/include/CODA
+-endif
+-#V3
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6993),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6993/include
+-endif
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6376),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6376/include
+-endif
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6653),)
+-ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6653/include
+-endif
+-endif
+-
+-ifneq ($(TARGET_BUILD_VARIANT), user)
+-    ccflags-y += -D CONNINFRA_DBG_SUPPORT=1
+-else
+-    ccflags-y += -D CONNINFRA_DBG_SUPPORT=0
+-endif
+-
+-# Build mode option
+-ifeq ($(TARGET_BUILD_VARIANT),eng)
+-    ccflags-y += -D CONNINFRA_PLAT_BUILD_MODE=1
+-else ifeq ($(TARGET_BUILD_VARIANT),userdebug)
+-    ccflags-y += -D CONNINFRA_PLAT_BUILD_MODE=2
+-else ifeq ($(TARGET_BUILD_VARIANT),user)
+-    ccflags-y += -D CONNINFRA_PLAT_BUILD_MODE=3
+-else
+-    $(info invalid $$TARGET_BUILD_VARIANT[${TARGET_BUILD_VARIANT}])
+-    ccflags-y += -D CONNINFRA_PLAT_BUILD_MODE=0
+-endif
+-
+-$(MODULE_NAME)-objs += base/ring.o
+-$(MODULE_NAME)-objs += base/osal.o
+-$(MODULE_NAME)-objs += base/osal_dbg.o
+-$(MODULE_NAME)-objs += base/msg_thread.o
+-$(MODULE_NAME)-objs += conf/conninfra_conf.o
+-
+-# adaptor
+-$(MODULE_NAME)-objs += adaptor/conninfra_dev.o
+-$(MODULE_NAME)-objs += adaptor/conn_kern_adaptor.o
+-$(MODULE_NAME)-objs += adaptor/connsyslog/fw_log_mcu.o
+-$(MODULE_NAME)-objs += adaptor/connsyslog/connsyslog_to_user.o
+-$(MODULE_NAME)-objs += adaptor/coredump/conndump_netlink.o
+-# Check internal and external project
+-ifneq ($(wildcard $(TOP)/vendor/mediatek/internal/connfem_enable),)
+-    $(info ConnInfra: MTK internal load)
+-    $(MODULE_NAME)-objs += adaptor/connadp_internal.o
+-else
+-    $(info ConnInfra: Customer load)
+-endif
+-
+-############################
+-# connv2 core
+-############################
+-$(MODULE_NAME)-objs += conn_drv/connv2/core/conninfra_core.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/src/conninfra.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/src/connv2_drv.o
+-
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/consys_hw.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/consys_hw_plat_data.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/clock_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/pmic_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/emi_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/consys_reg_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/debug_utility/conninfra_dbg.o
+-
+-############################
+-# connv3
+-############################
+-$(MODULE_NAME)-objs += conn_drv/connv3/src/connv3.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/src/connv3_drv.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/core/connv3_core.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/connv3_hw.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/connv3_hw_plat_data.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/connv3_pmic_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/connv3_pinctrl_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/connv3_clock_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/connv3_hw_dbg.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/debug_utility/connsyslog/connv3_mcu_log.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/debug_utility/coredump/connv3_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/debug_utility/coredump/connv3_dump_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/debug_utility/connv3_dbg.o
+-
+-# By Plaftfrom
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6885),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6885),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6885/mt6885.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6885/mt6885_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6885/mt6885_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6885/mt6885_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6885/mt6885_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6885/mt6885_coredump.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6893),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6893),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6893/mt6893.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6893/mt6893_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6893/mt6893_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6893/mt6893_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6893/mt6893_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6893/mt6893_coredump.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6877),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6877),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6877/mt6877.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6877/mt6877_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6877/mt6877_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6877/mt6877_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6877/mt6877_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6877/mt6877_coredump.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6886),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6886),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_soc.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_emi_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_consys_reg_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_coredump_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6886/mt6886_debug_gen.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6897),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6897),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_soc.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_emi_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_consys_reg_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_coredump_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6897/mt6897_debug_gen.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6983),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6983),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_soc.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_emi_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_consys_reg_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_coredump_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6983/mt6983_debug_gen.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6879),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6879),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6879/mt6879.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6879/mt6879_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6879/mt6879_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6879/mt6879_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6879/mt6879_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6879/mt6879_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6879/mt6879_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6879/mt6879_debug_gen.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6895),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6895),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6895/mt6895.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6895/mt6895_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6895/mt6895_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6895/mt6895_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6895/mt6895_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6895/mt6895_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6895/mt6895_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6895/mt6895_debug_gen.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6985),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6985),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_debug_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_soc.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_consys_reg_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6985/mt6985_coredump_atf.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6989),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6989),)
+-$(info building conninfra mt6989)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_debug_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_soc.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_consys_reg_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6989/mt6989_coredump_atf.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6878),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6878),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_soc.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6878/mt6878_debug_gen.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6991),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6991),)
+-$(info building conninfra mt6991)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_debug_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6991/mt6991_soc.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6899),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6899),)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_soc.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_atf.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6899/mt6899_debug_gen.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6993),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv2/platform/mt6993),)
+-$(info building conninfra mt6993)
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_consys_reg.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_pos.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_pos_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_debug_gen.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_ops.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/platform/mt6993/mt6993_soc.o
+-endif
+-endif
+-
+-# Debug utility
+-$(MODULE_NAME)-objs += conn_drv/connv2/debug_utility/connsyslog/ring_emi.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/debug_utility/connsyslog/connsyslog.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/debug_utility/coredump/connsys_coredump.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/debug_utility/coredump/coredump_mng.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/debug_utility/metlog/metlog.o
+-
+-# Drv init
+-$(MODULE_NAME)-objs += conn_drv/connv2/drv_init/bluetooth_drv_init.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/drv_init/conn_drv_init.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/drv_init/fm_drv_init.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/drv_init/gps_drv_init.o
+-$(MODULE_NAME)-objs += conn_drv/connv2/drv_init/wlan_drv_init.o
+-
+-
+-
+-###############################################################################
+-# connv3 platform
+-###############################################################################
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6983),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6983),)
+-
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6983/mt6983.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6983/mt6983_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6983/mt6983_pinctrl.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6639/mt6639_dbg.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6985),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6985),)
+-
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6985/mt6985.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6985/mt6985_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6985/mt6985_pinctrl.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6639/mt6639_dbg.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6989),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6989),)
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6989/mt6989.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6989/mt6989_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6989/mt6989_pinctrl.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6639/mt6639_dbg.o
+-# add mt6653 for de-risk plan
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6989/mt6989_mt6653.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6653/mt6653_dbg.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6991),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6991),)
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6991/mt6991.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6991/mt6991_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6991/mt6991_pinctrl.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6653/mt6653_dbg.o
+-endif
+-endif
+-
+-ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6993),y)
+-ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6993),)
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6993/mt6993.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6993/mt6993_pmic.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6993/mt6993_pinctrl.o
+-$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6653/mt6653_dbg.o
+-endif
+-endif
+-
+-
+-###############################################################################
+-# Test
+-###############################################################################
+-# Enable conninfra_test and connv3_test node
+-# BUILD_TEST_MODE := yes
+-
+-ifeq ($(BUILD_TEST_MODE), yes)
+-ccflags-y += -D CFG_CONNINFRA_UT_SUPPORT
+-
+-# connv2
+-ccflags-y += -I$(KO_CODE_PATH)/test/connv2/include
+-$(MODULE_NAME)-objs += test/connv2/conninfra_core_test.o
+-$(MODULE_NAME)-objs += test/connv2/conf_test.o
+-$(MODULE_NAME)-objs += test/connv2/cal_test.o
+-$(MODULE_NAME)-objs += test/connv2/msg_evt_test.o
+-$(MODULE_NAME)-objs += test/connv2/chip_rst_test.o
+-$(MODULE_NAME)-objs += test/connv2/conninfra_test.o
+-$(MODULE_NAME)-objs += test/connv2/connsyslog_test.o
+-$(MODULE_NAME)-objs += test/connv2/dump_test.o
+-$(MODULE_NAME)-objs += test/connv2/connv2_pos_test.o
+-
+-# v3
+-ccflags-y += -I$(KO_CODE_PATH)/test/connv3/include
+-$(MODULE_NAME)-objs += test/connv3/connv3_test.o
+-$(MODULE_NAME)-objs += test/connv3/connv3_dump_test.o
+-endif
++# SPDX-License-Identifier: GPL-2.0
++# conninfra for the MT6858 + MT6631 CONNSYS only (connv2).
++
++ccflags-y += -include $(src)/conn_def.h
++ccflags-y += -I$(src)/../compat/include -include $(src)/../compat/include/mtk_conn_compat.h
++ccflags-y += -I$(src)/../connadp/common -I$(src)/../connadp/power_throttling
++ccflags-y += -DCONFIG_MTK_COMBO_CHIP_CONSYS_6858=1
++
++ccflags-y += -I$(src)/include -I$(src)/base/include -I$(src)/conf/include \
++	-I$(src)/adaptor/connsyslog -I$(src)/adaptor/coredump \
++	-I$(src)/adaptor/include \
++	-I$(src)/conn_drv/connv2/src \
++	-I$(src)/conn_drv/connv2/core/include \
++	-I$(src)/conn_drv/connv2/drv_init/include \
++	-I$(src)/conn_drv/connv2/platform/include \
++	-I$(src)/conn_drv/connv2/debug_utility \
++	-I$(src)/conn_drv/connv2/debug_utility/include \
++	-I$(src)/conn_drv/connv2/debug_utility/connsyslog \
++	-I$(src)/conn_drv/connv2/debug_utility/coredump \
++	-I$(src)/conn_drv/connv2/debug_utility/metlog \
++	-I$(src)/conn_drv/connv2/platform/mt6858/include \
++	-I$(src)/conn_drv/connv2/platform/mt6858/include/CODA
++
++obj-m += conninfra.o
++conninfra-y := \
++	base/ring.o base/osal.o base/osal_dbg.o base/msg_thread.o \
++	conf/conninfra_conf.o \
++	adaptor/conninfra_dev.o adaptor/conn_kern_adaptor.o \
++	adaptor/connsyslog/fw_log_mcu.o adaptor/connsyslog/connsyslog_to_user.o \
++	adaptor/coredump/conndump_netlink.o \
++	conn_drv/connv2/core/conninfra_core.o \
++	conn_drv/connv2/src/conninfra.o conn_drv/connv2/src/connv2_drv.o \
++	conn_drv/connv2/platform/consys_hw.o \
++	conn_drv/connv2/platform/consys_hw_plat_data.o \
++	conn_drv/connv2/platform/clock_mng.o \
++	conn_drv/connv2/platform/pmic_mng.o \
++	conn_drv/connv2/platform/emi_mng.o \
++	conn_drv/connv2/platform/consys_reg_mng.o \
++	conn_drv/connv2/debug_utility/conninfra_dbg.o \
++	conn_drv/connv2/debug_utility/connsyslog/ring_emi.o \
++	conn_drv/connv2/debug_utility/connsyslog/connsyslog.o \
++	conn_drv/connv2/debug_utility/coredump/connsys_coredump.o \
++	conn_drv/connv2/debug_utility/coredump/coredump_mng.o \
++	conn_drv/connv2/debug_utility/metlog/metlog.o \
++	conn_drv/connv2/drv_init/bluetooth_drv_init.o \
++	conn_drv/connv2/drv_init/conn_drv_init.o \
++	conn_drv/connv2/drv_init/fm_drv_init.o \
++	conn_drv/connv2/drv_init/gps_drv_init.o \
++	conn_drv/connv2/drv_init/wlan_drv_init.o \
++	conn_drv/connv2/platform/mt6858/mt6858.o \
++	conn_drv/connv2/platform/mt6858/mt6858_ops.o \
++	conn_drv/connv2/platform/mt6858/mt6858_soc.o \
++	conn_drv/connv2/platform/mt6858/mt6858_atf.o \
++	conn_drv/connv2/platform/mt6858/mt6858_pmic.o \
++	conn_drv/connv2/platform/mt6858/mt6858_emi.o \
++	conn_drv/connv2/platform/mt6858/mt6858_consys_reg.o \
++	conn_drv/connv2/platform/mt6858/mt6858_pos.o \
++	conn_drv/connv2/platform/mt6858/mt6858_pos_gen.o \
++	conn_drv/connv2/platform/mt6858/mt6858_coredump.o \
++	conn_drv/connv2/platform/mt6858/mt6858_debug_gen.o
+diff --git a/conninfra/adaptor/conninfra_dev.c b/conninfra/adaptor/conninfra_dev.c
+index 21236f8..0a894d9 100644
+--- a/conninfra/adaptor/conninfra_dev.c
++++ b/conninfra/adaptor/conninfra_dev.c
+@@ -25,7 +25,6 @@
+ #include "conninfra.h"
+ #include "conninfra_conf.h"
+ #include "connv2_drv.h"
+-#include "connv3_drv.h"
+ #include "conn_adaptor.h"
+ #include "conn_kern_adaptor.h"
+ 
+@@ -549,12 +548,6 @@ static int conn_adaptor_dev_do_drv_init(void)
+ 	if (iret)
+ 		pr_err("[%s] connv2 init fail %d", __func__, iret);
+ 
+-	pr_info("[%s] ========================== start connv3", __func__);
+-	/* connv3 */
+-	iret = connv3_drv_init();
+-	if (iret)
+-		pr_err("[%s] connv3 init fail %d", __func__, iret);
+-
+ 	/* init power on off handler */
+ 	INIT_WORK(&g_pwr_on_off_work, conn_adaptor_dev_pwr_on_off_handler);
+ 	conn_adaptor_fb_notifier.notifier_call
+@@ -674,9 +667,6 @@ static void conninfra_dev_deinit(void)
+ 	/* deinit connv2 */
+ 	connv2_drv_deinit();
+ 
+-	/* deinit connv3 */
+-	connv3_drv_deinit();
+-
+ 	conn_kern_adaptor_deinit();
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+diff --git a/conninfra/conf/conninfra_conf.c b/conninfra/conf/conninfra_conf.c
+index 63644a6..c51cd6c 100644
+--- a/conninfra/conf/conninfra_conf.c
++++ b/conninfra/conf/conninfra_conf.c
+@@ -741,7 +741,10 @@ int conninfra_conf_deinit(void)
+ 
+ 	for (i = 0; i < NUM_CFG_FIELDS; i++) {
+ 		const struct parse_data *field = &cfg_fields[i];
+-		field->relase_mem(field);
++
++		/* Only the array and string fields allocate */
++		if (field->relase_mem)
++			field->relase_mem(field);
+ 	}
+ 	g_conninfra_conf.cfg_exist = 0;
+ 	return 0;
+diff --git a/conninfra/conn_drv/connv2/platform/consys_hw.c b/conninfra/conn_drv/connv2/platform/consys_hw.c
+index 648992b..1139dcf 100644
+--- a/conninfra/conn_drv/connv2/platform/consys_hw.c
++++ b/conninfra/conn_drv/connv2/platform/consys_hw.c
+@@ -923,7 +923,7 @@ int consys_hw_init(struct platform_device *pdev, struct conninfra_dev_cb *dev_cb
+ 	ret = pmic_mng_init(pdev, dev_cb, g_conninfra_plat_data);
+ 	if (ret) {
+ 		pr_err("pmic_mng init fail, %d\n", ret);
+-		return -6;
++		return ret;
+ 	}
+ 
+ 	ret = clock_mng_init(pdev, g_conninfra_plat_data);
+diff --git a/conninfra/conn_drv/connv2/platform/mt6858/mt6858_emi.c b/conninfra/conn_drv/connv2/platform/mt6858/mt6858_emi.c
+index 9e412a5..001fdf0 100644
+--- a/conninfra/conn_drv/connv2/platform/mt6858/mt6858_emi.c
++++ b/conninfra/conn_drv/connv2/platform/mt6858/mt6858_emi.c
+@@ -10,12 +10,6 @@
+ #include "include/mt6858_emi.h"
+ #include "include/mt6858_pos.h"
+ 
+-/* For EMI MPU */
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
+-#include <soc/mediatek/emi.h>
+-#else
+-#include <memory/mediatek/emi.h>
+-#endif
+ /* For MCIF */
+ #include <mtk_ccci_common.h>
+ /*******************************************************************************
+diff --git a/conninfra/conn_drv/connv2/platform/mt6858/mt6858_pmic.c b/conninfra/conn_drv/connv2/platform/mt6858/mt6858_pmic.c
+index 3181740..fc979db 100644
+--- a/conninfra/conn_drv/connv2/platform/mt6858/mt6858_pmic.c
++++ b/conninfra/conn_drv/connv2/platform/mt6858/mt6858_pmic.c
+@@ -1,1066 +1,117 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright (c) 2025 MediaTek Inc.
++ *
++ * CONNSYS power for the MT6858 + MT6631 through the regulator API only.
++ * The vendor driver also hands VRFIO18 and VCN33_1/2 to the PMIC's
++ * resource-control hardware with raw OP_EN/OP_CFG/OP_MODE writes and moves
++ * the RT6160 buck-boost; neither is done here. The LDOs stay switched on by
++ * software while CONNSYS is up, at the voltages the board DT fixes.
+  */
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME "@(%s:%d) " fmt, __func__, __LINE__
+ 
+-#include <asm/atomic.h>
+-#include <linux/delay.h>
+-#include <linux/jiffies.h>
+ #include <linux/platform_device.h>
+-#include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+-#include <linux/timer.h>
+ 
+-#include <connectivity_build_in_adapter.h>
+-
+-#include "../../../../base/include/osal.h"
+ #include "../include/consys_hw.h"
+-#include "../include/consys_reg_util.h"
+ #include "../include/pmic_mng.h"
+ #include "include/mt6858.h"
+-#include "include/mt6858_consys_reg_offset.h"
+ #include "include/mt6858_pmic.h"
+-#include "include/mt6858_pos.h"
+-#include "include/mt6858_pos_gen.h"
+-#include "conninfra_conf.h"
+-
+-/*******************************************************************************
+-*                         C O M P I L E R   F L A G S
+-********************************************************************************
+-*/
+-
+-/*******************************************************************************
+-*                                 M A C R O S
+-********************************************************************************
+-*/
+-
+-/*******************************************************************************
+-*                    E X T E R N A L   R E F E R E N C E S
+-********************************************************************************
+-*/
+-
+-/*******************************************************************************
+-*                              C O N S T A N T S
+-********************************************************************************
+-*/
+-
+-/*******************************************************************************
+-*                             D A T A   T Y P E S
+-********************************************************************************
+-*/
+-static struct regulator *reg_VCN13;
+-static struct regulator *reg_VRFIO18; /* MT6363 workaround VCN15 -> VRFIO18 */
+-
+-static struct regulator *reg_VCN33_1;
+-static struct regulator *reg_VCN33_2;
+-static struct regulator *reg_VANT18;
+-
+-static struct regulator *reg_buckboost;
+-
+-static struct notifier_block vrfio18_nb;
+-static struct notifier_block vcn13_nb;
+-
+-static struct conninfra_dev_cb* g_dev_cb;
+-
+-/*******************************************************************************
+-*                  F U N C T I O N   D E C L A R A T I O N S
+-********************************************************************************
+-*/
+-static int consys_plt_pmic_get_from_dts_mt6858(struct platform_device*, struct conninfra_dev_cb*);
+-
+-static int consys_plt_pmic_common_power_ctrl_mt6858_6631(unsigned int, unsigned int curr_status, unsigned int next_status);
+-static int consys_plt_pmic_common_power_ctrl_mt6858_6631_6686(unsigned int, unsigned int curr_status, unsigned int next_status);
+-static int consys_plt_pmic_common_power_low_power_mode_mt6858_6631(unsigned int, unsigned int curr_status, unsigned int next_status);
+-static int consys_plt_pmic_common_power_low_power_mode_mt6858_6631_6686(unsigned int, unsigned int curr_status, unsigned int next_status);
+-static int consys_plt_pmic_gps_power_ctrl_mt6858_6631(unsigned int);
+-static int consys_plt_pmic_gps_power_ctrl_mt6858_6631_6686(unsigned int);
+-static int consys_plt_pmic_fm_power_ctrl_mt6858_6631(unsigned int);
+-static int consys_plt_pmic_fm_power_ctrl_mt6858_6631_6686(unsigned int);
+-static int consys_plt_pmic_no_need_ctrl_mt6858(unsigned int);
+-static int consys_pmic_vcn33_1_power_ctl_mt6858_6631_lg(bool);
+-static int consys_pmic_vcn33_1_power_ctl_mt6858_6631_rc(bool);
+-static int consys_pmic_vcn33_1_power_ctl_mt6858_6631_6686_rc(bool);
+-static int consys_pmic_vcn33_2_power_ctl_mt6858_6631_lg(bool);
+-static int consys_pmic_vcn33_2_power_ctl_mt6858_6631_rc(bool);
+-static int consys_pmic_vcn33_2_power_ctl_mt6858_6631_6686_rc(bool);
+-static int consys_pmic_vant18_power_ctl_mt6858_6631_6686_rc(bool);
+-static int consys_pmic_vant18_power_ctl_mt6858_6631_6686_lg(bool);
+-static int consys_vcn13_oc_notify(struct notifier_block*, unsigned long, void*);
+-static int consys_vrfio18_oc_notify(struct notifier_block*, unsigned long, void*);
+-static int consys_plt_pmic_event_notifier_mt6858_6631(unsigned int, unsigned int);
+-static int consys_pmic_leave_low_power_mode_mt6858(void);
+-
+-const struct consys_platform_pmic_ops g_consys_platform_pmic_ops_mt6858_6631 = {
+-	.consys_pmic_get_from_dts = consys_plt_pmic_get_from_dts_mt6858,
+-	.consys_pmic_common_power_ctrl = consys_plt_pmic_common_power_ctrl_mt6858_6631,
+-	.consys_pmic_common_power_low_power_mode = consys_plt_pmic_common_power_low_power_mode_mt6858_6631,
+-	.consys_pmic_wifi_power_ctrl = consys_plt_pmic_no_need_ctrl_mt6858,
+-	.consys_pmic_bt_power_ctrl = consys_plt_pmic_no_need_ctrl_mt6858,
+-	.consys_pmic_gps_power_ctrl = consys_plt_pmic_gps_power_ctrl_mt6858_6631,
+-	.consys_pmic_fm_power_ctrl = consys_plt_pmic_fm_power_ctrl_mt6858_6631,
+-	.consys_pmic_event_notifier = consys_plt_pmic_event_notifier_mt6858_6631,
+-	.consys_pmic_leave_low_power_mode = consys_pmic_leave_low_power_mode_mt6858,
+-};
+-
+-const struct consys_platform_pmic_ops g_consys_platform_pmic_ops_mt6858_6631_6686 = {
+-	.consys_pmic_get_from_dts = consys_plt_pmic_get_from_dts_mt6858,
+-	.consys_pmic_common_power_ctrl = consys_plt_pmic_common_power_ctrl_mt6858_6631_6686,
+-	.consys_pmic_common_power_low_power_mode = consys_plt_pmic_common_power_low_power_mode_mt6858_6631_6686,
+-	.consys_pmic_wifi_power_ctrl = consys_plt_pmic_no_need_ctrl_mt6858,
+-	.consys_pmic_bt_power_ctrl = consys_plt_pmic_no_need_ctrl_mt6858,
+-	.consys_pmic_gps_power_ctrl = consys_plt_pmic_gps_power_ctrl_mt6858_6631_6686,
+-	.consys_pmic_fm_power_ctrl = consys_plt_pmic_fm_power_ctrl_mt6858_6631_6686,
+-	.consys_pmic_event_notifier = consys_plt_pmic_event_notifier_mt6858_6631,
+-	.consys_pmic_leave_low_power_mode = consys_pmic_leave_low_power_mode_mt6858,
+-};
+-
+-int consys_plt_pmic_get_from_dts_mt6858(struct platform_device *pdev, struct conninfra_dev_cb* dev_cb)
+-{
+-	int ret;
+-	const struct conninfra_conf *conf = NULL;
+-	unsigned int vcn33_1_voltage = 0;
+-
+-	g_dev_cb = dev_cb;
+-	reg_VCN13 = devm_regulator_get_optional(&pdev->dev, "mt6363_vcn13");
+-	if (IS_ERR(reg_VCN13)) {
+-		pr_err("Regulator_get VCN_13 fail\n");
+-		reg_VCN13 = NULL;
+-	} else {
+-		vcn13_nb.notifier_call = consys_vcn13_oc_notify;
+-		ret = devm_regulator_register_notifier(reg_VCN13, &vcn13_nb);
+-		if (ret)
+-			pr_info("VCN13 regulator notifier request failed\n");
+-	}
+-
+-	reg_VRFIO18 = devm_regulator_get(&pdev->dev, "mt6363_vrfio18");
+-	if (IS_ERR(reg_VRFIO18)) {
+-		pr_err("Regulator_get VCN_18 fail\n");
+-		reg_VRFIO18 = NULL;
+-	} else {
+-		vrfio18_nb.notifier_call = consys_vrfio18_oc_notify;
+-		ret = devm_regulator_register_notifier(reg_VRFIO18, &vrfio18_nb);
+-		if (ret)
+-			pr_info("VRFIO18 regulator notifier request failed\n");
+-	}
+-
+-	reg_VCN33_1 = devm_regulator_get(&pdev->dev, "mt6369_vcn33_1");
+-	if (IS_ERR(reg_VCN33_1)) {
+-		pr_err("Regulator_get VCN33_1 fail\n");
+-		reg_VCN33_1 = NULL;
+-	}
+-	reg_VCN33_2 = devm_regulator_get(&pdev->dev, "mt6369_vcn33_2");
+-	if (IS_ERR(reg_VCN33_2)) {
+-		pr_err("Regulator_get VCN33_2 fail\n");
+-		reg_VCN33_2 = NULL;
+-	}
+-	reg_VANT18 = devm_regulator_get(&pdev->dev, "mt6369_vant18");
+-	if (IS_ERR(reg_VANT18)) {
+-		pr_err("Regulator_get VANT18 fail\n");
+-		reg_VANT18 = NULL;
+-	}
+-	reg_buckboost = devm_regulator_get_optional(&pdev->dev, "rt6160-buckboost");
+-	if (IS_ERR(reg_buckboost)) {
+-		pr_info("Regulator_get buckboost fail\n");
+-		reg_buckboost = NULL;
+-	}
+-
+-	/* raise VCN33_1 to 3.5V */
+-	conf = conninfra_conf_get_cfg();
+-	if (NULL == conf)
+-		pr_notice("[%s] Get conf fail", __func__);
+-	else
+-		vcn33_1_voltage = conf->vcn33_1_voltage;
+-
+-	if (reg_VCN33_1) {
+-		if (vcn33_1_voltage != 0) {
+-			regulator_set_voltage(reg_VCN33_1, vcn33_1_voltage, vcn33_1_voltage);
+-			pr_info("[%s] Raise VCN33_1 by customized options = %u", __func__, vcn33_1_voltage);
+-		} else {
+-			regulator_set_voltage(reg_VCN33_1, 3300000, 3300000);
+-			pr_info("[%s] Set VCN33_1 by default options = 3300000", __func__);
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+-int consys_plt_pmic_gps_power_ctrl_mt6858_6631(unsigned int enable)
+-{
+-	if (consys_is_rc_mode_enable_mt6858()) {
+-		consys_pmic_vcn33_2_power_ctl_mt6858_6631_rc(enable);
+-	} else {
+-		consys_pmic_vcn33_2_power_ctl_mt6858_6631_lg(enable);
+-	}
+-
+-	return 0;
+-}
+-
+-int consys_plt_pmic_fm_power_ctrl_mt6858_6631(unsigned int enable)
+-{
+-	if (consys_is_rc_mode_enable_mt6858()) {
+-		consys_pmic_vcn33_2_power_ctl_mt6858_6631_rc(enable);
+-	} else {
+-		consys_pmic_vcn33_2_power_ctl_mt6858_6631_lg(enable);
+-	}
+-
+-	return 0;
+-}
+-
+-int consys_plt_pmic_gps_power_ctrl_mt6858_6631_6686(unsigned int enable)
+-{
+-	if (consys_is_rc_mode_enable_mt6858()) {
+-		consys_pmic_vant18_power_ctl_mt6858_6631_6686_rc(enable);
+-	} else {
+-		consys_pmic_vant18_power_ctl_mt6858_6631_6686_lg(enable);
+-	}
+-
+-	return 0;
+-}
+-
+-int consys_plt_pmic_fm_power_ctrl_mt6858_6631_6686(unsigned int enable)
+-{
+-	if (consys_is_rc_mode_enable_mt6858()) {
+-		consys_pmic_vcn33_2_power_ctl_mt6858_6631_6686_rc(enable);
+-		consys_m10_srclken_cfg_mt6858_gen(enable);
+-	} else {
+-		consys_pmic_vcn33_2_power_ctl_mt6858_6631_lg(enable);
+-	}
+-
+-	return 0;
+-}
+-
+-static int consys_pmic_vcn33_1_power_ctl_mt6858_6631_lg(bool enable)
+-{
+-	struct regmap *r = g_regmap_mt6369;
+-	int ret = 0;
+-
+-	if (!r) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (enable) {
+-		/* 1. set PMIC VCN33_1 LDO PMIC HW mode control by SRCCLKENA0
+-		 * 1.1. set PMIC VCN33_1 LDO op_mode = 1
+-		 * 1.2. set PMIC VCN33_1 LDO HW_OP_EN = 1, HW_OP_CFG = 1
+-		 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_HW0_OP_MODE_ADDR, 1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_HW0_OP_EN_ADDR, 1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_HW0_OP_CFG_ADDR, 1 << 0, 1 << 0);
+-
+-		/* 2. set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 */
+-		/* Skip set PMIC SW_EN = 1, it is set on .consys_pmic_common_power_ctrl */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_NORMAL);
+-	} else{
+-		/*
+-		 * set PMIC VCN33_1 LDO SW_OP_EN =0, SW_EN = 0, SW_LP =0 (sw disable)
+-		 * (by "standard kernal PMIC API" and "PMIC table")
+-		 * No need to turn off MT6369_RG_LDO_VCN33_1_SW_OP_EN_ADDR
+-		 */
+-		ret = regulator_disable(reg_VCN33_1);
+-		if (ret)
+-			pr_notice("%s regulator_disable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_NORMAL);
+-	}
+-
+-	return ret;
+-}
+-
+-static int consys_pmic_vcn33_2_power_ctl_mt6858_6631_lg(bool enable)
+-{
+-	struct regmap *r = g_regmap_mt6369;
+-	int ret = 0;
+-
+-	if (!r) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (enable) {
+-		/* 1. set PMIC VCN33_2 LDO PMIC HW mode control by SRCCLKENA0 */
+-		/* 1.1. set PMIC VCN33_2 LDO HW_OP_EN = 1, HW_OP_CFG = 1 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_HW0_OP_EN_ADDR, 1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_HW0_OP_CFG_ADDR, 1 << 0, 1 << 0);
+-
+-		/* 2. set PMIC VCN33_2 LDO SW_EN = 1, SW_LP =0 */
+-		ret = regulator_enable(reg_VCN33_2);
+-		if (ret)
+-			pr_notice("%s regulator_enable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VCN33_2, REGULATOR_MODE_NORMAL);
+-    } else {
+-		/*
+-		 * set PMIC VCN33_2 LDO SW_OP_EN =0, SW_EN = 0, SW_LP =0 (sw disable)
+-		 * (by "standard kernal PMIC API" and "PMIC table")
+-		 * No need to turn off MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR
+-		 */
+-		ret = regulator_disable(reg_VCN33_2);
+-		if (ret)
+-			pr_notice("%s regulator_disable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VCN33_2, REGULATOR_MODE_NORMAL);
+-	}
+-	return ret;
+-}
+-
+-#define LOG_ADIE_REG_ARRAY_SZ 512
+-static char adie_reg_array_buf[LOG_ADIE_REG_ARRAY_SZ] = {'\0'};
+-static void dump_adie_cr(enum sys_spi_subsystem subsystem, const unsigned int *adie_cr, int num, char *title)
+-{
+-#define LOG_TMP_REG_SZ 32
+-	char tmp[LOG_TMP_REG_SZ] = {'\0'};
+-	unsigned int adie_value;
+-	int i;
+-
+-	memset(adie_reg_array_buf, '\0', LOG_ADIE_REG_ARRAY_SZ);
+-	for (i = 0; i < num; i++) {
+-		if (consys_hw_spi_read(subsystem, adie_cr[i], &adie_value) < 0) {
+-			pr_notice("[%s] consys_hw_spi_read failed\n", __func__);
+-			continue;
+-		}
+-		if (snprintf(tmp, LOG_TMP_REG_SZ, "[0x%04x: 0x%08x]", adie_cr[i], adie_value) >= 0)
+-			strncat(adie_reg_array_buf, tmp,
+-				LOG_ADIE_REG_ARRAY_SZ - strlen(adie_reg_array_buf) - 1);
+-	}
+-	pr_info("%s:%s\n", title, adie_reg_array_buf);
+-}
+-
+-static int consys_plt_pmic_event_notifier_mt6858_6631(unsigned int id, unsigned int event)
+-{
+-#define ATOP_DUMP_NUM_6631 8
+-#define ABT_DUMP_NUM_6631 1
+-#define AGPS_DUMP_NUM_6631 2
+-	int ret = 0;
+-	const unsigned int adie_top_cr_list[ATOP_DUMP_NUM_6631] = {
+-		0x080, 0x084, 0x0C0, 0xA00,
+-		0xA04, 0xA08, 0xA0C, 0xA10,
+-	};
+-	const unsigned int adie_bt_cr_list[ABT_DUMP_NUM_6631] = {
+-		0xA4,
+-	};
+-	const unsigned int adie_gps_cr_list[AGPS_DUMP_NUM_6631] = {
+-		0x500, 0x501,
+-	};
+-
+-	consys_pmic_debug_log_mt6858();
+-
+-	ret = consys_hw_force_conninfra_wakeup();
+-	if (ret) {
+-		pr_info("[%s] force conninfra wakeup fail\n", __func__);
+-		return -1;
+-	}
+-
+-	/* dump d-die cr */
+-	consys_hw_is_bus_hang();
+-
+-	/* dump a-die cr */
+-	dump_adie_cr(SYS_SPI_TOP, adie_top_cr_list, ATOP_DUMP_NUM_6631, "A-die TOP");
+-	dump_adie_cr(SYS_SPI_BT, adie_bt_cr_list, ABT_DUMP_NUM_6631, "A-die BT");
+-	dump_adie_cr(SYS_SPI_GPS, adie_gps_cr_list, AGPS_DUMP_NUM_6631, "A-die GPS");
+-
+-	consys_hw_force_conninfra_sleep();
+ 
++static struct regulator *reg_vrfio18;
++static struct regulator *reg_vcn33_1;
++static struct regulator *reg_vcn33_2;
++
++static int consys_plt_pmic_get_from_dts_mt6858(struct platform_device *pdev,
++					       struct conninfra_dev_cb *dev_cb)
++{
++	reg_vrfio18 = devm_regulator_get(&pdev->dev, "vrfio18");
++	if (IS_ERR(reg_vrfio18))
++		return PTR_ERR(reg_vrfio18);
++	reg_vcn33_1 = devm_regulator_get(&pdev->dev, "vcn33-1");
++	if (IS_ERR(reg_vcn33_1))
++		return PTR_ERR(reg_vcn33_1);
++	reg_vcn33_2 = devm_regulator_get(&pdev->dev, "vcn33-2");
++	if (IS_ERR(reg_vcn33_2))
++		return PTR_ERR(reg_vcn33_2);
+ 	return 0;
+ }
+ 
+-static int consys_vcn13_oc_notify(struct notifier_block *nb, unsigned long event,
+-				  void *unused)
+-{
+-	static int oc_counter = 0;
+-	static int oc_dump = 0;
+-
+-	if (event != REGULATOR_EVENT_OVER_CURRENT)
+-		return NOTIFY_OK;
+-
+-	oc_counter++;
+-	pr_info("[%s] VCN13 OC times: %d\n", __func__, oc_counter);
+-
+-	if (oc_counter <= 30)
+-		oc_dump = 1;
+-	else if (oc_counter == (oc_dump * 100))
+-		oc_dump++;
+-	else
+-		return NOTIFY_OK;
+-
+-	if (g_dev_cb != NULL && g_dev_cb->conninfra_pmic_event_notifier != NULL)
+-		g_dev_cb->conninfra_pmic_event_notifier(0, 0);
+-
+-	return NOTIFY_OK;
+-}
+-
+-static int consys_vrfio18_oc_notify(struct notifier_block *nb, unsigned long event,
+-				  void *unused)
+-{
+-	static int oc_counter = 0;
+-	static int oc_dump = 0;
+-
+-	if (event != REGULATOR_EVENT_OVER_CURRENT)
+-		return NOTIFY_OK;
+-
+-	oc_counter++;
+-	pr_info("[%s] VRFIO18 OC times: %d\n", __func__, oc_counter);
+-
+-	if (oc_counter <= 30)
+-		oc_dump = 1;
+-	else if (oc_counter == (oc_dump * 100))
+-		oc_dump++;
+-	else
+-		return NOTIFY_OK;
+-
+-	if (g_dev_cb != NULL && g_dev_cb->conninfra_pmic_event_notifier != NULL)
+-		g_dev_cb->conninfra_pmic_event_notifier(0, 0);
+-
+-	return NOTIFY_OK;
+-}
+-
+-void consys_pmic_debug_log_mt6858(void)
+-{
+-	struct regmap *r = g_regmap_mt6363;
+-	struct regmap *r2 = g_regmap_mt6369;
+-	int vcn13 = 0, vrfio18 = 0, vcn33_1 = 0, vcn33_2 = 0, vant18 = 0;
+-
+-	if (!r || !r2) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return;
+-	}
+-
+-	regmap_read(r, MT6363_RG_LDO_VCN13_MON_ADDR, &vcn13);
+-	regmap_read(r, MT6363_RG_LDO_VRFIO18_MON_ADDR, &vrfio18);
+-	regmap_read(r2, MT6369_RG_LDO_VCN33_1_MON_ADDR, &vcn33_1);
+-	regmap_read(r2, MT6369_RG_LDO_VCN33_2_MON_ADDR, &vcn33_2);
+-	regmap_read(r2, MT6369_RG_LDO_VANT18_MON_ADDR, &vant18);
+-
+-	pr_info("%s vcn13:0x%x,vrfio18:0x%x,vcn33_1:0x%x,vcn33_2:0x%x,vant18:0x%x\n",
+-		__func__, vcn13, vrfio18, vcn33_1, vcn33_2, vant18);
+-}
+-
+-int consys_plt_pmic_common_power_ctrl_mt6858_6631(unsigned int enable, unsigned int curr_status, unsigned int next_status)
++/* The vendor order: VRFIO18, then VCN33_1, then VCN33_2 */
++static int consys_plt_pmic_common_power_ctrl_mt6858(unsigned int enable,
++						    unsigned int curr_status,
++						    unsigned int next_status)
+ {
+-	int ret = 0;
+-	struct regmap *r = g_regmap_mt6363;
+-	struct regmap *r2 = g_regmap_mt6369;
+-
+-	if (!r || !r2) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if ((curr_status != 0) && (next_status != 0))
+-		return 0;
+-
+-	if (enable) {
+-		/* set PMIC VCN33_2 LDO 2.8V */
+-		regulator_set_voltage(reg_VCN33_2, 2800000, 2800000);
+-
+-		/* Set buckboost to 3.65V (for VCN33_1 & VCN33_2) */
+-		/* Notice that buckboost might not be enabled. */
+-		if (reg_buckboost) {
+-			regulator_set_voltage(reg_buckboost, 3650000, 3650000);
+-			pr_info("Set buckboost to 3.65V\n");
+-		}
+-
+-		/* set PMIC VRFIO18 LDO SW_OP_EN = 1, SW_EN = 1, SW_LP = 0 (SW ON) */
+-		/*
+-		 * 1. set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 (SW ON)
+-		 * (by "standard kernal PMIC API" and "PMIC table")
+-		 * (For bring-up, we use external LDO instead)
+-		 * (For normal case, we should use PMIC)
+-		 * (MT6363 workaround VCN15/18 -> VRFIO18 )
+-		 */
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_enable(reg_VRFIO18);
+-		if (ret)
+-			pr_err("Enable VRFIO18 fail. ret=%d\n", ret);
+-		regulator_set_mode(reg_VRFIO18, REGULATOR_MODE_NORMAL);
+-
+-		/*
+-		 * 2. set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 (sw on)
+-		 * (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		 * (For bring-up, we use external LDO instead)
+-		 * (For normal case, we should use PMIC)
+-		 * (MT6363 workaround VCN15/18 -> VRFIO18 )
+-		 */
+-		regmap_update_bits(r2, MT6369_RG_LDO_VCN33_1_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_enable(reg_VCN33_1);
+-		if (ret)
+-			pr_notice("%s regulator_enable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_NORMAL);
+-
+-		/* 2.1 set PMIC VCN33_2 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 */
+-		regmap_update_bits(r2, MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_enable(reg_VCN33_2);
+-		if (ret)
+-			pr_notice("%s regulator_enable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VCN33_2, REGULATOR_MODE_NORMAL);
+-	} else {
+-		/* vcn33_1/2 is enabled in consys_plt_pmic_common_power_low_power_mode_mt6858_6631 */
+-		consys_pmic_vcn33_1_power_ctl_mt6858_6631_rc(0);
+-
+-		/*
+-		 * set PMIC VRFIO18 LDO SW_OP_EN =0, SW_EN = 0, SW_LP =0 (sw disable)
+-		 * (by "standard kernal PMIC API" and "PMIC table")
+-		 */
+-		/* set PMIC VRFIO18 LDO SW_EN = 0, SW_LP =0 (sw disable)
+-		 * No need to turn off  MT6363_RG_LDO_VRFIO18_SW_OP_EN_ADDR
+-		 */
+-		ret = regulator_disable(reg_VRFIO18);
+-		if (ret)
+-			pr_notice("%s regulator_disable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VRFIO18, REGULATOR_MODE_NORMAL);
+-
+-		/* Set buckboost to 3.45V (for VCN33_1 & VCN33_2) */
+-		if (reg_buckboost) {
+-			regulator_set_voltage(reg_buckboost, 3450000, 3450000);
+-			pr_info("Set buckboost to 3.45V\n");
+-		}
+-	}
+-	return ret;
+-}
+-
+-int consys_plt_pmic_common_power_low_power_mode_mt6858_6631(unsigned int enable, unsigned int curr_status, unsigned int next_status)
+-{
+-	int ret = 0;
+-	struct regmap *r = g_regmap_mt6363;
+-	struct regmap *r2 = g_regmap_mt6369;
+-
+-	if (!r || !r2) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
++	int ret;
+ 
+-	if ((curr_status != 0) && (next_status != 0))
++	if (curr_status != 0 && next_status != 0)
+ 		return 0;
+ 
+-	if (consys_is_rc_mode_enable_mt6858()) {
+-		/* 1. set PMIC VRFIO18 LDO PMIC HW mode control by PMRC_EN[9][8][7][6] */
+-		/* 1.1. set PMIC VRFIO18 LDO op_mode = 0 */
+-		/* 1.2. set PMIC VRFIO18 LDO HW_OP_EN = 1, HW_OP_CFG = 0 */
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC9_OP_MODE_ADDR, 1 << 1, 0 << 1);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC9_OP_EN_ADDR,   1 << 1, 1 << 1);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC9_OP_CFG_ADDR,  1 << 1, 0 << 1);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC8_OP_MODE_ADDR, 1 << 0, 0 << 0);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC8_OP_EN_ADDR,   1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC8_OP_CFG_ADDR,  1 << 0, 0 << 0);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC7_OP_MODE_ADDR, 1 << 7, 0 << 7);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC7_OP_EN_ADDR,   1 << 7, 1 << 7);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC7_OP_CFG_ADDR,  1 << 7, 0 << 7);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC6_OP_MODE_ADDR, 1 << 6, 0 << 6);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC6_OP_EN_ADDR,   1 << 6, 1 << 6);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC6_OP_CFG_ADDR,  1 << 6, 0 << 6);
+-
+-		/* 2. set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =1 */
+-		/*
+-		 * skip set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1
+-		 * it is set on .consys_pmic_common_power_ctrl
+-		 */
+-		regulator_set_mode(reg_VRFIO18, REGULATOR_MODE_IDLE);
+-
+-		/* 3. vcn33_1 enabled */
+-		consys_pmic_vcn33_1_power_ctl_mt6858_6631_rc(enable);
+-
+-		/* 4. set PMIC VCN33_2 LDO SW_OP_EN =1, SW_EN = 0, SW_LP =0 */
+-		regmap_update_bits(r2, MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_disable(reg_VCN33_2);
+-		if (ret)
+-			pr_notice("%s regulator_disable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VCN33_2, REGULATOR_MODE_NORMAL);
+-
+-		/* 4.1. set PMIC VCN33_2 LDO HW_OP_EN = 0, HW_OP_CFG = 0 */
+-		regmap_update_bits(r2, MT6369_RG_LDO_VCN33_2_HW0_OP_EN_ADDR, 1 << 0, 0 << 0);
+-		regmap_update_bits(r2, MT6369_RG_LDO_VCN33_2_HW0_OP_CFG_ADDR, 1 << 0, 0 << 0);
+-	} else {
+-		/* 1. set PMIC VRFIO18 LDO PMIC HW mode control by SRCCLKENA0 */
+-		/* 1.1. set PMIC VRFIO18 LDO op_mode = 1 */
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_HW0_OP_MODE_ADDR, 1 << 0, 1 << 0);
+-
+-		/*    1.2. set PMIC VRFIO18 LDO HW_OP_EN = 1, HW_OP_CFG = 1 */
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_HW0_OP_EN_ADDR,   1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_HW0_OP_CFG_ADDR,  1 << 0, 1 << 0);
+-
+-		/* 2. set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 */
+-		/*
+-		 * skip set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1
+-		 * it is set on .consys_pmic_common_power_ctrl
+-		 */
+-		regulator_set_mode(reg_VRFIO18, REGULATOR_MODE_NORMAL);
+-
+-		/* 3. set PMIC VCN33_1 LDO PMIC HW mode control by SRCCLKENA0 */
+-		consys_pmic_vcn33_1_power_ctl_mt6858_6631_lg(enable);
+-	}
+-
+-	return ret;
+-}
+-
+-static int consys_pmic_vcn33_1_power_ctl_mt6858_6631_rc(bool enable)
+-{
+-	struct regmap *r = g_regmap_mt6369;
+-
+-	if (!r) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (enable) {
+-		/* 1. set PMIC VCN33_1 LDO PMIC HW mode control by PMRC_EN[8][7] */
+-		/* 1.1. set PMIC VCN33_1 LDO op_mode = 0 */
+-		/* 1.2. set PMIC VCN33_1 LDO  HW_OP_EN = 1, HW_OP_CFG = 0 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC8_OP_MODE_ADDR, 1 << 0, 0 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC8_OP_EN_ADDR,   1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC8_OP_CFG_ADDR,  1 << 0, 0 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC7_OP_MODE_ADDR, 1 << 7, 0 << 7);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC7_OP_EN_ADDR,   1 << 7, 1 << 7);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC7_OP_CFG_ADDR,  1 << 7, 0 << 7);
+-
+-		/*
+-		 * 2. set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 (sw on)
+-		 * (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		 * skip set PMIC SW_EN = 1, it is set on .consys_pmic_common_power_ctrl
+-		 */
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_NORMAL);
+-
+-		/* 3. wait 210us */
+-		usleep_range(210, 1000);
+-
+-		/*
+-		 * 4. set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =1 (sw lp)
+-		 * (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		 */
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_IDLE);
+-	} else {
+-		/*
+-		 * set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 0, SW_LP =0 (sw disable)
+-		 * (by "standard kernal PMIC API" and "PMIC table")
+-		 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		regulator_disable(reg_VCN33_1);
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_NORMAL);
+-	}
++	if (!enable) {
++		regulator_disable(reg_vcn33_2);
++		regulator_disable(reg_vcn33_1);
++		return regulator_disable(reg_vrfio18);
++	}
++
++	ret = regulator_enable(reg_vrfio18);
++	if (ret)
++		return ret;
++	ret = regulator_enable(reg_vcn33_1);
++	if (ret)
++		goto err_vrfio18;
++	ret = regulator_enable(reg_vcn33_2);
++	if (ret)
++		goto err_vcn33_1;
+ 	return 0;
+-}
+-
+-static int consys_pmic_vcn33_2_power_ctl_mt6858_6631_rc(bool enable)
+-{
+-	struct regmap *r = g_regmap_mt6369;
+-	static int VCN28_enable_flag = 0;
+-
+-	if (!r) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (enable) {
+-		VCN28_enable_flag++;
+-		if (VCN28_enable_flag > 1)
+-			return 0;
+-
+-		/* 1. set PMIC VCN33_2 LDO PMIC HW mode control by PMRC_EN[9][6] */
+-		/* 1.1. set PMIC VCN33_2 LDO op_mode = 0 */
+-		/* 1.2. set PMIC VCN33_2 LDO  HW_OP_EN = 1, HW_OP_CFG = 0 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC9_OP_MODE_ADDR, 1 << 1, 0 << 1);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC9_OP_EN_ADDR,   1 << 1, 1 << 1);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC9_OP_CFG_ADDR,  1 << 1, 0 << 1);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC6_OP_MODE_ADDR, 1 << 6, 0 << 6);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC6_OP_EN_ADDR,   1 << 6, 1 << 6);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC6_OP_CFG_ADDR,  1 << 6, 0 << 6);
+-
+-		/*
+-		 * 2. set PMIC VCN33_2 LDO SW_OP_EN =0, SW_EN = 0, SW_LP =0 (sw disable)
+-		 * (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		 * No need to turn off MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR
+-		 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR, 1 << 7, 0 << 7);
+-		regulator_set_mode(reg_VCN33_2, REGULATOR_MODE_NORMAL);
+-	} else {
+-		VCN28_enable_flag--;
+-	}
+-
+-	return 0;
+-}
+-
+-int consys_plt_pmic_no_need_ctrl_mt6858(unsigned int enable)
+-{
+-	return 0;
+-}
+-
+-int consys_plt_pmic_common_power_ctrl_mt6858_6631_6686(unsigned int enable, unsigned int curr_status, unsigned int next_status)
+-{
+-	int ret = 0;
+-	unsigned int curr_bt = 0;
+-	unsigned int curr_wifi = 0;
+-	unsigned int curr_fm = 0;
+-	unsigned int next_bt = 0;
+-	unsigned int next_wifi = 0;
+-	unsigned int next_fm = 0;
+-	bool bt_wifi_fm_on = false;
+-	bool bt_wifi_fm_off = false;
+-	struct regmap *r = g_regmap_mt6363;
+-	struct regmap *r2 = g_regmap_mt6369;
+-
+-	curr_bt = (curr_status & (0x1U << CONNDRV_TYPE_BT)) >> CONNDRV_TYPE_BT;
+-	curr_wifi = (curr_status & (0x1U << CONNDRV_TYPE_WIFI)) >> CONNDRV_TYPE_WIFI;
+-	curr_fm = (curr_status & (0x1U << CONNDRV_TYPE_FM)) >> CONNDRV_TYPE_FM;
+-
+-	next_bt = (next_status & (0x1U << CONNDRV_TYPE_BT)) >> CONNDRV_TYPE_BT;
+-	next_wifi = (next_status & (0x1U << CONNDRV_TYPE_WIFI)) >> CONNDRV_TYPE_WIFI;
+-	next_fm = (next_status & (0x1U << CONNDRV_TYPE_FM)) >> CONNDRV_TYPE_FM;
+-
+-	if (((curr_bt + curr_wifi + curr_fm) == 0) && ((next_bt + next_wifi + next_fm) != 0))
+-		bt_wifi_fm_on = true;
+-
+-	if (((curr_bt + curr_wifi + curr_fm) != 0) && ((next_bt + next_wifi + next_fm) == 0))
+-		bt_wifi_fm_off = true;
+-
+-	if (!r || !r2) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (bt_wifi_fm_on) {
+-		/* set PMIC VCN33_2 LDO 2.8V */
+-		regulator_set_voltage(reg_VCN33_2, 2800000, 2800000);
+-
+-		/* Set buckboost to 3.65V (for VCN33_1 & VCN33_2) */
+-		/* Notice that buckboost might not be enabled. */
+-		if (reg_buckboost) {
+-			regulator_set_voltage(reg_buckboost, 3650000, 3650000);
+-			pr_info("Set buckboost to 3.65V\n");
+-		}
+-
+-		/* set PMIC VRFIO18 LDO SW_OP_EN = 1, SW_EN = 1, SW_LP = 0 (SW ON) */
+-		/*
+-		* 1. set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 (SW ON)
+-		* (by "standard kernal PMIC API" and "PMIC table")
+-		* (For bring-up, we use external LDO instead)
+-		* (For normal case, we should use PMIC)
+-		* (MT6363 workaround VCN15/18 -> VRFIO18 )
+-		*/
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_enable(reg_VRFIO18);
+-		if (ret != 0)
+-			pr_err("Enable VRFIO18 fail. ret=%d\n", ret);
+-		regulator_set_mode(reg_VRFIO18, REGULATOR_MODE_NORMAL);
+-
+-		/*
+-		* 2. set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 (sw on)
+-		* (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		* (For bring-up, we use external LDO instead)
+-		* (For normal case, we should use PMIC)
+-		* (MT6363 workaround VCN15/18 -> VRFIO18 )
+-		*/
+-		regmap_update_bits(r2, MT6369_RG_LDO_VCN33_1_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_enable(reg_VCN33_1);
+-		if (ret != 0)
+-			pr_notice("%s regulator_enable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_NORMAL);
+-
+-		/* 2. set PMIC VCN33_2 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 */
+-		regmap_update_bits(r2, MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_enable(reg_VCN33_2);
+-		if (ret)
+-			pr_notice("%s regulator_enable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VCN33_2, REGULATOR_MODE_NORMAL);
+-	}
+-
+-	if (bt_wifi_fm_off == true){
+-		consys_m10_srclken_cfg_mt6858_gen(0);
+-		consys_pmic_vcn33_1_power_ctl_mt6858_6631_6686_rc(0);
+-
+-
+-		/* 2. set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 0, SW_LP =0 */
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_disable(reg_VRFIO18);
+-		if (ret)
+-			pr_notice("%s regulator_disable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VRFIO18, REGULATOR_MODE_NORMAL);
+-
+-		/* Set buckboost to 3.45V (for VCN33_1 & VCN33_2) */
+-		if (reg_buckboost) {
+-			regulator_set_voltage(reg_buckboost, 3450000, 3450000);
+-			pr_info("Set buckboost to 3.45V\n");
+-		}
+-	}
+ 
++err_vcn33_1:
++	regulator_disable(reg_vcn33_1);
++err_vrfio18:
++	regulator_disable(reg_vrfio18);
+ 	return ret;
+ }
+ 
+-int consys_plt_pmic_common_power_low_power_mode_mt6858_6631_6686(unsigned int enable, unsigned int curr_status, unsigned int next_status)
++static int consys_plt_pmic_low_power_mode_mt6858(unsigned int enable,
++						 unsigned int curr_status,
++						 unsigned int next_status)
+ {
+-	int ret = 0;
+-	struct regmap *r = g_regmap_mt6363;
+-	struct regmap *r2 = g_regmap_mt6369;
+-	unsigned int curr_bt = 0;
+-	unsigned int curr_wifi = 0;
+-	unsigned int curr_fm = 0;
+-	unsigned int next_bt = 0;
+-	unsigned int next_wifi = 0;
+-	unsigned int next_fm = 0;
+-	bool bt_wifi_fm_on = false;
+-
+-	curr_bt = (curr_status & (0x1U << CONNDRV_TYPE_BT)) >> CONNDRV_TYPE_BT;
+-	curr_wifi = (curr_status & (0x1U << CONNDRV_TYPE_WIFI)) >> CONNDRV_TYPE_WIFI;
+-	curr_fm = (curr_status & (0x1U << CONNDRV_TYPE_FM)) >> CONNDRV_TYPE_FM;
+-
+-	next_bt = (next_status & (0x1U << CONNDRV_TYPE_BT)) >> CONNDRV_TYPE_BT;
+-	next_wifi = (next_status & (0x1U << CONNDRV_TYPE_WIFI)) >> CONNDRV_TYPE_WIFI;
+-	next_fm = (next_status & (0x1U << CONNDRV_TYPE_FM)) >> CONNDRV_TYPE_FM;
+-
+-	if (((curr_bt + curr_wifi + curr_fm) == 0) && ((next_bt + next_wifi + next_fm) != 0))
+-		bt_wifi_fm_on = true;
+-
+-	if (!r || !r2) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (consys_is_rc_mode_enable_mt6858()) {
+-		if (bt_wifi_fm_on) {
+-			/* 1. set PMIC VRFIO18 LDO PMIC HW mode control by PMRC_EN[10][8][7] */
+-			/* 1.1. set PMIC VRFIO18 LDO op_mode = 0 */
+-			/* 1.2. set PMIC VRFIO18 LDO HW_OP_EN = 1, HW_OP_CFG = 0 */
+-
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC10_OP_MODE_ADDR, 1 << 1, 0 << 1);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC10_OP_EN_ADDR,   1 << 1, 1 << 1);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC10_OP_CFG_ADDR,  1 << 1, 0 << 1);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC8_OP_MODE_ADDR, 1 << 0, 0 << 0);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC8_OP_EN_ADDR,   1 << 0, 1 << 0);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC8_OP_CFG_ADDR,  1 << 0, 0 << 0);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC7_OP_MODE_ADDR, 1 << 7, 0 << 7);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC7_OP_EN_ADDR,   1 << 7, 1 << 7);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC7_OP_CFG_ADDR,  1 << 7, 0 << 7);
+-
+-
+-			/* 2. set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =1 */
+-			regulator_set_mode(reg_VRFIO18, REGULATOR_MODE_IDLE);
+-
+-			/* 3. vcn33_1 enabled, disable vcn33_2 */
+-			consys_pmic_vcn33_1_power_ctl_mt6858_6631_6686_rc(enable);
+-
+-			/* 4. set PMIC VCN33_2 LDO SW_OP_EN =1, SW_EN = 0, SW_LP =0 */
+-			regmap_update_bits(r2, MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-			ret = regulator_disable(reg_VCN33_2);
+-			if (ret)
+-				pr_notice("%s regulator_disable err: %d", __func__, ret);
+-			regulator_set_mode(reg_VCN33_2, REGULATOR_MODE_NORMAL);
+-
+-			/* 4.1. set PMIC VCN33_2 LDO HW_OP_EN = 0, HW_OP_CFG = 0 */
+-			regmap_update_bits(r2, MT6369_RG_LDO_VCN33_2_HW0_OP_EN_ADDR, 1 << 0, 0 << 0);
+-			regmap_update_bits(r2, MT6369_RG_LDO_VCN33_2_HW0_OP_CFG_ADDR, 1 << 0, 0 << 0);
+-		}
+-	} else {
+-		if (bt_wifi_fm_on) {
+-			/* 1. set PMIC VRFIO18 LDO PMIC HW mode control by SRCCLKENA0 */
+-			/* 1.1. set PMIC VRFIO18 LDO op_mode = 1 */
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_HW0_OP_MODE_ADDR, 1 << 0, 1 << 0);
+-
+-			/*    1.2. set PMIC VRFIO18 LDO HW_OP_EN = 1, HW_OP_CFG = 1 */
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_HW0_OP_EN_ADDR,   1 << 0, 1 << 0);
+-			regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_HW0_OP_CFG_ADDR,  1 << 0, 1 << 0);
+-
+-			/* 2. set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 */
+-			/*
+-			* skip set PMIC VRFIO18 LDO SW_OP_EN =1, SW_EN = 1
+-			* it is set on .consys_pmic_common_power_ctrl
+-			*/
+-			regulator_set_mode(reg_VRFIO18, REGULATOR_MODE_NORMAL);
+-
+-			/* 3. set PMIC VCN33_1 LDO PMIC HW mode control by SRCCLKENA0 */
+-			consys_pmic_vcn33_1_power_ctl_mt6858_6631_lg(enable);
+-		}
+-	}
+-
+-	return ret;
++	return 0;
+ }
+ 
+-static int consys_pmic_vcn33_1_power_ctl_mt6858_6631_6686_rc(bool enable)
++static int consys_plt_pmic_no_need_ctrl_mt6858(unsigned int enable)
+ {
+-	struct regmap *r = g_regmap_mt6369;
+-
+-	if (!r) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (enable) {
+-		/* 1. set PMIC VCN33_1 LDO PMIC HW mode control by PMRC_EN[10][8][7] */
+-		/* 1.1. set PMIC VCN33_1 LDO op_mode = 0 */
+-		/* 1.2. set PMIC VCN33_1 LDO  HW_OP_EN = 1, HW_OP_CFG = 0 */
+-
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC10_OP_MODE_ADDR, 1 << 2, 0 << 2);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC10_OP_EN_ADDR,   1 << 2, 1 << 2);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC10_OP_CFG_ADDR,  1 << 2, 0 << 2);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC8_OP_MODE_ADDR, 1 << 0, 0 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC8_OP_EN_ADDR,   1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC8_OP_CFG_ADDR,  1 << 0, 0 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC7_OP_MODE_ADDR, 1 << 7, 0 << 7);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC7_OP_EN_ADDR,   1 << 7, 1 << 7);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_RC7_OP_CFG_ADDR,  1 << 7, 0 << 7);
+-
+-		/*
+-		 * 2. set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 (sw on)
+-		 * (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		 * skip set PMIC SW_EN = 1, it is set on .consys_pmic_common_power_ctrl
+-		 */
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_NORMAL);
+-
+-		/* 3. wait 210us */
+-		usleep_range(210, 1000);
+-
+-		/*
+-		 * 4. set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =1 (sw lp)
+-		 * (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		 */
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_IDLE);
+-	} else {
+-		/*
+-		 * set PMIC VCN33_1 LDO SW_OP_EN =1, SW_EN = 0, SW_LP =0 (sw disable)
+-		 * (by "standard kernal PMIC API" and "PMIC table")
+-		 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_1_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		regulator_disable(reg_VCN33_1);
+-		regulator_set_mode(reg_VCN33_1, REGULATOR_MODE_NORMAL);
+-	}
+ 	return 0;
+ }
+ 
+-static int consys_pmic_vcn33_2_power_ctl_mt6858_6631_6686_rc(bool enable)
++static int consys_plt_pmic_event_notifier_mt6858(unsigned int id, unsigned int event)
+ {
+-	struct regmap *r = g_regmap_mt6369;
+-
+-	if (!r) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (enable) {
+-		/* 1. set PMIC VCN33_2 LDO PMIC HW mode control by PMRC_EN[10] */
+-		/* 1.1. set PMIC VCN33_2 LDO op_mode = 0 */
+-		/* 1.2. set PMIC VCN33_2 LDO  HW_OP_EN = 1, HW_OP_CFG = 0 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC10_OP_MODE_ADDR, 1 << 2, 0 << 2);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC10_OP_EN_ADDR,   1 << 2, 1 << 2);
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_RC10_OP_CFG_ADDR,  1 << 2, 0 << 2);
+-
+-		/*
+-		 * 2. set PMIC VCN33_2 LDO SW_OP_EN =0, SW_EN = 0, SW_LP =0 (sw disable)
+-		 * (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		 * No need to turn off MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR
+-		 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VCN33_2_SW_OP_EN_ADDR, 1 << 7, 0 << 7);
+-		regulator_set_mode(reg_VCN33_2, REGULATOR_MODE_NORMAL);
+-	}
+-
+ 	return 0;
+ }
+ 
+-static int consys_pmic_vant18_power_ctl_mt6858_6631_6686_rc(bool enable)
++static int consys_pmic_leave_low_power_mode_mt6858(void)
+ {
+-	struct regmap *r = g_regmap_mt6369;
+-
+-	if (!r) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (enable) {
+-		/* 1. set PMIC VANT18 LDO PMIC HW mode control by PMRC_EN[6] */
+-		/* 1.1. set PMIC VANT18 LDO op_mode = 0 */
+-		/* 1.2. set PMIC VANT18 LDO  HW_OP_EN = 1, HW_OP_CFG = 0 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VANT18_RC6_OP_MODE_ADDR, 1 << 6, 0 << 6);
+-		regmap_update_bits(r, MT6369_RG_LDO_VANT18_RC6_OP_EN_ADDR,   1 << 6, 1 << 6);
+-		regmap_update_bits(r, MT6369_RG_LDO_VANT18_RC6_OP_CFG_ADDR,  1 << 6, 0 << 6);
+-
+-			/*
+-		* 2. set PMIC VANT18 LDO SW_OP_EN =0, SW_EN = 0, SW_LP =0 (sw disable)
+-		* (by ""standard kernal PMIC API"" and ""PMIC table"")
+-		* No need to turn off MT6369_RG_LDO_VANT18_SW_OP_EN_ADDR
+-		*/
+-		regulator_set_mode(reg_VANT18, REGULATOR_MODE_NORMAL);
+-	}
+-
+ 	return 0;
+ }
+ 
+-static int consys_pmic_vant18_power_ctl_mt6858_6631_6686_lg(bool enable)
++void consys_pmic_debug_log_mt6858(void)
+ {
+-	struct regmap *r = g_regmap_mt6369;
+-	int ret = 0;
+-
+-	if (!r) {
+-		pr_notice("%s regmap is NULL\n", __func__);
+-		return -1;
+-	}
+-
+-	if (enable) {
+-		/* 1. set PMIC VANT18 LDO PMIC HW mode control by SRCCLKENA0 */
+-		/* 1.1. set PMIC VANT18 LDO op_mode = 1 */
+-		/* 1.2. set PMIC VANT18 LDO HW_OP_EN = 1, HW_OP_CFG = 0 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VANT18_HW0_OP_MODE_ADDR, 1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VANT18_HW0_OP_EN_ADDR, 1 << 0, 1 << 0);
+-		regmap_update_bits(r, MT6369_RG_LDO_VANT18_HW0_OP_CFG_ADDR, 1 << 0, 0 << 0);
+-
+-		/* 2. set PMIC VANT18 LDO SW_OP_EN =1, SW_EN = 1, SW_LP =0 */
+-		regmap_update_bits(r, MT6369_RG_LDO_VANT18_SW_OP_EN_ADDR, 1 << 7, 1 << 7);
+-		ret = regulator_enable(reg_VANT18);
+-		if (ret)
+-			pr_notice("%s regulator_enable err: %d", __func__, ret);
+-		regulator_set_mode(reg_VANT18, REGULATOR_MODE_NORMAL);
+-	} else {
+-		/* 1. VANT18 will be set to SW_EN=1 only in legacy momde. */
+-		/* 2. VANT18 might not be enabled because power on fail before low power control is executed. */
+-		ret = regulator_disable(reg_VANT18);
+-		if (ret)
+-			pr_notice("%s regulator_disable err:%d", __func__, ret);
+-	}
+-
+-	return ret;
++	pr_info("vrfio18 %d, vcn33_1 %d, vcn33_2 %d\n",
++		regulator_is_enabled(reg_vrfio18), regulator_is_enabled(reg_vcn33_1),
++		regulator_is_enabled(reg_vcn33_2));
+ }
+ 
+-int consys_pmic_leave_low_power_mode_mt6858(void){
+-	struct regmap *r = g_regmap_mt6363;
+-	int vrfio18_round = 10;
+-	int rc67_op_en = 0, rc89_op_en = 0, hw_op_en = 0;
+-	int rc67_op_mode = 0, rc89_op_mode = 0, hw_op_mode = 0;
+-	int ret;
+-
+-	consys_plt_pmic_event_notifier_mt6858_6631(0, 0);
+-
+-	if (consys_is_rc_mode_enable_mt6858()) {
+-		/* SW leave low power mode */
+-		while(1) {
+-			regmap_update_bits(r, 0x1bcd, 0x3, 0x1);
+-			if (regmap_read(r, 0x1bcd, &ret) == 0) {
+-				pr_info("Set PMIC VRFIO18 LDO SW_EN 0x1bcd=0x%x\n", ret);
+-				if ((ret & 0x3) == 0x1)
+-					break;
+-			} else {
+-				pr_info("Failed to read 0x1bcd from PMIC\n");
+-				ret = 0;
+-			}
+-			vrfio18_round--;
+-
+-			if (vrfio18_round == 0) {
+-				pr_info("Set PMIC VRFIO18 LDO SW_EN failed\n");
+-				break;
+-			}
+-		}
+-		/* set PMIC VRFIO18 LDO HW_OP_EN = 0 for OC workaround (normal mode)*/
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC9_OP_EN_ADDR,   1 << 1, 0 << 1);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC8_OP_EN_ADDR,   1 << 0, 0 << 0);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC7_OP_EN_ADDR,   1 << 7, 0 << 7);
+-		regmap_update_bits(r, MT6363_RG_LDO_VRFIO18_RC6_OP_EN_ADDR,   1 << 6, 0 << 6);
+-	}
+-
+-	regmap_read(r, MT6363_RG_LDO_VRFIO18_RC6_OP_EN_ADDR, &rc67_op_en);
+-	regmap_read(r, MT6363_RG_LDO_VRFIO18_RC8_OP_EN_ADDR, &rc89_op_en);
+-	regmap_read(r, MT6363_RG_LDO_VRFIO18_HW0_OP_EN_ADDR, &hw_op_en);
+-	regmap_read(r, MT6363_RG_LDO_VRFIO18_RC6_OP_MODE_ADDR, &rc67_op_mode);
+-	regmap_read(r, MT6363_RG_LDO_VRFIO18_RC8_OP_MODE_ADDR, &rc89_op_mode);
+-	regmap_read(r, MT6363_RG_LDO_VRFIO18_HW0_OP_EN_ADDR, &hw_op_mode);
+-	pr_info("0x1bd2=0x%x,0x1bd3=0x%x,0x1bd4=0x%x,0x1bd8=0x%x,0x1bd9=0x%x,0x1bda=0x%x,\n",
+-		rc67_op_en, rc89_op_en, hw_op_en, rc67_op_mode, rc89_op_mode, hw_op_mode);
+-
+-	consys_pmic_debug_log_mt6858();
+-	msleep(1);
++const struct consys_platform_pmic_ops g_consys_platform_pmic_ops_mt6858_6631 = {
++	.consys_pmic_get_from_dts = consys_plt_pmic_get_from_dts_mt6858,
++	.consys_pmic_common_power_ctrl = consys_plt_pmic_common_power_ctrl_mt6858,
++	.consys_pmic_common_power_low_power_mode = consys_plt_pmic_low_power_mode_mt6858,
++	.consys_pmic_wifi_power_ctrl = consys_plt_pmic_no_need_ctrl_mt6858,
++	.consys_pmic_bt_power_ctrl = consys_plt_pmic_no_need_ctrl_mt6858,
++	.consys_pmic_gps_power_ctrl = consys_plt_pmic_no_need_ctrl_mt6858,
++	.consys_pmic_fm_power_ctrl = consys_plt_pmic_no_need_ctrl_mt6858,
++	.consys_pmic_event_notifier = consys_plt_pmic_event_notifier_mt6858,
++	.consys_pmic_leave_low_power_mode = consys_pmic_leave_low_power_mode_mt6858,
++};
+ 
+-	return 0;
+-}
++/* Boards with the extra MT6686 A-die are not supported */
++const struct consys_platform_pmic_ops g_consys_platform_pmic_ops_mt6858_6631_6686;
+diff --git a/conninfra/conn_drv/connv2/platform/mt6858/mt6858_soc.c b/conninfra/conn_drv/connv2/platform/mt6858/mt6858_soc.c
+index 5adc872..e9d732e 100644
+--- a/conninfra/conn_drv/connv2/platform/mt6858/mt6858_soc.c
++++ b/conninfra/conn_drv/connv2/platform/mt6858/mt6858_soc.c
+@@ -45,13 +45,14 @@ int consys_get_co_clock_type_mt6858(void)
+ 		else
+ 			clock_type = CONNSYS_CLOCK_SCHEMATIC_26M_EXTCXO;
+ 	} else {
+-		if (!map) {
+-			pr_notice("%s, failed to get regmap.\n", __func__);
+-			return -1;
++		/* Without the MT6685's regmap, assume its usual 26 MHz */
++		if (map) {
++			regmap_read(map, DCXO_DIGCLK_ELR, &value);
++			if (value & 0x1)
++				clock_type = CONNSYS_CLOCK_SCHEMATIC_52M_COTMS;
++		} else {
++			pr_notice("%s, no MT6685 regmap: 26 MHz co-clock\n", __func__);
+ 		}
+-		regmap_read(map, DCXO_DIGCLK_ELR, &value);
+-		if (value & 0x1)
+-			clock_type = CONNSYS_CLOCK_SCHEMATIC_52M_COTMS;
+ 	}
+ 	pr_info("[%s] conf->tcxo_gpio=%d conn_hw_env.tcxo_support=%d, %s",
+ 		__func__, conf->tcxo_gpio, conn_hw_env.tcxo_support,
+diff --git a/conninfra/conn_drv/connv2/platform/pmic_mng.c b/conninfra/conn_drv/connv2/platform/pmic_mng.c
+index 8bb6eda..ed52faf 100644
+--- a/conninfra/conn_drv/connv2/platform/pmic_mng.c
++++ b/conninfra/conn_drv/connv2/platform/pmic_mng.c
+@@ -263,8 +263,12 @@ int pmic_mng_init(
+ 		consys_platform_pmic_ops =
+ 			(const struct consys_platform_pmic_ops*)plat_data->platform_pmic_ops;
+ 
+-	if (consys_platform_pmic_ops && consys_platform_pmic_ops->consys_pmic_get_from_dts)
+-		consys_platform_pmic_ops->consys_pmic_get_from_dts(pdev, dev_cb);
++	if (consys_platform_pmic_ops && consys_platform_pmic_ops->consys_pmic_get_from_dts) {
++		int ret = consys_platform_pmic_ops->consys_pmic_get_from_dts(pdev, dev_cb);
++
++		if (ret)
++			return ret;
++	}
+ 
+ 	pmic_mng_register_device();
+ 
+diff --git a/conninfra/conn_drv/connv2/src/connv2_drv.c b/conninfra/conn_drv/connv2/src/connv2_drv.c
+index 2543852..b005896 100644
+--- a/conninfra/conn_drv/connv2/src/connv2_drv.c
++++ b/conninfra/conn_drv/connv2/src/connv2_drv.c
+@@ -653,9 +653,8 @@ int mtk_conninfra_probe(struct platform_device *pdev)
+ 				(pdev->dev.of_node != NULL ? pdev->dev.of_node->full_name : ""));
+ 
+ 	ret = consys_hw_init(pdev, &g_conninfra_dev_cb);
+-	if (ret) {
+-		return -2;
+-	}
++	if (ret)
++		return ret;
+ 
+ 	g_drv_dev = pdev;
+ 
+diff --git a/gps/data_link/Kbuild b/gps/data_link/Kbuild
+index 5a1bcd2..4d5fb36 100644
+--- a/gps/data_link/Kbuild
++++ b/gps/data_link/Kbuild
+@@ -1,177 +1,45 @@
+-# drivers/barcelona/gps/Makefile
+-#
+-# Makefile for the Barcelona GPS driver.
+-#
+-# Copyright (C) 2004,2005 TomTom BV <http://www.tomtom.com/>
+-# Author: Dimitry Andric <dimitry.andric@tomtom.com>
+-#
+-# This program is free software; you can redistribute it and/or modify
+-# it under the terms of the GNU General Public License version 2 as
+-# published by the Free Software Foundation.
+-
+-###############################################################################
+-# Support GKI mixed build
+-#ifeq ($(DEVICE_MODULES_PATH),)
+-#DEVICE_MODULES_PATH = $(srctree)
+-#else
+-#LINUXINCLUDE := $(DEVCIE_MODULES_INCLUDE) $(LINUXINCLUDE)
+-#TOP := $(srctree)/..
+-#endif
+-
+-# Necessary Check
+-#$(warning build in gps_dl)
+-#ifeq ($(CONFIG_MTK_GPS_SUPPORT), y)
+-
+-#ifeq ($(AUTOCONF_H),)
+-#    $(error AUTOCONF_H is not defined)
+-#endif
+-
+-#ccflags-y += -imacros $(AUTOCONF_H)
+-#ifndef TOP
+-#    TOP := $(srctree)/..
+-#endif
+-#ifeq ($(TARGET_BUILD_VARIANT),$(filter $(TARGET_BUILD_VARIANT),userdebug user))
+-#    ldflags-y += -s
+-#endif
+-
+-# Force build fail on modpost warning
+-#KBUILD_MODPOST_FAIL_ON_WARNINGS := y
+-###############################################################################
+-
+-# only WMT align this design flow, but gps use this also.
+-#ccflags-y += -D MTK_WCN_REMOVE_KERNEL_MODULE
+-
+-#ifeq ($(CONFIG_ARM64), y)
+-#    ccflags-y += -D CONFIG_MTK_WCN_ARM64
+-#endif
+-
+-#ifeq ($(CONFIG_MTK_CONN_LTE_IDC_SUPPORT),y)
+-#    ccflags-y += -D WMT_IDC_SUPPORT=1
+-#else
+-#    ccflags-y += -D WMT_IDC_SUPPORT=0
+-#endif
+-#ccflags-y += -D MTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT
+-
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/freqhopping
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/emi/submodule
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/connectivity/common
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include/mach
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/base/power/include
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/base/power/include/clkbuf_v1
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/base/power/include/clkbuf_v1/$(MTK_PLATFORM)
+-#ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/devfreq
+-###############################################################################
+-#GPS_PLATFORM := v051
+-#MODULE_NAME := gps_drv_dl_$(GPS_PLATFORM)
+-#obj-m += $(MODULE_NAME).o
+-#KO_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+-
+-#GPS_DRV_CONTROL_LNA := n
+-#GPS_DL_HAS_MOCK := n
+-#GPS_SRC_FOLDER := $(KO_PATH)/../..
+-#ccflags-y += -DMTK_GENERIC_HAL
+-
+-#ccflags-y += -I$(KO_PATH)
+-#ccflags-y += -I$(KO_PATH)/inc
+-#ccflags-y += -I$(KO_PATH)/hw/inc
+-
+-#CONNINFRA_SRC_FOLDER := $(KO_PATH)/../../../../conninfra
+-#ccflags-y += -I$(CONNINFRA_SRC_FOLDER)/include
+-#ccflags-y += -I$(CONNINFRA_SRC_FOLDER)/conn_drv/connv2/debug_utility/metlog
+-#ccflags-y += -DGPS_DL_HAS_CONNINFRA_DRV=1
+-
+-#ccflags-y += -I$(CONNINFRA_SRC_FOLDER)/conn_drv/connv2/debug_utility/include
+-#ccflags-y += -I$(CONNINFRA_SRC_FOLDER)/conn_drv/connv2/debug_utility/connsyslog
+-#ccflags-y += -I$(CONNINFRA_SRC_FOLDER)/conn_drv/connv2/debug_utility/coredump
+-#ccflags-y += -I$(CONNINFRA_SRC_FOLDER)/conn_drv/connv2/debug_utility
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/../fw_log/inc
+-
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/inc
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/linux/inc
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/link/inc
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/lib/inc
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/hal/inc
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/hw/inc
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/hw
+-#ccflags-y += -I$(GPS_SRC_FOLDER)/data_link_mock/mock/inc
+-
+-#$(MODULE_NAME)-objs += gps_dl_context.o
+-#$(MODULE_NAME)-objs += gps_dl_module.o
+-#$(MODULE_NAME)-objs += lib/gps_dl_dma_buf.o
+-#$(MODULE_NAME)-objs += lib/gps_dl_dma_buf_lock.o
+-#$(MODULE_NAME)-objs += lib/gps_dl_lib_misc.o
+-#$(MODULE_NAME)-objs += lib/gps_dl_hist_rec.o
+-#$(MODULE_NAME)-objs += lib/gps_dl_hist_rec2.o
+-#$(MODULE_NAME)-objs += lib/gps_dl_time_tick.o
+-#$(MODULE_NAME)-objs += lib/gps_dl_name_list.o
+-
+-#$(MODULE_NAME)-objs += hw/gps_dl_hw_atf_conn_infra.o
+-#$(MODULE_NAME)-objs += hw/gps_dl_hw_semaphore.o
+-#$(MODULE_NAME)-objs += hw/gps_dl_hw_bgf.o
+-#$(MODULE_NAME)-objs += hw/gps_dl_hw_atf_gps.o
+-#$(MODULE_NAME)-objs += hw/gps_dl_hw_atf_power_ctrl.o
+-#$(MODULE_NAME)-objs += hw/gps_dl_hw_atf_usrt_apb.o
+-#$(MODULE_NAME)-objs += hw/gps_dl_hw_util.o
+-#$(MODULE_NAME)-objs += hw/gps_dl_hw_atf_mvcd.o
+-
+-#$(MODULE_NAME)-objs += hal/gps_dl_hal.o
+-#$(MODULE_NAME)-objs += hal/gps_dl_hal_util.o
+-#$(MODULE_NAME)-objs += hal/gps_dsp_fsm.o
+-#$(MODULE_NAME)-objs += hal/gps_dl_power_ctrl.o
+-#$(MODULE_NAME)-objs += hal/gps_dl_isr.o
+-#$(MODULE_NAME)-objs += hal/gps_dl_dma.o
+-#$(MODULE_NAME)-objs += hal/gps_dl_mcub.o
+-#$(MODULE_NAME)-objs += hal/gps_dl_zbus.o
+-#$(MODULE_NAME)-objs += hal/gps_dl_conn_infra.o
+-#$(MODULE_NAME)-objs += hal/gps_dl_hal_met2_0.o
+-
+-
+-#$(MODULE_NAME)-objs += link/gps_dl_link_event_proc.o
+-#$(MODULE_NAME)-objs += link/gps_dl_link_hal_ctrl.o
+-#$(MODULE_NAME)-objs += link/gps_dl_link_irq_ctrl.o
+-#$(MODULE_NAME)-objs += link/gps_dl_link_state.o
+-#$(MODULE_NAME)-objs += link/gps_dl_link_sync.o
+-#$(MODULE_NAME)-objs += link/gps_dl_link_util.o
+-#$(MODULE_NAME)-objs += link/gps_dl_subsys_reset.o
+-#$(MODULE_NAME)-objs += gps_each_link.o
+-
+-#$(MODULE_NAME)-objs += linux/gps_data_link_devices.o
+-#$(MODULE_NAME)-objs += linux/gps_each_device.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_linux.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_linux_plat_drv.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_linux_reserved_mem.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_linux_reserved_mem_v2.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_iomem_dump.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_emi.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_ctrld.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_procfs.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_osal.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_linux_clock_mng.o
+-#$(MODULE_NAME)-objs += linux/gps_dl_info_node.o
+-
+-#$(MODULE_NAME)-objs += gps_dl_hw_dep_bgf.o
+-#$(MODULE_NAME)-objs += gps_dl_hw_dep_gps.o
+-#$(MODULE_NAME)-objs += gps_dl_hw_dep_dma.o
+-#$(MODULE_NAME)-objs += gps_dl_hw_dep_debug.o
+-#$(MODULE_NAME)-objs += gps_dl_hw_dep_met2_0.o
+-## For MT6878 SoC + MT6686 A-die
+-#$(MODULE_NAME)-objs += gps_dl_hw_dep_adie_ctrl_v051_1.o
+-
+-#ifeq ($(GPS_DL_HAS_MOCK),y)
+-#$(MODULE_NAME)-objs += data_link_mock/mock/gps_mock_mvcd.o
+-#$(MODULE_NAME)-objs += data_link_mock/mock/gps_mock_hal.o
+-#ccflags-y += -DGPS_DL_HAS_MOCK=1
+-#endif
+-
+-#$(MODULE_NAME)-objs += fw_log_gps.o
+-#$(MODULE_NAME)-objs += fw_log/fw_log_gps_lib.o
+-
+-#endif #ifeq ($(CONFIG_MTK_GPS_SUPPORT), y)
+-# EOF
++# SPDX-License-Identifier: GPL-2.0
++# gps_drv_dl_v051 for the MT6858 CONNSYS: the GNSS data link, with the
++# SiP-call (ATF) hardware access and both A-die variants, as the vendor
++# BUILD.bazel builds it.
++CONN_TOP := $(src)/../..
++obj-m += gps_drv_dl_v051.o
++
++ccflags-y += -include $(src)/gps_def.h
++ccflags-y += -I$(CONN_TOP)/compat/include -include $(CONN_TOP)/compat/include/mtk_conn_compat.h
++ccflags-y += -I$(src) -I$(src)/inc -I$(src)/hw/inc -I$(src)/hw/include \
++	-I$(src)/fw_log/inc -I$(src)/include -I$(src)/linux/inc -I$(src)/link/inc \
++	-I$(src)/lib/inc -I$(src)/hal/inc -I$(src)/hw
++ccflags-y += -I$(CONN_TOP)/conninfra/include \
++	-I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/metlog \
++	-I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/include \
++	-I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/connsyslog \
++	-I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/coredump \
++	-I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility
++ccflags-y += -DCONFIG_MTK_GPS_SUPPORT=1 -DMTK_GENERIC_HAL -DGPS_DL_HAS_CONNINFRA_DRV=1
++
++gps_drv_dl_v051-y := gps_dl_context.o gps_dl_module.o \
++	lib/gps_dl_dma_buf.o lib/gps_dl_dma_buf_lock.o lib/gps_dl_lib_misc.o \
++	lib/gps_dl_hist_rec.o lib/gps_dl_hist_rec2.o lib/gps_dl_time_tick.o \
++	lib/gps_dl_name_list.o \
++	hw/gps_dl_hw_semaphore.o hw/gps_dl_hw_bgf.o hw/gps_dl_hw_util.o \
++	hw/gps_dl_hw_atf_conn_infra.o hw/gps_dl_hw_atf_gps.o \
++	hw/gps_dl_hw_atf_power_ctrl.o hw/gps_dl_hw_atf_usrt_apb.o \
++	hw/gps_dl_hw_atf_mvcd.o \
++	hal/gps_dl_hal.o hal/gps_dl_hal_util.o hal/gps_dsp_fsm.o \
++	hal/gps_dl_power_ctrl.o hal/gps_dl_isr.o hal/gps_dl_dma.o \
++	hal/gps_dl_mcub.o hal/gps_dl_zbus.o hal/gps_dl_conn_infra.o \
++	hal/gps_dl_hal_met2_0.o \
++	link/gps_dl_link_event_proc.o link/gps_dl_link_hal_ctrl.o \
++	link/gps_dl_link_irq_ctrl.o link/gps_dl_link_state.o \
++	link/gps_dl_link_sync.o link/gps_dl_link_util.o link/gps_dl_subsys_reset.o \
++	gps_each_link.o \
++	linux/gps_data_link_devices.o linux/gps_each_device.o linux/gps_dl_linux.o \
++	linux/gps_dl_linux_plat_drv.o linux/gps_dl_linux_reserved_mem.o \
++	linux/gps_dl_linux_reserved_mem_v2.o linux/gps_dl_iomem_dump.o \
++	linux/gps_dl_emi.o linux/gps_dl_ctrld.o linux/gps_dl_procfs.o \
++	linux/gps_dl_osal.o linux/gps_dl_linux_clock_mng.o linux/gps_dl_info_node.o \
++	gps_dl_hw_dep_bgf.o gps_dl_hw_dep_gps.o gps_dl_hw_dep_debug.o \
++	gps_dl_hw_dep_dma.o gps_dl_hw_dep_met2_0.o \
++	gps_dl_hw_dep_adie_ctrl_v051_1.o gps_dl_hw_dep_adie_ctrl_v051_3.o \
++	fw_log_gps.o fw_log/fw_log_gps_lib.o
+diff --git a/wlan/adaptor/Kbuild b/wlan/adaptor/Kbuild
+index 9fb010c..7f24762 100644
+--- a/wlan/adaptor/Kbuild
++++ b/wlan/adaptor/Kbuild
+@@ -1,3 +1,9 @@
++# Built for CONNAC 2 (MT6858): the /dev/wmtWifi power switch.
++CONN_TOP := $(src)/../..
++CONNAC_VER := 2_0
++MODULE_NAME := wmt_chrdev_wifi_connac2
++ccflags-y += -I$(CONN_TOP)/compat/include -include $(CONN_TOP)/compat/include/mtk_conn_compat.h
++
+ ###############################################################################
+ # Support GKI mixed build
+ ifeq ($(DEVICE_MODULES_PATH),)
+@@ -29,18 +35,18 @@ ifeq ($(CONNAC_VER), 3_0)
+     ccflags-y += -DCFG_SUPPORT_CONNAC3X=1
+     CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH := n
+ else ifeq ($(CONNAC_VER), 2_0)
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility/connsyslog
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility/coredump
++    ccflags-y += -I$(CONN_TOP)/conninfra/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/connsyslog
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/coredump
+     ccflags-y += -DCFG_ANDORID_CONNINFRA_SUPPORT=1
+     ccflags-y += -DCFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT=1
+     ccflags-y += -DCFG_SUPPORT_CONNAC2X=1
+ else
+     ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/common/common_main/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/common/common_main/linux/include
++    ccflags-y += -I$(CONN_TOP)/common/common_main/include
++    ccflags-y += -I$(CONN_TOP)/common/common_main/linux/include
+     ccflags-y += -DCFG_ANDORID_CONNINFRA_SUPPORT=0
+     ccflags-y += -DCFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT=0
+     ccflags-y += -DCFG_SUPPORT_CONNAC1X=1
+@@ -48,7 +54,7 @@ endif
+ 
+ ifeq ($(CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH), y)
+     ccflags-y += -DCFG_MTK_CONNSYS_DEDICATED_LOG_PATH
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/common/debug_utility
++    ccflags-y += -I$(CONN_TOP)/common/debug_utility
+ endif
+ 
+ ifeq ($(CONFIG_MTK_CONN_LTE_IDC_SUPPORT),y)
+diff --git a/wlan/gen4m/Kbuild b/wlan/gen4m/Kbuild
+index f5afcfe..3e8cf9e 100644
+--- a/wlan/gen4m/Kbuild
++++ b/wlan/gen4m/Kbuild
+@@ -1,13 +1,30 @@
+-################################
+-## Add specified modules here ##
+-################################
+-$(info MODULE_NAME $(MODULE_NAME))
+-$(info Segment: $(SEGMENT))
++# SPDX-License-Identifier: GPL-2.0
++# gen4m for the MT6858 CONNSYS (soc7_0 on AXI with an MT6631 A-die).
++# The settings are the vendor's "6858" target (module_variable.bzl): LK loads
++# the RAM code from connsys_wifi into the reserved EMI, the driver starts it.
++KO_CODE_PATH := $(src)
++CONN_TOP := $(src)/../..
++WLAN_CHIP_ID := 6858
++MTK_COMBO_CHIP := CONNAC2X2_SOC7_0
++WIFI_IP_SET := 1
++CONNAC_VER := 2_0
++CONFIG_MTK_COMBO_WIFI_HIF := axi
++MTK_ANDROID_WMT := y
++MTK_ANDROID_EMI := y
++TARGET_BUILD_VARIANT := user
++MODULE_NAME := wlan_drv_gen4m_6858
++CONFIG_MTK_WIFI_APFV6_SUPPORT := y
++CONFIG_MTK_WIFI_APF_GET_CAPABILITY := y
++# The /dev/fw_log_wifi node the connv2 settings expect.
++CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH := y
+ 
+-KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+-ifeq ($(SEGMENT), SP)
+-    # build ko by connac version
+-    include $(KO_CODE_PATH)/Kbuild.$(subst wlan_drv_gen4m_,,$(MODULE_NAME))
+-else
+-    include $(KO_CODE_PATH)/Kbuild.main
+-endif
++include $(src)/Kbuild.main
++
++ccflags-y += -I$(CONN_TOP)/compat/include -include $(CONN_TOP)/compat/include/mtk_conn_compat.h
++ccflags-y += -I$(CONN_TOP)/connadp/common -I$(CONN_TOP)/connadp/power_throttling
++ccflags-y += -DCFG_WLAN_LK_FWDL_SUPPORT=1 -DCFG_SUPPORT_NAN_DBDC=0 \
++	-DCFG_STA_2G_BW=1 -DCFG_SAP_2G_BW=1 -DCFG_P2P_2G_BW=1 \
++	-DCFG_APF_BUFF_LEN=4096 -DCFG_SUPPORT_NAN_6G=0 \
++	-DCFG_SUPPORT_NAN_R4=0 -DCFG_SUPPORT_NAN_EVENT_ALIGNMENT=1 -DMT6631=1
++# Xiaomi left only its "Obsidian" TX power limit tables in this tree.
++ccflags-y += -DCONFIG_BUILD_TARGET_OBSIDIAN=1
+diff --git a/wlan/gen4m/Kbuild.main b/wlan/gen4m/Kbuild.main
+index c69eeaf..0eff695 100644
+--- a/wlan/gen4m/Kbuild.main
++++ b/wlan/gen4m/Kbuild.main
+@@ -2268,7 +2268,7 @@ ifeq ($(MTK_ANDROID_WMT), y)
+     else
+         ccflags-y += -DCFG_MTK_WIFI_DRV_OWN_INT_MODE=0
+     endif
+-    ifeq ($(CONFIG_ARCH_MEDIATEK),y)
++    ifeq ($(CONFIG_MTK_AEE_AED),y)
+         CONFIG_MTK_AEE_FEATURE=y
+     endif
+     CONFIG_SUPPORT_HRTIMER=y
+@@ -2384,7 +2384,7 @@ ifeq ($(CONFIG_MTK_WIFI_CONNFEM_SUPPORT), y)
+         ccflags-y += -DCFG_CONNFEM_DEFAULT=0
+         ccflags-y += -I$(KO_CODE_PATH)/../connfem/include
+     endif
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/connfem/include/
++    ccflags-y += -I$(CONN_TOP)/connfem/include/
+ else
+     ccflags-y += -DCFG_SUPPORT_CONNFEM=0
+     ccflags-y += -DCFG_CONNFEM_DEFAULT=0
+@@ -2426,7 +2426,7 @@ ifeq ($(CONFIG_MTK_WIFI_CONNV3_SUPPORT), y)
+         CONFIG_MTK_WIFI_CONNV3_PATH ?= $(KO_CODE_PATH)/../conninfra
+         KBUILD_EXTRA_SYMBOLS += $(CONFIG_MTK_WIFI_CONNV3_PATH)/Module.symvers
+     else
+-        CONFIG_MTK_WIFI_CONNV3_PATH ?= $(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra
++        CONFIG_MTK_WIFI_CONNV3_PATH ?= $(CONN_TOP)/conninfra
+     endif
+     $(info $$CONFIG_MTK_WIFI_CONNV3_PATH is [${CONFIG_MTK_WIFI_CONNV3_PATH}])
+     ccflags-y += -I$(CONFIG_MTK_WIFI_CONNV3_PATH)/include
+@@ -2435,35 +2435,35 @@ ifeq ($(CONFIG_MTK_WIFI_CONNV3_SUPPORT), y)
+     ccflags-y += -I$(CONFIG_MTK_WIFI_CONNV3_PATH)/conn_drv/connv3/debug_utility/include
+     ccflags-y += -I$(CONFIG_MTK_WIFI_CONNV3_PATH)/conn_drv/connv3/debug_utility/connsyslog
+ 
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/include
+ else ifeq ($(CONFIG_MTK_WIFI_CONNINFRA_SUPPORT), y)
+     ccflags-y += -DCFG_MTK_WIFI_CONNV3_SUPPORT=0
+     CONFIG_WIFI_COREDUMP_SUPPORT=y
+     ccflags-y += -DCFG_SUPPORT_CONNINFRA=1
+     ccflags-y += -DCFG_ANDORID_CONNINFRA_SUPPORT=1
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/include
+     ccflags-y += -DCFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT=1
+     ccflags-y += -DCFG_MTK_CONNSYS_DEDICATED_LOG_PATH
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/platform/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/base/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/platform/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/base/include
+ 
+     # conninfra path
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/debug_utility
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/debug_utility/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/debug_utility/connsyslog
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/debug_utility/coredump
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/debug_utility/coredump/platform/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/debug_utility/metlog
++    ccflags-y += -I$(CONN_TOP)/conninfra/debug_utility
++    ccflags-y += -I$(CONN_TOP)/conninfra/debug_utility/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/debug_utility/connsyslog
++    ccflags-y += -I$(CONN_TOP)/conninfra/debug_utility/coredump
++    ccflags-y += -I$(CONN_TOP)/conninfra/debug_utility/coredump/platform/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/debug_utility/metlog
+ 
+     # connv2 path
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility/connsyslog
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility/coredump
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility/coredump/platform/include
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/conninfra/conn_drv/connv2/debug_utility/metlog
+-    ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/adaptor
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/connsyslog
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/coredump
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/coredump/platform/include
++    ccflags-y += -I$(CONN_TOP)/conninfra/conn_drv/connv2/debug_utility/metlog
++    ccflags-y += -I$(CONN_TOP)/wlan/adaptor
+ else
+     ccflags-y += -DCFG_MTK_WIFI_CONNV3_SUPPORT=0
+     CONFIG_WIFI_COREDUMP_SUPPORT=n
+@@ -2471,9 +2471,9 @@ else
+     ccflags-y += -DCFG_ANDORID_CONNINFRA_SUPPORT=0
+     ccflags-y += -DCFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT=0
+     ifeq ($(WMT_SUPPORT), y)
+-        ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/common/common_main/include
+-        ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/common/common_main/linux/include
+-        ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/common/debug_utility
++        ccflags-y += -I$(CONN_TOP)/common/common_main/include
++        ccflags-y += -I$(CONN_TOP)/common/common_main/linux/include
++        ccflags-y += -I$(CONN_TOP)/common/debug_utility
+         ifeq ($(CONFIG_MTK_CONN_LTE_IDC_SUPPORT),y)
+             ccflags-y += -DWMT_IDC_SUPPORT=1
+         else
+diff --git a/wlan/gen4m/include/wpa_supp/src/crypto/sha256.h b/wlan/gen4m/include/wpa_supp/src/crypto/sha256.h
+index e7949db..6a41a47 100644
+--- a/wlan/gen4m/include/wpa_supp/src/crypto/sha256.h
++++ b/wlan/gen4m/include/wpa_supp/src/crypto/sha256.h
+@@ -14,6 +14,10 @@
+ #ifndef SHA256_H
+ #define SHA256_H
+ 
++/* Linux 7.x <crypto/sha2.h> uses these names: keep it first, rename ours. */
++#include <crypto/sha2.h>
++#define hmac_sha256 wpa_hmac_sha256
++
+ #define SHA256_MAC_LEN 32
+ 
+ int hmac_sha256_vector(const u8 *key, size_t key_len, size_t num_elem,
+diff --git a/wlan/gen4m/include/wpa_supp/src/crypto/sha384.h b/wlan/gen4m/include/wpa_supp/src/crypto/sha384.h
+index afce2b3..caa6070 100644
+--- a/wlan/gen4m/include/wpa_supp/src/crypto/sha384.h
++++ b/wlan/gen4m/include/wpa_supp/src/crypto/sha384.h
+@@ -14,6 +14,10 @@
+ #ifndef SHA384_H
+ #define SHA384_H
+ 
++/* Linux 7.x <crypto/sha2.h> uses these names: keep it first, rename ours. */
++#include <crypto/sha2.h>
++#define hmac_sha384 wpa_hmac_sha384
++
+ #define SHA384_MAC_LEN 48
+ 
+ int hmac_sha384_vector(const u8 *key, size_t key_len, size_t num_elem,
+diff --git a/wlan/gen4m/include/wpa_supp/src/crypto/sha384_i.h b/wlan/gen4m/include/wpa_supp/src/crypto/sha384_i.h
+index 2cfa063..c2415ba 100644
+--- a/wlan/gen4m/include/wpa_supp/src/crypto/sha384_i.h
++++ b/wlan/gen4m/include/wpa_supp/src/crypto/sha384_i.h
+@@ -14,6 +14,10 @@
+ #ifndef SHA384_I_H
+ #define SHA384_I_H
+ 
++/* Linux 7.x <crypto/sha2.h> uses these names: keep it first, rename ours. */
++#include <crypto/sha2.h>
++#define sha384_init wpa_sha384_init
++
+ #include "sha512_i.h"
+ 
+ #define NAN_RDF_SHA384_BLOCK_SIZE SHA512_BLOCK_SIZE
+diff --git a/wlan/gen4m/include/wpa_supp/src/crypto/sha512_i.h b/wlan/gen4m/include/wpa_supp/src/crypto/sha512_i.h
+index 26765c3..77bed57 100644
+--- a/wlan/gen4m/include/wpa_supp/src/crypto/sha512_i.h
++++ b/wlan/gen4m/include/wpa_supp/src/crypto/sha512_i.h
+@@ -14,6 +14,10 @@
+ #ifndef SHA512_I_H
+ #define SHA512_I_H
+ 
++/* Linux 7.x <crypto/sha2.h> uses these names: keep it first, rename ours. */
++#include <crypto/sha2.h>
++#define sha512_init wpa_sha512_init
++
+ #define SHA512_BLOCK_SIZE 128
+ 
+ struct nan_rdf_sha512_state {
+diff --git a/wlan/gen4m/os/linux/gl_cfg80211.c b/wlan/gen4m/os/linux/gl_cfg80211.c
+index 70b3e5c..9aee169 100644
+--- a/wlan/gen4m/os/linux/gl_cfg80211.c
++++ b/wlan/gen4m/os/linux/gl_cfg80211.c
+@@ -2835,7 +2835,9 @@ int mtk_cfg80211_remain_on_channel(struct wiphy *wiphy,
+ 		if (!IS_BSS_INDEX_VALID(ucBssIndex))
+ 			return -EINVAL;
+ 
+-		*cookie = prGlueInfo->u8Cookie++;
++		/* 7.x cfg80211 hands in its own cookie */
++		if (!*cookie)
++			*cookie = prGlueInfo->u8Cookie++;
+ 
+ 		prMsgChnlReq = cnmMemAlloc(prGlueInfo->prAdapter,
+ 			   RAM_TYPE_MSG, sizeof(struct MSG_REMAIN_ON_CHANNEL));
+@@ -3002,7 +3004,9 @@ int _mtk_cfg80211_mgmt_tx(struct wiphy *wiphy,
+ 		WIPHY_PRIV(wiphy, prGlueInfo);
+ 		ASSERT(prGlueInfo);
+ 
+-		*cookie = prGlueInfo->u8Cookie++;
++		/* 7.x cfg80211 hands in its own cookie */
++		if (!*cookie)
++			*cookie = prGlueInfo->u8Cookie++;
+ #if CFG_SUPPORT_TX_MGMT_USE_DATAQ
+ 		u2MgmtTxMaxLen = prGlueInfo->prAdapter
+ 				->chip_info->cmd_max_pkt_size
+diff --git a/wlan/gen4m/os/linux/gl_init.c b/wlan/gen4m/os/linux/gl_init.c
+index eece574..e38a7d3 100644
+--- a/wlan/gen4m/os/linux/gl_init.c
++++ b/wlan/gen4m/os/linux/gl_init.c
+@@ -1309,6 +1309,129 @@ const uint32_t mtk_cipher_suites[] = {
+ 	WLAN_CIPHER_SUITE_NO_GROUP_ADDR
+ };
+ 
++#if KERNEL_VERSION(7, 0, 0) <= CFG80211_VERSION_CODE
++/*
++ * Linux 7.x cfg80211 passes the wireless_dev instead of the net_device to
++ * the key and station ops, the key type instead of a pairwise flag, a radio
++ * index to the wiphy-wide ops, and assigns the off-channel and mgmt TX
++ * cookies itself. Adapt to the driver's existing ops.
++ */
++static int mtk_cfg_add_key_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++			      int link_id, u8 key_index,
++			      enum nl80211_key_type type, const u8 *mac_addr,
++			      struct key_params *params)
++{
++	return mtk_cfg_add_key(wiphy, wdev->netdev, link_id, key_index,
++			       type == NL80211_KEYTYPE_PAIRWISE, mac_addr, params);
++}
++
++static int mtk_cfg_get_key_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++			      int link_id, u8 key_index,
++			      enum nl80211_key_type type, const u8 *mac_addr,
++			      void *cookie,
++			      void (*callback)(void *cookie, struct key_params *))
++{
++	return mtk_cfg_get_key(wiphy, wdev->netdev, link_id, key_index,
++			       type == NL80211_KEYTYPE_PAIRWISE, mac_addr,
++			       cookie, callback);
++}
++
++static int mtk_cfg_del_key_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++			      int link_id, u8 key_index,
++			      enum nl80211_key_type type, const u8 *mac_addr)
++{
++	return mtk_cfg_del_key(wiphy, wdev->netdev, link_id, key_index,
++			       type == NL80211_KEYTYPE_PAIRWISE, mac_addr);
++}
++
++static int mtk_cfg_set_default_mgmt_key_v7(struct wiphy *wiphy,
++					   struct wireless_dev *wdev,
++					   int link_id, u8 key_index)
++{
++	return mtk_cfg_set_default_mgmt_key(wiphy, wdev->netdev, link_id,
++					    key_index);
++}
++
++#if (CFG_SUPPORT_BCN_PROT == 1)
++static int mtk_cfg_set_default_beacon_key_v7(struct wiphy *wiphy,
++					     struct wireless_dev *wdev,
++					     int link_id, u8 key_index)
++{
++	return mtk_cfg_set_default_beacon_key(wiphy, wdev->netdev, link_id,
++					      key_index);
++}
++#endif
++
++static int mtk_cfg_get_station_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++				  const u8 *mac, struct station_info *sinfo)
++{
++	return mtk_cfg_get_station(wiphy, wdev->netdev, mac, sinfo);
++}
++
++#if CFG_SUPPORT_TDLS
++static int mtk_cfg_change_station_v7(struct wiphy *wiphy,
++				     struct wireless_dev *wdev, const u8 *mac,
++				     struct station_parameters *params)
++{
++	return mtk_cfg_change_station(wiphy, wdev->netdev, mac, params);
++}
++
++static int mtk_cfg_add_station_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++				  const u8 *mac,
++				  struct station_parameters *params)
++{
++	return mtk_cfg_add_station(wiphy, wdev->netdev, mac, params);
++}
++#endif
++
++static int mtk_cfg_del_station_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++				  struct station_del_parameters *params)
++{
++	return mtk_cfg_del_station(wiphy, wdev->netdev, params);
++}
++
++/* The driver keeps a cookie cfg80211 has already assigned (never 0). */
++static int mtk_cfg_remain_on_channel_v7(struct wiphy *wiphy,
++					struct wireless_dev *wdev,
++					struct ieee80211_channel *chan,
++					unsigned int duration, u64 cookie,
++					const u8 *rx_addr)
++{
++	return mtk_cfg_remain_on_channel(wiphy, wdev, chan, duration, &cookie);
++}
++
++static int mtk_cfg_mgmt_tx_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++			      struct cfg80211_mgmt_tx_params *params, u64 cookie)
++{
++	return mtk_cfg_mgmt_tx(wiphy, wdev, params, &cookie);
++}
++
++#if (CFG_ENABLE_WIFI_DIRECT_CFG_80211 != 0)
++static int mtk_cfg_set_wiphy_params_v7(struct wiphy *wiphy, int radio_idx,
++				       u32 changed)
++{
++	return mtk_cfg_set_wiphy_params(wiphy, changed);
++}
++
++static int mtk_cfg_set_txpower_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++				  int radio_idx,
++				  enum nl80211_tx_power_setting type, int mbm)
++{
++	return mtk_cfg_set_txpower(wiphy, wdev, type, mbm);
++}
++
++static int mtk_cfg_get_txpower_v7(struct wiphy *wiphy, struct wireless_dev *wdev,
++				  int radio_idx, unsigned int link_id, int *dbm)
++{
++	return mtk_cfg_get_txpower(wiphy, wdev, link_id, dbm);
++}
++#endif
++
++#define MTK_CFG_OP(name)	name##_v7
++#else
++#define MTK_CFG_OP(name)	name
++#endif
++
+ static struct cfg80211_ops mtk_cfg_ops = {
+ 	.add_virtual_intf = mtk_cfg_add_iface,
+ 	.del_virtual_intf = mtk_cfg_del_iface,
+@@ -1318,24 +1441,24 @@ static struct cfg80211_ops mtk_cfg_ops = {
+ 	.add_intf_link = mtk_cfg_add_intf_link,
+ 	.del_intf_link = mtk_cfg_del_intf_link,
+ #endif
+-	.add_key = mtk_cfg_add_key,
+-	.get_key = mtk_cfg_get_key,
+-	.del_key = mtk_cfg_del_key,
+-	.set_default_mgmt_key = mtk_cfg_set_default_mgmt_key,
++	.add_key = MTK_CFG_OP(mtk_cfg_add_key),
++	.get_key = MTK_CFG_OP(mtk_cfg_get_key),
++	.del_key = MTK_CFG_OP(mtk_cfg_del_key),
++	.set_default_mgmt_key = MTK_CFG_OP(mtk_cfg_set_default_mgmt_key),
+ #if (CFG_SUPPORT_BCN_PROT == 1) && \
+ 	((KERNEL_VERSION(5, 7, 0) <= CFG80211_VERSION_CODE) || \
+ 	(CFG_ADVANCED_80211_BCN_PROT == 1))
+-	.set_default_beacon_key = mtk_cfg_set_default_beacon_key,
++	.set_default_beacon_key = MTK_CFG_OP(mtk_cfg_set_default_beacon_key),
+ #endif /* CFG_SUPPORT_BCN_PROT */
+ 	.set_default_key = mtk_cfg_set_default_key,
+-	.get_station = mtk_cfg_get_station,
++	.get_station = MTK_CFG_OP(mtk_cfg_get_station),
+ #if (CFG_ADVANCED_80211_MLO == 1) || \
+ 	(KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE)
+ 	.get_channel = mtk_cfg_get_channel,
+ #endif
+ #if CFG_SUPPORT_TDLS
+-	.change_station = mtk_cfg_change_station,
+-	.add_station = mtk_cfg_add_station,
++	.change_station = MTK_CFG_OP(mtk_cfg_change_station),
++	.add_station = MTK_CFG_OP(mtk_cfg_add_station),
+ 	.tdls_oper = mtk_cfg_tdls_oper,
+ 	.tdls_mgmt = mtk_cfg_tdls_mgmt,
+ #if CFG_SUPPORT_TDLS_OFFCHANNEL
+@@ -1343,7 +1466,7 @@ static struct cfg80211_ops mtk_cfg_ops = {
+ 	.tdls_cancel_channel_switch = mtk_tdls_cancel_channel_switch,
+ #endif
+ #endif
+-	.del_station = mtk_cfg_del_station,	/* AP/P2P use this function */
++	.del_station = MTK_CFG_OP(mtk_cfg_del_station),	/* AP/P2P use this function */
+ 	.scan = mtk_cfg_scan,
+ #if KERNEL_VERSION(4, 5, 0) <= CFG80211_VERSION_CODE
+ 	.abort_scan = mtk_cfg_abort_scan,
+@@ -1375,9 +1498,9 @@ static struct cfg80211_ops mtk_cfg_ops = {
+ 	.assoc = mtk_cfg_assoc,
+ 
+ 	/* Action Frame TX/RX */
+-	.remain_on_channel = mtk_cfg_remain_on_channel,
++	.remain_on_channel = MTK_CFG_OP(mtk_cfg_remain_on_channel),
+ 	.cancel_remain_on_channel = mtk_cfg_cancel_remain_on_channel,
+-	.mgmt_tx = mtk_cfg_mgmt_tx,
++	.mgmt_tx = MTK_CFG_OP(mtk_cfg_mgmt_tx),
+ 	/* .mgmt_tx_cancel_wait        = mtk_cfg80211_mgmt_tx_cancel_wait, */
+ #if KERNEL_VERSION(5, 8, 0) > CFG80211_VERSION_CODE
+ 	.mgmt_frame_register = mtk_cfg_mgmt_frame_register,
+@@ -1405,10 +1528,10 @@ static struct cfg80211_ops mtk_cfg_ops = {
+ 	.start_ap = mtk_cfg_start_ap,
+ 	.change_beacon = mtk_cfg_change_beacon,
+ 	.stop_ap = mtk_cfg_stop_ap,
+-	.set_wiphy_params = mtk_cfg_set_wiphy_params,
++	.set_wiphy_params = MTK_CFG_OP(mtk_cfg_set_wiphy_params),
+ 	.set_bitrate_mask = mtk_cfg_set_bitrate_mask,
+-	.set_tx_power = mtk_cfg_set_txpower,
+-	.get_tx_power = mtk_cfg_get_txpower,
++	.set_tx_power = MTK_CFG_OP(mtk_cfg_set_txpower),
++	.get_tx_power = MTK_CFG_OP(mtk_cfg_get_txpower),
+ #endif
+ 	.update_ft_ies = mtk_cfg80211_update_ft_ies,
+ #ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+@@ -3203,6 +3326,10 @@ static void wlanFreeNetDev(struct net_device *prNetDev)
+ 	struct GLUE_INFO *prGlueInfo = NULL;
+ 	struct wireless_dev **pprWdev = NULL;
+ 
++	/* No net device yet when the module goes before Wi-Fi was on */
++	if (!prNetDev)
++		return;
++
+ 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+ 	if (!prGlueInfo) {
+ 		DBGLOG(INIT, ERROR, "prGlueInfo is NULL\n");
+@@ -5061,7 +5188,9 @@ const struct net_device_ops wlan_netdev_ops = {
+ 	.ndo_stop = wlanStop,
+ 	.ndo_set_rx_mode = wlanSetMulticastList,
+ 	.ndo_get_stats = wlanGetStats,
++#if KERNEL_VERSION(7, 0, 0) > LINUX_VERSION_CODE
+ 	.ndo_do_ioctl = wlanDoIOCTL,
++#endif
+ #if KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE
+ 	.ndo_siocdevprivate = wlanDoPrivIOCTL,
+ #endif
+diff --git a/wlan/gen4m/os/linux/gl_nan.c b/wlan/gen4m/os/linux/gl_nan.c
+index 2669ef8..fc2cb78 100644
+--- a/wlan/gen4m/os/linux/gl_nan.c
++++ b/wlan/gen4m/os/linux/gl_nan.c
+@@ -143,7 +143,9 @@ const struct net_device_ops nan_netdev_ops = {
+ 	.ndo_stop = nanStop,
+ 	.ndo_set_rx_mode = nanSetMulticastList,
+ 	.ndo_get_stats = nanGetStats,
++#if KERNEL_VERSION(7, 0, 0) > LINUX_VERSION_CODE
+ 	.ndo_do_ioctl = nanDoIOCTL,
++#endif
+ #if KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE
+ 	.ndo_siocdevprivate = nanDoPrivIOCTL,
+ #endif
+diff --git a/wlan/gen4m/os/linux/gl_p2p.c b/wlan/gen4m/os/linux/gl_p2p.c
+index 786dd3e..e343787 100644
+--- a/wlan/gen4m/os/linux/gl_p2p.c
++++ b/wlan/gen4m/os/linux/gl_p2p.c
+@@ -327,7 +327,9 @@ const struct net_device_ops p2p_netdev_ops = {
+ 	.ndo_set_mac_address = p2pSetMACAddress,
+ 	.ndo_set_rx_mode = p2pSetMulticastList,
+ 	.ndo_get_stats = p2pGetStats,
++#if KERNEL_VERSION(7, 0, 0) > LINUX_VERSION_CODE
+ 	.ndo_do_ioctl = p2pDoIOCTL,
++#endif
+ #if KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE
+ 	.ndo_siocdevprivate = p2pDoPrivIOCTL,
+ #endif
+diff --git a/wlan/gen4m/os/linux/gl_p2p_cfg80211.c b/wlan/gen4m/os/linux/gl_p2p_cfg80211.c
+index 0213e0c..d0f47f4 100644
+--- a/wlan/gen4m/os/linux/gl_p2p_cfg80211.c
++++ b/wlan/gen4m/os/linux/gl_p2p_cfg80211.c
+@@ -2139,20 +2139,23 @@ int mtk_p2p_cfg80211_start_ap(struct wiphy *wiphy,
+ 					 settings->inactivity_timeout,
+ 					 settings->beacon_interval,
+ 					 settings->dtim_period);
+-#if KERNEL_VERSION(4, 11, 0) <= CFG80211_VERSION_CODE
++#if KERNEL_VERSION(4, 11, 0) <= CFG80211_VERSION_CODE && \
++	KERNEL_VERSION(7, 0, 0) > CFG80211_VERSION_CODE
+ 		i4Written += kalSnprintf(aucLogBuf + i4Written,
+ 					 LOG_BUFFER_SIZE - i4Written,
+ 					 " ht[%d] vht[%d]",
+ 					 settings->ht_required,
+ 					 settings->vht_required);
+ #endif
+-#if KERNEL_VERSION(5, 8, 0) <= CFG80211_VERSION_CODE
++#if KERNEL_VERSION(5, 8, 0) <= CFG80211_VERSION_CODE && \
++	KERNEL_VERSION(7, 0, 0) > CFG80211_VERSION_CODE
+ 		i4Written += kalSnprintf(aucLogBuf + i4Written,
+ 					 LOG_BUFFER_SIZE - i4Written,
+ 					 " he[%d]",
+ 					 settings->he_required);
+ #endif
+-#if KERNEL_VERSION(5, 11, 0) <= CFG80211_VERSION_CODE
++#if KERNEL_VERSION(5, 11, 0) <= CFG80211_VERSION_CODE && \
++	KERNEL_VERSION(7, 0, 0) > CFG80211_VERSION_CODE
+ 		i4Written += kalSnprintf(aucLogBuf + i4Written,
+ 					 LOG_BUFFER_SIZE - i4Written,
+ 					 " sae_h2e[%d]",
+@@ -3108,7 +3111,9 @@ int mtk_p2p_cfg80211_remain_on_channel(struct wiphy *wiphy,
+ 
+ 		prGlueP2pDevInfo = prGlueInfo->prP2PDevInfo;
+ 
+-		*cookie = prGlueP2pDevInfo->u8Cookie++;
++		/* 7.x cfg80211 hands in its own cookie */
++		if (!*cookie)
++			*cookie = prGlueP2pDevInfo->u8Cookie++;
+ 
+ 		prMsgChnlReq = cnmMemAlloc(prGlueInfo->prAdapter,
+ 			RAM_TYPE_MSG, sizeof(struct MSG_P2P_CHNL_REQUEST));
+@@ -3271,7 +3276,9 @@ int _mtk_p2p_cfg80211_mgmt_tx(struct wiphy *wiphy,
+ 			}
+ 		}
+ 
+-		*cookie = prGlueInfo->prP2PDevInfo->u8Cookie++;
++		/* 7.x cfg80211 hands in its own cookie */
++		if (!*cookie)
++			*cookie = prGlueInfo->prP2PDevInfo->u8Cookie++;
+ 
+ 		prMsgTxReq = cnmMemAlloc(prGlueInfo->prAdapter,
+ 				RAM_TYPE_MSG,
+diff --git a/wlan/gen4m/os/linux/gl_p2p_kal.c b/wlan/gen4m/os/linux/gl_p2p_kal.c
+index db5d17c..115c8d1 100644
+--- a/wlan/gen4m/os/linux/gl_p2p_kal.c
++++ b/wlan/gen4m/os/linux/gl_p2p_kal.c
+@@ -1791,7 +1791,7 @@ kalP2PGOStationUpdate(struct GLUE_INFO *prGlueInfo,
+ #endif
+ #endif
+ 
+-		cfg80211_new_sta(prP2pGlueInfo->aprRoleHandler,
++		cfg80211_new_sta(prP2pGlueInfo->aprRoleHandler->ieee80211_ptr,
+ 			aucBssid,
+ 			&rStationInfo, GFP_KERNEL);
+ 	} else {
+@@ -1820,7 +1820,7 @@ kalP2PGOStationUpdate(struct GLUE_INFO *prGlueInfo,
+ #endif
+ #endif
+ 
+-			cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler,
++			cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler->ieee80211_ptr,
+ 					 aucBssid, GFP_KERNEL);
+ 		}
+ #if CFG_STAINFO_FEATURE
+diff --git a/wlan/gen4m/os/linux/gl_plat.c b/wlan/gen4m/os/linux/gl_plat.c
+index b63eb0c..e9cce07 100644
+--- a/wlan/gen4m/os/linux/gl_plat.c
++++ b/wlan/gen4m/os/linux/gl_plat.c
+@@ -74,10 +74,9 @@ void kalSetTaskUtilMinPct(int pid, unsigned int min)
+ 	}
+ 
+ 	/* get task_struct */
++	/* find_task_by_vpid() is not exported */
+ 	rcu_read_lock();
+-	p = find_task_by_vpid(pid);
+-	if (likely(p))
+-		get_task_struct(p);
++	p = get_pid_task(find_vpid(pid), PIDTYPE_PID);
+ 	rcu_read_unlock();
+ 
+ 	/* sched_setattr_nocheck */
+@@ -197,7 +196,7 @@ void kalSetDramBoost(struct ADAPTER *prAdapter, int32_t iLv)
+ #endif /* CONFIG_OF */
+ 	static unsigned int peak_bw[OPP_BW_MAX_NUM] = {0}, current_bw;
+ 	unsigned int prev_bw = 0;
+-	uint32_t u4MaxIdx, i;
++	uint32_t u4MaxIdx, i __maybe_unused;
+ 
+ 	u4MaxIdx = kalGetDramBwMaxIdx();
+ 	if (u4MaxIdx == 0 || u4MaxIdx > OPP_BW_MAX_NUM)
+diff --git a/wlan/gen4m/os/linux/gl_vendor.c b/wlan/gen4m/os/linux/gl_vendor.c
+index bc43e94..5f2a21d 100644
+--- a/wlan/gen4m/os/linux/gl_vendor.c
++++ b/wlan/gen4m/os/linux/gl_vendor.c
+@@ -867,6 +867,7 @@ static int32_t get_priv_size(uint16_t args)
+ int mtk_cfg80211_vendor_iw_cmd(struct wiphy *wiphy,
+ 	struct wireless_dev *wdev, const void *data, int data_len)
+ {
++#if IS_ENABLED(CONFIG_WEXT_PRIV)
+ 	char cmd[1024] = {0};
+ 	char *out = cmd;
+ 	uint16_t cmd_size = sizeof(cmd);
+@@ -1148,6 +1149,10 @@ error:
+ 		kalMemFree(buffer, VIR_MEM_TYPE, sizeof(struct char));
+ 
+ 	return i4BytesWritten;
++#else
++	/* No wireless extensions (CONFIG_WEXT_PRIV) to run iwpriv commands on */
++	return -EOPNOTSUPP;
++#endif
+ }
+ 
+ int mtk_cfg80211_vendor_iw_cmd_driver(struct wiphy *wiphy,

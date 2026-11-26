@@ -1,0 +1,130 @@
+From 6d4049ca326dee0e6709958316b1c66c6a38f207 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:57:02 +0000
+Subject: [PATCH 182/183] iio: light: stk3310: Add support for the STK3A5X
+
+The STK3A5X, used in the Jolla Phone (2026), reports product ID 0x53
+and has the STK3310's state, control, data, flag and ID registers.
+
+It resets to 1x gain and a 741 us integration time on both channels,
+where the STK3310 resets to 64x and a 94.72 ms ALS integration time.
+With its reset values the ALS reads zero in room light, so program the
+STK3310's reset values for PSCTRL and ALSCTRL at probe, which the
+scale table assumes.
+---
+ drivers/iio/light/stk3310.c | 38 +++++++++++++++++++++++++++++++++++--
+ 1 file changed, 36 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/iio/light/stk3310.c b/drivers/iio/light/stk3310.c
+index 0a16e326e..8f7482ab9 100644
+--- a/drivers/iio/light/stk3310.c
++++ b/drivers/iio/light/stk3310.c
+@@ -61,6 +61,7 @@
+ #define STK3311X_CHIP_ID_VAL			0x12
+ #define STK3335_CHIP_ID_VAL			0x51
+ #define STK36C61_CHIP_ID_VAL			0x95
++#define STK3A5X_CHIP_ID_VAL			0x53
+ #define STK3310_PSINT_EN			0x01
+ #define STK3310_PS_MAX_VAL			0xFFFF
+ 
+@@ -112,6 +113,7 @@ static const u8 stk3310_chip_ids[] = {
+ 	STK3311_CHIP_ID_VAL,
+ 	STK3335_CHIP_ID_VAL,
+ 	STK36C61_CHIP_ID_VAL,
++	STK3A5X_CHIP_ID_VAL,
+ };
+ 
+ /* Estimate maximum proximity values with regard to measurement scale. */
+@@ -247,11 +249,15 @@ static const struct iio_chan_spec stk36c61_channels[] = {
+  * @name: device name reported to the IIO core
+  * @channels: channel specification
+  * @num_channels: number of channels
++ * @psctrl: PSCTRL value to program at probe, or 0 to keep the reset value
++ * @alsctrl: ALSCTRL value to program at probe, or 0 to keep the reset value
+  */
+ struct stk3310_chip_info {
+ 	const char *name;
+ 	const struct iio_chan_spec *channels __counted_by_ptr(num_channels);
+ 	unsigned int num_channels;
++	u8 psctrl;
++	u8 alsctrl;
+ };
+ 
+ static const struct stk3310_chip_info stk3310_chip_info = {
+@@ -266,6 +272,19 @@ static const struct stk3310_chip_info stk36c61_chip_info = {
+ 	.num_channels = ARRAY_SIZE(stk36c61_channels),
+ };
+ 
++/*
++ * The STK3A5X resets to 1x gain and a 741 us integration time for both
++ * channels, which leaves the ALS at zero indoors. Use the STK3310's reset
++ * values, which the scale table is for.
++ */
++static const struct stk3310_chip_info stk3a5x_chip_info = {
++	.name = "stk3a5x",
++	.channels = stk3310_channels,
++	.num_channels = ARRAY_SIZE(stk3310_channels),
++	.psctrl = 0x31,
++	.alsctrl = 0x39,
++};
++
+ static IIO_CONST_ATTR(in_illuminance_scale_available, STK3310_SCALE_AVAILABLE);
+ 
+ static IIO_CONST_ATTR(in_proximity_scale_available, STK3310_SCALE_AVAILABLE);
+@@ -595,7 +614,8 @@ static int stk3310_set_state(struct stk3310_data *data, u8 state)
+ 	return ret;
+ }
+ 
+-static int stk3310_init(struct iio_dev *indio_dev)
++static int stk3310_init(struct iio_dev *indio_dev,
++			const struct stk3310_chip_info *chip_info)
+ {
+ 	int ret;
+ 	int chipid;
+@@ -611,6 +631,18 @@ static int stk3310_init(struct iio_dev *indio_dev)
+ 	if (ret < 0)
+ 		dev_info(&client->dev, "new unknown chip id: 0x%x\n", chipid);
+ 
++	if (chip_info->psctrl) {
++		ret = regmap_write(data->regmap, STK3310_REG_PSCTRL, chip_info->psctrl);
++		if (ret < 0)
++			return ret;
++	}
++
++	if (chip_info->alsctrl) {
++		ret = regmap_write(data->regmap, STK3310_REG_ALSCTRL, chip_info->alsctrl);
++		if (ret < 0)
++			return ret;
++	}
++
+ 	state = STK3310_STATE_EN_ALS | STK3310_STATE_EN_PS;
+ 	ret = stk3310_set_state(data, state);
+ 	if (ret < 0) {
+@@ -758,7 +790,7 @@ static int stk3310_probe(struct i2c_client *client)
+ 	indio_dev->channels = chip_info->channels;
+ 	indio_dev->num_channels = chip_info->num_channels;
+ 
+-	ret = stk3310_init(indio_dev);
++	ret = stk3310_init(indio_dev, chip_info);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -867,6 +899,7 @@ static const struct i2c_device_id stk3310_i2c_id[] = {
+ 	{ .name = "stk3311", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
+ 	{ .name = "stk3335", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
+ 	{ .name = "stk36c61", .driver_data = (kernel_ulong_t)&stk36c61_chip_info },
++	{ .name = "stk3a5x", .driver_data = (kernel_ulong_t)&stk3a5x_chip_info },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(i2c, stk3310_i2c_id);
+@@ -885,6 +918,7 @@ static const struct of_device_id stk3310_of_match[] = {
+ 	{ .compatible = "sensortek,stk3311", .data = &stk3310_chip_info },
+ 	{ .compatible = "sensortek,stk3335", .data = &stk3310_chip_info },
+ 	{ .compatible = "sensortek,stk36c61", .data = &stk36c61_chip_info },
++	{ .compatible = "sensortek,stk3a5x", .data = &stk3a5x_chip_info },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, stk3310_of_match);
+-- 
+2.55.0
+
