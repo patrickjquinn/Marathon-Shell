@@ -1,7 +1,7 @@
 From e92c0f2b9ff74e128ecaf6f2cfe3bee70fb7d36c Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:38:34 +0000
-Subject: [PATCH 114/165] arm64: dts: mediatek: mt6858-jolla-jp2601: Enable the
+Subject: [PATCH 114/167] arm64: dts: mediatek: mt6858-jolla-jp2601: Enable the
  GPU
 
 LK loads the GPUEB firmware and starts it. The first 16 KiB of the EB's

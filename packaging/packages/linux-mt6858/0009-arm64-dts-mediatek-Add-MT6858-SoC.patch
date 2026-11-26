@@ -1,7 +1,7 @@
 From 3cf971ea929cf725c4ce6ecf1b1825eb704d4cd2 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 18:03:42 +0000
-Subject: [PATCH 009/165] arm64: dts: mediatek: Add MT6858 SoC
+Subject: [PATCH 009/167] arm64: dts: mediatek: Add MT6858 SoC
 
 Add a first device tree for the MediaTek MT6858 (Dimensity 7100): four
 Cortex-A55 and four Cortex-A78 cores in one DynamIQ cluster, PSCI, the

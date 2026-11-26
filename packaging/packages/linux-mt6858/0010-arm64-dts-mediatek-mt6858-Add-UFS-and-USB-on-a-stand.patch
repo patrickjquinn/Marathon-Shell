@@ -1,7 +1,7 @@
 From 6abcd0d3e33802136662968058c6fb004de6fe90 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 18:07:17 +0000
-Subject: [PATCH 010/165] arm64: dts: mediatek: mt6858: Add UFS and USB on a
+Subject: [PATCH 010/167] arm64: dts: mediatek: mt6858: Add UFS and USB on a
  stand-in clock
 
 Storage and a USB gadget are what a first mainline boot needs, and both

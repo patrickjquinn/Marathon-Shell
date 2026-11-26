@@ -1,0 +1,39 @@
+From dfc02503e0e053dfa7cbd91e3bf5fdb746583fd0 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 14:19:07 +0000
+Subject: [PATCH 166/167] drm/mediatek: mtk_dsi: Refuse transfers while the DSI
+ is powered off
+
+A transfer did not check that the DSI was powered on. On the JP2601,
+systemd-backlight restores the brightness (DCS 51h) at ~17 s, before the
+shell's first modeset at ~20 s, with the bootloader's video still
+running. The transfer stopped that stream, brought the lanes up and set
+lanes_ready. The first power-on then reprogrammed the PLL but skipped the
+lane bring-up (D-PHY reset, ULPS exit) as already done, so the panel took
+the LP init commands but showed nothing of the HS video, until a power
+off and on cleared lanes_ready. After a power off the same path touches
+registers with the clocks gated.
+
+Return -ENODEV unless the DSI is powered on.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index effff86a2..29a42ee62 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -1304,6 +1304,10 @@ static ssize_t mtk_dsi_host_transfer(struct mipi_dsi_host *host,
+ 	u32 dsi_mode;
+ 	int ret, i;
+ 
++	/* Not powered on: the bootloader's setup, or gated clocks */
++	if (!dsi->refcount)
++		return -ENODEV;
++
+ 	dsi_mode = readl(dsi->regs + DSI_MODE_CTRL);
+ 	if (dsi_mode & MODE) {
+ 		mtk_dsi_stop(dsi);
+-- 
+2.55.0
+

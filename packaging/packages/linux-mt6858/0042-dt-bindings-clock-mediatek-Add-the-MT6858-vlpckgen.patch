@@ -1,7 +1,7 @@
 From 079a39349d7fbeaeedd452bd25b1b9ac5daa7fdd Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:16:10 +0000
-Subject: [PATCH 042/165] dt-bindings: clock: mediatek: Add the MT6858 vlpckgen
+Subject: [PATCH 042/167] dt-bindings: clock: mediatek: Add the MT6858 vlpckgen
 
 Add the MT6858 VLP clock generator, which works like the MT8196 one,
 and its clock IDs.

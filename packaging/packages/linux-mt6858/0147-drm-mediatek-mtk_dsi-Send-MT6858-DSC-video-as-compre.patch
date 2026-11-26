@@ -1,7 +1,7 @@
 From b22ed9fcdcd2a5f7a640e1f2d969e99dbf186b58 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:52:26 +0000
-Subject: [PATCH 147/165] drm/mediatek: mtk_dsi: Send MT6858 DSC video as
+Subject: [PATCH 147/167] drm/mediatek: mtk_dsi: Send MT6858 DSC video as
  compressed pixel stream packets
 
 With DSC the MT6858 DSI takes the data type of its video packets from

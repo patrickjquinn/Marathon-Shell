@@ -1,7 +1,7 @@
 From e4fc3bf1d8464179677584b0b465f050fe2bfb53 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 06:56:29 +0000
-Subject: [PATCH 052/165] clk: mediatek: mt6858: Add the I2C wrapper clocks
+Subject: [PATCH 052/167] clk: mediatek: mt6858: Add the I2C wrapper clocks
 
 Each imp_iic_wrap block has one gate per I2C controller in a set/clear
 bank at 0xe00 (status), 0xe04 (clear) and 0xe08 (set), all fed by

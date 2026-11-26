@@ -1,7 +1,7 @@
 From dac1e64d20cdebd03329a7ecb552ba8807b6f0a1 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 18:07:23 +0000
-Subject: [PATCH 011/165] arm64: dts: mediatek: Add Jolla Phone (JP2601)
+Subject: [PATCH 011/167] arm64: dts: mediatek: Add Jolla Phone (JP2601)
 
 Add a board for the Jolla Phone (2026) that can reach userspace from a
 bootloader-supplied initramfs: the serial console the stock firmware

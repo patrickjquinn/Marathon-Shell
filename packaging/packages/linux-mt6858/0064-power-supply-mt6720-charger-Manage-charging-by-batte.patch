@@ -1,7 +1,7 @@
 From 65e1c6d9216429c381fec2cf52a3c726feeba967 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 08:16:19 +0000
-Subject: [PATCH 064/165] power: supply: mt6720-charger: Manage charging by
+Subject: [PATCH 064/167] power: supply: mt6720-charger: Manage charging by
  battery temperature
 
 The bootloader leaves the charger at 4.35 V and 2 A with no thermal

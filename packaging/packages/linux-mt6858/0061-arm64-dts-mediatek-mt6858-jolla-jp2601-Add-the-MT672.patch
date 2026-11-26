@@ -1,7 +1,7 @@
 From 144b27d4ddd017773c6c69ee37fe6b038b3f1853 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 07:58:27 +0000
-Subject: [PATCH 061/165] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 061/167] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  MT6720 and the battery
 
 Number the I2C buses after the SoC's controllers. Add the MT6720 on

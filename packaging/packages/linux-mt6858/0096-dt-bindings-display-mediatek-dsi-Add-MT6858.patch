@@ -1,7 +1,7 @@
 From 9ac192cc5ee0d398de4e61866bb864dcc8b2c521 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:36:43 +0000
-Subject: [PATCH 096/165] dt-bindings: display: mediatek: dsi: Add MT6858
+Subject: [PATCH 096/167] dt-bindings: display: mediatek: dsi: Add MT6858
 
 The MT6858 DSI has the MT8186/MT8188 register layout (command queue at
 0xd00, VM command at 0x200, shadow at 0xc00) but its own HS buffer and

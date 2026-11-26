@@ -1,7 +1,7 @@
 From 0729fd957c50ac109d33ee6ec0ceff2d747a278e Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:37:45 +0000
-Subject: [PATCH 098/165] drm/mediatek: mtk_dsi: Add MT6858 support
+Subject: [PATCH 098/167] drm/mediatek: mtk_dsi: Add MT6858 support
 
 MT6858's DSI0 uses the MT8188 register offsets: command queue at 0xd00,
 VM command at 0x200, shadow control at 0xc00, with the size control

@@ -1,7 +1,7 @@
 From 7fcfb456a509e3e29df965b8c94ddf5011ccd86b Mon Sep 17 00:00:00 2001
 From: AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
 Date: Wed, 1 Jul 2026 14:19:42 +0200
-Subject: [PATCH 085/165] drm/mediatek: Implement Display Stream Compression
+Subject: [PATCH 085/167] drm/mediatek: Implement Display Stream Compression
  support
 
 Add a real driver for the Display Stream Compression (DSC) Display

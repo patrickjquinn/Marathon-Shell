@@ -1,7 +1,7 @@
 From d6824a29bc33247d44cabc36fa50e42e971c3ae1 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 04:42:53 +0000
-Subject: [PATCH 038/165] spmi: mtk-pmif: Set up the software channel before
+Subject: [PATCH 038/167] spmi: mtk-pmif: Set up the software channel before
  adding the buses
 
 The SPMI devices on a bus probe as the bus is added, and their first

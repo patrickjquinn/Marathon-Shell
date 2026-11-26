@@ -1,7 +1,7 @@
 From 342c1720f35e4a1c0290429397c4e2fcf2f29cf2 Mon Sep 17 00:00:00 2001
 From: AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
 Date: Wed, 1 Jul 2026 14:19:44 +0200
-Subject: [PATCH 086/165] drm/mediatek: mtk_dsi: Enable interrupt at component
+Subject: [PATCH 086/167] drm/mediatek: mtk_dsi: Enable interrupt at component
  bind time
 
 Having the DSI interrupt enabled before actually binding the DSI

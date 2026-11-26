@@ -1,7 +1,7 @@
 From 68de54f90cf293dd3f142852a8d637d8c379749a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 13:07:02 +0000
-Subject: [PATCH 163/165] Revert "DEBUG: drm/panel: visionox-vtdr6126: Make the
+Subject: [PATCH 163/167] Revert "DEBUG: drm/panel: visionox-vtdr6126: Make the
  refresh rate writable"
 
 This reverts commit 6fe56bd88dc6f113e92bd7e96fb7474f205054ca.

@@ -1,7 +1,7 @@
 From 62d97a12cfa9e5c0ac8cd286f7211540df6f26ec Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:11:42 +0000
-Subject: [PATCH 140/165] drm/mediatek: dsc: Program the RC model size and
+Subject: [PATCH 140/167] drm/mediatek: dsc: Program the RC model size and
  every second RC range
 
 PPS6 was written with the flatness QPs only, leaving the RC model size

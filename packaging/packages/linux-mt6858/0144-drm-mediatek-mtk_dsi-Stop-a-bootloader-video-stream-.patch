@@ -1,7 +1,7 @@
 From 1c9d0d3acc5403ed69c07e10bef13a4511e42abf Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:37:05 +0000
-Subject: [PATCH 144/165] drm/mediatek: mtk_dsi: Stop a bootloader video stream
+Subject: [PATCH 144/167] drm/mediatek: mtk_dsi: Stop a bootloader video stream
  before the reset
 
 The MT6858 bootloader hands over DSI0 streaming video (START set, BUSY,

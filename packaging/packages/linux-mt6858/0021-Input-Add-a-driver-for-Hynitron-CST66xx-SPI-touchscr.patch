@@ -1,7 +1,7 @@
 From 2794710eb6185336b2ad6eaf2d1d8174de41f4f1 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:02:28 +0000
-Subject: [PATCH 021/165] Input: Add a driver for Hynitron CST66xx SPI
+Subject: [PATCH 021/167] Input: Add a driver for Hynitron CST66xx SPI
  touchscreens
 
 The CST66xx series take big-endian commands in their own SPI message
