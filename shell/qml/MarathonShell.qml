@@ -2524,6 +2524,9 @@ Item {
                 // notification, so the toggle only half-worked.
                 if (NotificationService.isDndEnabled)
                     return;
+                // Setup covers the screen; what arrives during it waits in the Hub.
+                if (!SettingsManagerCpp.firstRunComplete)
+                    return;
                 // The Hub already lists it, under where the banner would cover its header.
                 if (peekFlow.peekProgress > 0 || (!UIStore.appWindowOpen && pageView.currentIndex === 0))
                     return;
