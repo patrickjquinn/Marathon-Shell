@@ -1,7 +1,7 @@
 From 80d1fc809d8d78380d65d1936b928bbc78dffbdd Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 13:07:02 +0000
-Subject: [PATCH 161/181] Revert "DEBUG: drm/panel: visionox-vtdr6126:
+Subject: [PATCH 161/202] Revert "DEBUG: drm/panel: visionox-vtdr6126:
  Optionally keep the bootloader's panel init"
 
 This reverts commit 52cd57221eec6abd8cc2a34dc1963d2562e6fb2b.

@@ -1,7 +1,7 @@
-From bb6a1afc8da2749ccdf4b428466b8f0f467cf85a Mon Sep 17 00:00:00 2001
+From 33f681aa8328cbf4c4ab8396ee1a70deb36689da Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:45:28 +0000
-Subject: [PATCH 185/186] rust: bindgen: Keep the alignment of an empty
+Subject: [PATCH 185/202] rust: bindgen: Keep the alignment of an empty
  sched_statistics
 
 Without CONFIG_SCHEDSTATS, struct sched_statistics has no members but is

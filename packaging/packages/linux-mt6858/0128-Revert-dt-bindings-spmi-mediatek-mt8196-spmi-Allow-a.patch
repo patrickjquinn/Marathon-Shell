@@ -1,7 +1,7 @@
 From ea2d1c7d0b59f96dc40824cc016c39bb6cd9bc14 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:59:02 +0000
-Subject: [PATCH 128/181] Revert "dt-bindings: spmi: mediatek,mt8196-spmi:
+Subject: [PATCH 128/202] Revert "dt-bindings: spmi: mediatek,mt8196-spmi:
  Allow a bus without RCS interrupt"
 
 This reverts commit 8af8c6c46b518ba5821c24047709cc009fe9fda2.

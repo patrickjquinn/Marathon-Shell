@@ -1,0 +1,28 @@
+From b58a26886f9719facef4fef447060b523e977ad3 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:39:05 +0000
+Subject: [PATCH 193/202] arm64: configs: mt6858: Use transparent huge pages
+ only on madvise
+
+defconfig sets THP to "always", which on this phone backed 182 MB of
+anonymous memory with huge pages. Assembling them keeps kcompactd
+waking, as on the Q25, where it was the second-largest source of idle
+wakeups, and a phone's memory is better spent on zram and page cache.
+Leave huge pages to the programs that ask for them.
+---
+ arch/arm64/configs/mt6858.config | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 3a067c2d5..0744540d0 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -82,3 +82,5 @@ CONFIG_STK3310=m
+ CONFIG_I2C_GPIO=m
+ # CPU DVFS through MCUPM, from the start of boot.
+ CONFIG_ARM_MEDIATEK_CPUFREQ_HW=y
++# Huge pages only where asked: "always" kept kcompactd waking on the Q25.
++CONFIG_TRANSPARENT_HUGEPAGE_MADVISE=y
+-- 
+2.55.0
+

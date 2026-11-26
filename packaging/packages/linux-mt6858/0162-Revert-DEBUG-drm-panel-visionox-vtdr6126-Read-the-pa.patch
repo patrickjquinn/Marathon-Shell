@@ -1,7 +1,7 @@
 From bc70a42763d765eca95141a3d799577d29a88331 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 13:07:02 +0000
-Subject: [PATCH 162/181] Revert "DEBUG: drm/panel: visionox-vtdr6126: Read the
+Subject: [PATCH 162/202] Revert "DEBUG: drm/panel: visionox-vtdr6126: Read the
  panel status back"
 
 This reverts commit c1b45eef7539e9f94048cab36dd50dc31e2550d6.

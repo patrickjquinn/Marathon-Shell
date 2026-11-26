@@ -1,7 +1,7 @@
 From 86b576d57e1456285308f1416d93c83475f07131 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:09:56 +0000
-Subject: [PATCH 137/181] mmc: mtk-sd: Add support for the MT6858
+Subject: [PATCH 137/202] mmc: mtk-sd: Add support for the MT6858
 
 The downstream driver's MT6858 data has the MT8196's stop and pop
 timings (stop_dly_sel 1, pop_en_cnt 2) but not its new tx/rx paths, so

@@ -1,7 +1,7 @@
 From dff6e02b47b118b59e1e810f43f26aae3adec6cb Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:40:57 +0000
-Subject: [PATCH 105/181] arm64: dts: mediatek: mt6858-jolla-jp2601: Enable the
+Subject: [PATCH 105/202] arm64: dts: mediatek: mt6858-jolla-jp2601: Enable the
  display engines
 
 Turn on the OVL_2L1/OVL_2L2 -> DSC0 -> DSI0 path and the MIPI TX, still

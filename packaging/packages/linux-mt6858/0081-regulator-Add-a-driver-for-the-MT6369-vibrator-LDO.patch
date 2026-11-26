@@ -1,7 +1,7 @@
 From 520c48ae6335fad0d106c674f904c4c55330ef31 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:26:35 +0000
-Subject: [PATCH 081/181] regulator: Add a driver for the MT6369 vibrator LDO
+Subject: [PATCH 081/202] regulator: Add a driver for the MT6369 vibrator LDO
 
 The Jolla Phone's vibration motor runs from the MT6369's VIBR LDO:
 enable bit 0 of 0x1bc1, voltage selector bits 3:0 of 0x1d99 into a

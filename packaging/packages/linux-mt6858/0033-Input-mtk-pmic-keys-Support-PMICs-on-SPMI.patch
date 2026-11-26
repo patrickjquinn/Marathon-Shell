@@ -1,7 +1,7 @@
 From 514c4bd357a8cadc037b41cfedc22fb36b5baded Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:47:16 +0000
-Subject: [PATCH 033/181] Input: mtk-pmic-keys: Support PMICs on SPMI
+Subject: [PATCH 033/202] Input: mtk-pmic-keys: Support PMICs on SPMI
 
 The keys of the MediaTek PMICs on SPMI, such as the MT6363, sit under
 the mtk-spmi-pmic MFD, which holds the PMIC's regmap itself and gives

@@ -1,7 +1,7 @@
 From bcff48f271e4374d0d3cc515d23aa5fe1c1974e3 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:35:01 +0000
-Subject: [PATCH 171/181] arm64: configs: mt6858: Build in the MT6363
+Subject: [PATCH 171/202] arm64: configs: mt6858: Build in the MT6363
  regulators
 
 The MT6363's VRFIO18 supplies the CONNSYS I/O; the mainline driver

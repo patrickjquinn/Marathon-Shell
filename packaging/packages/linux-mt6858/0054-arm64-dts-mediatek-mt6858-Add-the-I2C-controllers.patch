@@ -1,7 +1,7 @@
 From 211c0b48e807827d6e77a6e9cf69b32014e14d35 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 06:56:30 +0000
-Subject: [PATCH 054/181] arm64: dts: mediatek: mt6858: Add the I2C controllers
+Subject: [PATCH 054/202] arm64: dts: mediatek: mt6858: Add the I2C controllers
 
 Add the twelve plain I2C controllers and their imp_iic_wrap clock
 controllers, with the addresses, interrupts and AP DMA channels of the

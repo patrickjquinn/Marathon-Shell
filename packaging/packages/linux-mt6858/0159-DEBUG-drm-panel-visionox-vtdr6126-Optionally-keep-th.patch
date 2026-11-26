@@ -1,7 +1,7 @@
 From 52cd57221eec6abd8cc2a34dc1963d2562e6fb2b Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 13:01:11 +0000
-Subject: [PATCH 159/181] DEBUG: drm/panel: visionox-vtdr6126: Optionally keep
+Subject: [PATCH 159/202] DEBUG: drm/panel: visionox-vtdr6126: Optionally keep
  the bootloader's panel init
 
 Bring-up only: with keep_boot_init (default on in this build), the first

@@ -1,7 +1,7 @@
 From 4f3b98631848f605c898594d5ed1566e48793d31 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:18:58 +0000
-Subject: [PATCH 068/181] mfd: mtk-spmi-pmic: Complete a pending RCS request at
+Subject: [PATCH 068/202] mfd: mtk-spmi-pmic: Complete a pending RCS request at
  probe
 
 An SPMI PMIC raises its interrupts as RCS requests, and sends no further

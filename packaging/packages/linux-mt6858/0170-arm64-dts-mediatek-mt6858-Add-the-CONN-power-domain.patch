@@ -1,7 +1,7 @@
 From 8194d83d308330aff5ac748901f5f9fe07b9ea2f Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:34:38 +0000
-Subject: [PATCH 170/181] arm64: dts: mediatek: mt6858: Add the CONN power
+Subject: [PATCH 170/202] arm64: dts: mediatek: mt6858: Add the CONN power
  domain
 
 CONNSYS (Wi-Fi, Bluetooth, GNSS) sits behind the CONN MTCMOS, which the

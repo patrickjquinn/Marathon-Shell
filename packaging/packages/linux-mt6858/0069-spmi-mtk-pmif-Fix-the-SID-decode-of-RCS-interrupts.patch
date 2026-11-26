@@ -1,7 +1,7 @@
 From b57daece0487599156d717632a87286bb7a3e5b7 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:19:13 +0000
-Subject: [PATCH 069/181] spmi: mtk-pmif: Fix the SID decode of RCS interrupts
+Subject: [PATCH 069/202] spmi: mtk-pmif: Fix the SID decode of RCS interrupts
 
 Each SPMI_SLV_x_EINT register holds the RCS flags of four SIDs, eight
 bits each, but the chained handler finds the SID of a flag with bit / 7.

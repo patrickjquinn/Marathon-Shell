@@ -1,7 +1,7 @@
 From 084e7032c0035e6b530f24e161c14492a75bfd20 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:59:02 +0000
-Subject: [PATCH 127/181] Revert "spmi: mtk-pmif: Allow a bus without RCS
+Subject: [PATCH 127/202] Revert "spmi: mtk-pmif: Allow a bus without RCS
  interrupt"
 
 This reverts commit 582baa8b5ce45b68adf9b151dff4ed38b3b8fb55.

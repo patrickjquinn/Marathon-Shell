@@ -1,0 +1,32 @@
+From 15e6d0cc22b44b7a0efac325b7239e25bebf3a00 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:48:14 +0000
+Subject: [PATCH 196/202] arm64: dts: mediatek: mt6858: Add the MT6685 RTC
+
+The phone has no RTC device, so every boot starts from the time of the
+last shutdown, the clock about 80 minutes behind until NTP, and stays
+wrong without a network. The MT6685 RTC keeps time across reboots: on
+the Jolla Phone it held UTC to the second, though no mainline boot had
+ever written it.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index b0ee4bb37..e379893a8 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -1018,6 +1018,10 @@ mt6685: pmic@9 {
+ 					compatible = "mediatek,mt6685";
+ 					reg = <0x9 SPMI_USID>;
+ 					#clock-cells = <1>;
++
++					rtc {
++						compatible = "mediatek,mt6685-rtc";
++					};
+ 				};
+ 
+ 				/*
+-- 
+2.55.0
+

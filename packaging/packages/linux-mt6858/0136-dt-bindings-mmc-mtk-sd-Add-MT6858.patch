@@ -1,7 +1,7 @@
 From 5c2a1ae04ae975c33dfccd54df446192f5f546ed Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:09:55 +0000
-Subject: [PATCH 136/181] dt-bindings: mmc: mtk-sd: Add MT6858
+Subject: [PATCH 136/202] dt-bindings: mmc: mtk-sd: Add MT6858
 
 The MT6858's MSDC is an MT8183-style controller with a top register
 range, clocked like the MT8196's: source, hclk and a source clock gate.

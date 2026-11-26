@@ -1,7 +1,7 @@
 From 9d2368e1f5f9e9ae4d15fcedfccdc3a6e6c09821 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 12:14:48 +0000
-Subject: [PATCH 157/181] Revert "DEBUG: mfd: mtk-spmi-pmic: Log RCS_IRQ_DONE
+Subject: [PATCH 157/202] Revert "DEBUG: mfd: mtk-spmi-pmic: Log RCS_IRQ_DONE
  around the probe writes"
 
 The log showed what it was for: the bootloader leaves a request waiting,

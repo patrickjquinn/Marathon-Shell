@@ -1,7 +1,7 @@
 From 6fcfdd89f8dd10dd4ce9788a79508baf07cbc2a0 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:29:24 +0000
-Subject: [PATCH 090/181] dt-bindings: display: panel: Add Visionox VTDR6126
+Subject: [PATCH 090/202] dt-bindings: display: panel: Add Visionox VTDR6126
 
 The VTDR6126 is a 1032x2272 AMOLED panel on a 4-lane DSI link in video
 mode with DSC, fitted to the Jolla Phone (JP2601). Besides reset it has

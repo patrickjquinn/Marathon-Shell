@@ -1,7 +1,7 @@
 From 18af12786f50dbc34519a2b43c171c5993027b50 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:52:09 +0000
-Subject: [PATCH 146/181] drm/mediatek: mtk_dsi: Request the interrupt before
+Subject: [PATCH 146/202] drm/mediatek: mtk_dsi: Request the interrupt before
  registering the host
 
 mipi_dsi_host_register() probes the panel, whose attach adds the DSI

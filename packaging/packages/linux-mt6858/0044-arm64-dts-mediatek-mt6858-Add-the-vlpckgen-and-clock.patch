@@ -1,7 +1,7 @@
 From d97b37dea685423a8a5ac16814aa14c9f10c44f3 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:16:10 +0000
-Subject: [PATCH 044/181] arm64: dts: mediatek: mt6858: Add the vlpckgen and
+Subject: [PATCH 044/202] arm64: dts: mediatek: mt6858: Add the vlpckgen and
  clock the SPMI arbiter
 
 Add the VLP clock generator, and give the SPMI arbiter its real clocks,

@@ -1,7 +1,7 @@
 From c44fb0776754f67a2b5df7c19ab1071fb6302213 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:38:30 +0000
-Subject: [PATCH 099/181] arm64: dts: mediatek: mt6858: Add the display engines
+Subject: [PATCH 099/202] arm64: dts: mediatek: mt6858: Add the display engines
 
 Describe the three 2-layer OVLs, the DSC wrapper, DSI0 and its MIPI TX
 D-PHY, with the vendor interrupts and the mmsys clock gates. The OVLs

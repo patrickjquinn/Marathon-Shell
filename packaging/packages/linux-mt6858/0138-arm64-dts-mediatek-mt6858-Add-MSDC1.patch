@@ -1,7 +1,7 @@
 From edb9fe3f7e4bf7efa979cc5f99a0ebcdbc2f7b99 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:09:56 +0000
-Subject: [PATCH 138/181] arm64: dts: mediatek: mt6858: Add MSDC1
+Subject: [PATCH 138/202] arm64: dts: mediatek: mt6858: Add MSDC1
 
 Add the SD card controller at 0x11240000 with its top registers at
 0x11e90000, GIC SPI 406, and the clocks the stock device tree gives it.

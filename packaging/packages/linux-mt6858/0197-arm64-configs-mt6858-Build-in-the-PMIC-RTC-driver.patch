@@ -1,0 +1,25 @@
+From 59fae7a0bce20a1bb38dcca96ba4058e95af2a88 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:47:57 +0000
+Subject: [PATCH 197/202] arm64: configs: mt6858: Build in the PMIC RTC driver
+
+defconfig builds rtc-mt6397 as a module, which loads only once udev
+runs, after systemd has started from the stored clock. Build it in so
+that the MT6685 RTC sets the clock as it registers.
+---
+ arch/arm64/configs/mt6858.config | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 6c7ba37a5..245255583 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -88,3 +88,5 @@ CONFIG_TRANSPARENT_HUGEPAGE_MADVISE=y
+ CONFIG_ZRAM=m
+ CONFIG_ZRAM_BACKEND_LZ4=y
+ CONFIG_ZRAM_BACKEND_ZSTD=y
++# The MT6685 RTC, so the clock is right from boot.
++CONFIG_RTC_DRV_MT6397=y
+-- 
+2.55.0
+

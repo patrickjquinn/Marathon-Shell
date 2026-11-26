@@ -1,0 +1,75 @@
+From a08fe9196f85766176e460fcaf7b0897510593f6 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:50:33 +0000
+Subject: [PATCH 199/202] dt-bindings: mfd: mediatek,mt6363: Add the MT6685
+
+The MT6685 is an SPMI PMIC with clock buffers and an RTC, and no
+regulators. It sits on the same bus as the MT6363 series and is reached
+the same way, so it shares their MFD binding.
+
+Its functions are child nodes without registers, so the address and size
+cells are not required for it.
+---
+ .../bindings/mfd/mediatek,mt6363.yaml         | 29 +++++++++++++++++--
+ 1 file changed, 27 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml b/Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml
+index 78d529ada..f8415bb5c 100644
+--- a/Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml
++++ b/Documentation/devicetree/bindings/mfd/mediatek,mt6363.yaml
+@@ -32,6 +32,7 @@ properties:
+       - mediatek,mt6363
+       - mediatek,mt6369
+       - mediatek,mt6373
++      - mediatek,mt6685
+ 
+   reg:
+     maxItems: 1
+@@ -55,6 +56,10 @@ patternProperties:
+     type: object
+     $ref: /schemas/iio/adc/mediatek,mt6359-auxadc.yaml#
+ 
++  "^clock-controller$":
++    type: object
++    $ref: /schemas/clock/mediatek,mt6685-clkbuf.yaml#
++
+   "^keys$":
+     type: object
+     $ref: /schemas/input/mediatek,pmic-keys.yaml#
+@@ -70,11 +75,31 @@ patternProperties:
+       - $ref: /schemas/regulator/mediatek,mt6363-regulator.yaml#
+       - $ref: /schemas/regulator/mediatek,mt6373-regulator.yaml#
+ 
++  "^rtc$":
++    type: object
++    properties:
++      compatible:
++        const: mediatek,mt6685-rtc
++
++    required:
++      - compatible
++
++    additionalProperties: false
++
+ required:
+   - compatible
+   - reg
+-  - '#address-cells'
+-  - '#size-cells'
++
++allOf:
++  - if:
++      properties:
++        compatible:
++          not:
++            const: mediatek,mt6685
++    then:
++      required:
++        - '#address-cells'
++        - '#size-cells'
+ 
+ additionalProperties: false
+ 
+-- 
+2.55.0
+

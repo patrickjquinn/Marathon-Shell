@@ -1,7 +1,7 @@
 From 1d46b77ca237df44406a6da84353f04fa05035b5 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 22:44:04 +0000
-Subject: [PATCH 016/181] phy: mediatek: xsphy: Force a valid B-session in
+Subject: [PATCH 016/202] phy: mediatek: xsphy: Force a valid B-session in
  device mode when asked
 
 On the Jolla Phone (MT6858) VBUS reaches the charger and the Type-C

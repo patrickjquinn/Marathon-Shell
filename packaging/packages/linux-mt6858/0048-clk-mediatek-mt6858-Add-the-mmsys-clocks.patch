@@ -1,7 +1,7 @@
 From 03873e374faba3f1c99d089de7279cccf27aa40a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:44:32 +0000
-Subject: [PATCH 048/181] clk: mediatek: mt6858: Add the mmsys clocks
+Subject: [PATCH 048/202] clk: mediatek: mt6858: Add the mmsys clocks
 
 Add the MT6858 display mmsys clock gates, generated from the tables of
 MediaTek's GPLv2 MT6858 clock driver. The mmsys driver instantiates
