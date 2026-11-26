@@ -49,17 +49,23 @@ Item {
         target: root.unlock
     }
 
-    Column {
-        anchors.centerIn: parent
-        anchors.verticalCenterOffset: Math.round(Constants.safeAreaTop / 2)
-        spacing: Math.round((root.compactLayout ? 8 * root.compactUnit : 24) * Constants.scaleFactor)
+    // A key's disc, above the pad.
+    MMarathonMark {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: pad.top
+        anchors.bottomMargin: pad.spacing
+        size: Math.round(root.keyButtonSize * Constants.scaleFactor / 0.43)
+        showLabel: false
+        visible: !root.compactLayout
+    }
 
-        MMarathonMark {
-            anchors.horizontalCenter: parent.horizontalCenter
-            size: Math.round(160 * Constants.scaleFactor)
-            showLabel: false
-            visible: !root.compactLayout
-        }
+    // Where MarathonPinScreen puts it, so the lock screen's pad lands on this one.
+    Column {
+        id: pad
+
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: root.compactLayout ? Math.round((Constants.statusBarHeight - Constants.navBarHeight - Silica.Theme.itemSizeSmall) / 2) : Math.round(-20 * Constants.scaleFactor)
+        spacing: Math.round((root.compactLayout ? 8 * root.compactUnit : 24) * Constants.scaleFactor)
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
