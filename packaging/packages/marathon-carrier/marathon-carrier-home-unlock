@@ -19,6 +19,9 @@ cryptsetup open --allow-discards --perf-no_read_workqueue --perf-no_write_workqu
 : > /run/marathon-carrier/remote-unlock
 # Let the waiting prompt go; marathon-carrier-home-crypt sees the open volume.
 pkill -x unl0kr || :
+if [ -r /run/marathon-carrier/pin-pad.pid ]; then
+	kill "$(cat /run/marathon-carrier/pin-pad.pid)" 2> /dev/null || :
+fi
 if plymouth --ping 2> /dev/null; then
 	plymouth quit
 fi
