@@ -1,0 +1,208 @@
+From 211c0b48e807827d6e77a6e9cf69b32014e14d35 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 06:56:30 +0000
+Subject: [PATCH 54/65] arm64: dts: mediatek: mt6858: Add the I2C controllers
+
+Add the twelve plain I2C controllers and their imp_iic_wrap clock
+controllers, with the addresses, interrupts and AP DMA channels of the
+vendor device tree. I2C0 (0x11d00000) is an I3C controller and is left
+out.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 174 +++++++++++++++++++++++
+ 1 file changed, 174 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index c40116bb5..3a02b4189 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -407,6 +407,90 @@ ssusb: usb@11201000 {
+ 			status = "disabled";
+ 		};
+ 
++		i2c1: i2c@11280000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11280000 0 0x1000>,
++			      <0 0x11300380 0 0x80>;
++			interrupts = <GIC_SPI 595 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impc CLK_IMPC_I2C1>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c3: i2c@11281000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11281000 0 0x1000>,
++			      <0 0x11300500 0 0x80>;
++			interrupts = <GIC_SPI 597 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impc CLK_IMPC_I2C3>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c5: i2c@11282000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11282000 0 0x1000>,
++			      <0 0x11300680 0 0x80>;
++			interrupts = <GIC_SPI 599 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impc CLK_IMPC_I2C5>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c6: i2c@11283000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11283000 0 0x1000>,
++			      <0 0x11300700 0 0x80>;
++			interrupts = <GIC_SPI 600 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impc CLK_IMPC_I2C6>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c10: i2c@11284000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11284000 0 0x1000>,
++			      <0 0x11300a80 0 0x80>;
++			interrupts = <GIC_SPI 604 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impc CLK_IMPC_I2C10>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c12: i2c@11285000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11285000 0 0x1000>,
++			      <0 0x11300b80 0 0x80>;
++			interrupts = <GIC_SPI 606 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impc CLK_IMPC_I2C12>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		impc: clock-controller@11286000 {
++			compatible = "mediatek,mt6858-imp-iic-wrap-c", "syscon";
++			reg = <0 0x11286000 0 0x1000>;
++			#clock-cells = <1>;
++		};
++
+ 		ufsphy: ufs-phy@112a0000 {
+ 			compatible = "mediatek,mt8183-ufsphy";
+ 			reg = <0 0x112a0000 0 0x10000>;
+@@ -428,6 +512,96 @@ ufshci: ufshci@112b0000 {
+ 			status = "disabled";
+ 		};
+ 
++		i2c4: i2c@11c00000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11c00000 0 0x1000>,
++			      <0 0x11300580 0 0x100>;
++			interrupts = <GIC_SPI 598 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impes CLK_IMPES_I2C4>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c7: i2c@11c01000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11c01000 0 0x1000>,
++			      <0 0x11300780 0 0x100>;
++			interrupts = <GIC_SPI 601 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impes CLK_IMPES_I2C7>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c8: i2c@11c02000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11c02000 0 0x1000>,
++			      <0 0x11300880 0 0x100>;
++			interrupts = <GIC_SPI 602 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&impes CLK_IMPES_I2C8>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		impes: clock-controller@11c03000 {
++			compatible = "mediatek,mt6858-imp-iic-wrap-es", "syscon";
++			reg = <0 0x11c03000 0 0x1000>;
++			#clock-cells = <1>;
++		};
++
++		i2c2: i2c@11d01000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11d01000 0 0x1000>,
++			      <0 0x11300400 0 0x100>;
++			interrupts = <GIC_SPI 596 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&imps CLK_IMPS_I2C2>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c9: i2c@11d02000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11d02000 0 0x1000>,
++			      <0 0x11300980 0 0x100>;
++			interrupts = <GIC_SPI 603 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&imps CLK_IMPS_I2C9>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		i2c11: i2c@11d03000 {
++			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
++			reg = <0 0x11d03000 0 0x1000>,
++			      <0 0x11300b00 0 0x80>;
++			interrupts = <GIC_SPI 605 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&imps CLK_IMPS_I2C11>, <&pericfg_ao CLK_PERAO_P_DMA_B>;
++			clock-names = "main", "dma";
++			clock-div = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
++		imps: clock-controller@11d04000 {
++			compatible = "mediatek,mt6858-imp-iic-wrap-s", "syscon";
++			reg = <0 0x11d04000 0 0x1000>;
++			#clock-cells = <1>;
++		};
++
+ 		xsphy: xs-phy@11e10000 {
+ 			compatible = "mediatek,mt6858-xsphy", "mediatek,xsphy";
+ 			#address-cells = <1>;
+-- 
+2.55.0
+

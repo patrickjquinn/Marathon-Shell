@@ -1,0 +1,41 @@
+From 79b03e620daf975671368d97144088cfcefb52f0 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 08:16:16 +0000
+Subject: [PATCH 62/65] mfd: mt6720: Mask every event before adding the irq
+ chip
+
+The boot loader leaves some events unmasked (0x9c = 0xf8, 0xa8 = 0xe7
+on the Jolla Phone). regmap-irq masks only the events it knows, so an
+unknown one could hold the level-triggered line low with nobody to
+clear it. Mask all fourteen event registers first, as MediaTek's driver
+does at probe.
+---
+ drivers/mfd/mt6720.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/mfd/mt6720.c b/drivers/mfd/mt6720.c
+index e1122a1d2..950fb2dcd 100644
+--- a/drivers/mfd/mt6720.c
++++ b/drivers/mfd/mt6720.c
+@@ -167,6 +167,18 @@ static int mt6720_probe(struct i2c_client *client)
+ 	dev_info(dev, "device info 0x%02x\n", info);
+ 
+ 	if (client->irq) {
++		/*
++		 * Mask every event first, as the stock driver does: the boot
++		 * loader leaves some unmasked that no function here handles.
++		 */
++		for (i = 0; i < MT6720_NUM_IRQ_REGS; i++) {
++			ret = regmap_write(regmap, MT6720_REG_IRQ_MASK0 +
++					   mt6720_irq_reg_ofs[i], 0xff);
++			if (ret)
++				return dev_err_probe(dev, ret,
++						     "Failed to mask events\n");
++		}
++
+ 		ret = devm_regmap_add_irq_chip(dev, regmap, client->irq,
+ 					       IRQF_ONESHOT, -1,
+ 					       &mt6720_irq_chip,
+-- 
+2.55.0
+

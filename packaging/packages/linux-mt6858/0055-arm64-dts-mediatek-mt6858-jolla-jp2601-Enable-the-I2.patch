@@ -1,0 +1,198 @@
+From 1a0327191b24b87a340d35f8e7aaed4ca02d26b8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 06:56:30 +0000
+Subject: [PATCH 55/65] arm64: dts: mediatek: mt6858-jolla-jp2601: Enable the
+ I2C buses
+
+Enable every I2C bus the stock device tree uses, with its pins. I2C5
+carries the MT6720 charger, gauge and Type-C PMIC. The stock tree runs
+it at 1 MHz, but 400 kHz is enough until a driver needs more and keeps
+the first reads within plain fast-mode timing.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 163 ++++++++++++++++++
+ 1 file changed, 163 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 4b8665c76..9f4cee071 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -309,6 +309,85 @@ reg_vemc: regulator-vemc {
+ 	};
+ };
+ 
++&i2c1 {
++	clock-frequency = <400000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c1_pins>;
++	status = "okay";
++};
++
++&i2c2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c2_pins>;
++	status = "okay";
++};
++
++&i2c3 {
++	clock-frequency = <400000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c3_pins>;
++	status = "okay";
++};
++
++&i2c4 {
++	clock-frequency = <400000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c4_pins>;
++	status = "okay";
++};
++
++&i2c5 {
++	clock-frequency = <400000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c5_pins>;
++	status = "okay";
++};
++
++&i2c6 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c6_pins>;
++	status = "okay";
++};
++
++&i2c7 {
++	clock-frequency = <400000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c7_pins>;
++	status = "okay";
++};
++
++&i2c8 {
++	clock-frequency = <400000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c8_pins>;
++	status = "okay";
++};
++
++&i2c9 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c9_pins>;
++	status = "okay";
++};
++
++&i2c10 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c10_pins>;
++	status = "okay";
++};
++
++&i2c11 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c11_pins>;
++	status = "okay";
++};
++
++&i2c12 {
++	clock-frequency = <400000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c12_pins>;
++	status = "okay";
++};
++
+ &mt6363 {
+ 	keys {
+ 		compatible = "mediatek,mt6363-keys";
+@@ -340,6 +419,90 @@ home2-key {
+ };
+ 
+ &pio {
++	i2c1_pins: i2c1-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO141__FUNC_SCL1>,
++				 <PINMUX_GPIO142__FUNC_SDA1>;
++		};
++	};
++
++	i2c2_pins: i2c2-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO143__FUNC_SCL2>,
++				 <PINMUX_GPIO144__FUNC_SDA2>;
++		};
++	};
++
++	i2c3_pins: i2c3-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO145__FUNC_SCL3>,
++				 <PINMUX_GPIO146__FUNC_SDA3>;
++		};
++	};
++
++	i2c4_pins: i2c4-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO147__FUNC_SCL4>,
++				 <PINMUX_GPIO148__FUNC_SDA4>;
++		};
++	};
++
++	i2c5_pins: i2c5-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO149__FUNC_SCL5>,
++				 <PINMUX_GPIO150__FUNC_SDA5>;
++		};
++	};
++
++	i2c6_pins: i2c6-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO151__FUNC_SCL6>,
++				 <PINMUX_GPIO152__FUNC_SDA6>;
++		};
++	};
++
++	i2c7_pins: i2c7-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO153__FUNC_SCL7>,
++				 <PINMUX_GPIO154__FUNC_SDA7>;
++		};
++	};
++
++	i2c8_pins: i2c8-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO155__FUNC_SCL8>,
++				 <PINMUX_GPIO156__FUNC_SDA8>;
++		};
++	};
++
++	i2c9_pins: i2c9-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO114__FUNC_SCL9>,
++				 <PINMUX_GPIO115__FUNC_SDA9>;
++		};
++	};
++
++	i2c10_pins: i2c10-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO161__FUNC_SCL10>,
++				 <PINMUX_GPIO162__FUNC_SDA10>;
++		};
++	};
++
++	i2c11_pins: i2c11-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO45__FUNC_SCL11>,
++				 <PINMUX_GPIO46__FUNC_SDA11>;
++		};
++	};
++
++	i2c12_pins: i2c12-pins {
++		pins-bus {
++			pinmux = <PINMUX_GPIO163__FUNC_SCL12>,
++				 <PINMUX_GPIO164__FUNC_SDA12>;
++		};
++	};
++
+ 	spi3_pins: spi3-pins {
+ 		pins-spi {
+ 			pinmux = <PINMUX_GPIO70__FUNC_SPI3_CLK>,
+-- 
+2.55.0
+

@@ -1,0 +1,26 @@
+From fd8415fd0b0c64dd1d98fada9fd6f1e631d6f475 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 06:56:30 +0000
+Subject: [PATCH 53/65] dt-bindings: i2c: mt65xx: Add MT6858
+
+The MT6858 I2C controllers are the MT6991 ones, which already fall back
+to the MT8188 compatible.
+---
+ Documentation/devicetree/bindings/i2c/i2c-mt65xx.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/i2c/i2c-mt65xx.yaml b/Documentation/devicetree/bindings/i2c/i2c-mt65xx.yaml
+index ecd5783f0..cf3954038 100644
+--- a/Documentation/devicetree/bindings/i2c/i2c-mt65xx.yaml
++++ b/Documentation/devicetree/bindings/i2c/i2c-mt65xx.yaml
+@@ -52,6 +52,7 @@ properties:
+           - const: mediatek,mt8173-i2c
+       - items:
+           - enum:
++              - mediatek,mt6858-i2c
+               - mediatek,mt6878-i2c
+               - mediatek,mt6991-i2c
+               - mediatek,mt8189-i2c
+-- 
+2.55.0
+

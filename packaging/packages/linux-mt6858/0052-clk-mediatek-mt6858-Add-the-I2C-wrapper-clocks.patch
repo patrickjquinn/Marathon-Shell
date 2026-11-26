@@ -1,0 +1,144 @@
+From e4fc3bf1d8464179677584b0b465f050fe2bfb53 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 06:56:29 +0000
+Subject: [PATCH 52/65] clk: mediatek: mt6858: Add the I2C wrapper clocks
+
+Each imp_iic_wrap block has one gate per I2C controller in a set/clear
+bank at 0xe00 (status), 0xe04 (clear) and 0xe08 (set), all fed by
+top_i2c_ck. The table comes from MediaTek's GPLv2 clk-mt6858-cg driver
+(impc_clks, impes_clks, imps_clks).
+---
+ drivers/clk/mediatek/Kconfig                  |  7 ++
+ drivers/clk/mediatek/Makefile                 |  1 +
+ .../clk/mediatek/clk-mt6858-imp_iic_wrap.c    | 89 +++++++++++++++++++
+ 3 files changed, 97 insertions(+)
+ create mode 100644 drivers/clk/mediatek/clk-mt6858-imp_iic_wrap.c
+
+diff --git a/drivers/clk/mediatek/Kconfig b/drivers/clk/mediatek/Kconfig
+index b3aa4d54c..6c334fc2a 100644
+--- a/drivers/clk/mediatek/Kconfig
++++ b/drivers/clk/mediatek/Kconfig
+@@ -486,6 +486,13 @@ config COMMON_CLK_MT6858_MMSYS
+ 	help
+ 	  This driver supports the MediaTek MT6858 mmsys clocks.
+ 
++config COMMON_CLK_MT6858_IMP_IIC_WRAP
++	tristate "Clock driver for MediaTek MT6858 imp_iic_wrap"
++	depends on COMMON_CLK_MT6858
++	default COMMON_CLK_MT6858
++	help
++	  This driver supports the MediaTek MT6858 I2C controller clocks.
++
+ config COMMON_CLK_MT8135
+ 	tristate "Clock driver for MediaTek MT8135"
+ 	depends on (ARCH_MEDIATEK && ARM) || COMPILE_TEST
+diff --git a/drivers/clk/mediatek/Makefile b/drivers/clk/mediatek/Makefile
+index b26b3f34f..41f9742bd 100644
+--- a/drivers/clk/mediatek/Makefile
++++ b/drivers/clk/mediatek/Makefile
+@@ -33,6 +33,7 @@ obj-$(CONFIG_COMMON_CLK_MT6858) += clk-mt6858-apmixedsys.o clk-mt6858-topckgen.o
+ 				   clk-mt6858-peri_ao.o clk-mt6858-infra_ao.o \
+ 				   clk-mt6858-vlpckgen.o
+ obj-$(CONFIG_COMMON_CLK_MT6858_MMSYS) += clk-mt6858-mm.o
++obj-$(CONFIG_COMMON_CLK_MT6858_IMP_IIC_WRAP) += clk-mt6858-imp_iic_wrap.o
+ obj-$(CONFIG_COMMON_CLK_MT6797) += clk-mt6797.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_IMGSYS) += clk-mt6797-img.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_MMSYS) += clk-mt6797-mm.o
+diff --git a/drivers/clk/mediatek/clk-mt6858-imp_iic_wrap.c b/drivers/clk/mediatek/clk-mt6858-imp_iic_wrap.c
+new file mode 100644
+index 000000000..4083b8a98
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6858-imp_iic_wrap.c
+@@ -0,0 +1,89 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ *
++ * From the clock tables of MediaTek's GPLv2 MT6858 clock driver.
++ */
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include "clk-gate.h"
++#include "clk-mtk.h"
++
++static const struct mtk_gate_regs imp_cg_regs = {
++	.set_ofs = 0xe08,
++	.clr_ofs = 0xe04,
++	.sta_ofs = 0xe00,
++};
++
++#define GATE_IMP(_id, _name, _shift) {			\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = "top_i2c_ck",		\
++		.regs = &imp_cg_regs,			\
++		.shift = _shift,			\
++		.flags = CLK_OPS_PARENT_ENABLE,		\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++static const struct mtk_gate impc_clks[] = {
++	GATE_IMP(CLK_IMPC_I2C1, "impc_i2c1", 0),
++	GATE_IMP(CLK_IMPC_I2C3, "impc_i2c3", 1),
++	GATE_IMP(CLK_IMPC_I2C5, "impc_i2c5", 2),
++	GATE_IMP(CLK_IMPC_I2C6, "impc_i2c6", 3),
++	GATE_IMP(CLK_IMPC_I2C10, "impc_i2c10", 4),
++	GATE_IMP(CLK_IMPC_I2C12, "impc_i2c12", 5),
++};
++
++static const struct mtk_clk_desc impc_desc = {
++	.clks = impc_clks,
++	.num_clks = ARRAY_SIZE(impc_clks),
++};
++
++static const struct mtk_gate impes_clks[] = {
++	GATE_IMP(CLK_IMPES_I2C4, "impes_i2c4", 0),
++	GATE_IMP(CLK_IMPES_I2C7, "impes_i2c7", 1),
++	GATE_IMP(CLK_IMPES_I2C8, "impes_i2c8", 2),
++};
++
++static const struct mtk_clk_desc impes_desc = {
++	.clks = impes_clks,
++	.num_clks = ARRAY_SIZE(impes_clks),
++};
++
++static const struct mtk_gate imps_clks[] = {
++	GATE_IMP(CLK_IMPS_I2C0, "imps_i2c0", 0),
++	GATE_IMP(CLK_IMPS_I2C2, "imps_i2c2", 1),
++	GATE_IMP(CLK_IMPS_I2C9, "imps_i2c9", 2),
++	GATE_IMP(CLK_IMPS_I2C11, "imps_i2c11", 3),
++};
++
++static const struct mtk_clk_desc imps_desc = {
++	.clks = imps_clks,
++	.num_clks = ARRAY_SIZE(imps_clks),
++};
++
++static const struct of_device_id of_match_clk_mt6858_imp_iic_wrap[] = {
++	{ .compatible = "mediatek,mt6858-imp-iic-wrap-c", .data = &impc_desc },
++	{ .compatible = "mediatek,mt6858-imp-iic-wrap-es", .data = &impes_desc },
++	{ .compatible = "mediatek,mt6858-imp-iic-wrap-s", .data = &imps_desc },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, of_match_clk_mt6858_imp_iic_wrap);
++
++static struct platform_driver clk_mt6858_imp_iic_wrap_drv = {
++	.probe = mtk_clk_simple_probe,
++	.remove = mtk_clk_simple_remove,
++	.driver = {
++		.name = "clk-mt6858-imp_iic_wrap",
++		.of_match_table = of_match_clk_mt6858_imp_iic_wrap,
++	},
++};
++module_platform_driver(clk_mt6858_imp_iic_wrap_drv);
++
++MODULE_DESCRIPTION("MediaTek MT6858 I2C wrapper clock driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

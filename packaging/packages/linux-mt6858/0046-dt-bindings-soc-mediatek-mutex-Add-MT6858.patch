@@ -1,0 +1,33 @@
+From 94361cd0be828560b2dba5cf8445fde4cda57a82 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 05:44:26 +0000
+Subject: [PATCH 46/65] dt-bindings: soc: mediatek: mutex: Add MT6858
+
+Add the MT6858 display mutex. Like the MT8192 one, it needs its clock.
+---
+ .../devicetree/bindings/soc/mediatek/mediatek,mutex.yaml        | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/soc/mediatek/mediatek,mutex.yaml b/Documentation/devicetree/bindings/soc/mediatek/mediatek,mutex.yaml
+index 1ba086ad7..1bdaa118a 100644
+--- a/Documentation/devicetree/bindings/soc/mediatek/mediatek,mutex.yaml
++++ b/Documentation/devicetree/bindings/soc/mediatek/mediatek,mutex.yaml
+@@ -30,6 +30,7 @@ properties:
+       - mediatek,mt2701-disp-mutex
+       - mediatek,mt2712-disp-mutex
+       - mediatek,mt6795-disp-mutex
++      - mediatek,mt6858-disp-mutex
+       - mediatek,mt8167-disp-mutex
+       - mediatek,mt8173-disp-mutex
+       - mediatek,mt8183-disp-mutex
+@@ -85,6 +86,7 @@ allOf:
+               - mediatek,mt2701-disp-mutex
+               - mediatek,mt2712-disp-mutex
+               - mediatek,mt6795-disp-mutex
++              - mediatek,mt6858-disp-mutex
+               - mediatek,mt8173-disp-mutex
+               - mediatek,mt8186-disp-mutex
+               - mediatek,mt8186-mdp3-mutex
+-- 
+2.55.0
+

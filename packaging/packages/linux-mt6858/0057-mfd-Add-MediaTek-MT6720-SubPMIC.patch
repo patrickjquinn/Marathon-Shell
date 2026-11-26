@@ -1,0 +1,265 @@
+From 735df83722a8d8128b4bce522283f8896e80fa75 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 07:58:20 +0000
+Subject: [PATCH 57/65] mfd: Add MediaTek MT6720 SubPMIC
+
+The MT6720's registers sit in ten banks, each behind its own I2C
+address: 0x34 (the device's own), 0x52, 0x53, 0x3f, 0x4e, 0x4f, 0x58,
+0x1a, 0x4a and 0x64, as MediaTek's mt6720 MFD driver maps them. Like the
+MT6370 driver, expose them as one regmap with the bank in the address's
+high byte, check the device ID (0x74 on the Jolla Phone) and populate
+the functions from the device tree.
+
+The fourteen event registers are not contiguous (flags from 0x50, masks
+from 0x90, at offsets 0-3, 8-12, 16-18, 24 and 26), so the irq chip maps
+them with get_irq_reg. It is only added when the node has an interrupt.
+---
+ drivers/mfd/Kconfig  |  13 +++
+ drivers/mfd/Makefile |   1 +
+ drivers/mfd/mt6720.c | 198 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 212 insertions(+)
+ create mode 100644 drivers/mfd/mt6720.c
+
+diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
+index 9a8a013ba..7bb119325 100644
+--- a/drivers/mfd/Kconfig
++++ b/drivers/mfd/Kconfig
+@@ -1138,6 +1138,19 @@ config MFD_MT6360
+ 	  PMIC part includes 2-channel BUCKs and 2-channel LDOs
+ 	  LDO part includes 4-channel LDOs
+ 
++config MFD_MT6720
++	tristate "MediaTek MT6720 SubPMIC"
++	select MFD_CORE
++	select REGMAP_IRQ
++	depends on I2C && OF
++	help
++	  Say Y here to enable the MediaTek MT6720 SubPMIC core: a single
++	  cell switching charger with ADC, a fuel gauge and a USB Type-C
++	  and PD port controller.
++
++	  This driver can also be built as a module. If so, the module
++	  will be called "mt6720".
++
+ config MFD_MT6370
+ 	tristate "MediaTek MT6370 SubPMIC"
+ 	select MFD_CORE
+diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
+index a32ec1f69..0393b86e8 100644
+--- a/drivers/mfd/Makefile
++++ b/drivers/mfd/Makefile
+@@ -188,6 +188,7 @@ obj-$(CONFIG_MFD_MP2629)	+= mp2629.o
+ 
+ obj-$(CONFIG_MFD_MT6360)	+= mt6360-core.o
+ obj-$(CONFIG_MFD_MT6370)	+= mt6370.o
++obj-$(CONFIG_MFD_MT6720)	+= mt6720.o
+ mt6397-objs			:= mt6397-core.o mt6397-irq.o mt6358-irq.o
+ obj-$(CONFIG_MFD_MT6397)	+= mt6397.o
+ obj-$(CONFIG_MFD_MTK_SPMI_PMIC)	+= mtk-spmi-pmic.o
+diff --git a/drivers/mfd/mt6720.c b/drivers/mfd/mt6720.c
+new file mode 100644
+index 000000000..e1122a1d2
+--- /dev/null
++++ b/drivers/mfd/mt6720.c
+@@ -0,0 +1,198 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6720 SubPMIC: switching charger, fuel gauge, ADC and USB
++ * Type-C/PD port controller.
++ *
++ * The register map is split into ten banks, each behind its own I2C
++ * address. A regmap address is (bank << 8) | register.
++ */
++#include <linux/bitfield.h>
++#include <linux/i2c.h>
++#include <linux/interrupt.h>
++#include <linux/kernel.h>
++#include <linux/mfd/core.h>
++#include <linux/module.h>
++#include <linux/of_platform.h>
++#include <linux/regmap.h>
++
++#define MT6720_REG_DEV_INFO	0x000
++#define MT6720_REG_IRQ_FLAG0	0x050
++#define MT6720_REG_IRQ_MASK0	0x090
++#define MT6720_REG_MAX		0x9ff
++
++#define MT6720_NUM_BANKS	10
++#define MT6720_NUM_IRQ_REGS	14
++#define MT6720_NUM_IRQS		(MT6720_NUM_IRQ_REGS * 8)
++
++struct mt6720_data {
++	struct i2c_client *i2c[MT6720_NUM_BANKS];
++	struct regmap_irq_chip_data *irq_data;
++};
++
++/* Bank 0 is the parent's own address. */
++static const u8 mt6720_bank_addr[MT6720_NUM_BANKS] = {
++	0x34, 0x52, 0x53, 0x3f, 0x4e, 0x4f, 0x58, 0x1a, 0x4a, 0x64,
++};
++
++/*
++ * The fourteen event bytes are not contiguous: their flag registers
++ * (write 1 to clear) are at 0x50 plus these offsets, their masks at 0x90
++ * plus the same offsets. An event's number is its byte * 8 + bit.
++ */
++static const u8 mt6720_irq_reg_ofs[MT6720_NUM_IRQ_REGS] = {
++	0x00, 0x01, 0x02, 0x03, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
++	0x10, 0x11, 0x12, 0x18, 0x1a,
++};
++
++static unsigned int mt6720_get_irq_reg(struct regmap_irq_chip_data *data,
++				       unsigned int base, int index)
++{
++	return base + mt6720_irq_reg_ofs[index];
++}
++
++#define MT6720_IRQ(_n)	REGMAP_IRQ_REG_LINE(_n, 8)
++
++/* The events the stock device tree routes to a function. */
++static const struct regmap_irq mt6720_irqs[MT6720_NUM_IRQS] = {
++	MT6720_IRQ(0),		/* fl_pwr_rdy */
++	MT6720_IRQ(1),		/* fl_detach */
++	MT6720_IRQ(6),		/* fl_bus_chg_rdy */
++	MT6720_IRQ(8),		/* fl_vbus_ov */
++	MT6720_IRQ(10),		/* fl_chg_sysov */
++	MT6720_IRQ(11),		/* fl_chg_tout */
++	MT6720_IRQ(18),		/* fl_aicc_done */
++	MT6720_IRQ(19),		/* fl_pe_done */
++	MT6720_IRQ(23),		/* fl_wdt */
++	MT6720_IRQ(25),		/* fl_otg_lbp */
++	MT6720_IRQ(27),		/* fl_batpro_done */
++	MT6720_IRQ(31),		/* fl_bc12_dn */
++	MT6720_IRQ(43),		/* adc_vbat_mon_ov */
++	MT6720_IRQ(64),		/* otp0 */
++	MT6720_IRQ(65),		/* otp1 */
++	MT6720_IRQ(66),		/* otp2 */
++	MT6720_IRQ(99),		/* gauge event */
++	MT6720_IRQ(100),	/* auxadc */
++	MT6720_IRQ(104),	/* Type-C/PD */
++	MT6720_IRQ(111),	/* UFCS */
++};
++
++static const struct regmap_irq_chip mt6720_irq_chip = {
++	.name = "mt6720",
++	.status_base = MT6720_REG_IRQ_FLAG0,
++	.ack_base = MT6720_REG_IRQ_FLAG0,
++	.mask_base = MT6720_REG_IRQ_MASK0,
++	.num_regs = MT6720_NUM_IRQ_REGS,
++	.irqs = mt6720_irqs,
++	.num_irqs = ARRAY_SIZE(mt6720_irqs),
++	.get_irq_reg = mt6720_get_irq_reg,
++};
++
++static int mt6720_regmap_read(void *context, const void *reg_buf,
++			      size_t reg_size, void *val_buf, size_t val_size)
++{
++	struct mt6720_data *data = context;
++	const u8 *reg = reg_buf;
++	int ret;
++
++	if (reg[0] >= MT6720_NUM_BANKS)
++		return -EINVAL;
++
++	ret = i2c_smbus_read_i2c_block_data(data->i2c[reg[0]], reg[1],
++					    val_size, val_buf);
++	if (ret < 0)
++		return ret;
++
++	return ret == val_size ? 0 : -EIO;
++}
++
++static int mt6720_regmap_write(void *context, const void *buf, size_t count)
++{
++	struct mt6720_data *data = context;
++	const u8 *reg = buf;
++
++	if (reg[0] >= MT6720_NUM_BANKS)
++		return -EINVAL;
++
++	return i2c_smbus_write_i2c_block_data(data->i2c[reg[0]], reg[1],
++					      count - 2, buf + 2);
++}
++
++static const struct regmap_bus mt6720_regmap_bus = {
++	.read = mt6720_regmap_read,
++	.write = mt6720_regmap_write,
++};
++
++static const struct regmap_config mt6720_regmap_config = {
++	.reg_bits = 16,
++	.val_bits = 8,
++	.reg_format_endian = REGMAP_ENDIAN_BIG,
++	.max_register = MT6720_REG_MAX,
++};
++
++static int mt6720_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct mt6720_data *data;
++	struct regmap *regmap;
++	unsigned int info;
++	int i, ret;
++
++	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->i2c[0] = client;
++	for (i = 1; i < MT6720_NUM_BANKS; i++) {
++		data->i2c[i] = devm_i2c_new_dummy_device(dev, client->adapter,
++							 mt6720_bank_addr[i]);
++		if (IS_ERR(data->i2c[i]))
++			return dev_err_probe(dev, PTR_ERR(data->i2c[i]),
++					     "Failed to add bank %d\n", i);
++	}
++
++	regmap = devm_regmap_init(dev, &mt6720_regmap_bus, data,
++				  &mt6720_regmap_config);
++	if (IS_ERR(regmap))
++		return dev_err_probe(dev, PTR_ERR(regmap),
++				     "Failed to init regmap\n");
++
++	ret = regmap_read(regmap, MT6720_REG_DEV_INFO, &info);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to read device info\n");
++
++	if ((info & 0xe0) != 0x60 && (info & 0xf0) != 0x40)
++		return dev_err_probe(dev, -ENODEV,
++				     "Unknown device info 0x%02x\n", info);
++
++	dev_info(dev, "device info 0x%02x\n", info);
++
++	if (client->irq) {
++		ret = devm_regmap_add_irq_chip(dev, regmap, client->irq,
++					       IRQF_ONESHOT, -1,
++					       &mt6720_irq_chip,
++					       &data->irq_data);
++		if (ret)
++			return dev_err_probe(dev, ret,
++					     "Failed to add irq chip\n");
++	}
++
++	return devm_of_platform_populate(dev);
++}
++
++static const struct of_device_id mt6720_of_match[] = {
++	{ .compatible = "mediatek,mt6720" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6720_of_match);
++
++static struct i2c_driver mt6720_driver = {
++	.driver = {
++		.name = "mt6720",
++		.of_match_table = mt6720_of_match,
++	},
++	.probe = mt6720_probe,
++};
++module_i2c_driver(mt6720_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6720 SubPMIC driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

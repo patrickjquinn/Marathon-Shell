@@ -1,0 +1,385 @@
+From 65e1c6d9216429c381fec2cf52a3c726feeba967 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 08:16:19 +0000
+Subject: [PATCH 64/65] power: supply: mt6720-charger: Manage charging by
+ battery temperature
+
+The bootloader leaves the charger at 4.35 V and 2 A with no thermal
+limit: the MT6720's own TS pin is not on the battery thermistor, and its
+watchdog is off. Check the battery temperature every 10 s and apply the
+voltage bands of MediaTek's stock JEITA table: 4.24 V at 0-10 C and at
+45-55 C, 4.34 V at 10-45 C, with the charge current halved outside
+10-45 C. Unlike the stock table, which allows 4.04 V down to -11 C,
+stop charging below 0 C, and stop at 55 C as stock does, with 3 C of
+hysteresis back towards 10-45 C. If the temperature cannot be read,
+charge at 4.24 V and 1 A.
+
+Never exceed the monitored battery's charge voltage and current limits.
+Expose the charge current and voltage and charge_behaviour (auto or
+inhibit) for userspace to lower further, and report power-good and
+detach events at once instead of at the next check.
+---
+ drivers/power/supply/mt6720-charger.c | 269 +++++++++++++++++++++++++-
+ 1 file changed, 266 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/power/supply/mt6720-charger.c b/drivers/power/supply/mt6720-charger.c
+index 68d00864c..2fdb9ea82 100644
+--- a/drivers/power/supply/mt6720-charger.c
++++ b/drivers/power/supply/mt6720-charger.c
+@@ -2,20 +2,26 @@
+ /*
+  * MediaTek MT6720 SubPMIC switching charger.
+  *
+- * Reports the charger's state and settings. It does not change them:
+- * the bootloader's settings stay in force.
++ * Charging follows the battery's temperature, in the voltage bands of
++ * MediaTek's stock JEITA table (but none below 0 C), and never exceeds
++ * the monitored battery's charge voltage and current limits. The watchdog stays off, as with the stock
++ * driver.
+  */
+ #include <linux/bits.h>
++#include <linux/devm-helpers.h>
+ #include <linux/iio/consumer.h>
++#include <linux/interrupt.h>
+ #include <linux/kernel.h>
+ #include <linux/linear_range.h>
+ #include <linux/module.h>
+ #include <linux/mod_devicetable.h>
++#include <linux/mutex.h>
+ #include <linux/platform_device.h>
+ #include <linux/power_supply.h>
+ #include <linux/property.h>
+ #include <linux/regmap.h>
+ #include <linux/units.h>
++#include <linux/workqueue.h>
+ 
+ enum mt6720_chg_field {
+ 	F_PWR_RDY,
+@@ -50,12 +56,42 @@ static const struct linear_range mt6720_chg_ranges[F_MAX] = {
+ 	[F_IEOC]	= LINEAR_RANGE(50000, 0x00, 0x0f, 50000),
+ };
+ 
++#define MT6720_CHG_POLL_MS	10000
++#define MT6720_JEITA_HYST_DECI	30
++
++/* Temperature bands, in tenths of a degree C, from the stock JEITA table */
++struct mt6720_jeita_band {
++	int below_deci;
++	unsigned int cv_uv;
++	unsigned int ichg_ua;
++};
++
++static const struct mt6720_jeita_band mt6720_jeita[] = {
++	{ 0, 0, 0 },			/* below 0 C: no charging */
++	{ 100, 4240000, 1000000 },
++	{ 450, 4340000, 2000000 },
++	{ 550, 4240000, 1000000 },
++	{ INT_MAX, 0, 0 },		/* 55 C and above: no charging */
++};
++
++#define MT6720_JEITA_NORMAL	2
++#define MT6720_JEITA_UNKNOWN	1
++
+ struct mt6720_chg {
+ 	struct device *dev;
+ 	struct regmap_field *fields[F_MAX];
+ 	struct iio_channel *vbus;
+ 	struct iio_channel *ibus;
+ 	struct power_supply *psy;
++	struct power_supply_battery_info *bat;
++	struct delayed_work work;
++	/* Serialises the charge settings between the work and sysfs. */
++	struct mutex lock;
++	unsigned int user_cv;
++	unsigned int user_ichg;
++	bool inhibit;
++	int band;
++	unsigned int online;
+ };
+ 
+ static int mt6720_chg_get(struct mt6720_chg *chg, enum mt6720_chg_field f,
+@@ -78,6 +114,132 @@ static int mt6720_chg_get(struct mt6720_chg *chg, enum mt6720_chg_field f,
+ 	return linear_range_get_value(&mt6720_chg_ranges[f], sel, val);
+ }
+ 
++static int mt6720_chg_set(struct mt6720_chg *chg, enum mt6720_chg_field f,
++			  unsigned int val)
++{
++	unsigned int sel, cur;
++	bool found;
++	int ret;
++
++	if (mt6720_chg_ranges[f].step) {
++		/* The highest setting that does not exceed val */
++		ret = linear_range_get_selector_low(&mt6720_chg_ranges[f], val,
++						    &sel, &found);
++		if (ret)
++			return ret;
++	} else {
++		sel = val;
++	}
++
++	ret = regmap_field_read(chg->fields[f], &cur);
++	if (ret || cur == sel)
++		return ret;
++
++	return regmap_field_write(chg->fields[f], sel);
++}
++
++static int mt6720_chg_band(struct mt6720_chg *chg, int temp)
++{
++	int band = 0, cur = chg->band;
++
++	while (temp >= mt6720_jeita[band].below_deci)
++		band++;
++
++	/* Move towards the normal band only past the edge plus hysteresis. */
++	if (cur < MT6720_JEITA_NORMAL && band > cur) {
++		band = 0;
++		while (temp - MT6720_JEITA_HYST_DECI >= mt6720_jeita[band].below_deci)
++			band++;
++		band = max(band, cur);
++	} else if (cur > MT6720_JEITA_NORMAL && band < cur) {
++		band = 0;
++		while (temp + MT6720_JEITA_HYST_DECI >= mt6720_jeita[band].below_deci)
++			band++;
++		band = min(band, cur);
++	}
++
++	return band;
++}
++
++static int mt6720_chg_battery_temp(struct mt6720_chg *chg, int *temp)
++{
++	union power_supply_propval val;
++	struct power_supply *bat;
++	int ret;
++
++	bat = power_supply_get_by_name("mt6720-battery");
++	if (!bat)
++		return -ENODEV;
++
++	ret = power_supply_get_property(bat, POWER_SUPPLY_PROP_TEMP, &val);
++	power_supply_put(bat);
++	if (ret)
++		return ret;
++
++	*temp = val.intval;
++	return 0;
++}
++
++/* Apply the band's, the battery's and the user's limits; called locked */
++static int mt6720_chg_update(struct mt6720_chg *chg)
++{
++	const struct mt6720_jeita_band *b;
++	unsigned int cv, ichg;
++	int ret, temp;
++
++	if (mt6720_chg_battery_temp(chg, &temp)) {
++		chg->band = MT6720_JEITA_UNKNOWN;
++	} else {
++		ret = mt6720_chg_band(chg, temp);
++		if (ret != chg->band)
++			dev_info(chg->dev, "battery at %d.%d C: band %d\n",
++				 temp / 10, abs(temp % 10), ret);
++		chg->band = ret;
++	}
++
++	b = &mt6720_jeita[chg->band];
++	if (!b->cv_uv || chg->inhibit)
++		return mt6720_chg_set(chg, F_CHG_EN, 0);
++
++	cv = min3(b->cv_uv, chg->user_cv,
++		  (unsigned int)chg->bat->constant_charge_voltage_max_uv);
++	ichg = min3(b->ichg_ua, chg->user_ichg,
++		    (unsigned int)chg->bat->constant_charge_current_max_ua);
++
++	/* Lower the voltage and current before allowing any charging. */
++	ret = mt6720_chg_set(chg, F_CV, cv) ?:
++	      mt6720_chg_set(chg, F_ICHG, ichg) ?:
++	      mt6720_chg_set(chg, F_CHG_EN, 1);
++	if (ret)
++		dev_err(chg->dev, "Failed to apply the charge settings (%d)\n", ret);
++
++	return ret;
++}
++
++static void mt6720_chg_work(struct work_struct *work)
++{
++	struct mt6720_chg *chg = container_of(work, struct mt6720_chg, work.work);
++	unsigned int online;
++
++	if (!mt6720_chg_get(chg, F_PWR_RDY, &online) && online != chg->online) {
++		chg->online = online;
++		power_supply_changed(chg->psy);
++	}
++
++	scoped_guard(mutex, &chg->lock)
++		mt6720_chg_update(chg);
++
++	schedule_delayed_work(&chg->work, msecs_to_jiffies(MT6720_CHG_POLL_MS));
++}
++
++static irqreturn_t mt6720_chg_plug_irq(int irq, void *data)
++{
++	struct mt6720_chg *chg = data;
++
++	mod_delayed_work(system_wq, &chg->work, 0);
++	return IRQ_HANDLED;
++}
++
+ static int mt6720_chg_get_status(struct mt6720_chg *chg, int *status)
+ {
+ 	unsigned int rdy, hz, buck, en;
+@@ -152,16 +314,74 @@ static int mt6720_chg_get_property(struct power_supply *psy,
+ 		return mt6720_chg_read_iio(chg->vbus, &val->intval);
+ 	case POWER_SUPPLY_PROP_CURRENT_NOW:
+ 		return mt6720_chg_read_iio(chg->ibus, &val->intval);
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
++		val->intval = chg->bat->constant_charge_current_max_ua;
++		return 0;
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX:
++		val->intval = chg->bat->constant_charge_voltage_max_uv;
++		return 0;
++	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
++		val->intval = chg->inhibit ?
++			      POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE :
++			      POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static int mt6720_chg_set_property(struct power_supply *psy,
++				   enum power_supply_property psp,
++				   const union power_supply_propval *val)
++{
++	struct mt6720_chg *chg = power_supply_get_drvdata(psy);
++
++	if (val->intval < 0)
++		return -EINVAL;
++
++	guard(mutex)(&chg->lock);
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
++		chg->user_ichg = val->intval;
++		break;
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
++		chg->user_cv = val->intval;
++		break;
++	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
++		if (val->intval != POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO &&
++		    val->intval != POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE)
++			return -EINVAL;
++		chg->inhibit = val->intval == POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
++
++	return mt6720_chg_update(chg);
++}
++
++static int mt6720_chg_property_is_writeable(struct power_supply *psy,
++					    enum power_supply_property psp)
++{
++	switch (psp) {
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
++	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
++		return 1;
++	default:
++		return 0;
++	}
+ }
+ 
+ static const enum power_supply_property mt6720_chg_properties[] = {
+ 	POWER_SUPPLY_PROP_ONLINE,
+ 	POWER_SUPPLY_PROP_STATUS,
+ 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
++	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+ 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
++	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX,
++	POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,
+ 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+ 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT,
+ 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
+@@ -175,15 +395,20 @@ static const struct power_supply_desc mt6720_chg_desc = {
+ 	.properties = mt6720_chg_properties,
+ 	.num_properties = ARRAY_SIZE(mt6720_chg_properties),
+ 	.get_property = mt6720_chg_get_property,
++	.set_property = mt6720_chg_set_property,
++	.property_is_writeable = mt6720_chg_property_is_writeable,
++	.charge_behaviours = BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO) |
++			     BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE),
+ };
+ 
+ static int mt6720_chg_probe(struct platform_device *pdev)
+ {
++	static const char * const irqs[] = { "pwr-rdy", "detach" };
+ 	struct device *dev = &pdev->dev;
+ 	struct power_supply_config cfg = {};
+ 	struct mt6720_chg *chg;
+ 	struct regmap *regmap;
+-	int ret;
++	int ret, irq, i;
+ 
+ 	chg = devm_kzalloc(dev, sizeof(*chg), GFP_KERNEL);
+ 	if (!chg)
+@@ -209,6 +434,10 @@ static int mt6720_chg_probe(struct platform_device *pdev)
+ 		return dev_err_probe(dev, PTR_ERR(chg->ibus),
+ 				     "Failed to get the IBUS channel\n");
+ 
++	ret = devm_mutex_init(dev, &chg->lock);
++	if (ret)
++		return ret;
++
+ 	cfg.drv_data = chg;
+ 	cfg.fwnode = dev_fwnode(dev);
+ 	chg->psy = devm_power_supply_register(dev, &mt6720_chg_desc, &cfg);
+@@ -216,6 +445,40 @@ static int mt6720_chg_probe(struct platform_device *pdev)
+ 		return dev_err_probe(dev, PTR_ERR(chg->psy),
+ 				     "Failed to register power supply\n");
+ 
++	ret = power_supply_get_battery_info(chg->psy, &chg->bat);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to get the monitored battery\n");
++
++	if (chg->bat->constant_charge_voltage_max_uv <= 0 ||
++	    chg->bat->constant_charge_current_max_ua <= 0)
++		return dev_err_probe(dev, -EINVAL,
++				     "The battery has no charge limits\n");
++
++	chg->user_cv = chg->bat->constant_charge_voltage_max_uv;
++	chg->user_ichg = chg->bat->constant_charge_current_max_ua;
++	chg->band = MT6720_JEITA_UNKNOWN;
++
++	ret = devm_delayed_work_autocancel(dev, &chg->work, mt6720_chg_work);
++	if (ret)
++		return ret;
++
++	mt6720_chg_work(&chg->work.work);
++
++	for (i = 0; i < ARRAY_SIZE(irqs); i++) {
++		irq = platform_get_irq_byname_optional(pdev, irqs[i]);
++		if (irq == -ENXIO)
++			continue;
++		if (irq < 0)
++			return irq;
++
++		ret = devm_request_threaded_irq(dev, irq, NULL,
++						mt6720_chg_plug_irq, IRQF_ONESHOT,
++						irqs[i], chg);
++		if (ret)
++			return dev_err_probe(dev, ret, "Failed to request %s\n",
++					     irqs[i]);
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.55.0
+

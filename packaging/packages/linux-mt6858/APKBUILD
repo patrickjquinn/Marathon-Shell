@@ -1,11 +1,11 @@
 # MT6858 kernel, one for every board on the SoC: mainline at 4dce97c6c
 # (after v7.4-rc4) with the MT6858 series below, built from arm64 defconfig,
 # the series' mt6858.config and marathon.config. The patches are
-# git format-patch 4dce97c6c..fb3cac3f6 of the jp2601/initial branch
+# git format-patch 4dce97c6c..276a1d0cb of the jp2601/initial branch
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=3
+pkgrel=4
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 pkgdesc="MediaTek Dimensity 7100 (MT6858) kernel"
@@ -77,6 +77,30 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0039-arm64-dts-mediatek-mt6858-Add-the-SPMI-arbiter-and-t.patch
 	0040-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-power.patch
 	0041-arm64-configs-mt6858-Add-the-SPMI-PMIC-and-its-keys.patch
+	0042-dt-bindings-clock-mediatek-Add-the-MT6858-vlpckgen.patch
+	0043-clk-mediatek-mt6858-Add-the-vlpckgen-clocks.patch
+	0044-arm64-dts-mediatek-mt6858-Add-the-vlpckgen-and-clock.patch
+	0045-dt-bindings-arm-mediatek-mmsys-Add-MT6858.patch
+	0046-dt-bindings-soc-mediatek-mutex-Add-MT6858.patch
+	0047-dt-bindings-clock-mediatek-Add-the-MT6858-mmsys-cloc.patch
+	0048-clk-mediatek-mt6858-Add-the-mmsys-clocks.patch
+	0049-soc-mediatek-mmsys-Add-MT6858-routing.patch
+	0050-soc-mediatek-mutex-Add-MT6858.patch
+	0051-dt-bindings-clock-mediatek-Add-the-MT6858-I2C-wrappe.patch
+	0052-clk-mediatek-mt6858-Add-the-I2C-wrapper-clocks.patch
+	0053-dt-bindings-i2c-mt65xx-Add-MT6858.patch
+	0054-arm64-dts-mediatek-mt6858-Add-the-I2C-controllers.patch
+	0055-arm64-dts-mediatek-mt6858-jolla-jp2601-Enable-the-I2.patch
+	0056-dt-bindings-mfd-Add-MediaTek-MT6720.patch
+	0057-mfd-Add-MediaTek-MT6720-SubPMIC.patch
+	0058-iio-adc-Add-MediaTek-MT6720-charger-ADC-and-fuel-gau.patch
+	0059-power-supply-Add-MediaTek-MT6720-charger-and-battery.patch
+	0060-arm64-configs-mt6858-Add-the-MT6720-drivers.patch
+	0061-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT672.patch
+	0062-mfd-mt6720-Mask-every-event-before-adding-the-irq-ch.patch
+	0063-dt-bindings-mfd-mediatek-mt6720-Add-the-charger-s-in.patch
+	0064-power-supply-mt6720-charger-Manage-charging-by-batte.patch
+	0065-arm64-dts-mediatek-mt6858-jolla-jp2601-Wire-the-MT67.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -165,5 +189,29 @@ c5621b87933f3aad5d1deaa4d161c53fc6d4f39f84fef7fe24076f414ba69441f01b963ea20eca48
 1c0c17e70ff99793926b99306073190c5f78c09c0352dde32080c5718d0d6aefb0d9ee9cb0d6f1ef6f4b80f55ff908add2da32ffb80b5106543a64db6ddf06f0  0039-arm64-dts-mediatek-mt6858-Add-the-SPMI-arbiter-and-t.patch
 d9f348cdb9efed06dadf98b1f642f9f2a8642f01b608e634bb21d315cb99f2653849bb99765b54508eb865259464c26a2e030e5c705390372088cfb141b84e7b  0040-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-power.patch
 6e1063c66e68178f24719dacdbb7c62ef8a45d0ab437688312fe4a268087c261a287a115ee2fda5009f06422c91fc0769aad6b8ff6ec86c1ab4068d0a125a434  0041-arm64-configs-mt6858-Add-the-SPMI-PMIC-and-its-keys.patch
+d5332f3aa447dd454e88515e1a848450f8114df2e4b45eaf66a6356f071172e6adc2d330c2672afeea90220dbd891b8005d46ea4c576dcd3f542aeba949a2910  0042-dt-bindings-clock-mediatek-Add-the-MT6858-vlpckgen.patch
+0e35afc71af6571043efdf46639777b0ac81d63297fe592f6208350847f367b991eb206bae3e098c5edf51fd62d10e23f3d918e462c61b48fca0c99e40709f33  0043-clk-mediatek-mt6858-Add-the-vlpckgen-clocks.patch
+5293fc7d52b79f261886a7a7962d386e0487fd26e1ba4d871f6ec3a60af8fd1275e1e87455cbbea97b56577088f5b7ff97acfe309455d28a82687afb90d44983  0044-arm64-dts-mediatek-mt6858-Add-the-vlpckgen-and-clock.patch
+b5ef702ca724b07e516ce791b9dc0c0a2e05452f9ff02c63a5cbdef5ec3e230866fb2428e507465d9294af0d2dd0390f7242edc189b5cadd9c10609f808d6722  0045-dt-bindings-arm-mediatek-mmsys-Add-MT6858.patch
+6d0007dc8a86495353c6cfb3831c8a7786d3bfafe220ac078c4d2a0dc65bdd8cb0e05ea33f9ab068fb54b7711e85ba98515a1b4e689b6b447b720c820cb72ef7  0046-dt-bindings-soc-mediatek-mutex-Add-MT6858.patch
+58bacd66dae4b22749e73bf9bed9e1f952f8d846b1c808b565a0902f3928c4207012e2cce6bb8af245693bf060d9176b37d463880a5d46f0e0ca809d5f91c048  0047-dt-bindings-clock-mediatek-Add-the-MT6858-mmsys-cloc.patch
+5ff3a357bbdd81cbaa79048db64a2abc9e8474ce46ddbd6fe95c7f31619a72895c92f6ddac1f6414a43ce91bdbb097cb024dd11b174234de50538245de5017a0  0048-clk-mediatek-mt6858-Add-the-mmsys-clocks.patch
+5c1559faa3358703e493ecc0008b02a7b7ef8481002786fa75cce49012f61bc1fa76ff1739db7700753487612104b2c62e1180ef0d7a53a3a4750e6a71bcdc50  0049-soc-mediatek-mmsys-Add-MT6858-routing.patch
+6f6db98378e310b6aab2bc921f5cf9128b1af744b560f05aa3e7c4d708cee0e34e35a27ff04f3321229d9fe1af035a07c2f3e6878b46802d840799e517873756  0050-soc-mediatek-mutex-Add-MT6858.patch
+21b8135a44c6bdf2c7faa092880551855fb4e97b73d237a91c11d6534dfc7ecf2dacfe0a19451fdaa898c1c5a05044c137358a5665a09d0dce3db539e7336a1f  0051-dt-bindings-clock-mediatek-Add-the-MT6858-I2C-wrappe.patch
+88b9b40aa706fba8e78ba01215cb4e1b75f6ca6171f5652a465881ef56a818867ad55bd0c3238b6664a92cf2d5af1859d4fec93687b86632a81d3b139a64013c  0052-clk-mediatek-mt6858-Add-the-I2C-wrapper-clocks.patch
+b82964b222f5cd7b85898a2615683a966dc8d95a1034048e8030c04ce2b7b812720f67359637319025a9a8eefb9ca0dc8307676c8c78f1f359fd9d357ed58c88  0053-dt-bindings-i2c-mt65xx-Add-MT6858.patch
+650503f2ac596512f38e414bf2afe35df206d8ae110e748f7a8a019d3a7d4795d1aef750ff25f6a6bdee89fd46bf3276d1b3ec90200816b8ba3f99d6d5927bdd  0054-arm64-dts-mediatek-mt6858-Add-the-I2C-controllers.patch
+464cb75dd2087e49121f97ce05f33fc05737c41d137403c3cb1066409987948edc73324053ddf44d7adcac6d30358bce6d26d739f843758fc396a5aeda0e6815  0055-arm64-dts-mediatek-mt6858-jolla-jp2601-Enable-the-I2.patch
+e8a652defa7b33078bd81ae5948c68a2ce9c5cf36e338ad357eb58bcce31165c6b2da280abfeedb5ccbd12c8109df505e09e8e3dde66db6771f98840ef54d2b5  0056-dt-bindings-mfd-Add-MediaTek-MT6720.patch
+dc7628643369cf51b4b6e6d31b53035a5097390f8c87032d8fddfde8231ce2c76de4e09616ce79fad111e0fcdd8f8b5b7de46ecbcf6ce1bca170a64bab451190  0057-mfd-Add-MediaTek-MT6720-SubPMIC.patch
+694b226225e41ed3f3d8afb949c632500b6ce89fe6ce196b6c3fc38f00b3bde128e254f3a76eda60a82478b6cdc1d7834553b0e4fce9ed989fb51f9c9776c6d6  0058-iio-adc-Add-MediaTek-MT6720-charger-ADC-and-fuel-gau.patch
+283908f77d90dce323b506f21f2dc259e0e59c0d2e779fe54e438e9a8b0c4565afb7c37cad72bcf634e5ca2b5e3129392c4bb1a7c850aea4fcebc0ab4d81c146  0059-power-supply-Add-MediaTek-MT6720-charger-and-battery.patch
+d5a9461c36f70eb457056b48222d7f55458d856ca3555496afdea5e41b174afd7bf06d45628b5a616c46f4bcf1c4102c53a0c2e283ffa575c73a29588df83762  0060-arm64-configs-mt6858-Add-the-MT6720-drivers.patch
+68abdd8ff2b3a1c511aead8bad671a64bac03cb72d9f72138acc55d7b47b02b49e9ef7c9e90a83d3a267b93db6454e8bea75b1c25774a85dceb8fc2985da07a2  0061-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT672.patch
+cfde9352ae2ee600d820089a9f6f8987ec4d11131371f63d5d042e1587daeca98b846a2afca45a86a3a082bb8a3b8c10464c11cedf0969c29fd483697faf6b1d  0062-mfd-mt6720-Mask-every-event-before-adding-the-irq-ch.patch
+606324056985fc5153872a98a1d5668fc9fe42073e2061283c9c6e7d40755b50f9f373789dde99290dfc34331bac7ec8e0a5a0671c9296c371a3457b054af47b  0063-dt-bindings-mfd-mediatek-mt6720-Add-the-charger-s-in.patch
+b8203a4ea20f3eebb773ba6b78a403e07c86d00507b682ab35baba4bcc07ef89e8754a327733bb91b53756633ad3fcbb5d1ce3688025ba5e0ce8b5d66ee2b945  0064-power-supply-mt6720-charger-Manage-charging-by-batte.patch
+957c333ea9d8ef80fcee1538a727225ffc9b85b2328366062d719ef652bb4dc60bd9eac4127e5ed06f743f295311bb1c31679b0e3b586d3bc0b25541cb623de9  0065-arm64-dts-mediatek-mt6858-jolla-jp2601-Wire-the-MT67.patch
 c76960a6f441c9459efd7a39a460eee2067f30b81745d11f263cad4da942e934acd93bb2742dbfacb99ad63bf2ba9c6196c78e5a00b8964e1d1b6b717acf3333  marathon.config
 "

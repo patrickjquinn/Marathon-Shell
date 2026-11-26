@@ -1,0 +1,391 @@
+From 94825a1bf16ed249149631dca2e34ae27b318438 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 05:16:10 +0000
+Subject: [PATCH 43/65] clk: mediatek: mt6858: Add the vlpckgen clocks
+
+Add the MT6858 VLP clock generator's muxes and its oscillator divider,
+generated from the tables of MediaTek's GPLv2 MT6858 clock driver.
+Among them are the clocks of the PMIC wrapper and the SPMI masters.
+---
+ drivers/clk/mediatek/Kconfig               |   2 +-
+ drivers/clk/mediatek/Makefile              |   3 +-
+ drivers/clk/mediatek/clk-mt6858-vlpckgen.c | 340 +++++++++++++++++++++
+ 3 files changed, 343 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/clk/mediatek/clk-mt6858-vlpckgen.c
+
+diff --git a/drivers/clk/mediatek/Kconfig b/drivers/clk/mediatek/Kconfig
+index ad6d3888c..8c6c44a2a 100644
+--- a/drivers/clk/mediatek/Kconfig
++++ b/drivers/clk/mediatek/Kconfig
+@@ -477,7 +477,7 @@ config COMMON_CLK_MT6858
+ 	default ARCH_MEDIATEK
+ 	help
+ 	  This driver supports the MediaTek MT6858 apmixedsys, topckgen,
+-	  pericfg_ao and infracfg_ao clocks.
++	  vlpckgen, pericfg_ao and infracfg_ao clocks.
+ 
+ config COMMON_CLK_MT8135
+ 	tristate "Clock driver for MediaTek MT8135"
+diff --git a/drivers/clk/mediatek/Makefile b/drivers/clk/mediatek/Makefile
+index 761d7c290..9ef0d4dfe 100644
+--- a/drivers/clk/mediatek/Makefile
++++ b/drivers/clk/mediatek/Makefile
+@@ -30,7 +30,8 @@ obj-$(CONFIG_COMMON_CLK_MT6795_MMSYS) += clk-mt6795-mm.o
+ obj-$(CONFIG_COMMON_CLK_MT6795_VDECSYS) += clk-mt6795-vdecsys.o
+ obj-$(CONFIG_COMMON_CLK_MT6795_VENCSYS) += clk-mt6795-vencsys.o
+ obj-$(CONFIG_COMMON_CLK_MT6858) += clk-mt6858-apmixedsys.o clk-mt6858-topckgen.o \
+-				   clk-mt6858-peri_ao.o clk-mt6858-infra_ao.o
++				   clk-mt6858-peri_ao.o clk-mt6858-infra_ao.o \
++				   clk-mt6858-vlpckgen.o
+ obj-$(CONFIG_COMMON_CLK_MT6797) += clk-mt6797.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_IMGSYS) += clk-mt6797-img.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_MMSYS) += clk-mt6797-mm.o
+diff --git a/drivers/clk/mediatek/clk-mt6858-vlpckgen.c b/drivers/clk/mediatek/clk-mt6858-vlpckgen.c
+new file mode 100644
+index 000000000..718b52a33
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6858-vlpckgen.c
+@@ -0,0 +1,340 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ *
++ * Generated from the clock tables of MediaTek's GPLv2 MT6858 clock driver.
++ */
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include "clk-mtk.h"
++#include "clk-mux.h"
++
++static DEFINE_SPINLOCK(mt6858_vlp_clk_lock);
++
++static const struct mtk_fixed_factor vlp_divs[] = {
++	FACTOR(CLK_VLP_OSC, "vlp_osc", "ulposc", 1, 1),
++};
++
++static const char * const vlp_scp_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_adsppll",
++	"top_univpll_d4",
++	"top_univpll_d3",
++	"top_mainpll_d3",
++	"top_univpll_d6",
++	"apll1",
++	"top_mainpll_d4",
++	"top_mainpll_d7",
++	"top_osc_d10",
++};
++
++static const char * const vlp_pwrap_ulposc_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++	"top_osc_d7",
++	"top_osc_d8",
++	"top_osc_d16",
++	"top_mainpll_d7_d8",
++};
++
++static const char * const vlp_spmi_p_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_f26m_d2",
++	"top_osc_d8",
++	"top_osc_d10",
++	"top_osc_d16",
++	"top_osc_d7",
++	"top_clkrtc",
++	"top_mainpll_d7_d8",
++	"top_mainpll_d6_d8",
++	"top_mainpll_d5_d8",
++};
++
++static const char * const vlp_spmi_m_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_f26m_d2",
++	"top_osc_d8",
++	"top_osc_d10",
++	"top_osc_d16",
++	"top_osc_d7",
++	"top_clkrtc",
++	"top_mainpll_d7_d8",
++	"top_mainpll_d6_d8",
++	"top_mainpll_d5_d8",
++};
++
++static const char * const vlp_dvfsrc_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++};
++
++static const char * const vlp_pwm_vlp_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d4",
++	"top_clkrtc",
++	"top_osc_d10",
++	"top_mainpll_d4_d8",
++};
++
++static const char * const vlp_axi_vlp_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++	"top_osc_d2",
++	"top_mainpll_d7_d4",
++	"top_mainpll_d7_d2",
++};
++
++static const char * const vlp_systimer_26m_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++};
++
++static const char * const vlp_sspm_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++	"top_mainpll_d5_d2",
++	"vlp_osc",
++	"top_mainpll_d6",
++};
++
++static const char * const vlp_sspm_f26m_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++};
++
++static const char * const vlp_srck_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++};
++
++static const char * const vlp_scp_spi_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d5_d4",
++	"top_mainpll_d7_d2",
++	"top_osc_d10",
++};
++
++static const char * const vlp_scp_iic_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d5_d4",
++	"top_mainpll_d7_d2",
++	"top_osc_d10",
++};
++
++static const char * const vlp_scp_iic_hs_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d5_d4",
++	"top_mainpll_d7_d2",
++	"top_osc_d10",
++};
++
++static const char * const vlp_sspm_ulposc_parents[] = {
++	"vlp_osc",
++	"top_univpll_d5_d2",
++	"top_tck_26m_mx9_ck",
++};
++
++static const char * const vlp_tia_ulposc_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++	"top_osc_d7",
++	"top_osc_d8",
++	"top_osc_d16",
++	"top_mainpll_d7_d8",
++};
++
++static const char * const vlp_apxgpt_26m_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++};
++
++static const char * const vlp_camtg0_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_192m_d8",
++	"top_univpll_d6_d8",
++	"top_univpll_192m_d4",
++	"top_univpll_d6_d16",
++	"top_f26m_d2",
++	"top_univpll_192m_d10",
++	"top_univpll_192m_d16",
++	"top_univpll_192m_d32",
++};
++
++static const char * const vlp_camtg1_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_192m_d8",
++	"top_univpll_d6_d8",
++	"top_univpll_192m_d4",
++	"top_univpll_d6_d16",
++	"top_f26m_d2",
++	"top_univpll_192m_d10",
++	"top_univpll_192m_d16",
++	"top_univpll_192m_d32",
++};
++
++static const char * const vlp_camtg2_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_192m_d8",
++	"top_univpll_d6_d8",
++	"top_univpll_192m_d4",
++	"top_univpll_d6_d16",
++	"top_f26m_d2",
++	"top_univpll_192m_d10",
++	"top_univpll_192m_d16",
++	"top_univpll_192m_d32",
++};
++
++static const char * const vlp_camtg3_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_192m_d8",
++	"top_univpll_d6_d8",
++	"top_univpll_192m_d4",
++	"top_univpll_d6_d16",
++	"top_f26m_d2",
++	"top_univpll_192m_d10",
++	"top_univpll_192m_d16",
++	"top_univpll_192m_d32",
++};
++
++static const char * const vlp_ssr_pka_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d4",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d7",
++	"top_mainpll_d6",
++	"top_mainpll_d5",
++};
++
++static const char * const vlp_ssr_dma_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d4",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d7",
++	"top_mainpll_d6",
++	"top_mainpll_d5",
++};
++
++static const char * const vlp_ssr_kdf_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d4",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d7",
++	"top_mainpll_d6",
++};
++
++static const char * const vlp_ssr_rng_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d4",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d4_d2",
++};
++
++static const struct mtk_mux vlp_muxes[] = {
++	MUX_CLR_SET_UPD(CLK_VLP_SCP_SEL, "vlp_scp_sel", vlp_scp_parents,
++		0x008, 0x00c, 0x010, 0, 4,
++		0x004, 0),
++	MUX_CLR_SET_UPD(CLK_VLP_PWRAP_ULPOSC_SEL, "vlp_pwrap_ulposc_sel", vlp_pwrap_ulposc_parents,
++		0x008, 0x00c, 0x010, 8, 3,
++		0x004, 1),
++	MUX_CLR_SET_UPD(CLK_VLP_SPMI_P_SEL, "vlp_spmi_p_sel", vlp_spmi_p_parents,
++		0x008, 0x00c, 0x010, 16, 4,
++		0x004, 2),
++	MUX_CLR_SET_UPD(CLK_VLP_SPMI_M_SEL, "vlp_spmi_m_sel", vlp_spmi_m_parents,
++		0x008, 0x00c, 0x010, 24, 4,
++		0x004, 3),
++	MUX_CLR_SET_UPD(CLK_VLP_DVFSRC_SEL, "vlp_dvfsrc_sel", vlp_dvfsrc_parents,
++		0x014, 0x018, 0x01c, 0, 1,
++		0x004, 4),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_VLP_PWM_VLP_SEL, "vlp_pwm_vlp_sel", vlp_pwm_vlp_parents,
++		0x014, 0x018, 0x01c, 8, 3, 15,
++		0x004, 5, 0x328, 26),
++	MUX_CLR_SET_UPD(CLK_VLP_AXI_VLP_SEL, "vlp_axi_vlp_sel", vlp_axi_vlp_parents,
++		0x014, 0x018, 0x01c, 16, 3,
++		0x004, 6),
++	MUX_CLR_SET_UPD(CLK_VLP_SYSTIMER_26M_SEL, "vlp_systimer_26m_sel", vlp_systimer_26m_parents,
++		0x014, 0x018, 0x01c, 24, 1,
++		0x004, 7),
++	MUX_CLR_SET_UPD(CLK_VLP_SSPM_SEL, "vlp_sspm_sel", vlp_sspm_parents,
++		0x020, 0x024, 0x028, 0, 3,
++		0x004, 8),
++	MUX_CLR_SET_UPD(CLK_VLP_SSPM_F26M_SEL, "vlp_sspm_f26m_sel", vlp_sspm_f26m_parents,
++		0x020, 0x024, 0x028, 8, 1,
++		0x004, 9),
++	MUX_CLR_SET_UPD(CLK_VLP_SRCK_SEL, "vlp_srck_sel", vlp_srck_parents,
++		0x020, 0x024, 0x028, 16, 1,
++		0x004, 10),
++	MUX_CLR_SET_UPD(CLK_VLP_SCP_SPI_SEL, "vlp_scp_spi_sel", vlp_scp_spi_parents,
++		0x020, 0x024, 0x028, 24, 2,
++		0x004, 11),
++	MUX_CLR_SET_UPD(CLK_VLP_SCP_IIC_SEL, "vlp_scp_iic_sel", vlp_scp_iic_parents,
++		0x02c, 0x030, 0x034, 0, 2,
++		0x004, 12),
++	MUX_CLR_SET_UPD(CLK_VLP_SCP_IIC_HS_SEL, "vlp_scp_iic_hs_sel", vlp_scp_iic_hs_parents,
++		0x02c, 0x030, 0x034, 16, 2,
++		0x004, 14),
++	MUX_CLR_SET_UPD(CLK_VLP_SSPM_ULPOSC_SEL, "vlp_sspm_ulposc_sel", vlp_sspm_ulposc_parents,
++		0x02c, 0x030, 0x034, 24, 2,
++		0x004, 15),
++	MUX_CLR_SET_UPD(CLK_VLP_TIA_ULPOSC_SEL, "vlp_tia_ulposc_sel", vlp_tia_ulposc_parents,
++		0x038, 0x03c, 0x040, 0, 3,
++		0x004, 16),
++	MUX_CLR_SET_UPD(CLK_VLP_APXGPT_26M_SEL, "vlp_apxgpt_26m_sel", vlp_apxgpt_26m_parents,
++		0x038, 0x03c, 0x040, 8, 1,
++		0x004, 17),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_VLP_CAMTG0_SEL, "vlp_camtg0_sel", vlp_camtg0_parents,
++		0x038, 0x03c, 0x040, 16, 4, 23,
++		0x004, 18, 0x328, 13),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_VLP_CAMTG1_SEL, "vlp_camtg1_sel", vlp_camtg1_parents,
++		0x038, 0x03c, 0x040, 24, 4, 31,
++		0x004, 19, 0x328, 12),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_VLP_CAMTG2_SEL, "vlp_camtg2_sel", vlp_camtg2_parents,
++		0x044, 0x048, 0x04c, 0, 4, 7,
++		0x004, 20, 0x328, 11),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_VLP_CAMTG3_SEL, "vlp_camtg3_sel", vlp_camtg3_parents,
++		0x044, 0x048, 0x04c, 8, 4, 15,
++		0x004, 21, 0x328, 10),
++	MUX_CLR_SET_UPD(CLK_VLP_SSR_PKA_SEL, "vlp_ssr_pka_sel", vlp_ssr_pka_parents,
++		0x044, 0x048, 0x04c, 24, 3,
++		0x004, 23),
++	MUX_CLR_SET_UPD(CLK_VLP_SSR_DMA_SEL, "vlp_ssr_dma_sel", vlp_ssr_dma_parents,
++		0x050, 0x054, 0x058, 0, 3,
++		0x004, 24),
++	MUX_CLR_SET_UPD(CLK_VLP_SSR_KDF_SEL, "vlp_ssr_kdf_sel", vlp_ssr_kdf_parents,
++		0x050, 0x054, 0x058, 8, 3,
++		0x004, 25),
++	MUX_CLR_SET_UPD(CLK_VLP_SSR_RNG_SEL, "vlp_ssr_rng_sel", vlp_ssr_rng_parents,
++		0x050, 0x054, 0x058, 16, 2,
++		0x004, 26),
++};
++
++static const struct mtk_clk_desc vlp_desc = {
++	.factor_clks = vlp_divs,
++	.num_factor_clks = ARRAY_SIZE(vlp_divs),
++	.mux_clks = vlp_muxes,
++	.num_mux_clks = ARRAY_SIZE(vlp_muxes),
++	.clk_lock = &mt6858_vlp_clk_lock,
++};
++
++static const struct of_device_id of_match_clk_mt6858_vlp[] = {
++	{ .compatible = "mediatek,mt6858-vlpckgen", .data = &vlp_desc },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, of_match_clk_mt6858_vlp);
++
++static struct platform_driver clk_mt6858_vlp_drv = {
++	.probe = mtk_clk_simple_probe,
++	.remove = mtk_clk_simple_remove,
++	.driver = {
++		.name = "clk-mt6858-vlp",
++		.of_match_table = of_match_clk_mt6858_vlp,
++	},
++};
++module_platform_driver(clk_mt6858_vlp_drv);
++
++MODULE_DESCRIPTION("MediaTek MT6858 vlpckgen clock controller driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

@@ -1,0 +1,587 @@
+From 97e60937e5ba8295828d5e946145a14ed5cddd75 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 07:58:23 +0000
+Subject: [PATCH 59/65] power: supply: Add MediaTek MT6720 charger and battery
+ monitor
+
+The charger supply reports power-good, whether the buck and charging
+are enabled, the charge current and voltage, input current and voltage
+limits and termination current (register fields and ranges from
+MediaTek's mt6379-chg driver with its MT6720 overrides), and VBUS
+voltage and current from the ADC. It changes nothing: the bootloader's
+settings stay until the driver can manage charging safely.
+
+The battery supply reports the cell voltage, the charge current, the
+thermistor temperature and a capacity estimated from the monitored
+battery's OCV table after the drop across its internal resistance. The
+thermistor is a 10 kOhm NTC pulled up through 24 kOhm to the AUXADC
+reference, with the Murata NCP15XH103 table, as in MediaTek's stock gauge
+(fg_temp_table, RBAT_PULL_UP_R). The coulomb counter is not used yet.
+---
+ drivers/power/supply/Kconfig          |  13 ++
+ drivers/power/supply/Makefile         |   1 +
+ drivers/power/supply/mt6720-battery.c | 270 ++++++++++++++++++++++++++
+ drivers/power/supply/mt6720-charger.c | 238 +++++++++++++++++++++++
+ 4 files changed, 522 insertions(+)
+ create mode 100644 drivers/power/supply/mt6720-battery.c
+ create mode 100644 drivers/power/supply/mt6720-charger.c
+
+diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
+index ee7dc5f26..243c0f76b 100644
+--- a/drivers/power/supply/Kconfig
++++ b/drivers/power/supply/Kconfig
+@@ -731,6 +731,19 @@ config CHARGER_MT6370
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called "mt6370-charger".
+ 
++config CHARGER_MT6720
++	tristate "MediaTek MT6720 charger and battery monitor"
++	depends on MFD_MT6720
++	depends on IIO
++	select LINEAR_RANGES
++	help
++	  Say Y here to enable the MediaTek MT6720 charger and battery
++	  power supplies: charger state and settings, battery voltage,
++	  charge current, temperature and an OCV-based capacity.
++
++	  This driver can also be built as modules. If so, the modules
++	  will be called "mt6720-charger" and "mt6720-battery".
++
+ config CHARGER_QCOM_SMBB
+ 	tristate "Qualcomm Switch-Mode Battery Charger and Boost"
+ 	depends on MFD_SPMI_PMIC || COMPILE_TEST
+diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
+index f3c0d1006..4a62731fa 100644
+--- a/drivers/power/supply/Makefile
++++ b/drivers/power/supply/Makefile
+@@ -94,6 +94,7 @@ obj-$(CONFIG_CHARGER_MAX8998)	+= max8998_charger.o
+ obj-$(CONFIG_CHARGER_MP2629)	+= mp2629_charger.o
+ obj-$(CONFIG_CHARGER_MT6360)	+= mt6360_charger.o
+ obj-$(CONFIG_CHARGER_MT6370)	+= mt6370-charger.o
++obj-$(CONFIG_CHARGER_MT6720)	+= mt6720-charger.o mt6720-battery.o
+ obj-$(CONFIG_CHARGER_QCOM_SMBB)	+= qcom_smbb.o
+ obj-$(CONFIG_BATTERY_PM8916_BMS_VM)	+= pm8916_bms_vm.o
+ obj-$(CONFIG_CHARGER_PM8916_LBC)	+= pm8916_lbc.o
+diff --git a/drivers/power/supply/mt6720-battery.c b/drivers/power/supply/mt6720-battery.c
+new file mode 100644
+index 000000000..35de202d3
+--- /dev/null
++++ b/drivers/power/supply/mt6720-battery.c
+@@ -0,0 +1,270 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6720 SubPMIC battery monitor.
++ *
++ * Voltage and thermistor come from the fuel gauge AUXADC, the charge
++ * current from the charger ADC. The capacity is estimated from the
++ * open-circuit voltage table of the monitored battery, after taking out
++ * the drop across its internal resistance. The coulomb counter is not
++ * used yet.
++ */
++#include <linux/iio/consumer.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mod_devicetable.h>
++#include <linux/platform_device.h>
++#include <linux/power_supply.h>
++#include <linux/property.h>
++#include <linux/units.h>
++
++/*
++ * The thermistor sits between BATON and ground, pulled up through
++ * 24 kOhm to the AUXADC reference (the stock gauge defaults).
++ */
++#define MT6720_NTC_PULLUP_OHM	24000
++
++/* 10 kOhm NTC, B 3380 (Murata NCP15XH103): resistance from -40 C in 5 C steps */
++static const unsigned int mt6720_ntc_ohm[] = {
++	195652, 148171, 113347, 87559, 68237, 53650, 42506, 33892,
++	27219, 22021, 17926, 14674, 12081, 10000, 8315, 6948,
++	5834, 4917, 4161, 3535, 3014, 2586, 2210,
++};
++
++#define MT6720_NTC_T0_DECI	(-400)
++#define MT6720_NTC_STEP_DECI	50
++
++struct mt6720_bat {
++	struct device *dev;
++	struct iio_channel *batsns;
++	struct iio_channel *baton;
++	struct iio_channel *vref;
++	struct iio_channel *ibat;
++	struct power_supply *psy;
++	struct power_supply_battery_info *info;
++};
++
++/* Processed values: mV or mA */
++static int mt6720_bat_read(struct iio_channel *chan, int *val)
++{
++	int ret = iio_read_channel_processed(chan, val);
++
++	return ret < 0 ? ret : 0;
++}
++
++/* Battery temperature in tenths of a degree C */
++static int mt6720_bat_get_temp(struct mt6720_bat *bat, int *temp)
++{
++	unsigned int r;
++	int ret, v, vref, i;
++
++	ret = mt6720_bat_read(bat->baton, &v) ?:
++	      mt6720_bat_read(bat->vref, &vref);
++	if (ret)
++		return ret;
++
++	if (v <= 0 || v >= vref)
++		return -ENODATA;
++
++	r = div_u64((u64)MT6720_NTC_PULLUP_OHM * v, vref - v);
++
++	if (r >= mt6720_ntc_ohm[0]) {
++		*temp = MT6720_NTC_T0_DECI;
++		return 0;
++	}
++
++	for (i = 1; i < ARRAY_SIZE(mt6720_ntc_ohm); i++) {
++		unsigned int hi = mt6720_ntc_ohm[i - 1], lo = mt6720_ntc_ohm[i];
++
++		if (r >= lo) {
++			*temp = MT6720_NTC_T0_DECI + (i - 1) * MT6720_NTC_STEP_DECI +
++				MT6720_NTC_STEP_DECI * (hi - r) / (hi - lo);
++			return 0;
++		}
++	}
++
++	*temp = MT6720_NTC_T0_DECI +
++		(ARRAY_SIZE(mt6720_ntc_ohm) - 1) * MT6720_NTC_STEP_DECI;
++	return 0;
++}
++
++static int mt6720_bat_get_capacity(struct mt6720_bat *bat, int *cap)
++{
++	int ret, mv, ma, temp, ocv;
++
++	ret = mt6720_bat_read(bat->batsns, &mv) ?:
++	      mt6720_bat_read(bat->ibat, &ma);
++	if (ret)
++		return ret;
++
++	if (mt6720_bat_get_temp(bat, &temp))
++		temp = 250;
++
++	/* The charge current raises the terminal voltage above the OCV. */
++	ocv = mv * MILLI;
++	if (bat->info->factory_internal_resistance_uohm > 0)
++		ocv -= div_s64((s64)ma * bat->info->factory_internal_resistance_uohm,
++			       MILLI);
++
++	*cap = power_supply_batinfo_ocv2cap(bat->info, ocv, temp / 10);
++	return *cap < 0 ? *cap : 0;
++}
++
++static int mt6720_bat_get_status(struct mt6720_bat *bat, int *status)
++{
++	int ret, ma;
++
++	if (!power_supply_am_i_supplied(bat->psy)) {
++		*status = POWER_SUPPLY_STATUS_DISCHARGING;
++		return 0;
++	}
++
++	ret = mt6720_bat_read(bat->ibat, &ma);
++	if (ret)
++		return ret;
++
++	if (bat->info->charge_term_current_ua > 0 &&
++	    ma * MILLI < bat->info->charge_term_current_ua)
++		*status = POWER_SUPPLY_STATUS_FULL;
++	else
++		*status = POWER_SUPPLY_STATUS_CHARGING;
++
++	return 0;
++}
++
++static int mt6720_bat_get_property(struct power_supply *psy,
++				   enum power_supply_property psp,
++				   union power_supply_propval *val)
++{
++	struct mt6720_bat *bat = power_supply_get_drvdata(psy);
++	int ret, v;
++
++	/* The battery info is only parsed once the supply is registered. */
++	if (!bat->info)
++		return -EAGAIN;
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_STATUS:
++		return mt6720_bat_get_status(bat, &val->intval);
++	case POWER_SUPPLY_PROP_PRESENT:
++		val->intval = 1;
++		return 0;
++	case POWER_SUPPLY_PROP_TECHNOLOGY:
++		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
++		return 0;
++	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
++		ret = mt6720_bat_read(bat->batsns, &v);
++		val->intval = v * MILLI;
++		return ret;
++	case POWER_SUPPLY_PROP_CURRENT_NOW:
++		ret = mt6720_bat_read(bat->ibat, &v);
++		val->intval = v * MILLI;
++		return ret;
++	case POWER_SUPPLY_PROP_TEMP:
++		return mt6720_bat_get_temp(bat, &val->intval);
++	case POWER_SUPPLY_PROP_CAPACITY:
++		return mt6720_bat_get_capacity(bat, &val->intval);
++	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
++		val->intval = bat->info->charge_full_design_uah;
++		return 0;
++	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
++		val->intval = bat->info->voltage_max_design_uv;
++		return 0;
++	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
++		val->intval = bat->info->voltage_min_design_uv;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static const enum power_supply_property mt6720_bat_properties[] = {
++	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_PRESENT,
++	POWER_SUPPLY_PROP_TECHNOLOGY,
++	POWER_SUPPLY_PROP_VOLTAGE_NOW,
++	POWER_SUPPLY_PROP_CURRENT_NOW,
++	POWER_SUPPLY_PROP_TEMP,
++	POWER_SUPPLY_PROP_CAPACITY,
++	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
++	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
++	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
++};
++
++static const struct power_supply_desc mt6720_bat_desc = {
++	.name = "mt6720-battery",
++	.type = POWER_SUPPLY_TYPE_BATTERY,
++	.properties = mt6720_bat_properties,
++	.num_properties = ARRAY_SIZE(mt6720_bat_properties),
++	.get_property = mt6720_bat_get_property,
++	.external_power_changed = power_supply_changed,
++};
++
++static int mt6720_bat_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct power_supply_config cfg = {};
++	struct mt6720_bat *bat;
++	int ret;
++
++	bat = devm_kzalloc(dev, sizeof(*bat), GFP_KERNEL);
++	if (!bat)
++		return -ENOMEM;
++
++	bat->dev = dev;
++
++	bat->batsns = devm_iio_channel_get(dev, "batsns");
++	if (IS_ERR(bat->batsns))
++		return dev_err_probe(dev, PTR_ERR(bat->batsns),
++				     "Failed to get the BATSNS channel\n");
++
++	bat->baton = devm_iio_channel_get(dev, "baton");
++	if (IS_ERR(bat->baton))
++		return dev_err_probe(dev, PTR_ERR(bat->baton),
++				     "Failed to get the BATON channel\n");
++
++	bat->vref = devm_iio_channel_get(dev, "vref");
++	if (IS_ERR(bat->vref))
++		return dev_err_probe(dev, PTR_ERR(bat->vref),
++				     "Failed to get the VREF channel\n");
++
++	bat->ibat = devm_iio_channel_get(dev, "ibat");
++	if (IS_ERR(bat->ibat))
++		return dev_err_probe(dev, PTR_ERR(bat->ibat),
++				     "Failed to get the IBAT channel\n");
++
++	cfg.drv_data = bat;
++	cfg.fwnode = dev_fwnode(dev);
++	bat->psy = devm_power_supply_register(dev, &mt6720_bat_desc, &cfg);
++	if (IS_ERR(bat->psy))
++		return dev_err_probe(dev, PTR_ERR(bat->psy),
++				     "Failed to register power supply\n");
++
++	ret = power_supply_get_battery_info(bat->psy, &bat->info);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "Failed to get the monitored battery\n");
++
++	if (!bat->info->ocv_table_size[0])
++		return dev_err_probe(dev, -EINVAL,
++				     "The battery has no OCV table\n");
++
++	return 0;
++}
++
++static const struct of_device_id mt6720_bat_of_match[] = {
++	{ .compatible = "mediatek,mt6720-gauge" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6720_bat_of_match);
++
++static struct platform_driver mt6720_bat_driver = {
++	.driver = {
++		.name = "mt6720-battery",
++		.of_match_table = mt6720_bat_of_match,
++	},
++	.probe = mt6720_bat_probe,
++};
++module_platform_driver(mt6720_bat_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6720 battery monitor driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/power/supply/mt6720-charger.c b/drivers/power/supply/mt6720-charger.c
+new file mode 100644
+index 000000000..68d00864c
+--- /dev/null
++++ b/drivers/power/supply/mt6720-charger.c
+@@ -0,0 +1,238 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6720 SubPMIC switching charger.
++ *
++ * Reports the charger's state and settings. It does not change them:
++ * the bootloader's settings stay in force.
++ */
++#include <linux/bits.h>
++#include <linux/iio/consumer.h>
++#include <linux/kernel.h>
++#include <linux/linear_range.h>
++#include <linux/module.h>
++#include <linux/mod_devicetable.h>
++#include <linux/platform_device.h>
++#include <linux/power_supply.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/units.h>
++
++enum mt6720_chg_field {
++	F_PWR_RDY,
++	F_AICR,
++	F_MIVR,
++	F_CV,
++	F_ICHG,
++	F_IEOC,
++	F_HZ,
++	F_BUCK_EN,
++	F_CHG_EN,
++	F_MAX
++};
++
++static const struct reg_field mt6720_chg_reg_fields[F_MAX] = {
++	[F_PWR_RDY]	= REG_FIELD(0x070, 0, 0),
++	[F_AICR]	= REG_FIELD(0x10a, 0, 6),
++	[F_MIVR]	= REG_FIELD(0x10b, 0, 6),
++	[F_CV]		= REG_FIELD(0x10e, 0, 6),
++	[F_ICHG]	= REG_FIELD(0x10f, 0, 5),
++	[F_IEOC]	= REG_FIELD(0x111, 0, 3),
++	[F_HZ]		= REG_FIELD(0x114, 6, 6),
++	[F_BUCK_EN]	= REG_FIELD(0x114, 5, 5),
++	[F_CHG_EN]	= REG_FIELD(0x114, 4, 4),
++};
++
++static const struct linear_range mt6720_chg_ranges[F_MAX] = {
++	[F_AICR]	= LINEAR_RANGE(100000, 0x02, 0x7f, 25000),
++	[F_MIVR]	= LINEAR_RANGE(3900000, 0x00, 0x5f, 100000),
++	[F_CV]		= LINEAR_RANGE(3900000, 0x00, 0x5f, 10000),
++	[F_ICHG]	= LINEAR_RANGE(300000, 0x06, 0x3f, 50000),
++	[F_IEOC]	= LINEAR_RANGE(50000, 0x00, 0x0f, 50000),
++};
++
++struct mt6720_chg {
++	struct device *dev;
++	struct regmap_field *fields[F_MAX];
++	struct iio_channel *vbus;
++	struct iio_channel *ibus;
++	struct power_supply *psy;
++};
++
++static int mt6720_chg_get(struct mt6720_chg *chg, enum mt6720_chg_field f,
++			  unsigned int *val)
++{
++	unsigned int sel;
++	int ret;
++
++	ret = regmap_field_read(chg->fields[f], &sel);
++	if (ret)
++		return ret;
++
++	if (!mt6720_chg_ranges[f].step) {
++		*val = sel;
++		return 0;
++	}
++
++	/* Selectors below a range's minimum select its minimum. */
++	sel = max(sel, mt6720_chg_ranges[f].min_sel);
++	return linear_range_get_value(&mt6720_chg_ranges[f], sel, val);
++}
++
++static int mt6720_chg_get_status(struct mt6720_chg *chg, int *status)
++{
++	unsigned int rdy, hz, buck, en;
++	int ret;
++
++	ret = mt6720_chg_get(chg, F_PWR_RDY, &rdy) ?:
++	      mt6720_chg_get(chg, F_HZ, &hz) ?:
++	      mt6720_chg_get(chg, F_BUCK_EN, &buck) ?:
++	      mt6720_chg_get(chg, F_CHG_EN, &en);
++	if (ret)
++		return ret;
++
++	if (!rdy)
++		*status = POWER_SUPPLY_STATUS_DISCHARGING;
++	else if (hz || !buck || !en)
++		*status = POWER_SUPPLY_STATUS_NOT_CHARGING;
++	else
++		*status = POWER_SUPPLY_STATUS_CHARGING;
++
++	return 0;
++}
++
++static int mt6720_chg_read_iio(struct iio_channel *chan, int *val)
++{
++	int ret, raw;
++
++	ret = iio_read_channel_processed(chan, &raw);
++	if (ret < 0)
++		return ret;
++
++	/* mV or mA to uV or uA */
++	*val = raw * MILLI;
++	return 0;
++}
++
++static int mt6720_chg_get_property(struct power_supply *psy,
++				   enum power_supply_property psp,
++				   union power_supply_propval *val)
++{
++	struct mt6720_chg *chg = power_supply_get_drvdata(psy);
++	unsigned int v;
++	int ret;
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_ONLINE:
++		ret = mt6720_chg_get(chg, F_PWR_RDY, &v);
++		val->intval = v;
++		return ret;
++	case POWER_SUPPLY_PROP_STATUS:
++		return mt6720_chg_get_status(chg, &val->intval);
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
++		ret = mt6720_chg_get(chg, F_ICHG, &v);
++		val->intval = v;
++		return ret;
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
++		ret = mt6720_chg_get(chg, F_CV, &v);
++		val->intval = v;
++		return ret;
++	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
++		ret = mt6720_chg_get(chg, F_AICR, &v);
++		val->intval = v;
++		return ret;
++	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT:
++		ret = mt6720_chg_get(chg, F_MIVR, &v);
++		val->intval = v;
++		return ret;
++	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
++		ret = mt6720_chg_get(chg, F_IEOC, &v);
++		val->intval = v;
++		return ret;
++	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
++		return mt6720_chg_read_iio(chg->vbus, &val->intval);
++	case POWER_SUPPLY_PROP_CURRENT_NOW:
++		return mt6720_chg_read_iio(chg->ibus, &val->intval);
++	default:
++		return -EINVAL;
++	}
++}
++
++static const enum power_supply_property mt6720_chg_properties[] = {
++	POWER_SUPPLY_PROP_ONLINE,
++	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
++	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
++	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
++	POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT,
++	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
++	POWER_SUPPLY_PROP_VOLTAGE_NOW,
++	POWER_SUPPLY_PROP_CURRENT_NOW,
++};
++
++static const struct power_supply_desc mt6720_chg_desc = {
++	.name = "mt6720-charger",
++	.type = POWER_SUPPLY_TYPE_USB,
++	.properties = mt6720_chg_properties,
++	.num_properties = ARRAY_SIZE(mt6720_chg_properties),
++	.get_property = mt6720_chg_get_property,
++};
++
++static int mt6720_chg_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct power_supply_config cfg = {};
++	struct mt6720_chg *chg;
++	struct regmap *regmap;
++	int ret;
++
++	chg = devm_kzalloc(dev, sizeof(*chg), GFP_KERNEL);
++	if (!chg)
++		return -ENOMEM;
++
++	chg->dev = dev;
++	regmap = dev_get_regmap(dev->parent, NULL);
++	if (!regmap)
++		return dev_err_probe(dev, -ENODEV, "Failed to get regmap\n");
++
++	ret = devm_regmap_field_bulk_alloc(dev, regmap, chg->fields,
++					   mt6720_chg_reg_fields, F_MAX);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to allocate fields\n");
++
++	chg->vbus = devm_iio_channel_get(dev, "vbus");
++	if (IS_ERR(chg->vbus))
++		return dev_err_probe(dev, PTR_ERR(chg->vbus),
++				     "Failed to get the VBUS channel\n");
++
++	chg->ibus = devm_iio_channel_get(dev, "ibus");
++	if (IS_ERR(chg->ibus))
++		return dev_err_probe(dev, PTR_ERR(chg->ibus),
++				     "Failed to get the IBUS channel\n");
++
++	cfg.drv_data = chg;
++	cfg.fwnode = dev_fwnode(dev);
++	chg->psy = devm_power_supply_register(dev, &mt6720_chg_desc, &cfg);
++	if (IS_ERR(chg->psy))
++		return dev_err_probe(dev, PTR_ERR(chg->psy),
++				     "Failed to register power supply\n");
++
++	return 0;
++}
++
++static const struct of_device_id mt6720_chg_of_match[] = {
++	{ .compatible = "mediatek,mt6720-charger" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6720_chg_of_match);
++
++static struct platform_driver mt6720_chg_driver = {
++	.driver = {
++		.name = "mt6720-charger",
++		.of_match_table = mt6720_chg_of_match,
++	},
++	.probe = mt6720_chg_probe,
++};
++module_platform_driver(mt6720_chg_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6720 charger driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

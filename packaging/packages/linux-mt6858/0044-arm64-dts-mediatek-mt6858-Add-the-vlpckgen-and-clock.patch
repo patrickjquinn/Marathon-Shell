@@ -1,0 +1,48 @@
+From d97b37dea685423a8a5ac16814aa14c9f10c44f3 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 05:16:10 +0000
+Subject: [PATCH 44/65] arm64: dts: mediatek: mt6858: Add the vlpckgen and
+ clock the SPMI arbiter
+
+Add the VLP clock generator, and give the SPMI arbiter its real clocks,
+the PMIC wrapper's ULPOSC mux and the SPMI-M master mux, in place of
+the 26 MHz stand-ins.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index c85f5faae..c40116bb5 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -510,6 +510,12 @@ vlpcfg: syscon@1c00c000 {
+ 			reg = <0 0x1c00c000 0 0x1000>;
+ 		};
+ 
++		vlpckgen: syscon@1c012000 {
++			compatible = "mediatek,mt6858-vlpckgen", "syscon";
++			reg = <0 0x1c012000 0 0x1000>;
++			#clock-cells = <1>;
++		};
++
+ 		spmi-arbiter@1c020000 {
+ 			compatible = "mediatek,mt6858-spmi", "mediatek,mt8196-spmi";
+ 			ranges = <0 0 0x1c020000 0x8000>;
+@@ -524,11 +530,9 @@ spmi: spmi@4000 {
+ 				interrupt-names = "rcs";
+ 				interrupt-controller;
+ 				#interrupt-cells = <3>;
+-				/*
+-				 * Stand in for the vlp_cksys clocks, which the
+-				 * bootloader leaves on.
+-				 */
+-				clocks = <&clk26m>, <&clk26m>, <&clk26m>;
++				clocks = <&vlpckgen CLK_VLP_PWRAP_ULPOSC_SEL>,
++					 <&vlpckgen CLK_VLP_PWRAP_ULPOSC_SEL>,
++					 <&vlpckgen CLK_VLP_SPMI_M_SEL>;
+ 				clock-names = "pmif_sys_ck", "pmif_tmr_ck", "spmimst_clk_mux";
+ 				#address-cells = <2>;
+ 				#size-cells = <0>;
+-- 
+2.55.0
+

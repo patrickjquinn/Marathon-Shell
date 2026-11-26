@@ -1,0 +1,55 @@
+From 6388f18ed2e715cdcf1f82e71231750fefa58244 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 05:44:28 +0000
+Subject: [PATCH 47/65] dt-bindings: clock: mediatek: Add the MT6858 mmsys
+ clock IDs
+
+Add the IDs of the MT6858 display mmsys clock gates.
+---
+ .../dt-bindings/clock/mediatek,mt6858-clock.h | 32 +++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/include/dt-bindings/clock/mediatek,mt6858-clock.h b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+index 07ec23d29..2c8d2c882 100644
+--- a/include/dt-bindings/clock/mediatek,mt6858-clock.h
++++ b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+@@ -257,4 +257,36 @@
+ #define CLK_VLP_SSR_RNG_SEL			24
+ #define CLK_VLP_OSC				25
+ 
++/* MMSYS */
++#define CLK_MM_DISP_OVL0_2L			0
++#define CLK_MM_DISP_OVL1_2L			1
++#define CLK_MM_DISP_OVL2_2L			2
++#define CLK_MM_DISP_RSZ1			3
++#define CLK_MM_DISP_RSZ0			4
++#define CLK_MM_DISP_TDSHP0			5
++#define CLK_MM_DISP_C3D0			6
++#define CLK_MM_DISP_COLOR0			7
++#define CLK_MM_DISP_CCORR0			8
++#define CLK_MM_DISP_CCORR1			9
++#define CLK_MM_DISP_AAL0			10
++#define CLK_MM_DISP_GAMMA0			11
++#define CLK_MM_DISP_POSTMASK0			12
++#define CLK_MM_DISP_DITHER0			13
++#define CLK_MM_DISP_TDSHP1			14
++#define CLK_MM_DISP_C3D1			15
++#define CLK_MM_DISP_CCORR2			16
++#define CLK_MM_DISP_CCORR3			17
++#define CLK_MM_DISP_GAMMA1			18
++#define CLK_MM_DISP_DITHER1			19
++#define CLK_MM_DISP_DSC_WRAP0			20
++#define CLK_MM_DISP_DSI0			21
++#define CLK_MM_DISP_WDMA1			22
++#define CLK_MM_DISP_APB_BUS			23
++#define CLK_MM_DISP_FAKE_ENG0			24
++#define CLK_MM_DISP_FAKE_ENG1			25
++#define CLK_MM_DISP_MUTEX0			26
++#define CLK_MM_SMI_COMMON			27
++#define CLK_MM_DSI0_CK				28
++#define CLK_MM_26M_CK				29
++
+ #endif /* _DT_BINDINGS_CLK_MT6858_H */
+-- 
+2.55.0
+
