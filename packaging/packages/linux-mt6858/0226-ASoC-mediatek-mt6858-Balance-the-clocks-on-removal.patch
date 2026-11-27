@@ -1,0 +1,71 @@
+From 0cf79428e64d246284e6674c1d17ddc25e95f9e6 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:56:14 +0000
+Subject: [PATCH 226/231] ASoC: mediatek: mt6858: Balance the clocks on removal
+
+The runtime suspend already turns off the main and register clocks, so
+disabling them again on removal underflowed top_audio_h_sel's enable
+count (a WARN on every rmmod). The always-on peripheral clocks were
+never turned off at all; a devm action now does it.
+
+MT8189, which this driver is based on, has the same removal path.
+---
+ sound/soc/mediatek/mt6858/mt6858-afe-clk.c | 14 ++++++++++++++
+ sound/soc/mediatek/mt6858/mt6858-afe-pcm.c |  6 +-----
+ 2 files changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/sound/soc/mediatek/mt6858/mt6858-afe-clk.c b/sound/soc/mediatek/mt6858/mt6858-afe-clk.c
+index 56c2a7770..cde9272f1 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-afe-clk.c
++++ b/sound/soc/mediatek/mt6858/mt6858-afe-clk.c
+@@ -751,6 +751,16 @@ static int mt6858_afe_enable_ao_clock(struct mtk_base_afe *afe)
+ 	return ret;
+ }
+ 
++static void mt6858_afe_disable_ao_clock(void *data)
++{
++	struct mtk_base_afe *afe = data;
++	struct mt6858_afe_private *afe_priv = afe->platform_priv;
++
++	mt6858_afe_disable_clk(afe, afe_priv->clk[MT6858_CLK_PERAO_AUDIO_MST_CK_PERI]);
++	mt6858_afe_disable_clk(afe, afe_priv->clk[MT6858_CLK_PERAO_AUDIO_SLV_CK_PERI]);
++	mt6858_afe_disable_clk(afe, afe_priv->clk[MT6858_CLK_PERAO_INTBUS_CK_PERI]);
++}
++
+ /* The MCLK outputs are only needed by codecs that take a master clock */
+ static bool is_mck_clk(int id)
+ {
+@@ -800,5 +810,9 @@ int mt6858_init_clock(struct mtk_base_afe *afe)
+ 	if (ret)
+ 		return ret;
+ 
++	ret = devm_add_action_or_reset(afe->dev, mt6858_afe_disable_ao_clock, afe);
++	if (ret)
++		return ret;
++
+ 	return 0;
+ }
+diff --git a/sound/soc/mediatek/mt6858/mt6858-afe-pcm.c b/sound/soc/mediatek/mt6858/mt6858-afe-pcm.c
+index e55f7e367..f3167aecb 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-afe-pcm.c
++++ b/sound/soc/mediatek/mt6858/mt6858-afe-pcm.c
+@@ -2408,15 +2408,11 @@ static int mt6858_afe_pcm_dev_probe(struct platform_device *pdev)
+ 
+ static void mt6858_afe_pcm_dev_remove(struct platform_device *pdev)
+ {
+-	struct mtk_base_afe *afe = platform_get_drvdata(pdev);
+ 	struct device *dev = &pdev->dev;
+ 
++	/* The runtime suspend turns off the main and register clocks */
+ 	if (!pm_runtime_status_suspended(dev))
+ 		mt6858_afe_runtime_suspend(dev);
+-
+-	mt6858_afe_disable_main_clock(afe);
+-	/* disable afe clock */
+-	mt6858_afe_disable_reg_rw_clk(afe);
+ }
+ 
+ static const struct of_device_id mt6858_afe_pcm_dt_match[] = {
+-- 
+2.55.0
+

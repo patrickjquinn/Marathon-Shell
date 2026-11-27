@@ -1,0 +1,29 @@
+From d3094c5f26ac424992c63b92ffcb46007bc8d382 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 02:58:55 +0000
+Subject: [PATCH 231/231] arm64: configs: mt6858: Add the audio drivers
+
+Capture works on the Jolla Phone (2026): build the AFE, the MT6369
+codec and the machine driver, which selects the AW88271 amplifier
+driver.
+---
+ arch/arm64/configs/mt6858.config | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 240170932..95654fc8e 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -43,6 +43,9 @@ CONFIG_SPMI_MTK_PMIF=y
+ CONFIG_MFD_MTK_SPMI_PMIC=y
+ # The 26 MHz clock buffers of the MT6685, for the audio codec.
+ CONFIG_COMMON_CLK_MT6685=m
++# The AFE, the MT6369 codec (microphones) and the AW88271 amplifiers.
++CONFIG_SND_SOC_MT6858=m
++CONFIG_SND_SOC_MT6858_MT6369=m
+ CONFIG_KEYBOARD_MTK_PMIC=y
+ CONFIG_I2C_CHARDEV=y
+ CONFIG_MFD_MT6720=y
+-- 
+2.55.0
+

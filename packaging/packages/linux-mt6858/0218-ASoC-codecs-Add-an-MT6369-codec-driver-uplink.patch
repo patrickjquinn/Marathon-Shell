@@ -1,0 +1,1234 @@
+From 6d50f198e766b3273581eb46e43ca65e006172c8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 21:42:41 +0000
+Subject: [PATCH 218/231] ASoC: codecs: Add an MT6369 codec driver (uplink)
+
+The MT6369, the second PMIC of MT6858 phones, has the MT6359's audio
+design behind the 8-bit registers of the SPMI PMICs. Start a mainline
+driver, modelled on mt6359.c with the sequences of MediaTek's GPLv2
+mt6369.c, with the uplink only: the three analog microphone inputs,
+both preamplifiers and ADCs, and MTKAIF to the AFE. Its 26 MHz comes
+from a clock-buffer output of the MT6685.
+
+Tested on the Jolla Phone (2026), with the MTKAIF calibration and the
+clock fixes that follow: both internal microphones record.
+---
+ sound/soc/codecs/Kconfig  |   8 +
+ sound/soc/codecs/Makefile |   2 +
+ sound/soc/codecs/mt6369.c | 953 ++++++++++++++++++++++++++++++++++++++
+ sound/soc/codecs/mt6369.h | 204 ++++++++
+ 4 files changed, 1167 insertions(+)
+ create mode 100644 sound/soc/codecs/mt6369.c
+ create mode 100644 sound/soc/codecs/mt6369.h
+
+diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
+index 05aaec74e..e08c97b5f 100644
+--- a/sound/soc/codecs/Kconfig
++++ b/sound/soc/codecs/Kconfig
+@@ -2892,6 +2892,14 @@ config SND_SOC_MT6359
+ 	  Enable support for the platform which uses MT6359 as
+ 	  external codec device.
+ 
++config SND_SOC_MT6369
++	tristate "MediaTek MT6369 Codec"
++	depends on MFD_MTK_SPMI_PMIC
++	depends on COMMON_CLK
++	help
++	  Enable support for the audio codec of the MediaTek MT6369, the
++	  second PMIC of MT6858 phones.
++
+ config SND_SOC_MT6359_ACCDET
+ 	tristate "MediaTek MT6359 ACCDET driver"
+ 	depends on MTK_PMIC_WRAP
+diff --git a/sound/soc/codecs/Makefile b/sound/soc/codecs/Makefile
+index 3826f9e4f..a8cfb9a8d 100644
+--- a/sound/soc/codecs/Makefile
++++ b/sound/soc/codecs/Makefile
+@@ -195,6 +195,7 @@ snd-soc-mt6351-y := mt6351.o
+ snd-soc-mt6357-y := mt6357.o
+ snd-soc-mt6358-y := mt6358.o
+ snd-soc-mt6359-y := mt6359.o
++snd-soc-mt6369-y := mt6369.o
+ snd-soc-mt6359-accdet-y := mt6359-accdet.o
+ snd-soc-mt6660-y := mt6660.o
+ snd-soc-nau8315-y := nau8315.o
+@@ -638,6 +639,7 @@ obj-$(CONFIG_SND_SOC_MT6351)	+= snd-soc-mt6351.o
+ obj-$(CONFIG_SND_SOC_MT6357)	+= snd-soc-mt6357.o
+ obj-$(CONFIG_SND_SOC_MT6358)	+= snd-soc-mt6358.o
+ obj-$(CONFIG_SND_SOC_MT6359)	+= snd-soc-mt6359.o
++obj-$(CONFIG_SND_SOC_MT6369)	+= snd-soc-mt6369.o
+ obj-$(CONFIG_SND_SOC_MT6359_ACCDET) += mt6359-accdet.o
+ obj-$(CONFIG_SND_SOC_MT6660)	+= snd-soc-mt6660.o
+ obj-$(CONFIG_SND_SOC_NAU8315)   += snd-soc-nau8315.o
+diff --git a/sound/soc/codecs/mt6369.c b/sound/soc/codecs/mt6369.c
+new file mode 100644
+index 000000000..99932d671
+--- /dev/null
++++ b/sound/soc/codecs/mt6369.c
+@@ -0,0 +1,953 @@
++// SPDX-License-Identifier: GPL-2.0
++//
++// mt6369.c  --  MT6369 ALSA SoC audio codec driver
++//
++// The MT6369 is the second PMIC of MT6858 phones. Its audio block has the
++// same analog design as the MT6359's, behind the 8-bit registers of the
++// SPMI PMICs. Register sequences are from MediaTek's GPLv2 mt6369.c.
++//
++// This first version covers the uplink: the three analog microphone
++// inputs, both preamplifiers and ADCs and the MTKAIF link to the AFE.
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/module.h>
++#include <linux/mod_devicetable.h>
++#include <linux/platform_device.h>
++#include <linux/property.h>
++#include <linux/of.h>
++#include <linux/regmap.h>
++#include <linux/spmi.h>
++#include <sound/soc.h>
++#include <sound/tlv.h>
++
++#include "mt6369.h"
++
++struct mt6369_priv {
++	struct device *dev;
++	struct regmap *regmap;
++	struct clk *clk_xo;
++	unsigned int mic_type[MT6369_MIC_NUM];
++	unsigned int mux_pga[2];
++	int mtkaif_protocol;
++};
++
++static void mt6369_set_gpio_smt(struct mt6369_priv *priv)
++{
++	regmap_update_bits(priv->regmap, MT6369_SMT_CON2, 0xff, 0xfc);
++	regmap_update_bits(priv->regmap, MT6369_SMT_CON3, 0xf, 0xf);
++}
++
++static void mt6369_set_gpio_driving(struct mt6369_priv *priv)
++{
++	/* 4 mA on every audio pad */
++	regmap_update_bits(priv->regmap, MT6369_DRV_CON3, 0xff, 0x88);
++	regmap_update_bits(priv->regmap, MT6369_DRV_CON4, 0xff, 0x88);
++	regmap_update_bits(priv->regmap, MT6369_DRV_CON5, 0xff, 0x88);
++	regmap_update_bits(priv->regmap, MT6369_DRV_CON6, 0xff, 0x88);
++}
++
++static void mt6369_set_capture_gpio(struct mt6369_priv *priv)
++{
++	unsigned int reg_value;
++
++	/*
++	 * The miso data is clocked by the AP's mosi clock and sync, so their
++	 * pads must be in audio mode for capture too.
++	 */
++	regmap_read(priv->regmap, MT6369_GPIO_MODE4, &reg_value);
++	if ((reg_value & 0x38) != 0x8) {
++		regmap_write(priv->regmap, MT6369_GPIO_MODE4_CLR, 0x38);
++		regmap_write(priv->regmap, MT6369_GPIO_MODE4_SET, 0x8);
++	}
++	regmap_write(priv->regmap, MT6369_GPIO_MODE5_CLR, 0x7);
++	regmap_write(priv->regmap, MT6369_GPIO_MODE5_SET, 0x1);
++
++	/* set gpio miso mode */
++	regmap_write(priv->regmap, MT6369_GPIO_MODE7_CLR, 0x3f);
++	regmap_write(priv->regmap, MT6369_GPIO_MODE7_SET, 0x09);
++}
++
++static void mt6369_reset_capture_gpio(struct mt6369_priv *priv)
++{
++	/*
++	 * Return the miso pads to inputs: the miso clock would otherwise
++	 * carry 26 MHz during playback, and the data pads are boot straps.
++	 */
++	regmap_write(priv->regmap, MT6369_GPIO_MODE7_CLR, 0x3f);
++	regmap_update_bits(priv->regmap, MT6369_GPIO_DIR1, 0x3 << 6, 0x0);
++}
++
++static void mt6369_reset_playback_gpio(struct mt6369_priv *priv)
++{
++	/* the mosi data pads are boot straps; keep clk/sync for protocol 2 */
++	regmap_write(priv->regmap, MT6369_GPIO_MODE5_CLR, 0x3f);
++	regmap_update_bits(priv->regmap, MT6369_GPIO_DIR1, 0x3 << 2, 0x0);
++}
++
++static void mt6369_mtkaif_tx_enable(struct mt6369_priv *priv)
++{
++	switch (priv->mtkaif_protocol) {
++	case MT6369_MTKAIF_PROTOCOL_2_CLK_P2:
++		regmap_update_bits(priv->regmap, MT6369_AFE_ADDA_MTKAIF_CFG0,
++				   0xff, 0x10);
++		regmap_update_bits(priv->regmap, MT6369_AFE_ADDA_MTKAIF_CFG1,
++				   0xff, 0x2);
++		/* enable the aud_pad TX fifos */
++		regmap_update_bits(priv->regmap, MT6369_AFE_AUD_PAD_TOP,
++				   0xff, 0x12);
++		regmap_update_bits(priv->regmap, MT6369_AFE_AUD_PAD_TOP,
++				   0xff, 0x13);
++		break;
++	case MT6369_MTKAIF_PROTOCOL_2:
++		regmap_update_bits(priv->regmap, MT6369_AFE_ADDA_MTKAIF_CFG0,
++				   0xff, 0x10);
++		regmap_update_bits(priv->regmap, MT6369_AFE_ADDA_MTKAIF_CFG1,
++				   0xff, 0x2);
++		regmap_update_bits(priv->regmap, MT6369_AFE_AUD_PAD_TOP,
++				   0xff, 0x11);
++		break;
++	case MT6369_MTKAIF_PROTOCOL_1:
++	default:
++		regmap_update_bits(priv->regmap, MT6369_AFE_ADDA_MTKAIF_CFG0,
++				   0xff, 0x0);
++		regmap_update_bits(priv->regmap, MT6369_AFE_ADDA_MTKAIF_CFG1,
++				   0xff, 0x0);
++		regmap_update_bits(priv->regmap, MT6369_AFE_AUD_PAD_TOP,
++				   0xff, 0x11);
++		break;
++	}
++}
++
++static void mt6369_mtkaif_tx_disable(struct mt6369_priv *priv)
++{
++	regmap_update_bits(priv->regmap, MT6369_AFE_AUD_PAD_TOP, 0xff, 0x10);
++}
++
++void mt6369_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
++				int mtkaif_protocol)
++{
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	priv->mtkaif_protocol = mtkaif_protocol;
++}
++EXPORT_SYMBOL_GPL(mt6369_set_mtkaif_protocol);
++
++static int mt_clk_buf_event(struct snd_soc_dapm_widget *w,
++			    struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		return clk_prepare_enable(priv->clk_xo);
++	case SND_SOC_DAPM_POST_PMD:
++		clk_disable_unprepare(priv->clk_xo);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_delay_250_event(struct snd_soc_dapm_widget *w,
++			      struct snd_kcontrol *kcontrol, int event)
++{
++	switch (event) {
++	case SND_SOC_DAPM_POST_PMU:
++	case SND_SOC_DAPM_PRE_PMD:
++		usleep_range(250, 270);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_ul_gpio_event(struct snd_soc_dapm_widget *w,
++			    struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		mt6369_set_capture_gpio(priv);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		mt6369_reset_capture_gpio(priv);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_mtkaif_tx_event(struct snd_soc_dapm_widget *w,
++			      struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		mt6369_mtkaif_tx_enable(priv);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		mt6369_mtkaif_tx_disable(priv);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
++				struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_POST_PMU:
++		/* Enable audio ADC CLKGEN */
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON24,
++				   RG_RSTB_ENCODER_VA28_MASK_SFT,
++				   0x1 << RG_RSTB_ENCODER_VA28_SFT);
++		/* ADC CLK from CLKGEN (13MHz) */
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON6,
++				   RG_AUDADCCLKSOURCE_MASK_SFT,
++				   0x0 << RG_AUDADCCLKSOURCE_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON6,
++				   RG_AUDADCCLKSEL_MASK_SFT,
++				   0x0 << RG_AUDADCCLKSEL_SFT);
++		/* Enable LCLDO_ENC 1P8V and its remote sense */
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON26,
++				   RG_LCLDO_ENC_EN_VA28_MASK_SFT,
++				   0x1 << RG_LCLDO_ENC_EN_VA28_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON26,
++				   RG_LCLDO_ENC_REMOTE_SENSE_VA28_MASK_SFT,
++				   0x1 << RG_LCLDO_ENC_REMOTE_SENSE_VA28_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON26,
++				   RG_VA28REFGEN_EN_VA28_MASK_SFT,
++				   0x1 << RG_VA28REFGEN_EN_VA28_SFT);
++		break;
++	case SND_SOC_DAPM_PRE_PMD:
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON26,
++				   RG_LCLDO_ENC_REMOTE_SENSE_VA28_MASK_SFT,
++				   0x0 << RG_LCLDO_ENC_REMOTE_SENSE_VA28_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON26,
++				   RG_VA28REFGEN_EN_VA28_MASK_SFT,
++				   0x0 << RG_VA28REFGEN_EN_VA28_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON26,
++				   RG_LCLDO_ENC_EN_VA28_MASK_SFT,
++				   0x0 << RG_LCLDO_ENC_EN_VA28_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON6,
++				   RG_AUDADCCLKSOURCE_MASK_SFT,
++				   0x0 << RG_AUDADCCLKSOURCE_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON6,
++				   RG_AUDADCCLKSEL_MASK_SFT,
++				   0x0 << RG_AUDADCCLKSEL_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON24,
++				   RG_RSTB_ENCODER_VA28_MASK_SFT,
++				   0x0 << RG_RSTB_ENCODER_VA28_SFT);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_dcc_clk_event(struct snd_soc_dapm_widget *w,
++			    struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		/* DCC 50k CLK (from 26M) */
++		regmap_update_bits(priv->regmap, MT6369_AFE_DCCLK_CFG1, 0xff, 0x3);
++		regmap_update_bits(priv->regmap, MT6369_AFE_DCCLK_CFG0, 0xf7, 0x22);
++		regmap_update_bits(priv->regmap, MT6369_AFE_DCCLK_CFG0, 0xf7, 0x20);
++		regmap_update_bits(priv->regmap, MT6369_AFE_DCCLK_CFG0, 0xf7, 0x21);
++		regmap_write(priv->regmap, MT6369_AFE_DCCLK_CFG2, 0x10);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		regmap_update_bits(priv->regmap, MT6369_AFE_DCCLK_CFG1, 0xff, 0x3);
++		regmap_update_bits(priv->regmap, MT6369_AFE_DCCLK_CFG0, 0xf7, 0x20);
++		regmap_update_bits(priv->regmap, MT6369_AFE_DCCLK_CFG0, 0xf7, 0x22);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
++			       struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		switch (priv->mic_type[MT6369_MIC_0]) {
++		case MIC_TYPE_MUX_DCC_ECM_DIFF:
++			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON18,
++					   0xff, 0x77);
++			break;
++		case MIC_TYPE_MUX_DCC_ECM_SINGLE:
++			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON18,
++					   0xff, 0x11);
++			break;
++		default:
++			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON18,
++					   0xff, 0x00);
++			break;
++		}
++		/* MICBIAS0 = 1.9 V */
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON17,
++				   RG_AUDMICBIAS0VREF_MASK_SFT,
++				   MIC_BIAS_1P9 << RG_AUDMICBIAS0VREF_SFT);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		regmap_write(priv->regmap, MT6369_AUDENC_ANA_CON17, 0x0);
++		regmap_write(priv->regmap, MT6369_AUDENC_ANA_CON18, 0x0);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
++			       struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	if (event == SND_SOC_DAPM_PRE_PMU)
++		regmap_write(priv->regmap, MT6369_AUDENC_ANA_CON20,
++			     priv->mic_type[MT6369_MIC_1] ==
++			     MIC_TYPE_MUX_DCC_ECM_SINGLE ? 0x1 : 0x0);
++
++	return 0;
++}
++
++static void mt6369_adc_check_rc(struct mt6369_priv *priv, unsigned int rc_reg,
++				unsigned int pwr_reg, unsigned int pwr_mask)
++{
++	unsigned int rc_tune;
++
++	usleep_range(500, 520);
++
++	/* An RC tune code at either end needs the ADC restarted */
++	regmap_read(priv->regmap, rc_reg, &rc_tune);
++	rc_tune &= 0x1f;
++	if (rc_tune == 0x0 || rc_tune == 0x1f) {
++		regmap_update_bits(priv->regmap, pwr_reg, pwr_mask, 0);
++		regmap_update_bits(priv->regmap, pwr_reg, pwr_mask, pwr_mask);
++	}
++
++	usleep_range(500, 520);
++}
++
++static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
++			  struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	if (event == SND_SOC_DAPM_POST_PMU) {
++		mt6369_adc_check_rc(priv, MT6369_AUDENC_ANA_CON10,
++				    MT6369_AUDENC_ANA_CON1,
++				    RG_AUDADCLPWRUP_MASK_SFT);
++		/* Audio L preamplifier DCC precharge off */
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON0,
++				   RG_AUDPREAMPLDCPRECHARGE_MASK_SFT, 0x0);
++	}
++
++	return 0;
++}
++
++static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
++			  struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	if (event == SND_SOC_DAPM_POST_PMU) {
++		mt6369_adc_check_rc(priv, MT6369_AUDENC_ANA_CON11,
++				    MT6369_AUDENC_ANA_CON3,
++				    RG_AUDADCRPWRUP_MASK_SFT);
++		/* Audio R preamplifier DCC precharge off */
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON2,
++				   RG_AUDPREAMPRDCPRECHARGE_MASK_SFT, 0x0);
++	}
++
++	return 0;
++}
++
++static int mt_pga_l_mux_event(struct snd_soc_dapm_widget *w,
++			      struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++	unsigned int mux = snd_soc_dapm_kcontrol_get_value(w->kcontrols[0]);
++
++	priv->mux_pga[0] = mux >> RG_AUDPREAMPLINPUTSEL_SFT;
++
++	return 0;
++}
++
++static int mt_pga_r_mux_event(struct snd_soc_dapm_widget *w,
++			      struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++	unsigned int mux = snd_soc_dapm_kcontrol_get_value(w->kcontrols[0]);
++
++	priv->mux_pga[1] = mux >> RG_AUDPREAMPRINPUTSEL_SFT;
++
++	return 0;
++}
++
++/* The microphone on a preamplifier input; AIN0, AIN1 and AIN2 are 1, 2, 3 */
++static unsigned int mt6369_pga_mic_type(struct mt6369_priv *priv,
++					unsigned int mux)
++{
++	if (mux < PGA_MUX_AIN0 || mux > PGA_MUX_AIN2)
++		return MIC_TYPE_MUX_IDLE;
++
++	return priv->mic_type[mux - PGA_MUX_AIN0];
++}
++
++static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
++			  struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++	unsigned int mic_type = mt6369_pga_mic_type(priv, priv->mux_pga[0]);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		if (IS_DCC_BASE(mic_type))
++			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON0,
++					   RG_AUDPREAMPLDCPRECHARGE_MASK_SFT,
++					   0x1 << RG_AUDPREAMPLDCPRECHARGE_SFT);
++		break;
++	case SND_SOC_DAPM_POST_PMU:
++		usleep_range(1000, 1050);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
++			  struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++	unsigned int mic_type = mt6369_pga_mic_type(priv, priv->mux_pga[1]);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		if (IS_DCC_BASE(mic_type))
++			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON2,
++					   RG_AUDPREAMPRDCPRECHARGE_MASK_SFT,
++					   0x1 << RG_AUDPREAMPRDCPRECHARGE_SFT);
++		break;
++	case SND_SOC_DAPM_POST_PMU:
++		usleep_range(1000, 1050);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_dcc_clk_connect(struct snd_soc_dapm_widget *source,
++			      struct snd_soc_dapm_widget *sink)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(sink->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	for (int i = 0; i < MT6369_MIC_NUM; i++)
++		if (IS_DCC_BASE(priv->mic_type[i]))
++			return 1;
++
++	return 0;
++}
++
++static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 600, 0);
++
++static const struct snd_kcontrol_new mt6369_snd_controls[] = {
++	SOC_SINGLE_TLV("PGA1 Volume", MT6369_AUDENC_ANA_CON1,
++		       RG_AUDPREAMPLGAIN_SFT, 4, 0, capture_tlv),
++	SOC_SINGLE_TLV("PGA2 Volume", MT6369_AUDENC_ANA_CON3,
++		       RG_AUDPREAMPRGAIN_SFT, 4, 0, capture_tlv),
++};
++
++/* AIF Out MUX */
++static const char *const aif_out_mux_map[] = {
++	"Normal Path", "Sgen",
++};
++
++static int aif_out_mux_map_value[] = {
++	0x0, 0x1,
++};
++
++static SOC_VALUE_ENUM_SINGLE_DECL(aif_out_mux_map_enum,
++				  MT6369_AFE_TOP_CON0,
++				  UL_SINE_ON_SFT,
++				  UL_SINE_ON_MASK,
++				  aif_out_mux_map,
++				  aif_out_mux_map_value);
++
++static const struct snd_kcontrol_new aif_out_mux_control =
++	SOC_DAPM_ENUM("AIF Out Select", aif_out_mux_map_enum);
++
++/* UL SRC MUX: only analog microphones are wired up */
++static const char *const ul_src_mux_map[] = {
++	"AMIC", "DMIC",
++};
++
++static int ul_src_mux_map_value[] = {
++	UL_SRC_MUX_AMIC, UL_SRC_MUX_DMIC,
++};
++
++static SOC_VALUE_ENUM_SINGLE_DECL(ul_src_mux_map_enum,
++				  MT6369_AFE_UL_SRC_CON1,
++				  UL_SDM_3_LEVEL_CTL_SFT,
++				  UL_SDM_3_LEVEL_CTL_MASK,
++				  ul_src_mux_map,
++				  ul_src_mux_map_value);
++
++static const struct snd_kcontrol_new ul_src_mux_control =
++	SOC_DAPM_ENUM("UL SRC Select", ul_src_mux_map_enum);
++
++/* MISO MUX */
++static const char *const miso_mux_map[] = {
++	"UL1_CH1", "UL1_CH2", "UL2_CH1", "UL2_CH2",
++};
++
++static int miso_mux_map_value[] = {
++	MISO_MUX_UL1_CH1, MISO_MUX_UL1_CH2, MISO_MUX_UL2_CH1, MISO_MUX_UL2_CH2,
++};
++
++static SOC_VALUE_ENUM_SINGLE_DECL(miso0_mux_map_enum,
++				  MT6369_AFE_MTKAIF_MUX_CFG0,
++				  RG_ADDA_CH1_SEL_SFT,
++				  RG_ADDA_CH1_SEL_MASK,
++				  miso_mux_map,
++				  miso_mux_map_value);
++
++static const struct snd_kcontrol_new miso0_mux_control =
++	SOC_DAPM_ENUM("MISO0 Select", miso0_mux_map_enum);
++
++static SOC_VALUE_ENUM_SINGLE_DECL(miso1_mux_map_enum,
++				  MT6369_AFE_MTKAIF_MUX_CFG0,
++				  RG_ADDA_CH2_SEL_SFT,
++				  RG_ADDA_CH2_SEL_MASK,
++				  miso_mux_map,
++				  miso_mux_map_value);
++
++static const struct snd_kcontrol_new miso1_mux_control =
++	SOC_DAPM_ENUM("MISO1 Select", miso1_mux_map_enum);
++
++/* ADC L/R MUX */
++static const char *const adc_left_mux_map[] = {
++	"Idle", "AIN0", "Left Preamplifier", "Idle_1",
++};
++
++static const char *const adc_right_mux_map[] = {
++	"Idle", "AIN0", "Right Preamplifier", "Idle_1",
++};
++
++static int adc_mux_map_value[] = {
++	ADC_MUX_IDLE, ADC_MUX_AIN0, ADC_MUX_PREAMPLIFIER, ADC_MUX_IDLE1,
++};
++
++static SOC_VALUE_ENUM_SINGLE_DECL(adc_left_mux_map_enum,
++				  MT6369_AUDENC_ANA_CON1,
++				  RG_AUDADCLINPUTSEL_SFT,
++				  RG_AUDADCLINPUTSEL_MASK,
++				  adc_left_mux_map,
++				  adc_mux_map_value);
++
++static const struct snd_kcontrol_new adc_left_mux_control =
++	SOC_DAPM_ENUM("ADC L Select", adc_left_mux_map_enum);
++
++static SOC_VALUE_ENUM_SINGLE_DECL(adc_right_mux_map_enum,
++				  MT6369_AUDENC_ANA_CON3,
++				  RG_AUDADCRINPUTSEL_SFT,
++				  RG_AUDADCRINPUTSEL_MASK,
++				  adc_right_mux_map,
++				  adc_mux_map_value);
++
++static const struct snd_kcontrol_new adc_right_mux_control =
++	SOC_DAPM_ENUM("ADC R Select", adc_right_mux_map_enum);
++
++/* PGA L/R MUX */
++static const char *const pga_mux_map[] = {
++	"None", "AIN0", "AIN1", "AIN2",
++};
++
++static int pga_mux_map_value[] = {
++	PGA_MUX_NONE, PGA_MUX_AIN0, PGA_MUX_AIN1, PGA_MUX_AIN2,
++};
++
++static SOC_VALUE_ENUM_SINGLE_DECL(pga_left_mux_map_enum,
++				  MT6369_AUDENC_ANA_CON0,
++				  RG_AUDPREAMPLINPUTSEL_SFT,
++				  RG_AUDPREAMPLINPUTSEL_MASK,
++				  pga_mux_map,
++				  pga_mux_map_value);
++
++static const struct snd_kcontrol_new pga_left_mux_control =
++	SOC_DAPM_ENUM("PGA L Select", pga_left_mux_map_enum);
++
++static SOC_VALUE_ENUM_SINGLE_DECL(pga_right_mux_map_enum,
++				  MT6369_AUDENC_ANA_CON2,
++				  RG_AUDPREAMPRINPUTSEL_SFT,
++				  RG_AUDPREAMPRINPUTSEL_MASK,
++				  pga_mux_map,
++				  pga_mux_map_value);
++
++static const struct snd_kcontrol_new pga_right_mux_control =
++	SOC_DAPM_ENUM("PGA R Select", pga_right_mux_map_enum);
++
++static const struct snd_soc_dapm_widget mt6369_dapm_widgets[] = {
++	/* Global supply */
++	SND_SOC_DAPM_SUPPLY_S("CLK_BUF", SUPPLY_SEQ_CLK_BUF,
++			      SND_SOC_NOPM, 0, 0, mt_clk_buf_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++	SND_SOC_DAPM_SUPPLY_S("AUDGLB", SUPPLY_SEQ_AUD_GLB,
++			      MT6369_AUDDEC_ANA_CON24,
++			      RG_AUDGLB_PWRDN_VA28_SFT, 1, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("CLKSQ Audio", SUPPLY_SEQ_CLKSQ,
++			      MT6369_AUDENC_ANA_CON12,
++			      RG_CLKSQ_EN_SFT, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("AUD_CK", SUPPLY_SEQ_TOP_CK_LAST,
++			      MT6369_AUD_TOP_CKPDN_CON0,
++			      RG_AUD_CK_PDN_SFT, 1, mt_delay_250_event,
++			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
++	SND_SOC_DAPM_SUPPLY_S("AUDIF_CK", SUPPLY_SEQ_TOP_CK,
++			      MT6369_AUD_TOP_CKPDN_CON0,
++			      RG_AUDIF_CK_PDN_SFT, 1, NULL, 0),
++
++	/* Digital clock */
++	SND_SOC_DAPM_SUPPLY_S("AUDIO_TOP_AFE_CTL", SUPPLY_SEQ_AUD_TOP_LAST,
++			      MT6369_AUDIO_TOP_CON0,
++			      PDN_AFE_CTL_SFT, 1, mt_delay_250_event,
++			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
++	SND_SOC_DAPM_SUPPLY_S("AUDIO_TOP_ADC_CTL", SUPPLY_SEQ_AUD_TOP,
++			      MT6369_AUDIO_TOP_CON0,
++			      PDN_ADC_CTL_SFT, 1, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("AUDIO_TOP_ADDA6_ADC_CTL", SUPPLY_SEQ_AUD_TOP,
++			      MT6369_AUDIO_TOP_CON0,
++			      PDN_ADDA6_ADC_CTL_SFT, 1, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("AUDIO_TOP_PDN_RESERVED", SUPPLY_SEQ_AUD_TOP,
++			      MT6369_AUDIO_TOP_CON0,
++			      PDN_AFE_DL_PREDIST_CTL_SFT, 1, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("AUDIO_TOP_PWR_CLK", SUPPLY_SEQ_AUD_TOP,
++			      MT6369_AUDIO_TOP_CON0,
++			      PWR_CLK_DIS_CTL_SFT, 1, NULL, 0),
++
++	SND_SOC_DAPM_SUPPLY_S("AFE_ON", SUPPLY_SEQ_AFE,
++			      MT6369_AFE_UL_DL_CON0, AFE_ON_SFT, 0, NULL, 0),
++
++	SND_SOC_DAPM_SUPPLY_S("UL_GPIO", SUPPLY_SEQ_UL_GPIO,
++			      SND_SOC_NOPM, 0, 0, mt_ul_gpio_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++
++	/* Uplink */
++	SND_SOC_DAPM_AIF_OUT("AIF1TX", "AIF1 Capture", 0, SND_SOC_NOPM, 0, 0),
++	SND_SOC_DAPM_SUPPLY("AIFTX_Supply", SND_SOC_NOPM, 0, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("ADC_CLKGEN", SUPPLY_SEQ_ADC_CLKGEN,
++			      SND_SOC_NOPM, 0, 0, mt_adc_clk_gen_event,
++			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
++	SND_SOC_DAPM_SUPPLY_S("DCC_CLK", SUPPLY_SEQ_DCC_CLK,
++			      SND_SOC_NOPM, 0, 0, mt_dcc_clk_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++	SND_SOC_DAPM_MUX("AIF Out Mux", SND_SOC_NOPM, 0, 0,
++			 &aif_out_mux_control),
++	SND_SOC_DAPM_SUPPLY_S("MTKAIF_TX", SUPPLY_SEQ_UL_MTKAIF,
++			      SND_SOC_NOPM, 0, 0, mt_mtkaif_tx_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++	SND_SOC_DAPM_SUPPLY_S("UL_SRC", SUPPLY_SEQ_UL_SRC,
++			      MT6369_AFE_UL_SRC_CON1,
++			      UL_SRC_ON_TMP_CTL_SFT, 0, NULL, 0),
++
++	SND_SOC_DAPM_MUX("MISO0_MUX", SND_SOC_NOPM, 0, 0, &miso0_mux_control),
++	SND_SOC_DAPM_MUX("MISO1_MUX", SND_SOC_NOPM, 0, 0, &miso1_mux_control),
++
++	SND_SOC_DAPM_MUX("UL_SRC_MUX", SND_SOC_NOPM, 0, 0,
++			 &ul_src_mux_control),
++
++	SND_SOC_DAPM_MUX("ADC_L_Mux", SND_SOC_NOPM, 0, 0,
++			 &adc_left_mux_control),
++	SND_SOC_DAPM_MUX("ADC_R_Mux", SND_SOC_NOPM, 0, 0,
++			 &adc_right_mux_control),
++
++	SND_SOC_DAPM_ADC("ADC_L", NULL, SND_SOC_NOPM, 0, 0),
++	SND_SOC_DAPM_ADC("ADC_R", NULL, SND_SOC_NOPM, 0, 0),
++
++	SND_SOC_DAPM_SUPPLY_S("ADC_L_EN", SUPPLY_SEQ_UL_ADC,
++			      MT6369_AUDENC_ANA_CON1,
++			      RG_AUDADCLPWRUP_SFT, 0, mt_adc_l_event,
++			      SND_SOC_DAPM_POST_PMU),
++	SND_SOC_DAPM_SUPPLY_S("ADC_R_EN", SUPPLY_SEQ_UL_ADC,
++			      MT6369_AUDENC_ANA_CON3,
++			      RG_AUDADCRPWRUP_SFT, 0, mt_adc_r_event,
++			      SND_SOC_DAPM_POST_PMU),
++
++	SND_SOC_DAPM_MUX_E("PGA_L_Mux", SND_SOC_NOPM, 0, 0,
++			   &pga_left_mux_control, mt_pga_l_mux_event,
++			   SND_SOC_DAPM_WILL_PMU),
++	SND_SOC_DAPM_MUX_E("PGA_R_Mux", SND_SOC_NOPM, 0, 0,
++			   &pga_right_mux_control, mt_pga_r_mux_event,
++			   SND_SOC_DAPM_WILL_PMU),
++
++	SND_SOC_DAPM_PGA("PGA_L", SND_SOC_NOPM, 0, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("PGA_R", SND_SOC_NOPM, 0, 0, NULL, 0),
++
++	SND_SOC_DAPM_SUPPLY_S("PGA_L_EN", SUPPLY_SEQ_UL_PGA,
++			      MT6369_AUDENC_ANA_CON0,
++			      RG_AUDPREAMPLON_SFT, 0, mt_pga_l_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
++	SND_SOC_DAPM_SUPPLY_S("PGA_R_EN", SUPPLY_SEQ_UL_PGA,
++			      MT6369_AUDENC_ANA_CON2,
++			      RG_AUDPREAMPRON_SFT, 0, mt_pga_r_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
++
++	SND_SOC_DAPM_INPUT("AIN0"),
++	SND_SOC_DAPM_INPUT("AIN1"),
++	SND_SOC_DAPM_INPUT("AIN2"),
++
++	SND_SOC_DAPM_SUPPLY_S("MIC_BIAS_0", SUPPLY_SEQ_MIC_BIAS,
++			      MT6369_AUDENC_ANA_CON17,
++			      RG_AUDPWDBMICBIAS0_SFT, 0, mt_mic_bias_0_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++	SND_SOC_DAPM_SUPPLY_S("MIC_BIAS_1", SUPPLY_SEQ_MIC_BIAS,
++			      MT6369_AUDENC_ANA_CON19,
++			      RG_AUDPWDBMICBIAS1_SFT, 0, mt_mic_bias_1_event,
++			      SND_SOC_DAPM_PRE_PMU),
++};
++
++static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
++	/* Capture */
++	{"AIFTX_Supply", NULL, "CLK_BUF"},
++	{"AIFTX_Supply", NULL, "AUDGLB"},
++	{"AIFTX_Supply", NULL, "CLKSQ Audio"},
++	{"AIFTX_Supply", NULL, "AUD_CK"},
++	{"AIFTX_Supply", NULL, "AUDIF_CK"},
++	{"AIFTX_Supply", NULL, "AUDIO_TOP_AFE_CTL"},
++	{"AIFTX_Supply", NULL, "AUDIO_TOP_PWR_CLK"},
++	{"AIFTX_Supply", NULL, "AUDIO_TOP_PDN_RESERVED"},
++	/* the miso clock may need these even with the UL_SRC off */
++	{"AIFTX_Supply", NULL, "AUDIO_TOP_ADC_CTL"},
++	{"AIFTX_Supply", NULL, "AUDIO_TOP_ADDA6_ADC_CTL"},
++	{"AIFTX_Supply", NULL, "AFE_ON"},
++
++	{"AIF1TX", NULL, "AIF Out Mux"},
++	{"AIF1TX", NULL, "AIFTX_Supply"},
++	{"AIF1TX", NULL, "MTKAIF_TX"},
++	{"AIF1TX", NULL, "UL_GPIO"},
++
++	{"AIF Out Mux", "Normal Path", "MISO0_MUX"},
++	{"AIF Out Mux", "Normal Path", "MISO1_MUX"},
++
++	{"MISO0_MUX", "UL1_CH1", "UL_SRC_MUX"},
++	{"MISO0_MUX", "UL1_CH2", "UL_SRC_MUX"},
++	{"MISO1_MUX", "UL1_CH1", "UL_SRC_MUX"},
++	{"MISO1_MUX", "UL1_CH2", "UL_SRC_MUX"},
++
++	{"UL_SRC_MUX", "AMIC", "ADC_L"},
++	{"UL_SRC_MUX", "AMIC", "ADC_R"},
++	{"UL_SRC_MUX", NULL, "UL_SRC"},
++
++	{"ADC_L", NULL, "ADC_L_Mux"},
++	{"ADC_L", NULL, "ADC_CLKGEN"},
++	{"ADC_L", NULL, "ADC_L_EN"},
++	{"ADC_R", NULL, "ADC_R_Mux"},
++	{"ADC_R", NULL, "ADC_CLKGEN"},
++	{"ADC_R", NULL, "ADC_R_EN"},
++	/* the ADC ch1/ch2 FIFO runs on the left ADC's clock */
++	{"ADC_R", NULL, "ADC_L_EN"},
++
++	{"ADC_L_Mux", "Left Preamplifier", "PGA_L"},
++	{"ADC_R_Mux", "Right Preamplifier", "PGA_R"},
++
++	{"PGA_L", NULL, "PGA_L_Mux"},
++	{"PGA_L", NULL, "PGA_L_EN"},
++	{"PGA_R", NULL, "PGA_R_Mux"},
++	{"PGA_R", NULL, "PGA_R_EN"},
++
++	{"PGA_L", NULL, "DCC_CLK", mt_dcc_clk_connect},
++	{"PGA_R", NULL, "DCC_CLK", mt_dcc_clk_connect},
++
++	{"PGA_L_Mux", "AIN0", "AIN0"},
++	{"PGA_L_Mux", "AIN1", "AIN1"},
++	{"PGA_L_Mux", "AIN2", "AIN2"},
++	{"PGA_R_Mux", "AIN0", "AIN0"},
++	{"PGA_R_Mux", "AIN2", "AIN2"},
++
++	{"AIN0", NULL, "MIC_BIAS_0"},
++	{"AIN1", NULL, "MIC_BIAS_1"},
++	{"AIN2", NULL, "MIC_BIAS_0"},
++};
++
++#define MT6369_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 | \
++		      SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000)
++#define MT6369_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE | \
++			SNDRV_PCM_FMTBIT_S32_LE)
++
++static struct snd_soc_dai_driver mt6369_dai_driver[] = {
++	{
++		.id = 0,
++		.name = "mt6369-snd-codec-aif1",
++		.capture = {
++			.stream_name = "AIF1 Capture",
++			.channels_min = 1,
++			.channels_max = 2,
++			.rates = MT6369_RATES,
++			.formats = MT6369_FORMATS,
++		},
++	},
++};
++
++static int mt6369_codec_init_reg(struct mt6369_priv *priv)
++{
++	/* audio clock source from the internal DCXO */
++	regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON12,
++			   RG_CLKSQ_IN_SEL_TEST_MASK_SFT, 0x0);
++
++	mt6369_set_gpio_smt(priv);
++	mt6369_set_gpio_driving(priv);
++	mt6369_reset_playback_gpio(priv);
++	mt6369_reset_capture_gpio(priv);
++
++	if (IS_DCC_BASE(priv->mic_type[MT6369_MIC_0])) {
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON0,
++				   RG_AUDPREAMPLDCCEN_MASK_SFT,
++				   0x1 << RG_AUDPREAMPLDCCEN_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON2,
++				   RG_AUDPREAMPRDCCEN_MASK_SFT,
++				   0x1 << RG_AUDPREAMPRDCCEN_SFT);
++	}
++
++	return 0;
++}
++
++static int mt6369_codec_probe(struct snd_soc_component *cmpnt)
++{
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	snd_soc_component_init_regmap(cmpnt, priv->regmap);
++
++	return mt6369_codec_init_reg(priv);
++}
++
++static const struct snd_soc_component_driver mt6369_soc_component_driver = {
++	.name = "mt6369-sound",
++	.probe = mt6369_codec_probe,
++	.controls = mt6369_snd_controls,
++	.num_controls = ARRAY_SIZE(mt6369_snd_controls),
++	.dapm_widgets = mt6369_dapm_widgets,
++	.num_dapm_widgets = ARRAY_SIZE(mt6369_dapm_widgets),
++	.dapm_routes = mt6369_dapm_routes,
++	.num_dapm_routes = ARRAY_SIZE(mt6369_dapm_routes),
++	.endianness = 1,
++};
++
++/* The codec is a child of the PMIC, as an MFD cell or a node of its own */
++static struct regmap *mt6369_get_pmic_regmap(struct device *dev)
++{
++	struct device_node *np __free(device_node) = of_get_parent(dev->of_node);
++	struct spmi_device *sdev;
++	struct regmap *regmap;
++
++	regmap = dev_get_regmap(dev->parent, NULL);
++	if (regmap || !np)
++		return regmap;
++
++	sdev = spmi_find_device_by_of_node(np);
++	if (!sdev)
++		return NULL;
++
++	regmap = dev_get_regmap(&sdev->dev, NULL);
++	put_device(&sdev->dev);
++
++	return regmap;
++}
++
++static int mt6369_platform_driver_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct mt6369_priv *priv;
++	int ret;
++
++	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->dev = dev;
++	priv->regmap = mt6369_get_pmic_regmap(dev);
++	if (!priv->regmap)
++		return dev_err_probe(dev, -EPROBE_DEFER, "no PMIC regmap\n");
++
++	priv->clk_xo = devm_clk_get(dev, NULL);
++	if (IS_ERR(priv->clk_xo))
++		return dev_err_probe(dev, PTR_ERR(priv->clk_xo),
++				     "failed to get the 26 MHz clock\n");
++
++	/* Analog microphones, AC coupled, unless the board says otherwise */
++	for (int i = 0; i < MT6369_MIC_NUM; i++)
++		priv->mic_type[i] = MIC_TYPE_MUX_ACC;
++	ret = device_property_read_u32_array(dev, "mediatek,mic-type",
++					     priv->mic_type, MT6369_MIC_NUM);
++	if (ret && ret != -EINVAL)
++		return dev_err_probe(dev, ret, "invalid mediatek,mic-type\n");
++
++	/* The AFE side defaults to protocol 1 until it calibrates the link */
++	priv->mtkaif_protocol = MT6369_MTKAIF_PROTOCOL_1;
++
++	platform_set_drvdata(pdev, priv);
++
++	return devm_snd_soc_register_component(dev,
++					       &mt6369_soc_component_driver,
++					       mt6369_dai_driver,
++					       ARRAY_SIZE(mt6369_dai_driver));
++}
++
++static const struct of_device_id mt6369_of_match[] = {
++	{ .compatible = "mediatek,mt6369-codec" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6369_of_match);
++
++static struct platform_driver mt6369_platform_driver = {
++	.driver = {
++		.name = "mt6369-sound",
++		.of_match_table = mt6369_of_match,
++	},
++	.probe = mt6369_platform_driver_probe,
++};
++module_platform_driver(mt6369_platform_driver);
++
++MODULE_DESCRIPTION("MT6369 ALSA SoC codec driver");
++MODULE_LICENSE("GPL");
+diff --git a/sound/soc/codecs/mt6369.h b/sound/soc/codecs/mt6369.h
+new file mode 100644
+index 000000000..f6dd2a596
+--- /dev/null
++++ b/sound/soc/codecs/mt6369.h
+@@ -0,0 +1,204 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * mt6369.h  --  mt6369 ALSA SoC audio codec driver
++ *
++ * Register map from MediaTek's GPLv2 mt6369.h.
++ */
++
++#ifndef __MT6369_H__
++#define __MT6369_H__
++
++/* Registers */
++#define MT6369_SMT_CON2                          0x23
++#define MT6369_SMT_CON3                          0x24
++#define MT6369_DRV_CON3                          0x2a
++#define MT6369_DRV_CON4                          0x2b
++#define MT6369_DRV_CON5                          0x2c
++#define MT6369_DRV_CON6                          0x2d
++#define MT6369_GPIO_DIR1                         0x8b
++#define MT6369_GPIO_MODE4                        0xc7
++#define MT6369_GPIO_MODE4_SET                    0xc8
++#define MT6369_GPIO_MODE4_CLR                    0xc9
++#define MT6369_GPIO_MODE5_SET                    0xcb
++#define MT6369_GPIO_MODE5_CLR                    0xcc
++#define MT6369_GPIO_MODE7_SET                    0xd1
++#define MT6369_GPIO_MODE7_CLR                    0xd2
++#define MT6369_AUD_TOP_CKPDN_CON0                0x230c
++#define MT6369_AFE_UL_DL_CON0                    0x2388
++#define MT6369_AFE_UL_SRC_CON1                   0x238b
++#define MT6369_AFE_TOP_CON0                      0x238e
++#define MT6369_AUDIO_TOP_CON0                    0x238f
++#define MT6369_AFE_ADDA_MTKAIF_CFG0              0x23bc
++#define MT6369_AFE_ADDA_MTKAIF_CFG1              0x23bd
++#define MT6369_AFE_DCCLK_CFG0                    0x23cd
++#define MT6369_AFE_DCCLK_CFG1                    0x23ce
++#define MT6369_AFE_DCCLK_CFG2                    0x23cf
++#define MT6369_AFE_AUD_PAD_TOP                   0x23d3
++#define MT6369_AFE_MTKAIF_MUX_CFG0               0x23de
++#define MT6369_AUDENC_ANA_CON0                   0x2508
++#define MT6369_AUDENC_ANA_CON1                   0x2509
++#define MT6369_AUDENC_ANA_CON2                   0x250a
++#define MT6369_AUDENC_ANA_CON3                   0x250b
++#define MT6369_AUDENC_ANA_CON6                   0x250e
++#define MT6369_AUDENC_ANA_CON10                  0x2512
++#define MT6369_AUDENC_ANA_CON11                  0x2513
++#define MT6369_AUDENC_ANA_CON12                  0x2514
++#define MT6369_AUDENC_ANA_CON17                  0x2519
++#define MT6369_AUDENC_ANA_CON18                  0x251a
++#define MT6369_AUDENC_ANA_CON19                  0x251b
++#define MT6369_AUDENC_ANA_CON20                  0x251c
++#define MT6369_AUDDEC_ANA_CON24                  0x25a0
++#define MT6369_AUDDEC_ANA_CON26                  0x25a2
++
++/* Fields */
++#define RG_AUDIF_CK_PDN_SFT                      2
++#define RG_AUD_CK_PDN_SFT                        1
++#define AFE_ON_SFT                               0
++#define UL_SDM_3_LEVEL_CTL_SFT                   1
++#define UL_SDM_3_LEVEL_CTL_MASK                  0x1
++#define UL_SRC_ON_TMP_CTL_SFT                    0
++#define UL_SINE_ON_SFT                           1
++#define UL_SINE_ON_MASK                          0x1
++#define PDN_AFE_CTL_SFT                          7
++#define PDN_ADC_CTL_SFT                          5
++#define PWR_CLK_DIS_CTL_SFT                      2
++#define RG_ADDA_CH2_SEL_SFT                      2
++#define RG_ADDA_CH2_SEL_MASK                     0x3
++#define RG_ADDA_CH1_SEL_SFT                      0
++#define RG_ADDA_CH1_SEL_MASK                     0x3
++#define RG_AUDPREAMPLON_SFT                      0
++#define RG_AUDPREAMPLDCCEN_SFT                   1
++#define RG_AUDPREAMPLDCCEN_MASK_SFT              (0x1 << 1)
++#define RG_AUDPREAMPLDCPRECHARGE_SFT             2
++#define RG_AUDPREAMPLDCPRECHARGE_MASK_SFT        (0x1 << 2)
++#define RG_AUDPREAMPLINPUTSEL_SFT                6
++#define RG_AUDPREAMPLINPUTSEL_MASK               0x3
++#define RG_AUDPREAMPLGAIN_SFT                    0
++#define RG_AUDADCLPWRUP_SFT                      4
++#define RG_AUDADCLPWRUP_MASK_SFT                 (0x1 << 4)
++#define RG_AUDADCLINPUTSEL_SFT                   5
++#define RG_AUDADCLINPUTSEL_MASK                  0x3
++#define RG_AUDPREAMPRON_SFT                      0
++#define RG_AUDPREAMPRDCCEN_SFT                   1
++#define RG_AUDPREAMPRDCCEN_MASK_SFT              (0x1 << 1)
++#define RG_AUDPREAMPRDCPRECHARGE_SFT             2
++#define RG_AUDPREAMPRDCPRECHARGE_MASK_SFT        (0x1 << 2)
++#define RG_AUDPREAMPRINPUTSEL_SFT                6
++#define RG_AUDPREAMPRINPUTSEL_MASK               0x3
++#define RG_AUDPREAMPRGAIN_SFT                    0
++#define RG_AUDADCRPWRUP_SFT                      4
++#define RG_AUDADCRPWRUP_MASK_SFT                 (0x1 << 4)
++#define RG_AUDADCRINPUTSEL_SFT                   5
++#define RG_AUDADCRINPUTSEL_MASK                  0x3
++#define RG_AUDADCCLKSEL_SFT                      1
++#define RG_AUDADCCLKSEL_MASK_SFT                 (0x1 << 1)
++#define RG_AUDADCCLKSOURCE_SFT                   2
++#define RG_AUDADCCLKSOURCE_MASK_SFT              (0x3 << 2)
++#define RG_CLKSQ_EN_SFT                          0
++#define RG_CLKSQ_IN_SEL_TEST_MASK_SFT            (0x1 << 1)
++#define RG_AUDPWDBMICBIAS0_SFT                   0
++#define RG_AUDMICBIAS0VREF_SFT                   4
++#define RG_AUDMICBIAS0VREF_MASK_SFT              (0x7 << 4)
++#define RG_AUDPWDBMICBIAS1_SFT                   0
++#define RG_AUDGLB_PWRDN_VA28_SFT                 4
++#define RG_RSTB_ENCODER_VA28_SFT                 5
++#define RG_RSTB_ENCODER_VA28_MASK_SFT            (0x1 << 5)
++#define RG_LCLDO_ENC_EN_VA28_SFT                 0
++#define RG_LCLDO_ENC_EN_VA28_MASK_SFT            (0x1 << 0)
++#define RG_LCLDO_ENC_REMOTE_SENSE_VA28_SFT       2
++#define RG_LCLDO_ENC_REMOTE_SENSE_VA28_MASK_SFT  (0x1 << 2)
++#define RG_VA28REFGEN_EN_VA28_SFT                5
++#define RG_VA28REFGEN_EN_VA28_MASK_SFT           (0x1 << 5)
++#define PDN_ADDA6_ADC_CTL_SFT                    4
++#define PDN_AFE_DL_PREDIST_CTL_SFT               0
++
++enum {
++	MT6369_MTKAIF_PROTOCOL_1 = 0,
++	MT6369_MTKAIF_PROTOCOL_2,
++	MT6369_MTKAIF_PROTOCOL_2_CLK_P2,
++};
++
++enum {
++	MT6369_MIC_0,	/* AIN0, MICBIAS0 */
++	MT6369_MIC_1,	/* AIN1, MICBIAS1 */
++	MT6369_MIC_2,	/* AIN2, MICBIAS0 */
++	MT6369_MIC_NUM,
++};
++
++/* Supply widget subsequences */
++enum {
++	SUPPLY_SEQ_CLK_BUF,
++	SUPPLY_SEQ_AUD_GLB,
++	SUPPLY_SEQ_UL_GPIO,
++	SUPPLY_SEQ_CLKSQ,
++	SUPPLY_SEQ_ADC_CLKGEN,
++	SUPPLY_SEQ_TOP_CK,
++	SUPPLY_SEQ_TOP_CK_LAST,
++	SUPPLY_SEQ_DCC_CLK,
++	SUPPLY_SEQ_MIC_BIAS,
++	SUPPLY_SEQ_AUD_TOP,
++	SUPPLY_SEQ_AUD_TOP_LAST,
++	SUPPLY_SEQ_AFE,
++	SUPPLY_SEQ_UL_PGA,
++	SUPPLY_SEQ_UL_ADC,
++	SUPPLY_SEQ_UL_MTKAIF,
++	SUPPLY_SEQ_UL_SRC,
++};
++
++enum {
++	MIC_BIAS_1P7 = 0,
++	MIC_BIAS_1P8,
++	MIC_BIAS_1P9,
++	MIC_BIAS_2P0,
++	MIC_BIAS_2P1,
++	MIC_BIAS_2P5,
++	MIC_BIAS_2P6,
++	MIC_BIAS_2P7,
++};
++
++/* the values of the mediatek,mic-type property */
++enum {
++	MIC_TYPE_MUX_IDLE = 0,
++	MIC_TYPE_MUX_ACC,
++	MIC_TYPE_MUX_DMIC,
++	MIC_TYPE_MUX_DCC,
++	MIC_TYPE_MUX_DCC_ECM_DIFF,
++	MIC_TYPE_MUX_DCC_ECM_SINGLE,
++};
++
++#define IS_DCC_BASE(x) ((x) == MIC_TYPE_MUX_DCC || \
++			(x) == MIC_TYPE_MUX_DCC_ECM_DIFF || \
++			(x) == MIC_TYPE_MUX_DCC_ECM_SINGLE)
++
++enum {
++	PGA_MUX_NONE = 0,
++	PGA_MUX_AIN0,
++	PGA_MUX_AIN1,
++	PGA_MUX_AIN2,
++};
++
++enum {
++	UL_SRC_MUX_AMIC = 0,
++	UL_SRC_MUX_DMIC,
++};
++
++enum {
++	MISO_MUX_UL1_CH1 = 0,
++	MISO_MUX_UL1_CH2,
++	MISO_MUX_UL2_CH1,
++	MISO_MUX_UL2_CH2,
++};
++
++enum {
++	ADC_MUX_IDLE = 0,
++	ADC_MUX_AIN0,
++	ADC_MUX_PREAMPLIFIER,
++	ADC_MUX_IDLE1,
++};
++
++struct snd_soc_component;
++
++void mt6369_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
++				int mtkaif_protocol);
++
++#endif /* __MT6369_H__ */
+-- 
+2.55.0
+

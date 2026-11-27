@@ -1,0 +1,47 @@
+From 8f6e8ec90e37e1012bfbde415dd43337cd0e7337 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:56:13 +0000
+Subject: [PATCH 223/231] ASoC: dt-bindings: mediatek,mt6858-afe-pcm: Add the
+ topckgen phandle
+
+The MTKAIF miso delays are measured by a test block in topckgen
+(CKSYS_AUD_TOP_CFG and _MON), so the AFE needs its regmap, as on the
+MT8186 and MT8192.
+---
+ .../devicetree/bindings/sound/mediatek,mt6858-afe-pcm.yaml  | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/sound/mediatek,mt6858-afe-pcm.yaml b/Documentation/devicetree/bindings/sound/mediatek,mt6858-afe-pcm.yaml
+index df6d67659..beafd4bc5 100644
+--- a/Documentation/devicetree/bindings/sound/mediatek,mt6858-afe-pcm.yaml
++++ b/Documentation/devicetree/bindings/sound/mediatek,mt6858-afe-pcm.yaml
+@@ -69,6 +69,10 @@ properties:
+       - const: top_i2sin1
+       - const: top_i2sout1
+ 
++  mediatek,topckgen:
++    $ref: /schemas/types.yaml#/definitions/phandle
++    description: The topckgen syscon, which measures the MTKAIF miso delays
++
+   i2sin1-share:
+     $ref: /schemas/types.yaml#/definitions/string
+     description: The I2S interface whose clocks I2SIN1 runs on
+@@ -84,6 +88,7 @@ required:
+   - power-domains
+   - clocks
+   - clock-names
++  - mediatek,topckgen
+ 
+ additionalProperties: false
+ 
+@@ -101,6 +106,7 @@ examples:
+             reg = <0 0x11050000 0 0x10000>;
+             interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH 0>;
+             power-domains = <&spm 2>;
++            mediatek,topckgen = <&topckgen>;
+             clocks = <&topckgen 19>, <&topckgen 28>, <&topckgen 29>,
+                      <&topckgen 38>, <&topckgen 98>, <&topckgen 102>,
+                      <&topckgen 100>, <&topckgen 104>, <&topckgen 32>,
+-- 
+2.55.0
+

@@ -1,0 +1,182 @@
+From 65078c5c1b6e24e4635c8d6e33590591ee33d091 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:56:13 +0000
+Subject: [PATCH 225/231] ASoC: mediatek: mt6858-mt6369: Calibrate the MTKAIF
+ phases
+
+The MT6858 has no miso clock pads in use on the Jolla Phone (2026):
+GPIO177 and GPIO178 carry the NLE mosi lines, so the codec's miso data
+must come back on the AP's mosi clock, MTKAIF protocol 2 with CLK_P2,
+as MediaTek's driver runs it. That needs each miso pad's delay measured
+at init.
+
+The calibration steps the codec's phase until the topckgen test's cycle
+count changes, as on the MT8192, for the two miso pads the board uses.
+A failed calibration only leaves capture with a phase error, so it is
+not fatal.
+
+Tested on the Jolla Phone (2026): phases 1/1, cycles 3/3.
+---
+ sound/soc/mediatek/mt6858/mt6858-mt6369.c | 124 +++++++++++++++++++++-
+ 1 file changed, 121 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/mediatek/mt6858/mt6858-mt6369.c b/sound/soc/mediatek/mt6858/mt6858-mt6369.c
+index 4fe08d7bd..45b1a388c 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-mt6369.c
++++ b/sound/soc/mediatek/mt6858/mt6858-mt6369.c
+@@ -7,10 +7,13 @@
+ 
+ #include <linux/module.h>
+ #include <linux/of.h>
++#include <linux/pm_runtime.h>
++#include <linux/regmap.h>
+ #include <sound/pcm_params.h>
+ #include <sound/soc.h>
+ 
+ #include "mt6858-afe-common.h"
++#include "mt6858-reg.h"
+ #include "../../codecs/mt6369.h"
+ #include "../common/mtk-soc-card.h"
+ #include "../common/mtk-soundcard-driver.h"
+@@ -53,6 +56,117 @@ static int mt6858_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+ 
+ #define MT6369_CODEC_DAI "mt6369-snd-codec-aif1"
+ 
++/* The MT6369 phase steps, 0 to 42 */
++#define MT6858_MTKAIF_NUM_PHASE		42
++#define MT6858_MTKAIF_TEST_TRIES	10000
++#define MT6858_MTKAIF_MISO_NUM		2
++
++/*
++ * The miso data comes back clocked by the AP's mosi clock (protocol 2
++ * CLK_P2), so each pad's delay is found by stepping the codec's phase
++ * until the measured cycle count changes.
++ */
++static int mt6858_mt6369_mtkaif_calibration(struct mtk_base_afe *afe,
++					    struct snd_soc_component *codec)
++{
++	struct mt6858_afe_private *afe_priv = afe->platform_priv;
++	int prev_cycle[MT6858_MTKAIF_MISO_NUM];
++	int cycle[MT6858_MTKAIF_MISO_NUM];
++	unsigned int monitor;
++	int phase, i, tries, ret;
++	bool done;
++
++	ret = pm_runtime_resume_and_get(afe->dev);
++	if (ret)
++		return ret;
++
++	ret = mt6369_mtkaif_calibration_enable(codec);
++	if (ret)
++		goto out_pm;
++
++	/* RX in protocol 2, then the RX fifo on */
++	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP_CFG0, 0xff, 0xb8);
++	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP_CFG0, 0xff, 0xb9);
++
++	/* test type: synchronizer pulse */
++	regmap_update_bits(afe_priv->topckgen, CKSYS_AUD_TOP_CFG, 0xffff, 0x4);
++
++	for (i = 0; i < ARRAY_SIZE(afe_priv->mtkaif_chosen_phase); i++)
++		afe_priv->mtkaif_chosen_phase[i] = -1;
++
++	for (phase = 0; phase <= MT6858_MTKAIF_NUM_PHASE; phase++) {
++		mt6369_set_mtkaif_calibration_phase(codec, phase, phase, phase);
++
++		regmap_update_bits(afe_priv->topckgen, CKSYS_AUD_TOP_CFG, 0x1, 0x1);
++
++		for (i = 0; i < MT6858_MTKAIF_MISO_NUM; i++)
++			cycle[i] = -1;
++
++		for (tries = 0; tries < MT6858_MTKAIF_TEST_TRIES; tries++) {
++			regmap_read(afe_priv->topckgen, CKSYS_AUD_TOP_MON,
++				    &monitor);
++			done = true;
++			for (i = 0; i < MT6858_MTKAIF_MISO_NUM; i++) {
++				if (monitor & BIT(28 + i))
++					cycle[i] = (monitor >> (4 * i)) & 0xf;
++				else
++					done = false;
++			}
++			if (done)
++				break;
++		}
++
++		regmap_update_bits(afe_priv->topckgen, CKSYS_AUD_TOP_CFG, 0x1, 0x0);
++
++		if (!done) {
++			dev_err(afe->dev, "MTKAIF test timed out at phase %d, monitor %#x\n",
++				phase, monitor);
++			ret = -ETIMEDOUT;
++			break;
++		}
++
++		dev_dbg(afe->dev, "MTKAIF phase %d: cycles %d %d\n",
++			phase, cycle[0], cycle[1]);
++
++		if (phase == 0)
++			memcpy(prev_cycle, cycle, sizeof(prev_cycle));
++
++		done = true;
++		for (i = 0; i < MT6858_MTKAIF_MISO_NUM; i++) {
++			if (afe_priv->mtkaif_chosen_phase[i] < 0 &&
++			    cycle[i] != prev_cycle[i]) {
++				afe_priv->mtkaif_chosen_phase[i] = phase - 1;
++				afe_priv->mtkaif_phase_cycle[i] = prev_cycle[i];
++			}
++			if (afe_priv->mtkaif_chosen_phase[i] < 0)
++				done = false;
++		}
++		if (done)
++			break;
++	}
++
++	mt6369_set_mtkaif_calibration_phase(codec,
++					    max(afe_priv->mtkaif_chosen_phase[0], 0),
++					    max(afe_priv->mtkaif_chosen_phase[1], 0),
++					    0);
++
++	/* RX fifo off */
++	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP_CFG0, 0xff, 0xb8);
++
++	mt6369_mtkaif_calibration_disable(codec);
++
++	dev_info(afe->dev, "MTKAIF phases %d/%d, cycles %d/%d\n",
++		 afe_priv->mtkaif_chosen_phase[0],
++		 afe_priv->mtkaif_chosen_phase[1],
++		 afe_priv->mtkaif_phase_cycle[0],
++		 afe_priv->mtkaif_phase_cycle[1]);
++
++out_pm:
++	pm_runtime_put(afe->dev);
++
++	return ret;
++}
++
+ static int mt6858_mt6369_init(struct snd_soc_pcm_runtime *rtd)
+ {
+ 	struct snd_soc_component *cmpnt_afe =
+@@ -67,13 +181,17 @@ static int mt6858_mt6369_init(struct snd_soc_pcm_runtime *rtd)
+ 	afe = snd_soc_component_get_drvdata(cmpnt_afe);
+ 	afe_priv = afe->platform_priv;
+ 
+-	/* MTKAIF protocol 2, without the phase calibration for now */
+ 	/* Without the codec the link runs on the dummy DAI */
+ 	if (strcmp(codec_dai->name, MT6369_CODEC_DAI))
+ 		return 0;
+ 
+-	afe_priv->mtkaif_protocol = MTKAIF_PROTOCOL_2;
+-	mt6369_set_mtkaif_protocol(codec_dai->component, MT6369_MTKAIF_PROTOCOL_2);
++	afe_priv->mtkaif_protocol = MTKAIF_PROTOCOL_2_CLK_P2;
++	mt6369_set_mtkaif_protocol(codec_dai->component,
++				   MT6369_MTKAIF_PROTOCOL_2_CLK_P2);
++
++	/* Uncalibrated capture still works, only with a phase error */
++	if (mt6858_mt6369_mtkaif_calibration(afe, codec_dai->component))
++		dev_warn(afe->dev, "MTKAIF calibration failed\n");
+ 
+ 	return 0;
+ }
+-- 
+2.55.0
+
