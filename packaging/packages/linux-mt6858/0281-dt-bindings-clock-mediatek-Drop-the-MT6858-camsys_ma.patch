@@ -1,0 +1,33 @@
+From a30bc6e2b55ff47d71c069ef77d7d6063f1c1bcf Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 15:28:44 +0000
+Subject: [PATCH 281/286] dt-bindings: clock: mediatek: Drop the MT6858
+ camsys_main power domain
+
+The MT6858 camsys_main controller no longer sits in CAM_MAIN: its
+gates are that domain's subsys clocks, so it can't take the domain
+itself. Nothing else in this binding has a power domain.
+---
+ .../devicetree/bindings/clock/mediatek,mt8196-clock.yaml    | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml b/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
+index 309ede2e1..2efed8f2f 100644
+--- a/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
++++ b/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
+@@ -54,12 +54,6 @@ properties:
+   '#clock-cells':
+     const: 1
+ 
+-  power-domains:
+-    maxItems: 1
+-    description:
+-      Power domain holding the controller's registers, for controllers
+-      in a domain that is off at boot (MT6858 camsys_main).
+-
+   '#reset-cells':
+     const: 1
+     description:
+-- 
+2.55.0
+

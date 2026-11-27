@@ -4,11 +4,13 @@
 # git format-patch 4dce97c6c..d2c834312 of the jp2601/initial branch
 # plus 0185-0186 from jp2601/deckard and git format-patch
 # d2c834312..93ee882fe of jp2601/modem (the audio and flash LED series, the
-# battery fix, then the MD1 modem) from 0215
+# battery fix, then the MD1 modem) from 0215, and git format-patch
+# 7b28de873..a30bc6e2b of jp2601/camera-r21 (the IMX616 and IMX766 sensors
+# and CAM_MAIN's bus protection) from 0274
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=20
+pkgrel=21
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 # MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
@@ -325,6 +327,14 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0271-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 	0272-ASoC-codecs-mt6369-Add-the-headphone-downlink.patch
 	0273-pmdomain-mediatek-mtk-mfg-Wait-for-each-EB-answer-in.patch
+	0274-media-dt-bindings-Add-the-Sony-IMX616-image-sensor.patch
+	0275-media-i2c-Add-a-driver-for-the-Sony-IMX616.patch
+	0276-media-dt-bindings-Add-the-Sony-IMX766-image-sensor.patch
+	0277-media-i2c-Add-a-driver-for-the-Sony-IMX766.patch
+	0278-arm64-configs-mt6858-Add-the-IMX616-and-IMX766-senso.patch
+	0279-clk-mediatek-mt6858-cam-Drop-runtime-PM.patch
+	0280-arm64-dts-mediatek-mt6858-Give-CAM_MAIN-the-camsys-g.patch
+	0281-dt-bindings-clock-mediatek-Drop-the-MT6858-camsys_ma.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -684,5 +694,13 @@ beb02b52369af24786b157a0281eaf61db3b8ce9559125b1a0aa7162a397845efda01d25f332688f
 132ccd22a4ebc9be084dfdfbfa21568cd2c7495455e7d5f6154a17aa1bec435032845faea72a71d423ccdf5d312dd14490ff943bed93213190fc725bd6b6e172  0271-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 a51a77c9708c212953a4c981febb736e1c7b282f603d75e28595036617dc96b3b1d1d7817e1b0873d6b19d28d8430a9a0ea93e8f24e4313790143a10106b878c  0272-ASoC-codecs-mt6369-Add-the-headphone-downlink.patch
 918111625573fd25e2192bfbf3781e81a70ac9a13bd44fc95d35d66ca26096289397398ed9105a9a5d1930f3ad6dc1d3c76d4b911c075f61dc5a5529b0ec4cce  0273-pmdomain-mediatek-mtk-mfg-Wait-for-each-EB-answer-in.patch
+79dd827da7a1a061ec5bb7ada9dbf1446c9f99d8d33336cbe164a15270008eb69efdf6c45c9c0a817478eeaf38a3101d8ec959d6d7615aa2c3a34e1702184860  0274-media-dt-bindings-Add-the-Sony-IMX616-image-sensor.patch
+9a5711bf2496b181e5cae57b6fdaf0a1ac0e1341d564e8a96e04043733c863bd0db12468adf0e61f93c932a4951a3f6675a0e69a87dd2f49abecbe765c443e13  0275-media-i2c-Add-a-driver-for-the-Sony-IMX616.patch
+dec493316b71c7931f95f6a9ce1567cd6b6000106e474dbc1c613eaaef609133274adc72d17d5f7b9d5b17d6dd9c36d71118b047bbff474b1753ad5a34eac804  0276-media-dt-bindings-Add-the-Sony-IMX766-image-sensor.patch
+53643f09580108d524c62cde171f3431808ee8d60f2564a704a55054e804e0fde4b7924207e159df3aeafe7f70ec3cc5b6a43171239e04b4e555029c180b234e  0277-media-i2c-Add-a-driver-for-the-Sony-IMX766.patch
+38df1e7037e2e2d87f7f510e8bbe2152c04c7e87171d68688f6aa18255e4ae880fde4eb8c12c74a8ed5dcc8e4029223f3a23d2023fd70f58ea14743bf9673214  0278-arm64-configs-mt6858-Add-the-IMX616-and-IMX766-senso.patch
+7172e8bbad679e27a441cefeb94be614f3f50b05698a4aa681b832a8b0575f97b9d19c8b0cf64f7dbe622aacd600b7181a37788ea8e80daa9734b449257c4252  0279-clk-mediatek-mt6858-cam-Drop-runtime-PM.patch
+f55d7a28796c21d2854f1b3b7a88f695ea5a7340c84c8f162869259c0fe5ec77cc1a67d82b87e1ba03231e2fc893fcc6211794cf30612ef2e52b2b78bf8404ca  0280-arm64-dts-mediatek-mt6858-Give-CAM_MAIN-the-camsys-g.patch
+b94e9f6b7bbb4c6a5b7349063ff0b0f8ed1b5709ad33ff7cde02fa3541adfbe5742bf8066ad35d1fadce726e5bcc597eeb5eeb8a12afa346427102c032a0433b  0281-dt-bindings-clock-mediatek-Drop-the-MT6858-camsys_ma.patch
 1b57b13f8912bed14f0f0bc5ff65f8977e71649dd311c28fedb459248b1ac86d94543ae04bda8ec651cd28d9189925efca9f3ee3eeb39b3a0999fa09bcde9ae3  marathon.config
 "
