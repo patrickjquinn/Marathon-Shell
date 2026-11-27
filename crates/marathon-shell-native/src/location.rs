@@ -345,7 +345,7 @@ enum Event {
 
 /// The apps that leave the session bus, and with it their hold on the
 /// location.
-async fn follow_left(session: zbus::Connection, left: Sender<String>) {
+pub(crate) async fn follow_left(session: zbus::Connection, left: Sender<String>) {
     let Ok(dbus) = DBusProxy::new(&session).await else {
         return;
     };

@@ -32,6 +32,8 @@ pub mod qobject {
         /// The phone has an assistant key (the key between the volume keys).
         #[qproperty(bool, has_assist_key, cxx_name = "hasAssistKey", READ, NOTIFY = state_changed)]
         #[qproperty(bool, has_privacy_switch, cxx_name = "hasPrivacySwitch", READ, NOTIFY = state_changed)]
+        /// The phone has an NFC adapter.
+        #[qproperty(bool, has_nfc, cxx_name = "hasNfc", READ, NOTIFY = state_changed)]
         /// The privacy switch cuts the cameras.
         #[qproperty(bool, camera_blocked, cxx_name = "cameraBlocked", READ, NOTIFY = state_changed)]
         /// The keyboard has a trackpad.
@@ -97,6 +99,7 @@ pub struct PowerRust {
     power_profiles_supported: bool,
     has_assist_key: bool,
     has_privacy_switch: bool,
+    has_nfc: bool,
     camera_blocked: bool,
     has_trackpad: bool,
     permitted: bool,
@@ -116,6 +119,7 @@ impl Default for PowerRust {
             power_profiles_supported: false,
             has_assist_key: false,
             has_privacy_switch: false,
+            has_nfc: false,
             camera_blocked: false,
             has_trackpad: false,
             permitted: false,
@@ -146,6 +150,7 @@ impl cxx_qt::Initialize for Power {
                     p.power_profiles_supported = get(&s, "powerProfilesSupported");
                     p.has_assist_key = get(&s, "hasAssistKey");
                     p.has_privacy_switch = get(&s, "hasPrivacySwitch");
+                    p.has_nfc = get(&s, "hasNfc");
                     p.camera_blocked = get(&s, "cameraBlocked");
                     p.has_trackpad = get(&s, "hasTrackpad");
                 }
