@@ -1,0 +1,79 @@
+From f73bafb7d5b0cc4af5fc3a179c401a0d3b6fb1e1 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 20:42:22 +0000
+Subject: [PATCH 117/118] kerneldevice: handle MediaTek CCCI MIPC ports
+
+The CCCI MIPC channels (/dev/ttyCMIPC*) are ccci_node character
+devices like the AT channels. Treat one tagged ID_MM_CCCI_MIPC_PORT=1
+by udev as a wwan port whose type attribute is "MIPC", as the tagged
+AT channel is a wwan AT port, so it gets the same handling as t7xx's
+MIPC port.
+---
+ src/kerneldevice/mm-kernel-device-udev.c | 29 ++++++++++++++----------
+ 1 file changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/src/kerneldevice/mm-kernel-device-udev.c b/src/kerneldevice/mm-kernel-device-udev.c
+index e1ec0d4..3f562de 100644
+--- a/src/kerneldevice/mm-kernel-device-udev.c
++++ b/src/kerneldevice/mm-kernel-device-udev.c
+@@ -331,15 +331,20 @@ preload_contents (MMKernelDeviceUdev *self)
+ 
+ /*****************************************************************************/
+ 
+-/* MediaTek CCCI AT ports are plain character devices in the "ccci_node"
+- * class; udev rules tag the ones to use and they're handled like wwan AT
+- * ports, which don't need a tty either. */
+-static gboolean
+-is_ccci_at_port (MMKernelDeviceUdev *self)
++/* MediaTek CCCI AT and MIPC ports are plain character devices in the
++ * "ccci_node" class; udev rules tag the ones to use and they're handled like
++ * wwan ports of the same type, which don't need a tty either. */
++static const gchar *
++ccci_port_type (MMKernelDeviceUdev *self)
+ {
+-    return (self->priv->device &&
+-            !g_strcmp0 (g_udev_device_get_subsystem (self->priv->device), "ccci_node") &&
+-            g_udev_device_get_property_as_boolean (self->priv->device, "ID_MM_CCCI_AT_PORT"));
++    if (!self->priv->device ||
++        g_strcmp0 (g_udev_device_get_subsystem (self->priv->device), "ccci_node"))
++        return NULL;
++    if (g_udev_device_get_property_as_boolean (self->priv->device, "ID_MM_CCCI_AT_PORT"))
++        return "AT";
++    if (g_udev_device_get_property_as_boolean (self->priv->device, "ID_MM_CCCI_MIPC_PORT"))
++        return "MIPC";
++    return NULL;
+ }
+ 
+ static const gchar *
+@@ -349,7 +354,7 @@ kernel_device_get_subsystem (MMKernelDevice *_self)
+ 
+     self = MM_KERNEL_DEVICE_UDEV (_self);
+ 
+-    if (is_ccci_at_port (self))
++    if (ccci_port_type (self))
+         return "wwan";
+ 
+     if (self->priv->device)
+@@ -648,7 +653,7 @@ kernel_device_has_attribute (MMKernelDevice *_self,
+     if (!self->priv->device)
+         return FALSE;
+ 
+-    if (is_ccci_at_port (self) && !g_strcmp0 (attribute, "type"))
++    if (ccci_port_type (self) && !g_strcmp0 (attribute, "type"))
+         return TRUE;
+ 
+     return g_udev_device_has_sysfs_attr (self->priv->device, attribute);
+@@ -664,8 +669,8 @@ kernel_device_get_attribute (MMKernelDevice *_self,
+     if (!self->priv->device)
+         return NULL;
+ 
+-    if (is_ccci_at_port (self) && !g_strcmp0 (attribute, "type"))
+-        return "AT";
++    if (ccci_port_type (self) && !g_strcmp0 (attribute, "type"))
++        return ccci_port_type (self);
+ 
+     return g_udev_device_get_sysfs_attr (self->priv->device, attribute);
+ }
+-- 
+2.55.0
+
