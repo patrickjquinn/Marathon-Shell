@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=18
+pkgrel=21
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -11,7 +11,7 @@ license="Apache-2.0"
 options="!check"
 depends="device-jolla-jp2601 marathon-base-config marathon-shell marathon-carrier greetd
  plymouth marathon-plymouth-theme deckard deckard-images mesa-vulkan-panfrost linux-firmware-arm
- jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf"
+ jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf neard"
 source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-session.conf
  jp2601-plymouth.files jp2601-plymouth-newroot.hook
  jp2601-splash-handover jp2601-splash-handover.service jp2601-splash-greetd.conf
@@ -20,7 +20,8 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
  eglfs-kms.json 60-jp2601-display.rules 61-jp2601-gpu-awake.rules jp2601-gpu.files jp2601-power.sysctl
  jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf
- jp2601-modules-match jp2601-modules-match.service"
+ jp2601-modules-match jp2601-modules-match.service
+ neard.service org.neard.service neard-main.conf marathon-neard.conf"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
@@ -80,6 +81,12 @@ package() {
 	install -Dm644 "$srcdir/jp2601-usb-gadget.service" "$pkgdir/usr/lib/systemd/system/jp2601-usb-gadget.service"
 	install -d "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants"
 	ln -s ../jp2601-usb-gadget.service "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants/jp2601-usb-gadget.service"
+
+	# NFC: neard, started on D-Bus by the shell, which powers the adapter.
+	install -Dm644 "$srcdir/neard.service" "$pkgdir/usr/lib/systemd/system/neard.service"
+	install -Dm644 "$srcdir/org.neard.service" "$pkgdir/usr/share/dbus-1/system-services/org.neard.service"
+	install -Dm644 "$srcdir/neard-main.conf" "$pkgdir/etc/neard/main.conf"
+	install -Dm644 "$srcdir/marathon-neard.conf" "$pkgdir/usr/share/dbus-1/system.d/marathon-neard.conf"
 
 	# Deckard: Android's display geometry, its data directory, the user may
 	# start it, and the legacy iptables modules its netd cannot load.
