@@ -1379,7 +1379,7 @@ Item {
             id: wallpaperImage
             width: shell.width
             height: shell.height
-            source: SettingsManagerCpp.wallpaperPath
+            source: MColors.wallpaper(SettingsManagerCpp.wallpaperPath)
             // Decoded off the GUI thread at the screen's size; a new one
             // replaces the old once ready.
             sourceSize: Qt.size(width, height)

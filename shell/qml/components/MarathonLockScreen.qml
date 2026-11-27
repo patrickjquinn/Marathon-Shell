@@ -297,7 +297,7 @@ Item {
 
             anchors.fill: parent
             visible: !MColors.eink
-            source: SettingsManagerCpp.wallpaperPath
+            source: MColors.wallpaper(SettingsManagerCpp.wallpaperPath)
             // The home screen's size too, so both share one decoded image.
             sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop

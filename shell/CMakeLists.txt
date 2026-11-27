@@ -3,6 +3,8 @@ set(SOURCES
     src/diag/fpsmonitor.h
     src/diag/fpsmonitor.cpp
     src/components/svgimageprovider.h
+    src/components/wallpaperimageprovider.h
+    src/components/wallpaperimageprovider.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/marathoninputmethodengine.h

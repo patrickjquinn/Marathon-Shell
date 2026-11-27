@@ -10,6 +10,12 @@ QtObject {
     // 16 greys (multiples of 0x11), no glass. The ambience turns dark on
     // light with it (AmbienceController).
     property bool eink: typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "epaper"
+    // OLED pixels at the floor are off: black, and wallpapers dithered from 16 bits.
+    readonly property bool oled: typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "oled"
+
+    function wallpaper(path) {
+        return oled && path ? "image://wallpaper/" + encodeURIComponent(path) + "?oled=1" : path;
+    }
 
     // ── Surface ramp · canonical DS Theme (engineering doc) ─────
     // Six near-blacks. Cards stack one step lighter than their parent;

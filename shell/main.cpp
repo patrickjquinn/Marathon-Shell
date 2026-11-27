@@ -91,6 +91,7 @@
 #include "src/services/trackpadinput.h"
 #endif
 #include "src/components/svgimageprovider.h"
+#include "src/components/wallpaperimageprovider.h"
 
 #include "marathon-shell-native/src/mpris.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
@@ -857,6 +858,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<Session>("MarathonOS.Shell", 1, 0, "SessionStore", sessionStore);
 
     engine.addImageProvider("svg", new SvgImageProvider());
+    engine.addImageProvider("wallpaper", new WallpaperImageProvider());
 
     auto *ctx = engine.rootContext();
 
