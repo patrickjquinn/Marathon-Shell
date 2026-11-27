@@ -16,6 +16,7 @@
 #include <QLineF>
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QGuiApplication>
 #include <QImage>
 #include <QInputDevice>
@@ -2456,7 +2457,9 @@ void PacificWebView::saveThumbnail(const QString &path, int maxWidth, int maxHei
                     QImage scaled = frame.scaled(call->max.width() > 0 ? call->max.width() : w,
                                                  call->max.height() > 0 ? call->max.height() : h,
                                                  Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                    ok            = scaled.save(call->path);
+                    QSaveFile file(call->path);
+                    ok = file.open(QIODevice::WriteOnly) && scaled.save(&file, "PNG") &&
+                        file.commit();
                 }
                 // The bytes belong to the image (transfer none): released with it.
                 g_object_unref(image);
