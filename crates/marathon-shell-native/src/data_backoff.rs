@@ -99,13 +99,13 @@ mod tests {
     #[test]
     fn a_reset_makes_the_due_retry_stale() {
         let mut backoff = Backoff::default();
-        let (_, generation) = backoff.failed().unwrap();
-        assert!(backoff.due(generation));
+        let first = backoff.failed().map(|(_, generation)| generation);
+        assert!(first.is_some_and(|g| backoff.due(g)));
         backoff.reset();
-        assert!(!backoff.due(generation));
-        let (_, next) = backoff.failed().unwrap();
-        assert!(!backoff.due(generation));
-        assert!(backoff.due(next));
+        assert!(!first.is_some_and(|g| backoff.due(g)));
+        let next = backoff.failed().map(|(_, generation)| generation);
+        assert!(!first.is_some_and(|g| backoff.due(g)));
+        assert!(next.is_some_and(|g| backoff.due(g)));
     }
 
     #[test]

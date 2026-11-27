@@ -274,6 +274,7 @@ impl cxx_qt::Initialize for Modem {
         self.as_mut().on_network_type_changed(push).release();
         self.as_mut().on_roaming_changed(push).release();
         self.as_mut().on_data_enabled_changed(push).release();
+        self.as_mut().on_data_failed_changed(push).release();
         self.as_mut()
             .on_data_roaming_allowed_changed(push)
             .release();
