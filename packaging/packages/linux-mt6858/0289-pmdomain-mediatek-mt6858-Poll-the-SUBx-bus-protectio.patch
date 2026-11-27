@@ -1,0 +1,37 @@
+From 28a9e4b723262b23b5e9c5a4e2bedec47679675e Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 18:32:09 +0000
+Subject: [PATCH] pmdomain: mediatek: mt6858: Poll the SUBx bus protection at
+ 0x3c0
+
+The camera and ISP subsystems' SMI bus protection (IMG_SUB0, IPE_SUB0,
+CAM_SUB0, CAM_SUB1) has no separate status register: MediaTek's MT6858
+driver polls the enable register at 0x3c0 after setting it. 0x3cc never
+reports the bits, so every power-off of those domains timed out in
+scpsys_bus_protect_set() after the infra protection had been set, and
+genpd left the domain on. On the JP2601 the camera's CAM_MAIN then stayed
+on with its infra protection (TOP_AXI_PROT_EN_MMSYS_STA_0 bits 30-31,
+STA_1 bits 9-10) set after the first stream, and as no power-on followed
+to release it, every later stream stalled on its first DMA write.
+
+Poll 0x3c0, as the vendor driver does.
+---
+ drivers/pmdomain/mediatek/mt6858-pm-domains.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pmdomain/mediatek/mt6858-pm-domains.h b/drivers/pmdomain/mediatek/mt6858-pm-domains.h
+index 177b2e86a..92cb0699b 100644
+--- a/drivers/pmdomain/mediatek/mt6858-pm-domains.h
++++ b/drivers/pmdomain/mediatek/mt6858-pm-domains.h
+@@ -73,7 +73,7 @@
+ /* {IMG,IPE,CAM}_SUBx registers */
+ #define MT6858_SUBx_PROT_EN_SET				0x03c4
+ #define MT6858_SUBx_PROT_EN_CLR				0x03c8
+-#define MT6858_SUBx_PROT_EN_STA				0x03cc
++#define MT6858_SUBx_PROT_EN_STA				0x03c0
+ 
+ #define MT6858_IMG_SUB0_PROT_EN_SMI_ISP_IMG1		(BIT(0) | BIT(1))
+ 
+-- 
+2.55.0
+
