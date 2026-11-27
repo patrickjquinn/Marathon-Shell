@@ -314,6 +314,12 @@ already implements DPMAIF and CLDMA for MediaTek's PCIe modem and is the code to
 filesystem/RPC services in userspace like Qualcomm's `rmtfs`/`tqftpserv`. `q25-modem-init`'s AT
 quirks belong in ModemManager's MediaTek plugin upstream.
 
+NR modems (the JP2601's MT6858, MOLY.NR17) also need MediaTek's MIPC control channel: incoming
+calls wait there for the host's approval and call state is reported only there.
+`modemmanager-mtk-ccci` 0116 adds a MIPC port type to ModemManager's core, the one `t7xx` already
+exposes as `WWAN_PORT_MIPC`; 0117 maps a tagged `ccci_node` MIPC channel onto it, and goes with the
+WWAN driver above; 0118 is the plugin's MIPC client.
+
 ### 4.3 GNSS
 
 Facts (`docs/roadmap/Q25-GNSS-RESEARCH.md` on `feat/q25-gnss`, `3fc9f14c`): the receiver is
