@@ -255,16 +255,25 @@ if [ "$DEVICE" = minimal-mp01 ]; then
     APORT=mesa build_if_missing "mesa" 'mesa-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/mesa/APKBUILD"
 fi
-# Jolla Phone: the SoC kernel device-jolla-jp2601 names, that package, and
-# the carrier runtime its overlay depends on.
+# Jolla Phone: the SoC kernel device-jolla-jp2601 names, that package, the
+# carrier runtime its overlay depends on, and the radios: CONNSYS services
+# and firmware (jp2601-connsys-firmware's files come from
+# build-jolla-jp2601-image.sh), the modem stack and its ModemManager.
 if [ "$DEVICE" = jolla-jp2601 ]; then
     # shellcheck source=/dev/null disable=SC2154 # _kernel comes from the APKBUILD
     kernel=$(set +u; . "$APORTS_DIR/device-jolla-jp2601/APKBUILD"; echo "$_kernel")
-    for aport in "$APORTS_DIR/$kernel" "$APORTS_DIR"/device-jolla-jp2601 "$APORTS_DIR"/marathon-carrier; do
+    for aport in "$APORTS_DIR/$kernel" "$APORTS_DIR"/device-jolla-jp2601 "$APORTS_DIR"/marathon-carrier \
+        "$APORTS_DIR"/mt6858-platform "$APORTS_DIR"/jp2601-connsys-firmware "$APORTS_DIR"/jp2601-modem; do
         name="$(basename "$aport")"
         APORT="$name" NO_DEPS=1 build_if_missing "$name" "$name-[0-9]*.apk" \
             "$LIB/build-aport-apk.sh" "$aport/APKBUILD"
     done
+    # Its depends are Alpine's only; abuild needs them to trace libmm-glib.
+    APORT=modemmanager-mtk-ccci build_if_missing "modemmanager-mtk-ccci" 'modemmanager-mtk-ccci-[0-9]*.apk' \
+        "$LIB/build-aport-apk.sh" "$APORTS_DIR/modemmanager-mtk-ccci/APKBUILD"
+    # Satellite positioning (mt6858-platform depends on it), from this tree.
+    PILOT_PKGS=marathon-gnssd build_if_missing "marathon-gnssd" 'marathon-gnssd-[0-9]*.apk' \
+        "$LIB/build-pilot-apk.sh" "$APORTS_DIR/marathon-gnssd/APKBUILD"
 fi
 # marathon-shell's camera app builds against it (build-marathon-shell-apk.sh
 # installs it from mkosi.packages), on every device; the Q25's cameras also

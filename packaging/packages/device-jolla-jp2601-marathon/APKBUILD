@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=11
+pkgrel=12
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -11,7 +11,7 @@ license="Apache-2.0"
 options="!check"
 depends="device-jolla-jp2601 marathon-base-config marathon-shell marathon-carrier greetd
  plymouth marathon-plymouth-theme deckard deckard-images mesa-vulkan-panfrost linux-firmware-arm
- modemmanager-mtk-ccci alsa-ucm-conf"
+ jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf"
 source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-session.conf
  jp2601-plymouth.files jp2601-plymouth-newroot.hook
  jp2601-splash-handover jp2601-splash-handover.service jp2601-splash-greetd.conf

@@ -24,6 +24,9 @@
 # IMAGE_VERSION, which an over-the-air update needs.
 #
 # Env:
+#   JP2601_CONNSYS_FIRMWARE_DIR  the stock /vendor/firmware dump, for the
+#                        CONNSYS files the jp2601-connsys-firmware aport
+#                        lacks (they are not committed)
 #   MARATHON_BUILD_DIR   as for scripts/build-image.sh
 #   JP2601_NO_USERDATA   skip the userdata (fresh install) image
 #   PODMAN               for the userdata image where the host has
@@ -32,6 +35,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$SCRIPT_DIR")"
 DEST="${JP2601_IMAGE_OUT:-${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/jp2601}"
+
+FW_APORT="$REPO/packaging/packages/jp2601-connsys-firmware"
+# shellcheck disable=SC1091
+for f in $(set +u; . "$FW_APORT/APKBUILD"; echo "${source:-}"); do
+    [ -f "$FW_APORT/$f" ] || install -m644 "${JP2601_CONNSYS_FIRMWARE_DIR:?set JP2601_CONNSYS_FIRMWARE_DIR to the stock /vendor/firmware}/$f" "$FW_APORT/$f"
+done
 
 bash "$SCRIPT_DIR/build-image.sh" jolla-jp2601 "$@"
 
