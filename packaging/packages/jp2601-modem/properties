@@ -9,5 +9,3 @@ q25.modem.md1img=/dev/disk/by-partlabel/modem_a
 ro.vendor.mtk_protocol1_rat_config=N/Lf/Lt/W/G
 ro.vendor.mtk_ps1_rat=N/Lf/Lt/W/G
 persist.radio.multisim.config=dsds
-# The stock fusion RIL's AT+EURCRPT mode (q25-modem-init): call reports on ttyC0.
-q25.modem.urc_report=2

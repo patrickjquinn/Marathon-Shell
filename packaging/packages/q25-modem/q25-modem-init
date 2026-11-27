@@ -139,11 +139,6 @@ cmd 'AT+EAIC=2'
 cmd 'AT+EVOCD=1'
 cmd 'AT+ECCP=1'
 cmd 'AT+EECCFC=1'
-# MIPC-era modems (the JP2601's NR17) keep call reports (RING, +EAIC,
-# +ECPI) off the AT port until the host asks for them, as the stock fusion
-# RIL does at start; q25.modem.urc_report is that AT+EURCRPT mode.
-urc=$(sed -n 's/^q25\.modem\.urc_report=//p' /etc/q25-modem/properties)
-[ -n "$urc" ] && cmd "AT+EURCRPT=$urc"
 cmd 'AT+CPIN?'
 # Phone activity at bring-up (+CPAS: 0 ready, 4 call in progress).
 cmd 'AT+CPAS'
