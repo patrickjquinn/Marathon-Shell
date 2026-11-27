@@ -1,0 +1,69 @@
+From 48e90f284a3dcb4142c49a418272436a88cc240c Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 03:07:39 +0000
+Subject: [PATCH 236/237] power: supply: mt6720-battery: Report 100% at the
+ charger's full voltage
+
+The Jolla Phone (2026)'s cell is rated to 4.52 V, but its charger stops
+at the stock 4.34 V. The OCV table runs to 4.52 V, so a battery the
+charger reports full read 82%, never 100%.
+
+Scale the capacity so the OCV at the constant-charge voltage is 100%.
+Without a constant-charge voltage the scale stays the cell's.
+---
+ drivers/power/supply/mt6720-battery.c | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/power/supply/mt6720-battery.c b/drivers/power/supply/mt6720-battery.c
+index 35de202d3..3a162ddb3 100644
+--- a/drivers/power/supply/mt6720-battery.c
++++ b/drivers/power/supply/mt6720-battery.c
+@@ -41,6 +41,7 @@ struct mt6720_bat {
+ 	struct iio_channel *ibat;
+ 	struct power_supply *psy;
+ 	struct power_supply_battery_info *info;
++	int full_cap;
+ };
+ 
+ /* Processed values: mV or mA */
+@@ -106,7 +107,12 @@ static int mt6720_bat_get_capacity(struct mt6720_bat *bat, int *cap)
+ 			       MILLI);
+ 
+ 	*cap = power_supply_batinfo_ocv2cap(bat->info, ocv, temp / 10);
+-	return *cap < 0 ? *cap : 0;
++	if (*cap < 0)
++		return *cap;
++
++	/* 100% is a battery charged to the charger's voltage, not the cell's maximum */
++	*cap = clamp(DIV_ROUND_CLOSEST(*cap * 100, bat->full_cap), 0, 100);
++	return 0;
+ }
+ 
+ static int mt6720_bat_get_status(struct mt6720_bat *bat, int *status)
+@@ -211,6 +217,7 @@ static int mt6720_bat_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	bat->dev = dev;
++	bat->full_cap = 100;
+ 
+ 	bat->batsns = devm_iio_channel_get(dev, "batsns");
+ 	if (IS_ERR(bat->batsns))
+@@ -248,6 +255,15 @@ static int mt6720_bat_probe(struct platform_device *pdev)
+ 		return dev_err_probe(dev, -EINVAL,
+ 				     "The battery has no OCV table\n");
+ 
++	if (bat->info->constant_charge_voltage_max_uv > 0) {
++		int cap = power_supply_batinfo_ocv2cap(bat->info,
++				bat->info->constant_charge_voltage_max_uv,
++				bat->info->ocv_temp[0]);
++
++		if (cap > 0 && cap < 100)
++			bat->full_cap = cap;
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.55.0
+

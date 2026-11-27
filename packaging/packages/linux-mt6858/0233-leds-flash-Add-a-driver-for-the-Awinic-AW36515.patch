@@ -1,0 +1,442 @@
+From 559742a026eef0db8cda53e4ea199b2efa9f4398 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 03:04:28 +0000
+Subject: [PATCH 233/237] leds: flash: Add a driver for the Awinic AW36515
+
+The Jolla Phone (2026) has its rear flash LED on an AW36515. Its
+registers follow the LM3644's: an enable register with the mode and
+the two LED enables, flash and torch brightness per source, a flash
+timeout, and two fault flag registers that clear on read.
+
+Register it as a flash LED class device: brightness is the torch, in
+the chip's 256 steps from 0.98 mA, and the flash ops strobe it over
+I2C. The STROBE/TORCH and TX pins are not used.
+---
+ drivers/leds/flash/Kconfig        |   8 +
+ drivers/leds/flash/Makefile       |   1 +
+ drivers/leds/flash/leds-aw36515.c | 382 ++++++++++++++++++++++++++++++
+ 3 files changed, 391 insertions(+)
+ create mode 100644 drivers/leds/flash/leds-aw36515.c
+
+diff --git a/drivers/leds/flash/Kconfig b/drivers/leds/flash/Kconfig
+index 9b6dd3f1f..938875e26 100644
+--- a/drivers/leds/flash/Kconfig
++++ b/drivers/leds/flash/Kconfig
+@@ -20,6 +20,14 @@ config LEDS_AS3645A
+ 	  controller. V4L2 flash API is provided as well if
+ 	  CONFIG_V4L2_FLASH_API is enabled.
+ 
++config LEDS_AW36515
++	tristate "LED support for the Awinic AW36515 flash LED driver"
++	depends on LEDS_CLASS_FLASH && I2C
++	select REGMAP_I2C
++	help
++	  This option enables support for the Awinic AW36515 dual flash
++	  LED driver, in torch and flash modes, as in the Jolla Phone (2026).
++
+ config LEDS_KTD2692
+ 	tristate "LED support for Kinetic KTD2692 flash LED controller"
+ 	depends on OF
+diff --git a/drivers/leds/flash/Makefile b/drivers/leds/flash/Makefile
+index 44e6c1b4b..54e7bbfe1 100644
+--- a/drivers/leds/flash/Makefile
++++ b/drivers/leds/flash/Makefile
+@@ -4,6 +4,7 @@ obj-$(CONFIG_LEDS_MT6360)	+= leds-mt6360.o
+ obj-$(CONFIG_LEDS_MT6370_FLASH)	+= leds-mt6370-flash.o
+ obj-$(CONFIG_LEDS_AAT1290)	+= leds-aat1290.o
+ obj-$(CONFIG_LEDS_AS3645A)	+= leds-as3645a.o
++obj-$(CONFIG_LEDS_AW36515)	+= leds-aw36515.o
+ obj-$(CONFIG_LEDS_KTD2692)	+= leds-ktd2692.o
+ obj-$(CONFIG_LEDS_LM3601X)	+= leds-lm3601x.o
+ obj-$(CONFIG_LEDS_MAX77693)	+= leds-max77693.o
+diff --git a/drivers/leds/flash/leds-aw36515.c b/drivers/leds/flash/leds-aw36515.c
+new file mode 100644
+index 000000000..d652a8a25
+--- /dev/null
++++ b/drivers/leds/flash/leds-aw36515.c
+@@ -0,0 +1,382 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Awinic AW36515 dual flash LED driver
++ *
++ * One flash LED on one or both current sources, in torch or flash mode,
++ * controlled over I2C only.
++ *
++ * Copyright (c) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#include <linux/bitfield.h>
++#include <linux/i2c.h>
++#include <linux/led-class-flash.h>
++#include <linux/leds.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++
++#define AW36515_REG_CHIP_ID		0x00
++#define AW36515_REG_ENABLE		0x01
++#define AW36515_REG_FLASH_BR(n)		(0x03 + (n))
++#define AW36515_REG_TORCH_BR(n)		(0x05 + (n))
++#define AW36515_REG_BOOST		0x07
++#define AW36515_REG_TIMING		0x08
++#define AW36515_REG_FLAGS1		0x0a
++#define AW36515_REG_FLAGS2		0x0b
++
++#define AW36515_CHIP_ID			0x30
++
++#define AW36515_EN_TX			BIT(7)
++#define AW36515_EN_MODE			GENMASK(3, 2)
++#define AW36515_MODE_STANDBY		0
++#define AW36515_MODE_TORCH		2
++#define AW36515_MODE_FLASH		3
++#define AW36515_EN_LEDS			GENMASK(1, 0)
++
++#define AW36515_BOOST_SW_RESET		BIT(7)
++#define AW36515_TIMING_TIMEOUT		GENMASK(3, 0)
++
++#define AW36515_FLAGS1_TIMEOUT		BIT(0)
++#define AW36515_FLAGS1_UVLO		BIT(1)
++#define AW36515_FLAGS1_TSD		BIT(2)
++#define AW36515_FLAGS1_CURR_LIMIT	BIT(3)
++#define AW36515_FLAGS1_LED_SHORT	GENMASK(5, 4)
++#define AW36515_FLAGS1_VOUT_SHORT	BIT(6)
++#define AW36515_FLAGS2_OVP		BIT(1)
++#define AW36515_FLAGS2_IVFM		BIT(2)
++
++/* I = code * step + offset, code 0..255 */
++#define AW36515_TORCH_STEP_UA		1960
++#define AW36515_TORCH_MIN_UA		980
++#define AW36515_FLASH_STEP_UA		7830
++#define AW36515_FLASH_MIN_UA		3910
++#define AW36515_MAX_CODE		255
++
++#define AW36515_TIMEOUT_MIN_US		40000
++#define AW36515_TIMEOUT_MAX_US		1600000
++
++struct aw36515 {
++	struct led_classdev_flash fled;
++	struct regmap *regmap;
++	struct mutex lock;
++	u8 leds;
++};
++
++static const struct regmap_config aw36515_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.max_register = 0x0d,
++};
++
++static struct aw36515 *fled_to_aw36515(struct led_classdev_flash *fled)
++{
++	return container_of(fled, struct aw36515, fled);
++}
++
++static int aw36515_set_mode(struct aw36515 *aw, unsigned int mode)
++{
++	return regmap_update_bits(aw->regmap, AW36515_REG_ENABLE,
++				  AW36515_EN_MODE | AW36515_EN_LEDS,
++				  FIELD_PREP(AW36515_EN_MODE, mode) |
++				  (mode == AW36515_MODE_STANDBY ? 0 : aw->leds));
++}
++
++static int aw36515_set_codes(struct aw36515 *aw, unsigned int (*reg)(int),
++			     unsigned int code)
++{
++	int ret;
++
++	for (int n = 0; n < 2; n++) {
++		if (!(aw->leds & BIT(n)))
++			continue;
++		ret = regmap_write(aw->regmap, reg(n), code);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static unsigned int aw36515_torch_reg(int n)
++{
++	return AW36515_REG_TORCH_BR(n);
++}
++
++static unsigned int aw36515_flash_reg(int n)
++{
++	return AW36515_REG_FLASH_BR(n);
++}
++
++static int aw36515_brightness_set(struct led_classdev *cdev,
++				  enum led_brightness brightness)
++{
++	struct led_classdev_flash *fled = lcdev_to_flcdev(cdev);
++	struct aw36515 *aw = fled_to_aw36515(fled);
++	int ret;
++
++	guard(mutex)(&aw->lock);
++
++	if (brightness == LED_OFF)
++		return aw36515_set_mode(aw, AW36515_MODE_STANDBY);
++
++	/* Brightness 1 is the lowest current, code 0 */
++	ret = aw36515_set_codes(aw, aw36515_torch_reg, brightness - 1);
++	if (ret)
++		return ret;
++
++	return aw36515_set_mode(aw, AW36515_MODE_TORCH);
++}
++
++static int aw36515_flash_brightness_set(struct led_classdev_flash *fled,
++					u32 brightness)
++{
++	struct aw36515 *aw = fled_to_aw36515(fled);
++	unsigned int code;
++
++	code = (brightness - AW36515_FLASH_MIN_UA) / AW36515_FLASH_STEP_UA;
++
++	guard(mutex)(&aw->lock);
++
++	return aw36515_set_codes(aw, aw36515_flash_reg, code);
++}
++
++static unsigned int aw36515_timeout_code(u32 timeout_us)
++{
++	/* 40 ms steps up to 400 ms, then 200 ms steps */
++	if (timeout_us <= 400000)
++		return timeout_us / 40000 - 1;
++
++	return (timeout_us - 400000) / 200000 + 9;
++}
++
++static int aw36515_flash_timeout_set(struct led_classdev_flash *fled,
++				     u32 timeout)
++{
++	struct aw36515 *aw = fled_to_aw36515(fled);
++
++	guard(mutex)(&aw->lock);
++
++	return regmap_update_bits(aw->regmap, AW36515_REG_TIMING,
++				  AW36515_TIMING_TIMEOUT,
++				  FIELD_PREP(AW36515_TIMING_TIMEOUT,
++					     aw36515_timeout_code(timeout)));
++}
++
++static int aw36515_strobe_set(struct led_classdev_flash *fled, bool state)
++{
++	struct aw36515 *aw = fled_to_aw36515(fled);
++
++	guard(mutex)(&aw->lock);
++
++	return aw36515_set_mode(aw, state ? AW36515_MODE_FLASH :
++				AW36515_MODE_STANDBY);
++}
++
++static int aw36515_strobe_get(struct led_classdev_flash *fled, bool *state)
++{
++	struct aw36515 *aw = fled_to_aw36515(fled);
++	unsigned int val;
++	int ret;
++
++	guard(mutex)(&aw->lock);
++
++	ret = regmap_read(aw->regmap, AW36515_REG_ENABLE, &val);
++	if (ret)
++		return ret;
++
++	*state = FIELD_GET(AW36515_EN_MODE, val) == AW36515_MODE_FLASH;
++
++	return 0;
++}
++
++static int aw36515_fault_get(struct led_classdev_flash *fled, u32 *fault)
++{
++	struct aw36515 *aw = fled_to_aw36515(fled);
++	unsigned int flags1, flags2;
++	int ret;
++
++	guard(mutex)(&aw->lock);
++
++	/* Reading the flags clears them */
++	ret = regmap_read(aw->regmap, AW36515_REG_FLAGS1, &flags1);
++	if (ret)
++		return ret;
++	ret = regmap_read(aw->regmap, AW36515_REG_FLAGS2, &flags2);
++	if (ret)
++		return ret;
++
++	*fault = 0;
++	if (flags1 & AW36515_FLAGS1_TIMEOUT)
++		*fault |= LED_FAULT_TIMEOUT;
++	if (flags1 & AW36515_FLAGS1_UVLO)
++		*fault |= LED_FAULT_UNDER_VOLTAGE;
++	if (flags1 & AW36515_FLAGS1_TSD)
++		*fault |= LED_FAULT_OVER_TEMPERATURE;
++	if (flags1 & AW36515_FLAGS1_CURR_LIMIT)
++		*fault |= LED_FAULT_OVER_CURRENT;
++	if (flags1 & (AW36515_FLAGS1_LED_SHORT | AW36515_FLAGS1_VOUT_SHORT))
++		*fault |= LED_FAULT_SHORT_CIRCUIT;
++	if (flags2 & AW36515_FLAGS2_OVP)
++		*fault |= LED_FAULT_OVER_VOLTAGE;
++	if (flags2 & AW36515_FLAGS2_IVFM)
++		*fault |= LED_FAULT_INPUT_VOLTAGE;
++
++	return 0;
++}
++
++static const struct led_flash_ops aw36515_flash_ops = {
++	.flash_brightness_set = aw36515_flash_brightness_set,
++	.strobe_set = aw36515_strobe_set,
++	.strobe_get = aw36515_strobe_get,
++	.timeout_set = aw36515_flash_timeout_set,
++	.fault_get = aw36515_fault_get,
++};
++
++static int aw36515_parse_led(struct aw36515 *aw, struct device *dev,
++			     struct fwnode_handle *child)
++{
++	struct led_classdev_flash *fled = &aw->fled;
++	struct led_classdev *cdev = &fled->led_cdev;
++	struct led_flash_setting *s;
++	u32 sources[2], torch_ua, flash_ua, timeout_us;
++	int count, ret;
++
++	count = fwnode_property_count_u32(child, "led-sources");
++	if (count < 1 || count > 2)
++		return dev_err_probe(dev, -EINVAL, "need one or two led-sources\n");
++
++	ret = fwnode_property_read_u32_array(child, "led-sources", sources, count);
++	if (ret)
++		return ret;
++
++	for (int i = 0; i < count; i++) {
++		if (sources[i] > 1)
++			return dev_err_probe(dev, -EINVAL, "bad led-source %u\n",
++					     sources[i]);
++		aw->leds |= BIT(sources[i]);
++	}
++
++	ret = fwnode_property_read_u32(child, "led-max-microamp", &torch_ua);
++	if (ret)
++		return dev_err_probe(dev, ret, "no led-max-microamp\n");
++	ret = fwnode_property_read_u32(child, "flash-max-microamp", &flash_ua);
++	if (ret)
++		return dev_err_probe(dev, ret, "no flash-max-microamp\n");
++	ret = fwnode_property_read_u32(child, "flash-max-timeout-us", &timeout_us);
++	if (ret)
++		return dev_err_probe(dev, ret, "no flash-max-timeout-us\n");
++
++	torch_ua = clamp(torch_ua, AW36515_TORCH_MIN_UA,
++			 AW36515_TORCH_MIN_UA + AW36515_MAX_CODE * AW36515_TORCH_STEP_UA);
++	cdev->max_brightness = (torch_ua - AW36515_TORCH_MIN_UA) /
++			       AW36515_TORCH_STEP_UA + 1;
++	cdev->brightness_set_blocking = aw36515_brightness_set;
++	cdev->flags |= LED_DEV_CAP_FLASH;
++
++	s = &fled->brightness;
++	s->min = AW36515_FLASH_MIN_UA;
++	s->max = clamp(flash_ua, AW36515_FLASH_MIN_UA,
++		       AW36515_FLASH_MIN_UA + AW36515_MAX_CODE * AW36515_FLASH_STEP_UA);
++	s->step = AW36515_FLASH_STEP_UA;
++	s->val = s->min;
++
++	s = &fled->timeout;
++	s->min = AW36515_TIMEOUT_MIN_US;
++	s->max = clamp(timeout_us, AW36515_TIMEOUT_MIN_US, AW36515_TIMEOUT_MAX_US);
++	s->step = 40000;
++	s->val = s->min;
++
++	fled->ops = &aw36515_flash_ops;
++
++	return 0;
++}
++
++static int aw36515_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct led_init_data init_data = {};
++	struct fwnode_handle *child;
++	struct aw36515 *aw;
++	unsigned int id;
++	int ret;
++
++	aw = devm_kzalloc(dev, sizeof(*aw), GFP_KERNEL);
++	if (!aw)
++		return -ENOMEM;
++
++	i2c_set_clientdata(client, aw);
++
++	ret = devm_mutex_init(dev, &aw->lock);
++	if (ret)
++		return ret;
++
++	aw->regmap = devm_regmap_init_i2c(client, &aw36515_regmap_config);
++	if (IS_ERR(aw->regmap))
++		return PTR_ERR(aw->regmap);
++
++	ret = regmap_read(aw->regmap, AW36515_REG_CHIP_ID, &id);
++	if (ret)
++		return dev_err_probe(dev, ret, "cannot read the chip ID\n");
++	if (id != AW36515_CHIP_ID)
++		return dev_err_probe(dev, -ENODEV, "unknown chip ID %#x\n", id);
++
++	child = device_get_next_child_node(dev, NULL);
++	if (!child)
++		return dev_err_probe(dev, -EINVAL, "no LED node\n");
++
++	ret = aw36515_parse_led(aw, dev, child);
++	if (ret)
++		goto out_put;
++
++	/* Everything off: standby, and no TX pin forcing torch */
++	ret = regmap_update_bits(aw->regmap, AW36515_REG_ENABLE,
++				 AW36515_EN_TX | AW36515_EN_MODE | AW36515_EN_LEDS, 0);
++	if (ret)
++		goto out_put;
++
++	init_data.fwnode = child;
++	init_data.devicename = client->name;
++	init_data.default_label = "flash";
++	ret = devm_led_classdev_flash_register_ext(dev, &aw->fled, &init_data);
++
++out_put:
++	fwnode_handle_put(child);
++	return ret;
++}
++
++static void aw36515_remove(struct i2c_client *client)
++{
++	struct aw36515 *aw = i2c_get_clientdata(client);
++
++	regmap_update_bits(aw->regmap, AW36515_REG_ENABLE,
++			   AW36515_EN_MODE | AW36515_EN_LEDS, 0);
++}
++
++static const struct of_device_id aw36515_of_match[] = {
++	{ .compatible = "awinic,aw36515" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, aw36515_of_match);
++
++static const struct i2c_device_id aw36515_id[] = {
++	{ "aw36515" },
++	{ }
++};
++MODULE_DEVICE_TABLE(i2c, aw36515_id);
++
++static struct i2c_driver aw36515_driver = {
++	.driver = {
++		.name = "leds-aw36515",
++		.of_match_table = aw36515_of_match,
++	},
++	.probe = aw36515_probe,
++	.remove = aw36515_remove,
++	.id_table = aw36515_id,
++};
++module_i2c_driver(aw36515_driver);
++
++MODULE_AUTHOR("Patrick Quinn <patrick.jm.quinn@gmail.com>");
++MODULE_DESCRIPTION("Awinic AW36515 flash LED driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

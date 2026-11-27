@@ -1,7 +1,7 @@
 From 92de4bc013234ae7c2ae49f9338768be62040720 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 21:50:15 +0000
-Subject: [PATCH 220/231] arm64: dts: mediatek: mt6858-jolla-jp2601: Release
+Subject: [PATCH 220/237] arm64: dts: mediatek: mt6858-jolla-jp2601: Release
  the I2S1 pull-downs when on
 
 The off state pulls the I2S1 pads down, and the on state only changed

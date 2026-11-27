@@ -1,0 +1,27 @@
+From c17e30df7b48412cd4403b9fb544b15196c0cbfd Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 03:04:35 +0000
+Subject: [PATCH 235/237] arm64: configs: mt6858: Add the AW36515 flash LED
+ driver
+
+The torch of the Jolla Phone (2026).
+---
+ arch/arm64/configs/mt6858.config | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 95654fc8e..fdc47a2a2 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -46,6 +46,8 @@ CONFIG_COMMON_CLK_MT6685=m
+ # The AFE, the MT6369 codec (microphones) and the AW88271 amplifiers.
+ CONFIG_SND_SOC_MT6858=m
+ CONFIG_SND_SOC_MT6858_MT6369=m
++# The rear flash LED (the torch).
++CONFIG_LEDS_AW36515=m
+ CONFIG_KEYBOARD_MTK_PMIC=y
+ CONFIG_I2C_CHARDEV=y
+ CONFIG_MFD_MT6720=y
+-- 
+2.55.0
+

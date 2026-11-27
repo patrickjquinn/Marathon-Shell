@@ -1,7 +1,7 @@
 From 60e12e3338e31745d70d63fa11ab804446168f57 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 23:56:12 +0000
-Subject: [PATCH 222/231] ASoC: codecs: mt6369: Add the MTKAIF calibration
+Subject: [PATCH 222/237] ASoC: codecs: mt6369: Add the MTKAIF calibration
  helpers
 
 On the MT6858 the codec's miso data is clocked back by the AP's mosi

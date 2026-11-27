@@ -1,7 +1,7 @@
 From 6d50f198e766b3273581eb46e43ca65e006172c8 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 21:42:41 +0000
-Subject: [PATCH 218/231] ASoC: codecs: Add an MT6369 codec driver (uplink)
+Subject: [PATCH 218/237] ASoC: codecs: Add an MT6369 codec driver (uplink)
 
 The MT6369, the second PMIC of MT6858 phones, has the MT6359's audio
 design behind the 8-bit registers of the SPMI PMICs. Start a mainline

@@ -1,7 +1,7 @@
 From bb0ee0b17b45f71ac06451522be3d6d5b66e0988 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 21:42:42 +0000
-Subject: [PATCH 219/231] ASoC: mediatek: mt6858: Add the MT6858 MT6369 machine
+Subject: [PATCH 219/237] ASoC: mediatek: mt6858: Add the MT6858 MT6369 machine
  driver
 
 A card on the MediaTek sound-card common code for MT6858 phones with

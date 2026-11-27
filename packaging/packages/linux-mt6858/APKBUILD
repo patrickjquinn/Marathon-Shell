@@ -2,17 +2,21 @@
 # (after v7.4-rc4) with the MT6858 series below, built from arm64 defconfig,
 # the series' mt6858.config and marathon.config. The patches are
 # git format-patch 4dce97c6c..d2c834312 of the jp2601/initial branch
-# plus 0185-0186 from jp2601/deckard and 0215-0231 from jp2601/audio-r16
+# plus 0185-0186 from jp2601/deckard and git format-patch
+# d2c834312..93ee882fe of jp2601/modem (the audio and flash LED series, the
+# battery fix, then the MD1 modem) from 0215
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=16
+pkgrel=17
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 # MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
 # the vendor connectivity tree and the connectivity adapter's sources.
 _conn=9fe8054b021c59e1abfc9c8ca52a9e6c19156749
 _devmods=a7f9e9efa1ec7e31dd8aade57716cd61ae50da1a
+# MediaTek's ECCCI modem drivers that modules/ builds (modules/modem).
+_eccci=4d505a4292dab3176a45fec66dc85debc362e24c
 pkgdesc="MediaTek Dimensity 7100 (MT6858) kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -41,11 +45,13 @@ makedepends="
 	rust-src
 	zstd
 "
-subpackages="mt6858-connsys-modules:_connsys"
-install="mt6858-connsys-modules.post-install mt6858-connsys-modules.post-upgrade"
+subpackages="mt6858-connsys-modules:_connsys mt6858-modem-modules:_modem"
+install="mt6858-connsys-modules.post-install mt6858-connsys-modules.post-upgrade
+	mt6858-modem-modules.post-install mt6858-modem-modules.post-upgrade"
 source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commit.tar.gz
 	kernel_xiaomi_tanzanite-mediatek_modules-$_conn.tar.gz::https://github.com/YaAlex3/kernel_xiaomi_tanzanite-mediatek_modules/archive/$_conn.tar.gz
 	kernel_xiaomi_tanzanite-modules-$_devmods.tar.gz::https://github.com/YaAlex3/kernel_xiaomi_tanzanite-modules/archive/$_devmods.tar.gz
+	android_kernel_modules_and_devicetree_oppo_mt6993-$_eccci.tar.gz::https://github.com/oppo-source/android_kernel_modules_and_devicetree_oppo_mt6993/archive/$_eccci.tar.gz
 	0001-dt-bindings-vendor-prefixes-Add-Jolla-Mobile-Ltd.patch
 	0002-dt-bindings-arm-mediatek-Add-Jolla-Phone-JP2601.patch
 	0003-dt-bindings-mfd-syscon-Add-MT6858-bus-protection-blo.patch
@@ -277,6 +283,12 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0229-ASoC-dt-bindings-Add-the-MediaTek-MT6369-codec.patch
 	0230-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT636.patch
 	0231-arm64-configs-mt6858-Add-the-audio-drivers.patch
+	0232-dt-bindings-leds-Add-the-Awinic-AW36515-flash-LED-dr.patch
+	0233-leds-flash-Add-a-driver-for-the-Awinic-AW36515.patch
+	0234-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-flash.patch
+	0235-arm64-configs-mt6858-Add-the-AW36515-flash-LED-drive.patch
+	0236-power-supply-mt6720-battery-Report-100-at-the-charge.patch
+	0237-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -287,6 +299,9 @@ unpack() {
 		"kernel_xiaomi_tanzanite-mediatek_modules-$_conn/connectivity"
 	tar -C "$srcdir" -xzf "$SRCDEST/kernel_xiaomi_tanzanite-modules-$_devmods.tar.gz" \
 		"kernel_xiaomi_tanzanite-modules-$_devmods/drivers/misc/mediatek/connectivity"
+	local m=android_kernel_modules_and_devicetree_oppo_mt6993-$_eccci/kernel/kernel_device_modules-6.12/drivers/misc/mediatek
+	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_modules_and_devicetree_oppo_mt6993-$_eccci.tar.gz" \
+		"$m/eccci" "$m/ccci_util" "$m/ccmni" "$m/include/mt-plat" "$m/conn_md/include"
 }
 
 prepare() {
@@ -316,7 +331,8 @@ build() {
 	[ "$(cat include/config/kernel.release)" = "$_release" ]
 	JOBS="${JOBS:-2}" sh "$startdir/modules/build.sh" "$builddir" "$builddir" \
 		"$srcdir/kernel_xiaomi_tanzanite-mediatek_modules-$_conn" \
-		"$srcdir/kernel_xiaomi_tanzanite-modules-$_devmods" "$srcdir/connsys"
+		"$srcdir/kernel_xiaomi_tanzanite-modules-$_devmods" "$srcdir/connsys" \
+		"$srcdir/android_kernel_modules_and_devicetree_oppo_mt6993-$_eccci/kernel/kernel_device_modules-6.12/drivers/misc/mediatek"
 }
 
 package() {
@@ -342,10 +358,23 @@ _connsys() {
 	done
 }
 
+_modem() {
+	pkgdesc="MediaTek MT6858 ECCCI (MD1 modem) drivers for linux-mt6858"
+	depends="kmod $pkgname=$pkgver-r$pkgrel"
+	local m n=0
+	for m in "$srcdir"/connsys/modem/*.ko; do
+		install -Dm644 "$m" "$subpkgdir/usr/lib/modules/$_release/extra/mt6858-modem/${m##*/}"
+		n=$((n + 1))
+	done
+	# ccci_util_lib, ccmni, ccci_auxadc, ccci_md_all, ccci_ccif, ccci_dpmaif
+	[ "$n" = 6 ]
+}
+
 sha512sums="
 f2bc059644b6199343e6c2667e10f1e17dac3fef8f59227af3a2d3c332ef22417eb883aea7225edef1edcb87a3fec589578e067c5d870f55269f602303221098  linux-4dce97c6c265544342e716e62fd24bbb232590c5.tar.gz
 cf56e889525f6d9d0b753b370b17a2417c168a67bb48475f18167f157e3867ed5f7bfbfbfd1791a628c1192df6dbffbeb7ee74ced2c8defe91e25c5cbe4e396b  kernel_xiaomi_tanzanite-mediatek_modules-9fe8054b021c59e1abfc9c8ca52a9e6c19156749.tar.gz
 4e30570d16ab00055a8664a8a4b76a03c66ebd5c60c42d135a790b4802e622ab9d7049ca954da2457f6c54e83abb8036e8c9e4b24c7d694c2a2351fd2871d3fd  kernel_xiaomi_tanzanite-modules-a7f9e9efa1ec7e31dd8aade57716cd61ae50da1a.tar.gz
+a7650aa5da31a79a3cdeb93a9f8b7bb8b2c6170a2eac5eac91560bd9fd49ebf2aab340ed95e9e57dbcd263ec3e9486d6ffb9067dce24e26eacc2833f8705dff4  android_kernel_modules_and_devicetree_oppo_mt6993-4d505a4292dab3176a45fec66dc85debc362e24c.tar.gz
 13922cc76ea944e1e98fe389ad74af03ea712f3a7cdaf088ff8ae4e49dd5d5e200a39fa8755f1db803805c48651f02fc1bf90edb6aafd3a55cd0971f8c3b271a  0001-dt-bindings-vendor-prefixes-Add-Jolla-Mobile-Ltd.patch
 e7c952007001480cedbc3d9c8ce74d8baa6934e1736008cac2d57aa6659a4354e60db6179346221476a3463ae562046ad7900b178223a220ce8a7ca4e38b0957  0002-dt-bindings-arm-mediatek-Add-Jolla-Phone-JP2601.patch
 f11cca2626c0505b4b7e9b958433cc5265e448952cfeb79fb9b966779ac1a01df28b0a30914346f780eabd01bb7eb593a8eeaedc0b63f076caa6a43692685df0  0003-dt-bindings-mfd-syscon-Add-MT6858-bus-protection-blo.patch
@@ -560,22 +589,28 @@ c1e7e960736bd2479bc776019abfb30f09b59a8ef89a2bd556177a32b381906fa1ee67f4fa87bfa9
 7e2219a87a5e49c82d7e88a58b0c03b5d858bea4bef2b4593b899b23600805c14181e075e40dd912e8cf8949b08766345ab7edd128c8c12bfd694a463ce3fabf  0212-arm64-dts-mediatek-mt6858-Poll-the-thermal-zones-les.patch
 34461580c9019753eaca4943d7e05a5c5f1eaad5a66027277484ab070beb8897b2dd3541378846698e52ac4b27aba802709f0aa0eebfe42bb437de7146cfd9e5  0213-thermal-drivers-mediatek-lvts-Poll-a-firmware-run-do.patch
 70cd7f12fe8ed4d4a077816737ef1141bb7bf918e763ee487a0c6d734d008dcb29f99d9912d8033bb2fc3e55a59c7e56708c32f93cecc98c6f1c32ce647b3eb0  0214-arm64-dts-mediatek-mt6858-Let-the-LVTS-driver-poll-t.patch
-8038291f0c55a38fefb71ad67adc2eecf95362640f47a176725275ec38ee6332297b1834559a52de65e6b8dca8e3e5ad82480cda8bcd998341e51c25adb2ff96  0215-ASoC-codecs-aw88395-lib-Accept-register-only-multi-b.patch
-1430dc8fc08459388b7820e5a1769d1164076a5a16aeebaf8a74c3744f386e837d0f5b47f4dde9ba548781beb415a4e10b3228a25099b0a413d47b83e8b1d501  0216-ASoC-dt-bindings-Add-the-MediaTek-MT6858-AFE.patch
-0cb57eb5948af5e163ce498ea1d186ce74c9c1a1fa6ad168f93d2a57456e41904478a1aba8a44c93fc5e78e23876da6365c73701d478e55bdb807999db1275d6  0217-ASoC-mediatek-Add-the-MT6858-AFE-platform-driver.patch
-e7ee31b39a158c8a40dc3131e78c76c59630202cf131d9163a7d65f769a371e7255f4d60ac93102f473f43adc8bf6849a6219c37ee8fcba33fec21710bc12eeb  0218-ASoC-codecs-Add-an-MT6369-codec-driver-uplink.patch
-32067f93d6c50465c12d8556ff4379ec84e4bab64dfe3c1ef06f1f46861eb7bd075fdade8cb58da1d236bf5929e4e1d1f0cc81d9575f4ae20f8725f3782706ff  0219-ASoC-mediatek-mt6858-Add-the-MT6858-MT6369-machine-d.patch
-23114be0a52fcb0032528b0c6e82d39d34f9fc066d616a9a8e88111ede683f91431e7357174bef62b019b796f991cd56aef99b879eb11ab1512cb8f3316c12d5  0220-arm64-dts-mediatek-mt6858-jolla-jp2601-Release-the-I.patch
-a3e6d5acaada2bdb2e7c288c9d5790fffe701751f6bf20a3417b20c4cd6b5843321126a935983fc93d40c267d68e0d6475bd8dafe4d8a881c73c465ac66718bf  0221-ASoC-mediatek-mt6858-mt6369-Set-the-MTKAIF-protocol-.patch
-b288070a62c7fb0e9bd64d3452f24a34d9dfe61fcbc1c1410ca88ccb4a6741b11e83e12bbc2d17e6edbc48e48189fbfa9dc303cf816f0186b67aac6a8cff0f69  0222-ASoC-codecs-mt6369-Add-the-MTKAIF-calibration-helper.patch
-6b0037bc139ad65c36b7b6d4f1e28ee0e91c35c2b2d0e8fbe771d76fa97164bdb00ff6f073303974b1fa9951f6fb8b617bfb1a994e9c34927b6d7e77146d816c  0223-ASoC-dt-bindings-mediatek-mt6858-afe-pcm-Add-the-top.patch
-81a59943056b17e03e81874fa34c68302e568ad38210d6a64548513865861f1dccf54bb4369cede326f50a4ab3e5792ae8f34d6ccc734f6090520294f9a2f175  0224-ASoC-mediatek-mt6858-Look-up-the-topckgen.patch
-9b3d1d2c6e146f9f248376f4353a2914c8d5a1a740d946824ae79d21186ca7991efda7020d7d05c89c3f9d6587a6699f946bff78204692725102d62a5ec2a52b  0225-ASoC-mediatek-mt6858-mt6369-Calibrate-the-MTKAIF-pha.patch
-4cbd9500cd44fad583b74fa922a46ec30ace88e93ed5ef27d2dc8792b47528fe90cb376b2b8c9accafa408c4df450309f2db0152691e46db2815fdbefad514ed  0226-ASoC-mediatek-mt6858-Balance-the-clocks-on-removal.patch
-a389c1f505f24010417484e8be41c60a9229802e17438889de2600c970ec4fa155fa68c617551d998ac70ba346da8abcb0b7ee2d77e1aa44c469ee37e5879823  0227-ASoC-mediatek-mt6858-Ungate-the-UL0-timing-clock-for.patch
-845debffaa19ea91bbcc808f1de31019fd3182cf617d80cae7864d86535593242d295d2d1058c3b20d32863b0eae4ca7208b15dccc7c5e47eb7813c585c72c0d  0228-clk-mediatek-mt6685-Take-XO_BBCK5-under-register-con.patch
-06543f8c12c204386d85a7c266347fddbec9742cc405de1bc72bfa38c6bd3663875c558ab621e42acbd3bbf3bdbd5731956984c3c407df762063402ad9446a56  0229-ASoC-dt-bindings-Add-the-MediaTek-MT6369-codec.patch
-4b87b13de7bc3c6762d4c63fe68dccc5d032461091a647706bb3abfd3d995265bef5c34bbcc6da2ed4e578437e9b99eb0e7deeb18e8b34f68908233223b8669a  0230-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT636.patch
-124194546ab1fb02304ddcc4e88f0fb7fef3f46f3658d658a7afd123e85338edb3d02e16fabbb314ad78fb316de8f71a2b5b6e6d8b943c7c16c577e8e5522939  0231-arm64-configs-mt6858-Add-the-audio-drivers.patch
+4812b3dd57678350d7979a1d1a8111d9b09d6965a3e9858dbbf8b44f0d75d100238b4627a39b065851d69e2c1fdd83500d585ac1675fd2aa788d904c18aa7855  0215-ASoC-codecs-aw88395-lib-Accept-register-only-multi-b.patch
+920273a2077372b805c642c0dcb2e05482a7fa0262f9baa393927d8d251e72e0035290009eb86940c0e79a660639f45cf0f9175984f0358a5fc1626a677332b0  0216-ASoC-dt-bindings-Add-the-MediaTek-MT6858-AFE.patch
+e08f294d1640c258655da563ee565ff9dd832ee2bdd25377237bf132a63caead0bb729c9df66ebfcadd92b270c334dd71fca4a818d5a9a1b7078ce1fdb47bcdb  0217-ASoC-mediatek-Add-the-MT6858-AFE-platform-driver.patch
+1bdfc0de527f93bdb69e8bbaf506190548b3de2b6fd9a9329bdd915bd549e4ccc667765c113430114cb516cbdb3f39819f93bfa6a9df9e02b582e93d872d37fe  0218-ASoC-codecs-Add-an-MT6369-codec-driver-uplink.patch
+a70525ac9f7d337f4d5677bc58a254f0efe5bdd2260e2ec8cccc4d55b74dace62e36954a9f5a51f792adf8b186e1f658555b5414ea02a9899580a8c7ee7900f3  0219-ASoC-mediatek-mt6858-Add-the-MT6858-MT6369-machine-d.patch
+6058a45746764fad199f24e3825a78473d4efbeecd54cf79cc189c5510d8cf97275b5a2dd1d12cc6c718f22e53d6f0d6ff774558e8f31d6b831876eb1474b5d4  0220-arm64-dts-mediatek-mt6858-jolla-jp2601-Release-the-I.patch
+2a62b46d622aface05bc1cacaf3107ad198c1e9a36b6842d11c517139d5fa1eae60127a8dbaf2a622e2c68838444c71540b47517e8061190a0abb5c34572b986  0221-ASoC-mediatek-mt6858-mt6369-Set-the-MTKAIF-protocol-.patch
+87a178fb69c9d0831c84a11d8b803f0db0531ddabda82d677b952d4d1bf8440d853ce49fbbd3f5bc0983b88446c5c8c2809b4ffce806e0972f22dc0f19c926b2  0222-ASoC-codecs-mt6369-Add-the-MTKAIF-calibration-helper.patch
+54cb1f8ea9bc84a6d53971879c8baf35f591c4dbad398fd7e3fa3c1bab1ff08405e040a4b1d0be676799c0daf59429c468d14319cb3458e1a2f58319a3fc4010  0223-ASoC-dt-bindings-mediatek-mt6858-afe-pcm-Add-the-top.patch
+7db46c2e27b2e13add43f60ef440537355c5bf8005abfbb9ad02755cf8a35caecb9f8ab167a3a5b3870abba420fda284a62b2ea5981e19d348923b3abd3508b3  0224-ASoC-mediatek-mt6858-Look-up-the-topckgen.patch
+8dc3b04f80e0e6ecb7fa9cd15b50ad0b71a1f457d8fe4d97e90c6cca986693d19fa70164ac36c31a2b74a94f2653ea0fc5c62a6bcd88e0790a7b38a7612e3879  0225-ASoC-mediatek-mt6858-mt6369-Calibrate-the-MTKAIF-pha.patch
+6a516f8e170fa5e3003c61cf2a02b62a1c20b0a5f1d206a98c12ae8a40f976f5574a077f6709d4a5886935d751dd95676be4a0187b4c36d24e57db71a247e084  0226-ASoC-mediatek-mt6858-Balance-the-clocks-on-removal.patch
+bbf129998359afa5c8bd3c7a4f6785793fc022e954c3d19e8913c5bf8b06ccdbb16fc8f0d3c9b824ace0e268bd81334246207bfe275b7387bd285d279b63d3ca  0227-ASoC-mediatek-mt6858-Ungate-the-UL0-timing-clock-for.patch
+a826e98ada4edb96edac5fa4a7bd72e781c77bca282d4f75ceea93a3a392bb5e73ba8ec97e3185c0418cfaf9f53573dcc16810aa0285a178e290cc97c4087a9b  0228-clk-mediatek-mt6685-Take-XO_BBCK5-under-register-con.patch
+895bd5e3d87fc7e7ce1433a0cf6758137c5d793af653ec8ef272f8237e238a3e39b8101501472ad9a880087dc682e64fff1275431fc85bc4fd948b501f21f319  0229-ASoC-dt-bindings-Add-the-MediaTek-MT6369-codec.patch
+6baabd6ba430744f68c95e975368c0c6a76ddf79a2133725ac8784f8aad106656b6686d8dff63378d53000a9787aafb117aa9b715b414049100e643d5d920b4a  0230-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT636.patch
+a548010b2d2019388123fc300da19c62ed851dfdab15ee3425b981e7d0ea0e97d33e672f0d406dc42c0baf4039b8d3920084d7eb6bfa53cddb73ea0810efe0f5  0231-arm64-configs-mt6858-Add-the-audio-drivers.patch
+52ef6284b9bb4fb418a76af482d9e7241f46cd41d8ab8046aa51689195acae03af0748307de72a2dbabf354386a04e8829ee6a9e1163ca7252bee3ff6442d027  0232-dt-bindings-leds-Add-the-Awinic-AW36515-flash-LED-dr.patch
+25ffbba38281c28b525d224a49e36d3eeda131236b8dde52c3b81de3f2bddfdb14e2d6ee169564dd9d6dd14123176f4a228fc8a691a9fa477f4ec55790c8a8c2  0233-leds-flash-Add-a-driver-for-the-Awinic-AW36515.patch
+73d85eeb7caa28dfe9179d350b89dd203553cefd0e019c8e6d022e944118ea9d01f3be0681ece0daef5abc1e6f9923476758d166bfb8b9ed0c5309e90a7e0fb0  0234-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-flash.patch
+aecf88263fc24d0dcb279e39909ce823d8ef52691933febb17724090d64647709201ce56cd43dc1731e09cf241630b5d9e8641096ea96235ec4bfcd312491a9b  0235-arm64-configs-mt6858-Add-the-AW36515-flash-LED-drive.patch
+a98e655fe8c633088dbcdb73ce465659d23d9812cd0443fa7eaa9aec8eccb2a88e80f9ee018006f5a803e509d77a4d1e60b2926db3b92b8cd59cb4ade3d4f749  0236-power-supply-mt6720-battery-Report-100-at-the-charge.patch
+3b1f3db3b3a641939c078ce9f7f9717a54fa853f93770fb6340fed03cd160bbb2208019776edaf3456a901f0202fecade30cd4a326b5a1b42c2053b6b4be708b  0237-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 e70511a0f6a61f0925580fedac4892c19b46ba6ac8e351dfcd992854a42e27217787a77e1e952821288ffdb82479081b9cb52506161fd98e8e95ab365f079bca  marathon.config
 "

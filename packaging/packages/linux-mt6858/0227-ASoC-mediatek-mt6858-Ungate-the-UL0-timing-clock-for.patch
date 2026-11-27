@@ -1,7 +1,7 @@
 From 905dcc97cd6894ffb65d33bb7d14ccd91a0f29ef Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 00:10:03 +0000
-Subject: [PATCH 227/231] ASoC: mediatek: mt6858: Ungate the UL0 timing clock
+Subject: [PATCH 227/237] ASoC: mediatek: mt6858: Ungate the UL0 timing clock
  for capture
 
 On the MT6858 the UL0 source produces nothing while PDN_UL0_TML in

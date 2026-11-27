@@ -1,7 +1,7 @@
 From 54104dfda6dce930a574d4550fa4216e6d6d5c34 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 21:42:29 +0000
-Subject: [PATCH 217/231] ASoC: mediatek: Add the MT6858 AFE platform driver
+Subject: [PATCH 217/237] ASoC: mediatek: Add the MT6858 AFE platform driver
 
 The MT6858 AFE shares the MT8189's memif, IRQ, ADDA and eTDM register
 layout: of the 812 register fields the MT8189 driver uses, all that

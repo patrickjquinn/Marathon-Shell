@@ -1,7 +1,7 @@
 From b5fa95a14e4b19ce2cd0bd138d5855750dfd60c9 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 21:42:28 +0000
-Subject: [PATCH 215/231] ASoC: codecs: aw88395-lib: Accept register-only
+Subject: [PATCH 215/237] ASoC: codecs: aw88395-lib: Accept register-only
  multi-bin profiles
 
 The stock ACF of the Jolla Phone (2026) carries its AW88271 profiles as

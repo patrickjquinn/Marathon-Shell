@@ -1,7 +1,7 @@
 From 8f6e8ec90e37e1012bfbde415dd43337cd0e7337 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 23:56:13 +0000
-Subject: [PATCH 223/231] ASoC: dt-bindings: mediatek,mt6858-afe-pcm: Add the
+Subject: [PATCH 223/237] ASoC: dt-bindings: mediatek,mt6858-afe-pcm: Add the
  topckgen phandle
 
 The MTKAIF miso delays are measured by a test block in topckgen

@@ -1,7 +1,7 @@
 From 0cf79428e64d246284e6674c1d17ddc25e95f9e6 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 23:56:14 +0000
-Subject: [PATCH 226/231] ASoC: mediatek: mt6858: Balance the clocks on removal
+Subject: [PATCH 226/237] ASoC: mediatek: mt6858: Balance the clocks on removal
 
 The runtime suspend already turns off the main and register clocks, so
 disabling them again on removal underflowed top_audio_h_sel's enable

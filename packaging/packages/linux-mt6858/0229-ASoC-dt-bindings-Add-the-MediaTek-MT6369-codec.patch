@@ -1,7 +1,7 @@
 From c5ef59ab91b83e1d422b2915a649e160601929be Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 02:58:27 +0000
-Subject: [PATCH 229/231] ASoC: dt-bindings: Add the MediaTek MT6369 codec
+Subject: [PATCH 229/237] ASoC: dt-bindings: Add the MediaTek MT6369 codec
 
 The MT6369 PMIC's audio codec takes its 26 MHz from a clock-buffer
 output and needs the type of each of its three microphone inputs, as

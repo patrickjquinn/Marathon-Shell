@@ -1,7 +1,7 @@
 From 5d7a8e51ad5adf9b21e1fb7a3573701bd1feaa39 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 23:56:13 +0000
-Subject: [PATCH 224/231] ASoC: mediatek: mt6858: Look up the topckgen
+Subject: [PATCH 224/237] ASoC: mediatek: mt6858: Look up the topckgen
 
 The machine driver's MTKAIF calibration reads the miso delay test in
 topckgen through the AFE's private data.

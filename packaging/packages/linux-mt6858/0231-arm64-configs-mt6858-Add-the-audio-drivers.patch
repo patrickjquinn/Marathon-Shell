@@ -1,7 +1,7 @@
 From d3094c5f26ac424992c63b92ffcb46007bc8d382 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 02:58:55 +0000
-Subject: [PATCH 231/231] arm64: configs: mt6858: Add the audio drivers
+Subject: [PATCH 231/237] arm64: configs: mt6858: Add the audio drivers
 
 Capture works on the Jolla Phone (2026): build the AFE, the MT6369
 codec and the machine driver, which selects the AW88271 amplifier

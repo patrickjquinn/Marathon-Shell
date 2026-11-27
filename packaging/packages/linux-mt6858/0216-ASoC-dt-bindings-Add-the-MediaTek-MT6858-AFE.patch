@@ -1,7 +1,7 @@
 From 15f6ce14546c4662d7a516e5ad8195eec5dd2091 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 21:42:28 +0000
-Subject: [PATCH 216/231] ASoC: dt-bindings: Add the MediaTek MT6858 AFE
+Subject: [PATCH 216/237] ASoC: dt-bindings: Add the MediaTek MT6858 AFE
 
 The MT6858 audio front end is the MT8189's design without its I2S0,
 TDM, HDMI and DMIC blocks. It takes the same topckgen, APLL and pericfg

@@ -1,18 +1,24 @@
 #!/bin/sh
-# Build the MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) modules against the
-# linux-mt6858 tree; its APKBUILD runs this after the kernel.
+# Build the MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) and ECCCI (modem)
+# modules against the linux-mt6858 tree; its APKBUILD runs this after the
+# kernel.
 #
-#   build.sh KSRC KOBJ MODULES DEVICE_MODULES OUT
+#   build.sh KSRC KOBJ MODULES DEVICE_MODULES OUT ECCCI
 #
 # MODULES: github.com/YaAlex3/kernel_xiaomi_tanzanite-mediatek_modules at
 # 9fe8054b021c59e1abfc9c8ca52a9e6c19156749 (only connectivity/ is read).
 # DEVICE_MODULES: github.com/YaAlex3/kernel_xiaomi_tanzanite-modules at
 # a7f9e9efa1ec7e31dd8aade57716cd61ae50da1a (only
 # drivers/misc/mediatek/connectivity/ is read).
-# OUT is created: OUT/modules holds the modules; nothing else is written.
+# ECCCI: kernel/kernel_device_modules-6.12/drivers/misc/mediatek of
+# github.com/oppo-source/android_kernel_modules_and_devicetree_oppo_mt6993
+# at 4d505a4292dab3176a45fec66dc85debc362e24c (modem/eccci.patch says what
+# is read).
+# OUT is created: OUT/modules holds the CONNSYS modules, OUT/modem the
+# modem's; nothing else is written.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-ksrc=$1 kobj=$2 conn=$3/connectivity dev=$4/drivers/misc/mediatek/connectivity out=$5
+ksrc=$1 kobj=$2 conn=$3/connectivity dev=$4/drivers/misc/mediatek/connectivity out=$5 eccci=$6
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 s=$out/src
@@ -55,3 +61,17 @@ kmake "$s/gps/data_link" "$o/gps" KBUILD_EXTRA_SYMBOLS="$sym"
 mkdir -p "$out/modules"
 find "$o" -name '*.ko' -exec sh -c \
 	'llvm-strip --strip-debug -o "$0/$(basename "$1")" "$1"' "$out/modules" {} \;
+
+# ECCCI: the donor files in the layout modem/eccci.patch expects.
+m=$out/src/modem
+rm -rf "$m"
+mkdir -p "$m/include/mt-plat"
+cp -r "$eccci/eccci" "$eccci/ccci_util" "$eccci/ccmni" "$m/"
+cp "$eccci/include/mt-plat/mtk_ccci_common.h" "$eccci/include/mt-plat/sync_write.h" "$m/include/mt-plat/"
+cp "$eccci/conn_md/include/conn_md_exp.h" "$m/include/"
+find "$m" -name BUILD.bazel -delete
+(cd "$m" && patch -p1 -s < "$here/modem/eccci.patch")
+kmake "$m" "$o/modem"
+mkdir -p "$out/modem"
+find "$o/modem" -name '*.ko' -exec sh -c \
+	'llvm-strip --strip-debug -o "$0/$(basename "$1")" "$1"' "$out/modem" {} \;

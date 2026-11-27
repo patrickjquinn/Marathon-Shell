@@ -1,7 +1,7 @@
 From ee1812c791e12025e5b1684773dc936a1f766db2 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 00:49:16 +0000
-Subject: [PATCH 228/231] clk: mediatek: mt6685: Take XO_BBCK5 under register
+Subject: [PATCH 228/237] clk: mediatek: mt6685: Take XO_BBCK5 under register
  control while prepared
 
 The bootloader leaves XO_BBCK5 in mode 01, switched by its EN_BB line,
