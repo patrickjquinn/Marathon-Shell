@@ -131,6 +131,7 @@ set(QML_FILES
     qml/components/WeatherTile.qml
     qml/components/MarathonPinScreen.qml
     qml/components/MarathonHomeUnlock.qml
+    qml/components/MarathonBootSplash.qml
     qml/components/MarathonAppWindow.qml
     qml/components/KeelAmbienceBackground.qml
     qml/components/WallpaperTone.qml

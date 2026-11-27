@@ -3624,55 +3624,28 @@ Item {
 
     // The boot splash, carried on from Plymouth's last frame (q25-splash-
     // greetd.conf stops its bar at half): the same images at the theme's
-    // positions (marathon.script), so the hand-over is invisible. The bar
+    // positions and Plymouth's scale, so the hand-over is invisible. The bar
     // fills while the shell loads behind it, then the splash fades out.
     Rectangle {
         id: bootHandover
-
-        readonly property string theme: "file:///usr/share/plymouth/themes/marathon/"
-        property real progress: 0.5
 
         anchors.fill: parent
         z: 99990
         color: "black"
         visible: typeof MarathonBootHandover !== "undefined" && MarathonBootHandover && opacity > 0
 
-        Image {
-            id: bootLogo
+        MarathonBootSplash {
+            id: bootSplash
 
-            source: bootHandover.theme + "marathon-logo.png"
-            x: Math.round(parent.width / 2 - width / 2)
-            y: Math.round(parent.height / 2 - height / 2 - 24)
-        }
-        Text {
-            // Plymouth's "Sans 14" in its font (Plymouth.ttf, Sora) at 96 dpi.
-            text: "M A R A T H O N" // i18n: literal
-            color: "white"
-            font.family: "Sora"
-            font.pixelSize: 19
-            x: Math.round(parent.width / 2 - width / 2)
-            y: Math.round(parent.height / 2 + bootLogo.height / 2 - 24)
-        }
-        Image {
-            id: bootTrack
-
-            source: bootHandover.theme + "progress-track.png"
-            x: Math.round(parent.width / 2 - width / 2)
-            y: parent.height - 110
-        }
-        Image {
-            source: bootHandover.theme + "progress-fill.png"
-            x: bootTrack.x
-            y: bootTrack.y
-            width: Math.round(140 * bootHandover.progress)
-            height: 2
-            fillMode: Image.Stretch
+            anchors.fill: parent
+            deviceScale: typeof PlymouthScale !== "undefined" ? PlymouthScale : 1
+            progress: 0.5
         }
 
         SequentialAnimation {
             running: bootHandover.visible
             NumberAnimation {
-                target: bootHandover
+                target: bootSplash
                 property: "progress"
                 to: 1
                 duration: MMotion.ms(800)
