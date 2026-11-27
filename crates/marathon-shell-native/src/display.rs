@@ -1437,7 +1437,7 @@ async fn rotation(qt: cxx_qt::CxxQtThread<Display>, bus: zbus::Connection, wante
         qt.queue(move |mut obj| match turn {
             Turn::Available => set!(obj, rotation_available, rotation_available_changed, true),
             Turn::Orientation(o) => {
-                set!(obj, orientation, orientation_changed, QString::from(o))
+                set!(obj, orientation, orientation_changed, QString::from(o));
             }
         })
         .ok();
@@ -1884,6 +1884,12 @@ mod tests {
         assert_eq!(lit(day + 12 * 3600), 0);
     }
 
+    #[allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::unused_self,
+        reason = "tests: a stand-in iio-sensor-proxy on a private bus; zbus methods take &self"
+    )]
     mod rotation {
         use super::super::{follow_rotation, Turn};
         use std::path::Path;
@@ -1952,7 +1958,7 @@ mod tests {
         ) -> zbus::Connection {
             let proxy = SensorProxy {
                 orientation,
-                claims: claims.clone(),
+                claims: Arc::clone(claims),
             };
             zbus::connection::Builder::address(address)
                 .name("net.hadess.SensorProxy")
