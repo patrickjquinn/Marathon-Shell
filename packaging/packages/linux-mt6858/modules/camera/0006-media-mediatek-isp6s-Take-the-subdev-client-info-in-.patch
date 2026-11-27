@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 15:41:42 +0000
+Subject: [PATCH 6/7] media: mediatek: isp6s: Take the subdev client info in
+ set_fmt
+
+Linux 7.4 passes the calling client's info to the subdev pad op set_fmt.
+Take it in the SENINF's and the CAMSV's.
+---
+ camsv/mtk_camsv.c   | 1 +
+ seninf/mtk_seninf.c | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/camsv/mtk_camsv.c b/camsv/mtk_camsv.c
+index 8337ca5..2799bfc 100644
+--- a/camsv/mtk_camsv.c
++++ b/camsv/mtk_camsv.c
+@@ -231,6 +231,7 @@ static int mtk_cam_get_fmt(struct v4l2_subdev *sd,
+ }
+ 
+ static int mtk_cam_set_fmt(struct v4l2_subdev *sd,
++			   const struct v4l2_subdev_client_info *ci,
+ 			   struct v4l2_subdev_state *sd_state,
+ 			   struct v4l2_subdev_format *fmt)
+ {
+diff --git a/seninf/mtk_seninf.c b/seninf/mtk_seninf.c
+index 93abfdf..a188a88 100644
+--- a/seninf/mtk_seninf.c
++++ b/seninf/mtk_seninf.c
+@@ -882,6 +882,7 @@ static int seninf_set_routing(struct v4l2_subdev *sd,
+ }
+ 
+ static int mtk_seninf_set_fmt(struct v4l2_subdev *sd,
++				  const struct v4l2_subdev_client_info *ci,
+ 				  struct v4l2_subdev_state *sd_state,
+ 				  struct v4l2_subdev_format *fmt)
+ {

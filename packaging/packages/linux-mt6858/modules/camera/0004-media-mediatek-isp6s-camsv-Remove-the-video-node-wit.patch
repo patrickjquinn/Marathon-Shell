@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 13:10:00 +0000
+Subject: [PATCH] media: mediatek: isp6s: camsv: Remove the video node with the
+ subdev
+
+The video node is created in the subdev's .registered() callback, once
+SENINF's notifier binds the CAMSV into its V4L2 device, but was only
+removed when the CAMSV driver itself went away. When SENINF unbound
+first, the node stayed registered against a V4L2 device that was then
+freed, and binding again would register the same video_device a second
+time. Removing the CAMSV before it was ever bound unregistered a node
+that had never been registered.
+
+Remove the node in an .unregistered() callback, so that it follows the
+subdev's registration, and let v4l2_async_unregister_subdev() trigger
+it on driver removal.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ camsv/mtk_camsv.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/camsv/mtk_camsv.c b/camsv/mtk_camsv.c
+index eddb981..8337ca5 100644
+--- a/camsv/mtk_camsv.c
++++ b/camsv/mtk_camsv.c
+@@ -284,6 +284,13 @@ static int mtk_cam_subdev_registered(struct v4l2_subdev *sd)
+ 	return mtk_isp6s_camsv_video_register(cam);
+ }
+ 
++static void mtk_cam_subdev_unregistered(struct v4l2_subdev *sd)
++{
++	struct mtk_cam_dev *cam = to_mtk_cam_dev(sd);
++
++	mtk_isp6s_camsv_video_unregister(&cam->vdev);
++}
++
+ static const struct v4l2_subdev_video_ops mtk_cam_subdev_video_ops = {
+ 	.s_stream = mtk_cam_sd_s_stream,
+ };
+@@ -303,6 +310,7 @@ static const struct v4l2_subdev_ops mtk_cam_subdev_ops = {
+ static const struct v4l2_subdev_internal_ops mtk_cam_internal_ops = {
+ 	.init_state = mtk_cam_init_cfg,
+ 	.registered = mtk_cam_subdev_registered,
++	.unregistered = mtk_cam_subdev_unregistered,
+ };
+ 
+ /* -----------------------------------------------------------------------------
+@@ -398,10 +406,8 @@ fail_clean_media_entiy:
+ 
+ static void mtk_cam_v4l2_unregister(struct mtk_cam_dev *cam)
+ {
+-	mtk_isp6s_camsv_video_unregister(&cam->vdev);
+-
+-	media_entity_cleanup(&cam->subdev.entity);
+ 	v4l2_async_unregister_subdev(&cam->subdev);
++	media_entity_cleanup(&cam->subdev.entity);
+ }
+ 
+ int mtk_isp6s_camsv_dev_init(struct mtk_cam_dev *cam_dev)
+-- 
+2.55.0
+

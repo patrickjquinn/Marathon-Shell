@@ -1,0 +1,205 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 15:41:42 +0000
+Subject: [PATCH 7/7] media: mediatek: isp6s: Add MT6858
+
+The MT6858's camera receive path is MT6789's, with a third CSI port:
+CSI2 (and its 2A/2B halves) feeds SENINF5/6 through its own PHY mux,
+where the JP2601's second rear camera sits.
+
+Take camsys' CAMSV2 and CAMSV3 gates as optional clocks, which the stock
+kernel's camera nodes also hold.
+
+Behind the MM IOMMU, mtk-smi switches larb13's ports to translation:
+leave the ports alone then.
+---
+ camsv/mtk_camsv_hw.c       | 12 ++++++++++--
+ phy/phy-mtk-mipi-csi-2-1.c |  4 ++++
+ phy/phy-mtk-mipi-csi-2-1.h |  3 +++
+ seninf/mtk_seninf.c        |  2 ++
+ seninf/mtk_seninf.h        |  3 +++
+ seninf/mtk_seninf_ops.c    | 31 +++++++++++++++++++++++++++++++
+ 6 files changed, 53 insertions(+), 2 deletions(-)
+
+diff --git a/camsv/mtk_camsv_hw.c b/camsv/mtk_camsv_hw.c
+index 5339c6d..7cba6c4 100644
+--- a/camsv/mtk_camsv_hw.c
++++ b/camsv/mtk_camsv_hw.c
+@@ -11,6 +11,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_platform.h>
++#include <linux/iommu.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/platform_device.h>
+ 
+@@ -175,7 +176,8 @@ static int mtk_camsv_larb_physical(struct mtk_cam_dev *cam_dev)
+ 	void __iomem *con;
+ 	unsigned int port;
+ 
+-	if (!cam_dev->regs_larb)
++	/* Behind the IOMMU, mtk-smi owns the larb ports. */
++	if (!cam_dev->regs_larb || device_iommu_mapped(cam_dev->dev))
+ 		return 0;
+ 
+ 	for (port = 6; port <= 8; port++) {
+@@ -503,7 +505,9 @@ static int mtk_camsv_probe(struct platform_device *pdev)
+ 		"CAMSYS_CAMSV_CGPDN",
+ 		"CAMSYS_LARB_CGPDN",
+ 		"CAMSYS_MAIN_CAM2MM_GALS_CGPDN",
+-		"TOPCKGEN_TOP_MUX_CAMTM"
++		"TOPCKGEN_TOP_MUX_CAMTM",
++		"CAMSYS_CAMSV2_CGPDN",
++		"CAMSYS_CAMSV3_CGPDN",
+ 	};
+ 
+ 	struct mtk_cam_dev *cam_dev;
+@@ -622,6 +626,10 @@ static const struct of_device_id mtk_camsv_of_ids[] = {
+ 		.compatible = "mediatek,mt6789-camsv",
+ 		.data = &camsv_conf,
+ 	},
++	{
++		.compatible = "mediatek,mt6858-camsv",
++		.data = &camsv_conf,
++	},
+ 	{
+ 		.compatible = "mediatek,mt8189-camsv",
+ 		.data = &camsv_conf,
+diff --git a/phy/phy-mtk-mipi-csi-2-1.c b/phy/phy-mtk-mipi-csi-2-1.c
+index f58ecb5..5b6794c 100644
+--- a/phy/phy-mtk-mipi-csi-2-1.c
++++ b/phy/phy-mtk-mipi-csi-2-1.c
+@@ -62,10 +62,13 @@ enum PHY_TYPE {
+ #define SENINF_CSI_PORT_NAMES \
+ 	"0", \
+ 	"1", \
++	"2", \
+ 	"0A", \
+ 	"0B", \
+ 	"1A", \
+ 	"1B", \
++	"2A", \
++	"2B", \
+ 
+ static const char * const csi_port_names[] = {
+ 	SENINF_CSI_PORT_NAMES
+@@ -904,6 +907,7 @@ static int mtk_mipi_cdphy_probe(struct platform_device *pdev)
+ 
+ static const struct of_device_id mtk_mipi_cdphy_of_match[] = {
+ 	{ .compatible = "mediatek,mt6789-csi-rx" },
++	{ .compatible = "mediatek,mt6858-csi-rx" },
+ 	{ .compatible = "mediatek,mt8189-csi-rx" },
+ 	{ /* sentinel */},
+ };
+diff --git a/phy/phy-mtk-mipi-csi-2-1.h b/phy/phy-mtk-mipi-csi-2-1.h
+index ef67713..48719fb 100644
+--- a/phy/phy-mtk-mipi-csi-2-1.h
++++ b/phy/phy-mtk-mipi-csi-2-1.h
+@@ -14,10 +14,13 @@ struct phy;
+ enum CSI_PORT {
+ 	CSI_PORT_0 = 0,
+ 	CSI_PORT_1,
++	CSI_PORT_2,
+ 	CSI_PORT_0A,
+ 	CSI_PORT_0B,
+ 	CSI_PORT_1A,
+ 	CSI_PORT_1B,
++	CSI_PORT_2A,
++	CSI_PORT_2B,
+ 	CSI_PORT_MAX_NUM,
+ };
+ 
+diff --git a/seninf/mtk_seninf.c b/seninf/mtk_seninf.c
+index a188a88..306f123 100644
+--- a/seninf/mtk_seninf.c
++++ b/seninf/mtk_seninf.c
+@@ -2243,6 +2243,7 @@ static void seninf_remove(struct platform_device *pdev)
+ 
+ static const struct of_device_id seninf_of_match[] = {
+ 	{ .compatible = "mediatek,mt6789-seninf" },
++	{ .compatible = "mediatek,mt6858-seninf" },
+ 	{ .compatible = "mediatek,mt8189-seninf" },
+ 	{},
+ };
+@@ -2272,6 +2273,7 @@ struct platform_driver seninf_pdrv = {
+ 
+ static const struct of_device_id mtk_seninf_of_match[] = {
+ 	{ .compatible = "mediatek,mt6789-seninf-core", .data = &mt6789_data },
++	{ .compatible = "mediatek,mt6858-seninf-core", .data = &mt6789_data },
+ 	{ .compatible = "mediatek,mt8189-seninf-core", .data = &mt8189_data },
+ 	{ /* sentinel */ },
+ };
+diff --git a/seninf/mtk_seninf.h b/seninf/mtk_seninf.h
+index f04fc2e..d92b8ee 100644
+--- a/seninf/mtk_seninf.h
++++ b/seninf/mtk_seninf.h
+@@ -95,10 +95,13 @@ enum {
+ #define SENINF_CSI_PORT_NAMES \
+ 	"0", \
+ 	"1", \
++	"2", \
+ 	"0A", \
+ 	"0B", \
+ 	"1A", \
+ 	"1B", \
++	"2A", \
++	"2B", \
+ 
+ #define ISP_ENGING_NAMES \
+ 	"cam1", \
+diff --git a/seninf/mtk_seninf_ops.c b/seninf/mtk_seninf_ops.c
+index 61aa749..20b1edc 100644
+--- a/seninf/mtk_seninf_ops.c
++++ b/seninf/mtk_seninf_ops.c
+@@ -132,6 +132,13 @@ static int mtk_seninf_init_port(struct seninf_ctx *ctx, int port)
+ 	case CSI_PORT_1B:
+ 		ctx->seninf_idx = SENINF_4;
+ 		break;
++	case CSI_PORT_2:
++	case CSI_PORT_2A:
++		ctx->seninf_idx = SENINF_5;
++		break;
++	case CSI_PORT_2B:
++		ctx->seninf_idx = SENINF_6;
++		break;
+ 	default:
+ 		dev_dbg(ctx->dev, "invalid port %d\n", port);
+ 		return -EINVAL;
+@@ -780,6 +787,15 @@ static int csirx_seninf_top_setting(struct seninf_ctx *ctx)
+ 		SENINF_BITS(seninf_top, SENINF_TOP_PHY_CTRL_CSI1,
+ 			    RG_PHY_SENINF_MUX1_CPHY_MODE, 2); //2+2T
+ 		break;
++	case CSI_PORT_2:
++		SENINF_BITS(seninf_top, SENINF_TOP_PHY_CTRL_CSI2,
++			    RG_PHY_SENINF_MUX2_CPHY_MODE, 0); //4T
++		break;
++	case CSI_PORT_2A:
++	case CSI_PORT_2B:
++		SENINF_BITS(seninf_top, SENINF_TOP_PHY_CTRL_CSI2,
++			    RG_PHY_SENINF_MUX2_CPHY_MODE, 2); //2+2T
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -816,6 +832,21 @@ static int csirx_seninf_top_setting(struct seninf_ctx *ctx)
+ 				    PHY_SENINF_MUX1_CPHY_EN, 1);
+ 		}
+ 		break;
++	case CSI_PORT_2:
++	case CSI_PORT_2A:
++	case CSI_PORT_2B:
++		if (!ctx->is_cphy) {
++			SENINF_BITS(seninf_top, SENINF_TOP_PHY_CTRL_CSI2,
++				    PHY_SENINF_MUX2_CPHY_EN, 0);
++			SENINF_BITS(seninf_top, SENINF_TOP_PHY_CTRL_CSI2,
++				    PHY_SENINF_MUX2_DPHY_EN, 1);
++		} else {
++			SENINF_BITS(seninf_top, SENINF_TOP_PHY_CTRL_CSI2,
++				    PHY_SENINF_MUX2_DPHY_EN, 0);
++			SENINF_BITS(seninf_top, SENINF_TOP_PHY_CTRL_CSI2,
++				    PHY_SENINF_MUX2_CPHY_EN, 1);
++		}
++		break;
+ 	default:
+ 		break;
+ 	}

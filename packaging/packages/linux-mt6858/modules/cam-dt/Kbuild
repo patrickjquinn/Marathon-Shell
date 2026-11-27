@@ -1,0 +1,1 @@
+obj-m := jp2601-cam-dt.o

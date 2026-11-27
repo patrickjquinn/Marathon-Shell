@@ -1,0 +1,1989 @@
+diff --git a/camsv/mtk_camsv.c b/camsv/mtk_camsv.c
+index 1903322..eddb981 100644
+--- a/camsv/mtk_camsv.c
++++ b/camsv/mtk_camsv.c
+@@ -103,7 +103,6 @@ err_unlock:
+ static int mtk_cam_cio_stream_off(struct mtk_cam_dev *cam)
+ {
+ 	struct device *dev = cam->dev;
+-	struct v4l2_subdev *seninf;
+ 	struct seninf_ctx *seninf_ctx;
+ 	int ret;
+ 
+@@ -119,6 +118,7 @@ static int mtk_cam_cio_stream_off(struct mtk_cam_dev *cam)
+ 			if (ret) {
+ 				dev_err(dev, "failed to stream off %s:%d\n",
+ 					cam->seninf_sd->entity.name, ret);
++				mutex_unlock(&seninf_ctx->streaming_protect);
+ 				return ret;
+ 			}
+ 
+@@ -163,7 +163,7 @@ mtk_cam_get_pad_format(struct mtk_cam_dev *cam,
+ {
+ 	switch (which) {
+ 	case V4L2_SUBDEV_FORMAT_TRY:
+-		return v4l2_subdev_get_try_format(&cam->subdev, sd_state, pad);
++		return v4l2_subdev_state_get_format(sd_state, pad);
+ 	case V4L2_SUBDEV_FORMAT_ACTIVE:
+ 		return &cam->formats[pad];
+ 	default:
+@@ -289,7 +289,6 @@ static const struct v4l2_subdev_video_ops mtk_cam_subdev_video_ops = {
+ };
+ 
+ static const struct v4l2_subdev_pad_ops mtk_cam_subdev_pad_ops = {
+-	.init_cfg = mtk_cam_init_cfg,
+ 	.enum_mbus_code = mtk_cam_enum_mbus_code,
+ 	.set_fmt = mtk_cam_set_fmt,
+ 	.get_fmt = mtk_cam_get_fmt,
+@@ -302,6 +301,7 @@ static const struct v4l2_subdev_ops mtk_cam_subdev_ops = {
+ };
+ 
+ static const struct v4l2_subdev_internal_ops mtk_cam_internal_ops = {
++	.init_state = mtk_cam_init_cfg,
+ 	.registered = mtk_cam_subdev_registered,
+ };
+ 
+@@ -356,7 +356,9 @@ static int mtk_cam_v4l2_register(struct mtk_cam_dev *cam)
+ 
+ 	dev_info(dev, "camsv | start %s\n", __func__);
+ 
+-	/* Initialize subdev pads */
++	/* Initialize subdev pads; media_entity_pads_init() checks the flags. */
++	cam->subdev_pads[MTK_CAM_CIO_PAD_SENINF].flags = MEDIA_PAD_FL_SINK;
++	cam->subdev_pads[MTK_CAM_CIO_PAD_VIDEO].flags = MEDIA_PAD_FL_SOURCE;
+ 	ret = media_entity_pads_init(&cam->subdev.entity,
+ 				     ARRAY_SIZE(cam->subdev_pads),
+ 				     cam->subdev_pads);
+@@ -365,9 +367,6 @@ static int mtk_cam_v4l2_register(struct mtk_cam_dev *cam)
+ 		return ret;
+ 	}
+ 
+-	cam->subdev_pads[MTK_CAM_CIO_PAD_SENINF].flags = MEDIA_PAD_FL_SINK;
+-	cam->subdev_pads[MTK_CAM_CIO_PAD_VIDEO].flags = MEDIA_PAD_FL_SOURCE;
+-
+ 	/* Initialize subdev */
+ 	v4l2_subdev_init(&cam->subdev, &mtk_cam_subdev_ops);
+ 
+@@ -376,7 +375,7 @@ static int mtk_cam_v4l2_register(struct mtk_cam_dev *cam)
+ 	cam->subdev.entity.ops = &mtk_cam_media_entity_ops;
+ 	cam->subdev.internal_ops = &mtk_cam_internal_ops;
+ 	cam->subdev.flags = V4L2_SUBDEV_FL_HAS_DEVNODE;
+-	strscpy(cam->subdev.name, dev_name(dev), V4L2_SUBDEV_NAME_SIZE);
++	strscpy(cam->subdev.name, dev_name(dev), sizeof(cam->subdev.name));
+ 	v4l2_set_subdevdata(&cam->subdev, cam);
+ 
+ 	mtk_cam_init_cfg(&cam->subdev, NULL);
+diff --git a/camsv/mtk_camsv.h b/camsv/mtk_camsv.h
+index 3544b91..19399ef 100644
+--- a/camsv/mtk_camsv.h
++++ b/camsv/mtk_camsv.h
+@@ -18,7 +18,6 @@
+ #include <media/videobuf2-core.h>
+ #include <media/videobuf2-dma-contig.h>
+ #include <media/videobuf2-v4l2.h>
+-#include <soc/mediatek/smi.h>
+ 
+ #include "../seninf/mtk_seninf.h"
+ 
+@@ -146,6 +145,7 @@ struct mtk_cam_dev {
+ 	void __iomem *regs;
+ 	void __iomem *regs_img0;
+ 	void __iomem *regs_tg;
++	void __iomem *regs_larb;
+ 
+ 	unsigned int num_clks;
+ 	struct clk_bulk_data *clks;
+@@ -185,8 +185,8 @@ struct mtk_cam_conf {
+ };
+ 
+ struct mtk_cam_hw_functions {
+-	void (*mtk_cam_setup)(struct mtk_cam_dev *cam_dev, u32 width,
+-			      u32 height, u32 bpl);
++	int (*mtk_cam_setup)(struct mtk_cam_dev *cam_dev, u32 width,
++			     u32 height, u32 bpl);
+ 	void (*mtk_cam_reset)(struct mtk_cam_dev *cam_dev);
+ 	void (*mtk_cam_update_buffers_add)(struct mtk_cam_dev *cam_dev,
+ 					   struct mtk_cam_dev_buffer *buf);
+diff --git a/camsv/mtk_camsv_hw.c b/camsv/mtk_camsv_hw.c
+index c2de30a..0930666 100644
+--- a/camsv/mtk_camsv_hw.c
++++ b/camsv/mtk_camsv_hw.c
+@@ -4,13 +4,14 @@
+  */
+ 
+ #include <linux/device.h>
++#include <linux/dma-mapping.h>
+ #include <linux/interrupt.h>
+-#include <linux/iommu.h>
+ #include <linux/iopoll.h>
+ #include <linux/ktime.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_platform.h>
++#include <linux/of_reserved_mem.h>
+ #include <linux/platform_device.h>
+ 
+ #include "mtk_camsv.h"
+@@ -18,6 +19,13 @@
+ 
+ #define MTK_CAMSV_AUTOSUSPEND_DELAY_MS 100
+ 
++/*
++ * SMI larb13 ports 6-8 carry CAMSV2-7. The firmware leaves them in MMU mode and
++ * every CAM power-up resets them to it; without an IOMMU they must be physical.
++ */
++#define SMI_LARB_NONSEC_CON(port)	(0x380 + 4 * (port))
++#define SMI_LARB_MMU_EN			BIT(0)
++
+ static const struct mtk_cam_conf camsv_conf = {
+ 	.tg_sen_mode = 0x00010002U, /* TIME_STP_EN = 1. DBL_DATA_BUS = 1 */
+ 	.module_en = 0x50000001U, /* enable double buffer(DB_LOAD_SRC:SOF) and TG */
+@@ -28,7 +36,8 @@ static const struct mtk_cam_conf camsv_conf = {
+ 	.enableFH = false, /* Frame Header disabled */
+ };
+ 
+-static void fmt_to_sparams(struct mtk_cam_format_info *fmtinfo, struct mtk_cam_sparams *sparams)
++static void fmt_to_sparams(const struct mtk_cam_format_info *fmtinfo,
++			   struct mtk_cam_sparams *sparams)
+ {
+ 	switch (fmtinfo->code) {
+ 	case MEDIA_BUS_FMT_SBGGR12_1X12:
+@@ -115,11 +124,11 @@ static void mtk_camsv_update_buffers_add(struct mtk_cam_dev *cam_dev,
+ 	mtk_camsv_write(cam_dev, CAMSV_IMGO_BASE_ADDR, buf->daddr);
+ 	mtk_camsv_write(cam_dev, CAMSV_IMGO_FBC, 0x11U);
+ 
+-	dev_dbg(cam_dev->dev, "%s enque imgo base addr: 0x%llx imgo_ctl2: 0x%llx camsv_imgo_fbc: 0x%llx\n",
+-		 __func__,
+-		 mtk_camsv_read(cam_dev, CAMSV_IMGO_BASE_ADDR),
+-		 mtk_camsv_read(cam_dev, CAMSV_FBC_IMGO_CTL2),
+-		 mtk_camsv_read(cam_dev, CAMSV_IMGO_FBC));
++	dev_dbg(cam_dev->dev, "%s enque imgo base addr: 0x%x imgo_ctl2: 0x%x camsv_imgo_fbc: 0x%x\n",
++		__func__,
++		mtk_camsv_read(cam_dev, CAMSV_IMGO_BASE_ADDR),
++		mtk_camsv_read(cam_dev, CAMSV_FBC_IMGO_CTL2),
++		mtk_camsv_read(cam_dev, CAMSV_IMGO_FBC));
+ }
+ 
+ static void mtk_camsv_cmos_vf_hw_enable(struct mtk_cam_dev *cam_dev, bool pak_en)
+@@ -135,13 +144,13 @@ static void mtk_camsv_cmos_vf_hw_enable(struct mtk_cam_dev *cam_dev, bool pak_en
+ 	mtk_camsv_write(cam_dev, CAMSV_MODULE_EN,
+ 			mtk_camsv_read(cam_dev, CAMSV_MODULE_EN) &
+ 			     ~CAMSV_MODULE_EN_DB_EN);
+-	dev_info(cam_dev->dev, "%s: DB_EN off CAMSV_MODULE_EN:0x%llx\n",
++	dev_info(cam_dev->dev, "%s: DB_EN off CAMSV_MODULE_EN:0x%x\n",
+ 		 __func__, mtk_camsv_read(cam_dev,
+ 		 CAMSV_MODULE_EN));
+ 	mtk_camsv_write(cam_dev, CAMSV_MODULE_EN,
+ 			mtk_camsv_read(cam_dev, CAMSV_MODULE_EN) |
+ 			     CAMSV_MODULE_EN_DB_EN);
+-	dev_info(cam_dev->dev, "%s: DB_EN on CAMSV_MODULE_EN:0x%llx\n",
++	dev_info(cam_dev->dev, "%s: DB_EN on CAMSV_MODULE_EN:0x%x\n",
+ 		 __func__, mtk_camsv_read(cam_dev,
+ 		 CAMSV_MODULE_EN));
+ 
+@@ -161,7 +170,27 @@ static void mtk_camsv_cmos_vf_hw_disable(struct mtk_cam_dev *cam_dev, bool pak_e
+ 			     ~CAMSV_TG_VF_CON_VFDATA_EN);
+ }
+ 
+-static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
++static int mtk_camsv_larb_physical(struct mtk_cam_dev *cam_dev)
++{
++	void __iomem *con;
++	unsigned int port;
++
++	if (!cam_dev->regs_larb)
++		return 0;
++
++	for (port = 6; port <= 8; port++) {
++		con = cam_dev->regs_larb + SMI_LARB_NONSEC_CON(port);
++		writel(readl(con) & ~SMI_LARB_MMU_EN, con);
++		if (readl(con) & SMI_LARB_MMU_EN) {
++			dev_err(cam_dev->dev, "larb13 port %u stays in MMU mode\n", port);
++			return -EIO;
++		}
++	}
++
++	return 0;
++}
++
++static int mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
+ {
+ 	const struct mtk_cam_conf *conf = cam_dev->conf;
+ 	u32 int_en = INT_ST_MASK_CAMSV;
+@@ -174,9 +203,16 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
+ 	fmt_to_sparams(cam_dev->vdev.fmtinfo, &sparams);
+ 
+ 	dev_info(cam_dev->dev, "%s power on camsv\n", __func__);
+-	if (pm_runtime_get_sync(cam_dev->dev) < 0) {
++	ret = pm_runtime_resume_and_get(cam_dev->dev);
++	if (ret < 0) {
+ 		dev_err(cam_dev->dev, "failed to get pm_runtime\n");
+-		return;
++		return ret;
++	}
++
++	ret = mtk_camsv_larb_physical(cam_dev);
++	if (ret) {
++		pm_runtime_put_autosuspend(cam_dev->dev);
++		return ret;
+ 	}
+ 
+ 	spin_lock_irqsave(&cam_dev->irqlock, flags);
+@@ -198,7 +234,9 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
+ 					(val & mask) == mask, 10, 100000);
+ 	if (ret) {
+ 		dev_err(cam_dev->dev, "CAMSV reset failed, CAMSV_SW_CTL: 0x%x\n", val);
+-		return;
++		spin_unlock_irqrestore(&cam_dev->irqlock, flags);
++		pm_runtime_put_autosuspend(cam_dev->dev);
++		return ret;
+ 	}
+ 
+ 	mtk_camsv_write(cam_dev, CAMSV_SW_CTL, 0x0U);
+@@ -258,6 +296,8 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
+ 
+ 	spin_unlock_irqrestore(&cam_dev->irqlock, flags);
+ 	pm_runtime_put_autosuspend(cam_dev->dev);
++
++	return 0;
+ }
+ 
+ static void mtk_camsv_reset(struct mtk_cam_dev *cam_dev)
+@@ -372,7 +412,7 @@ static int mtk_camsv_suspend(struct device *dev)
+ 	struct mtk_cam_video_device *vdev = &cam_dev->vdev;
+ 	struct vb2_queue *vbq = &vdev->vbq;
+ 
+-	if (vb2_is_streaming(vbq)) {
++	if (vb2_is_streaming(vbq) && cam_dev->subdev.s_stream_enabled) {
+ 		mutex_lock(&cam_dev->op_lock);
+ 		v4l2_subdev_call(&cam_dev->subdev, video, s_stream, 0);
+ 		mutex_unlock(&cam_dev->op_lock);
+@@ -395,9 +435,11 @@ static int mtk_camsv_resume(struct device *dev)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (vb2_is_streaming(vbq)) {
+-		mtk_camsv_setup(cam_dev, fmt->width, fmt->height,
+-				fmt->plane_fmt[0].bytesperline);
++	if (vb2_is_streaming(vbq) && !cam_dev->subdev.s_stream_enabled) {
++		ret = mtk_camsv_setup(cam_dev, fmt->width, fmt->height,
++				      fmt->plane_fmt[0].bytesperline);
++		if (ret)
++			goto fail_no_stream;
+ 
+ 		spin_lock_irqsave(&cam_dev->irqlock, flags);
+ 		if (cam_dev->buf_curr) {
+@@ -446,6 +488,11 @@ static struct mtk_cam_hw_functions mtk_camsv_hw_functions = {
+ 	.mtk_cam_get_pixel_mode = mtk_camsv_get_pixel_mode,
+ };
+ 
++static void mtk_camsv_release_mem(void *dev)
++{
++	of_reserved_mem_device_release(dev);
++}
++
+ static int mtk_camsv_probe(struct platform_device *pdev)
+ {
+ 	static const char * const clk_names[] = {
+@@ -464,8 +511,17 @@ static int mtk_camsv_probe(struct platform_device *pdev)
+ 	int i;
+ 
+ 	dev_info(dev, "camsv | start %s\n", __func__);
+-	if (!iommu_present(&platform_bus_type))
+-		return -EPROBE_DEFER;
++
++	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
++	if (ret)
++		return ret;
++
++	/* Frames over 4 MiB need the pool memory-region names, if present. */
++	ret = of_reserved_mem_device_init(dev);
++	if (!ret)
++		ret = devm_add_action_or_reset(dev, mtk_camsv_release_mem, dev);
++	if (ret && ret != -ENODEV)
++		return dev_err_probe(dev, ret, "failed to attach the memory region\n");
+ 
+ 	cam_dev = devm_kzalloc(dev, sizeof(*cam_dev), GFP_KERNEL);
+ 	if (!cam_dev)
+@@ -485,6 +541,14 @@ static int mtk_camsv_probe(struct platform_device *pdev)
+ 		return PTR_ERR(cam_dev->regs);
+ 	}
+ 
++	/* larb13 is shared by every CAMSV, so it is mapped without claiming it */
++	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "larb");
++	if (res) {
++		cam_dev->regs_larb = devm_ioremap(dev, res->start, resource_size(res));
++		if (!cam_dev->regs_larb)
++			return -ENOMEM;
++	}
++
+ 	cam_dev->num_clks = ARRAY_SIZE(clk_names);
+ 	cam_dev->clks = devm_kcalloc(dev, cam_dev->num_clks,
+ 				     sizeof(*cam_dev->clks), GFP_KERNEL);
+@@ -531,7 +595,7 @@ static int mtk_camsv_probe(struct platform_device *pdev)
+ 	return mtk_isp6s_camsv_dev_init(cam_dev);
+ }
+ 
+-static int mtk_camsv_remove(struct platform_device *pdev)
++static void mtk_camsv_remove(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 	struct mtk_cam_dev *cam_dev = dev_get_drvdata(dev);
+@@ -539,8 +603,6 @@ static int mtk_camsv_remove(struct platform_device *pdev)
+ 	mtk_isp6s_camsv_dev_cleanup(cam_dev);
+ 	pm_runtime_put_autosuspend(dev);
+ 	pm_runtime_disable(dev);
+-
+-	return 0;
+ }
+ 
+ static const struct dev_pm_ops mtk_camsv_pm_ops = {
+@@ -551,6 +613,10 @@ static const struct dev_pm_ops mtk_camsv_pm_ops = {
+ };
+ 
+ static const struct of_device_id mtk_camsv_of_ids[] = {
++	{
++		.compatible = "mediatek,mt6789-camsv",
++		.data = &camsv_conf,
++	},
+ 	{
+ 		.compatible = "mediatek,mt8189-camsv",
+ 		.data = &camsv_conf,
+diff --git a/camsv/mtk_camsv_video.c b/camsv/mtk_camsv_video.c
+index 9e99d80..7c4371a 100644
+--- a/camsv/mtk_camsv_video.c
++++ b/camsv/mtk_camsv_video.c
+@@ -34,47 +34,52 @@ to_mtk_cam_dev_buffer(struct vb2_buffer *buf)
+  * Format Information
+  */
+ 
++/*
++ * The unpacked mode writes RAW10 shifted left by 4 into each 16-bit word (seen
++ * with the SENINF test pattern and the IMX111 on MT6789), so RAW10 is offered
++ * as the 14-bit fourccs only.
++ */
+ static const struct mtk_cam_format_info mtk_cam_format_info[] = {
+ 	{
+-		.fourcc = V4L2_PIX_FMT_MTISP_SBGGR12,
+-		.code = MEDIA_BUS_FMT_SBGGR12_1X12,
+-		.packed = true,
+-		.bpp = 12,
+-	}, {
+-		.fourcc = V4L2_PIX_FMT_MTISP_SGBRG12,
+-		.code = MEDIA_BUS_FMT_SGBRG12_1X12,
+-		.packed = true,
+-		.bpp = 12,
+-	}, {
+-		.fourcc = V4L2_PIX_FMT_MTISP_SGRBG12,
+-		.code = MEDIA_BUS_FMT_SGRBG12_1X12,
+-		.packed = true,
+-		.bpp = 12,
+-	}, {
+-		.fourcc = V4L2_PIX_FMT_MTISP_SRGGB12,
+-		.code = MEDIA_BUS_FMT_SRGGB12_1X12,
+-		.packed = true,
+-		.bpp = 12,
+-	}, {
+-		.fourcc = V4L2_PIX_FMT_MTISP_SBGGR10,
++		.fourcc = V4L2_PIX_FMT_SBGGR14,
+ 		.code = MEDIA_BUS_FMT_SBGGR10_1X10,
+-		.packed = true,
+-		.bpp = 10,
++		.packed = false,
++		.bpp = 16,
+ 	}, {
+-		.fourcc = V4L2_PIX_FMT_MTISP_SGBRG10,
++		.fourcc = V4L2_PIX_FMT_SGBRG14,
+ 		.code = MEDIA_BUS_FMT_SGBRG10_1X10,
+-		.packed = true,
+-		.bpp = 10,
++		.packed = false,
++		.bpp = 16,
+ 	}, {
+-		.fourcc = V4L2_PIX_FMT_MTISP_SGRBG10,
++		.fourcc = V4L2_PIX_FMT_SGRBG14,
+ 		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
+-		.packed = true,
+-		.bpp = 10,
++		.packed = false,
++		.bpp = 16,
+ 	}, {
+-		.fourcc = V4L2_PIX_FMT_MTISP_SRGGB10,
++		.fourcc = V4L2_PIX_FMT_SRGGB14,
+ 		.code = MEDIA_BUS_FMT_SRGGB10_1X10,
+-		.packed = true,
+-		.bpp = 10,
++		.packed = false,
++		.bpp = 16,
++	}, {
++		.fourcc = V4L2_PIX_FMT_SBGGR12,
++		.code = MEDIA_BUS_FMT_SBGGR12_1X12,
++		.packed = false,
++		.bpp = 16,
++	}, {
++		.fourcc = V4L2_PIX_FMT_SGBRG12,
++		.code = MEDIA_BUS_FMT_SGBRG12_1X12,
++		.packed = false,
++		.bpp = 16,
++	}, {
++		.fourcc = V4L2_PIX_FMT_SGRBG12,
++		.code = MEDIA_BUS_FMT_SGRBG12_1X12,
++		.packed = false,
++		.bpp = 16,
++	}, {
++		.fourcc = V4L2_PIX_FMT_SRGGB12,
++		.code = MEDIA_BUS_FMT_SRGGB12_1X12,
++		.packed = false,
++		.bpp = 16,
+ 	}, {
+ 		.fourcc = V4L2_PIX_FMT_SBGGR8,
+ 		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+@@ -280,8 +285,8 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
+ 		vb2_set_plane_payload(vb, i, size);
+ 	}
+ 
+-	if (buf->daddr == 0ULL)
+-		buf->daddr = vb2_dma_contig_plane_dma_addr(vb, 0);
++	/* an imported DMABUF can change at every QBUF */
++	buf->daddr = vb2_dma_contig_plane_dma_addr(vb, 0);
+ 
+ 	return 0;
+ }
+@@ -289,7 +294,6 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
+ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
+ {
+ 	struct mtk_cam_dev *cam = vb2_get_drv_priv(vb->vb2_queue);
+-	struct device *dev = cam->dev;
+ 	struct mtk_cam_dev_buffer *buf = to_mtk_cam_dev_buffer(vb);
+ 	unsigned long flags = 0;
+ 
+@@ -363,14 +367,20 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
+ 
+ 	dev_info(dev, "%s: start streaming\n", __func__);
+ 
+-	if (pm_runtime_get_sync(dev) < 0) {
++	ret = pm_runtime_resume_and_get(dev);
++	if (ret < 0) {
+ 		dev_err(dev, "failed to get pm_runtime\n");
+-		pm_runtime_put_autosuspend(dev);
+-		return -1;
++		mtk_cam_vb2_return_all_buffers(cam, VB2_BUF_STATE_QUEUED);
++		return ret;
+ 	}
+ 
+-	(*cam->hw_functions->mtk_cam_setup)(cam, fmt->width, fmt->height,
++	ret = (*cam->hw_functions->mtk_cam_setup)(cam, fmt->width, fmt->height,
+ 			fmt->plane_fmt[0].bytesperline);
++	if (ret) {
++		mtk_cam_vb2_return_all_buffers(cam, VB2_BUF_STATE_QUEUED);
++		pm_runtime_put_autosuspend(dev);
++		return ret;
++	}
+ 
+ 	/* update first buffer address */
+ 	/* added the buffer into the tracking list */
+@@ -421,12 +431,11 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
+ 	int ret;
+ 
+ 	mutex_lock(&cam->op_lock);
+-	ret = v4l2_subdev_call(&cam->subdev, video, s_stream, 0);
+-	if (ret) {
++	ret = cam->subdev.s_stream_enabled ?
++	      v4l2_subdev_call(&cam->subdev, video, s_stream, 0) : 0;
++	if (ret)
+ 		dev_err(cam->dev, "%s failed to stream off %s: %d\n",
+ 			__func__, cam->subdev.name, ret);
+-		return;
+-	}
+ 
+ 	mtk_cam_vb2_return_all_buffers(cam, VB2_BUF_STATE_ERROR);
+ 	mutex_unlock(&cam->op_lock);
+@@ -440,8 +449,6 @@ static const struct vb2_ops mtk_cam_vb2_ops = {
+ 	.buf_queue = mtk_cam_vb2_buf_queue,
+ 	.start_streaming = mtk_cam_vb2_start_streaming,
+ 	.stop_streaming = mtk_cam_vb2_stop_streaming,
+-	.wait_prepare = vb2_ops_wait_prepare,
+-	.wait_finish = vb2_ops_wait_finish,
+ };
+ 
+ /* -----------------------------------------------------------------------------
+@@ -524,7 +531,9 @@ static int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
+ 	if (!mtk_cam_dev_find_fmt(vdev->desc, pix_mp->pixelformat))
+ 		pix_mp->pixelformat = vdev->desc->fmts[0];
+ 
+-	pix_mp->width = clamp_val(pix_mp->width, IMG_MIN_WIDTH, IMG_MAX_WIDTH);
++	/* The SENINF muxes pass lines in whole groups of 8 pixels. */
++	pix_mp->width = round_down(clamp_val(pix_mp->width, IMG_MIN_WIDTH,
++					     IMG_MAX_WIDTH), 8);
+ 	pix_mp->height = clamp_val(pix_mp->height, IMG_MIN_HEIGHT,
+ 				   IMG_MAX_HEIGHT);
+ 
+@@ -631,14 +640,14 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
+ 
+ static const u32 stream_out_fmts[] = {
+ 	/* The 1st entry is the default image format */
+-	V4L2_PIX_FMT_MTISP_SGRBG12,
+-	V4L2_PIX_FMT_MTISP_SBGGR12,
+-	V4L2_PIX_FMT_MTISP_SGBRG12,
+-	V4L2_PIX_FMT_MTISP_SRGGB12,
+-	V4L2_PIX_FMT_MTISP_SGRBG10,
+-	V4L2_PIX_FMT_MTISP_SBGGR10,
+-	V4L2_PIX_FMT_MTISP_SGBRG10,
+-	V4L2_PIX_FMT_MTISP_SRGGB10,
++	V4L2_PIX_FMT_SGRBG14,
++	V4L2_PIX_FMT_SBGGR14,
++	V4L2_PIX_FMT_SGBRG14,
++	V4L2_PIX_FMT_SRGGB14,
++	V4L2_PIX_FMT_SGRBG12,
++	V4L2_PIX_FMT_SBGGR12,
++	V4L2_PIX_FMT_SGBRG12,
++	V4L2_PIX_FMT_SRGGB12,
+ 	V4L2_PIX_FMT_SBGGR8,
+ 	V4L2_PIX_FMT_SGBRG8,
+ 	V4L2_PIX_FMT_SGRBG8,
+@@ -662,14 +671,14 @@ static const struct mtk_cam_vdev_desc video_stream = {
+ 	.frmsizes =
+ 		&(struct v4l2_frmsizeenum){
+ 			.index = 0,
+-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
++			.type = V4L2_FRMSIZE_TYPE_STEPWISE,
+ 			.stepwise = {
+ 				.max_width = IMG_MAX_WIDTH,
+ 				.min_width = IMG_MIN_WIDTH,
+ 				.max_height = IMG_MAX_HEIGHT,
+ 				.min_height = IMG_MIN_HEIGHT,
+ 				.step_height = 1,
+-				.step_width = 1,
++				.step_width = 8,
+ 			},
+ 		},
+ };
+@@ -695,13 +704,13 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
+ 
+ 	cam->subdev_pads[MTK_CAM_CIO_PAD_VIDEO].flags = MEDIA_PAD_FL_SOURCE;
+ 
+-	/* Initialize media entities */
++	/* Initialize media entities; media_entity_pads_init() checks the flags. */
++	cam_vdev->vdev_pad.flags = MEDIA_PAD_FL_SINK;
+ 	ret = media_entity_pads_init(&vdev->entity, 1, &cam_vdev->vdev_pad);
+ 	if (ret) {
+ 		dev_err(dev, "failed to initialize media pad:%d\n", ret);
+ 		return ret;
+ 	}
+-	cam_vdev->vdev_pad.flags = MEDIA_PAD_FL_SINK;
+ 
+ 	vbq->type = cam_vdev->desc->buf_type;
+ 	vbq->io_modes = VB2_MMAP | VB2_DMABUF;
+@@ -718,7 +727,11 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
+ 			     | V4L2_BUF_FLAG_TSTAMP_SRC_EOF;
+ 
+ 	/* No minimum buffers limitation */
+-	vbq->min_buffers_needed = 0;
++	/*
++	 * Buffers are only taken on PASS1_DON, which needs one programmed before
++	 * the TG starts: hold start_streaming until the first QBUF.
++	 */
++	vbq->min_queued_buffers = 1;
+ 	vbq->drv_priv = cam;
+ 
+ 	vbq->lock = &cam_vdev->vdev_lock;
+@@ -785,5 +798,5 @@ void mtk_isp6s_camsv_video_unregister(struct mtk_cam_video_device *vdev)
+ 	vb2_queue_release(&vdev->vbq);
+ 	media_entity_cleanup(&vdev->vdev.entity);
+ 	mutex_destroy(&vdev->vdev_lock);
+-	vb2_dma_contig_clear_max_seg_size(&vdev->vdev.dev);
++	vb2_dma_contig_clear_max_seg_size(cam->dev);
+ }
+diff --git a/phy/phy-mtk-mipi-csi-2-1.c b/phy/phy-mtk-mipi-csi-2-1.c
+index a0ec9d1..f58ecb5 100644
+--- a/phy/phy-mtk-mipi-csi-2-1.c
++++ b/phy/phy-mtk-mipi-csi-2-1.c
+@@ -16,6 +16,7 @@
+ #include <linux/slab.h>
+ 
+ #include "phy-mtk-io.h"
++#include "phy-mtk-mipi-csi-2-1.h"
+ #include "phy-mtk-mipi-csi-2-1-rx-reg.h"
+ 
+ #define MTK_PHY_CPHY_SETTLE_DELAY_DT 0x10
+@@ -52,46 +53,6 @@
+ 	writel(val, __p); \
+ }
+ 
+-enum CSI_PORT {
+-	CSI_PORT_0 = 0,
+-	CSI_PORT_1,
+-	CSI_PORT_0A,
+-	CSI_PORT_0B,
+-	CSI_PORT_1A,
+-	CSI_PORT_1B,
+-	CSI_PORT_MAX_NUM,
+-};
+-
+-struct mtk_mipi_cdphy_port {
+-	struct device *dev;
+-	void __iomem *base;
+-	struct phy *phy;
+-	u32 type;
+-	u32 mode;
+-	u32 num_lanes;
+-
+-	s64 mipi_pixel_rate;
+-	s64 buffered_pixel_rate;
+-	s64 customized_pixel_rate;
+-
+-	u32 port;
+-	u32 port_a;
+-	u32 port_b;
+-	u32 port_num;
+-	u32 is_4d1c:1;
+-	u32 is_cphy:1;
+-	u32 m_csi_efuse;
+-
+-	void __iomem *reg_ana_csi_rx[CSI_PORT_MAX_NUM];
+-	void __iomem *reg_ana_dphy_top[CSI_PORT_MAX_NUM];
+-	void __iomem *reg_ana_cphy_top[CSI_PORT_MAX_NUM];
+-
+-	u32 cphy_settle_delay_dt;
+-	u32 dphy_settle_delay_dt;
+-	u32 settle_delay_ck;
+-	u32 hs_trail_parameter;
+-};
+-
+ enum PHY_TYPE {
+ 	DPHY = 0,
+ 	CPHY,
+@@ -729,7 +690,7 @@ static int mtk_mipi_phy_power_off(struct phy *phy)
+ }
+ 
+ static struct phy *mtk_mipi_cdphy_xlate(struct device *dev,
+-					struct of_phandle_args *args)
++					const struct of_phandle_args *args)
+ {
+ 	struct mtk_mipi_cdphy_port *priv = dev_get_drvdata(dev);
+ 
+@@ -807,12 +768,12 @@ static int get_csi_port(struct device *dev, int *port)
+ 	return -1;
+ }
+ 
+-int mtk_mipi_init_port(struct mtk_mipi_cdphy_port *port_ctx, int port)
++static int mtk_mipi_init_port(struct mtk_mipi_cdphy_port *port_ctx, int port)
+ {
+ 	u32 port_num;
+ 
+ 	if (port >= CSI_PORT_0A)
+-		port_num = (port - CSI_PORT_0) >> 1;
++		port_num = (port - CSI_PORT_0A) >> 1;
+ 	else
+ 		port_num = port;
+ 
+@@ -942,6 +903,7 @@ static int mtk_mipi_cdphy_probe(struct platform_device *pdev)
+ }
+ 
+ static const struct of_device_id mtk_mipi_cdphy_of_match[] = {
++	{ .compatible = "mediatek,mt6789-csi-rx" },
+ 	{ .compatible = "mediatek,mt8189-csi-rx" },
+ 	{ /* sentinel */},
+ };
+diff --git a/phy/phy-mtk-mipi-csi-2-1.h b/phy/phy-mtk-mipi-csi-2-1.h
+new file mode 100644
+index 0000000..ef67713
+--- /dev/null
++++ b/phy/phy-mtk-mipi-csi-2-1.h
+@@ -0,0 +1,55 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ */
++
++#ifndef __PHY_MTK_MIPI_CSI_2_1_H__
++#define __PHY_MTK_MIPI_CSI_2_1_H__
++
++#include <linux/types.h>
++
++struct device;
++struct phy;
++
++enum CSI_PORT {
++	CSI_PORT_0 = 0,
++	CSI_PORT_1,
++	CSI_PORT_0A,
++	CSI_PORT_0B,
++	CSI_PORT_1A,
++	CSI_PORT_1B,
++	CSI_PORT_MAX_NUM,
++};
++
++/* phy_get_drvdata() of a phy-mtk-mipi-csi-2-1 PHY, read by the seninf driver */
++struct mtk_mipi_cdphy_port {
++	struct device *dev;
++	void __iomem *base;
++	struct phy *phy;
++	u32 type;
++	u32 mode;
++	u32 num_lanes;
++
++	s64 mipi_pixel_rate;
++	s64 buffered_pixel_rate;
++	s64 customized_pixel_rate;
++
++	u32 port;
++	u32 port_a;
++	u32 port_b;
++	u32 port_num;
++	u32 is_4d1c:1;
++	u32 is_cphy:1;
++	u32 m_csi_efuse;
++
++	void __iomem *reg_ana_csi_rx[CSI_PORT_MAX_NUM];
++	void __iomem *reg_ana_dphy_top[CSI_PORT_MAX_NUM];
++	void __iomem *reg_ana_cphy_top[CSI_PORT_MAX_NUM];
++
++	u32 cphy_settle_delay_dt;
++	u32 dphy_settle_delay_dt;
++	u32 settle_delay_ck;
++	u32 hs_trail_parameter;
++};
++
++#endif
+diff --git a/seninf/mtk_seninf.c b/seninf/mtk_seninf.c
+index d696d87..db60689 100644
+--- a/seninf/mtk_seninf.c
++++ b/seninf/mtk_seninf.c
+@@ -12,11 +12,14 @@
+ #include <linux/clk.h>
+ #include <linux/of_graph.h>
+ #include <linux/of_irq.h>
++#include <linux/of.h>
+ #include <linux/of_device.h>
++#include <linux/of_platform.h>
+ #include <linux/component.h>
+ #include <linux/pm_opp.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/nvmem-consumer.h>
++#include <linux/property.h>
+ #include <linux/string.h>
+ 
+ #include <linux/ioport.h>
+@@ -69,6 +72,10 @@ static const struct mtk_seninf_plat_data mt8189_data = {
+ 	.seninf_ops = &mtk_csi_phy_2_1,
+ };
+ 
++static const struct mtk_seninf_plat_data mt6789_data = {
++	.seninf_ops = &mtk_csi_phy_mt6789,
++};
++
+ static ssize_t status_show(struct device *dev,
+ 			   struct device_attribute *attr, char *buf)
+ {
+@@ -182,7 +189,7 @@ ERR_DEBUG_OPS_STORE:
+ 
+ static DEVICE_ATTR_RW(debug_ops);
+ 
+-static int seninf_dfs_exit(struct seninf_dfs *dfs)
++static int __maybe_unused seninf_dfs_exit(struct seninf_dfs *dfs)
+ {
+ 	if (!dfs->cnt)
+ 		return 0;
+@@ -660,7 +667,7 @@ REGISTER_SUB_DRIVERS_ERR:
+ 	return ret;
+ }
+ 
+-static int seninf_core_remove(struct platform_device *pdev)
++static void seninf_core_remove(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 	struct seninf_core *core = dev_get_drvdata(dev);
+@@ -676,8 +683,6 @@ static int seninf_core_remove(struct platform_device *pdev)
+ 	platform_driver_unregister(&seninf_pdrv);
+ 
+ 	dev_dbg(dev, "camsys | start %s\n", __func__);
+-
+-	return 0;
+ }
+ 
+ static int get_csi_port(struct device *dev, int *port)
+@@ -780,7 +785,6 @@ static int __seninf_set_routing(struct v4l2_subdev *sd,
+ 				struct v4l2_subdev_krouting *routing)
+ {
+ 	int ret;
+-	struct seninf_ctx *ctx = sd_to_ctx(sd);
+ 
+ 	ret = v4l2_subdev_routing_validate(sd, routing, V4L2_SUBDEV_ROUTING_NO_SOURCE_STREAM_MIX);
+ 	if (ret)
+@@ -793,10 +797,10 @@ static int __seninf_set_routing(struct v4l2_subdev *sd,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_link_validate(struct v4l2_subdev *sd,
+-			  struct media_link *link,
+-			  struct v4l2_subdev_format *source_fmt,
+-			  struct v4l2_subdev_format *sink_fmt)
++static int mtk_seninf_link_validate(struct v4l2_subdev *sd,
++				    struct media_link *link,
++				    struct v4l2_subdev_format *source_fmt,
++				    struct v4l2_subdev_format *sink_fmt)
+ {
+ 	int ret = 0;
+ 
+@@ -895,8 +899,8 @@ static int mtk_seninf_set_fmt(struct v4l2_subdev *sd,
+ 	format = &ctx->fmt[fmt->pad].format;
+ 
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+-		stream_format = v4l2_subdev_state_get_stream_format(sd_state,
+-								    fmt->pad, fmt->stream);
++		stream_format = v4l2_subdev_state_get_format(sd_state,
++							     fmt->pad, fmt->stream);
+ 		if (!stream_format) {
+ 			dev_warn(ctx->dev, "Cannot find stream format for pad %d", fmt->pad);
+ 			return -EINVAL;
+@@ -984,8 +988,8 @@ static int mtk_seninf_get_fmt(struct v4l2_subdev *sd,
+ 	format = &ctx->fmt[fmt->pad].format;
+ 
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+-		stream_format = v4l2_subdev_state_get_stream_format(sd_state,
+-								    fmt->pad, fmt->stream);
++		stream_format = v4l2_subdev_state_get_format(sd_state,
++							     fmt->pad, fmt->stream);
+ 		if (!stream_format) {
+ 			dev_warn(ctx->dev, "Cannot find stream format for pad %d", fmt->pad);
+ 			return -EINVAL;
+@@ -1035,15 +1039,23 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
+ 
+ 		if (ctx->core->clk[CLK_TOP_CAMTM])
+ 			ret = clk_prepare_enable(ctx->core->clk[CLK_TOP_CAMTM]);
+-		if (ret)
++		if (ret) {
++			pm_runtime_put_sync(ctx->dev);
+ 			return ret;
++		}
+ 
+ 		for (i = 0; i < vc_used; ++i) {
+ 			mux = mtk_seninf_mux_get_pref(ctx,
+ 							  pref_idx,
+ 							  ARRAY_SIZE(pref_idx));
+-			if (!mux)
++			if (!mux) {
++				g_seninf_ops->_set_idle(ctx);
++				mtk_seninf_release_mux(ctx);
++				if (ctx->core->clk[CLK_TOP_CAMTM])
++					clk_disable_unprepare(ctx->core->clk[CLK_TOP_CAMTM]);
++				pm_runtime_put_sync(ctx->dev);
+ 				return -EBUSY;
++			}
+ 			vc[i]->mux = mux->idx;
+ 			vc[i]->cam = ctx->pad2cam[vc[i]->out_pad];
+ 			vc[i]->enable = 1;
+@@ -1224,7 +1236,8 @@ static int get_buffered_pixel_rate(struct seninf_ctx *ctx,
+ 
+ 	memset(&fi, 0, sizeof(fi));
+ 	fi.pad = sd_pad_idx;
+-	ret = v4l2_subdev_call(sd, video, g_frame_interval, &fi);
++	fi.which = V4L2_SUBDEV_FORMAT_ACTIVE;
++	ret = v4l2_subdev_call_state_active(sd, pad, get_frame_interval, &fi);
+ 	if (ret) {
+ 		dev_info(ctx->dev, "no g_frame_interval in %s\n", sd->name);
+ 		return ret;
+@@ -1425,6 +1438,9 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
+ 		return -EFAULT;
+ 	}
+ 
++	if (IS_ERR(ctx->phy))
++		return PTR_ERR(ctx->phy);
++
+ 	if (enable) {
+ 		debug_err_detect_initialize(ctx);
+ 
+@@ -1467,11 +1483,12 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
+ 		port_ctx->mipi_pixel_rate = ctx->mipi_pixel_rate;
+ 		port_ctx->buffered_pixel_rate = ctx->buffered_pixel_rate;
+ 
+-		if (port_ctx->num_data_lanes != ctx->num_data_lanes) {
++		if (port_ctx->num_lanes != ctx->num_data_lanes) {
+ 			dev_err(ctx->dev, "phy rx lane numbers(%d) mismatch phy tx lane numbers(%d)\n",
+-				port_ctx->num_data_lanes,
++				port_ctx->num_lanes,
+ 				ctx->num_data_lanes);
+-			return ret;
++			pm_runtime_put_sync(ctx->dev);
++			return -EINVAL;
+ 		}
+ 
+ 		phy_power_on(ctx->phy);
+@@ -1479,6 +1496,9 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
+ 		ret = config_hw(ctx);
+ 		if (ret) {
+ 			dev_info(ctx->dev, "config_seninf_hw ret %d\n", ret);
++			phy_power_off(ctx->phy);
++			g_seninf_ops->_poweroff(ctx);
++			pm_runtime_put_sync(ctx->dev);
+ 			return ret;
+ 		}
+ 
+@@ -1530,7 +1550,6 @@ static int seninf_disable_streams(struct v4l2_subdev *sd,
+ 
+ static const struct v4l2_subdev_pad_ops seninf_subdev_pad_ops = {
+ 	.link_validate = mtk_seninf_link_validate,
+-	.init_cfg = mtk_seninf_init_cfg,
+ 	.set_fmt = mtk_seninf_set_fmt,
+ 	.get_fmt = mtk_seninf_get_fmt,
+ 	.set_routing = seninf_set_routing,
+@@ -1605,7 +1624,9 @@ static int seninf_link_setup(struct media_entity *entity,
+ 			 * seninf_cam_mux6 => camsv6
+ 			 * seninf_cam_mux7 => camsv7
+ 			 */
+-			camtg = get_engine_id(ctx, ctx->engine_sd->entity.name);
++			if (device_property_read_u32(ctx->engine_sd->dev,
++						     "mediatek,cammux-id", &camtg))
++				camtg = get_engine_id(ctx, ctx->engine_sd->entity.name);
+ 			if (camtg == 255) {
+ 				dev_err(ctx->dev, "%s get_engine_id failed\n", __func__);
+ 				return -EINVAL;
+@@ -1769,7 +1790,7 @@ static int seninf_test_pattern(struct seninf_ctx *ctx, u32 pattern)
+ 	case 3: // development
+ 		if (ctx->streaming)
+ 			return -EBUSY;
+-		ctx->is_test_model = pattern;
++		ctx->is_test_model = 1;
+ 		mtk_seninf_get_vcinfo_test(ctx);
+ 		dev_info(ctx->dev, "test pattern on\n");
+ 		break;
+@@ -1839,6 +1860,7 @@ static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ }
+ 
+ static const struct v4l2_subdev_internal_ops seninf_internal_ops = {
++	.init_state = mtk_seninf_init_cfg,
+ 	.open = seninf_open,
+ 	.close = seninf_close,
+ };
+@@ -1847,6 +1869,7 @@ static const char *const seninf_test_pattern_menu[] = {
+ 	"test pattern off",
+ 	"seninf test stream on",
+ 	"seninf test stream off",
++	"test model",
+ };
+ 
+ static int seninf_initialize_controls(struct seninf_ctx *ctx)
+@@ -1943,7 +1966,7 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
+ 
+ 	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
+ 	sd->entity.ops = &seninf_media_ops;
+-	// sd->internal_ops = &seninf_internal_ops;
++	sd->internal_ops = &seninf_internal_ops;
+ 
+ 	pads[PAD_SINK].flags = MEDIA_PAD_FL_SINK;
+ 	for (i = PAD_SRC_GENERAL0; i < PAD_MAXCNT; i++)
+@@ -2159,6 +2182,8 @@ static int seninf_pm_resume(struct device *dev)
+ 		ret = seninf_core_pm_runtime_get_sync(core);
+ 		if (ret < 0) {
+ 			dev_err(dev, "seninf_core_pm_runtime_get_sync failed\n");
++			core->refcnt--;
++			mutex_unlock(&core->mutex);
+ 			return ret;
+ 		}
+ 
+@@ -2184,7 +2209,7 @@ static const struct dev_pm_ops pm_ops = {
+ 				pm_runtime_force_resume)
+ };
+ 
+-static int seninf_remove(struct platform_device *pdev)
++static void seninf_remove(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 	struct seninf_ctx *ctx = dev_get_drvdata(dev);
+@@ -2203,11 +2228,10 @@ static int seninf_remove(struct platform_device *pdev)
+ 	mutex_destroy(&ctx->mutex);
+ 
+ 	dev_dbg(dev, "camsys | start %s\n", __func__);
+-
+-	return 0;
+ }
+ 
+ static const struct of_device_id seninf_of_match[] = {
++	{ .compatible = "mediatek,mt6789-seninf" },
+ 	{ .compatible = "mediatek,mt8189-seninf" },
+ 	{},
+ };
+@@ -2236,6 +2260,7 @@ struct platform_driver seninf_pdrv = {
+ };
+ 
+ static const struct of_device_id mtk_seninf_of_match[] = {
++	{ .compatible = "mediatek,mt6789-seninf-core", .data = &mt6789_data },
+ 	{ .compatible = "mediatek,mt8189-seninf-core", .data = &mt8189_data },
+ 	{ /* sentinel */ },
+ };
+diff --git a/seninf/mtk_seninf.h b/seninf/mtk_seninf.h
+index 2d20ff0..f04fc2e 100644
+--- a/seninf/mtk_seninf.h
++++ b/seninf/mtk_seninf.h
+@@ -15,6 +15,8 @@
+ #include <linux/kernel.h>
+ #include <linux/phy/phy.h>
+ 
++#include "../phy/phy-mtk-mipi-csi-2-1.h"
++
+ #define MEDIA_DRVNAME "mtk-seninf"
+ 
+ #define SENINF_DEBUG
+@@ -90,16 +92,6 @@ enum {
+ 	PAD_ERR = 0xffff,
+ };
+ 
+-enum CSI_PORT {
+-	CSI_PORT_0 = 0,
+-	CSI_PORT_1,
+-	CSI_PORT_0A,
+-	CSI_PORT_0B,
+-	CSI_PORT_1A,
+-	CSI_PORT_1B,
+-	CSI_PORT_MAX_NUM,
+-};
+-
+ #define SENINF_CSI_PORT_NAMES \
+ 	"0", \
+ 	"1", \
+@@ -132,6 +124,10 @@ enum SENINF_ENUM {
+ 	SENINF_2,
+ 	SENINF_3,
+ 	SENINF_4,
++	SENINF_5,
++	SENINF_6,
++	SENINF_7,
++	SENINF_8,
+ 	SENINF_NUM,
+ };
+ 
+@@ -158,6 +154,11 @@ enum SENINF_CAM_MUX_ENUM {
+ 	SENINF_CAM_MUX5,
+ 	SENINF_CAM_MUX6,
+ 	SENINF_CAM_MUX7,
++	SENINF_CAM_MUX8,
++	SENINF_CAM_MUX9,
++	SENINF_CAM_MUX10,
++	SENINF_CAM_MUX11,
++	SENINF_CAM_MUX12,
+ 	SENINF_CAM_MUX_NUM,
+ 
+ 	SENINF_CAM_MUX_ERR = 0xff
+@@ -196,6 +197,9 @@ enum {
+ 	CLK_TOP_UNIVP_192M_D16,
+ 	CLK_TOP_UNIVP_192M_D32,
+ 	CLK_TOP_CAMTM,
++	CLK_TOP_MUX_SENINF2,
++	CLK_TOP_MUX_SENINF3,
++	CLK_TOP_MUX_CAMTG3,
+ 	CLK_MAXCNT,
+ };
+ 
+@@ -214,6 +218,9 @@ enum {
+ 	"TOP_UNIVP_192M_D16", \
+ 	"TOP_UNIVP_192M_D32", \
+ 	"TOP_CAMTM", \
++	"TOP_MUX_SENINF2", \
++	"TOP_MUX_SENINF3", \
++	"TOP_MUX_CAMTG3", \
+ 
+ struct seninf_mux {
+ 	struct list_head list;
+@@ -428,35 +435,4 @@ struct seninf_ctx {
+ 	struct mutex streaming_protect;
+ };
+ 
+-/* defined in phy-mtk-mipi-csi-2-1.c */
+-struct mtk_mipi_cdphy_port {
+-	struct device *dev;
+-	void __iomem *base;
+-	struct phy *phy;
+-	u32 type;
+-	u32 mode;
+-	u32 num_data_lanes;
+-
+-	s64 mipi_pixel_rate;
+-	s64 buffered_pixel_rate;
+-	s64 customized_pixel_rate;
+-
+-	u32 port;
+-	u32 port_a;
+-	u32 port_b;
+-	u32 port_num;
+-	u32 is_4d1c:1;
+-	u32 is_cphy:1;
+-	u32 m_csi_efuse;
+-
+-	void __iomem *reg_ana_csi_rx[CSI_PORT_MAX_NUM];
+-	void __iomem *reg_ana_dphy_top[CSI_PORT_MAX_NUM];
+-	void __iomem *reg_ana_cphy_top[CSI_PORT_MAX_NUM];
+-
+-	u32 cphy_settle_delay_dt;
+-	u32 dphy_settle_delay_dt;
+-	u32 settle_delay_ck;
+-	u32 hs_trail_parameter;
+-};
+-
+ #endif
+diff --git a/seninf/mtk_seninf_ops.c b/seninf/mtk_seninf_ops.c
+index 6665061..61aa749 100644
+--- a/seninf/mtk_seninf_ops.c
++++ b/seninf/mtk_seninf_ops.c
+@@ -8,7 +8,6 @@
+ 
+ #include <linux/list.h>
+ #include <linux/of.h>
+-#include <linux/rpmsg.h>
+ #include <media/media-device.h>
+ #include <media/media-request.h>
+ #include <media/v4l2-async.h>
+@@ -22,7 +21,8 @@
+ #include "mtk_seninf_cammux.h"
+ #include "mtk_seninf_route.h"
+ 
+-static struct mtk_seninf_ops *_seninf_ops = &mtk_csi_phy_2_1;
++/* the SoC's ops, chosen from the seninf-core match data at probe */
++#define _seninf_ops g_seninf_ops
+ 
+ static inline void mtk_seninf_set_di_ch_ctrl(void __iomem *pseninf,
+ 						 unsigned int stream_id,
+@@ -78,7 +78,7 @@ static inline void mtk_seninf_set_di_ch_ctrl(void __iomem *pseninf,
+ 	}
+ }
+ 
+-int mtk_seninf_init_iomem(struct seninf_ctx *ctx, void __iomem *if_base)
++static int mtk_seninf_init_iomem(struct seninf_ctx *ctx, void __iomem *if_base)
+ {
+ 	u32 i;
+ 
+@@ -86,7 +86,7 @@ int mtk_seninf_init_iomem(struct seninf_ctx *ctx, void __iomem *if_base)
+ 
+ 	for (i = SENINF_1; i < _seninf_ops->seninf_num; i++) {
+ 		ctx->reg_if_ctrl[i] = if_base + 0x0200 + (0x1000 * i);
+-		ctx->reg_if_tg[i] = if_base + 0x0F00 + (0x1000 * i);
++		ctx->reg_if_tg[i] = if_base + _seninf_ops->tg_offset + (0x1000 * i);
+ 		ctx->reg_if_csi2[i] = if_base + 0x0a00 + (0x1000 * i);
+ 	}
+ 
+@@ -98,12 +98,12 @@ int mtk_seninf_init_iomem(struct seninf_ctx *ctx, void __iomem *if_base)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_init_port(struct seninf_ctx *ctx, int port)
++static int mtk_seninf_init_port(struct seninf_ctx *ctx, int port)
+ {
+ 	u32 port_num;
+ 
+ 	if (port >= CSI_PORT_0A)
+-		port_num = (port - CSI_PORT_0) >> 1;
++		port_num = (port - CSI_PORT_0A) >> 1;
+ 	else
+ 		port_num = port;
+ 
+@@ -140,7 +140,18 @@ int mtk_seninf_init_port(struct seninf_ctx *ctx, int port)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_is_cammux_used(struct seninf_ctx *ctx, int cam_mux)
++/* CAM_MUX_CTRL_n and CAM_MUX_NEXT_CTRL_n: four 4-bit source selectors per word */
++static void __iomem *cammux_sel_reg(struct seninf_ctx *ctx, u32 reg0, int cam_mux)
++{
++	return ctx->reg_if_cam_mux + reg0 + 4 * (cam_mux / 4);
++}
++
++static u32 cammux_sel_shift(int cam_mux)
++{
++	return 8 * (cam_mux % 4);
++}
++
++static int mtk_seninf_is_cammux_used(struct seninf_ctx *ctx, int cam_mux)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 	u32 temp = SENINF_READ_REG(seninf_cam_mux, SENINF_CAM_MUX_EN);
+@@ -156,7 +167,7 @@ int mtk_seninf_is_cammux_used(struct seninf_ctx *ctx, int cam_mux)
+ 	return !!(temp & (1 << cam_mux));
+ }
+ 
+-int mtk_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
++static int mtk_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 	u32 temp;
+@@ -184,7 +195,7 @@ int mtk_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
++static int mtk_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
+ {
+ 	void __iomem *base = ctx->reg_if_cam_mux;
+ 	u32 temp;
+@@ -212,7 +223,7 @@ int mtk_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_disable_all_cammux(struct seninf_ctx *ctx)
++static int mtk_seninf_disable_all_cammux(struct seninf_ctx *ctx)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 
+@@ -224,8 +235,8 @@ int mtk_seninf_disable_all_cammux(struct seninf_ctx *ctx)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx, int mux_idx,
+-				    int seninf_src)
++static int mtk_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx, int mux_idx,
++				       int seninf_src)
+ {
+ 	void __iomem *seninf = ctx->reg_if_top;
+ 
+@@ -270,7 +281,7 @@ int mtk_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx, int mux_idx,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_get_top_mux_ctrl(struct seninf_ctx *ctx, int mux_idx)
++static int mtk_seninf_get_top_mux_ctrl(struct seninf_ctx *ctx, int mux_idx)
+ {
+ 	void __iomem *seninf = ctx->reg_if_top;
+ 	u32 seninf_src = 0;
+@@ -316,9 +327,8 @@ int mtk_seninf_get_top_mux_ctrl(struct seninf_ctx *ctx, int mux_idx)
+ 	return seninf_src;
+ }
+ 
+-int mtk_seninf_get_cammux_ctrl(struct seninf_ctx *ctx, int cam_mux)
++static int mtk_seninf_get_cammux_ctrl(struct seninf_ctx *ctx, int cam_mux)
+ {
+-	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 	u32 seninf_mux_src = 0;
+ 
+ 	if (cam_mux >= _seninf_ops->cam_mux_num) {
+@@ -329,56 +339,13 @@ int mtk_seninf_get_cammux_ctrl(struct seninf_ctx *ctx, int cam_mux)
+ 		return 0;
+ 	}
+ 
+-	switch (cam_mux) {
+-	case SENINF_CAM_MUX0:
+-		seninf_mux_src = SENINF_READ_BITS(seninf_cam_mux,
+-						  SENINF_CAM_MUX_CTRL_0,
+-						  RG_SENINF_CAM_MUX0_SRC_SEL);
+-		break;
+-	case SENINF_CAM_MUX1:
+-		seninf_mux_src = SENINF_READ_BITS(seninf_cam_mux,
+-						  SENINF_CAM_MUX_CTRL_0,
+-						  RG_SENINF_CAM_MUX1_SRC_SEL);
+-		break;
+-	case SENINF_CAM_MUX2:
+-		seninf_mux_src = SENINF_READ_BITS(seninf_cam_mux,
+-						  SENINF_CAM_MUX_CTRL_0,
+-						  RG_SENINF_CAM_MUX2_SRC_SEL);
+-		break;
+-	case SENINF_CAM_MUX3:
+-		seninf_mux_src = SENINF_READ_BITS(seninf_cam_mux,
+-						  SENINF_CAM_MUX_CTRL_0,
+-						  RG_SENINF_CAM_MUX3_SRC_SEL);
+-		break;
+-	case SENINF_CAM_MUX4:
+-		seninf_mux_src = SENINF_READ_BITS(seninf_cam_mux,
+-						  SENINF_CAM_MUX_CTRL_1,
+-						  RG_SENINF_CAM_MUX4_SRC_SEL);
+-		break;
+-	case SENINF_CAM_MUX5:
+-		seninf_mux_src = SENINF_READ_BITS(seninf_cam_mux,
+-						  SENINF_CAM_MUX_CTRL_1,
+-						  RG_SENINF_CAM_MUX5_SRC_SEL);
+-		break;
+-	case SENINF_CAM_MUX6:
+-		seninf_mux_src = SENINF_READ_BITS(seninf_cam_mux,
+-						  SENINF_CAM_MUX_CTRL_1,
+-						  RG_SENINF_CAM_MUX6_SRC_SEL);
+-		break;
+-	case SENINF_CAM_MUX7:
+-		seninf_mux_src = SENINF_READ_BITS(seninf_cam_mux,
+-						  SENINF_CAM_MUX_CTRL_1,
+-						  RG_SENINF_CAM_MUX7_SRC_SEL);
+-		break;
+-	default:
+-		dev_dbg(ctx->dev, "invalid cam_mux %d", cam_mux);
+-		return -EINVAL;
+-	}
++	seninf_mux_src = (readl(cammux_sel_reg(ctx, SENINF_CAM_MUX_CTRL_0, cam_mux)) >>
++			  cammux_sel_shift(cam_mux)) & 0xf;
+ 
+ 	return seninf_mux_src;
+ }
+ 
+-u32 mtk_seninf_get_cammux_res(struct seninf_ctx *ctx, int cam_mux)
++static u32 mtk_seninf_get_cammux_res(struct seninf_ctx *ctx, int cam_mux)
+ {
+ 	if (cam_mux >= _seninf_ops->cam_mux_num) {
+ 		dev_dbg(ctx->dev,
+@@ -406,9 +373,9 @@ static u32 mtk_seninf_get_cammux_exp(struct seninf_ctx *ctx, int cam_mux)
+ 			       SENINF_CAM_MUX0_CHK_CTL_1 + (0x10 * cam_mux));
+ }
+ 
+-int mtk_seninf_set_cammux_vc(struct seninf_ctx *ctx, int cam_mux,
+-				 int vc_sel, int dt_sel, int vc_en,
+-				 int dt_en)
++static int mtk_seninf_set_cammux_vc(struct seninf_ctx *ctx, int cam_mux,
++				    int vc_sel, int dt_sel, int vc_en,
++				    int dt_en)
+ {
+ 	void __iomem *seninf_cam_mux_vc_addr = ctx->reg_if_cam_mux + (4 * cam_mux);
+ 
+@@ -432,8 +399,8 @@ int mtk_seninf_set_cammux_vc(struct seninf_ctx *ctx, int cam_mux,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_switch_to_cammux_inner_page(struct seninf_ctx *ctx,
+-					       bool inner)
++static int mtk_seninf_switch_to_cammux_inner_page(struct seninf_ctx *ctx,
++						  bool inner)
+ {
+ 	void __iomem *seninf_cam_mux_addr = ctx->reg_if_cam_mux;
+ 
+@@ -443,10 +410,11 @@ int mtk_seninf_switch_to_cammux_inner_page(struct seninf_ctx *ctx,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src,
+-					int target)
++static int mtk_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src,
++					   int target)
+ {
+-	void __iomem *seninf_cam_mux_base = ctx->reg_if_cam_mux;
++	void __iomem *p;
++	u32 shift;
+ 
+ 	if (target >= _seninf_ops->cam_mux_num) {
+ 		dev_dbg(ctx->dev,
+@@ -456,51 +424,19 @@ int mtk_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src,
+ 		return 0;
+ 	}
+ 
+-	switch (target) {
+-	case SENINF_CAM_MUX0:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_NEXT_CTRL_0,
+-			    CAM_MUX0_NEXT_SRC_SEL, src);
+-		break;
+-	case SENINF_CAM_MUX1:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_NEXT_CTRL_0,
+-			    CAM_MUX1_NEXT_SRC_SEL, src);
+-		break;
+-	case SENINF_CAM_MUX2:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_NEXT_CTRL_0,
+-			    CAM_MUX2_NEXT_SRC_SEL, src);
+-		break;
+-	case SENINF_CAM_MUX3:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_NEXT_CTRL_0,
+-			    CAM_MUX3_NEXT_SRC_SEL, src);
+-		break;
+-	case SENINF_CAM_MUX4:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_NEXT_CTRL_1,
+-			    CAM_MUX4_NEXT_SRC_SEL, src);
+-		break;
+-	case SENINF_CAM_MUX5:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_NEXT_CTRL_1,
+-			    CAM_MUX5_NEXT_SRC_SEL, src);
+-		break;
+-	case SENINF_CAM_MUX6:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_NEXT_CTRL_1,
+-			    CAM_MUX6_NEXT_SRC_SEL, src);
+-		break;
+-	case SENINF_CAM_MUX7:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_NEXT_CTRL_1,
+-			    CAM_MUX7_NEXT_SRC_SEL, src);
+-		break;
+-	default:
+-		dev_dbg(ctx->dev, "invalid src %d target %d", src, target);
+-		return -EINVAL;
+-	}
++	p = cammux_sel_reg(ctx, SENINF_CAM_MUX_NEXT_CTRL_0, target);
++	shift = cammux_sel_shift(target);
++	writel((readl(p) & ~(0xf << shift)) | ((src & 0xf) << shift), p);
+ 
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_cammux_src(struct seninf_ctx *ctx, int src,
+-				  int target, int exp_hsize, int exp_vsize)
++static int mtk_seninf_set_cammux_src(struct seninf_ctx *ctx, int src,
++				     int target, int exp_hsize, int exp_vsize)
+ {
+ 	void __iomem *seninf_cam_mux_base = ctx->reg_if_cam_mux;
++	void __iomem *p, *chk;
++	u32 shift;
+ 
+ 	if (target >= _seninf_ops->cam_mux_num) {
+ 		dev_dbg(ctx->dev,
+@@ -510,81 +446,21 @@ int mtk_seninf_set_cammux_src(struct seninf_ctx *ctx, int src,
+ 		return 0;
+ 	}
+ 
+-	switch (target) {
+-	case SENINF_CAM_MUX0:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_CTRL_0,
+-			    RG_SENINF_CAM_MUX0_SRC_SEL, src);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX0_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX0_EXP_HSIZE, exp_hsize);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX0_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX0_EXP_VSIZE, exp_vsize);
+-		break;
+-	case SENINF_CAM_MUX1:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_CTRL_0,
+-			    RG_SENINF_CAM_MUX1_SRC_SEL, src);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX1_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX1_EXP_HSIZE, exp_hsize);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX1_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX1_EXP_VSIZE, exp_vsize);
+-		break;
+-	case SENINF_CAM_MUX2:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_CTRL_0,
+-			    RG_SENINF_CAM_MUX2_SRC_SEL, src);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX2_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX2_EXP_HSIZE, exp_hsize);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX2_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX2_EXP_VSIZE, exp_vsize);
+-		break;
+-	case SENINF_CAM_MUX3:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_CTRL_0,
+-			    RG_SENINF_CAM_MUX3_SRC_SEL, src);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX3_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX3_EXP_HSIZE, exp_hsize);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX3_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX3_EXP_VSIZE, exp_vsize);
+-		break;
+-	case SENINF_CAM_MUX4:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_CTRL_1,
+-			    RG_SENINF_CAM_MUX4_SRC_SEL, src);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX4_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX4_EXP_HSIZE, exp_hsize);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX4_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX4_EXP_VSIZE, exp_vsize);
+-		break;
+-	case SENINF_CAM_MUX5:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_CTRL_1,
+-			    RG_SENINF_CAM_MUX5_SRC_SEL, src);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX5_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX5_EXP_HSIZE, exp_hsize);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX5_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX5_EXP_VSIZE, exp_vsize);
+-		break;
+-	case SENINF_CAM_MUX6:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_CTRL_1,
+-			    RG_SENINF_CAM_MUX6_SRC_SEL, src);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX6_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX6_EXP_HSIZE, exp_hsize);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX6_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX6_EXP_VSIZE, exp_vsize);
+-		break;
+-	case SENINF_CAM_MUX7:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX_CTRL_1,
+-			    RG_SENINF_CAM_MUX7_SRC_SEL, src);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX7_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX7_EXP_HSIZE, exp_hsize);
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX7_CHK_CTL_1,
+-			    RG_SENINF_CAM_MUX7_EXP_VSIZE, exp_vsize);
+-		break;
+-	default:
+-		dev_dbg(ctx->dev, "invalid src %d target %d", src, target);
+-		return -EINVAL;
+-	}
++	p = cammux_sel_reg(ctx, SENINF_CAM_MUX_CTRL_0, target);
++	shift = cammux_sel_shift(target);
++	writel((readl(p) & ~(0xf << shift)) | ((src & 0xf) << shift), p);
++
++	chk = seninf_cam_mux_base + 0x10 * target;
++	SENINF_BITS(chk, SENINF_CAM_MUX0_CHK_CTL_1,
++		    RG_SENINF_CAM_MUX0_EXP_HSIZE, exp_hsize);
++	SENINF_BITS(chk, SENINF_CAM_MUX0_CHK_CTL_1,
++		    RG_SENINF_CAM_MUX0_EXP_VSIZE, exp_vsize);
+ 
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_vc(struct seninf_ctx *ctx, u32 seninf_idx,
+-			  struct seninf_vcinfo *vcinfo)
++static int mtk_seninf_set_vc(struct seninf_ctx *ctx, u32 seninf_idx,
++			     struct seninf_vcinfo *vcinfo)
+ {
+ 	void __iomem *seninf_csi2 = ctx->reg_if_csi2[seninf_idx];
+ 	int i;
+@@ -638,8 +514,8 @@ int mtk_seninf_set_vc(struct seninf_ctx *ctx, u32 seninf_idx,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_mux_ctrl(struct seninf_ctx *ctx, u32 mux, int hs_pol,
+-				int vs_pol, int src_sel, int pixel_mode)
++static int mtk_seninf_set_mux_ctrl(struct seninf_ctx *ctx, u32 mux, int hs_pol,
++				   int vs_pol, int src_sel, int pixel_mode)
+ {
+ 	u32 temp = 0;
+ 	void __iomem *seninf_mux;
+@@ -666,8 +542,8 @@ int mtk_seninf_set_mux_ctrl(struct seninf_ctx *ctx, u32 mux, int hs_pol,
+ 	return 0;
+ }
+ 
+-int mtk_cam_seninf_set_mux_exp(struct seninf_ctx *ctx, u32 mux,
+-				int exp_hsize, int exp_vsize)
++static int mtk_cam_seninf_set_mux_exp(struct seninf_ctx *ctx, u32 mux,
++				      int exp_hsize, int exp_vsize)
+ {
+ 	void __iomem *seninf_mux;
+ 
+@@ -681,8 +557,8 @@ int mtk_cam_seninf_set_mux_exp(struct seninf_ctx *ctx, u32 mux,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_update_mux_pixel_mode(struct seninf_ctx *ctx, u32 mux,
+-					 int pixel_mode)
++static int mtk_seninf_update_mux_pixel_mode(struct seninf_ctx *ctx, u32 mux,
++					    int pixel_mode)
+ {
+ 	u32 temp = 0;
+ 	void __iomem *seninf_mux;
+@@ -705,8 +581,8 @@ int mtk_seninf_update_mux_pixel_mode(struct seninf_ctx *ctx, u32 mux,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_mux_crop(struct seninf_ctx *ctx, u32 mux, int start_x,
+-				int end_x, int enable)
++static int mtk_seninf_set_mux_crop(struct seninf_ctx *ctx, u32 mux, int start_x,
++				   int end_x, int enable)
+ {
+ 	void __iomem *seninf_mux = ctx->reg_if_mux[mux];
+ 
+@@ -729,14 +605,14 @@ int mtk_seninf_set_mux_crop(struct seninf_ctx *ctx, u32 mux, int start_x,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_is_mux_used(struct seninf_ctx *ctx, u32 mux)
++static int mtk_seninf_is_mux_used(struct seninf_ctx *ctx, u32 mux)
+ {
+ 	void __iomem *seninf_mux = ctx->reg_if_mux[mux];
+ 
+ 	return SENINF_READ_BITS(seninf_mux, SENINF_MUX_CTRL_0, SENINF_MUX_EN);
+ }
+ 
+-int mtk_seninf_mux(struct seninf_ctx *ctx, u32 mux)
++static int mtk_seninf_mux(struct seninf_ctx *ctx, u32 mux)
+ {
+ 	void __iomem *seninf_mux = ctx->reg_if_mux[mux];
+ 
+@@ -744,7 +620,7 @@ int mtk_seninf_mux(struct seninf_ctx *ctx, u32 mux)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_disable_mux(struct seninf_ctx *ctx, u32 mux)
++static int mtk_seninf_disable_mux(struct seninf_ctx *ctx, u32 mux)
+ {
+ 	int i;
+ 	void __iomem *seninf_mux = ctx->reg_if_mux[mux];
+@@ -760,7 +636,7 @@ int mtk_seninf_disable_mux(struct seninf_ctx *ctx, u32 mux)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_disable_all_mux(struct seninf_ctx *ctx)
++static int mtk_seninf_disable_all_mux(struct seninf_ctx *ctx)
+ {
+ 	int i;
+ 	void __iomem *seninf_mux;
+@@ -773,8 +649,8 @@ int mtk_seninf_disable_all_mux(struct seninf_ctx *ctx)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_cammux_chk_pixel_mode(struct seninf_ctx *ctx,
+-					     int cam_mux, int pixel_mode)
++static int mtk_seninf_set_cammux_chk_pixel_mode(struct seninf_ctx *ctx,
++						int cam_mux, int pixel_mode)
+ {
+ 	void __iomem *seninf_cam_mux_base = ctx->reg_if_cam_mux;
+ 
+@@ -786,50 +662,14 @@ int mtk_seninf_set_cammux_chk_pixel_mode(struct seninf_ctx *ctx,
+ 		return 0;
+ 	}
+ 
+-	switch (cam_mux) {
+-	case SENINF_CAM_MUX0:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX0_CHK_CTL_0,
+-			    RG_SENINF_CAM_MUX0_PIX_MODE_SEL, pixel_mode);
+-		break;
+-	case SENINF_CAM_MUX1:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX1_CHK_CTL_0,
+-			    RG_SENINF_CAM_MUX1_PIX_MODE_SEL, pixel_mode);
+-		break;
+-	case SENINF_CAM_MUX2:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX2_CHK_CTL_0,
+-			    RG_SENINF_CAM_MUX2_PIX_MODE_SEL, pixel_mode);
+-		break;
+-	case SENINF_CAM_MUX3:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX3_CHK_CTL_0,
+-			    RG_SENINF_CAM_MUX3_PIX_MODE_SEL, pixel_mode);
+-		break;
+-	case SENINF_CAM_MUX4:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX4_CHK_CTL_0,
+-			    RG_SENINF_CAM_MUX4_PIX_MODE_SEL, pixel_mode);
+-		break;
+-	case SENINF_CAM_MUX5:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX5_CHK_CTL_0,
+-			    RG_SENINF_CAM_MUX5_PIX_MODE_SEL, pixel_mode);
+-		break;
+-	case SENINF_CAM_MUX6:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX6_CHK_CTL_0,
+-			    RG_SENINF_CAM_MUX6_PIX_MODE_SEL, pixel_mode);
+-		break;
+-	case SENINF_CAM_MUX7:
+-		SENINF_BITS(seninf_cam_mux_base, SENINF_CAM_MUX7_CHK_CTL_0,
+-			    RG_SENINF_CAM_MUX7_PIX_MODE_SEL, pixel_mode);
+-		break;
+-	default:
+-		dev_dbg(ctx->dev, "invalid cam_mux %d pixel_mode %d\n",
+-			cam_mux, pixel_mode);
+-		return -EINVAL;
+-	}
++	SENINF_BITS(seninf_cam_mux_base + 0x10 * cam_mux, SENINF_CAM_MUX0_CHK_CTL_0,
++		    RG_SENINF_CAM_MUX0_PIX_MODE_SEL, pixel_mode);
+ 
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_test_model(struct seninf_ctx *ctx, int mux, int cam_mux,
+-				  int pixel_mode)
++static int mtk_seninf_set_test_model(struct seninf_ctx *ctx, int mux, int cam_mux,
++				     int pixel_mode)
+ {
+ 	int intf;
+ 	void __iomem *seninf;
+@@ -983,7 +823,7 @@ static int csirx_seninf_top_setting(struct seninf_ctx *ctx)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_csi_mipi(struct seninf_ctx *ctx)
++static int mtk_seninf_set_csi_mipi(struct seninf_ctx *ctx)
+ {
+ 	/* seninf csi2 */
+ 	csirx_seninf_csi2_setting(ctx);
+@@ -997,7 +837,7 @@ int mtk_seninf_set_csi_mipi(struct seninf_ctx *ctx)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_poweroff(struct seninf_ctx *ctx)
++static int mtk_seninf_poweroff(struct seninf_ctx *ctx)
+ {
+ 	void __iomem *seninf_csi2;
+ 
+@@ -1008,7 +848,7 @@ int mtk_seninf_poweroff(struct seninf_ctx *ctx)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_reset(struct seninf_ctx *ctx, u32 seninf_idx)
++static int mtk_seninf_reset(struct seninf_ctx *ctx, u32 seninf_idx)
+ {
+ 	int i;
+ 	void __iomem *seninf_mux;
+@@ -1035,7 +875,7 @@ int mtk_seninf_reset(struct seninf_ctx *ctx, u32 seninf_idx)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_idle(struct seninf_ctx *ctx)
++static int mtk_seninf_set_idle(struct seninf_ctx *ctx)
+ {
+ 	int i;
+ 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+@@ -1046,15 +886,15 @@ int mtk_seninf_set_idle(struct seninf_ctx *ctx)
+ 		if (vc->enable) {
+ 			mtk_seninf_disable_mux(ctx, vc->mux);
+ 			mtk_seninf_disable_cammux(ctx, vc->cam);
+-			ctx->pad2cam[vc->out_pad] = 0xff;
++			vc->enable = 0;
+ 		}
+ 	}
+ 
+ 	return 0;
+ }
+ 
+-int mtk_seninf_get_mux_meter(struct seninf_ctx *ctx, u32 mux,
+-				 struct mtk_seninf_mux_meter *meter)
++static int mtk_seninf_get_mux_meter(struct seninf_ctx *ctx, u32 mux,
++				    struct mtk_seninf_mux_meter *meter)
+ {
+ 	void __iomem *seninf_mux;
+ 	s64 hv, hb, vv, vb, w, h;
+@@ -1114,8 +954,8 @@ int mtk_seninf_get_mux_meter(struct seninf_ctx *ctx, u32 mux,
+ 	return 0;
+ }
+ 
+-ssize_t mtk_seninf_show_status(struct device *dev,
+-				   struct device_attribute *attr, char *buf)
++static ssize_t mtk_seninf_show_status(struct device *dev,
++				      struct device_attribute *attr, char *buf)
+ {
+ 	int i, len;
+ 	struct seninf_core *core;
+@@ -1125,7 +965,7 @@ ssize_t mtk_seninf_show_status(struct device *dev,
+ 	struct media_pad *pad;
+ 	struct mtk_seninf_mux_meter meter;
+ 	void __iomem *csi2, *pmux;
+-	void __iomem *rx, *pcammux;
++	void __iomem *pcammux;
+ 
+ 	core = dev_get_drvdata(dev);
+ 	len = 0;
+@@ -1421,9 +1261,9 @@ static inline void mtk_seninf_check_matched_cam_mux(struct seninf_ctx *ctx,
+ 	}
+ }
+ 
+-int mtk_seninf_debug(struct seninf_ctx *ctx)
++static int mtk_seninf_debug(struct seninf_ctx *ctx)
+ {
+-	void __iomem *base_ana, *base_cphy, *base_dphy, *base_csi, *base_mux;
++	void __iomem *base_csi, *base_mux;
+ 	unsigned int temp = 0;
+ 	int pkg_cnt_changed = 0;
+ 	unsigned int mipi_packet_cnt = 0;
+@@ -1634,8 +1474,8 @@ int mtk_seninf_debug(struct seninf_ctx *ctx)
+ 	return ret;
+ }
+ 
+-ssize_t mtk_seninf_show_err_status(struct device *dev,
+-				       struct device_attribute *attr, char *buf)
++static ssize_t mtk_seninf_show_err_status(struct device *dev,
++					  struct device_attribute *attr, char *buf)
+ {
+ 	int i, len;
+ 	struct seninf_core *core;
+@@ -1691,7 +1531,7 @@ ssize_t mtk_seninf_show_err_status(struct device *dev,
+ }
+ 
+ #define SBUF 256
+-int mtk_seninf_irq_handler(int irq, void *data)
++static int mtk_seninf_irq_handler(int irq, void *data)
+ {
+ 	struct seninf_core *core = (struct seninf_core *)data;
+ 	unsigned long flags; /* for mipi err detection */
+@@ -1822,8 +1662,8 @@ int mtk_seninf_irq_handler(int irq, void *data)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_sw_cfg_busy(struct seninf_ctx *ctx, bool enable,
+-				   int index)
++static int mtk_seninf_set_sw_cfg_busy(struct seninf_ctx *ctx, bool enable,
++				      int index)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 
+@@ -1836,8 +1676,8 @@ int mtk_seninf_set_sw_cfg_busy(struct seninf_ctx *ctx, bool enable,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_cam_mux_dyn_en(struct seninf_ctx *ctx, bool enable,
+-				      int cam_mux, int index)
++static int mtk_seninf_set_cam_mux_dyn_en(struct seninf_ctx *ctx, bool enable,
++					 int cam_mux, int index)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 	u32 tmp = 0;
+@@ -1865,7 +1705,7 @@ int mtk_seninf_set_cam_mux_dyn_en(struct seninf_ctx *ctx, bool enable,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_reset_cam_mux_dyn_en(struct seninf_ctx *ctx, int index)
++static int mtk_seninf_reset_cam_mux_dyn_en(struct seninf_ctx *ctx, int index)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 
+@@ -1878,8 +1718,8 @@ int mtk_seninf_reset_cam_mux_dyn_en(struct seninf_ctx *ctx, int index)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_enable_global_drop_irq(struct seninf_ctx *ctx, bool enable,
+-					  int index)
++static int mtk_seninf_enable_global_drop_irq(struct seninf_ctx *ctx, bool enable,
++					     int index)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 
+@@ -1892,8 +1732,8 @@ int mtk_seninf_enable_global_drop_irq(struct seninf_ctx *ctx, bool enable,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable,
+-					    int cam_mux)
++static int mtk_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable,
++					       int cam_mux)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 	int tmp = 0;
+@@ -1909,7 +1749,7 @@ int mtk_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable,
+ 	return 0;
+ }
+ 
+-int mtk_seninf_disable_all_cam_mux_vsync_irq(struct seninf_ctx *ctx)
++static int mtk_seninf_disable_all_cam_mux_vsync_irq(struct seninf_ctx *ctx)
+ {
+ 	void __iomem *seninf_cam_mux = ctx->reg_if_cam_mux;
+ 
+@@ -1918,7 +1758,7 @@ int mtk_seninf_disable_all_cam_mux_vsync_irq(struct seninf_ctx *ctx)
+ 	return 0;
+ }
+ 
+-int mtk_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
++static int mtk_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
+ {
+ 	int i;
+ 	void __iomem *csi2 = ctx->reg_if_csi2[ctx->seninf_idx];
+@@ -2022,5 +1862,56 @@ struct mtk_seninf_ops mtk_csi_phy_2_1 = {
+ 	.seninf_num = 4,
+ 	.cam_mux_num = 8,
+ 	.pref_mux_num = 8,
++	.tg_offset = 0xf00,
++	._show_err_status = mtk_seninf_show_err_status,
++};
++
++/* MT6789: 6 SENINF, 13 cam-muxes, TG at +0x600 as in the Q25 libcam.halsensor */
++struct mtk_seninf_ops mtk_csi_phy_mt6789 = {
++	._init_iomem = mtk_seninf_init_iomem,
++	._init_port = mtk_seninf_init_port,
++	._is_cammux_used = mtk_seninf_is_cammux_used,
++	._cammux = mtk_seninf_cammux,
++	._disable_cammux = mtk_seninf_disable_cammux,
++	._disable_all_cammux = mtk_seninf_disable_all_cammux,
++	._set_top_mux_ctrl = mtk_seninf_set_top_mux_ctrl,
++	._get_top_mux_ctrl = mtk_seninf_get_top_mux_ctrl,
++	._get_cammux_ctrl = mtk_seninf_get_cammux_ctrl,
++	._get_cammux_res = mtk_seninf_get_cammux_res,
++	._set_cammux_vc = mtk_seninf_set_cammux_vc,
++	._set_cammux_src = mtk_seninf_set_cammux_src,
++	._set_vc = mtk_seninf_set_vc,
++	._set_mux_ctrl = mtk_seninf_set_mux_ctrl,
++	._set_mux_crop = mtk_seninf_set_mux_crop,
++	._set_mux_exp = mtk_cam_seninf_set_mux_exp,
++	._is_mux_used = mtk_seninf_is_mux_used,
++	._mux = mtk_seninf_mux,
++	._disable_mux = mtk_seninf_disable_mux,
++	._disable_all_mux = mtk_seninf_disable_all_mux,
++	._set_cammux_chk_pixel_mode = mtk_seninf_set_cammux_chk_pixel_mode,
++	._set_test_model = mtk_seninf_set_test_model,
++	._set_csi_mipi = mtk_seninf_set_csi_mipi,
++	._poweroff = mtk_seninf_poweroff,
++	._reset = mtk_seninf_reset,
++	._set_idle = mtk_seninf_set_idle,
++	._get_mux_meter = mtk_seninf_get_mux_meter,
++	._show_status = mtk_seninf_show_status,
++	._switch_to_cammux_inner_page = mtk_seninf_switch_to_cammux_inner_page,
++	._set_cammux_next_ctrl = mtk_seninf_set_cammux_next_ctrl,
++	._update_mux_pixel_mode = mtk_seninf_update_mux_pixel_mode,
++	._irq_handler = mtk_seninf_irq_handler,
++	._set_sw_cfg_busy = mtk_seninf_set_sw_cfg_busy,
++	._set_cam_mux_dyn_en = mtk_seninf_set_cam_mux_dyn_en,
++	._reset_cam_mux_dyn_en = mtk_seninf_reset_cam_mux_dyn_en,
++	._enable_global_drop_irq = mtk_seninf_enable_global_drop_irq,
++	._enable_cam_mux_vsync_irq = mtk_seninf_enable_cam_mux_vsync_irq,
++	._disable_all_cam_mux_vsync_irq = mtk_seninf_disable_all_cam_mux_vsync_irq,
++	._debug = mtk_seninf_debug,
++	._set_reg = mtk_seninf_set_reg,
++	.mux_num = 8,
++	.seninf_num = 6,
++	.cam_mux_num = 13,
++	.pref_mux_num = 8,
++	.tg_offset = 0x600,
+ 	._show_err_status = mtk_seninf_show_err_status,
+ };
+diff --git a/seninf/mtk_seninf_ops.h b/seninf/mtk_seninf_ops.h
+index 31fe7f0..0d3cab8 100644
+--- a/seninf/mtk_seninf_ops.h
++++ b/seninf/mtk_seninf_ops.h
+@@ -193,10 +193,12 @@ struct mtk_seninf_ops {
+ 	unsigned int mux_num;
+ 	unsigned int cam_mux_num;
+ 	unsigned int pref_mux_num;
+-
++	/* offset of SENINF1's test-pattern generator in the SENINF window */
++	unsigned int tg_offset;
+ };
+ 
+ extern struct mtk_seninf_ops mtk_csi_phy_2_1;
++extern struct mtk_seninf_ops mtk_csi_phy_mt6789;
+ extern struct mtk_seninf_ops *g_seninf_ops;
+ 
+ #endif /* __MTK_CAM_SENINF_HW_H__ */
+diff --git a/seninf/mtk_seninf_route.c b/seninf/mtk_seninf_route.c
+index 901a9c3..e8c469d 100644
+--- a/seninf/mtk_seninf_route.c
++++ b/seninf/mtk_seninf_route.c
+@@ -7,6 +7,7 @@
+ #include <linux/delay.h>
+ #include <linux/platform_device.h>
+ #include <linux/slab.h>
++#include <linux/of.h>
+ #include <linux/of_graph.h>
+ #include <linux/of_device.h>
+ 
+@@ -159,7 +160,7 @@ unsigned int mtk_seninf_get_vc_feature(struct v4l2_subdev *sd, unsigned int pad)
+ 	return VC_NONE;
+ }
+ 
+-static u8 get_mbus_format_by_dt(unsigned int dt)
++static u32 get_mbus_format_by_dt(unsigned int dt)
+ {
+ 	switch (dt) {
+ 	case 0x2a:
+@@ -208,7 +209,7 @@ static u8 get_dt_by_mbus_fmt(unsigned int fmt)
+ 	}
+ }
+ 
+-static int get_vcinfo_by_pad_fmt(struct seninf_ctx *ctx)
++static int __maybe_unused get_vcinfo_by_pad_fmt(struct seninf_ctx *ctx)
+ {
+ 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+ 	struct seninf_vc *vc;
+@@ -257,7 +258,7 @@ static void cur_to_new(struct v4l2_ctrl *ctrl)
+ }
+ 
+ /* Helper function to get a single control */
+-static int get_ctrl(struct v4l2_ctrl *ctrl)
++static int __maybe_unused get_ctrl(struct v4l2_ctrl *ctrl)
+ {
+ 	struct v4l2_ctrl *master = ctrl->cluster[0];
+ 	int ret = 0;
+@@ -290,8 +291,7 @@ int mtk_seninf_get_vcinfo(struct seninf_ctx *ctx)
+ 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+ 	struct seninf_vc *vc;
+ 	int desc;
+-	struct v4l2_subdev_format raw_fmt, sub_fmt = {0};
+-	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
++	struct v4l2_subdev_format sub_fmt = {0};
+ 
+ 	if (!ctx->sensor_sd)
+ 		return -EINVAL;
+@@ -300,6 +300,8 @@ int mtk_seninf_get_vcinfo(struct seninf_ctx *ctx)
+ 	sub_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+ 	ret = v4l2_subdev_call(ctx->sensor_sd, pad, get_fmt,
+ 				NULL, &sub_fmt);
++	if (ret)
++		return ret;
+ 
+ 	fd.type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+ 	fd.num_entries = SENINF_VC_COUNT;
+@@ -355,8 +357,8 @@ int mtk_seninf_get_vcinfo(struct seninf_ctx *ctx)
+ 
+ 		/* update pad fotmat */
+ 		if (vc->exp_hsize && vc->exp_vsize) {
+-			ctx->fmt[vc->out_pad].format.width = vc->exp_vsize;
+-			ctx->fmt[vc->out_pad].format.height = vc->exp_hsize;
++			ctx->fmt[vc->out_pad].format.width = vc->exp_hsize;
++			ctx->fmt[vc->out_pad].format.height = vc->exp_vsize;
+ 		}
+ 
+ 		ctx->fmt[vc->out_pad].format.code =
+diff --git a/seninf/mtk_seninf_route.h b/seninf/mtk_seninf_route.h
+index 437adb5..d02a7ce 100644
+--- a/seninf/mtk_seninf_route.h
++++ b/seninf/mtk_seninf_route.h
+@@ -29,6 +29,10 @@ int mtk_cam_seninf_set_camtg(struct seninf_ctx *ctx, unsigned int pad_id, unsign
+ 
+ int mtk_seninf_is_di_enabled(struct seninf_ctx *ctx, u8 ch, u8 dt);
+ 
++unsigned int mtk_seninf_get_vc_feature(struct v4l2_subdev *sd, unsigned int pad);
++int mtk_seninf_get_pixelmode(struct v4l2_subdev *sd, int pad_id, int *pixel_mode);
++int mtk_seninf_set_pixelmode(struct v4l2_subdev *sd, int pad_id, int pixel_mode);
++
+ #ifdef SENINF_DEBUG
+ void mtk_seninf_alloc_cam_mux(struct seninf_ctx *ctx);
+ void mtk_seninf_release_cam_mux(struct seninf_ctx *ctx);
