@@ -1,0 +1,22 @@
+#!/bin/sh
+# Boot with the module tree built for the running kernel. Test kernels share
+# r18's release name, so their trees sit beside it as $K.<name>; each tree
+# holds the kernel's `uname -v` in .build-id-stamp and its name in .tree-name.
+K=$(uname -r)
+V=$(uname -v)
+M=/usr/lib/modules
+[ "$(cat "$M/$K/.build-id-stamp" 2>/dev/null)" = "$V" ] && exit 0
+for d in "$M/$K".*; do
+	[ "$(cat "$d/.build-id-stamp" 2>/dev/null)" = "$V" ] || continue
+	name=$(cat "$M/$K/.tree-name" 2>/dev/null) || name=unstamped-$(date +%s)
+	if [ -e "$M/$K.$name" ]; then
+		echo "jp2601-modules-match: $M/$K.$name exists, not swapping" >&2
+		exit 1
+	fi
+	mv "$M/$K" "$M/$K.$name"
+	mv "$d" "$M/$K"
+	depmod -a "$K"
+	echo "jp2601-modules-match: kernel '$V' booted with the $name modules; switched to ${d##*/}"
+	exit 0
+done
+echo "jp2601-modules-match: no module tree for '$V'; keeping $(cat "$M/$K/.tree-name" 2>/dev/null || echo the current one)"

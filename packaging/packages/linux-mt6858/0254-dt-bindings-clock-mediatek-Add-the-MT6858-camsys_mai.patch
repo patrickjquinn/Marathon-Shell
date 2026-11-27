@@ -1,0 +1,63 @@
+From 095f1ddcb55070cda2a49c6e6dca05d406e406f6 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:46:53 +0000
+Subject: [PATCH 254/272] dt-bindings: clock: mediatek: Add the MT6858
+ camsys_main clocks
+
+Add the compatible of the MT6858 camsys_main clock controller, which
+gates the clocks of the SENINF, CAMSV and SMI larb13/larb14 blocks, and
+the IDs of its ten gates.
+---
+ .../bindings/clock/mediatek,mt8196-clock.yaml        |  7 +++++++
+ include/dt-bindings/clock/mediatek,mt6858-clock.h    | 12 ++++++++++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml b/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
+index cc394cf8b..309ede2e1 100644
+--- a/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
++++ b/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
+@@ -24,6 +24,7 @@ properties:
+   compatible:
+     items:
+       - enum:
++          - mediatek,mt6858-camsys-main
+           - mediatek,mt6858-imp-iic-wrap-c
+           - mediatek,mt6858-imp-iic-wrap-es
+           - mediatek,mt6858-imp-iic-wrap-s
+@@ -53,6 +54,12 @@ properties:
+   '#clock-cells':
+     const: 1
+ 
++  power-domains:
++    maxItems: 1
++    description:
++      Power domain holding the controller's registers, for controllers
++      in a domain that is off at boot (MT6858 camsys_main).
++
+   '#reset-cells':
+     const: 1
+     description:
+diff --git a/include/dt-bindings/clock/mediatek,mt6858-clock.h b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+index 7e1e44be2..c7e9f37a4 100644
+--- a/include/dt-bindings/clock/mediatek,mt6858-clock.h
++++ b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+@@ -308,4 +308,16 @@
+ #define CLK_IMPS_I2C9				2
+ #define CLK_IMPS_I2C11				3
+ 
++/* CAMSYS_MAIN */
++#define CLK_CAM_M_LARB13			0
++#define CLK_CAM_M_LARB14			1
++#define CLK_CAM_M_CAM				2
++#define CLK_CAM_M_CAMTG				3
++#define CLK_CAM_M_SENINF			4
++#define CLK_CAM_M_CAMSV1			5
++#define CLK_CAM_M_CAMSV2			6
++#define CLK_CAM_M_CAMSV3			7
++#define CLK_CAM_M_CAM2MM_GALS			8
++#define CLK_CAM_M_PDA				9
++
+ #endif /* _DT_BINDINGS_CLK_MT6858_H */
+-- 
+2.55.0
+

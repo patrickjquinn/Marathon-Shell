@@ -1,0 +1,125 @@
+From 7e948971ad736569486ac7f940c0060b0330be7f Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:46:53 +0000
+Subject: [PATCH 255/272] clk: mediatek: Add the MT6858 camsys_main clock
+ driver
+
+Add the gates of the MT6858 camsys_main clock controller at 0x1a000000:
+SMI larb13 and larb14, CAM, CAMTG, SENINF, CAMSV1-3, the CAM-to-MM GALS
+bridge and PDA, all fed by top_cam_ck. The register layout and bit
+positions are taken from the cam_m_clks table of MediaTek's GPLv2
+clk-mt6858-cg module; they match the MT6789 camsys.
+
+The registers sit inside the CAM_MAIN power domain, which is off at
+boot, and reading them with the domain off raises an SError. Use runtime
+PM so that the clock core powers the domain before it touches a gate,
+including from clk_disable_unused.
+---
+ drivers/clk/mediatek/Kconfig          |  7 +++
+ drivers/clk/mediatek/Makefile         |  1 +
+ drivers/clk/mediatek/clk-mt6858-cam.c | 63 +++++++++++++++++++++++++++
+ 3 files changed, 71 insertions(+)
+ create mode 100644 drivers/clk/mediatek/clk-mt6858-cam.c
+
+diff --git a/drivers/clk/mediatek/Kconfig b/drivers/clk/mediatek/Kconfig
+index ff0c592de..ab2754a88 100644
+--- a/drivers/clk/mediatek/Kconfig
++++ b/drivers/clk/mediatek/Kconfig
+@@ -494,6 +494,13 @@ config COMMON_CLK_MT6858_MMSYS
+ 	help
+ 	  This driver supports the MediaTek MT6858 mmsys clocks.
+ 
++config COMMON_CLK_MT6858_CAMSYS
++	tristate "Clock driver for MediaTek MT6858 camsys"
++	depends on COMMON_CLK_MT6858
++	default COMMON_CLK_MT6858
++	help
++	  This driver supports the MediaTek MT6858 camsys_main clocks.
++
+ config COMMON_CLK_MT6858_IMP_IIC_WRAP
+ 	tristate "Clock driver for MediaTek MT6858 imp_iic_wrap"
+ 	depends on COMMON_CLK_MT6858
+diff --git a/drivers/clk/mediatek/Makefile b/drivers/clk/mediatek/Makefile
+index bf8c43044..422642820 100644
+--- a/drivers/clk/mediatek/Makefile
++++ b/drivers/clk/mediatek/Makefile
+@@ -34,6 +34,7 @@ obj-$(CONFIG_COMMON_CLK_MT6858) += clk-mt6858-apmixedsys.o clk-mt6858-topckgen.o
+ 				   clk-mt6858-peri_ao.o clk-mt6858-infra_ao.o \
+ 				   clk-mt6858-vlpckgen.o
+ obj-$(CONFIG_COMMON_CLK_MT6858_MMSYS) += clk-mt6858-mm.o
++obj-$(CONFIG_COMMON_CLK_MT6858_CAMSYS) += clk-mt6858-cam.o
+ obj-$(CONFIG_COMMON_CLK_MT6858_IMP_IIC_WRAP) += clk-mt6858-imp_iic_wrap.o
+ obj-$(CONFIG_COMMON_CLK_MT6797) += clk-mt6797.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_IMGSYS) += clk-mt6797-img.o
+diff --git a/drivers/clk/mediatek/clk-mt6858-cam.c b/drivers/clk/mediatek/clk-mt6858-cam.c
+new file mode 100644
+index 000000000..1aa528242
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6858-cam.c
+@@ -0,0 +1,63 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ *
++ * Generated from the clock tables of MediaTek's GPLv2 MT6858 clock driver.
++ */
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include "clk-gate.h"
++#include "clk-mtk.h"
++
++static const struct mtk_gate_regs cam_m_cg_regs = {
++	.set_ofs = 0x4,
++	.clr_ofs = 0x8,
++	.sta_ofs = 0x0,
++};
++
++#define GATE_CAM_M(_id, _name, _parent, _shift)			\
++	GATE_MTK(_id, _name, _parent, &cam_m_cg_regs, _shift,	\
++		 &mtk_clk_gate_ops_setclr)
++
++static const struct mtk_gate cam_m_clks[] = {
++	GATE_CAM_M(CLK_CAM_M_LARB13, "cam_m_larb13", "top_cam_ck", 0),
++	GATE_CAM_M(CLK_CAM_M_LARB14, "cam_m_larb14", "top_cam_ck", 2),
++	GATE_CAM_M(CLK_CAM_M_CAM, "cam_m_cam", "top_cam_ck", 6),
++	GATE_CAM_M(CLK_CAM_M_CAMTG, "cam_m_camtg", "top_cam_ck", 7),
++	GATE_CAM_M(CLK_CAM_M_SENINF, "cam_m_seninf", "top_cam_ck", 8),
++	GATE_CAM_M(CLK_CAM_M_CAMSV1, "cam_m_camsv1", "top_cam_ck", 10),
++	GATE_CAM_M(CLK_CAM_M_CAMSV2, "cam_m_camsv2", "top_cam_ck", 11),
++	GATE_CAM_M(CLK_CAM_M_CAMSV3, "cam_m_camsv3", "top_cam_ck", 12),
++	GATE_CAM_M(CLK_CAM_M_CAM2MM_GALS, "cam_m_cam2mm_gals", "top_cam_ck", 19),
++	GATE_CAM_M(CLK_CAM_M_PDA, "cam_m_pda", "top_cam_ck", 21),
++};
++
++static const struct mtk_clk_desc cam_m_desc = {
++	.clks = cam_m_clks,
++	.num_clks = ARRAY_SIZE(cam_m_clks),
++	.need_runtime_pm = true,
++};
++
++static const struct of_device_id of_match_clk_mt6858_cam[] = {
++	{ .compatible = "mediatek,mt6858-camsys-main", .data = &cam_m_desc },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, of_match_clk_mt6858_cam);
++
++static struct platform_driver clk_mt6858_cam_drv = {
++	.probe = mtk_clk_simple_probe,
++	.remove = mtk_clk_simple_remove,
++	.driver = {
++		.name = "clk-mt6858-cam",
++		.of_match_table = of_match_clk_mt6858_cam,
++	},
++};
++module_platform_driver(clk_mt6858_cam_drv);
++
++MODULE_DESCRIPTION("MediaTek MT6858 camsys clock controller driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

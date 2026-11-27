@@ -1,0 +1,28 @@
+From ae8b04df05e9aeeef8ec36c69130f1ea14f1f0b0 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:57:41 +0000
+Subject: [PATCH 259/272] arm64: configs: mt6858: Add the camsys clocks,
+ DIO8018 and IMX214
+
+Build the camsys_main clock driver, the DIO8018 camera PMIC and the
+IMX214 sensor of the JP2601's second rear camera as modules. The camsys
+clocks stay a module so that nothing powers CAM_MAIN at boot until the
+camera stack loads.
+---
+ arch/arm64/configs/mt6858.config | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 9a43f3318..155b27376 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -111,3 +111,6 @@ CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=1
+ CONFIG_HARDLOCKUP_DETECTOR=y
+ CONFIG_BOOTPARAM_HARDLOCKUP_PANIC=y
+ CONFIG_RCU_CPU_STALL_TIMEOUT=10
++CONFIG_COMMON_CLK_MT6858_CAMSYS=m
++CONFIG_REGULATOR_DIO8018=m
++CONFIG_VIDEO_IMX214=m
+-- 
+2.55.0
+

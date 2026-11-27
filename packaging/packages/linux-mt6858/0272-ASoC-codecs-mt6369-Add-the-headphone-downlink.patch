@@ -1,0 +1,761 @@
+From 17a67027da8f6361e1867cb842a67e02f679c5f9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 11:48:19 +0000
+Subject: [PATCH 272/272] ASoC: codecs: mt6369: Add the headphone downlink
+
+Add the MT6369's audio DAC and headphone driver: an AIF1 playback
+stream over MTKAIF, the downlink digital clocks, SDM and negative charge
+pump, the decoder LDOs and NV regulator as DAPM supplies, and an HP Mux
+that runs MediaTek's headphone power-up and power-down sequences. The
+register sequences are from MediaTek's GPLv2 mt6369.c. The structure
+follows mt6359.c.
+
+Headphone Volume sets the driver's analog gain, -10 dB to +8 dB in 1 dB
+steps, ramped while it plays. The line-out, receiver and DC trim paths
+of the vendor driver are left out: on the Jolla Phone (2026) the
+earpiece and speakers are on the AW88271s, and the headphones are the
+only analog output, through the HL5280 USB-C switch.
+
+Tested on the JP2601 with nothing plugged into USB-C:
+- DAPM brings up and powers down the whole path (AIF1RX, DACs, NCP,
+  SDM, NV regulator, HP Mux, Headphone L/R) for a DL0 stream on ADDA,
+  with no errors.
+- The AW88271s stay off while it plays.
+- Capture and the MTKAIF calibration are unchanged.
+No headset has been on it yet, so the analog output is not verified.
+---
+ sound/soc/codecs/mt6369.c | 525 ++++++++++++++++++++++++++++++++++++++
+ sound/soc/codecs/mt6369.h |  98 +++++++
+ 2 files changed, 623 insertions(+)
+
+diff --git a/sound/soc/codecs/mt6369.c b/sound/soc/codecs/mt6369.c
+index 0f50afd23..b431397af 100644
+--- a/sound/soc/codecs/mt6369.c
++++ b/sound/soc/codecs/mt6369.c
+@@ -31,6 +31,8 @@ struct mt6369_priv {
+ 	unsigned int mic_type[MT6369_MIC_NUM];
+ 	unsigned int mux_pga[2];
+ 	int mtkaif_protocol;
++	unsigned int hp_gain;
++	bool hp_on;
+ };
+ 
+ static void mt6369_set_gpio_smt(struct mt6369_priv *priv)
+@@ -383,6 +385,359 @@ static int mt_dcc_clk_event(struct snd_soc_dapm_widget *w,
+ 	return 0;
+ }
+ 
++static int mt_dl_gpio_event(struct snd_soc_dapm_widget *w,
++			    struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		mt6369_set_playback_gpio(priv);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		mt6369_reset_playback_gpio(priv);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_delay_100_event(struct snd_soc_dapm_widget *w,
++			      struct snd_kcontrol *kcontrol, int event)
++{
++	if (event == SND_SOC_DAPM_POST_PMU)
++		usleep_range(100, 120);
++
++	return 0;
++}
++
++static int mt_esd_resist_event(struct snd_soc_dapm_widget *w,
++			       struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		/* Reduce ESD resistance of AU_REFN */
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON5,
++				   RG_AUDREFN_DERES_EN_VAUDP15_MASK_SFT,
++				   RG_AUDREFN_DERES_EN_VAUDP15_MASK_SFT);
++		usleep_range(250, 270);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON5,
++				   RG_AUDREFN_DERES_EN_VAUDP15_MASK_SFT, 0);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_sdm_event(struct snd_soc_dapm_widget *w,
++			struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		/* SDM audio FIFO clock on, scrambler on, SDM on, FIFO on */
++		regmap_update_bits(priv->regmap, MT6369_AFUNC_AUD_CON4, 0xfd, 0x6);
++		regmap_write(priv->regmap, MT6369_AFUNC_AUD_CON1, 0xcb);
++		regmap_write(priv->regmap, MT6369_AFUNC_AUD_CON0, 0xa1);
++		regmap_update_bits(priv->regmap, MT6369_AFUNC_AUD_CON4, 0xfd, 0x3);
++		regmap_update_bits(priv->regmap, MT6369_AFUNC_AUD_CON4, 0xfd, 0xb);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		regmap_update_bits(priv->regmap, MT6369_AFUNC_AUD_CON4, 0xfd, 0x0);
++		regmap_write(priv->regmap, MT6369_AFUNC_AUD_CON1, 0xcb);
++		regmap_write(priv->regmap, MT6369_AFUNC_AUD_CON0, 0xa0);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_ncp_event(struct snd_soc_dapm_widget *w,
++			struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		/* The negative charge pump at 26 MHz / 43 = 604 kHz */
++		regmap_update_bits(priv->regmap, MT6369_AUDNCP_CLKDIV_CON1,
++				   RG_DIVCKS_ON_MASK_SFT, RG_DIVCKS_ON_MASK_SFT);
++		regmap_write(priv->regmap, MT6369_AUDNCP_CLKDIV_CON2, 0x2c);
++		regmap_update_bits(priv->regmap, MT6369_AUDNCP_CLKDIV_CON0,
++				   RG_DIVCKS_CHG_MASK_SFT, RG_DIVCKS_CHG_MASK_SFT);
++		/* 100 us soft start */
++		regmap_update_bits(priv->regmap, MT6369_AUDNCP_CLKDIV_CON4,
++				   RG_DIVCKS_PWD_NCP_ST_SEL_MASK_SFT, 0x3);
++		regmap_update_bits(priv->regmap, MT6369_AUDNCP_CLKDIV_CON3,
++				   RG_DIVCKS_PWD_NCP_MASK_SFT, 0);
++		usleep_range(250, 270);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		regmap_update_bits(priv->regmap, MT6369_AUDNCP_CLKDIV_CON3,
++				   RG_DIVCKS_PWD_NCP_MASK_SFT,
++				   RG_DIVCKS_PWD_NCP_MASK_SFT);
++		regmap_update_bits(priv->regmap, MT6369_AUDNCP_CLKDIV_CON1,
++				   RG_DIVCKS_ON_MASK_SFT, 0);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int mt_hp_mute_event(struct snd_soc_dapm_widget *w,
++			    struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		regmap_write(priv->regmap, MT6369_ZCD_CON3, DL_GAIN_N_10DB);
++		regmap_write(priv->regmap, MT6369_ZCD_CON4, DL_GAIN_N_10DB);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		regmap_write(priv->regmap, MT6369_ZCD_CON3, DL_GAIN_N_40DB);
++		regmap_write(priv->regmap, MT6369_ZCD_CON4, DL_GAIN_N_40DB);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static void mt6369_set_decoder_clk(struct mt6369_priv *priv, bool enable)
++{
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON24,
++			   RG_RSTB_DECODER_VA28_MASK_SFT,
++			   enable ? RG_RSTB_DECODER_VA28_MASK_SFT : 0);
++}
++
++static void mt6369_zcd_enable(struct mt6369_priv *priv, bool enable)
++{
++	if (enable) {
++		/* Zero crossing detection on the headphone, 30 ms timeout */
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON20,
++				   RG_AUDZCDMUXSEL_VAUDP15_MASK_SFT,
++				   0x1 << RG_AUDZCDMUXSEL_VAUDP15_SFT);
++		regmap_write(priv->regmap, MT6369_ZCD_CON0,
++			     0x5 << RG_AUDZCDGAINSTEPTIME_SFT);
++		regmap_update_bits(priv->regmap, MT6369_ZCD_CON0,
++				   RG_AUDZCDENABLE_MASK_SFT,
++				   RG_AUDZCDENABLE_MASK_SFT);
++	} else {
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON20,
++				   RG_AUDZCDMUXSEL_VAUDP15_MASK_SFT,
++				   0x4 << RG_AUDZCDMUXSEL_VAUDP15_SFT);
++		regmap_write(priv->regmap, MT6369_ZCD_CON0, 0x0);
++	}
++}
++
++static void hp_main_output_ramp(struct mt6369_priv *priv, bool up)
++{
++	for (int i = 0; i <= 7; i++) {
++		int stage = up ? i : 7 - i;
++
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON3,
++				   RG_HPLOUTSTGCTRL_VAUDP15_MASK_SFT |
++				   RG_HPROUTSTGCTRL_VAUDP15_MASK_SFT,
++				   stage << RG_HPLOUTSTGCTRL_VAUDP15_SFT |
++				   stage << RG_HPROUTSTGCTRL_VAUDP15_SFT);
++		usleep_range(100, 120);
++	}
++}
++
++static void hp_aux_feedback_loop_gain_ramp(struct mt6369_priv *priv, bool up)
++{
++	for (int i = 0; i <= 0xf; i++) {
++		int stage = up ? i : 0xf - i;
++
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON17,
++				   0xf << 4, stage << 4);
++		usleep_range(100, 120);
++	}
++}
++
++/* Pull HPL/R down to AVSS28_AUD, or release them, step by step */
++static void hp_pull_down(struct mt6369_priv *priv, bool enable)
++{
++	for (int i = 0; i <= 7; i++) {
++		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON8, 0x7,
++				   enable ? i : 7 - i);
++		usleep_range(100, 150);
++	}
++}
++
++static void headset_volume_ramp(struct mt6369_priv *priv, int from, int to)
++{
++	int step = to > from ? 1 : -1;
++
++	for (int gain = from; gain != to; ) {
++		gain += step;
++		regmap_write(priv->regmap, MT6369_ZCD_CON3, gain);
++		regmap_write(priv->regmap, MT6369_ZCD_CON4, gain);
++		usleep_range(100, 150);
++	}
++}
++
++static void mtk_hp_enable(struct mt6369_priv *priv)
++{
++	hp_pull_down(priv, true);
++	/* Release HP CMFB gate rstb */
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON8,
++			   0x1 << 6, 0x1 << 6);
++
++	mt6369_zcd_enable(priv, true);
++
++	/* Disable headphone short-circuit protection */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON1, 0x30);
++
++	/* HP DR bias 6 uA; ZCD 4 uA, HP, HS and LO 5 uA */
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON21,
++			   DRBIAS_HP_MASK_SFT, DRBIAS_6UA);
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON23,
++			   IBIAS_ZCD_MASK_SFT | IBIAS_HS_MASK_SFT |
++			   IBIAS_HP_MASK_SFT | IBIAS_LO_MASK_SFT,
++			   IBIAS_ZCD_4UA << IBIAS_ZCD_SFT |
++			   IBIAS_5UA << IBIAS_HS_SFT |
++			   IBIAS_5UA << IBIAS_HP_SFT |
++			   IBIAS_5UA << IBIAS_LO_SFT);
++
++	/* Set HPP/N STB enhance circuits */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON4, 0x33);
++
++	/* Aux output stage, aux feedback loop, aux CMFB loop */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0xc);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0x3c);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0x0c);
++	/* HP driver bias, then core circuits */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON0, 0xc0);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON0, 0xf0);
++	/* Short the main output to the aux output stage */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0xfc);
++	/* Main CMFB loop on, aux CMFB loop off */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0xe);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0x2);
++
++	/* CMFB resistor bulk to AC mode, 6.5 pF HS/LO caps */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON18, 0x0);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON19, 0x0);
++
++	/* Main output stage on, step by step */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0xff);
++	hp_main_output_ramp(priv, true);
++
++	/* Reduce the aux feedback loop gain, then open the loop */
++	hp_aux_feedback_loop_gain_ramp(priv, true);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0xcf);
++
++	headset_volume_ramp(priv, DL_GAIN_N_10DB, priv->hp_gain);
++
++	/* Aux output stage off, main output unshorted from it */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0xc3);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0x03);
++	usleep_range(100, 120);
++
++	mt6369_set_decoder_clk(priv, true);
++	/* Audio DAC on, in low-noise mode */
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON0, 0xf, 0xf);
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON16, 0x1, 0x1);
++	usleep_range(100, 120);
++
++	/* HPL and HPR muxes to the audio DAC */
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON1, 0xf,
++			   HP_MUX_HP << RG_AUDHPLMUXINPUTSEL_VAUDP15_SFT |
++			   HP_MUX_HP << RG_AUDHPRMUXINPUTSEL_VAUDP15_SFT);
++
++	hp_pull_down(priv, false);
++	priv->hp_on = true;
++}
++
++static void mtk_hp_disable(struct mt6369_priv *priv)
++{
++	priv->hp_on = false;
++	hp_pull_down(priv, true);
++
++	/* HPL and HPR muxes open, DAC off */
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON1, 0xf, 0x0);
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON16, 0x1, 0x0);
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON0, 0xf, 0x0);
++	mt6369_set_decoder_clk(priv, false);
++
++	/* Short the main output to the aux output stage, aux stage on */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0xc3);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0xcf);
++
++	headset_volume_ramp(priv, priv->hp_gain, DL_GAIN_N_10DB);
++
++	/* Aux feedback loop gain to max, loop on, then ramp it down */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0xf2);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0xff);
++	hp_aux_feedback_loop_gain_ramp(priv, false);
++
++	hp_main_output_ramp(priv, false);
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0x3, 0x0);
++
++	/* Aux CMFB loop on, main CMFB loop off */
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0xe);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0xc);
++
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0x3 << 6, 0x0);
++	/* HP driver core, then bias circuits off */
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON0, 0x3 << 4, 0x0);
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON0, 0x3 << 6, 0x0);
++	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0x0);
++	/* Aux feedback loop open, aux output stage off */
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0x3 << 4, 0x0);
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON2, 0x3 << 2, 0x0);
++
++	mt6369_zcd_enable(priv, false);
++
++	/* Set HP CMFB gate rstb */
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON8, 0x1 << 6, 0);
++	hp_pull_down(priv, false);
++}
++
++static int mt_hp_event(struct snd_soc_dapm_widget *w,
++		       struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++	unsigned int mux = snd_soc_dapm_kcontrol_get_value(w->kcontrols[0]);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		if (mux == HP_MUX_HP)
++			mtk_hp_enable(priv);
++		break;
++	case SND_SOC_DAPM_PRE_PMD:
++		if (priv->hp_on)
++			mtk_hp_disable(priv);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
+ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
+ 			       struct snd_kcontrol *kcontrol, int event)
+ {
+@@ -585,14 +940,68 @@ static int mt_dcc_clk_connect(struct snd_soc_dapm_widget *source,
+ }
+ 
+ static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 600, 0);
++/* ZCD_CON3/4 count down from +8 dB at 0 to -10 dB at 18 */
++static const DECLARE_TLV_DB_SCALE(hp_playback_tlv, -1000, 100, 0);
++
++static int mt6369_hp_volume_get(struct snd_kcontrol *kcontrol,
++				struct snd_ctl_elem_value *ucontrol)
++{
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	ucontrol->value.integer.value[0] = DL_GAIN_N_10DB - priv->hp_gain;
++	ucontrol->value.integer.value[1] = DL_GAIN_N_10DB - priv->hp_gain;
++
++	return 0;
++}
++
++static int mt6369_hp_volume_put(struct snd_kcontrol *kcontrol,
++				struct snd_ctl_elem_value *ucontrol)
++{
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++	long value = ucontrol->value.integer.value[0];
++	unsigned int gain;
++
++	if (value < 0 || value > DL_GAIN_N_10DB)
++		return -EINVAL;
++
++	gain = DL_GAIN_N_10DB - value;
++	if (gain == priv->hp_gain)
++		return 0;
++
++	if (priv->hp_on)
++		headset_volume_ramp(priv, priv->hp_gain, gain);
++	priv->hp_gain = gain;
++
++	return 1;
++}
+ 
+ static const struct snd_kcontrol_new mt6369_snd_controls[] = {
+ 	SOC_SINGLE_TLV("PGA1 Volume", MT6369_AUDENC_ANA_CON1,
+ 		       RG_AUDPREAMPLGAIN_SFT, 4, 0, capture_tlv),
+ 	SOC_SINGLE_TLV("PGA2 Volume", MT6369_AUDENC_ANA_CON3,
+ 		       RG_AUDPREAMPRGAIN_SFT, 4, 0, capture_tlv),
++	SOC_DOUBLE_EXT_TLV("Headphone Volume", SND_SOC_NOPM, 0, 0,
++			   DL_GAIN_N_10DB, 0, mt6369_hp_volume_get,
++			   mt6369_hp_volume_put, hp_playback_tlv),
++};
++
++/* HP MUX: the headphone driver on the audio DAC */
++static const char *const hp_mux_map[] = {
++	"Open", "Audio Playback",
++};
++
++static int hp_mux_map_value[] = {
++	HP_MUX_OPEN, HP_MUX_HP,
+ };
+ 
++static SOC_VALUE_ENUM_SINGLE_DECL(hp_mux_map_enum, SND_SOC_NOPM, 0, 0x7,
++				  hp_mux_map, hp_mux_map_value);
++
++static const struct snd_kcontrol_new hp_mux_control =
++	SOC_DAPM_ENUM("HP Select", hp_mux_map_enum);
++
+ /* AIF Out MUX */
+ static const char *const aif_out_mux_map[] = {
+ 	"Normal Path", "Sgen",
+@@ -766,6 +1175,73 @@ static const struct snd_soc_dapm_widget mt6369_dapm_widgets[] = {
+ 			      SND_SOC_NOPM, 0, 0, mt_ul_gpio_event,
+ 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+ 
++	/* Downlink */
++	SND_SOC_DAPM_SUPPLY_S("AUDNCP_CK", SUPPLY_SEQ_TOP_CK,
++			      MT6369_AUD_TOP_CKPDN_CON0,
++			      RG_AUDNCP_CK_PDN_SFT, 1, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("ZCD13M_CK", SUPPLY_SEQ_TOP_CK,
++			      MT6369_AUD_TOP_CKPDN_CON0,
++			      RG_ZCD13M_CK_PDN_SFT, 1, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("AUDIO_TOP_DAC_CTL", SUPPLY_SEQ_AUD_TOP,
++			      MT6369_AUDIO_TOP_CON0,
++			      PDN_DAC_CTL_SFT, 1, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("SDM_FIFO_CLK", SUPPLY_SEQ_DL_SDM_FIFO_CLK,
++			      MT6369_AFUNC_AUD_CON4,
++			      CCI_AFIFO_CLK_PWDB_SFT, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("SDM", SUPPLY_SEQ_DL_SDM,
++			      SND_SOC_NOPM, 0, 0, mt_sdm_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++	SND_SOC_DAPM_SUPPLY_S("NCP", SUPPLY_SEQ_DL_NCP,
++			      SND_SOC_NOPM, 0, 0, mt_ncp_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++	SND_SOC_DAPM_SUPPLY_S("DL_GPIO", SUPPLY_SEQ_DL_GPIO,
++			      SND_SOC_NOPM, 0, 0, mt_dl_gpio_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++	SND_SOC_DAPM_SUPPLY_S("AFE_DL_SRC", SUPPLY_SEQ_DL_SRC,
++			      MT6369_AFE_DL_SRC2_CON0,
++			      DL_2_SRC_ON_TMP_CTL_PRE_SFT, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("DL Digital Clock", SND_SOC_NOPM, 0, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("DL Power Supply", SND_SOC_NOPM, 0, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("ESD_RESIST", SUPPLY_SEQ_DL_ESD_RESIST,
++			      SND_SOC_NOPM, 0, 0, mt_esd_resist_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++	SND_SOC_DAPM_SUPPLY_S("LDO_VA33REFGEN", SUPPLY_SEQ_DL_LDO_VA33REFGEN,
++			      MT6369_AUDDEC_ANA_CON26,
++			      RG_VA33REFGEN_EN_VA18_SFT, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("LCLDO", SUPPLY_SEQ_DL_LCLDO,
++			      MT6369_AUDDEC_ANA_CON25,
++			      RG_LCLDO_EN_VA18_SFT, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("LCLDO_REMOTE", SUPPLY_SEQ_DL_LCLDO_REMOTE_SENSE,
++			      MT6369_AUDDEC_ANA_CON25,
++			      RG_LCLDO_REMOTE_SENSE_VA18_SFT, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("HCLDO", SUPPLY_SEQ_DL_HCLDO,
++			      MT6369_AUDDEC_ANA_CON25,
++			      RG_HCLDO_EN_VA18_SFT, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("HCLDO_REMOTE", SUPPLY_SEQ_DL_HCLDO_REMOTE_SENSE,
++			      MT6369_AUDDEC_ANA_CON25,
++			      RG_HCLDO_REMOTE_SENSE_VA18_SFT, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY_S("NV_REGULATOR", SUPPLY_SEQ_DL_NV,
++			      MT6369_AUDDEC_ANA_CON27,
++			      RG_NVREG_EN_VAUDP15_SFT, 0, mt_delay_100_event,
++			      SND_SOC_DAPM_POST_PMU),
++	SND_SOC_DAPM_SUPPLY_S("IBIST", SUPPLY_SEQ_DL_IBIST,
++			      MT6369_AUDDEC_ANA_CON22,
++			      RG_AUDIBIASPWRDN_VAUDP15_SFT, 1, NULL, 0),
++
++	SND_SOC_DAPM_AIF_IN("AIF1RX", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
++	SND_SOC_DAPM_DAC("DACL", NULL, SND_SOC_NOPM, 0, 0),
++	SND_SOC_DAPM_DAC("DACR", NULL, SND_SOC_NOPM, 0, 0),
++
++	SND_SOC_DAPM_MUX_E("HP Mux", SND_SOC_NOPM, 0, 0, &hp_mux_control,
++			   mt_hp_event,
++			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
++	SND_SOC_DAPM_SUPPLY_S("HP_MUTE", SUPPLY_SEQ_HP_MUTE,
++			      SND_SOC_NOPM, 0, 0, mt_hp_mute_event,
++			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++
++	SND_SOC_DAPM_OUTPUT("Headphone L"),
++	SND_SOC_DAPM_OUTPUT("Headphone R"),
++
+ 	/* Uplink */
+ 	SND_SOC_DAPM_AIF_OUT("AIF1TX", "AIF1 Capture", 0, SND_SOC_NOPM, 0, 0),
+ 	SND_SOC_DAPM_SUPPLY("AIFTX_Supply", SND_SOC_NOPM, 0, 0, NULL, 0),
+@@ -841,6 +1317,46 @@ static const struct snd_soc_dapm_widget mt6369_dapm_widgets[] = {
+ };
+ 
+ static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
++	/* Playback */
++	{"DL Power Supply", NULL, "CLK_BUF"},
++	{"DL Power Supply", NULL, "AUDGLB"},
++	{"DL Power Supply", NULL, "CLKSQ Audio"},
++	{"DL Power Supply", NULL, "AUDNCP_CK"},
++	{"DL Power Supply", NULL, "ZCD13M_CK"},
++	{"DL Power Supply", NULL, "AUD_CK"},
++	{"DL Power Supply", NULL, "AUDIF_CK"},
++	{"DL Power Supply", NULL, "ESD_RESIST"},
++	{"DL Power Supply", NULL, "LDO_VA33REFGEN"},
++	{"DL Power Supply", NULL, "LCLDO"},
++	{"DL Power Supply", NULL, "LCLDO_REMOTE"},
++	{"DL Power Supply", NULL, "HCLDO"},
++	{"DL Power Supply", NULL, "HCLDO_REMOTE"},
++	{"DL Power Supply", NULL, "NV_REGULATOR"},
++	{"DL Power Supply", NULL, "IBIST"},
++
++	{"DL Digital Clock", NULL, "AUDIO_TOP_AFE_CTL"},
++	{"DL Digital Clock", NULL, "AUDIO_TOP_DAC_CTL"},
++	{"DL Digital Clock", NULL, "AUDIO_TOP_PWR_CLK"},
++	{"DL Digital Clock", NULL, "AUDIO_TOP_PDN_RESERVED"},
++	{"DL Digital Clock", NULL, "SDM_FIFO_CLK"},
++	{"DL Digital Clock", NULL, "SDM"},
++	{"DL Digital Clock", NULL, "NCP"},
++	{"DL Digital Clock", NULL, "AFE_ON"},
++	{"DL Digital Clock", NULL, "AFE_DL_SRC"},
++
++	{"AIF1RX", NULL, "DL Digital Clock"},
++	{"AIF1RX", NULL, "DL_GPIO"},
++
++	{"DACL", NULL, "AIF1RX"},
++	{"DACL", NULL, "DL Power Supply"},
++	{"DACR", NULL, "AIF1RX"},
++	{"DACR", NULL, "DL Power Supply"},
++
++	{"HP Mux", NULL, "HP_MUTE"},
++	{"HP Mux", "Audio Playback", "DACL"},
++	{"HP Mux", "Audio Playback", "DACR"},
++	{"Headphone L", NULL, "HP Mux"},
++	{"Headphone R", NULL, "HP Mux"},
+ 	/* Capture */
+ 	{"AIFTX_Supply", NULL, "CLK_BUF"},
+ 	{"AIFTX_Supply", NULL, "AUDGLB"},
+@@ -912,6 +1428,13 @@ static struct snd_soc_dai_driver mt6369_dai_driver[] = {
+ 	{
+ 		.id = 0,
+ 		.name = "mt6369-snd-codec-aif1",
++		.playback = {
++			.stream_name = "AIF1 Playback",
++			.channels_min = 1,
++			.channels_max = 2,
++			.rates = MT6369_RATES,
++			.formats = MT6369_FORMATS,
++		},
+ 		.capture = {
+ 			.stream_name = "AIF1 Capture",
+ 			.channels_min = 1,
+@@ -1015,6 +1538,8 @@ static int mt6369_platform_driver_probe(struct platform_device *pdev)
+ 	if (ret && ret != -EINVAL)
+ 		return dev_err_probe(dev, ret, "invalid mediatek,mic-type\n");
+ 
++	priv->hp_gain = DL_GAIN_N_10DB;
++
+ 	/* The AFE side defaults to protocol 1 until it calibrates the link */
+ 	priv->mtkaif_protocol = MT6369_MTKAIF_PROTOCOL_1;
+ 
+diff --git a/sound/soc/codecs/mt6369.h b/sound/soc/codecs/mt6369.h
+index 68f3aad68..8fe599a7b 100644
+--- a/sound/soc/codecs/mt6369.h
++++ b/sound/soc/codecs/mt6369.h
+@@ -27,9 +27,13 @@
+ #define MT6369_GPIO_MODE7_CLR                    0xd2
+ #define MT6369_AUD_TOP_CKPDN_CON0                0x230c
+ #define MT6369_AFE_UL_DL_CON0                    0x2388
++#define MT6369_AFE_DL_SRC2_CON0                  0x2389
+ #define MT6369_AFE_UL_SRC_CON1                   0x238b
+ #define MT6369_AFE_TOP_CON0                      0x238e
+ #define MT6369_AUDIO_TOP_CON0                    0x238f
++#define MT6369_AFUNC_AUD_CON0                    0x2392
++#define MT6369_AFUNC_AUD_CON1                    0x2393
++#define MT6369_AFUNC_AUD_CON4                    0x2396
+ #define MT6369_AFE_ADDA_MTKAIF_CFG0              0x23bc
+ #define MT6369_AFE_ADDA_MTKAIF_CFG1              0x23bd
+ #define MT6369_AFE_DCCLK_CFG0                    0x23cd
+@@ -40,6 +44,11 @@
+ #define MT6369_AUDIO_DIG_CFG2                    0x23d2
+ #define MT6369_AFE_AUD_PAD_TOP                   0x23d3
+ #define MT6369_AFE_MTKAIF_MUX_CFG0               0x23de
++#define MT6369_AUDNCP_CLKDIV_CON0                0x248d
++#define MT6369_AUDNCP_CLKDIV_CON1                0x248e
++#define MT6369_AUDNCP_CLKDIV_CON2                0x248f
++#define MT6369_AUDNCP_CLKDIV_CON3                0x2490
++#define MT6369_AUDNCP_CLKDIV_CON4                0x2491
+ #define MT6369_AUDENC_ANA_CON0                   0x2508
+ #define MT6369_AUDENC_ANA_CON1                   0x2509
+ #define MT6369_AUDENC_ANA_CON2                   0x250a
+@@ -52,8 +61,28 @@
+ #define MT6369_AUDENC_ANA_CON18                  0x251a
+ #define MT6369_AUDENC_ANA_CON19                  0x251b
+ #define MT6369_AUDENC_ANA_CON20                  0x251c
++#define MT6369_AUDDEC_ANA_CON0                   0x2588
++#define MT6369_AUDDEC_ANA_CON1                   0x2589
++#define MT6369_AUDDEC_ANA_CON2                   0x258a
++#define MT6369_AUDDEC_ANA_CON3                   0x258b
++#define MT6369_AUDDEC_ANA_CON4                   0x258c
++#define MT6369_AUDDEC_ANA_CON5                   0x258d
++#define MT6369_AUDDEC_ANA_CON8                   0x2590
++#define MT6369_AUDDEC_ANA_CON16                  0x2598
++#define MT6369_AUDDEC_ANA_CON17                  0x2599
++#define MT6369_AUDDEC_ANA_CON18                  0x259a
++#define MT6369_AUDDEC_ANA_CON19                  0x259b
++#define MT6369_AUDDEC_ANA_CON20                  0x259c
++#define MT6369_AUDDEC_ANA_CON21                  0x259d
++#define MT6369_AUDDEC_ANA_CON22                  0x259e
++#define MT6369_AUDDEC_ANA_CON23                  0x259f
+ #define MT6369_AUDDEC_ANA_CON24                  0x25a0
++#define MT6369_AUDDEC_ANA_CON25                  0x25a1
+ #define MT6369_AUDDEC_ANA_CON26                  0x25a2
++#define MT6369_AUDDEC_ANA_CON27                  0x25a3
++#define MT6369_ZCD_CON0                          0x2608
++#define MT6369_ZCD_CON3                          0x260b
++#define MT6369_ZCD_CON4                          0x260c
+ 
+ /* Fields */
+ #define RG_AUDIF_CK_PDN_SFT                      2
+@@ -119,6 +148,61 @@
+ #define RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK         BIT(7)
+ #define RG_AUD_PAD_TOP_PHASE_MODE_MASK           GENMASK(6, 0)
+ #define PDN_AFE_DL_PREDIST_CTL_SFT               0
++/* downlink */
++#define RG_AUDNCP_CK_PDN_SFT                     6
++#define RG_ZCD13M_CK_PDN_SFT                     5
++#define DL_2_SRC_ON_TMP_CTL_PRE_SFT              0
++#define PDN_DAC_CTL_SFT                          6
++#define CCI_AFIFO_CLK_PWDB_SFT                   1
++#define RG_DIVCKS_CHG_MASK_SFT                   (0x1 << 0)
++#define RG_DIVCKS_ON_MASK_SFT                    (0x1 << 0)
++#define RG_DIVCKS_PWD_NCP_MASK_SFT               (0x1 << 0)
++#define RG_DIVCKS_PWD_NCP_ST_SEL_MASK_SFT        (0x3 << 0)
++#define RG_AUDHPLMUXINPUTSEL_VAUDP15_SFT         0
++#define RG_AUDHPRMUXINPUTSEL_VAUDP15_SFT         2
++#define RG_HPLOUTSTGCTRL_VAUDP15_SFT             0
++#define RG_HPLOUTSTGCTRL_VAUDP15_MASK_SFT        (0x7 << 0)
++#define RG_HPROUTSTGCTRL_VAUDP15_SFT             4
++#define RG_HPROUTSTGCTRL_VAUDP15_MASK_SFT        (0x7 << 4)
++#define RG_AUDREFN_DERES_EN_VAUDP15_MASK_SFT     (0x1 << 0)
++#define RG_AUDZCDMUXSEL_VAUDP15_SFT              0
++#define RG_AUDZCDMUXSEL_VAUDP15_MASK_SFT         (0x7 << 0)
++#define RG_AUDIBIASPWRDN_VAUDP15_SFT             4
++#define RG_RSTB_DECODER_VA28_MASK_SFT            (0x1 << 0)
++#define RG_HCLDO_EN_VA18_SFT                     0
++#define RG_HCLDO_REMOTE_SENSE_VA18_SFT           2
++#define RG_LCLDO_EN_VA18_SFT                     4
++#define RG_LCLDO_REMOTE_SENSE_VA18_SFT           6
++#define RG_VA33REFGEN_EN_VA18_SFT                4
++#define RG_NVREG_EN_VAUDP15_SFT                  0
++#define RG_AUDZCDENABLE_MASK_SFT                 (0x1 << 0)
++#define RG_AUDZCDGAINSTEPTIME_SFT                1
++#define RG_AUDZCDGAINSTEPTIME_MASK_SFT           (0x7 << 1)
++#define DRBIAS_HP_MASK_SFT                       (0x7 << 0)
++#define IBIAS_HP_SFT                             0
++#define IBIAS_HP_MASK_SFT                        (0x3 << 0)
++#define IBIAS_HS_SFT                             2
++#define IBIAS_HS_MASK_SFT                        (0x3 << 2)
++#define IBIAS_LO_SFT                             4
++#define IBIAS_LO_MASK_SFT                        (0x3 << 4)
++#define IBIAS_ZCD_SFT                            6
++#define IBIAS_ZCD_MASK_SFT                       (0x3 << 6)
++
++#define DRBIAS_6UA                               2
++#define IBIAS_5UA                                1
++#define IBIAS_ZCD_4UA                            1
++
++/* ZCD_CON3/4: the headphone gain, +8 dB at 0 down to -10 dB at 18 */
++enum {
++	DL_GAIN_8DB = 0,
++	DL_GAIN_N_10DB = 18,
++	DL_GAIN_N_40DB = 0x1f,
++};
++
++enum {
++	HP_MUX_OPEN = 0,
++	HP_MUX_HP = 2,
++};
+ 
+ enum {
+ 	MT6369_MTKAIF_PROTOCOL_1 = 0,
+@@ -151,6 +235,20 @@ enum {
+ 	SUPPLY_SEQ_UL_ADC,
+ 	SUPPLY_SEQ_UL_MTKAIF,
+ 	SUPPLY_SEQ_UL_SRC,
++	SUPPLY_SEQ_DL_GPIO,
++	SUPPLY_SEQ_DL_ESD_RESIST,
++	SUPPLY_SEQ_DL_LDO_VA33REFGEN,
++	SUPPLY_SEQ_DL_LCLDO,
++	SUPPLY_SEQ_DL_LCLDO_REMOTE_SENSE,
++	SUPPLY_SEQ_DL_HCLDO,
++	SUPPLY_SEQ_DL_HCLDO_REMOTE_SENSE,
++	SUPPLY_SEQ_DL_NV,
++	SUPPLY_SEQ_DL_IBIST,
++	SUPPLY_SEQ_DL_SDM_FIFO_CLK,
++	SUPPLY_SEQ_DL_SDM,
++	SUPPLY_SEQ_DL_NCP,
++	SUPPLY_SEQ_DL_SRC,
++	SUPPLY_SEQ_HP_MUTE,
+ };
+ 
+ enum {
+-- 
+2.55.0
+

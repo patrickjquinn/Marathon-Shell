@@ -1,0 +1,110 @@
+From bb76263d1f5302ab5800715fe7ffbaf5fca54acb Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:47:10 +0000
+Subject: [PATCH 256/272] dt-bindings: regulator: Add the Dioo DIO8018 camera
+ PMIC
+
+The DIO8018 is a seven-LDO camera power management IC on I2C, found on
+the Jolla Phone JP2601, which powers its three image sensors and their
+focus motors from it.
+---
+ .../bindings/regulator/dioo,dio8018.yaml      | 87 +++++++++++++++++++
+ 1 file changed, 87 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/regulator/dioo,dio8018.yaml
+
+diff --git a/Documentation/devicetree/bindings/regulator/dioo,dio8018.yaml b/Documentation/devicetree/bindings/regulator/dioo,dio8018.yaml
+new file mode 100644
+index 000000000..e0b594dc1
+--- /dev/null
++++ b/Documentation/devicetree/bindings/regulator/dioo,dio8018.yaml
+@@ -0,0 +1,87 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/regulator/dioo,dio8018.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Dioo DIO8018 camera power management IC
++
++maintainers:
++  - Patrick Quinn <patrick.jm.quinn@gmail.com>
++
++description:
++  The DIO8018 is an I2C-controlled power management IC for camera modules
++  with seven LDOs. LDO1 and LDO2 are high-current rails for sensor DVDD
++  (504 mV to 2.048 V), LDO3 to LDO7 are low-noise rails for AVDD, DOVDD and
++  focus motors (1.5 V to 3.412 V), all in 8 mV steps.
++
++properties:
++  compatible:
++    const: dioo,dio8018
++
++  reg:
++    maxItems: 1
++
++  reset-gpios:
++    maxItems: 1
++
++  vin12-supply:
++    description: Input supply of LDO1 and LDO2.
++
++  vin34-supply:
++    description: Input supply of LDO3 and LDO4.
++
++  vin5-supply:
++    description: Input supply of LDO5.
++
++  vin6-supply:
++    description: Input supply of LDO6.
++
++  vin7-supply:
++    description: Input supply of LDO7.
++
++  regulators:
++    type: object
++    additionalProperties: false
++
++    patternProperties:
++      "^ldo[1-7]$":
++        type: object
++        $ref: regulator.yaml#
++        unevaluatedProperties: false
++
++required:
++  - compatible
++  - reg
++  - regulators
++
++additionalProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/gpio/gpio.h>
++
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        pmic@35 {
++            compatible = "dioo,dio8018";
++            reg = <0x35>;
++            reset-gpios = <&pio 7 GPIO_ACTIVE_LOW>;
++
++            regulators {
++                ldo1 {
++                    regulator-name = "cam1-dvdd";
++                    regulator-min-microvolt = <1104000>;
++                    regulator-max-microvolt = <1104000>;
++                };
++
++                ldo4 {
++                    regulator-name = "cam1-avdd";
++                    regulator-min-microvolt = <2900000>;
++                    regulator-max-microvolt = <2900000>;
++                };
++            };
++        };
++    };
+-- 
+2.55.0
+

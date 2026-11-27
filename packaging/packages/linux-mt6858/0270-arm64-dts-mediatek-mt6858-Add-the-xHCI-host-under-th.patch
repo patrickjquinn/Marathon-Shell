@@ -1,0 +1,41 @@
+From 4f1de4a01c35b2652f84778ce09afe45d14d48f4 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:40 +0000
+Subject: [PATCH 270/272] arm64: dts: mediatek: mt6858: Add the xHCI host under
+ the USB controller
+
+The MTU3 at 0x11201000 is dual role; its host side is the xHCI at
+0x11200000 (SPI 395), clocked from 26 MHz as on the stock device tree.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index f29e451cd..b11ca151c 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -579,7 +579,21 @@ ssusb: usb@11201000 {
+ 			clocks = <&clk_lk_gate>;
+ 			clock-names = "sys_ck";
+ 			power-domains = <&spm MT6858_POWER_DOMAIN_SSUSB>;
++			#address-cells = <2>;
++			#size-cells = <2>;
++			ranges;
+ 			status = "disabled";
++
++			usb_host: usb@11200000 {
++				compatible = "mediatek,mt6858-xhci",
++					     "mediatek,mtk-xhci";
++				reg = <0 0x11200000 0 0x1000>;
++				reg-names = "mac";
++				interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH 0>;
++				clocks = <&clk26m>;
++				clock-names = "sys_ck";
++				status = "disabled";
++			};
+ 		};
+ 
+ 		mmc1: mmc@11240000 {
+-- 
+2.55.0
+
