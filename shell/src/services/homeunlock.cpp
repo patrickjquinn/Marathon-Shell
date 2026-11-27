@@ -7,13 +7,12 @@ HomeUnlock::HomeUnlock(const QStringList &command, QObject *parent)
     , m_command(command) {
     m_process.setProcessChannelMode(QProcess::ForwardedChannels);
     connect(&m_process, &QProcess::stateChanged, this, &HomeUnlock::busyChanged);
-    connect(&m_process, &QProcess::finished, this,
-            [this](int code, QProcess::ExitStatus status) {
-                if (status == QProcess::NormalExit && code == 0)
-                    QCoreApplication::quit();
-                else
-                    emit rejected();
-            });
+    connect(&m_process, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status) {
+        if (status == QProcess::NormalExit && code == 0)
+            QCoreApplication::quit();
+        else
+            emit rejected();
+    });
 }
 
 void HomeUnlock::submit(const QString &pin) {
