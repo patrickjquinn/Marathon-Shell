@@ -134,6 +134,7 @@ set(QML_FILES
     qml/components/MarathonBootSplash.qml
     qml/components/MarathonAppWindow.qml
     qml/components/KeelAmbienceBackground.qml
+    qml/components/FrostedBackdrop.qml
     qml/components/WallpaperTone.qml
     qml/components/LockClock.qml
     qml/components/KeelCoverView.qml
@@ -356,6 +357,10 @@ qt_add_resources(marathon-shell "shell_shaders"
         shaders/nightlight.vert.qsb
         shaders/nightlight.frag.qsb
         shaders/eink.frag.qsb
+        shaders/frostdown.frag.qsb
+        shaders/frostup.frag.qsb
+        shaders/frost.vert.qsb
+        shaders/frost.frag.qsb
 )
 qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"

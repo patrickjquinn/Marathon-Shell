@@ -16,6 +16,9 @@ Rectangle {
 
     property bool isInPeekMode: false
     // Peeking over the screen, what it frosts, bottom to top; empty, the ambience.
+    property list<Item> backdrops
+    // As a page, it frosts only while on screen.
+    property bool frostShown: true
     property var agenda: []
     // An app id narrows the list to that app; "" shows everything.
     property string filterApp: ""
@@ -134,14 +137,28 @@ Rectangle {
 
     signal closed
 
-    // The ambience, or the screen it peeks over, frosted.
+    // The screen it peeks over, frosted live, or the ambience.
     color: "transparent"
+
+    // Over the whole scene, sampled where the Hub lies, so it stays put
+    // while the peek slides and widens the Hub.
+    FrostedBackdrop {
+        id: frost
+
+        anchors.fill: parent
+        visible: supported && hub.backdrops.length > 0 && hub.frostShown
+        sources: hub.backdrops
+        region: Qt.rect(0, 0, ambience.width, ambience.height)
+        light: AmbienceService.light
+        tone: ambience.tone
+    }
 
     // The scene's size, not the hub's: the peek animates the hub's width,
     // and each new size would reload the blurred wallpaper mid-animation.
     KeelAmbienceBackground {
         id: ambience
 
+        visible: !frost.visible
         width: hub.Window.contentItem ? hub.Window.contentItem.width : 0
         height: hub.Window.contentItem ? hub.Window.contentItem.height : 0
         wallpaper: AmbienceService.wallpaperUrl

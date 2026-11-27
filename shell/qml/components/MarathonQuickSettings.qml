@@ -21,6 +21,7 @@ Item {
 
     // What the shade frosts, bottom to top: the open app, or the wallpaper
     // and the home screen.
+    property list<Item> backdrops
 
     signal closed
     signal launchApp(var app)
@@ -37,13 +38,27 @@ Item {
     // follows the finger.
     readonly property real openProgress: Math.min(1, height / Math.max(1, maxHeight))
 
-    // The ambience, flat, at the open shade's size so a drag doesn't reload it;
-    // the shade clips it.
+    // What is behind the shade, frosted live, over the open shade's region,
+    // so a drag does not redraw it. Where the GPU is too weak, the ambience
+    // at the open shade's size, so a drag doesn't reload it; the shade clips it.
+    FrostedBackdrop {
+        id: frost
+
+        anchors.fill: parent
+        visible: supported && quickSettings.backdrops.length > 0
+        sources: quickSettings.backdrops
+        region: Qt.rect(quickSettings.x, quickSettings.y, quickSettings.width, quickSettings.maxHeight)
+        light: AmbienceService.light
+        tone: ambience.tone
+    }
     KeelAmbienceBackground {
+        id: ambience
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: quickSettings.maxHeight
+        visible: !frost.visible
         wallpaper: AmbienceService.wallpaperUrl
         light: AmbienceService.light
         brightest: AmbienceService.brightest

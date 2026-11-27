@@ -52,7 +52,7 @@ how Marathon expresses it.
 |---|---|---|
 | **Spring physics over ease curves** | iOS rubber-banding, M3 Expressive's 4-rung stiffness ladder, OneUI 7 micro-springs | `MMotion.stiffness{High,Medium,Low,VeryLow}` + spatial/effects damping split. `MMotion.roles` table tags every microinteraction with a role, not a duration |
 | **Predictive gestures** | Android predictive-back, iOS edge-swipe with parallax | `MarathonNavBar.backProgress` drives `appWindowContainer.scale 1.0→0.9` + opacity fade past `MMotion.backFadeThreshold` (0.35). Pill left-drag is the primary back affordance |
-| **Flat materials, no blur** | M3 Expressive's tinted scrim | Flat fills on one plane (no glass, bevels, borders or blur); content on the ambience; Keel dialogs dim the live app. |
+| **Flat materials, live frost behind the shade** | M3 Expressive's tinted scrim, iOS's live material | Flat fills on one plane (no glass, bevels or borders); content on the ambience; Quick Settings and the Hub frost what is live behind them (`FrostedBackdrop`); Keel dialogs dim the live app. |
 | **Restraint at the edge** | iOS's "everything is the same color but slightly different temperature", BB10's near-black palette | OLED-first dark theme, `#040404` floor, six elevation steps up to `#353536`. Teal accent (`#1de9b6` bright) appears only on the active path: focused control, current tab, primary action |
 | **Microcoherence (sub-frame)** | Apple's app-open animation that paints chrome + app body as one surface; impossible on multi-process compositors | In-process scenegraph means a status-bar reveal, a navbar pill morph, and an app-window scale can land in one frame with zero IPC. We design for this — see §7 |
 | **Live activities / persistent surfaces** | Dynamic Island, iOS Live Activities, Android persistent notifications | NowBar (planned): an always-visible micro-surface for active calls, media, navigation, timers. One canonical promotion target, not per-feature widgets |
@@ -180,8 +180,9 @@ stay crisp, and type stays light.
    is over how it stands right. A tap switches it; holding it opens its
    settings page.
 
-Built this way: Quick Settings (two across in sideways pages, flat pill
-sliders, shortcuts as a row of discs), the Hub (notifications on the
+Built this way: Quick Settings (three across in sideways pages of nine on a
+square screen; two across, all on one page, with larger discs on a tall one;
+flat pill sliders, shortcuts as a row of discs), the Hub (notifications on the
 ambience: flat tinted avatar, unread dot), the power menu and keypads (flat
 discs), the switcher (flat frames). Flat controls: `MCircularIconButton`,
 Keel `Button` (a pill), Keel `Keypad` (discs), the pressed row
@@ -191,10 +192,22 @@ inset highlight that fades).
 The Sailfish glow idioms that remain are deliberate: the `Switch` glow and
 the page-stack indicator.
 
-**No blur.** The shade, the Hub and the sheets lie on the ambience
-(`KeelAmbienceBackground`, one cached opaque image); the lock screen on its
-wallpaper; Keel dialogs dim the live app. FBO effects on persistent surfaces
-are banned: on the Librem 5's etnaviv a 4× layer drew at 2 fps.
+**Live frost, only behind the shade and the Hub.** Quick Settings and the
+Hub frost what is behind them as it is drawn: the open app, the home
+screen, or the lock screen (`FrostedBackdrop`). The layers are captured at
+half size over the surface's region and blurred with the dual filter (four
+halvings, three doublings, `frostdown`/`frostup.frag`); `frost.frag` draws
+it at full size, sampling by screen position so the frost stays put while
+the shade grows or the Hub slides, tones it as the ambience does, rolls
+bright content (a white page) off so text keeps its contrast, and adds half
+a step of noise so it does not band, which never lifts an OLED's black.
+Each step redraws only when the one before it changes, and nothing is
+captured while the surface is hidden. Where `DeviceProfile.liveBlur` is off
+(etnaviv, lima), on e-paper and in software rendering they lie on the
+ambience (`KeelAmbienceBackground`, one cached opaque image). The sheets lie
+on the ambience; the lock screen on its wallpaper; Keel dialogs dim the live
+app. Other FBO effects on persistent surfaces are banned: on the Librem 5's
+etnaviv a 4× layer drew at 2 fps.
 
 ---
 
@@ -337,7 +350,8 @@ Springs and haptics fire together — never one without the other.
 Controls and surfaces are flat fills (§3). Bands and sheets
 (toasts, the share sheet, the file picker, Pilot's sheet, the Quick
 Settings shade) are the ambience edge to edge, lit along one edge by
-`MGlowLine`, Sailfish's glow line. Nothing is blurred.
+`MGlowLine`, Sailfish's glow line. Only the Quick Settings shade and the
+Hub frost what is behind them (§3).
 
 ### 6.2 In-process compositor as material moat
 
@@ -557,7 +571,8 @@ runs anywhere. These are the rules the rendering pipeline depends on:
    look".
 2. **No `layer.enabled`** except for SVG colourisation in `Icon.qml`.
    No `FastBlur` / `GaussianBlur` anywhere. `MultiEffect` permitted
-   only on transient popups (§3).
+   only on transient popups; live frost only through `FrostedBackdrop`,
+   gated on `DeviceProfile.liveBlur` (§3).
 3. **No `clip: true` unless overflow is real.** Stencil ops are
    expensive on Mali/Broadcom/etnaviv.
 4. **No infinite animations on hidden items.** Gate `running` on
