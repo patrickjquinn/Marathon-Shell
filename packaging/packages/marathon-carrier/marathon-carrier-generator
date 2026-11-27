@@ -1,25 +1,41 @@
 #!/bin/sh
 # CARRIER_BOOT_BEHIND_PIN=1 in carrier.conf: the system boots while the PIN
 # is asked for /home, not after. marathon-carrier-home-crypt leaves
-# local-fs.target, and what needs /home waits for marathon-carrier-home.target.
+# local-fs.target, and what needs /home (the greeter, the managers of users
+# whose home is there, userconfig) waits for marathon-carrier-home.target.
 # Replacements in generator.early outrank /etc and /usr/lib; a drop-in
 # cannot remove an ordering.
+# marathon.carrier.early=1 on the kernel command line does the same for one
+# boot, so a test entry can try it without changing the device's default.
 conf=/usr/share/marathon/carrier.conf
-[ "$(sed -n 's/^CARRIER_BOOT_BEHIND_PIN=//p' "$conf" 2> /dev/null | tail -n 1)" = 1 ] || exit 0
+[ "$(sed -n 's/^CARRIER_BOOT_BEHIND_PIN=//p' "$conf" 2> /dev/null | tail -n 1)" = 1 ] ||
+	grep -qw 'marathon\.carrier\.early=1' /proc/cmdline || exit 0
 early=$2
 lib=/usr/lib/systemd/system
 
-sed '/^Before=/s/ *local-fs\.target//' "$lib/marathon-carrier-home-crypt.service" \
+sed -e '/^Before=/s/ *local-fs\.target//' -e '/^Before=/s/ *systemd-user-sessions\.service//' \
+	"$lib/marathon-carrier-home-crypt.service" \
 	> "$early/marathon-carrier-home-crypt.service"
 # Android's names move on /home before Deckard and the session start; the
 # /home lines of tmpfiles follow it (marathon-carrier-home-tmpfiles).
 if [ -e "$lib/deckard-migrate.service" ]; then
 	sed -e '/^Before=/s/ *sysinit\.target//' -e '/^Before=/s/ *systemd-tmpfiles-setup\.service//' \
+		-e '/^Before=/s/ *systemd-user-sessions\.service//' \
 		-e '/^After=/s/$/ marathon-carrier-home-crypt.service/' \
 		-e '/^Before=/s/$/ marathon-carrier-home.target/' \
 		"$lib/deckard-migrate.service" > "$early/deckard-migrate.service"
 fi
-for unit in systemd-user-sessions.service marathon-userconfig.service; do
+# Not systemd-user-sessions: every logind session, root's over ssh too, waits
+# for it, and the remote unlock needs a root login while the PIN is asked.
+# So it loses its home.mount ordering too.
+u=/etc/systemd/system/systemd-user-sessions.service
+[ -e "$u" ] || u=$lib/systemd-user-sessions.service
+sed '/^After=/s/ *home\.mount//' "$u" > "$early/systemd-user-sessions.service"
+units="greetd.service marathon-userconfig.service"
+for uid in $(awk -F: '$3 >= 1000 && $3 < 60000 && $6 ~ "^/home/" { print $3 }' /etc/passwd); do
+	units="$units user@$uid.service"
+done
+for unit in $units; do
 	mkdir -p "$early/$unit.d"
 	printf '[Unit]\nWants=marathon-carrier-home.target\nAfter=marathon-carrier-home.target\n' \
 		> "$early/$unit.d/50-marathon-carrier-home.conf"
