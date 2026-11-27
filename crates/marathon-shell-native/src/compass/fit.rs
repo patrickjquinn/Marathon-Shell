@@ -58,11 +58,7 @@ pub struct Learner {
 
 impl Learner {
     pub fn add(&mut self, raw: Vector) -> bool {
-        if self
-            .samples
-            .iter()
-            .any(|&s| norm(sub(s, raw)) < SPACING)
-        {
+        if self.samples.iter().any(|&s| norm(sub(s, raw)) < SPACING) {
             return false;
         }
         if self.samples.len() == KEPT {
@@ -126,7 +122,10 @@ fn ellipsoid(samples: &VecDeque<Vector>) -> Option<Calibration> {
     if square.iter().any(|&a| a <= 0.0) {
         return None;
     }
-    let g = 1.0 + (0..3).map(|i| linear[i].powi(2) / (4.0 * square[i])).sum::<f64>();
+    let g = 1.0
+        + (0..3)
+            .map(|i| linear[i].powi(2) / (4.0 * square[i]))
+            .sum::<f64>();
     let radii = [0, 1, 2].map(|i| (g / square[i]).sqrt());
     let radius = radii.iter().product::<f64>().cbrt();
     let scale = radii.map(|r| radius / r);
@@ -183,7 +182,9 @@ pub fn heading(gravity: Vector, field: Vector) -> Option<f64> {
 /// Degrees the field points below the horizon.
 pub fn dip(gravity: Vector, field: Vector) -> f64 {
     match (normalised(gravity), normalised(field)) {
-        (Some(up), Some(f)) => (-(0..3).map(|i| up[i] * f[i]).sum::<f64>()).asin().to_degrees(),
+        (Some(up), Some(f)) => (-(0..3).map(|i| up[i] * f[i]).sum::<f64>())
+            .asin()
+            .to_degrees(),
         _ => 0.0,
     }
 }
@@ -217,7 +218,6 @@ fn normalised(a: Vector) -> Option<Vector> {
 #[cfg(test)]
 mod tests {
     use super::{heading, Calibration, Learner, Vector};
-
 
     /// Dublin's field: 0.49 G, 67° down, in a frame with y north, z up.
     const EARTH: Vector = [0.0, 0.191, -0.451];
@@ -260,7 +260,10 @@ mod tests {
 
     #[test]
     fn tilt_does_not_move_the_heading() {
-        let h = heading(up(120.0, 25.0, -30.0), into_phone(EARTH, 120.0, 25.0, -30.0));
+        let h = heading(
+            up(120.0, 25.0, -30.0),
+            into_phone(EARTH, 120.0, 25.0, -30.0),
+        );
         assert!(h.is_some_and(|h| close(h, 120.0, 0.01)), "{h:?}");
     }
 
@@ -280,7 +283,11 @@ mod tests {
     fn figure_eight(learner: &mut Learner) {
         for step in 0..400 {
             let t = f64::from(step) * 0.05;
-            learner.add(reading(t * 57.0, 70.0 * (t * 0.7).sin(), 80.0 * (t * 1.3).cos()));
+            learner.add(reading(
+                t * 57.0,
+                70.0 * (t * 0.7).sin(),
+                80.0 * (t * 1.3).cos(),
+            ));
         }
     }
 

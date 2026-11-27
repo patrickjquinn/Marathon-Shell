@@ -60,7 +60,10 @@ fn wake() {
 enum Event {
     Wake,
     Rescan,
-    Added(OwnedObjectPath, HashMap<String, HashMap<String, OwnedValue>>),
+    Added(
+        OwnedObjectPath,
+        HashMap<String, HashMap<String, OwnedValue>>,
+    ),
     Removed(OwnedObjectPath, Vec<String>),
     Changed(HashMap<String, OwnedValue>),
 }
@@ -97,7 +100,12 @@ async fn run(bus: zbus::Connection, wakes: Receiver<()>) {
             MessageStream::for_match_rule(rule, &bus, std::num::NonZeroUsize::new(64)).await
         }
     };
-    let owners = async { DBusProxy::new(&bus).await?.receive_name_owner_changed_with_args(&[(0, NEARD)]).await };
+    let owners = async {
+        DBusProxy::new(&bus)
+            .await?
+            .receive_name_owner_changed_with_args(&[(0, NEARD)])
+            .await
+    };
     let (Ok(added), Ok(removed), Ok(changed), Ok(owners)) = (
         signals("org.freedesktop.DBus.ObjectManager", "InterfacesAdded").await,
         signals("org.freedesktop.DBus.ObjectManager", "InterfacesRemoved").await,
@@ -169,7 +177,11 @@ async fn run(bus: zbus::Connection, wakes: Receiver<()>) {
 async fn scan(manager: &ObjectManagerProxy<'_>) -> Neard {
     let mut neard = Neard::default();
     for (path, ifaces) in manager.get_managed_objects().await.unwrap_or_default() {
-        if let Some(props) = ifaces.iter().find(|(i, _)| i.as_str() == ADAPTER).map(|(_, p)| p) {
+        if let Some(props) = ifaces
+            .iter()
+            .find(|(i, _)| i.as_str() == ADAPTER)
+            .map(|(_, p)| p)
+        {
             let props: HashMap<String, OwnedValue> = props
                 .iter()
                 .filter_map(|(k, v)| Some((k.clone(), v.try_clone().ok()?)))
@@ -250,8 +262,17 @@ async fn show(record: &HashMap<String, OwnedValue>) {
     let notices = async { NotificationsProxy::new(&io::session_bus().await?).await };
     let sent = match notices.await {
         Ok(n) => {
-            n.notify(&fl!("nfc-app"), 0, "contactless-payment", &fl!("nfc-tag-title"), &body, &actions, HashMap::new(), 0)
-                .await
+            n.notify(
+                &fl!("nfc-app"),
+                0,
+                "contactless-payment",
+                &fl!("nfc-tag-title"),
+                &body,
+                &actions,
+                HashMap::new(),
+                0,
+            )
+            .await
         }
         Err(e) => Err(e),
     };

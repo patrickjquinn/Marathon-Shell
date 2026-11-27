@@ -57,10 +57,14 @@ impl Axes {
         let dir = dirs
             .into_iter()
             .find(|d| d.join(format!("in_{kind}_x_raw")).exists())?;
-        let matrix = ["mount_matrix", "in_mount_matrix", &format!("in_{kind}_mount_matrix")]
-            .iter()
-            .find_map(|name| matrix(&std::fs::read_to_string(dir.join(name)).ok()?))
-            .unwrap_or([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
+        let matrix = [
+            "mount_matrix",
+            "in_mount_matrix",
+            &format!("in_{kind}_mount_matrix"),
+        ]
+        .iter()
+        .find_map(|name| matrix(&std::fs::read_to_string(dir.join(name)).ok()?))
+        .unwrap_or([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
         Some(Self {
             files: ["x", "y", "z"].map(|a| dir.join(format!("in_{kind}_{a}_raw"))),
             offset: read(dir.join(format!("in_{kind}_offset"))).unwrap_or(0.0),
@@ -153,13 +157,10 @@ async fn run(field: Axes, gravity: Axes, asks: impl futures_lite::Stream<Item = 
     loop {
         let reading = !holders.is_empty() && screen_on;
         let event = if reading {
-            future::or(
-                async { asks.next().await.map(Event::Ask) },
-                async {
-                    Timer::after(PERIOD).await;
-                    Some(Event::Tick)
-                },
-            )
+            future::or(async { asks.next().await.map(Event::Ask) }, async {
+                Timer::after(PERIOD).await;
+                Some(Event::Tick)
+            })
             .await
         } else {
             asks.next().await.map(Event::Ask)
@@ -177,7 +178,8 @@ async fn run(field: Axes, gravity: Axes, asks: impl futures_lite::Stream<Item = 
             Some(Event::Ask(Ask::Screen(on))) => screen_on = on,
             Some(Event::Tick) => {
                 let sensors = std::sync::Arc::clone(&sensors);
-                let sample = blocking::unblock(move || Some((sensors.0.read()?, sensors.1.read()?)));
+                let sample =
+                    blocking::unblock(move || Some((sensors.0.read()?, sensors.1.read()?)));
                 if let Some((raw, up)) = sample.await {
                     state.take(raw, up);
                 }

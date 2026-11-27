@@ -128,7 +128,10 @@ async fn refresh(qt: &Qt) {
             SENSOR.ask::<_, bool>("IsAvailable", &()).await.ok()?,
             SENSOR.ask::<_, bool>("ProximityNear", &()).await.ok()?,
             SENSOR.ask::<_, i32>("AmbientLight", &()).await.ok()?,
-            SENSOR.ask::<_, bool>("HasCompass", &()).await.unwrap_or(false),
+            SENSOR
+                .ask::<_, bool>("HasCompass", &())
+                .await
+                .unwrap_or(false),
         ))
     };
     if let Some((available, near, lux, compass)) = read.await {
@@ -152,6 +155,13 @@ impl Sensors {
         rust.heading = -1.0;
         rust.compass_calibrated = false;
         self.as_mut().compass_changed();
-        SENSOR.call(if wanted { "StartCompass" } else { "StopCompass" }, ());
+        SENSOR.call(
+            if wanted {
+                "StartCompass"
+            } else {
+                "StopCompass"
+            },
+            (),
+        );
     }
 }
