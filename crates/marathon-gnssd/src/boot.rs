@@ -19,8 +19,8 @@ const BOOT_PARAMS_ACK: u16 = 0xfe31;
 const BOOT_CODE_ACK: u16 = 0xfe32;
 
 /// `gps_drv`'s ioctls: plain numbers, not `_IOC` encoded.
-const GET_DSP_BOOTUP_INFO: libc::c_ulong = 23;
-const DSP_MVCD_FRAGMENT: libc::c_ulong = 25;
+const GET_DSP_BOOTUP_INFO: libc::Ioctl = 23;
+const DSP_MVCD_FRAGMENT: libc::Ioctl = 25;
 
 const TRIES: u32 = 5;
 const MAX_FRAGMENTS: u32 = 256;
