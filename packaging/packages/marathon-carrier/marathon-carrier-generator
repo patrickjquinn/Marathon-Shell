@@ -5,8 +5,11 @@
 # whose home is there, userconfig) waits for marathon-carrier-home.target.
 # Replacements in generator.early outrank /etc and /usr/lib; a drop-in
 # cannot remove an ordering.
+# marathon.carrier.early=1 on the kernel command line does the same for one
+# boot, so a test entry can try it without changing the device's default.
 conf=/usr/share/marathon/carrier.conf
-[ "$(sed -n 's/^CARRIER_BOOT_BEHIND_PIN=//p' "$conf" 2> /dev/null | tail -n 1)" = 1 ] || exit 0
+[ "$(sed -n 's/^CARRIER_BOOT_BEHIND_PIN=//p' "$conf" 2> /dev/null | tail -n 1)" = 1 ] ||
+	grep -qw 'marathon\.carrier\.early=1' /proc/cmdline || exit 0
 early=$2
 lib=/usr/lib/systemd/system
 
