@@ -1328,6 +1328,7 @@ Item {
         function onHomeRequested(switcher) {
             UIStore.closeSearch();
             UIStore.closeQuickSettings();
+            UIStore.closeClipboardManager();
             virtualKeyboard.active = false;
             shell.handleHomeKey();
             if (!switcher) {
