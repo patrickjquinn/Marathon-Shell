@@ -5,7 +5,7 @@
 # board's (jp2601-connsys-firmware).
 pkgname=mt6858-platform
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc="MediaTek MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -15,11 +15,13 @@ depends="e2fsprogs-extra bluez-btmgmt wpa_supplicant wpa_supplicant-systemd mt68
  marathon-gnssd"
 source="mt6858-connsys-nvram mt6858-connsys-nvram.service mt6858-wifi.service
  mt6858-wifi-on mt6858-bluetooth.service mt6858-bt-address mt6858-gnss.service
- 50-mt6858-wpa_supplicant.conf 50-mt6858-gnssd.conf"
+ 50-mt6858-wpa_supplicant.conf 50-mt6858-gnssd.conf mt6858-wlan.modprobe.conf"
 
 package() {
 	install -Dm755 "$srcdir/mt6858-connsys-nvram" "$pkgdir/usr/libexec/marathon/mt6858-connsys-nvram"
 	install -Dm755 "$srcdir/mt6858-wifi-on" "$pkgdir/usr/libexec/marathon/mt6858-wifi-on"
+	# The shell puts Wi-Fi into suspend mode with the screen off.
+	install -Dm644 "$srcdir/mt6858-wlan.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/mt6858-wlan.conf"
 	install -Dm755 "$srcdir/mt6858-bt-address" "$pkgdir/usr/libexec/marathon/mt6858-bt-address"
 	local unit
 	for unit in mt6858-connsys-nvram mt6858-wifi mt6858-bluetooth mt6858-gnss; do

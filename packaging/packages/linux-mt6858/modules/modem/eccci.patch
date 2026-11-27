@@ -966,3 +966,25 @@ index 7d1d183..0a7fb5a 100644
  			break;
  		}
  	}
+diff --git a/eccci/fsm/ccci_fsm_poller.c b/eccci/fsm/ccci_fsm_poller.c
+index 131b0cc..f56be7c 100644
+--- a/eccci/fsm/ccci_fsm_poller.c
++++ b/eccci/fsm/ccci_fsm_poller.c
+@@ -120,7 +120,7 @@ static int fsm_poll_main(void *data)
+ 		ret = ccci_port_send_msg_to_md(CCCI_STATUS_TX, 0, 0, 1);
+ 		CCCI_NORMAL_LOG(0, FSM,
+ 				"poll MD status send msg %d\n", ret);
+-		ret = wait_event_timeout(poller_ctl->status_rx_wq,
++		ret = wait_event_idle_timeout(poller_ctl->status_rx_wq,
+ 		poller_ctl->poller_state == FSM_POLLER_RECEIVED_RESPONSE,
+ 		POLLING_TIMEOUT * HZ);
+ 		CCCI_NORMAL_LOG(0, FSM,
+@@ -162,7 +162,7 @@ static int fsm_poll_main(void *data)
+ 			}
+ 		}
+ next:
+-		msleep(POLLING_INTERVAL_TIME);
++		schedule_timeout_idle(msecs_to_jiffies(POLLING_INTERVAL_TIME));
+ 	}
+ 	return 0;
+ }

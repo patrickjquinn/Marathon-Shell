@@ -122,8 +122,8 @@ profile, splash, USB networking, Deckard's settings).
 | Q25 hardware services (modem, Wi-Fi, BT, GNSS, audio, camera, NFC, haptics, charger, zram after boot) | no | no drivers on this SoC yet; zram comes from `marathon-base-config` |
 | Firewall, hardening sysctl, logind policy | no | Q25-only files in `device-zinwa-q25-marathon`; they belong in the shared `marathon-phone-base` (WP1) |
 
-The screen never blanks (`screen_timeout_ms = 0`): there is no power-key
-or touch driver to wake it.
+The screen blanks after the usual idle timeout into Doze (CRTC off, DPMS
+Off); the power key and touch wake it.
 
 ### Touch
 
