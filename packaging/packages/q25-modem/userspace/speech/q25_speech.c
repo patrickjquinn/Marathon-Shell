@@ -223,7 +223,9 @@ static int speech_off(void)
 #define CARD		0
 #define DEV_PLAY2	3
 #define DEV_CAP2	4
+#ifndef DEV_HOSTLESS
 #define DEV_HOSTLESS	5
+#endif
 #define CH		2
 #define PERIOD_MS	20
 #define TEST_SEC	4

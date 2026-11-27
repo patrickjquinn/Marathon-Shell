@@ -5,7 +5,7 @@
 # build from q25-modem.
 pkgname=jp2601-modem
 pkgver=1.0.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Jolla Phone (2026) MD1 modem stack: CCCI daemons and services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -15,8 +15,9 @@ depends="kmod util-linux mt6858-modem-modules modemmanager-mtk-ccci mobile-broad
 makedepends="gcc make musl-dev linux-headers"
 _units="jp2601-modem.target jp2601-modem-stack.service jp2601-modem-nv.service
  jp2601-ccci-rpcd.service jp2601-ccci-fsd.service jp2601-ccci-mdinit.service jp2601-modem-init.service
- jp2601-modem-reset.path jp2601-modem-reset.service"
-source="jp2601-modem-up jp2601-modem-nv properties 78-jp2601-modem.rules $_units"
+ jp2601-modem-reset.path jp2601-modem-reset.service jp2601-call-audio.service"
+source="jp2601-modem-up jp2601-modem-nv properties 78-jp2601-modem.rules jp2601-call-audio
+ ModemManager-jp2601-call-audio.conf $_units"
 
 prepare() {
 	default_prepare
@@ -27,14 +28,17 @@ prepare() {
 
 build() {
 	make -C "$builddir" CC="${CC:-gcc}" out/ccci_mdinit out/ccci_fsd out/ccci_rpcd
+	# q25-speech with the JP2601 card's Hostless_Speech PCM (device 4).
+	make -C "$builddir" CC="${CC:-gcc} -DDEV_HOSTLESS=4" out/q25-speech
+	mv "$builddir/out/q25-speech" "$builddir/out/jp2601-speech"
 }
 
 package() {
 	local x="$pkgdir/usr/libexec/jp2601-modem" m u
-	for m in ccci_mdinit ccci_fsd ccci_rpcd; do
+	for m in ccci_mdinit ccci_fsd ccci_rpcd jp2601-speech; do
 		install -Dm755 "$builddir/out/$m" "$x/$m"
 	done
-	for m in jp2601-modem-up jp2601-modem-nv q25-modem-init; do
+	for m in jp2601-modem-up jp2601-modem-nv q25-modem-init jp2601-call-audio; do
 		install -Dm755 "$srcdir/$m" "$x/$m"
 	done
 	# The daemons' property shim reads its defaults from here.
@@ -43,4 +47,6 @@ package() {
 	for u in $_units; do
 		install -Dm644 "$srcdir/$u" "$pkgdir/usr/lib/systemd/system/$u"
 	done
+	install -Dm644 "$srcdir/ModemManager-jp2601-call-audio.conf" \
+		"$pkgdir/usr/lib/systemd/system/ModemManager.service.d/50-jp2601-call-audio.conf"
 }
