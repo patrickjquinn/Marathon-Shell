@@ -8,7 +8,7 @@
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=19
+pkgrel=20
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 # MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
@@ -324,6 +324,7 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0270-arm64-dts-mediatek-mt6858-Add-the-xHCI-host-under-th.patch
 	0271-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 	0272-ASoC-codecs-mt6369-Add-the-headphone-downlink.patch
+	0273-pmdomain-mediatek-mtk-mfg-Wait-for-each-EB-answer-in.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -682,5 +683,6 @@ cacfa62b1b4922c8ebbf2392d52452ab6dffe5785db63c097df5b338fe30ed81521e3c749e098699
 beb02b52369af24786b157a0281eaf61db3b8ce9559125b1a0aa7162a397845efda01d25f332688f40021578f6f15581f12d9ff7ff03861b664b9205d7f942df  0270-arm64-dts-mediatek-mt6858-Add-the-xHCI-host-under-th.patch
 132ccd22a4ebc9be084dfdfbfa21568cd2c7495455e7d5f6154a17aa1bec435032845faea72a71d423ccdf5d312dd14490ff943bed93213190fc725bd6b6e172  0271-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 a51a77c9708c212953a4c981febb736e1c7b282f603d75e28595036617dc96b3b1d1d7817e1b0873d6b19d28d8430a9a0ea93e8f24e4313790143a10106b878c  0272-ASoC-codecs-mt6369-Add-the-headphone-downlink.patch
+918111625573fd25e2192bfbf3781e81a70ac9a13bd44fc95d35d66ca26096289397398ed9105a9a5d1930f3ad6dc1d3c76d4b911c075f61dc5a5529b0ec4cce  0273-pmdomain-mediatek-mtk-mfg-Wait-for-each-EB-answer-in.patch
 1b57b13f8912bed14f0f0bc5ff65f8977e71649dd311c28fedb459248b1ac86d94543ae04bda8ec651cd28d9189925efca9f3ee3eeb39b3a0999fa09bcde9ae3  marathon.config
 "
