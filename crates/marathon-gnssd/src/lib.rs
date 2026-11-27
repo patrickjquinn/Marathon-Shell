@@ -4,6 +4,7 @@
 //! BeiDou navigation messages, orbits, single-point positioning and NMEA.
 
 pub mod almanac;
+pub mod boot;
 pub mod clock;
 pub mod d1;
 pub mod dsp;
