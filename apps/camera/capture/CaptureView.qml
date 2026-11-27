@@ -1023,11 +1023,11 @@ FocusScope {
         }
     }
 
-    // The privacy switch has cut the cameras.
+    // The privacy switch has cut the cameras (Power needs the system permission).
     InfoLabel {
         objectName: "cameraBlockedLabel"
         anchors.centerIn: parent
-        visible: Platform.Power.cameraBlocked
+        visible: !!Platform.Power && Platform.Power.cameraBlocked
         text: qsTr("Camera blocked by the privacy switch")
     }
 }
