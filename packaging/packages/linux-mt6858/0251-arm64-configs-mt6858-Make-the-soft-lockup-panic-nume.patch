@@ -1,0 +1,41 @@
+From ccef81dad52e2b8104cbd9603bcfd4fbce56cf69 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 09:41:35 +0000
+Subject: [PATCH 251/271] arm64: configs: mt6858: Make the soft-lockup panic
+ numeric, add watchdog sysfs
+
+BOOTPARAM_SOFTLOCKUP_PANIC is an int (the number of 20 s periods before
+the panic), so =y was rejected and the soft-lockup panic stayed off.
+Set it to 1. Build WATCHDOG_SYSFS too, so the hardware watchdog's
+timeout and time left can be read from sysfs.
+
+Rules: G1.
+---
+ arch/arm64/configs/mt6858.config | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 95730670c..9a43f3318 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -9,6 +9,8 @@ CONFIG_SERIAL_8250_MT6577=y
+ CONFIG_SERIAL_EARLYCON=y
+ CONFIG_WATCHDOG=y
+ CONFIG_MEDIATEK_WATCHDOG=y
++# The watchdog's timeout and time left, read from sysfs.
++CONFIG_WATCHDOG_SYSFS=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+ CONFIG_DRM=y
+ CONFIG_DRM_SIMPLEDRM=y
+@@ -105,7 +107,7 @@ CONFIG_MTK_LVTS_THERMAL=y
+ # A hang panics into pstore (LK's ramoops) before the 15 s hardware
+ # watchdog bites, instead of a silent reset.
+ CONFIG_SOFTLOCKUP_DETECTOR=y
+-CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y
++CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=1
+ CONFIG_HARDLOCKUP_DETECTOR=y
+ CONFIG_BOOTPARAM_HARDLOCKUP_PANIC=y
+ CONFIG_RCU_CPU_STALL_TIMEOUT=10
+-- 
+2.55.0
+

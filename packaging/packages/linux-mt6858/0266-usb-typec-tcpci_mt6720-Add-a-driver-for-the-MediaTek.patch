@@ -1,0 +1,409 @@
+From 48567bc5f139f163826c1d19465a9476c23f3681 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:28 +0000
+Subject: [PATCH 266/271] usb: typec: tcpci_mt6720: Add a driver for the
+ MediaTek MT6720
+
+The MT6720's port controller is TCPCI (VID 0x29cf, PID 0x6720, PD 3.0).
+Initialise it as MediaTek's tcpc_mt6379 driver does for the MT6720: a
+soft reset, the BMC PHY timings, the CC and VBUS filters, the I2C
+timeout reset its GPIO interrupt needs, and auto idle with the fix that
+keeps it from blocking transmission.
+
+The reset leaves the reset-to-default fault set with every alert
+unmasked, which raised the interrupt about 160 times a second until the
+fault was cleared, so clear it and unmask only the alerts the TCPCI core
+handles. The charger takes VBUS by itself, so sinking needs no command;
+sourcing switches the optional vbus supply.
+---
+ drivers/usb/typec/tcpm/Kconfig        |  11 +
+ drivers/usb/typec/tcpm/Makefile       |   1 +
+ drivers/usb/typec/tcpm/tcpci_mt6720.c | 342 ++++++++++++++++++++++++++
+ 3 files changed, 354 insertions(+)
+ create mode 100644 drivers/usb/typec/tcpm/tcpci_mt6720.c
+
+diff --git a/drivers/usb/typec/tcpm/Kconfig b/drivers/usb/typec/tcpm/Kconfig
+index 00baa7503..8f7814094 100644
+--- a/drivers/usb/typec/tcpm/Kconfig
++++ b/drivers/usb/typec/tcpm/Kconfig
+@@ -46,6 +46,17 @@ config TYPEC_TCPCI_MT6370
+ 	  This driver can also be built as a module. The module
+ 	  will be called "tcpci_mt6370".
+ 
++config TYPEC_TCPCI_MT6720
++	tristate "MediaTek MT6720 Type-C driver"
++	depends on MFD_MT6720
++	help
++	  MediaTek MT6720 is a SubPMIC that includes a USB Type-C and
++	  Power Delivery port controller. It works with the Type-C Port
++	  Controller Manager to provide USB PD and USB Type-C functions.
++
++	  This driver can also be built as a module. The module
++	  will be called "tcpci_mt6720".
++
+ config TYPEC_TCPCI_MAXIM
+ 	tristate "Maxim TCPCI based Type-C chip driver"
+ 	help
+diff --git a/drivers/usb/typec/tcpm/Makefile b/drivers/usb/typec/tcpm/Makefile
+index 7a8cad0c0..7146a437c 100644
+--- a/drivers/usb/typec/tcpm/Makefile
++++ b/drivers/usb/typec/tcpm/Makefile
+@@ -7,6 +7,7 @@ obj-$(CONFIG_TYPEC_TCPCI)		+= tcpci.o
+ obj-$(CONFIG_TYPEC_RT1711H)		+= tcpci_rt1711h.o
+ obj-$(CONFIG_TYPEC_MT6360)		+= tcpci_mt6360.o
+ obj-$(CONFIG_TYPEC_TCPCI_MT6370)	+= tcpci_mt6370.o
++obj-$(CONFIG_TYPEC_TCPCI_MT6720)	+= tcpci_mt6720.o
+ obj-$(CONFIG_TYPEC_TCPCI_MAXIM)		+= tcpci_maxim.o
+ tcpci_maxim-y				+= tcpci_maxim_core.o maxim_contaminant.o
+ obj-$(CONFIG_TYPEC_QCOM_PMIC)		+= qcom/
+diff --git a/drivers/usb/typec/tcpm/tcpci_mt6720.c b/drivers/usb/typec/tcpm/tcpci_mt6720.c
+new file mode 100644
+index 000000000..f726b21ea
+--- /dev/null
++++ b/drivers/usb/typec/tcpm/tcpci_mt6720.c
+@@ -0,0 +1,342 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6720 USB Type-C/PD port controller.
++ *
++ * The MT6720 SubPMIC's port controller follows TCPCI. Its registers are a
++ * bank of the parent's regmap, which the parent offers as "tcpc".
++ * Settings follow MediaTek's tcpc_mt6379 driver for the MT6720.
++ */
++#include <linux/bits.h>
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mod_devicetable.h>
++#include <linux/platform_device.h>
++#include <linux/pm_wakeirq.h>
++#include <linux/regmap.h>
++#include <linux/regulator/consumer.h>
++#include <linux/usb/tcpci.h>
++#include <linux/usb/tcpm.h>
++
++#define MT6720_REG_PHYCTRL1		0x80
++#define MT6720_REG_PHYCTRL2		0x81
++#define MT6720_REG_PHYCTRL3		0x82
++#define MT6720_REG_PHYCTRL7		0x86
++#define MT6720_REG_VCONCTRL1		0x8a
++#define  MT6720_VCONN_DET_EN		BIT(7)
++#define MT6720_REG_VCONCTRL2		0x8b
++#define  MT6720_VCONN_RVP_OVCC_EN	(BIT(3) | BIT(7))
++#define MT6720_REG_SYSCTRL1		0x8f
++#define  MT6720_AUTOIDLE_EN		BIT(3)
++#define  MT6720_SHIPPING_OFF		BIT(5)
++#define  MT6720_INTN_SELECT		BIT(7)
++#define MT6720_REG_MTST2		0xa0
++#define  MT6720_VCONN_FAULT		(BIT(0) | BIT(1) | BIT(2) | BIT(4) | BIT(5))
++#define MT6720_REG_PHYCTRL9		0xac
++#define MT6720_REG_SWRESET		0xb0
++#define MT6720_REG_TCPCCTRL1		0xb1
++#define MT6720_REG_TCPCCTRL2		0xb2
++#define MT6720_REG_TCPCCTRL3		0xb3
++#define MT6720_REG_LPWRCTRL3		0xbb
++#define  MT6720_LP_RPLVL_2V		BIT(4)
++#define MT6720_REG_LPWRCTRL5		0xbd
++#define MT6720_REG_WATCHDOGCTRL		0xbe
++#define  MT6720_VBUSDISCHG_OPT		BIT(6)
++#define MT6720_REG_I2CTORSTCTRL		0xbf
++#define  MT6720_I2CTORST_EN		BIT(7)
++#define  MT6720_I2CTORST_SEL		GENMASK(3, 0)
++#define MT6720_REG_HILOCTRL9		0xc8
++#define MT6720_REG_SHIELDCTRL1		0xca
++#define  MT6720_OPEN40MS_EN		BIT(4)
++#define MT6720_REG_TXHRSTCTRL		0xdd
++
++#define MT6720_VENDOR_ID		0x29cf
++#define MT6720_PRODUCT_ID		0x6720
++
++/* DRP duty cycle of the Rp period, out of 1024 */
++#define MT6720_DRP_DUTY			330
++
++struct mt6720_tcpc {
++	struct device *dev;
++	struct regulator *vbus;
++	struct tcpci *tcpci;
++	struct tcpci_data tdata;
++};
++
++static const struct reg_sequence mt6720_tcpc_init_seq[] = {
++	/* Rd on both CC pins until the port manager decides */
++	REG_SEQ0(TCPC_ROLE_CTRL, 0x0a),
++	/* tTCPCFilter 500 us */
++	REG_SEQ0(MT6720_REG_TCPCCTRL1, 0x14),
++	/* DRP toggle cycle 51.2 ms */
++	REG_SEQ0(MT6720_REG_TCPCCTRL2, 0x00),
++	REG_SEQ0(MT6720_REG_TCPCCTRL3, MT6720_DRP_DUTY & 0xff),
++	REG_SEQ0(MT6720_REG_TCPCCTRL3 + 1, MT6720_DRP_DUTY >> 8),
++	/* BMC PHY: toggle count, CDR threshold, transition window */
++	REG_SEQ0(MT6720_REG_PHYCTRL1, 0x74),
++	REG_SEQ0(MT6720_REG_PHYCTRL2, 0x3a),
++	REG_SEQ0(MT6720_REG_PHYCTRL3, 0x82),
++	/* BMC decoder idle time, retry period */
++	REG_SEQ0(MT6720_REG_PHYCTRL7, 0x36),
++	REG_SEQ0(MT6720_REG_PHYCTRL9, 0x3c),
++	/* VBUS valid debounce 375 us, CC high/low filter 250 us */
++	REG_SEQ0(MT6720_REG_LPWRCTRL5, 0x2f),
++	REG_SEQ0(MT6720_REG_HILOCTRL9, 0xaa),
++};
++
++static int mt6720_tcpc_init(struct tcpci *tcpci, struct tcpci_data *tdata)
++{
++	struct regmap *regmap = tdata->regmap;
++	__le16 alert_mask;
++	int ret;
++
++	ret = regmap_write(regmap, MT6720_REG_SWRESET, 0x01);
++	if (ret)
++		return ret;
++
++	usleep_range(1000, 2000);
++
++	/*
++	 * The reset sets the reset-to-default fault, and its alert, which
++	 * the reset leaves unmasked, would fire until cleared.
++	 */
++	ret = regmap_write(regmap, TCPC_FAULT_STATUS,
++			   TCPC_FAULT_STATUS_ALL_REG_RST_TO_DEFAULT);
++	if (ret)
++		return ret;
++
++	alert_mask = cpu_to_le16(TCPC_ALERT_TX_SUCCESS | TCPC_ALERT_TX_FAILED |
++				 TCPC_ALERT_TX_DISCARDED | TCPC_ALERT_RX_STATUS |
++				 TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS |
++				 TCPC_ALERT_POWER_STATUS);
++	ret = regmap_raw_write(regmap, TCPC_ALERT_MASK, &alert_mask,
++			       sizeof(alert_mask));
++	if (ret)
++		return ret;
++
++	ret = regmap_multi_reg_write(regmap, mt6720_tcpc_init_seq,
++				     ARRAY_SIZE(mt6720_tcpc_init_seq));
++	if (ret)
++		return ret;
++
++	/* Open CC for 40 ms when the battery is removed */
++	ret = regmap_set_bits(regmap, MT6720_REG_SHIELDCTRL1,
++			      MT6720_OPEN40MS_EN);
++	if (ret)
++		return ret;
++
++	/* The interrupt comes from a GPIO, so reset a stuck I2C after 200 ms */
++	ret = regmap_set_bits(regmap, MT6720_REG_I2CTORSTCTRL,
++			      MT6720_I2CTORST_EN | MT6720_I2CTORST_SEL);
++	if (ret)
++		return ret;
++
++	ret = regmap_set_bits(regmap, MT6720_REG_WATCHDOGCTRL,
++			      MT6720_VBUSDISCHG_OPT);
++	if (ret)
++		return ret;
++
++	ret = regmap_set_bits(regmap, MT6720_REG_LPWRCTRL3,
++			      MT6720_LP_RPLVL_2V);
++	if (ret)
++		return ret;
++
++	/* Auto idle would otherwise block transmission */
++	ret = regmap_set_bits(regmap, MT6720_REG_TXHRSTCTRL, 0xe0);
++	if (ret)
++		return ret;
++
++	/* Auto idle after 6.4 ms, shipping mode off */
++	ret = regmap_update_bits(regmap, MT6720_REG_SYSCTRL1,
++				 MT6720_INTN_SELECT | MT6720_SHIPPING_OFF |
++				 MT6720_AUTOIDLE_EN | GENMASK(2, 0),
++				 MT6720_INTN_SELECT | MT6720_SHIPPING_OFF |
++				 MT6720_AUTOIDLE_EN);
++	if (ret)
++		return ret;
++
++	mdelay(1);
++	return 0;
++}
++
++static int mt6720_tcpc_set_vconn(struct tcpci *tcpci, struct tcpci_data *tdata,
++				 bool enable)
++{
++	struct regmap *regmap = tdata->regmap;
++	unsigned int status;
++	int ret;
++
++	if (!enable) {
++		ret = regmap_clear_bits(regmap, MT6720_REG_VCONCTRL1,
++					MT6720_VCONN_DET_EN);
++		if (ret)
++			return ret;
++
++		return regmap_clear_bits(regmap, MT6720_REG_VCONCTRL2,
++					 MT6720_VCONN_RVP_OVCC_EN);
++	}
++
++	/* VCONN needs its detection and protections on before it starts */
++	ret = regmap_set_bits(regmap, MT6720_REG_VCONCTRL1, MT6720_VCONN_DET_EN);
++	if (ret)
++		return ret;
++
++	ret = regmap_set_bits(regmap, MT6720_REG_VCONCTRL2,
++			      MT6720_VCONN_RVP_OVCC_EN);
++	if (ret)
++		return ret;
++
++	usleep_range(20, 50);
++
++	ret = regmap_read(regmap, MT6720_REG_MTST2, &status);
++	if (ret)
++		return ret;
++
++	return status & MT6720_VCONN_FAULT ? -EIO : 0;
++}
++
++static int mt6720_tcpc_set_vbus(struct tcpci *tcpci, struct tcpci_data *tdata,
++				bool source, bool sink)
++{
++	struct mt6720_tcpc *mt = container_of(tdata, struct mt6720_tcpc, tdata);
++	int ret;
++
++	/* Sinking needs nothing here: the charger takes VBUS by itself. */
++	if (!mt->vbus)
++		return source ? -EOPNOTSUPP : 0;
++
++	ret = regulator_is_enabled(mt->vbus);
++	if (ret < 0)
++		return ret;
++
++	if (ret && !source)
++		return regulator_disable(mt->vbus);
++
++	if (!ret && source)
++		return regulator_enable(mt->vbus);
++
++	return 0;
++}
++
++static irqreturn_t mt6720_tcpc_irq(int irq, void *dev_id)
++{
++	struct mt6720_tcpc *mt = dev_id;
++
++	return tcpci_irq(mt->tcpci);
++}
++
++static int mt6720_tcpc_check_id(struct mt6720_tcpc *mt)
++{
++	u16 vid, pid;
++	int ret;
++
++	ret = regmap_raw_read(mt->tdata.regmap, TCPC_VENDOR_ID, &vid,
++			      sizeof(vid));
++	if (ret)
++		return ret;
++
++	ret = regmap_raw_read(mt->tdata.regmap, TCPC_PRODUCT_ID, &pid,
++			      sizeof(pid));
++	if (ret)
++		return ret;
++
++	if (le16_to_cpu(vid) != MT6720_VENDOR_ID ||
++	    le16_to_cpu(pid) != MT6720_PRODUCT_ID)
++		return dev_err_probe(mt->dev, -ENODEV,
++				     "Unknown port controller %04x:%04x\n",
++				     le16_to_cpu(vid), le16_to_cpu(pid));
++
++	return 0;
++}
++
++static void mt6720_tcpc_unregister_port(void *tcpci)
++{
++	tcpci_unregister_port(tcpci);
++}
++
++static int mt6720_tcpc_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct mt6720_tcpc *mt;
++	int irq, ret;
++
++	mt = devm_kzalloc(dev, sizeof(*mt), GFP_KERNEL);
++	if (!mt)
++		return -ENOMEM;
++
++	mt->dev = dev;
++
++	mt->tdata.regmap = dev_get_regmap(dev->parent, "tcpc");
++	if (!mt->tdata.regmap)
++		return dev_err_probe(dev, -ENODEV, "No port controller regmap\n");
++
++	ret = mt6720_tcpc_check_id(mt);
++	if (ret)
++		return ret;
++
++	irq = platform_get_irq(pdev, 0);
++	if (irq < 0)
++		return irq;
++
++	/*
++	 * Not "vbus": the I2C controller looks up a "vbus" bus supply in its
++	 * descendants too, and would switch VBUS out with the bus.
++	 */
++	mt->vbus = devm_regulator_get_optional(dev, "vdd-vbus");
++	if (IS_ERR(mt->vbus)) {
++		if (PTR_ERR(mt->vbus) != -ENODEV)
++			return dev_err_probe(dev, PTR_ERR(mt->vbus),
++					     "Failed to get VBUS supply\n");
++		mt->vbus = NULL;
++	}
++
++	mt->tdata.init = mt6720_tcpc_init;
++	mt->tdata.set_vconn = mt6720_tcpc_set_vconn;
++	mt->tdata.set_vbus = mt6720_tcpc_set_vbus;
++
++	mt->tcpci = tcpci_register_port(dev, &mt->tdata);
++	if (IS_ERR(mt->tcpci))
++		return dev_err_probe(dev, PTR_ERR(mt->tcpci),
++				     "Failed to register the port\n");
++
++	ret = devm_add_action_or_reset(dev, mt6720_tcpc_unregister_port,
++				       mt->tcpci);
++	if (ret)
++		return ret;
++
++	ret = devm_request_threaded_irq(dev, irq, NULL, mt6720_tcpc_irq,
++					IRQF_ONESHOT, dev_name(dev), mt);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to request irq\n");
++
++	device_init_wakeup(dev, true);
++	dev_pm_set_wake_irq(dev, irq);
++
++	return 0;
++}
++
++static void mt6720_tcpc_remove(struct platform_device *pdev)
++{
++	dev_pm_clear_wake_irq(&pdev->dev);
++	device_init_wakeup(&pdev->dev, false);
++}
++
++static const struct of_device_id mt6720_tcpc_of_match[] = {
++	{ .compatible = "mediatek,mt6720-tcpc" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6720_tcpc_of_match);
++
++static struct platform_driver mt6720_tcpc_driver = {
++	.driver = {
++		.name = "mt6720-tcpc",
++		.of_match_table = mt6720_tcpc_of_match,
++	},
++	.probe = mt6720_tcpc_probe,
++	.remove = mt6720_tcpc_remove,
++};
++module_platform_driver(mt6720_tcpc_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6720 USB Type-C port controller driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

@@ -1,0 +1,66 @@
+From 352801dc3bc00140912de9c4b4fd96d0850902f5 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:48:26 +0000
+Subject: [PATCH 258/271] arm64: dts: mediatek: mt6858: Add the camsys clocks
+ and camera power domains
+
+Describe the camsys_main clock controller and the two power domains the
+camera receive path needs: CAM_MAIN, under MM_INFRA, which holds SENINF,
+CAMSV and SMI larb13/larb14, and CSI_RX, which powers the MIPI CSI-2
+receivers. CAM_MAIN takes top_cam_sel as its bus clock, as the "cam_0"
+clock of the stock scpsys node does; the stock domain's other clocks
+are camsys gates, which the camsys driver reaches through this domain
+by runtime PM instead.
+
+Both domains are off by default and only powered for a consumer.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 8c16dc5ff..f29e451cd 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -929,6 +929,13 @@ img_sub0_bus: syscon@1502f000 {
+ 			reg = <0 0x1502f000 0 0x1000>;
+ 		};
+ 
++		camsys: clock-controller@1a000000 {
++			compatible = "mediatek,mt6858-camsys-main", "syscon";
++			reg = <0 0x1a000000 0 0x1000>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_CAM_MAIN>;
++			#clock-cells = <1>;
++		};
++
+ 		cam_sub1_bus: syscon@1a00c000 {
+ 			compatible = "mediatek,mt6858-cam-sub1-bus", "syscon";
+ 			reg = <0 0x1a00c000 0 0x1000>;
+@@ -981,6 +988,13 @@ power-domain@MT6858_POWER_DOMAIN_DIS0 {
+ 						clock-names = "disp";
+ 						#power-domain-cells = <0>;
+ 					};
++
++					power-domain@MT6858_POWER_DOMAIN_CAM_MAIN {
++						reg = <MT6858_POWER_DOMAIN_CAM_MAIN>;
++						clocks = <&topckgen CLK_TOP_CAM_SEL>;
++						clock-names = "cam";
++						#power-domain-cells = <0>;
++					};
+ 				};
+ 
+ 				power-domain@MT6858_POWER_DOMAIN_AUDIO {
+@@ -990,6 +1004,11 @@ power-domain@MT6858_POWER_DOMAIN_AUDIO {
+ 					#power-domain-cells = <0>;
+ 				};
+ 
++				power-domain@MT6858_POWER_DOMAIN_CSI_RX {
++					reg = <MT6858_POWER_DOMAIN_CSI_RX>;
++					#power-domain-cells = <0>;
++				};
++
+ 				power-domain@MT6858_POWER_DOMAIN_SSUSB {
+ 					reg = <MT6858_POWER_DOMAIN_SSUSB>;
+ 					#power-domain-cells = <0>;
+-- 
+2.55.0
+

@@ -1,0 +1,28 @@
+From 456fc3315fef656efe7c3c1932a013d6a337f5c3 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:27 +0000
+Subject: [PATCH 261/271] dt-bindings: vendor-prefixes: Add Halo
+ Microelectronics
+
+Halo Microelectronics makes the HL5280 USB Type-C analog audio switch
+used on the Jolla Phone (JP2601).
+---
+ Documentation/devicetree/bindings/vendor-prefixes.yaml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index 3119a5755..93556dbf1 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -718,6 +718,8 @@ patternProperties:
+     deprecated: true
+   "^gxcas,.*":
+     description: Beijing Galaxy-CAS Technology Co., Ltd.
++  "^halo,.*":
++    description: Halo Microelectronics Co., Ltd.
+   "^hannstar,.*":
+     description: HannStar Display Corporation
+   "^haochuangyi,.*":
+-- 
+2.55.0
+

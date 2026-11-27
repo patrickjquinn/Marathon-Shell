@@ -1,0 +1,48 @@
+From 799dd38b30e1a2cca9f4ad6313848a0d49eee811 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:40 +0000
+Subject: [PATCH 269/271] usb: mtu3: Set the PHYs' mode on role switches
+
+A dual-role controller never tells its PHYs whether they serve a host
+or a device. The xsphy needs to know: in device mode it forces a valid
+B-session for ports whose VBUS goes to a charger instead, and in host
+mode it drives ID low. Set the mode on every switch, including the first
+one at registration, which keeps the probe's role.
+---
+ drivers/usb/mtu3/mtu3_dr.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/usb/mtu3/mtu3_dr.c b/drivers/usb/mtu3/mtu3_dr.c
+index ffa5b9401..ff5609686 100644
+--- a/drivers/usb/mtu3/mtu3_dr.c
++++ b/drivers/usb/mtu3/mtu3_dr.c
+@@ -125,6 +125,16 @@ int ssusb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
+ 	return 0;
+ }
+ 
++static void ssusb_phys_set_mode(struct ssusb_mtk *ssusb, enum usb_role role)
++{
++	enum phy_mode mode = role == USB_ROLE_HOST ? PHY_MODE_USB_HOST :
++						     PHY_MODE_USB_DEVICE;
++	int i;
++
++	for (i = 0; i < ssusb->num_phys; i++)
++		phy_set_mode(ssusb->phys[i], mode);
++}
++
+ static void ssusb_mode_sw_work(struct work_struct *work)
+ {
+ 	struct otg_switch_mtk *otg_sx =
+@@ -143,6 +153,9 @@ static void ssusb_mode_sw_work(struct work_struct *work)
+ 			desired_role = USB_ROLE_DEVICE;
+ 	}
+ 
++	/* Also on the first switch, which may keep the probe's role */
++	ssusb_phys_set_mode(ssusb, desired_role);
++
+ 	if (current_role == desired_role)
+ 		return;
+ 
+-- 
+2.55.0
+

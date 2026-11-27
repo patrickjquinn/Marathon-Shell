@@ -1,0 +1,42 @@
+From f05b6e408b3af74d7311ca22b5b99dc2c5b77d3f Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:53:17 +0000
+Subject: [PATCH 252/271] arm64: dts: mediatek: mt6858: Give the MM_INFRA and
+ DIS0 domains their clocks
+
+The MM_INFRA and DIS0 power domains had no clocks, so nothing held the
+multimedia bus (top_mminfra_sel) or the display clock (top_disp0_sel).
+With unused clocks gated, clk_disable_unused turned the bus off and then
+read the mmsys clock gates behind it, which took a synchronous external
+abort and panicked the boot.
+
+Give each domain its clock, as the stock firmware's power controller
+does (mm_infra_0 and dis0_0).
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index b0dbd1814..8c16dc5ff 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -969,12 +969,16 @@ power-domain@MT6858_POWER_DOMAIN_CONN {
+ 
+ 				power-domain@MT6858_POWER_DOMAIN_MM_INFRA {
+ 					reg = <MT6858_POWER_DOMAIN_MM_INFRA>;
++					clocks = <&topckgen CLK_TOP_MMINFRA_SEL>;
++					clock-names = "mminfra";
+ 					#address-cells = <1>;
+ 					#size-cells = <0>;
+ 					#power-domain-cells = <1>;
+ 
+ 					power-domain@MT6858_POWER_DOMAIN_DIS0 {
+ 						reg = <MT6858_POWER_DOMAIN_DIS0>;
++						clocks = <&topckgen CLK_TOP_DISP0_SEL>;
++						clock-names = "disp";
+ 						#power-domain-cells = <0>;
+ 					};
+ 				};
+-- 
+2.55.0
+

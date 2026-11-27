@@ -1,0 +1,167 @@
+From e09e423cd4b7357de0cc62ee807961481107a788 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:41 +0000
+Subject: [PATCH 271/271] arm64: dts: mediatek: mt6858-jolla-jp2601: Describe
+ the USB-C port
+
+The MT6720's port controller runs the USB-C port as a dual-role port
+that prefers to sink, asks a PD charger for 5 V or 9 V at 2 A (the stock
+PD limit is 9 V) and sources 5 V at 1.5 A, as the stock PD settings do.
+It switches the MTU3 between device and host and steers the HL5280
+SBU/audio switch.
+
+VBUS out is the MT6720 boost at 5 V and 2 A behind a switch on GPIO55,
+which the stock driver raises 20 ms after the boost starts. With no
+role the MTU3 stays a device, so the gadget still works from ports that
+give VBUS without Rp.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 97 ++++++++++++++++++-
+ 1 file changed, 96 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 4f4f6bc59..6c5abf377 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -11,6 +11,7 @@
+ #include <dt-bindings/input/input.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
+ #include <dt-bindings/leds/common.h>
++#include <dt-bindings/usb/pd.h>
+ 
+ / {
+ 	model = "Jolla Phone (JP2601)";
+@@ -599,6 +600,21 @@ reg_panel_vsp: regulator-panel-vsp {
+ 		regulator-boot-on;
+ 	};
+ 
++	/*
++	 * VBUS out: the MT6720 boost through a switch on GPIO55, which the
++	 * stock driver turns on 20 ms after the boost and off before it.
++	 */
++	reg_usb_vbus: regulator-usb-vbus {
++		compatible = "regulator-fixed";
++		regulator-name = "usb-vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 55 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <20000>;
++		vin-supply = <&mt6720_otg_vbus>;
++	};
++
+ 	/* The touchscreen's two supplies, each switched by a GPIO. */
+ 	reg_ts_vdd: regulator-ts-vdd {
+ 		compatible = "regulator-fixed";
+@@ -836,6 +852,19 @@ nfc@8 {
+ 		reset-gpios = <&pio 5 GPIO_ACTIVE_HIGH>;
+ 		clocks = <&mt6685_clkbuf MT6685_CLK_XO_BBCK4>;
+ 	};
++
++	typec-mux@42 {
++		compatible = "halo,hl5280", "fcs,fsa4480";
++		reg = <0x42>;
++		mode-switch;
++		orientation-switch;
++
++		port {
++			hl5280_sbu_ep: endpoint {
++				remote-endpoint = <&usb_c_sbu_ep>;
++			};
++		};
++	};
+ };
+ 
+ &i2c4 {
+@@ -877,6 +906,14 @@ mt6720_charger: charger {
+ 			io-channels = <&mt6720_adc 11>, <&mt6720_adc 5>;
+ 			io-channel-names = "vbus", "ibus";
+ 			monitored-battery = <&battery>;
++
++			mt6720_otg_vbus: usb-otg-vbus-regulator {
++				regulator-name = "mt6720-usb-otg-vbus";
++				regulator-min-microvolt = <5000000>;
++				regulator-max-microvolt = <5000000>;
++				regulator-min-microamp = <2000000>;
++				regulator-max-microamp = <2000000>;
++			};
+ 		};
+ 
+ 		fuel-gauge {
+@@ -887,6 +924,52 @@ fuel-gauge {
+ 			monitored-battery = <&battery>;
+ 			power-supplies = <&mt6720_charger>;
+ 		};
++
++		tcpc {
++			compatible = "mediatek,mt6720-tcpc";
++			interrupts = <104>;
++			vdd-vbus-supply = <&reg_usb_vbus>;
++
++			connector {
++				compatible = "usb-c-connector";
++				label = "USB-C";
++				data-role = "dual";
++				power-role = "dual";
++				try-power-role = "sink";
++				accessory-mode-audio;
++				source-pdos = <PDO_FIXED(5000, 1500,
++							 PDO_FIXED_DUAL_ROLE |
++							 PDO_FIXED_DATA_SWAP |
++							 PDO_FIXED_USB_COMM)>;
++				sink-pdos = <PDO_FIXED(5000, 2000,
++						       PDO_FIXED_DUAL_ROLE |
++						       PDO_FIXED_DATA_SWAP |
++						       PDO_FIXED_USB_COMM)
++					     PDO_FIXED(9000, 2000, 0)>;
++				op-sink-microwatt = <10000000>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					port@0 {
++						reg = <0>;
++
++						usb_c_hs_ep: endpoint {
++							remote-endpoint = <&ssusb_ep>;
++						};
++					};
++
++					port@2 {
++						reg = <2>;
++
++						usb_c_sbu_ep: endpoint {
++							remote-endpoint = <&hl5280_sbu_ep>;
++						};
++					};
++				};
++			};
++		};
+ 	};
+ };
+ 
+@@ -1370,8 +1453,20 @@ touchscreen@0 {
+ };
+ 
+ &ssusb {
+-	dr_mode = "peripheral";
++	dr_mode = "otg";
+ 	maximum-speed = "high-speed";
++	usb-role-switch;
++	role-switch-default-mode = "peripheral";
++	status = "okay";
++
++	port {
++		ssusb_ep: endpoint {
++			remote-endpoint = <&usb_c_hs_ep>;
++		};
++	};
++};
++
++&usb_host {
+ 	status = "okay";
+ };
+ 
+-- 
+2.55.0
+

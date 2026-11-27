@@ -8,7 +8,7 @@
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=18
+pkgrel=19
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 # MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
@@ -302,6 +302,27 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0248-power-supply-mt6720-battery-Import-the-IIO-consumer-.patch
 	0249-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-MD1-its-.patch
 	0250-arm64-configs-mt6858-Turn-lockups-and-RCU-stalls-int.patch
+	0251-arm64-configs-mt6858-Make-the-soft-lockup-panic-nume.patch
+	0252-arm64-dts-mediatek-mt6858-Give-the-MM_INFRA-and-DIS0.patch
+	0253-clk-mediatek-mt6858-Keep-the-bootloader-s-clocks-for.patch
+	0254-dt-bindings-clock-mediatek-Add-the-MT6858-camsys_mai.patch
+	0255-clk-mediatek-Add-the-MT6858-camsys_main-clock-driver.patch
+	0256-dt-bindings-regulator-Add-the-Dioo-DIO8018-camera-PM.patch
+	0257-regulator-Add-a-driver-for-the-Dioo-DIO8018-camera-P.patch
+	0258-arm64-dts-mediatek-mt6858-Add-the-camsys-clocks-and-.patch
+	0259-arm64-configs-mt6858-Add-the-camsys-clocks-DIO8018-a.patch
+	0260-ASoC-codecs-aw88081-Clear-the-AW88271-s-LPC-bit-befo.patch
+	0261-dt-bindings-vendor-prefixes-Add-Halo-Microelectronic.patch
+	0262-dt-bindings-usb-fcs-fsa4480-Add-the-Halo-HL5280.patch
+	0263-dt-bindings-usb-mediatek-mtk-xhci-Add-MT6858.patch
+	0264-dt-bindings-usb-Add-the-MediaTek-MT6720-port-control.patch
+	0265-mfd-mt6720-Add-a-regmap-for-the-port-controller.patch
+	0266-usb-typec-tcpci_mt6720-Add-a-driver-for-the-MediaTek.patch
+	0267-arm64-configs-mt6858-Add-the-MT6720-Type-C-driver.patch
+	0268-power-supply-mt6720-charger-Add-the-OTG-VBUS-regulat.patch
+	0269-usb-mtu3-Set-the-PHYs-mode-on-role-switches.patch
+	0270-arm64-dts-mediatek-mt6858-Add-the-xHCI-host-under-th.patch
+	0271-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -638,5 +659,26 @@ ec0e0b06ffd215c9a80ccc63a0d5541bc870aec461765f38230cc5764c7847f0a64bda322bd4f9a1
 a3504ca83ce68ade70455db5f1c96fbe98341d24b34a537269fbcce76ad1d2a565f634792f7b0acc866add940ce6c06b5ecaebdf498978816ff711050864d25a  0248-power-supply-mt6720-battery-Import-the-IIO-consumer-.patch
 832a3018de0120ab700c9c5c710899178e93b975cb2ae99b1699df066eb3be8d98898207d7834948366c9bc03999e9976f4f14d99753be300835da9aa0b20a3f  0249-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-MD1-its-.patch
 aa724556c61b2f85539790f6ef94d70bd23041bd2c602358989daabb57a90526958b3864e37daf3e10b96e8f28a13da32f75ffdde56b420defe97f97abbfcc4b  0250-arm64-configs-mt6858-Turn-lockups-and-RCU-stalls-int.patch
+daf64b77fbcd89585a17823b9d8f9a2ca24b788e75007235242cb092a785be7d3cfd1324df882563d25c1caa9c60f0ecbcb31aae4460aab8a6bfa5dfb1eeceda  0251-arm64-configs-mt6858-Make-the-soft-lockup-panic-nume.patch
+dae4fc731de634f76b617a9056c823d0a76ce672bc8002616468a1daf2df2c81dbe8f5316d606bccd482309938e72f0655d990c347e42798e267da644c428532  0252-arm64-dts-mediatek-mt6858-Give-the-MM_INFRA-and-DIS0.patch
+359d3efdf9724ecaa70885d41cc405b89fe0340eda59f549574aadd31ff5a98a701b1a2f9496830582fc9bfbb5656817715040ab954cdf9face3ee68fbf9adb1  0253-clk-mediatek-mt6858-Keep-the-bootloader-s-clocks-for.patch
+d93086bc2e2c81419303481b6fb7a420f157c90ae9c477cc83f18cfb142c763df62133938dba64b610383297f75766fc406fb8e73cefbceb3c9077911b46cc9f  0254-dt-bindings-clock-mediatek-Add-the-MT6858-camsys_mai.patch
+530027a37b8a2fc5a4aaa43c5eb8d04ed8abe21f2374d6aee4c51b37a1517835869112e1a9161b1dea94e59bdb874a7477d2b98a56b16e60e64e59ed717ca7a1  0255-clk-mediatek-Add-the-MT6858-camsys_main-clock-driver.patch
+59dfa6760b68cfcbfa3974ee73edc933e4871c860298bd2254171d538353de80c16726653f025b01acb26284c3d9f1d8719fed11b89d8ef9ebbdc7c079425285  0256-dt-bindings-regulator-Add-the-Dioo-DIO8018-camera-PM.patch
+7bbe04f0436b30a4b2f0f71158fe54b14f8128ea0fd0dcdf7877fc97a8aa84bba466a814768129c0d2fbc6c004513be6a2e9d5932f8c84fe62b60e8c98d8f19d  0257-regulator-Add-a-driver-for-the-Dioo-DIO8018-camera-P.patch
+97586b7c108ef7425cff39db0960a2fab194e6522527a16a1e95225641aa50627eab38e58680af22864a2628003a2895a9cab928fe31cf1de255fb315cde3a44  0258-arm64-dts-mediatek-mt6858-Add-the-camsys-clocks-and-.patch
+bca62de1e0c3fab56953a7b265bf6865ceb26f55482fe704012e4f31f6c3ae2a8c394ae735d8ced43fe07d7af11f0b6015f0a79c82c42916ef2539ec284fe940  0259-arm64-configs-mt6858-Add-the-camsys-clocks-DIO8018-a.patch
+3994c7043527c2a7a2f4c3cea208b9e66aedaac726de56b1cb7d52078188883afcf9fd5b09bf7cad99512359ab27a4d2533a1dc72522f26281f4a4e0f50947e5  0260-ASoC-codecs-aw88081-Clear-the-AW88271-s-LPC-bit-befo.patch
+607ead561225ac7bcccba8e873dcee2ff5b01cd61487ed800095c1ffb74780b447a877f3af12a5ca9a0f2f9d50904d933ab8cbce0b5317929a6783a2cb8ee777  0261-dt-bindings-vendor-prefixes-Add-Halo-Microelectronic.patch
+58aa110670fef66e343a6043f238319d4e708c773805b11745042662a0896ef65be4d0eea0357e08af53cc0716c1701440b7f7d7f197b64106b8a08abaeeff29  0262-dt-bindings-usb-fcs-fsa4480-Add-the-Halo-HL5280.patch
+3d5e3421d2c6bc2af7b92eaf3ba4a1b1f8d54e189d3a31b1d92fd8068ed287f04233c5433c1eecd8c42cb5b7cb2909975724ae1a38d170ab7b10771519dd44ac  0263-dt-bindings-usb-mediatek-mtk-xhci-Add-MT6858.patch
+d824d800aeb33cc98ec4bbf8faa38cff23babe8309ccb5853801670976836ec2ff1441249dfca42a13004828d8cb302a98a6be25e9919ab1568d3ba96286390d  0264-dt-bindings-usb-Add-the-MediaTek-MT6720-port-control.patch
+49d2924c0444976a8c4ad8ca3d92de143ba1abde8f34f594d73bcc1b4d98847967a510d3b70e61299a8799d90fc5470468ff377812383ffc9b5473751b2de9a1  0265-mfd-mt6720-Add-a-regmap-for-the-port-controller.patch
+a1bc7803e94d621b96282401df20af86ef7e7eff3a617fe3ef2bdccb934e91f892541013fb881a05fc037e9cbb070da1beb26db2531d135094989facd470972b  0266-usb-typec-tcpci_mt6720-Add-a-driver-for-the-MediaTek.patch
+d995b2bd621b342a87a989459b30e2893f544b39b1e93751245e529cee9b39ccd72218fa4f65d51ed3780a689dbcaa020887324ee21d05aca52927fc5df8281e  0267-arm64-configs-mt6858-Add-the-MT6720-Type-C-driver.patch
+b3c834b7a81a56fdb14108f9cad0b077bf63049e523f363d5c29c416baa1e9bde6c74dcec72b0484d4ff8061f184ab834dd87dbd0189c864bbda22ec1554812e  0268-power-supply-mt6720-charger-Add-the-OTG-VBUS-regulat.patch
+6b2b84663962c946de2192a0f562ccd6f1f754e5c9acb4df9f13eac5dd4ae95b020ff11a7b309684df800b9be1b3e7162a6a1cc5a9a4b24a1a8327c153ed8bc8  0269-usb-mtu3-Set-the-PHYs-mode-on-role-switches.patch
+f1c3eb68080500bcb5910c885ad3b40c4857049f69db0d4567a0363b144289f4f907656914a735c4d293f1778cb2de93e793a2ac6436959a596c1ba01cc56d80  0270-arm64-dts-mediatek-mt6858-Add-the-xHCI-host-under-th.patch
+3255e2cb7773b916f42d519df6d23bc5f31b139a3969f19404cf8a993310f20d2f318db0e709d87dec13c4362c81888a88977a12446c39dbe970a8688d69012b  0271-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 1b57b13f8912bed14f0f0bc5ff65f8977e71649dd311c28fedb459248b1ac86d94543ae04bda8ec651cd28d9189925efca9f3ee3eeb39b3a0999fa09bcde9ae3  marathon.config
 "

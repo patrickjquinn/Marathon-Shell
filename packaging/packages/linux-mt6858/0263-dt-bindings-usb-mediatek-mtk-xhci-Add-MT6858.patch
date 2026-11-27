@@ -1,0 +1,26 @@
+From d112ba3ed5e2da39dc47cebdcb21deee583a8125 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:27 +0000
+Subject: [PATCH 263/271] dt-bindings: usb: mediatek,mtk-xhci: Add MT6858
+
+The MT6858's xHCI sits under its MTU3 dual-role controller, as on the
+MT8183 and MT8195.
+---
+ Documentation/devicetree/bindings/usb/mediatek,mtk-xhci.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/usb/mediatek,mtk-xhci.yaml b/Documentation/devicetree/bindings/usb/mediatek,mtk-xhci.yaml
+index 231e6f35a..05ee9bed1 100644
+--- a/Documentation/devicetree/bindings/usb/mediatek,mtk-xhci.yaml
++++ b/Documentation/devicetree/bindings/usb/mediatek,mtk-xhci.yaml
+@@ -25,6 +25,7 @@ properties:
+       - enum:
+           - mediatek,mt2701-xhci
+           - mediatek,mt2712-xhci
++          - mediatek,mt6858-xhci
+           - mediatek,mt7622-xhci
+           - mediatek,mt7623-xhci
+           - mediatek,mt7629-xhci
+-- 
+2.55.0
+

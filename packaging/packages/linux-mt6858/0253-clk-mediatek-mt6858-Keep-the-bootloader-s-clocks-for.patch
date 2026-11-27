@@ -1,0 +1,320 @@
+From a3670fed190a11e8ac652ebc721f37e707543f00 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:53:17 +0000
+Subject: [PATCH 253/271] clk: mediatek: mt6858: Keep the bootloader's clocks
+ for blocks without clocks in DT
+
+UFS and USB take a placeholder clock in the DT, the UART only its 26 MHz
+baud clock, ECCCI no clocks at all, and nothing drives the SMI common
+port yet. Their real clocks therefore have no user in Linux, and
+clk_disable_unused would turn off the root file system's host, USB, the
+running modem's interfaces and the display's memory port.
+
+Mark those clocks CLK_IGNORE_UNUSED until the drivers that use them
+take them.
+---
+ drivers/clk/mediatek/clk-mt6858-infra_ao.c |  8 ++++
+ drivers/clk/mediatek/clk-mt6858-mm.c       | 23 +++++++--
+ drivers/clk/mediatek/clk-mt6858-peri_ao.c  | 21 ++++++---
+ drivers/clk/mediatek/clk-mt6858-topckgen.c | 55 ++++++++++++++--------
+ 4 files changed, 76 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6858-infra_ao.c b/drivers/clk/mediatek/clk-mt6858-infra_ao.c
+index e81b3f2d3..78105b2a3 100644
+--- a/drivers/clk/mediatek/clk-mt6858-infra_ao.c
++++ b/drivers/clk/mediatek/clk-mt6858-infra_ao.c
+@@ -38,12 +38,17 @@ static const struct mtk_gate_regs infra_infracfg_ao_reg3_cg_regs = {
+ 	.sta_ofs = 0xe8,
+ };
+ 
++/*
++ * The modem's AP interfaces (CCIF, CLDMA, DPMAIF). The bootloader starts
++ * MD1 with them running and ECCCI takes no clocks: keep them on.
++ */
+ #define GATE_INFRA_INFRACFG_AO_REG0(_id, _name, _parent, _shift) {	\
+ 		.id = _id,				\
+ 		.name = _name,				\
+ 		.parent_name = _parent,			\
+ 		.regs = &infra_infracfg_ao_reg0_cg_regs,		\
+ 		.shift = _shift,			\
++		.flags = CLK_IGNORE_UNUSED,		\
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
+@@ -53,6 +58,7 @@ static const struct mtk_gate_regs infra_infracfg_ao_reg3_cg_regs = {
+ 		.parent_name = _parent,			\
+ 		.regs = &infra_infracfg_ao_reg1_cg_regs,		\
+ 		.shift = _shift,			\
++		.flags = CLK_IGNORE_UNUSED,		\
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
+@@ -62,6 +68,7 @@ static const struct mtk_gate_regs infra_infracfg_ao_reg3_cg_regs = {
+ 		.parent_name = _parent,			\
+ 		.regs = &infra_infracfg_ao_reg2_cg_regs,		\
+ 		.shift = _shift,			\
++		.flags = CLK_IGNORE_UNUSED,		\
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
+@@ -71,6 +78,7 @@ static const struct mtk_gate_regs infra_infracfg_ao_reg3_cg_regs = {
+ 		.parent_name = _parent,			\
+ 		.regs = &infra_infracfg_ao_reg3_cg_regs,		\
+ 		.shift = _shift,			\
++		.flags = CLK_IGNORE_UNUSED,		\
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
+diff --git a/drivers/clk/mediatek/clk-mt6858-mm.c b/drivers/clk/mediatek/clk-mt6858-mm.c
+index a8a5db188..a229756d4 100644
+--- a/drivers/clk/mediatek/clk-mt6858-mm.c
++++ b/drivers/clk/mediatek/clk-mt6858-mm.c
+@@ -26,24 +26,32 @@ static const struct mtk_gate_regs mm1_cg_regs = {
+ 	.sta_ofs = 0x110,
+ };
+ 
+-#define GATE_MM0(_id, _name, _parent, _shift) {	\
++#define GATE_MM0_FLAGS(_id, _name, _parent, _shift, _flags) {	\
+ 		.id = _id,				\
+ 		.name = _name,				\
+ 		.parent_name = _parent,			\
+ 		.regs = &mm0_cg_regs,		\
+ 		.shift = _shift,			\
++		.flags = _flags,			\
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
+-#define GATE_MM1(_id, _name, _parent, _shift) {	\
++#define GATE_MM0(_id, _name, _parent, _shift)	\
++	GATE_MM0_FLAGS(_id, _name, _parent, _shift, 0)
++
++#define GATE_MM1_FLAGS(_id, _name, _parent, _shift, _flags) {	\
+ 		.id = _id,				\
+ 		.name = _name,				\
+ 		.parent_name = _parent,			\
+ 		.regs = &mm1_cg_regs,		\
+ 		.shift = _shift,			\
++		.flags = _flags,			\
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
++#define GATE_MM1(_id, _name, _parent, _shift)	\
++	GATE_MM1_FLAGS(_id, _name, _parent, _shift, 0)
++
+ static const struct mtk_gate mm_clks[] = {
+ 	GATE_MM0(CLK_MM_DISP_OVL0_2L, "mm_disp_ovl0_2l", "top_disp0_ck", 0),
+ 	GATE_MM0(CLK_MM_DISP_OVL1_2L, "mm_disp_ovl1_2l", "top_disp0_ck", 1),
+@@ -68,13 +76,18 @@ static const struct mtk_gate mm_clks[] = {
+ 	GATE_MM0(CLK_MM_DISP_DSC_WRAP0, "mm_disp_dsc_wrap0", "top_disp0_ck", 23),
+ 	GATE_MM0(CLK_MM_DISP_DSI0, "mm_disp_dsi0", "top_disp0_ck", 24),
+ 	GATE_MM0(CLK_MM_DISP_WDMA1, "mm_disp_wdma1", "top_disp0_ck", 26),
+-	GATE_MM0(CLK_MM_DISP_APB_BUS, "mm_disp_apb_bus", "top_disp0_ck", 27),
++	/*
++	 * The display's register bus, its memory port and its 26 MHz clock
++	 * have no driver of their own yet (no SMI common driver): keep them
++	 * as the bootloader left them, running.
++	 */
++	GATE_MM0_FLAGS(CLK_MM_DISP_APB_BUS, "mm_disp_apb_bus", "top_disp0_ck", 27, CLK_IGNORE_UNUSED),
+ 	GATE_MM0(CLK_MM_DISP_FAKE_ENG0, "mm_disp_fake_eng0", "top_disp0_ck", 28),
+ 	GATE_MM0(CLK_MM_DISP_FAKE_ENG1, "mm_disp_fake_eng1", "top_disp0_ck", 29),
+ 	GATE_MM0(CLK_MM_DISP_MUTEX0, "mm_disp_mutex0", "top_disp0_ck", 30),
+-	GATE_MM0(CLK_MM_SMI_COMMON, "mm_smi_common", "top_disp0_ck", 31),
++	GATE_MM0_FLAGS(CLK_MM_SMI_COMMON, "mm_smi_common", "top_disp0_ck", 31, CLK_IGNORE_UNUSED),
+ 	GATE_MM1(CLK_MM_DSI0_CK, "mm_dsi0_ck", "top_disp0_ck", 0),
+-	GATE_MM1(CLK_MM_26M_CK, "mm_26m_ck", "top_disp0_ck", 11),
++	GATE_MM1_FLAGS(CLK_MM_26M_CK, "mm_26m_ck", "top_disp0_ck", 11, CLK_IGNORE_UNUSED),
+ };
+ 
+ static const struct mtk_clk_desc mm_desc = {
+diff --git a/drivers/clk/mediatek/clk-mt6858-peri_ao.c b/drivers/clk/mediatek/clk-mt6858-peri_ao.c
+index 796de043c..423723f2b 100644
+--- a/drivers/clk/mediatek/clk-mt6858-peri_ao.c
++++ b/drivers/clk/mediatek/clk-mt6858-peri_ao.c
+@@ -38,15 +38,19 @@ static const struct mtk_gate_regs perao0_hwv_regs = {
+ 	.sta_ofs = 0x1c08,
+ };
+ 
+-#define GATE_PERAO0(_id, _name, _parent, _shift) {	\
++#define GATE_PERAO0_FLAGS(_id, _name, _parent, _shift, _flags) {	\
+ 		.id = _id,				\
+ 		.name = _name,				\
+ 		.parent_name = _parent,			\
+ 		.regs = &perao0_cg_regs,		\
+ 		.shift = _shift,			\
++		.flags = _flags,			\
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
++#define GATE_PERAO0(_id, _name, _parent, _shift)	\
++	GATE_PERAO0_FLAGS(_id, _name, _parent, _shift, 0)
++
+ #define GATE_HWV_PERAO0(_id, _name, _parent, _shift) {	\
+ 		.id = _id,				\
+ 		.name = _name,				\
+@@ -57,15 +61,19 @@ static const struct mtk_gate_regs perao0_hwv_regs = {
+ 		.ops = &mtk_clk_gate_hwv_ops_setclr,	\
+ 	}
+ 
+-#define GATE_PERAO1(_id, _name, _parent, _shift) {	\
++#define GATE_PERAO1_FLAGS(_id, _name, _parent, _shift, _flags) {	\
+ 		.id = _id,				\
+ 		.name = _name,				\
+ 		.parent_name = _parent,			\
+ 		.regs = &perao1_cg_regs,		\
+ 		.shift = _shift,			\
++		.flags = _flags,			\
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
++#define GATE_PERAO1(_id, _name, _parent, _shift)	\
++	GATE_PERAO1_FLAGS(_id, _name, _parent, _shift, 0)
++
+ #define GATE_PERAO2(_id, _name, _parent, _shift) {	\
+ 		.id = _id,				\
+ 		.name = _name,				\
+@@ -76,7 +84,8 @@ static const struct mtk_gate_regs perao0_hwv_regs = {
+ 	}
+ 
+ static const struct mtk_gate peri_ao_clks[] = {
+-	GATE_PERAO0(CLK_PERAO_P_UART0, "perao_p_uart0", "top_uart_ck", 0),
++	/* No DT bus clock yet for these: the bootloader leaves them running. */
++	GATE_PERAO0_FLAGS(CLK_PERAO_P_UART0, "perao_p_uart0", "top_uart_ck", 0, CLK_IGNORE_UNUSED),
+ 	GATE_PERAO0(CLK_PERAO_P_UART1, "perao_p_uart1", "top_uart_ck", 1),
+ 	GATE_PERAO0(CLK_PERAO_P_UART2, "perao_p_uart2", "top_uart_ck", 2),
+ 	GATE_PERAO0(CLK_PERAO_P_UART3, "perao_p_uart3", "top_uart_ck", 3),
+@@ -98,9 +107,9 @@ static const struct mtk_gate peri_ao_clks[] = {
+ 	GATE_HWV_PERAO0(CLK_PERAO_P_SPI7_B, "perao_p_spi7_b", "top_spi7_ck", 19),
+ 	GATE_PERAO0(CLK_PERAO_P_DMA_B, "perao_p_dma_b", "top_axi_p_ck", 29),
+ 	GATE_PERAO1(CLK_PERAO_P_MSDC1, "perao_p_msdc1", "top_msdc30_1_ck", 12),
+-	GATE_PERAO1(CLK_PERAO_P_MSDC1_H, "perao_p_msdc1_h", "top_msdc30_1_h_ck", 13),
+-	GATE_PERAO1(CLK_PERAO_P_MSDC1_MST_F, "perao_p_msdc1_mst_f", "top_axi_p_ck", 14),
+-	GATE_PERAO1(CLK_PERAO_P_MSDC1_SLV_H, "perao_p_msdc1_slv_h", "top_axi_p_ck", 15),
++	GATE_PERAO1_FLAGS(CLK_PERAO_P_MSDC1_H, "perao_p_msdc1_h", "top_msdc30_1_h_ck", 13, CLK_IGNORE_UNUSED),
++	GATE_PERAO1_FLAGS(CLK_PERAO_P_MSDC1_MST_F, "perao_p_msdc1_mst_f", "top_axi_p_ck", 14, CLK_IGNORE_UNUSED),
++	GATE_PERAO1_FLAGS(CLK_PERAO_P_MSDC1_SLV_H, "perao_p_msdc1_slv_h", "top_axi_p_ck", 15, CLK_IGNORE_UNUSED),
+ 	GATE_PERAO2(CLK_PERAO_P_AUDIO0, "perao_p_audio0", "top_axi_p_ck", 0),
+ 	GATE_PERAO2(CLK_PERAO_P_AUDIO1, "perao_p_audio1", "top_axi_p_ck", 1),
+ 	GATE_PERAO2(CLK_PERAO_P_AUDIO2, "perao_p_audio2", "top_aud_intbus_ck", 2),
+diff --git a/drivers/clk/mediatek/clk-mt6858-topckgen.c b/drivers/clk/mediatek/clk-mt6858-topckgen.c
+index bdceb8fc6..313c9386a 100644
+--- a/drivers/clk/mediatek/clk-mt6858-topckgen.c
++++ b/drivers/clk/mediatek/clk-mt6858-topckgen.c
+@@ -641,6 +641,11 @@ static const char * const top_usb_frmcnt_parents[] = {
+ 	"top_univpll_192m_d4",
+ };
+ 
++/*
++ * CLK_IGNORE_UNUSED: the bootloader runs these for blocks whose DT nodes
++ * have no real clocks yet (UFS, USB, the UART, the modem's DPMAIF, the MM
++ * processor), so nothing in Linux holds them.
++ */
+ static const struct mtk_mux top_muxes[] = {
+ 	MUX_CLR_SET_UPD(CLK_TOP_AXI_SEL, "top_axi_sel", top_axi_parents,
+ 		0x010, 0x014, 0x018, 0, 3,
+@@ -662,12 +667,14 @@ static const struct mtk_mux top_muxes[] = {
+ 		0x020, 0x024, 0x028,
+ 		0x1c0c, 0x0018, 0x001c,
+ 		8, 4, 15, 0x004, 5, 0x534, 26),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_MMUP_SEL, "top_mmup_sel", top_mmup_parents,
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_MMUP_SEL, "top_mmup_sel", top_mmup_parents,
++		NULL, ARRAY_SIZE(top_mmup_parents),
+ 		0x020, 0x024, 0x028, 16, 3, 23,
+-		0x004, 6, 0x534, 25),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_UART_SEL, "top_uart_sel", top_uart_parents,
++		0x004, 6, 0x534, 25, CLK_IGNORE_UNUSED),
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_UART_SEL, "top_uart_sel", top_uart_parents,
++		NULL, ARRAY_SIZE(top_uart_parents),
+ 		0x020, 0x024, 0x028, 24, 1, 31,
+-		0x004, 7, 0x534, 24),
++		0x004, 7, 0x534, 24, CLK_IGNORE_UNUSED),
+ 	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI0_SEL, "top_spi0_sel", top_spi0_parents,
+ 		0x030, 0x034, 0x038,
+ 		0x1c10, 0x0020, 0x0024,
+@@ -718,12 +725,14 @@ static const struct mtk_mux top_muxes[] = {
+ 	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_DISP_PWM_SEL, "top_disp_pwm_sel", top_disp_pwm_parents,
+ 		0x060, 0x064, 0x068, 8, 3, 15,
+ 		0x004, 21, 0x534, 10),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_USB_SEL, "top_usb_sel", top_usb_parents,
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_USB_SEL, "top_usb_sel", top_usb_parents,
++		NULL, ARRAY_SIZE(top_usb_parents),
+ 		0x060, 0x064, 0x068, 16, 2, 23,
+-		0x004, 22, 0x534, 9),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_USB_XHCI_SEL, "top_usb_xhci_sel", top_usb_xhci_parents,
++		0x004, 22, 0x534, 9, CLK_IGNORE_UNUSED),
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_USB_XHCI_SEL, "top_usb_xhci_sel", top_usb_xhci_parents,
++		NULL, ARRAY_SIZE(top_usb_xhci_parents),
+ 		0x060, 0x064, 0x068, 24, 2, 31,
+-		0x004, 23, 0x534, 8),
++		0x004, 23, 0x534, 8, CLK_IGNORE_UNUSED),
+ 	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_I2C_SEL, "top_i2c_sel", top_i2c_parents,
+ 		0x070, 0x074, 0x078, 0, 2, 7,
+ 		0x004, 24, 0x534, 7),
+@@ -742,21 +751,24 @@ static const struct mtk_mux top_muxes[] = {
+ 	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUD_ENGEN2_SEL, "top_aud_engen2_sel", top_aud_engen2_parents,
+ 		0x080, 0x084, 0x088, 8, 2, 15,
+ 		0x004, 29, 0x534, 2),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AES_UFSFDE_SEL, "top_aes_ufsfde_sel", top_aes_ufsfde_parents,
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_AES_UFSFDE_SEL, "top_aes_ufsfde_sel", top_aes_ufsfde_parents,
++		NULL, ARRAY_SIZE(top_aes_ufsfde_parents),
+ 		0x080, 0x084, 0x088, 16, 3, 23,
+-		0x004, 30, 0x534, 1),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_UFS_SEL, "top_ufs_sel", top_ufs_parents,
++		0x004, 30, 0x534, 1, CLK_IGNORE_UNUSED),
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_UFS_SEL, "top_ufs_sel", top_ufs_parents,
++		NULL, ARRAY_SIZE(top_ufs_parents),
+ 		0x080, 0x084, 0x088, 24, 3, 31,
+-		0x008, 0, 0x534, 0),
++		0x008, 0, 0x534, 0, CLK_IGNORE_UNUSED),
+ 	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUD_1_SEL, "top_aud_1_sel", top_aud_1_parents,
+ 		0x090, 0x094, 0x098, 8, 1, 15,
+ 		0x008, 2, 0x538, 30),
+ 	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUD_2_SEL, "top_aud_2_sel", top_aud_2_parents,
+ 		0x090, 0x094, 0x098, 16, 1, 23,
+ 		0x008, 3, 0x538, 29),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_DPMAIF_MAIN_SEL, "top_dpmaif_main_sel", top_dpmaif_main_parents,
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_DPMAIF_MAIN_SEL, "top_dpmaif_main_sel", top_dpmaif_main_parents,
++		NULL, ARRAY_SIZE(top_dpmaif_main_parents),
+ 		0x090, 0x094, 0x098, 24, 3, 31,
+-		0x008, 4, 0x538, 28),
++		0x008, 4, 0x538, 28, CLK_IGNORE_UNUSED),
+ 	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_VENC_SEL, "top_venc_sel", top_venc_parents,
+ 		0x0a0, 0x0a4, 0x0a8,
+ 		0x1c18, 0x0030, 0x0034,
+@@ -780,9 +792,10 @@ static const struct mtk_mux top_muxes[] = {
+ 	MUX_CLR_SET_UPD(CLK_TOP_MEM_SUB_P_SEL, "top_mem_sub_p_sel", top_mem_sub_p_parents,
+ 		0x0b0, 0x0b4, 0x0b8, 16, 3,
+ 		0x008, 11),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_MEM_SUB_UFS_SEL, "top_mem_sub_ufs_sel", top_mem_sub_ufs_parents,
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_MEM_SUB_UFS_SEL, "top_mem_sub_ufs_sel", top_mem_sub_ufs_parents,
++		NULL, ARRAY_SIZE(top_mem_sub_ufs_parents),
+ 		0x0b0, 0x0b4, 0x0b8, 24, 3, 31,
+-		0x008, 12, 0x538, 20),
++		0x008, 12, 0x538, 20, CLK_IGNORE_UNUSED),
+ 	MUX_CLR_SET_UPD(CLK_TOP_EMI_N_SEL, "top_emi_n_sel", top_emi_n_parents,
+ 		0x0c0, 0x0c4, 0x0c8, 0, 3,
+ 		0x008, 13),
+@@ -819,15 +832,17 @@ static const struct mtk_mux top_muxes[] = {
+ 	MUX_CLR_SET_UPD(CLK_TOP_EFUSE_SEL, "top_efuse_sel", top_efuse_parents,
+ 		0x0e0, 0x0e4, 0x0e8, 24, 1,
+ 		0x008, 24),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_UNIPLL_SES_SEL, "top_unipll_ses_sel", top_unipll_ses_parents,
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_UNIPLL_SES_SEL, "top_unipll_ses_sel", top_unipll_ses_parents,
++		NULL, ARRAY_SIZE(top_unipll_ses_parents),
+ 		0x0f0, 0x0f4, 0x0f8, 8, 1, 15,
+-		0x008, 26, 0x538, 6),
++		0x008, 26, 0x538, 6, CLK_IGNORE_UNUSED),
+ 	MUX_CLR_SET_UPD(CLK_TOP_DRAMULP_SEL, "top_dramulp_sel", top_dramulp_parents,
+ 		0x0f0, 0x0f4, 0x0f8, 24, 1,
+ 		0x008, 28),
+-	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_USB_FRMCNT_SEL, "top_usb_frmcnt_sel", top_usb_frmcnt_parents,
++	MUX_GATE_FENC_CLR_SET_UPD_FLAGS(CLK_TOP_USB_FRMCNT_SEL, "top_usb_frmcnt_sel", top_usb_frmcnt_parents,
++		NULL, ARRAY_SIZE(top_usb_frmcnt_parents),
+ 		0x100, 0x104, 0x108, 0, 1, 7,
+-		0x008, 29, 0x538, 3),
++		0x008, 29, 0x538, 3, CLK_IGNORE_UNUSED),
+ };
+ 
+ static const struct mtk_clk_desc top_desc = {
+-- 
+2.55.0
+

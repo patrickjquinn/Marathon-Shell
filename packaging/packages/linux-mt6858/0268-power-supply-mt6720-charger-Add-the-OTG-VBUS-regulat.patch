@@ -1,0 +1,177 @@
+From bfeb40cfdbd9a17c5fa13d0927501934acfed728 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:40 +0000
+Subject: [PATCH 268/271] power: supply: mt6720-charger: Add the OTG VBUS
+ regulator
+
+The charger's boost sources VBUS for a USB host port: 4.85 V to 5.6 V in
+25 mV steps and a 0.5 A to 2.3 A current limit. As MediaTek's charger
+driver does for the MT6720, it runs with the charger's CV flow idle off
+and holds the boost's hiccup protection off for the first 80 ms, both
+test-mode registers behind the pass code.
+---
+ drivers/power/supply/mt6720-charger.c | 115 ++++++++++++++++++++++++++
+ 1 file changed, 115 insertions(+)
+
+diff --git a/drivers/power/supply/mt6720-charger.c b/drivers/power/supply/mt6720-charger.c
+index 2fdb9ea82..1cacdc996 100644
+--- a/drivers/power/supply/mt6720-charger.c
++++ b/drivers/power/supply/mt6720-charger.c
+@@ -8,6 +8,7 @@
+  * driver.
+  */
+ #include <linux/bits.h>
++#include <linux/delay.h>
+ #include <linux/devm-helpers.h>
+ #include <linux/iio/consumer.h>
+ #include <linux/interrupt.h>
+@@ -20,6 +21,7 @@
+ #include <linux/power_supply.h>
+ #include <linux/property.h>
+ #include <linux/regmap.h>
++#include <linux/regulator/driver.h>
+ #include <linux/units.h>
+ #include <linux/workqueue.h>
+ 
+@@ -56,6 +58,17 @@ static const struct linear_range mt6720_chg_ranges[F_MAX] = {
+ 	[F_IEOC]	= LINEAR_RANGE(50000, 0x00, 0x0f, 50000),
+ };
+ 
++#define MT6720_REG_TM_PASS_CODE	0x007
++#define MT6720_REG_CHG_TOP2	0x108
++#define  MT6720_OTG_EN		BIT(0)
++#define MT6720_REG_OTG_CV	0x11c
++#define MT6720_REG_OTG_C	0x11e
++/* Test-mode registers */
++#define MT6720_REG_CHG_AD	0x123
++#define  MT6720_CV_FLOW_IDLE	BIT(4)
++#define MT6720_REG_CHG_HD_DIG4	0x128
++#define  MT6720_DIS_OTG_HICCUP	BIT(7)
++
+ #define MT6720_CHG_POLL_MS	10000
+ #define MT6720_JEITA_HYST_DECI	30
+ 
+@@ -401,11 +414,106 @@ static const struct power_supply_desc mt6720_chg_desc = {
+ 			     BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE),
+ };
+ 
++/* Unlock the test-mode registers, or lock them again */
++static int mt6720_otg_test_mode(struct regmap *regmap, bool on)
++{
++	static const u8 pass_code[] = { 0x69, 0x96, 0x67, 0x20 };
++
++	if (!on)
++		return regmap_write(regmap, MT6720_REG_TM_PASS_CODE, 0);
++
++	return regmap_bulk_write(regmap, MT6720_REG_TM_PASS_CODE, pass_code,
++				 ARRAY_SIZE(pass_code));
++}
++
++/*
++ * The boost needs the charger's CV flow idle off while it runs, and its
++ * hiccup protection held off while VBUS rises, as in MediaTek's driver.
++ */
++static int mt6720_otg_enable(struct regulator_dev *rdev)
++{
++	struct regmap *regmap = rdev_get_regmap(rdev);
++	int ret, ret2;
++
++	ret = mt6720_otg_test_mode(regmap, true);
++	if (ret)
++		return ret;
++
++	ret = regmap_clear_bits(regmap, MT6720_REG_CHG_AD, MT6720_CV_FLOW_IDLE) ?:
++	      regmap_set_bits(regmap, MT6720_REG_CHG_HD_DIG4,
++			      MT6720_DIS_OTG_HICCUP) ?:
++	      regulator_enable_regmap(rdev);
++	if (!ret)
++		msleep(80);
++
++	ret2 = regmap_clear_bits(regmap, MT6720_REG_CHG_HD_DIG4,
++				 MT6720_DIS_OTG_HICCUP);
++	ret = ret ?: ret2;
++	ret2 = mt6720_otg_test_mode(regmap, false);
++
++	return ret ?: ret2;
++}
++
++static int mt6720_otg_disable(struct regulator_dev *rdev)
++{
++	struct regmap *regmap = rdev_get_regmap(rdev);
++	int ret, ret2;
++
++	ret = regulator_disable_regmap(rdev);
++	if (ret)
++		return ret;
++
++	ret = mt6720_otg_test_mode(regmap, true);
++	if (ret)
++		return ret;
++
++	ret = regmap_set_bits(regmap, MT6720_REG_CHG_AD, MT6720_CV_FLOW_IDLE);
++	ret2 = mt6720_otg_test_mode(regmap, false);
++
++	return ret ?: ret2;
++}
++
++static const unsigned int mt6720_otg_current_ua[] = {
++	500000, 800000, 1100000, 1400000, 1700000, 2000000, 2300000,
++};
++
++static const struct regulator_ops mt6720_otg_ops = {
++	.list_voltage = regulator_list_voltage_linear,
++	.set_voltage_sel = regulator_set_voltage_sel_regmap,
++	.get_voltage_sel = regulator_get_voltage_sel_regmap,
++	.set_current_limit = regulator_set_current_limit_regmap,
++	.get_current_limit = regulator_get_current_limit_regmap,
++	.enable = mt6720_otg_enable,
++	.disable = mt6720_otg_disable,
++	.is_enabled = regulator_is_enabled_regmap,
++};
++
++static const struct regulator_desc mt6720_otg_desc = {
++	.name = "mt6720-usb-otg-vbus",
++	.of_match = "usb-otg-vbus-regulator",
++	.type = REGULATOR_VOLTAGE,
++	.owner = THIS_MODULE,
++	.ops = &mt6720_otg_ops,
++	.min_uV = 4850000,
++	.uV_step = 25000,
++	.n_voltages = 31,
++	.vsel_reg = MT6720_REG_OTG_CV,
++	.vsel_mask = GENMASK(4, 0),
++	.curr_table = mt6720_otg_current_ua,
++	.n_current_limits = ARRAY_SIZE(mt6720_otg_current_ua),
++	.csel_reg = MT6720_REG_OTG_C,
++	.csel_mask = GENMASK(2, 0),
++	.enable_reg = MT6720_REG_CHG_TOP2,
++	.enable_mask = MT6720_OTG_EN,
++};
++
+ static int mt6720_chg_probe(struct platform_device *pdev)
+ {
+ 	static const char * const irqs[] = { "pwr-rdy", "detach" };
+ 	struct device *dev = &pdev->dev;
+ 	struct power_supply_config cfg = {};
++	struct regulator_config rcfg = {};
++	struct regulator_dev *otg;
+ 	struct mt6720_chg *chg;
+ 	struct regmap *regmap;
+ 	int ret, irq, i;
+@@ -458,6 +566,13 @@ static int mt6720_chg_probe(struct platform_device *pdev)
+ 	chg->user_ichg = chg->bat->constant_charge_current_max_ua;
+ 	chg->band = MT6720_JEITA_UNKNOWN;
+ 
++	rcfg.dev = dev;
++	rcfg.regmap = regmap;
++	otg = devm_regulator_register(dev, &mt6720_otg_desc, &rcfg);
++	if (IS_ERR(otg))
++		return dev_err_probe(dev, PTR_ERR(otg),
++				     "Failed to register the OTG regulator\n");
++
+ 	ret = devm_delayed_work_autocancel(dev, &chg->work, mt6720_chg_work);
+ 	if (ret)
+ 		return ret;
+-- 
+2.55.0
+

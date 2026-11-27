@@ -1,0 +1,66 @@
+From 3d11e6a73673c34aee6ba88828c1543e8c8d228e Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 11:06:58 +0000
+Subject: [PATCH 260/271] ASoC: codecs: aw88081: Clear the AW88271's LPC bit
+ before power-on
+
+The AW88271 profiles of the Jolla Phone (2026) set bit 5 of register
+0x59, which Awinic's aw882xx driver calls LPC. With it set the PLL
+never locks and SYSST stays at zero, so every start failed with "pll
+check failed". The stock driver clears the bit before taking the part
+out of power-down; do the same.
+
+Tested on the JP2601: SYSST reads 0x0211 on both amplifiers once a
+stream starts, and a 1 kHz beep plays on the loudspeakers and on the
+earpiece and is picked up by both microphones.
+---
+ sound/soc/codecs/aw88081.c |  4 ++++
+ sound/soc/codecs/aw88081.h | 10 ++++++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/sound/soc/codecs/aw88081.c b/sound/soc/codecs/aw88081.c
+index 252a2705d..cfdaa0285 100644
+--- a/sound/soc/codecs/aw88081.c
++++ b/sound/soc/codecs/aw88081.c
+@@ -712,6 +712,10 @@ static int aw88271_dev_start(struct aw88081 *aw88081)
+ 
+ 	aw88271_i2c_wen(aw_dev, true);
+ 
++	/* The profiles set LPC, with which the PLL never locks */
++	regmap_update_bits(aw_dev->regmap, AW88271_LPC_REG,
++			   ~AW88271_LPC_MASK, AW88271_LPC_DISABLE_VALUE);
++
+ 	/* power on */
+ 	aw88081_dev_pwd(aw_dev, false);
+ 	usleep_range(AW88081_2000_US, AW88081_2000_US + 10);
+diff --git a/sound/soc/codecs/aw88081.h b/sound/soc/codecs/aw88081.h
+index a146f8eb4..4e65263c5 100644
+--- a/sound/soc/codecs/aw88081.h
++++ b/sound/soc/codecs/aw88081.h
+@@ -274,6 +274,7 @@
+ #define AW88083_I2C_NAME		"aw88083"
+ #define AW88083_CHIP_ID		0x2407
+ 
++#define AW88271_LPC_REG			(0x59)
+ #define AW88271_NGCTRL3_REG		(0x5E)
+ 
+ #define AW88271_I2C_WEN_START_BIT	(10)
+@@ -316,6 +317,15 @@
+ #define AW88271_NOISE_GATE_EN_MASK	\
+ 	(~(((1<<AW88271_NOISE_GATE_EN_BITS_LEN)-1) << AW88271_NOISE_GATE_EN_START_BIT))
+ 
++#define AW88271_LPC_START_BIT		(5)
++#define AW88271_LPC_BITS_LEN		(1)
++#define AW88271_LPC_MASK		\
++	(~(((1<<AW88271_LPC_BITS_LEN)-1) << AW88271_LPC_START_BIT))
++
++#define AW88271_LPC_DISABLE		(0)
++#define AW88271_LPC_DISABLE_VALUE	\
++	(AW88271_LPC_DISABLE << AW88271_LPC_START_BIT)
++
+ #define AW88271_BSTS_START_BIT		(9)
+ #define AW88271_BSTS_FINISHED		(1)
+ #define AW88271_BSTS_FINISHED_VALUE	\
+-- 
+2.55.0
+
