@@ -73,7 +73,10 @@ remote_stop() {
 
 # marathon-shell-bin's PIN pad on the screen the shell will use: eglfs on the
 # card driving a panel, at the device profile's scale. It runs $open with
-# each PIN and returns once one opens /home.
+# each PIN and returns once one opens /home. Plymouth gives the pad the
+# display with its frame still up, and the pad settles back into that frame
+# and gives the display back ("open") before it is stopped, so neither leaves
+# the screen black.
 pin_pad() {
 	[ -x /usr/bin/marathon-shell-bin ] || return 1
 	card=
@@ -88,16 +91,28 @@ pin_pad() {
 	printf '{"device":"/dev/dri/%s","hwcursor":false}\n' "$card" > "${pad%/*}/eglfs-kms.json"
 	dpi=$(sed -n 's/^[[:space:]]*FORCE_DPI[[:space:]]*=[[:space:]]*//p' \
 		/etc/marathon/device-profile.conf 2> /dev/null | tr -d '"' | head -n 1)
+	said="${pad%/*}/pin-pad.out"
+	rm -f "$said"
+	mkfifo "$said"
+	# The initramfs's last word goes, as under Plymouth's own PIN prompt.
+	plymouth hide-message --text=Starting 2> /dev/null
+	plymouth deactivate 2> /dev/null
 	# shellcheck disable=SC2086 # $open is a command line
 	env QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_INTEGRATION=eglfs_kms QT_QPA_EGLFS_KMS_ATOMIC=1 \
 		QT_QPA_EGLFS_ALWAYS_SET_MODE=1 QT_QPA_EGLFS_HIDECURSOR=1 \
 		QT_QPA_EGLFS_KMS_CONFIG="${pad%/*}/eglfs-kms.json" ${dpi:+MARATHON_FORCE_DPI=$dpi} \
-		/usr/bin/marathon-shell-bin --home-unlock -- $open &
-	echo $! > "$pad"
-	wait $!
+		/usr/bin/marathon-shell-bin --home-unlock -- $open > "$said" &
+	pid=$!
+	echo $pid > "$pad"
+	read -r line < "$said"
+	if [ "$line" = open ]; then
+		plymouth reactivate 2> /dev/null
+		kill $pid
+	fi
+	wait $pid
 	ok=$?
-	rm -f "$pad"
-	return $ok
+	rm -f "$pad" "$said"
+	[ "$line" = open ] || return $ok
 }
 
 # unl0kr reads touchscreens through libinput, which 71-marathon-touch.rules
@@ -129,10 +144,6 @@ unlock() {
 		n=$((n + 1))
 	done
 	remote_start
-	# Plymouth reads only keyboards.
-	if ! has_keyboard; then
-		plymouth quit 2> /dev/null
-	fi
 	prompt="Enter PIN"
 	while :; do
 		if [ -e "$remote" ]; then
@@ -140,7 +151,8 @@ unlock() {
 			return 0
 		fi
 		cryptsetup status "$name" > /dev/null 2>&1 && return 0
-		if plymouth --ping 2> /dev/null; then
+		# Plymouth reads only keyboards.
+		if has_keyboard && plymouth --ping 2> /dev/null; then
 			plymouth ask-for-password --prompt="$prompt" --number-of-tries=1 --command="$open" && pin_typed=1 && return 0
 		elif [ -z "${pad_failed:-}" ]; then
 			pin_pad && pin_typed=1 && return 0
@@ -156,6 +168,7 @@ unlock() {
 			fi
 			continue
 		elif command -v unl0kr > /dev/null; then
+			plymouth quit 2> /dev/null
 			touch_for_libinput
 			unl0kr | $open && pin_typed=1 && return 0
 		elif [ ! -r "$remote.sshd.pid" ]; then
@@ -188,8 +201,12 @@ if [ -e "$container" ]; then
 	ok=$?
 	remote_stop
 	touch_for_shell
-	# The PIN pad replaced Plymouth: the splash comes back until the shell.
-	plymouth --ping 2> /dev/null || systemctl start --no-block plymouth-start.service
+	# The splash stays until the shell, where the pad or unl0kr had the screen.
+	if plymouth --ping 2> /dev/null; then
+		plymouth reactivate
+	else
+		systemctl start --no-block plymouth-start.service
+	fi
 	[ "$ok" = 0 ] || {
 		log "no way to ask for the PIN; /home stays on the root"
 		exit 1

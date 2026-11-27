@@ -57,6 +57,8 @@ QtObject {
     // The nav bar under dark and light content: Keel's overlay backgrounds.
     readonly property color barDark: eink ? "#ffffff" : "#000000"
     readonly property color barLight: eink ? "#ffffff" : Qt.rgba(0.96, 0.96, 0.96, 0.9)
+    // Behind the status bar on a screen with a notch: the notch's own black.
+    readonly property color cutoutBand: "#000000"
 
     readonly property color ripple: eink ? "transparent" : Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, 0.12)
 
