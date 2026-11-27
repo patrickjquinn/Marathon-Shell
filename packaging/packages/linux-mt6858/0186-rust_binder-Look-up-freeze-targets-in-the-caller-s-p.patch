@@ -1,7 +1,7 @@
 From d77ae4c945df4c52774aa1a7219e6ff1612fe806 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:46:49 +0000
-Subject: [PATCH 186/202] rust_binder: Look up freeze targets in the caller's
+Subject: [PATCH 186/206] rust_binder: Look up freeze targets in the caller's
  pid namespace
 
 BINDER_FREEZE and BINDER_GET_FROZEN_INFO take a pid the caller sees in

@@ -1,7 +1,7 @@
 From e2a2e00bbc484407054f9f6b3f4aeb2a8d245ab4 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 12:12:57 +0000
-Subject: [PATCH 155/202] drm/panel: visionox-vtdr6126: Exit sleep in enable,
+Subject: [PATCH 155/206] drm/panel: visionox-vtdr6126: Exit sleep in enable,
  with video running
 
 The vendor driver sends the init sequence in prepare, while the host is

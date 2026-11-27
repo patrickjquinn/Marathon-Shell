@@ -1,0 +1,40 @@
+From f88229e1da700d5a4a73188005d80cea4bd26b51 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:51:48 +0000
+Subject: [PATCH 205/206] mfd: mtk-spmi-pmic: Read the MT6685 chip ID at 0x0b
+ like the others
+
+The 0x09 in the first version came from a multi-byte SPMI read that
+returned zeros past its second byte; single reads show the chip ID at
+0x0b, as on the other MediaTek SPMI PMICs (0x09 holds the same value).
+---
+ drivers/mfd/mtk-spmi-pmic.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index bd556de87..d3cb8786e 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -30,7 +30,6 @@
+ 
+ #define MTK_SPMI_PMIC_VAL_BITS		8
+ #define MTK_SPMI_PMIC_REG_CHIP_ID	0xb
+-#define MT6685_REG_HWCID_H		0x9
+ #define MTK_SPMI_PMIC_RCS_IRQ_DONE	0x41b
+ #define MTK_SPMI_PMIC_RCS_CHECK_MS	1000
+ 
+@@ -439,9 +438,9 @@ static const struct mtk_spmi_pmic_variant mt6369_variant = {
+ 	.chip_id = 0x69,
+ };
+ 
+-/* An MT6358 style top: the chip ID is at 0x09, not at 0x0b */
++/* Its interrupts are not described yet: only its clock buffers and RTC are used */
+ static const struct mtk_spmi_pmic_variant mt6685_variant = {
+-	.chip_id_reg = MT6685_REG_HWCID_H,
++	.chip_id_reg = MTK_SPMI_PMIC_REG_CHIP_ID,
+ 	.chip_id = 0x85,
+ };
+ 
+-- 
+2.55.0
+

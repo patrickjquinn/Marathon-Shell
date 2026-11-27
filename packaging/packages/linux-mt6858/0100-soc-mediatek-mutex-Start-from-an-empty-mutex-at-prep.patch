@@ -1,7 +1,7 @@
 From e701da5a1d7390d8a53285d2db3c31fab942fdb8 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:40:17 +0000
-Subject: [PATCH 100/202] soc: mediatek: mutex: Start from an empty mutex at
+Subject: [PATCH 100/206] soc: mediatek: mutex: Start from an empty mutex at
  prepare
 
 The bootloader on MT6858 phones leaves display mutex 0 enabled with its

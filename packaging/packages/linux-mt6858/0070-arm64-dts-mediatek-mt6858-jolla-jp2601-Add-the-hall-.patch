@@ -1,7 +1,7 @@
 From a301bdcd617e109d179577f54967dedb2a9b8bca Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:19:27 +0000
-Subject: [PATCH 070/202] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 070/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  hall sensor and privacy switch
 
 The phone has a hall sensor on GPIO13 for a flip cover's magnet and a

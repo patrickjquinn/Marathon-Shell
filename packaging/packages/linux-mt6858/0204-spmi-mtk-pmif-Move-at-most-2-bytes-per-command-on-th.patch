@@ -1,0 +1,107 @@
+From 12923bfaebb79744444959859a7fc320a1b29aac Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:50:02 +0000
+Subject: [PATCH 204/206] spmi: mtk-pmif: Move at most 2 bytes per command on
+ the MT6858
+
+On the MT6858, a software-channel read returns at most two bytes, with
+no error. Read through the PMIF on the Jolla Phone (2026), the MT6685's
+0x08-0x0b (single reads 30 85 30 85) gave 30 for 1 byte, 30 85 for 2,
+30 for 3 and 30 85 for 4 and 8. Every other byte of the 16-byte data
+register read 0. Bulk regmap reads therefore returned zeros past the
+second byte, for example MT6369 0x23bc read 10 02 00 00 instead of
+10 02 30 07.
+
+Give the MT6858 its own match data, the MT8196's with two bytes per
+command, so that longer transfers are split to fit. Writes carry the
+same byte count field, so they are split the same way; only 2-byte
+writes have been checked.
+---
+ drivers/spmi/spmi-mtk-pmif.c | 29 +++++++++++++++++++++++++----
+ 1 file changed, 25 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/spmi/spmi-mtk-pmif.c b/drivers/spmi/spmi-mtk-pmif.c
+index 7493f44bc..1d8f6fa97 100644
+--- a/drivers/spmi/spmi-mtk-pmif.c
++++ b/drivers/spmi/spmi-mtk-pmif.c
+@@ -53,6 +53,8 @@ struct pmif_data {
+ 	u32	soc_chan;
+ 	u8	spmi_ver;
+ 	u32	num_spmi_buses;
++	/* Bytes one software-channel command moves, if fewer than 4 */
++	u8	max_bytes;
+ };
+ 
+ struct pmif_bus {
+@@ -416,7 +418,8 @@ static int pmif_spmi_read_chunk(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ 			      u16 addr, u8 *buf, size_t len)
+ {
+-	size_t n;
++	struct pmif *arb = to_mtk_pmif(ctrl);
++	size_t max = arb->data->max_bytes ?: 4, n;
+ 	int ret;
+ 
+ 	/* Check for argument validation. */
+@@ -434,7 +437,7 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ 
+ 	/* The SPMI core allows up to 16 bytes, a command moves at most 4 */
+ 	for (; len; len -= n, addr += n, buf += n) {
+-		n = min(len, 4);
++		n = min(len, max);
+ 		ret = pmif_spmi_read_chunk(ctrl, opc, sid, addr, buf, n);
+ 		if (ret)
+ 			return ret;
+@@ -484,7 +487,8 @@ static int pmif_spmi_write_chunk(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ 			       u16 addr, const u8 *buf, size_t len)
+ {
+-	size_t n;
++	struct pmif *arb = to_mtk_pmif(ctrl);
++	size_t max = arb->data->max_bytes ?: 4, n;
+ 	int ret;
+ 
+ 	/* Check for argument validation. */
+@@ -504,7 +508,7 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ 		return -EINVAL;
+ 
+ 	for (; len; len -= n, addr += n, buf += n) {
+-		n = min(len, 4);
++		n = min(len, max);
+ 		ret = pmif_spmi_write_chunk(ctrl, opc, sid, addr, buf, n);
+ 		if (ret)
+ 			return ret;
+@@ -688,6 +692,20 @@ static const struct pmif_data mt8196_pmif_arb = {
+ 	.num_spmi_buses = 2,
+ };
+ 
++/*
++ * The MT8196 controller, except that a software-channel command moves
++ * at most two bytes: a read of 3 bytes returns 1, 4 or 8 return 2, and
++ * the rest of the data register reads 0.
++ */
++static const struct pmif_data mt6858_pmif_arb = {
++	.regs = mt8195_regs,
++	.spmimst_regs = mt8195_spmi_regs,
++	.soc_chan = 2,
++	.spmi_ver = 2,
++	.num_spmi_buses = 2,
++	.max_bytes = 2,
++};
++
+ static int mtk_spmi_irq_init(struct device_node *node,
+ 			     const struct pmif_data *pdata,
+ 			     struct pmif_bus *pbus)
+@@ -883,6 +901,9 @@ static void mtk_spmi_remove(struct platform_device *pdev)
+ 
+ static const struct of_device_id mtk_spmi_match_table[] = {
+ 	{
++		.compatible = "mediatek,mt6858-spmi",
++		.data = &mt6858_pmif_arb,
++	}, {
+ 		.compatible = "mediatek,mt6873-spmi",
+ 		.data = &mt6873_pmif_arb,
+ 	}, {
+-- 
+2.55.0
+

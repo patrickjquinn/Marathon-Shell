@@ -1,0 +1,26 @@
+From 05825c2fa8c97439197138b878e67b60f14e7760 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:56:14 +0000
+Subject: [PATCH 206/206] arm64: dts: mediatek: mt6858: Give the AFE its
+ topckgen
+
+The AFE needs topckgen's regmap for the MTKAIF miso delay test.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index aedfcad3f..7d1cffdb1 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -520,6 +520,7 @@ afe: audio-controller@11050000 {
+ 			reg = <0 0x11050000 0 0x10000>;
+ 			interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH 0>;
+ 			power-domains = <&spm MT6858_POWER_DOMAIN_AUDIO>;
++			mediatek,topckgen = <&topckgen>;
+ 			clocks = <&topckgen CLK_TOP_AUD_INTBUS_SEL>,
+ 				 <&topckgen CLK_TOP_AUD_ENGEN1_SEL>,
+ 				 <&topckgen CLK_TOP_AUD_ENGEN2_SEL>,
+-- 
+2.55.0
+

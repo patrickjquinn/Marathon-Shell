@@ -1,7 +1,7 @@
 From 94825a1bf16ed249149631dca2e34ae27b318438 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:16:10 +0000
-Subject: [PATCH 043/202] clk: mediatek: mt6858: Add the vlpckgen clocks
+Subject: [PATCH 043/206] clk: mediatek: mt6858: Add the vlpckgen clocks
 
 Add the MT6858 VLP clock generator's muxes and its oscillator divider,
 generated from the tables of MediaTek's GPLv2 MT6858 clock driver.

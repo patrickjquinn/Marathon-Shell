@@ -1,7 +1,7 @@
 From b58a26886f9719facef4fef447060b523e977ad3 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:39:05 +0000
-Subject: [PATCH 193/202] arm64: configs: mt6858: Use transparent huge pages
+Subject: [PATCH 193/206] arm64: configs: mt6858: Use transparent huge pages
  only on madvise
 
 defconfig sets THP to "always", which on this phone backed 182 MB of

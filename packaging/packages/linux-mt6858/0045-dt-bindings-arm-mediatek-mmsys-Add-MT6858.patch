@@ -1,7 +1,7 @@
 From 30c83aa3fc8ba1ed8ed021b62bbb689145d1c774 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:44:25 +0000
-Subject: [PATCH 045/202] dt-bindings: arm: mediatek: mmsys: Add MT6858
+Subject: [PATCH 045/206] dt-bindings: arm: mediatek: mmsys: Add MT6858
 
 Add the MT6858 display mmsys. It routes the display engines and
 provides their clock gates, like the other mmsys blocks.

@@ -1,7 +1,7 @@
 From 59fae7a0bce20a1bb38dcca96ba4058e95af2a88 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:47:57 +0000
-Subject: [PATCH 197/202] arm64: configs: mt6858: Build in the PMIC RTC driver
+Subject: [PATCH 197/206] arm64: configs: mt6858: Build in the PMIC RTC driver
 
 defconfig builds rtc-mt6397 as a module, which loads only once udev
 runs, after systemd has started from the stored clock. Build it in so

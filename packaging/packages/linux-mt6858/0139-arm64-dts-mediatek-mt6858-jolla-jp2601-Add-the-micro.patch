@@ -1,7 +1,7 @@
 From 3ae3f38e09859748771fa1c5468136a0c79beec8 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:10:03 +0000
-Subject: [PATCH 139/202] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 139/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  microSD slot
 
 The slot is on MSDC1, 4 bits wide, with card detect on GPIO9 and the

@@ -1,7 +1,7 @@
 From 03c104c98eb618e14aace8a9ad031f069a8eb8df Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:47:39 +0000
-Subject: [PATCH 195/202] rtc: mt6397: Add support for the MT6685
+Subject: [PATCH 195/206] rtc: mt6397: Add support for the MT6685
 
 The MT6685 clock-buffer PMIC on MT6858 boards keeps the board's RTC.
 It is the MT6358 RTC (the same registers and write trigger), based at

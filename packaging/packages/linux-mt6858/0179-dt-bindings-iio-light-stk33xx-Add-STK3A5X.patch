@@ -1,7 +1,7 @@
 From 29e110439c582f20825222e2a826379b12453e9f Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:27:26 +0000
-Subject: [PATCH 179/202] dt-bindings: iio: light: stk33xx: Add STK3A5X
+Subject: [PATCH 179/206] dt-bindings: iio: light: stk33xx: Add STK3A5X
 
 The Sensortek STK3A5X ambient light and proximity sensor keeps the
 STK3310 register layout, so it takes the STK3310 as its fallback.

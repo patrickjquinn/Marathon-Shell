@@ -1,7 +1,7 @@
 From 15e6d0cc22b44b7a0efac325b7239e25bebf3a00 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:48:14 +0000
-Subject: [PATCH 196/202] arm64: dts: mediatek: mt6858: Add the MT6685 RTC
+Subject: [PATCH 196/206] arm64: dts: mediatek: mt6858: Add the MT6685 RTC
 
 The phone has no RTC device, so every boot starts from the time of the
 last shutdown, the clock about 80 minutes behind until NTP, and stays

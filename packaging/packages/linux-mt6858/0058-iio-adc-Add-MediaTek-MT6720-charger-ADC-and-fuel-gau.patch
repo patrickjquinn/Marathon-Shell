@@ -1,7 +1,7 @@
 From 5dfeb4443a367b2f050f902210aa149246deb409 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 07:58:22 +0000
-Subject: [PATCH 058/202] iio: adc: Add MediaTek MT6720 charger ADC and fuel
+Subject: [PATCH 058/206] iio: adc: Add MediaTek MT6720 charger ADC and fuel
  gauge AUXADC
 
 The charger ADC converts one channel at a time: the channel number goes

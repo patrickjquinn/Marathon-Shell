@@ -1,7 +1,7 @@
 From 329030d2297ebf8ad897cd4c715c7fb929ebe111 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 05:45:34 +0000
-Subject: [PATCH 050/202] soc: mediatek: mutex: Add MT6858
+Subject: [PATCH 050/206] soc: mediatek: mutex: Add MT6858
 
 Add the MT6858 display mutex. It has the MT8183 register layout. The
 module bits and the SOF/EOF encoding come from MediaTek's GPLv2 display

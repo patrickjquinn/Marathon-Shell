@@ -1,7 +1,7 @@
 From 7c7db8b9be321eb26889fe3c1ae81148a8727945 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:50:33 +0000
-Subject: [PATCH 200/202] mfd: mtk-spmi-pmic: Add the MT6685
+Subject: [PATCH 200/206] mfd: mtk-spmi-pmic: Add the MT6685
 
 The MT6685's clock buffers and RTC are child functions like the
 MT6363's regulators, and they need the PMIC's regmap from a parent.

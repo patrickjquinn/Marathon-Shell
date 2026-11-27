@@ -1,7 +1,7 @@
 From bd1023276177278c8c85ba4659ceb4972c98e33d Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:38:24 +0000
-Subject: [PATCH 190/202] arm64: dts: mediatek: mt6858: Add the CPU idle states
+Subject: [PATCH 190/206] arm64: dts: mediatek: mt6858: Add the CPU idle states
 
 The CPUs have no idle states, so idle cores only ever execute WFI. They
 never power down, and neither do the clusters or the MCU subsystem.

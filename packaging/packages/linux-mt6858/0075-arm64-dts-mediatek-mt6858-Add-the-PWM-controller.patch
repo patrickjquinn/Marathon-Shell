@@ -1,7 +1,7 @@
 From 112b349f5a5a02d739912d91d289104437d49cc3 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:24:33 +0000
-Subject: [PATCH 075/202] arm64: dts: mediatek: mt6858: Add the PWM controller
+Subject: [PATCH 075/206] arm64: dts: mediatek: mt6858: Add the PWM controller
 
 Add the four-channel PWM at 0x11008000, clocked from pericfg_ao: the
 PWM and bus clocks and one clock per channel, as the stock device tree

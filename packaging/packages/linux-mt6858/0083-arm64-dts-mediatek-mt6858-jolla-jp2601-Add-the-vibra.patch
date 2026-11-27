@@ -1,7 +1,7 @@
 From 731041e0e8ed86a4d5092fd972015276d04bfbfd Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:26:35 +0000
-Subject: [PATCH 083/202] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 083/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  vibrator
 
 The vibration motor runs from the MT6369's VIBR LDO. The stock driver

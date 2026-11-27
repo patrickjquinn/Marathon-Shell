@@ -1,7 +1,7 @@
 From 4b1ca13c7099a0fd9171661618a6a7222ae2ec1c Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:43:41 +0000
-Subject: [PATCH 184/202] arm64: dts: mediatek: mt6858-jolla-jp2601: Raise the
+Subject: [PATCH 184/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Raise the
  proximity near level to 2000
 
 Handling the phone with nothing over the earpiece read up to 1200 at

@@ -1,7 +1,7 @@
 From e03c19cdb852f0706be92dd7a4b552aaf102d764 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 04:51:43 +0000
-Subject: [PATCH 039/202] arm64: dts: mediatek: mt6858: Add the SPMI arbiter
+Subject: [PATCH 039/206] arm64: dts: mediatek: mt6858: Add the SPMI arbiter
  and the MT6363
 
 The MT6858 SPMI arbiter is the MT8196 one. Describe its first bus, and

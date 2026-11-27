@@ -1,7 +1,7 @@
 From 48459257e3e55a4457644a686c2d9d948936e4fc Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:40:43 +0000
-Subject: [PATCH 101/202] soc: mediatek: mt6858-mmsys: Disconnect the unused
+Subject: [PATCH 101/206] soc: mediatek: mt6858-mmsys: Disconnect the unused
  OVL_2L0
 
 The bootloader cascades OVL_2L0 -> OVL_2L1 -> OVL_2L2. The kernel's path

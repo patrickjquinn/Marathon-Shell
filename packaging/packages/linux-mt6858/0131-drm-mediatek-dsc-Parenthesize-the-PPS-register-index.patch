@@ -1,7 +1,7 @@
 From e55a7afdfaca70245ae64a6ac40676a064b741f5 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:00:20 +0000
-Subject: [PATCH 131/202] drm/mediatek: dsc: Parenthesize the PPS register
+Subject: [PATCH 131/206] drm/mediatek: dsc: Parenthesize the PPS register
  index
 
 DISP_REG_DSC_PPS(8 + i) expanded to 0x80 + (8 + i * 4), so the rate

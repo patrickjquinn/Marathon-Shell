@@ -1,7 +1,7 @@
 From 3561df93a5214bf755f864419575bf9e4d2304e9 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:21:06 +0000
-Subject: [PATCH 071/202] dt-bindings: leds: leds-aw2013: Add AW2023
+Subject: [PATCH 071/206] dt-bindings: leds: leds-aw2013: Add AW2023
 
 The Awinic AW2023 is a successor of the AW2013 with the same register
 layout for channels, brightness and patterns, but a global maximum

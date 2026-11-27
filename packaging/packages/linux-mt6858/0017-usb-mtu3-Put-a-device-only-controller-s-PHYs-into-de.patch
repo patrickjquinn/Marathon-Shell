@@ -1,7 +1,7 @@
 From 60742a6b28be5086f84fcc93e57ceeb1cf9186c2 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 22:44:04 +0000
-Subject: [PATCH 017/202] usb: mtu3: Put a device-only controller's PHYs into
+Subject: [PATCH 017/206] usb: mtu3: Put a device-only controller's PHYs into
  device mode
 
 mtu3 sets the PHY mode only when it switches roles, so a controller

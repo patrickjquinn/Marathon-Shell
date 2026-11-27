@@ -1,7 +1,7 @@
 From 6d3d1d92cf11355ab0cb42b6e4a7a0cf8bb1c596 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:22:20 +0000
-Subject: [PATCH 169/202] regulator: mt6369: Add the CONNSYS 3.3 V LDOs
+Subject: [PATCH 169/206] regulator: mt6369: Add the CONNSYS 3.3 V LDOs
 
 The MT6858's CONNSYS (Wi-Fi, Bluetooth, GNSS) is powered from the
 MT6369's VCN33_1 and VCN33_2 besides the MT6363's VRFIO18; the stock

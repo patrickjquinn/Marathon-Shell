@@ -1,0 +1,166 @@
+From 79c47704c063257e5801c5d30665343c1de4a2eb Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:49:37 +0000
+Subject: [PATCH 203/206] spmi: mtk-pmif: Split transfers into commands of up
+ to 4 bytes
+
+The SPMI core passes extended reads and writes of up to 16 bytes (8 for
+the long forms), and regmap-spmi asks for that much in one go: 16 bytes
+at a time below address 0x100. A PMIF software-channel command carries
+at most 4 bytes in its 32-bit data register, so the driver refused
+anything longer with -EINVAL, and a bulk regmap access of more than 4
+bytes always failed.
+
+Issue such a transfer as consecutive commands instead.
+---
+ drivers/spmi/spmi-mtk-pmif.c | 100 +++++++++++++++++++++--------------
+ 1 file changed, 61 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/spmi/spmi-mtk-pmif.c b/drivers/spmi/spmi-mtk-pmif.c
+index 8d0172e07..7493f44bc 100644
+--- a/drivers/spmi/spmi-mtk-pmif.c
++++ b/drivers/spmi/spmi-mtk-pmif.c
+@@ -343,8 +343,8 @@ static int pmif_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
+ 	return ret;
+ }
+ 
+-static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+-			      u16 addr, u8 *buf, size_t len)
++static int pmif_spmi_read_chunk(struct spmi_controller *ctrl, u8 opc, u8 sid,
++				u16 addr, u8 *buf, size_t len)
+ {
+ 	struct pmif_bus *pbus = spmi_controller_get_drvdata(ctrl);
+ 	struct pmif *arb = to_mtk_pmif(ctrl);
+@@ -354,24 +354,6 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ 	u32 data, cmd;
+ 	unsigned long flags;
+ 
+-	/* Check for argument validation. */
+-	if (sid & ~0xf) {
+-		dev_err(&ctrl->dev, "exceed the max slv id\n");
+-		return -EINVAL;
+-	}
+-
+-	if (len > 4) {
+-		dev_err(&ctrl->dev, "pmif supports 1..4 bytes per trans, but:%zu requested", len);
+-		return -EINVAL;
+-	}
+-
+-	if (opc >= 0x60 && opc <= 0x7f)
+-		opc = PMIF_CMD_REG;
+-	else if ((opc >= 0x20 && opc <= 0x2f) || (opc >= 0x38 && opc <= 0x3f))
+-		opc = PMIF_CMD_EXT_REG_LONG;
+-	else
+-		return -EINVAL;
+-
+ 	raw_spin_lock_irqsave(&pbus->lock, flags);
+ 	/* Wait for Software Interface FSM state to be IDLE. */
+ 	inf_reg = &arb->chan;
+@@ -431,38 +413,46 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ 	return 0;
+ }
+ 
+-static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+-			       u16 addr, const u8 *buf, size_t len)
++static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
++			      u16 addr, u8 *buf, size_t len)
+ {
+-	struct pmif_bus *pbus = spmi_controller_get_drvdata(ctrl);
+-	struct pmif *arb = to_mtk_pmif(ctrl);
+-	struct ch_reg *inf_reg;
++	size_t n;
+ 	int ret;
+-	u32 data, wdata, cmd;
+-	unsigned long flags;
+ 
+ 	/* Check for argument validation. */
+-	if (unlikely(sid & ~0xf)) {
++	if (sid & ~0xf) {
+ 		dev_err(&ctrl->dev, "exceed the max slv id\n");
+ 		return -EINVAL;
+ 	}
+ 
+-	if (len > 4) {
+-		dev_err(&ctrl->dev, "pmif supports 1..4 bytes per trans, but:%zu requested", len);
+-
+-		return -EINVAL;
+-	}
+-
+-	/* Check the opcode */
+-	if (opc >= 0x40 && opc <= 0x5F)
++	if (opc >= 0x60 && opc <= 0x7f)
+ 		opc = PMIF_CMD_REG;
+-	else if ((opc <= 0xF) || (opc >= 0x30 && opc <= 0x37))
++	else if ((opc >= 0x20 && opc <= 0x2f) || (opc >= 0x38 && opc <= 0x3f))
+ 		opc = PMIF_CMD_EXT_REG_LONG;
+-	else if (opc >= 0x80)
+-		opc = PMIF_CMD_REG_0;
+ 	else
+ 		return -EINVAL;
+ 
++	/* The SPMI core allows up to 16 bytes, a command moves at most 4 */
++	for (; len; len -= n, addr += n, buf += n) {
++		n = min(len, 4);
++		ret = pmif_spmi_read_chunk(ctrl, opc, sid, addr, buf, n);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int pmif_spmi_write_chunk(struct spmi_controller *ctrl, u8 opc, u8 sid,
++				 u16 addr, const u8 *buf, size_t len)
++{
++	struct pmif_bus *pbus = spmi_controller_get_drvdata(ctrl);
++	struct pmif *arb = to_mtk_pmif(ctrl);
++	struct ch_reg *inf_reg;
++	int ret;
++	u32 data, wdata, cmd;
++	unsigned long flags;
++
+ 	/* Set the write data. */
+ 	memcpy(&wdata, buf, len);
+ 
+@@ -491,6 +481,38 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
+ 	return 0;
+ }
+ 
++static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
++			       u16 addr, const u8 *buf, size_t len)
++{
++	size_t n;
++	int ret;
++
++	/* Check for argument validation. */
++	if (unlikely(sid & ~0xf)) {
++		dev_err(&ctrl->dev, "exceed the max slv id\n");
++		return -EINVAL;
++	}
++
++	/* Check the opcode */
++	if (opc >= 0x40 && opc <= 0x5F)
++		opc = PMIF_CMD_REG;
++	else if ((opc <= 0xF) || (opc >= 0x30 && opc <= 0x37))
++		opc = PMIF_CMD_EXT_REG_LONG;
++	else if (opc >= 0x80)
++		opc = PMIF_CMD_REG_0;
++	else
++		return -EINVAL;
++
++	for (; len; len -= n, addr += n, buf += n) {
++		n = min(len, 4);
++		ret = pmif_spmi_write_chunk(ctrl, opc, sid, addr, buf, n);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
+ static void mtk_spmi_handle_chained_irq(struct irq_desc *desc)
+ {
+ 	struct pmif_bus *pbus = irq_desc_get_handler_data(desc);
+-- 
+2.55.0
+

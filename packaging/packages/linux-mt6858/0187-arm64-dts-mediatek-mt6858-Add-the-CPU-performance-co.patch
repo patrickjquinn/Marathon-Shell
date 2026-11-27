@@ -1,7 +1,7 @@
 From f8591ec8d827a55e81bd0ac8f02e06e129725e74 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:37:37 +0000
-Subject: [PATCH 187/202] arm64: dts: mediatek: mt6858: Add the CPU performance
+Subject: [PATCH 187/206] arm64: dts: mediatek: mt6858: Add the CPU performance
  controller
 
 With no cpufreq driver, the clusters stay at whatever operating points

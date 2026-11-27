@@ -1,7 +1,7 @@
 From 5bdc41ed1ed8e50333c0fd7feea48135b2205725 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:37:07 +0000
-Subject: [PATCH 178/202] arm64: dts: mediatek: mt6858: Add the MT6685
+Subject: [PATCH 178/206] arm64: dts: mediatek: mt6858: Add the MT6685
 
 The MT6685 is the clock-buffer and RTC PMIC at SID 9 on the main SPMI
 bus. Its XO_BBCK5 buffer is the MT6369 audio codec's 26 MHz clock, and
