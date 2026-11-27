@@ -146,6 +146,25 @@ Stock Sailfish loads it as `hynitron_spi` and names the input device
 4. The two GPIO rails as fixed regulators, the reset GPIO and EINT 6 in the
    board DTS.
 
+## Cameras
+
+Three sensors (IMX766 main on CSI1 C-PHY, IMX214 second rear on CSI2,
+IMX616 front on CSI0) feed SENINF; cam-mux 2 feeds CAMSV2, which writes
+raw frames through larb13 port 6 and the MM IOMMU (CAM region 0-4 GiB, as
+in the stock kernel).
+
+- Linux runs at EL1 under GenieZone, whose hyp-MMU "type 2" shadows the
+  MM IOMMU's page table. mtk_iommu has to send it TYPE2_INV
+  (SMC 0xbb00ffa7) after every map and unmap (0287). Without that, every
+  CAMSV write faults; with only the map side, DMA lands in freed pages.
+- The kernel has no udmabuf, so libcamera's software ISP uses
+  /dev/dma_heap/system, which the app sandbox binds.
+- Open in r22: CAM_MAIN's infra bus protection (MMSYS_STA_0 bits 30-31,
+  STA_1 bits 9-10) is set again after the first stream and never released,
+  while genpd still shows cam-main on. Its power-off probably fails after
+  re-enabling the protection. Clearing the bits by hand at power-up gives
+  frames.
+
 ## Next
 
 1. Flash the first image (`/mnt/deckard-build/jolla/img/FLASH.md`) and
