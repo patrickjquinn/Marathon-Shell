@@ -458,6 +458,7 @@ static int runHomeUnlock(const QStringList &command) {
     QQmlContext          *ctx = engine.rootContext();
     ctx->setContextProperty(QStringLiteral("DeviceProfile"), deviceProfileMap(device));
     ctx->setContextProperty(QStringLiteral("MARATHON_LAYER_SAMPLES"), device.hw_msaa_samples);
+    ctx->setContextProperty(QStringLiteral("PlymouthScale"), plymouthDeviceScale());
     createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &engine);
     createObject<HomeUnlock>(ctx, "HomeUnlockCpp", command, &engine);
     engine.load(QUrl(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/HomeUnlock.qml")));

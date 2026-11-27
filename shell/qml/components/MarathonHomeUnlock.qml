@@ -5,14 +5,17 @@ import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
 // The lock screen's PIN pad on the boot splash's black, under the Marathon
-// mark: the PIN that opens the encrypted /home.
+// mark: the PIN that opens the encrypted /home. It rises out of Plymouth's
+// frame and, once a PIN opens /home, settles back into it for Plymouth.
 Item {
     id: root
 
-    // submit(pin), busy, rejected(): HomeUnlock (homeunlock.h).
+    // submit(pin), busy, rejected(), opened(), release(): HomeUnlock (homeunlock.h).
     required property QtObject unlock
     property string pin: ""
     property string error: ""
+    // 0: Plymouth's frame; 1: the pad.
+    property real lift: 0
 
     // MarathonPinScreen's sizes, compact on short or square screens.
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
@@ -46,23 +49,49 @@ Item {
             root.error = qsTr("Wrong PIN. Try again");
         }
 
+        function onOpened() {
+            settle.start();
+        }
+
         target: root.unlock
     }
 
-    // A key's disc, above the pad.
-    MMarathonMark {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: pad.top
-        anchors.bottomMargin: pad.spacing
-        size: Math.round(root.keyButtonSize * Constants.scaleFactor / 0.43)
-        showLabel: false
-        visible: !root.compactLayout
+    NumberAnimation on lift {
+        to: 1
+        duration: MMotion.ms(MMotion.slow)
+        easing.type: Easing.OutCubic
+    }
+
+    NumberAnimation {
+        id: settle
+
+        target: root
+        property: "lift"
+        to: 0
+        duration: MMotion.ms(MMotion.slow)
+        easing.type: Easing.InOutCubic
+        onFinished: root.unlock.release()
+    }
+
+    // The splash's logo becomes a key's disc above the pad.
+    MarathonBootSplash {
+        readonly property real disc: Math.round(root.keyButtonSize * Constants.scaleFactor)
+        readonly property real logo: Math.round(disc * 200 / 96)
+
+        anchors.fill: parent
+        deviceScale: PlymouthScale
+        chromeOpacity: 1 - root.lift
+        logoOpacity: root.compactLayout ? 1 - root.lift : 1
+        lift: root.compactLayout ? 0 : root.lift
+        liftTarget: Qt.rect((root.width - logo) / 2, pad.y - pad.spacing - (disc + logo) / 2, logo, logo)
     }
 
     // Where MarathonPinScreen puts it, so the lock screen's pad lands on this one.
     Column {
         id: pad
 
+        opacity: root.lift
+        enabled: root.lift === 1
         anchors.centerIn: parent
         anchors.verticalCenterOffset: root.compactLayout ? Math.round((Constants.statusBarHeight - Constants.navBarHeight - Silica.Theme.itemSizeSmall) / 2) : Math.round(-20 * Constants.scaleFactor)
         spacing: Math.round((root.compactLayout ? 8 * root.compactUnit : 24) * Constants.scaleFactor)
