@@ -967,6 +967,7 @@ impl Settings {
     }
 
     /// The device profile's, set at load: Settings1 cannot change it.
+    #[allow(clippy::unused_self, reason = "the property setter takes the object")]
     fn set_default_user_scale_factor(self: Pin<&mut Self>, _value: f64) {}
 
     fn set_status_bar_clock_position(mut self: Pin<&mut Self>, value: &QString) {
