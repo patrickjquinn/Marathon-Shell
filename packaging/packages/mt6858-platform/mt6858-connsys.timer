@@ -1,6 +1,9 @@
 # The radios even when the shell never draws, so the phone stays reachable.
+# Counted from multi-user.target, which waits for /home: a PIN typed slowly
+# must not bring the radios up beside the shell.
 [Unit]
 Description=Start the radios without the shell
+After=multi-user.target
 
 [Timer]
 OnActiveSec=30
