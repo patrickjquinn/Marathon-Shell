@@ -12,6 +12,17 @@ TestCase {
         compare(Logic.pageRow("wifi"), "");
     }
 
+    function test_privacySwitch() {
+        compare(Logic.privacySwitchCovers("silent"), []);
+        compare(Logic.privacySwitchCovers("location,microphone"), ["microphone", "location"]);
+        compare(Logic.privacySwitchToggled("microphone,camera,location", "camera"), "microphone,location");
+        compare(Logic.privacySwitchToggled("location", "microphone"), "microphone,location");
+        compare(Logic.privacySwitchToggled("microphone", "microphone"), "");
+        compare(Logic.privacySwitchSummary("microphone,camera"), "Microphones · Cameras");
+        compare(Logic.privacySwitchSummary(""), "Cuts nothing");
+        compare(Logic.privacySwitchSummary("silent"), "Silent switch");
+    }
+
     function test_pageFile() {
         compare(Logic.pageFile("wifi"), "WiFiPage.qml");
         compare(Logic.pageFile("/about"), "AboutPage.qml");

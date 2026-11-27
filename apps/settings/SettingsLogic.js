@@ -27,6 +27,7 @@ const pages = {
     keyboard: "KeyboardPage.qml",
     speedkeys: "SpeedKeysPage.qml",
     assistkey: "AssistKeyPage.qml",
+    privacyswitch: "PrivacySwitchPage.qml",
     trackpad: "TrackpadPage.qml",
     appmanager: "AppManagerPage.qml",
     appinfo: "AppManagerPage.qml",
@@ -88,6 +89,7 @@ const sections = [
             { page: "storage", title: qsTr("Storage"), icon: "image://theme/icon-m-storage", keywords: "disk space memory usage free" },
             { page: "keyboard", title: qsTr("Keyboard"), icon: "image://theme/icon-m-keyboard", keywords: "language autocorrect predictions typing capitalize" },
             { page: "assistkey", title: qsTr("Assistant key"), icon: "image://theme/icon-m-keys", keywords: "button side key shortcut camera pilot voice talk convenience" },
+            { page: "privacyswitch", title: qsTr("Privacy switch"), icon: "image://theme/icon-m-privacy", keywords: "slider side switch microphone camera location mute silent kill" },
             { page: "trackpad", title: qsTr("Trackpad"), icon: "image://theme/icon-m-gesture", keywords: "trackpad touchpad pointer mouse cursor scroll caret optical" }
         ]
     },
@@ -284,6 +286,34 @@ const assistKeyActions = [
     { id: "pilot-voice", title: qsTr("Talk to Pilot") },
     { id: "none", title: qsTr("Do nothing") }
 ];
+
+// What the side switch does (Settings.privacySwitch): "silent", else the
+// comma list of what it cuts.
+const privacySwitchModes = [
+    { id: "privacy", title: qsTr("Privacy switch"), description: qsTr("Cuts what you choose below for every app, Android apps too.") },
+    { id: "silent", title: qsTr("Silent switch"), description: qsTr("Turns Silent on and off, as its Quick Settings tile does.") }
+];
+const privacySwitchCuts = [
+    { id: "microphone", title: qsTr("Microphones") },
+    { id: "camera", title: qsTr("Cameras") },
+    { id: "location", title: qsTr("Location") }
+];
+
+function privacySwitchCovers(value) {
+    return value === "silent" ? [] : privacySwitchCuts.map(k => k.id).filter(k => value.split(",").includes(k));
+}
+
+function privacySwitchToggled(value, id) {
+    const cuts = privacySwitchCovers(value);
+    return privacySwitchCuts.map(k => k.id).filter(k => cuts.includes(k) !== (k === id)).join(",");
+}
+
+function privacySwitchSummary(value) {
+    if (value === "silent")
+        return qsTr("Silent switch");
+    const cuts = privacySwitchCovers(value);
+    return cuts.length ? privacySwitchCuts.filter(k => cuts.includes(k.id)).map(k => k.title).join(" · ") : qsTr("Cuts nothing");
+}
 
 // What the keyboard's trackpad does (Settings.trackpadMode).
 const trackpadModes = [

@@ -12,6 +12,7 @@ QtObject {
             "s": "settings"
         })
     property string assistKeyHold: "pilot-voice"
+    property string privacySwitch: "microphone,camera,location"
     property string trackpadMode: "gesture"
     property var hiddenApps: []
     property int appGridColumns: 0
