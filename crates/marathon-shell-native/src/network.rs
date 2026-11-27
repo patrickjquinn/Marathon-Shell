@@ -1143,6 +1143,12 @@ fn connectivity_name(state: u32) -> &'static str {
     }
 }
 
+/// An SSID's bytes as text, without the NULs a hidden network pads it with:
+/// a bus drops the connection that sends a string holding one.
+pub(crate) fn ssid_text(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).replace('\0', "")
+}
+
 /// The strongest access point per SSID, connected first, then by strength.
 fn merge(mut aps: Vec<AccessPoint>) -> Vec<AccessPoint> {
     aps.sort_by(|a, b| {
@@ -1591,7 +1597,7 @@ impl Actor {
             let ssid = props
                 .get("Ssid")
                 .and_then(|v| Vec::<u8>::try_from(v.try_clone().ok()?).ok())
-                .map_or_default(|b| String::from_utf8_lossy(&b).into_owned());
+                .map_or_default(|b| ssid_text(&b));
             if ssid.is_empty() {
                 continue;
             }
@@ -1760,7 +1766,7 @@ impl Actor {
             let ssid = wireless
                 .get("ssid")
                 .and_then(|v| Vec::<u8>::try_from(v.try_clone().ok()?).ok())
-                .map_or_default(|b| String::from_utf8_lossy(&b).into_owned());
+                .map_or_default(|b| ssid_text(&b));
             if !ssid.is_empty() {
                 saved.entry(ssid).or_default().push(path);
             }
@@ -2254,9 +2260,16 @@ pub(crate) fn set_rfkill(types: &[&str], block: bool) -> usize {
 mod tests {
     use super::{
         activation_error, connectivity_name, deactivation_error, device_failure,
-        device_state_failure, merge, security, visible_wifi_settings, wifi_settings, AccessPoint,
-        Value, DEVICE_FAILED, DEVICE_NEED_AUTH,
+        device_state_failure, merge, security, ssid_text, visible_wifi_settings, wifi_settings,
+        AccessPoint, Value, DEVICE_FAILED, DEVICE_NEED_AUTH,
     };
+
+    #[test]
+    fn an_ssid_loses_its_nul_padding() {
+        assert_eq!(ssid_text(b"Cafe\0\0"), "Cafe");
+        assert_eq!(ssid_text(&[0; 8]), "");
+        assert_eq!(ssid_text(b"Caf\xe9"), "Caf\u{fffd}");
+    }
 
     #[test]
     fn a_new_profile_asking_for_secrets_is_not_a_wrong_password() {

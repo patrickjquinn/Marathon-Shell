@@ -153,7 +153,48 @@ where
         .map_err(|_stopping| fdo::Error::Failed("the shell is stopping".into()))
 }
 
-/// A `State` entry.
+/// A `State` entry. A string loses any NUL: the bus drops the connection
+/// that sends one, and with it every service on it.
 pub fn value(v: impl Into<zbus::Variant<'static>>) -> OwnedValue {
-    OwnedValue::try_from(v.into()).unwrap_or_else(|_| OwnedValue::from(false))
+    let v = match v.into() {
+        zbus::Variant::Str(s) if s.as_str().contains('\0') => {
+            zbus::Variant::from(s.as_str().replace('\0', ""))
+        }
+        v => v,
+    };
+    OwnedValue::try_from(v).unwrap_or_else(|_| OwnedValue::from(false))
+}
+
+#[cfg(test)]
+mod tests {
+    use marathon_rt::testing::PrivateBus;
+
+    use super::{value, State};
+
+    #[test]
+    fn a_state_with_a_nul_keeps_the_connection() {
+        let Some(bus) = PrivateBus::start() else {
+            return;
+        };
+        async_io::block_on(async {
+            let connection = bus.connect().await.unwrap();
+            let state = State::from([("ssid".to_owned(), value("Cafe\0\0".to_owned()))]);
+            connection
+                .emit_signal(
+                    None::<&str>,
+                    "/org/marathonos/Shell/Network",
+                    "org.marathonos.Shell.Network1",
+                    "StateChanged",
+                    &(state,),
+                )
+                .await
+                .unwrap();
+            let id = zbus::fdo::DBusProxy::new(&connection)
+                .await
+                .unwrap()
+                .get_id()
+                .await;
+            assert!(id.is_ok(), "the bus dropped the connection: {id:?}");
+        });
+    }
 }
