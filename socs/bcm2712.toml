@@ -21,6 +21,8 @@ msaa = true
 # the shell's built-in defaults.
 [profile]
 gpu_stack = "mesa-v3d"
+# Quick Settings and the Hub frost what is behind them live.
+live_blur = true
 gpu_msaa = 4
 # Flatpak runtimes ship seven Mesa Vulkan drivers, lavapipe with LLVM.
 vulkan_driver = "broadcom"

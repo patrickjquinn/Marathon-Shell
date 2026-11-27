@@ -27,6 +27,8 @@ mod ffi {
         surface_has_alpha: bool,
         /// RGBA16F colour attachments, for gamma-precise blur and glow.
         gpu_hdr: bool,
+        /// Quick Settings and the Hub frost what is behind them live.
+        live_blur: bool,
         /// The hardware's FBO samples, 0 for none.
         hw_msaa_samples: i32,
         /// 18 bpp panels band on gradients without a noise overlay.
@@ -214,6 +216,7 @@ fn profile() -> Profile {
         gles_minor,
         surface_has_alpha: v.flag("MARATHON_SURFACE_ALPHA", "SURFACE_ALPHA", false),
         gpu_hdr: v.flag("MARATHON_GPU_HDR", "GPU_RGBA16F", false),
+        live_blur: v.flag("MARATHON_LIVE_BLUR", "LIVE_BLUR", false),
         hw_msaa_samples: v.number("MARATHON_LAYER_SAMPLES", "GPU_MSAA", 0, |_| true),
         panel_dither: v.flag("MARATHON_PANEL_DITHER", "PANEL_DITHER", true),
         render_node: q(v.render_node()),
