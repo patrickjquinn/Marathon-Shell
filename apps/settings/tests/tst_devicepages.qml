@@ -71,6 +71,17 @@ TestCase {
         found.clicked();
     }
 
+    function menuText(combo, index) {
+        let n = 0;
+        let text = null;
+        combo.menu._foreachMenuItem(function (item) {
+            if (n++ === index)
+                text = item.text;
+            return text === null;
+        });
+        return text;
+    }
+
     function test_display() {
         const s = open("display");
         const slider = child(s.page, "brightnessSlider");
@@ -98,6 +109,10 @@ TestCase {
 
         const scale = child(s.page, "scaleCombo");
         compare(scale.currentIndex, 2);
+        compare(menuText(scale, 2), "100% · Default");
+        Settings.defaultUserScaleFactor = 1.25;
+        compare(menuText(scale, 2), "100% · Medium");
+        compare(menuText(scale, 4), "125% · Default");
         pick(scale, 4);
         compare(Settings.userScaleFactor, 1.25);
 

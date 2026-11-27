@@ -64,6 +64,7 @@ CoverBackground {
 
         StateLine {
             objectName: "coverWifi"
+            visible: Network.wifiAvailable
             icon: Network.wifiEnabled ? "image://theme/icon-s-wlan" : "image://theme/icon-s-wlan-off"
             name: qsTr("Wi-Fi")
             text: Logic.wifiSummary(Network.wifiEnabled, Network.wifiConnected, Network.wifiSsid)

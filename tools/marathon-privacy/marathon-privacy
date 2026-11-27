@@ -1,0 +1,58 @@
+#!/bin/sh
+# The privacy switch's cut of the microphones and cameras: their device
+# nodes become root's alone, so no app, Flatpak or Android, nor PipeWire,
+# opens them. Whoever has one open is ended, but PipeWire, whose input the
+# shell mutes, and WirePlumber, which only lists the cameras. Run as root,
+# through pkexec, or by udev for a new node.
+#
+#   block [microphone] [camera]   cut these, and give the rest back
+#   apply NODE                    a new node: cut it if its kind is cut
+#
+# Exit status: 0 done, 2 usage.
+set -u
+
+state=/run/marathon/privacy
+
+kind() {
+	case $1 in
+	/dev/snd/pcmC*c) echo microphone ;;
+	/dev/video[0-9]* | /dev/media[0-9]* | /dev/v4l-subdev[0-9]*) echo camera ;;
+	esac
+}
+
+cut() {
+	chmod 0600 "$1"
+	for pid in $(fuser "$1" 2>/dev/null); do
+		case $(cat "/proc/$pid/comm" 2>/dev/null) in
+		pipewire | wireplumber) ;;
+		*) kill "$pid" ;;
+		esac
+	done
+}
+
+case "${1:-}" in
+block)
+	shift
+	for k in "$@"; do
+		case $k in microphone | camera) ;; *) exit 2 ;; esac
+	done
+	mkdir -p "${state%/*}"
+	if [ $# -gt 0 ]; then echo "$*" >"$state"; else rm -f "$state"; fi
+	for node in /dev/snd/pcmC*c /dev/video* /dev/media* /dev/v4l-subdev*; do
+		k=$(kind "$node")
+		[ -e "$node" ] && [ -n "$k" ] || continue
+		case " $* " in
+		*" $k "*) cut "$node" ;;
+		*) if [ "$(stat -c %a "$node")" = 600 ]; then
+			chmod 0660 "$node"
+			udevadm trigger --action=change "$node"
+		fi ;;
+		esac
+	done
+	;;
+apply)
+	[ -n "${2:-}" ] && [ -f "$state" ] || exit 0
+	case " $(cat "$state") " in *" $(kind "$2") "*) cut "$2" ;; esac
+	;;
+*) exit 2 ;;
+esac

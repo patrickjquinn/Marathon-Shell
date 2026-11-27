@@ -1,0 +1,113 @@
+From ee1812c791e12025e5b1684773dc936a1f766db2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 00:49:16 +0000
+Subject: [PATCH 228/237] clk: mediatek: mt6685: Take XO_BBCK5 under register
+ control while prepared
+
+The bootloader leaves XO_BBCK5 in mode 01, switched by its EN_BB line,
+and no subsystem in the srclken-rc map of the Jolla Phone (2026) drives
+that line for it. EN_M alone then changes nothing: the MT6369 got no
+26 MHz, so its RC tune, MTKAIF transmitter and every monitor stayed at
+zero, and capture recorded silence.
+
+Prepare now switches the buffer to EN_M control (mode 00) with EN_M set,
+and unprepare restores the bootloader's mode with EN_M clear. XO_BBCK5
+has no other consumer: srclken-rc gives BB1 to suspend, BB2/RF1A to
+connectivity, BB3 to UFS, BB4 to NFC and RF2A to the modem.
+
+Tested on the Jolla Phone (2026): the main microphone records room noise
+(about -78 dBFS with 12 dB of preamp gain), and the register reads back
+mode 01, EN_M clear after capture.
+---
+ drivers/clk/mediatek/clk-mt6685.c | 32 +++++++++++++++++++++++++------
+ 1 file changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6685.c b/drivers/clk/mediatek/clk-mt6685.c
+index 887390d24..7142303e9 100644
+--- a/drivers/clk/mediatek/clk-mt6685.c
++++ b/drivers/clk/mediatek/clk-mt6685.c
+@@ -4,14 +4,16 @@
+  *
+  * The MT6685 buffers the 26 MHz crystal oscillator to the other chips on
+  * the board. Each buffer output (XO_BBCKn) is either switched by hardware
+- * (one of the EN_BB or CLK_SEL lines) or by its EN_M register bit. Only
+- * the buffers that a Linux consumer switches itself are registered.
++ * (one of the EN_BB or CLK_SEL lines) or by its EN_M register bit, as its
++ * mode bits select. Only the buffers that a Linux consumer switches itself
++ * are registered.
+  *
+  * Register layout from MediaTek's mt6685-audclk.c (GPLv2).
+  *
+  * Copyright (c) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
+  */
+ 
++#include <linux/bitfield.h>
+ #include <linux/clk-provider.h>
+ #include <linux/delay.h>
+ #include <linux/mod_devicetable.h>
+@@ -22,6 +24,8 @@
+ #include <dt-bindings/clock/mediatek,mt6685-clkbuf.h>
+ 
+ #define MT6685_DCXO_EXTBUF5_CW0		0x79e
++#define MT6685_XO_MODE_MASK		GENMASK(1, 0)
++#define MT6685_XO_MODE_EN_M		0
+ #define MT6685_XO_EN_M			BIT(2)
+ 
+ #define MT6685_NUM_CLKS			(MT6685_CLK_XO_CONCK2 + 1)
+@@ -30,6 +34,7 @@ struct mt6685_xo {
+ 	struct clk_hw hw;
+ 	struct regmap *regmap;
+ 	unsigned int reg;
++	unsigned int hw_mode;
+ };
+ 
+ static inline struct mt6685_xo *to_mt6685_xo(struct clk_hw *hw)
+@@ -40,10 +45,22 @@ static inline struct mt6685_xo *to_mt6685_xo(struct clk_hw *hw)
+ static int mt6685_xo_prepare(struct clk_hw *hw)
+ {
+ 	struct mt6685_xo *xo = to_mt6685_xo(hw);
++	unsigned int val;
+ 	int ret;
+ 
+-	/* As MediaTek's driver: EN_M only, the mode stays as the bootloader set it */
+-	ret = regmap_update_bits(xo->regmap, xo->reg, MT6685_XO_EN_M,
++	ret = regmap_read(xo->regmap, xo->reg, &val);
++	if (ret)
++		return ret;
++
++	/*
++	 * The bootloader leaves XO_BBCK5 on its EN_BB line, which nothing
++	 * raises for it, so EN_M alone does not start it: take it under
++	 * register control while prepared.
++	 */
++	xo->hw_mode = FIELD_GET(MT6685_XO_MODE_MASK, val);
++	ret = regmap_update_bits(xo->regmap, xo->reg,
++				 MT6685_XO_MODE_MASK | MT6685_XO_EN_M,
++				 FIELD_PREP(MT6685_XO_MODE_MASK, MT6685_XO_MODE_EN_M) |
+ 				 MT6685_XO_EN_M);
+ 	if (ret)
+ 		return ret;
+@@ -58,7 +75,9 @@ static void mt6685_xo_unprepare(struct clk_hw *hw)
+ {
+ 	struct mt6685_xo *xo = to_mt6685_xo(hw);
+ 
+-	regmap_update_bits(xo->regmap, xo->reg, MT6685_XO_EN_M, 0);
++	regmap_update_bits(xo->regmap, xo->reg,
++			   MT6685_XO_MODE_MASK | MT6685_XO_EN_M,
++			   FIELD_PREP(MT6685_XO_MODE_MASK, xo->hw_mode));
+ }
+ 
+ static int mt6685_xo_is_prepared(struct clk_hw *hw)
+@@ -69,7 +88,8 @@ static int mt6685_xo_is_prepared(struct clk_hw *hw)
+ 	if (regmap_read(xo->regmap, xo->reg, &val))
+ 		return 0;
+ 
+-	return !!(val & MT6685_XO_EN_M);
++	return FIELD_GET(MT6685_XO_MODE_MASK, val) == MT6685_XO_MODE_EN_M &&
++	       (val & MT6685_XO_EN_M);
+ }
+ 
+ static unsigned long mt6685_xo_recalc_rate(struct clk_hw *hw,
+-- 
+2.55.0
+

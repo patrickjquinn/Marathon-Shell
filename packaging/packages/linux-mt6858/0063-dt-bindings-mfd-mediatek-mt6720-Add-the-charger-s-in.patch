@@ -1,0 +1,74 @@
+From e6b0aac44182587d6fe80b83b3b6c4e9ad4d589b Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 08:16:18 +0000
+Subject: [PATCH 063/214] dt-bindings: mfd: mediatek,mt6720: Add the charger's
+ interrupts and battery
+
+The charger reports power good and VBUS detach, and limits charging to
+its monitored battery's charge voltage and current.
+---
+ .../bindings/mfd/mediatek,mt6720.yaml          | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/mfd/mediatek,mt6720.yaml b/Documentation/devicetree/bindings/mfd/mediatek,mt6720.yaml
+index 3942c4f2c..3f6eb3304 100644
+--- a/Documentation/devicetree/bindings/mfd/mediatek,mt6720.yaml
++++ b/Documentation/devicetree/bindings/mfd/mediatek,mt6720.yaml
+@@ -64,6 +64,15 @@ properties:
+     properties:
+       compatible:
+         const: mediatek,mt6720-charger
++      interrupts:
++        items:
++          - description: power good
++          - description: VBUS detach
++      interrupt-names:
++        items:
++          - const: pwr-rdy
++          - const: detach
++      monitored-battery: true
+       io-channels:
+         items:
+           - description: VBUS voltage
+@@ -76,6 +85,7 @@ properties:
+       - compatible
+       - io-channels
+       - io-channel-names
++      - monitored-battery
+ 
+   fuel-gauge:
+     type: object
+@@ -111,6 +121,8 @@ additionalProperties: false
+ 
+ examples:
+   - |
++    #include <dt-bindings/interrupt-controller/irq.h>
++
+     i2c {
+         #address-cells = <1>;
+         #size-cells = <0>;
+@@ -118,6 +130,9 @@ examples:
+         pmic@34 {
+             compatible = "mediatek,mt6720";
+             reg = <0x34>;
++            interrupts-extended = <&pio 118 IRQ_TYPE_LEVEL_LOW>;
++            interrupt-controller;
++            #interrupt-cells = <1>;
+ 
+             mt6720_adc: adc {
+                 compatible = "mediatek,mt6720-adc";
+@@ -131,8 +146,11 @@ examples:
+ 
+             mt6720_charger: charger {
+                 compatible = "mediatek,mt6720-charger";
++                interrupts = <0>, <1>;
++                interrupt-names = "pwr-rdy", "detach";
+                 io-channels = <&mt6720_adc 11>, <&mt6720_adc 5>;
+                 io-channel-names = "vbus", "ibus";
++                monitored-battery = <&battery>;
+             };
+ 
+             fuel-gauge {
+-- 
+2.55.0
+

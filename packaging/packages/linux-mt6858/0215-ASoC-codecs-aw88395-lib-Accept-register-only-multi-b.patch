@@ -1,0 +1,133 @@
+From b5fa95a14e4b19ce2cd0bd138d5855750dfd60c9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 21:42:28 +0000
+Subject: [PATCH 215/237] ASoC: codecs: aw88395-lib: Accept register-only
+ multi-bin profiles
+
+The stock ACF of the Jolla Phone (2026) carries its AW88271 profiles as
+multi-bin sections holding register data only: the AW88271 has no DSP.
+The library counted a multi-bin profile as valid only with DSP
+configuration and firmware as well, so it found no profiles at all.
+
+Let a driver mark its part register-only and accept such profiles for
+it; AW88271 does. While at it, open the AW88271's I2C write gate when
+the volume control writes SYSCTRL2, and stop leaving the AW88083's gate
+open after a volume change.
+---
+ sound/soc/codecs/aw88081.c                | 18 +++++++++-----
+ sound/soc/codecs/aw88395/aw88395_device.h |  2 ++
+ sound/soc/codecs/aw88395/aw88395_lib.c    | 30 ++++++++++++++---------
+ 3 files changed, 32 insertions(+), 18 deletions(-)
+
+diff --git a/sound/soc/codecs/aw88081.c b/sound/soc/codecs/aw88081.c
+index 8a9f2366b..252a2705d 100644
+--- a/sound/soc/codecs/aw88081.c
++++ b/sound/soc/codecs/aw88081.c
+@@ -1175,17 +1175,22 @@ static int aw88081_volume_set(struct snd_kcontrol *kcontrol,
+ 	if (value < mc->min || value > mc->max)
+ 		return -EINVAL;
+ 
++	if (vol_desc->ctl_volume == value)
++		return 0;
++
++	vol_desc->ctl_volume = value;
++
+ 	aw88083_i2c_wen(aw88081, true);
++	if (aw88081->devtype == AW88271)
++		aw88271_i2c_wen(aw88081->aw_pa, true);
+ 
+-	if (vol_desc->ctl_volume != value) {
+-		vol_desc->ctl_volume = value;
+-		aw88081_dev_set_volume(aw88081->aw_pa, vol_desc->ctl_volume);
+-		return 1;
+-	}
++	aw88081_dev_set_volume(aw88081->aw_pa, vol_desc->ctl_volume);
+ 
++	if (aw88081->devtype == AW88271)
++		aw88271_i2c_wen(aw88081->aw_pa, false);
+ 	aw88083_i2c_wen(aw88081, false);
+ 
+-	return 0;
++	return 1;
+ }
+ 
+ static int aw88081_get_fade_step(struct snd_kcontrol *kcontrol,
+@@ -1288,6 +1293,7 @@ static int aw88081_init(struct aw88081 *aw88081, struct i2c_client *i2c, struct
+ 	aw_dev->prof_info.prof_type = AW88395_DEV_NONE_TYPE_ID;
+ 	aw_dev->fade_step = AW88081_VOLUME_STEP_DB;
+ 	aw_dev->volume_desc.mute_volume = AW88081_MUTE_VOL;
++	aw_dev->reg_only = aw88081->devtype == AW88271;
+ 	aw88081_parse_channel_dt(aw88081);
+ 
+ 	return 0;
+diff --git a/sound/soc/codecs/aw88395/aw88395_device.h b/sound/soc/codecs/aw88395/aw88395_device.h
+index 7b74eeb84..af66ec614 100644
+--- a/sound/soc/codecs/aw88395/aw88395_device.h
++++ b/sound/soc/codecs/aw88395/aw88395_device.h
+@@ -178,6 +178,8 @@ struct aw_device {
+ 	u32 dsp_cfg_len;
+ 	u8 platform;
+ 	u8 fw_status;
++	/* the amplifier has no DSP: its profiles carry registers only */
++	bool reg_only;
+ 
+ 	unsigned int fade_in_time;
+ 	unsigned int fade_out_time;
+diff --git a/sound/soc/codecs/aw88395/aw88395_lib.c b/sound/soc/codecs/aw88395/aw88395_lib.c
+index 7d0cbd357..76e326e7a 100644
+--- a/sound/soc/codecs/aw88395/aw88395_lib.c
++++ b/sound/soc/codecs/aw88395/aw88395_lib.c
+@@ -601,6 +601,22 @@ static int aw_dev_cfg_get_reg_valid_prof(struct aw_device *aw_dev,
+ 	return 0;
+ }
+ 
++static bool aw_dev_multi_bin_prof_valid(struct aw_device *aw_dev,
++					struct aw_sec_data_desc *sec_desc)
++{
++	if (!sec_desc[AW88395_DATA_TYPE_REG].data ||
++	    !sec_desc[AW88395_DATA_TYPE_REG].len)
++		return false;
++
++	if (aw_dev->reg_only)
++		return true;
++
++	return sec_desc[AW88395_DATA_TYPE_DSP_CFG].data &&
++	       sec_desc[AW88395_DATA_TYPE_DSP_CFG].len &&
++	       sec_desc[AW88395_DATA_TYPE_DSP_FW].data &&
++	       sec_desc[AW88395_DATA_TYPE_DSP_FW].len;
++}
++
+ static int aw_dev_cfg_get_multiple_valid_prof(struct aw_device *aw_dev,
+ 				struct aw_all_prof_info *all_prof_info)
+ {
+@@ -613,12 +629,7 @@ static int aw_dev_cfg_get_multiple_valid_prof(struct aw_device *aw_dev,
+ 	for (i = 0; i < AW88395_PROFILE_MAX; i++) {
+ 		if (prof_desc[i].prof_st == AW88395_PROFILE_OK) {
+ 			sec_desc = prof_desc[i].sec_desc;
+-			if ((sec_desc[AW88395_DATA_TYPE_REG].data != NULL) &&
+-			    (sec_desc[AW88395_DATA_TYPE_REG].len != 0) &&
+-			    (sec_desc[AW88395_DATA_TYPE_DSP_CFG].data != NULL) &&
+-			    (sec_desc[AW88395_DATA_TYPE_DSP_CFG].len != 0) &&
+-			    (sec_desc[AW88395_DATA_TYPE_DSP_FW].data != NULL) &&
+-			    (sec_desc[AW88395_DATA_TYPE_DSP_FW].len != 0))
++			if (aw_dev_multi_bin_prof_valid(aw_dev, sec_desc))
+ 				prof_info->count++;
+ 		}
+ 	}
+@@ -639,12 +650,7 @@ static int aw_dev_cfg_get_multiple_valid_prof(struct aw_device *aw_dev,
+ 	for (i = 0; i < AW88395_PROFILE_MAX; i++) {
+ 		if (prof_desc[i].prof_st == AW88395_PROFILE_OK) {
+ 			sec_desc = prof_desc[i].sec_desc;
+-			if ((sec_desc[AW88395_DATA_TYPE_REG].data != NULL) &&
+-			    (sec_desc[AW88395_DATA_TYPE_REG].len != 0) &&
+-			    (sec_desc[AW88395_DATA_TYPE_DSP_CFG].data != NULL) &&
+-			    (sec_desc[AW88395_DATA_TYPE_DSP_CFG].len != 0) &&
+-			    (sec_desc[AW88395_DATA_TYPE_DSP_FW].data != NULL) &&
+-			    (sec_desc[AW88395_DATA_TYPE_DSP_FW].len != 0)) {
++			if (aw_dev_multi_bin_prof_valid(aw_dev, sec_desc)) {
+ 				if (num >= prof_info->count) {
+ 					dev_err(aw_dev->dev, "overflow count[%d]",
+ 							prof_info->count);
+-- 
+2.55.0
+

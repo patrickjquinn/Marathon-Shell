@@ -1,0 +1,68 @@
+From 556f2b167b1eebac035b2170acd08a2b88a8056a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:37:49 +0000
+Subject: [PATCH 113/214] arm64: dts: mediatek: mt6858: Add the GPU
+
+Add the Mali-G610, the GPUEB mailbox and the GPUEB power domain, all
+disabled: the board has to provide the EB's shared memory. Interrupts,
+registers and the mailbox layout are from the vendor device tree (mali,
+gpueb).
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 41 ++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 3ba7adfd3..834390943 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -649,6 +649,47 @@ mipi_tx0: dsi-phy@11e50000 {
+ 			status = "disabled";
+ 		};
+ 
++		gpu: gpu@13000000 {
++			compatible = "mediatek,mt6858-mali", "arm,mali-valhall-csf";
++			reg = <0 0x13000000 0 0x480000>;
++			clocks = <&gpufreq 0>, <&gpufreq 1>;
++			clock-names = "core", "stacks";
++			interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_HIGH 0>,
++				     <GIC_SPI 270 IRQ_TYPE_LEVEL_HIGH 0>,
++				     <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH 0>;
++			interrupt-names = "job", "mmu", "gpu";
++			nvmem-cells = <&shader_present>;
++			nvmem-cell-names = "shader-present";
++			power-domains = <&gpufreq>;
++			status = "disabled";
++		};
++
++		gpufreq: power-controller@13c2fd00 {
++			compatible = "mediatek,mt6858-gpufreq";
++			reg = <0 0x13c2fd00 0 0x80>;
++			reg-names = "gpr";
++			mboxes = <&gpueb_mbox 1>;
++			mbox-names = "gpufreq";
++			mediatek,spm = <&scpsys>;
++			#clock-cells = <1>;
++			#nvmem-cell-cells = <0>;
++			#power-domain-cells = <0>;
++			status = "disabled";
++
++			shader_present: shader-present {
++			};
++		};
++
++		gpueb_mbox: mailbox@13c2fd80 {
++			compatible = "mediatek,mt6858-gpueb-mbox";
++			reg = <0 0x13c2fd80 0 0x280>,
++			      <0 0x13c62000 0 0x7c>;
++			reg-names = "data", "ctl";
++			interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH 0>;
++			#mbox-cells = <1>;
++			status = "disabled";
++		};
++
+ 		mmsys: syscon@14000000 {
+ 			compatible = "mediatek,mt6858-mmsys", "syscon";
+ 			reg = <0 0x14000000 0 0x1000>;
+-- 
+2.55.0
+

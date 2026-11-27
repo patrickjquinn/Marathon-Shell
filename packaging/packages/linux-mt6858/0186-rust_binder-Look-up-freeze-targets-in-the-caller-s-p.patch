@@ -1,0 +1,58 @@
+From d77ae4c945df4c52774aa1a7219e6ff1612fe806 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:46:49 +0000
+Subject: [PATCH 186/214] rust_binder: Look up freeze targets in the caller's
+ pid namespace
+
+BINDER_FREEZE and BINDER_GET_FROZEN_INFO take a pid the caller sees in
+its own pid namespace, but Rust binder compared it with the process's
+tgid in the initial namespace. Android in a container (Deckard, Waydroid)
+cannot freeze anything: ActivityManager's freezer self-test asks for its
+own frozen info, gets -EINVAL, and turns the cached app freezer off, so
+closed apps keep running until they are killed. A pid that does match may
+also name some other process outside the caller's namespace.
+
+Compare the process's tgid as the caller sees it, as transactions
+already do for sender_pid with pid_in_current_ns(). A process outside the
+caller's namespace has no pid there (0) and never matches. In the initial
+namespace nothing changes. The binderfs proc files keep the global pid.
+---
+ drivers/android/binder/process.rs | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/android/binder/process.rs b/drivers/android/binder/process.rs
+index 1f4cb43f1..0775ba5f9 100644
+--- a/drivers/android/binder/process.rs
++++ b/drivers/android/binder/process.rs
+@@ -1612,10 +1612,11 @@ fn get_frozen_status(data: UserSlice) -> Result {
+     info.sync_recv = 0;
+     info.async_recv = 0;
+     let mut found = false;
++    let pid = info.pid as Pid;
+ 
+     for ctx in crate::context::get_all_contexts()? {
+         ctx.for_each_proc(|proc| {
+-            if proc.task.pid() == info.pid as Pid {
++            if pid > 0 && proc.pid_in_current_ns() == pid {
+                 found = true;
+                 let inner = proc.inner.lock();
+                 let txns_pending = inner.txns_pending_locked();
+@@ -1641,10 +1642,13 @@ fn ioctl_freeze(reader: &mut UserSliceReader) -> Result {
+     // hwbinder.
+     let mut procs = KVec::with_capacity(3, GFP_KERNEL)?;
+ 
++    let pid = info.pid as Pid;
+     let ctxs = crate::context::get_all_contexts()?;
+     for ctx in ctxs {
+-        for proc in ctx.get_procs_with_pid(info.pid as i32)? {
+-            procs.push(proc, GFP_KERNEL)?;
++        for proc in ctx.get_all_procs()? {
++            if pid > 0 && proc.pid_in_current_ns() == pid {
++                procs.push(proc, GFP_KERNEL)?;
++            }
+         }
+     }
+ 
+-- 
+2.55.0
+

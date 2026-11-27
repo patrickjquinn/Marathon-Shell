@@ -1,0 +1,77 @@
+From ee9aaa6b42e783b3d805d205f4a606333d8a6cca Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:24:34 +0000
+Subject: [PATCH 076/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the IR
+ transmitter
+
+The IR LED is driven by PWM_3, muxed on GPIO25 by the bootloader. Drive
+it with pwm-ir-tx, and build in the PWM, RC core and LIRC support so it
+shows up as /dev/lirc0.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 20 +++++++++++++++++++
+ arch/arm64/configs/mt6858.config              |  5 +++++
+ 2 files changed, 25 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 976f9200b..7bb4ebbd1 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -86,6 +86,12 @@ framebuffer@fe450000 {
+ 		};
+ 	};
+ 
++	/* The IR LED, on PWM_3 (GPIO25) */
++	ir-transmitter {
++		compatible = "pwm-ir-tx";
++		pwms = <&pwm 3 0>;
++	};
++
+ 	gpio-keys {
+ 		compatible = "gpio-keys";
+ 		pinctrl-names = "default";
+@@ -669,7 +675,14 @@ pins-key {
+ 		};
+ 	};
+ 
++	pwm_pins: pwm-pins {
++		pins-ir {
++			pinmux = <PINMUX_GPIO25__FUNC_PWM_3>;
++		};
++	};
++
+ 	switch_pins: switch-pins {
++
+ 		pins-switch {
+ 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>,
+ 				 <PINMUX_GPIO13__FUNC_GPIO13>;
+@@ -689,7 +702,14 @@ pins-reset {
+ 	};
+ };
+ 
++&pwm {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pwm_pins>;
++	status = "okay";
++};
++
+ &spi3 {
++
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&spi3_pins>;
+ 	mediatek,pad-select = <0>;
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 6e700edad..687397d39 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -50,3 +50,8 @@ CONFIG_POWER_SUPPLY=y
+ CONFIG_CHARGER_MT6720=y
+ CONFIG_MTK_MMSYS=y
+ CONFIG_LEDS_AW2013=y
++CONFIG_PWM_MEDIATEK=y
++CONFIG_RC_CORE=y
++CONFIG_LIRC=y
++CONFIG_RC_DEVICES=y
++CONFIG_IR_PWM_TX=y
+-- 
+2.55.0
+

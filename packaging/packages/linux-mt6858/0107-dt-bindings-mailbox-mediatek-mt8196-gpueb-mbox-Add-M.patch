@@ -1,0 +1,50 @@
+From 3404af7f6f13d0149d607f9ed90d26c0a16c0d7b Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:36:29 +0000
+Subject: [PATCH 107/214] dt-bindings: mailbox: mediatek,mt8196-gpueb-mbox: Add
+ MT6858
+
+The MT6858 has the same GPUEB mailbox as the MT8196, with one channel
+less and a different layout of the receive area. Its EB runs on a clock
+that the bootloader sets up and that Linux has no control over, so the
+clock is only required on the MT8196.
+---
+ .../bindings/mailbox/mediatek,mt8196-gpueb-mbox.yaml | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/mailbox/mediatek,mt8196-gpueb-mbox.yaml b/Documentation/devicetree/bindings/mailbox/mediatek,mt8196-gpueb-mbox.yaml
+index ab5b780cb..507243022 100644
+--- a/Documentation/devicetree/bindings/mailbox/mediatek,mt8196-gpueb-mbox.yaml
++++ b/Documentation/devicetree/bindings/mailbox/mediatek,mt8196-gpueb-mbox.yaml
+@@ -12,6 +12,7 @@ maintainers:
+ properties:
+   compatible:
+     enum:
++      - mediatek,mt6858-gpueb-mbox
+       - mediatek,mt8196-gpueb-mbox
+ 
+   reg:
+@@ -41,10 +42,19 @@ required:
+   - compatible
+   - reg
+   - reg-names
+-  - clocks
+   - interrupts
+   - "#mbox-cells"
+ 
++allOf:
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: mediatek,mt8196-gpueb-mbox
++    then:
++      required:
++        - clocks
++
+ additionalProperties: false
+ 
+ examples:
+-- 
+2.55.0
+

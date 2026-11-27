@@ -1,0 +1,54 @@
+From d6824a29bc33247d44cabc36fa50e42e971c3ae1 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 04:42:53 +0000
+Subject: [PATCH 038/214] spmi: mtk-pmif: Set up the software channel before
+ adding the buses
+
+The SPMI devices on a bus probe as the bus is added, and their first
+transfers already go through the software interface channel, but the
+channel's registers were only filled in after all the buses had been
+added. Until then they all named register 0, PMIF_INIT_DONE: the
+transfers polled it for an idle state, wrote their commands into it and
+timed out, and could clear INIT_DONE and stop the arbiter.
+
+Set the channel up before adding the buses.
+---
+ drivers/spmi/spmi-mtk-pmif.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/spmi/spmi-mtk-pmif.c b/drivers/spmi/spmi-mtk-pmif.c
+index 4d5c5f2b9..c472fd4bd 100644
+--- a/drivers/spmi/spmi-mtk-pmif.c
++++ b/drivers/spmi/spmi-mtk-pmif.c
+@@ -811,6 +811,14 @@ static int mtk_spmi_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, arb);
+ 
++	/* Devices on the buses probe, and use the channel, as each bus is added */
++	chan_offset = PMIF_CHAN_OFFSET * arb->data->soc_chan;
++	arb->chan.ch_sta = PMIF_SWINF_0_STA + chan_offset;
++	arb->chan.wdata = PMIF_SWINF_0_WDATA_31_0 + chan_offset;
++	arb->chan.rdata = PMIF_SWINF_0_RDATA_31_0 + chan_offset;
++	arb->chan.ch_send = PMIF_SWINF_0_ACC + chan_offset;
++	arb->chan.ch_rdy = PMIF_SWINF_0_VLD_CLR + chan_offset;
++
+ 	if (!arb->data->num_spmi_buses) {
+ 		ret = mtk_spmi_bus_probe(pdev, node, arb->data, &arb->bus[cur_bus]);
+ 		if (ret)
+@@ -828,13 +836,6 @@ static int mtk_spmi_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
+-	chan_offset = PMIF_CHAN_OFFSET * arb->data->soc_chan;
+-	arb->chan.ch_sta = PMIF_SWINF_0_STA + chan_offset;
+-	arb->chan.wdata = PMIF_SWINF_0_WDATA_31_0 + chan_offset;
+-	arb->chan.rdata = PMIF_SWINF_0_RDATA_31_0 + chan_offset;
+-	arb->chan.ch_send = PMIF_SWINF_0_ACC + chan_offset;
+-	arb->chan.ch_rdy = PMIF_SWINF_0_VLD_CLR + chan_offset;
+-
+ 	return 0;
+ }
+ 
+-- 
+2.55.0
+

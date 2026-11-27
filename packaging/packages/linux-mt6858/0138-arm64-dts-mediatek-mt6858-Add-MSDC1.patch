@@ -1,0 +1,37 @@
+From edb9fe3f7e4bf7efa979cc5f99a0ebcdbc2f7b99 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:09:56 +0000
+Subject: [PATCH 138/214] arm64: dts: mediatek: mt6858: Add MSDC1
+
+Add the SD card controller at 0x11240000 with its top registers at
+0x11e90000, GIC SPI 406, and the clocks the stock device tree gives it.
+Leave it disabled for boards to enable.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index b714b5bba..e7c532e5e 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -429,6 +429,17 @@ ssusb: usb@11201000 {
+ 			status = "disabled";
+ 		};
+ 
++		mmc1: mmc@11240000 {
++			compatible = "mediatek,mt6858-mmc";
++			reg = <0 0x11240000 0 0x1000>, <0 0x11e90000 0 0x1000>;
++			interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&topckgen CLK_TOP_MSDC30_1_SEL>,
++				 <&topckgen CLK_TOP_MSDC30_1_H_SEL>,
++				 <&pericfg_ao CLK_PERAO_P_MSDC1>;
++			clock-names = "source", "hclk", "source_cg";
++			status = "disabled";
++		};
++
+ 		i2c1: i2c@11280000 {
+ 			compatible = "mediatek,mt6858-i2c", "mediatek,mt8188-i2c";
+ 			reg = <0 0x11280000 0 0x1000>,
+-- 
+2.55.0
+

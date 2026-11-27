@@ -1,0 +1,11 @@
+[Unit]
+Description=JP2601 MD1: NVRAM overlays over the read-only vendor partitions
+After=local-fs.target
+PartOf=jp2601-modem.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=60
+ExecStart=/usr/libexec/jp2601-modem/jp2601-modem-nv mount
+ExecStop=/usr/libexec/jp2601-modem/jp2601-modem-nv umount

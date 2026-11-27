@@ -27,6 +27,7 @@ const pages = {
     keyboard: "KeyboardPage.qml",
     speedkeys: "SpeedKeysPage.qml",
     assistkey: "AssistKeyPage.qml",
+    privacyswitch: "PrivacySwitchPage.qml",
     trackpad: "TrackpadPage.qml",
     appmanager: "AppManagerPage.qml",
     appinfo: "AppManagerPage.qml",
@@ -44,6 +45,16 @@ const pages = {
     mms: "MmsPage.qml",
     permissions: "PermissionsPage.qml"
 };
+
+// Routes that land on one row of their page, which the page scrolls to.
+const rows = {
+    scale: "scale",
+    screentimeout: "timeout"
+};
+
+function pageRow(route) {
+    return rows[String(route || "").replace(/^\/+/, "").split(/[/?]/)[0].toLowerCase()] || "";
+}
 
 function pageFile(route) {
     const name = String(route || "").replace(/^\/+/, "").split(/[/?]/)[0].toLowerCase();
@@ -78,6 +89,7 @@ const sections = [
             { page: "storage", title: qsTr("Storage"), icon: "image://theme/icon-m-storage", keywords: "disk space memory usage free" },
             { page: "keyboard", title: qsTr("Keyboard"), icon: "image://theme/icon-m-keyboard", keywords: "language autocorrect predictions typing capitalize" },
             { page: "assistkey", title: qsTr("Assistant key"), icon: "image://theme/icon-m-keys", keywords: "button side key shortcut camera pilot voice talk convenience" },
+            { page: "privacyswitch", title: qsTr("Privacy switch"), icon: "image://theme/icon-m-privacy", keywords: "slider side switch microphone camera location mute silent kill" },
             { page: "trackpad", title: qsTr("Trackpad"), icon: "image://theme/icon-m-gesture", keywords: "trackpad touchpad pointer mouse cursor scroll caret optical" }
         ]
     },
@@ -254,12 +266,17 @@ function presentTiles(hardware) {
 const scales = [
     { factor: 0.75, title: qsTr("75%"), description: qsTr("Compact") },
     { factor: 0.9, title: qsTr("90%"), description: qsTr("Small") },
-    { factor: 1, title: qsTr("100%"), description: qsTr("Default") },
+    { factor: 1, title: qsTr("100%"), description: qsTr("Medium") },
     { factor: 1.1, title: qsTr("110%"), description: qsTr("Comfortable") },
     { factor: 1.25, title: qsTr("125%"), description: qsTr("Large") },
     { factor: 1.4, title: qsTr("140%"), description: qsTr("Extra large") },
     { factor: 1.5, title: qsTr("150%"), description: qsTr("Huge") }
 ];
+
+// The size the device starts at (Settings.defaultUserScaleFactor) reads as its default.
+function scaleDescription(scale, deviceDefault) {
+    return scales[nearestIndex(scales.map(s => s.factor), deviceDefault)].factor === scale.factor ? qsTr("Default") : scale.description;
+}
 
 // The shell's screenTimeout is in milliseconds; 0 keeps the screen on.
 // What the key between the volume keys does (Settings.assistKeyPress, assistKeyHold).
@@ -269,6 +286,34 @@ const assistKeyActions = [
     { id: "pilot-voice", title: qsTr("Talk to Pilot") },
     { id: "none", title: qsTr("Do nothing") }
 ];
+
+// What the side switch does (Settings.privacySwitch): "silent", else the
+// comma list of what it cuts.
+const privacySwitchModes = [
+    { id: "privacy", title: qsTr("Privacy switch"), description: qsTr("Cuts what you choose below for every app, Android apps too.") },
+    { id: "silent", title: qsTr("Silent switch"), description: qsTr("Turns Silent on and off, as its Quick Settings tile does.") }
+];
+const privacySwitchCuts = [
+    { id: "microphone", title: qsTr("Microphones") },
+    { id: "camera", title: qsTr("Cameras") },
+    { id: "location", title: qsTr("Location") }
+];
+
+function privacySwitchCovers(value) {
+    return value === "silent" ? [] : privacySwitchCuts.map(k => k.id).filter(k => value.split(",").includes(k));
+}
+
+function privacySwitchToggled(value, id) {
+    const cuts = privacySwitchCovers(value);
+    return privacySwitchCuts.map(k => k.id).filter(k => cuts.includes(k) !== (k === id)).join(",");
+}
+
+function privacySwitchSummary(value) {
+    if (value === "silent")
+        return qsTr("Silent switch");
+    const cuts = privacySwitchCovers(value);
+    return cuts.length ? privacySwitchCuts.filter(k => cuts.includes(k.id)).map(k => k.title).join(" · ") : qsTr("Cuts nothing");
+}
 
 // What the keyboard's trackpad does (Settings.trackpadMode).
 const trackpadModes = [

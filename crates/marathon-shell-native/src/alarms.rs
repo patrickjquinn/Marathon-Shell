@@ -776,6 +776,7 @@ impl Alarms {
     }
 }
 
+#[derive(Clone)]
 struct Alarm1 {
     qt: cxx_qt::CxxQtThread<Alarms>,
 }

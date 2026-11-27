@@ -1,0 +1,69 @@
+From 276a1d0cbf36686fa3ff6a199ff3a7a1af942dc4 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 08:16:20 +0000
+Subject: [PATCH 065/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Wire the
+ MT6720 interrupt and charge limits
+
+The MT6720's interrupt is EINT 118, active low, with a pull-up. Route
+power good and detach to the charger and give the battery the stock
+JEITA 10-45 C charge voltage (4.34 V) and 2 A.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 5b2bf3fc7..5e3ec65a7 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -39,6 +39,9 @@ battery: battery {
+ 		voltage-min-design-microvolt = <3400000>;
+ 		voltage-max-design-microvolt = <4520000>;
+ 		charge-term-current-microamp = <150000>;
++		/* The stock JEITA voltage for 10-45 C, and its charge current */
++		constant-charge-voltage-max-microvolt = <4340000>;
++		constant-charge-current-max-microamp = <2000000>;
+ 		factory-internal-resistance-micro-ohms = <110000>;
+ 		ocv-capacity-celsius = <25>;
+ 		ocv-capacity-table-0 = <4516000 100>,
+@@ -389,6 +392,11 @@ &i2c5 {
+ 	pmic@34 {
+ 		compatible = "mediatek,mt6720";
+ 		reg = <0x34>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&mt6720_pins>;
++		interrupts-extended = <&pio 118 IRQ_TYPE_LEVEL_LOW>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
+ 
+ 		mt6720_adc: adc {
+ 			compatible = "mediatek,mt6720-adc";
+@@ -402,8 +410,11 @@ mt6720_auxadc: auxadc {
+ 
+ 		mt6720_charger: charger {
+ 			compatible = "mediatek,mt6720-charger";
++			interrupts = <0>, <1>;
++			interrupt-names = "pwr-rdy", "detach";
+ 			io-channels = <&mt6720_adc 11>, <&mt6720_adc 5>;
+ 			io-channel-names = "vbus", "ibus";
++			monitored-battery = <&battery>;
+ 		};
+ 
+ 		fuel-gauge {
+@@ -577,6 +588,14 @@ pins-bus {
+ 		};
+ 	};
+ 
++	mt6720_pins: mt6720-pins {
++		pins-irq {
++			pinmux = <PINMUX_GPIO118__FUNC_GPIO118>;
++			input-enable;
++			bias-pull-up;
++		};
++	};
++
+ 	spi3_pins: spi3-pins {
+ 		pins-spi {
+ 			pinmux = <PINMUX_GPIO70__FUNC_SPI3_CLK>,
+-- 
+2.55.0
+

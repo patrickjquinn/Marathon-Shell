@@ -1,0 +1,30 @@
+From e6b32c5025f5e4aac7ff9edae356413b4b86473a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:56:12 +0000
+Subject: [PATCH 103/214] arm64: configs: mt6858: Build in the CMDQ helper
+
+MTK_MMSYS depends on MTK_CMDQ || MTK_CMDQ=n, so with CMDQ as a module
+the fragment's CONFIG_MTK_MMSYS=y silently became a module, and
+mediatek-drm with it, neither of which the test initramfs can load.
+Build CMDQ in. Without a GCE node in the device tree the display
+drivers keep using CPU writes.
+---
+ arch/arm64/configs/mt6858.config | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 2d59190d4..c85f2bc45 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -48,6 +48,8 @@ CONFIG_IIO=y
+ CONFIG_MEDIATEK_MT6720_ADC=y
+ CONFIG_POWER_SUPPLY=y
+ CONFIG_CHARGER_MT6720=y
++# mmsys may only be built in when the CMDQ helper is too.
++CONFIG_MTK_CMDQ=y
+ CONFIG_MTK_MMSYS=y
+ CONFIG_LEDS_AW2013=y
+ CONFIG_PWM_MEDIATEK=y
+-- 
+2.55.0
+

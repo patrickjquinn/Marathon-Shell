@@ -1,0 +1,44 @@
+From 1c9d0d3acc5403ed69c07e10bef13a4511e42abf Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:37:05 +0000
+Subject: [PATCH 144/214] drm/mediatek: mtk_dsi: Stop a bootloader video stream
+ before the reset
+
+The MT6858 bootloader hands over DSI0 streaming video (START set, BUSY,
+video mode). Resetting the engine under a running stream left it BUSY,
+and the first command then never completed (CMD_DONE timeout). If the
+DSI is in video mode at power on, clear START, select command mode and
+wait up to 50 ms for it to go idle before the reset.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index e7d0f0478..1cbb1db1b 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -830,8 +830,20 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 		writel(FORCE_COMMIT | BYPASS_SHADOW,
+ 		       dsi->regs + dsi->driver_data->reg_shadow_dbg_off);
+ 
++	/*
++	 * The bootloader may hand over a DSI streaming video: stop it and let
++	 * the engine go idle before the reset, then stay in command mode.
++	 */
++	if (readl(dsi->regs + DSI_MODE_CTRL) & MODE) {
++		u32 val;
++
++		writel(0, dsi->regs + DSI_START);
++		mtk_dsi_set_cmd_mode(dsi);
++		if (readl_poll_timeout(dsi->regs + DSI_INTSTA, val,
++				       !(val & DSI_BUSY), 10, 50000))
++			dev_warn(dev, "DSI still busy after stopping video\n");
++	}
+ 	mtk_dsi_reset_engine(dsi);
+-	/* The bootloader may hand over a DSI running in video mode */
+ 	mtk_dsi_set_cmd_mode(dsi);
+ 	mtk_dsi_phy_timconfig(dsi);
+ 
+-- 
+2.55.0
+

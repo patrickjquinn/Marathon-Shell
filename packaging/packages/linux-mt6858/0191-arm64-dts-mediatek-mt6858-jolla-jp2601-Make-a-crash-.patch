@@ -1,0 +1,42 @@
+From 30f31a6b2df2d90a57df9d62dd6d2d3ff49b4437 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:40:38 +0000
+Subject: [PATCH 191/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Make a
+ crash dump fit in ramoops
+
+The last panic's dump failed with "pstore: backend (ramoops) writing
+error (-28)". A dump is kmsg_bytes (10 KiB) long, and ramoops keeps only
+the first part of a dump that is split across its 4 KiB records.
+
+Use one 32 KiB record, the largest power of two that fits in the 60 KiB
+the layout leaves for dumps. The console, ftrace and pmsg zones stay
+where U-Boot's lk_lastlog (which has its own copy of these sizes) and
+LK's expdb copy look for them.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index abdd218ad..68a34faf8 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -338,11 +338,14 @@ bl31@48800000 {
+ 			no-map;
+ 		};
+ 
+-		/* The stock kernel's ramoops layout, so either can read the other's. */
++		/*
++		 * The stock kernel's ramoops layout, which U-Boot's lk_lastlog
++		 * reads, except one record that fills the 60 KiB dump area.
++		 */
+ 		ramoops@6ec00000 {
+ 			compatible = "ramoops";
+ 			reg = <0 0x6ec00000 0 0x310000>;
+-			record-size = <0x1000>;
++			record-size = <0x8000>;
+ 			console-size = <0x200000>;
+ 			ftrace-size = <0x1000>;
+ 			pmsg-size = <0x100000>;
+-- 
+2.55.0
+

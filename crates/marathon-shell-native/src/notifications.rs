@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use base64::Engine as _;
@@ -204,7 +204,7 @@ const PATH: &str = "/org/freedesktop/Notifications";
 const NAME: &str = "org.freedesktop.Notifications";
 const SOURCE_NAME: &str = "x-marathon-app-name";
 /// NAME's own connection, so a sender's image-data never stalls the shell's.
-static SERVER_BUS: OnceLock<zbus::Connection> = OnceLock::new();
+static SERVER_BUS: Mutex<Option<zbus::Connection>> = Mutex::new(None);
 /// The Hub's history, bounded.
 const KEEP: i64 = 500;
 const ROLES: [&str; 12] = [
@@ -697,6 +697,7 @@ impl Notifications {
         if self.unread_count != unread {
             self.as_mut().rust_mut().unread_count = unread;
             self.unread_count_changed();
+            crate::status_led::unread(unread);
         }
     }
 
@@ -1171,7 +1172,11 @@ where
     B: serde::Serialize + zbus::DynamicType + Send + Sync + 'static,
 {
     io::spawn(async move {
-        let Some(bus) = SERVER_BUS.get() else {
+        let Some(bus) = SERVER_BUS
+            .lock()
+            .unwrap_or_else(|_| std::process::abort())
+            .clone()
+        else {
             return;
         };
         if let Err(e) = bus
@@ -1367,32 +1372,39 @@ impl Server {
 }
 
 /// Takes org.freedesktop.Notifications, and closes the progress of senders
-/// that leave the bus.
+/// that leave the bus. A connection the bus closes is replaced.
 fn serve(qt: Qt) {
     io::spawn(async move {
-        let served = async {
-            let bus = zbus::Connection::session().await?;
-            bus.object_server()
-                .at(PATH, Server { qt: qt.clone() })
-                .await?;
-            bus.request_name(NAME).await?;
-            SERVER_BUS.set(bus.clone()).ok();
-            let mut changes = fdo::DBusProxy::new(&bus)
-                .await?
-                .receive_name_owner_changed()
-                .await?;
-            while let Some(change) = changes.next().await {
-                if let Ok(args) = change.args() {
-                    if args.new_owner().is_none() {
-                        let name = args.name().to_string();
-                        qt.queue(move |n| n.sender_gone(&name)).ok();
+        loop {
+            let served = async {
+                let bus = zbus::Connection::session().await?;
+                bus.object_server()
+                    .at(PATH, Server { qt: qt.clone() })
+                    .await?;
+                bus.request_name(NAME).await?;
+                *SERVER_BUS.lock().unwrap_or_else(|_| std::process::abort()) = Some(bus.clone());
+                let mut changes = fdo::DBusProxy::new(&bus)
+                    .await?
+                    .receive_name_owner_changed()
+                    .await?;
+                while let Some(change) = changes.next().await {
+                    if let Ok(args) = change.args() {
+                        if args.new_owner().is_none() {
+                            let name = args.name().to_string();
+                            qt.queue(move |n| n.sender_gone(&name)).ok();
+                        }
                     }
                 }
+                zbus::Result::Ok(())
+            };
+            if let Err(e) = served.await {
+                return log::warn("notifications", format_args!("cannot serve {NAME}: {e}"));
             }
-            zbus::Result::Ok(())
-        };
-        if let Err(e) = served.await {
-            log::warn("notifications", format_args!("cannot serve {NAME}: {e}"));
+            log::warn(
+                "notifications",
+                format_args!("LOST {NAME}'s connection; reconnecting"),
+            );
+            async_io::Timer::after(Duration::from_secs(1)).await;
         }
     });
 }

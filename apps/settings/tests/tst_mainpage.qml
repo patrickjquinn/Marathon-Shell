@@ -90,6 +90,12 @@ TestCase {
         compare(valueOf(entry(app, "cellular")), "Mobile network, No SIM card");
     }
 
+    function test_noWifiAdapterNoWifiState() {
+        Network.wifiAvailable = false;
+        const app = makeApp();
+        compare(valueOf(entry(app, "wifi")), "Wi-Fi");
+    }
+
     function test_noModemNoMobileNetwork() {
         Modem.available = false;
         const app = makeApp();

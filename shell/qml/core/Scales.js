@@ -15,3 +15,8 @@ function nearest(factor) {
 function label(index) {
     return Math.round(factors[Math.round(index)] * 100) + "%";
 }
+
+// The device's own size (SettingsManagerCpp.defaultUserScaleFactor).
+function isDefault(index, deviceDefault) {
+    return Math.round(index) === nearest(deviceDefault);
+}

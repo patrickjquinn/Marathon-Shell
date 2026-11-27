@@ -1,0 +1,135 @@
+From b47d5bae3d15ead0987568a6dd4bda4981666c36 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:32:22 +0000
+Subject: [PATCH 094/214] drm/mediatek: mtk_dsi: Support DSC in video mode
+
+With DSC the per-line payload is the compressed chunks, not hactive
+times the pixel size, but the video timing code still used the latter
+for the horizontal word counts and the lane rate, so a compressed
+stream went out at the uncompressed rate with line periods that no
+longer matched the mode. Use the compressed payload throughout, and
+pick the lane rate that sends one line, compressed active part plus the
+blanking as the mode gives it, in one line period. For a 1032 pixel
+wide, 8 bpp panel with 180 pixels of blanking that is about 874 Mbit/s
+per lane on four lanes instead of 2 Gbit/s; mode_valid checks the same
+rate.
+
+Also accept 10 bits per component, which the DSC encoder handles, and
+keep a configuration whose rate-control parameters the panel already
+filled in, since those must match what its decoder was told.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 51 ++++++++++++++++++++++++++----
+ 1 file changed, 44 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index bf4bf4596..2471bd89f 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -398,6 +398,36 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
+ 	writel(regval, dsi->regs + DSI_TXRX_CTRL);
+ }
+ 
++/* Bytes of pixel payload per line: compressed chunks with DSC */
++static u32 mtk_dsi_line_payload(struct mtk_dsi *dsi)
++{
++	u32 bpp = dsi->format == MIPI_DSI_FMT_RGB565 ? 2 : 3;
++
++	if (dsi->dsc)
++		return dsi->dsc->slice_count * dsi->dsc->slice_chunk_size;
++
++	return dsi->vm.hactive * bpp;
++}
++
++/*
++ * The per-lane bit rate that sends one line in one line period. With DSC
++ * the active part shrinks to the compressed payload while the blanking,
++ * which the timing code counts in 24 bpp pixels, stays as it is.
++ */
++static u64 mtk_dsi_lane_rate(struct mtk_dsi *dsi, u32 pixelclock, u32 hactive,
++			     u32 htotal, u32 bpp)
++{
++	u32 eff_htotal;
++
++	if (!dsi->dsc)
++		return DIV_ROUND_UP_ULL((u64)pixelclock * bpp, dsi->lanes);
++
++	eff_htotal = htotal - hactive + DIV_ROUND_UP(mtk_dsi_line_payload(dsi), 3);
++
++	return DIV_ROUND_UP_ULL((u64)pixelclock * 24 * eff_htotal,
++				(u64)htotal * dsi->lanes);
++}
++
+ static void mtk_dsi_ps_control(struct mtk_dsi *dsi, bool config_vact)
+ {
+ 	u32 dsi_buf_bpp, ps_val, ps_wc, size_val, vact_nl;
+@@ -409,7 +439,7 @@ static void mtk_dsi_ps_control(struct mtk_dsi *dsi, bool config_vact)
+ 
+ 	/* Word count */
+ 	if (dsi->dsc)
+-		ps_wc = FIELD_PREP(DSI_PS_WC, 2 * dsi->dsc->slice_chunk_size);
++		ps_wc = FIELD_PREP(DSI_PS_WC, mtk_dsi_line_payload(dsi));
+ 	else
+ 		ps_wc = FIELD_PREP(DSI_PS_WC, dsi->vm.hactive * dsi_buf_bpp);
+ 	ps_val = ps_wc;
+@@ -475,7 +505,7 @@ static void mtk_dsi_config_vdo_timing_per_frame_lp(struct mtk_dsi *dsi)
+ 		dsi_tmp_buf_bpp = 3;
+ 
+ 	da_hs_trail = dsi->phy_timing.da_hs_trail;
+-	ps_wc = vm->hactive * dsi_tmp_buf_bpp;
++	ps_wc = mtk_dsi_line_payload(dsi);
+ 
+ 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+ 		horizontal_sync_active_byte =
+@@ -580,7 +610,7 @@ static void mtk_dsi_config_vdo_timing_per_line_lp(struct mtk_dsi *dsi)
+ 		horizontal_backporch_byte =
+ 			roundup(horizontal_backporch_byte, dsi->lanes) - 2;
+ 		horizontal_backporch_byte -=
+-			(vm->hactive * dsi_tmp_buf_bpp + 2) % dsi->lanes;
++			(mtk_dsi_line_payload(dsi) + 2) % dsi->lanes;
+ 	}
+ 
+ 	writel(horizontal_sync_active_byte, dsi->regs + DSI_HSA_WC);
+@@ -599,12 +629,16 @@ static int mtk_dsi_set_dsc_params(struct mtk_dsi *dsi)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (dsc->bits_per_component != 8) {
++	if (dsc->bits_per_component != 8 && dsc->bits_per_component != 10) {
+ 		dev_err(dev, "%u bits per component is not supported\n",
+ 			dsc->bits_per_component);
+ 		return -EINVAL;
+ 	}
+ 
++	/* The panel gave the whole rate-control setup its decoder expects */
++	if (dsc->rc_model_size)
++		return 0;
++
+ 	dsc->simple_422 = false;
+ 	dsc->convert_rgb = true;
+ 	dsc->vbr_enable = false;
+@@ -766,8 +800,10 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 	}
+ 	bit_per_pixel = ret;
+ 
+-	dsi->data_rate = DIV_ROUND_UP_ULL(dsi->vm.pixelclock * bit_per_pixel,
+-					  dsi->lanes);
++	dsi->data_rate = mtk_dsi_lane_rate(dsi, dsi->vm.pixelclock, dsi->vm.hactive,
++					   dsi->vm.hactive + dsi->vm.hfront_porch +
++					   dsi->vm.hback_porch + dsi->vm.hsync_len,
++					   bit_per_pixel);
+ 
+ 	ret = clk_set_rate(dsi->hs_clk, dsi->data_rate);
+ 	if (ret < 0) {
+@@ -945,7 +981,8 @@ mtk_dsi_bridge_mode_valid(struct drm_bridge *bridge,
+ 	if (bpp < 0)
+ 		return MODE_ERROR;
+ 
+-	if (mode->clock * bpp / dsi->lanes > 1500000)
++	if (mtk_dsi_lane_rate(dsi, mode->clock, mode->hdisplay, mode->htotal,
++			      bpp) > 1500000)
+ 		return MODE_CLOCK_HIGH;
+ 
+ 	if (dsi->dsc) {
+-- 
+2.55.0
+

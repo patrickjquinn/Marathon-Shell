@@ -1,0 +1,54 @@
+From e701da5a1d7390d8a53285d2db3c31fab942fdb8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:40:17 +0000
+Subject: [PATCH 100/214] soc: mediatek: mutex: Start from an empty mutex at
+ prepare
+
+The bootloader on MT6858 phones leaves display mutex 0 enabled with its
+whole pipeline in MOD0 (OVLs, the PQ chain, DSC, PWM). mtk_mutex_add_comp()
+only ORs our modules in, so those engines would keep being triggered
+next to the ones the kernel routes, some no longer connected to
+anything.
+
+The mutex users only ever prepare a disabled mutex, so an enabled one at
+prepare time is a leftover: disable it and clear its module registers
+before the new modules are added.
+---
+ drivers/soc/mediatek/mtk-mutex.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/soc/mediatek/mtk-mutex.c b/drivers/soc/mediatek/mtk-mutex.c
+index 564e14d04..dbf6ea07b 100644
+--- a/drivers/soc/mediatek/mtk-mutex.c
++++ b/drivers/soc/mediatek/mtk-mutex.c
+@@ -922,7 +922,26 @@ int mtk_mutex_prepare(struct mtk_mutex *mutex)
+ {
+ 	struct mtk_mutex_ctx *mtx = container_of(mutex, struct mtk_mutex_ctx,
+ 						 mutex[mutex->id]);
+-	return clk_prepare_enable(mtx->clk);
++	int ret;
++
++	ret = clk_prepare_enable(mtx->clk);
++	if (ret)
++		return ret;
++
++	/*
++	 * Our users only prepare a disabled mutex. An enabled one was left
++	 * running by the bootloader, with its own modules, which would keep
++	 * getting triggered alongside ours: start from an empty mutex.
++	 */
++	if (readl_relaxed(mtx->regs + DISP_REG_MUTEX_EN(mutex->id)) & BIT(0)) {
++		writel_relaxed(0, mtx->regs + DISP_REG_MUTEX_EN(mutex->id));
++		writel_relaxed(0, mtx->regs + mtx->data->mutex_mod_reg + 0x20 * mutex->id);
++		if (mtx->data->mutex_mod1_reg)
++			writel_relaxed(0, mtx->regs + mtx->data->mutex_mod1_reg +
++				       0x20 * mutex->id);
++	}
++
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mtk_mutex_prepare);
+ 
+-- 
+2.55.0
+

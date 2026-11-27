@@ -1,0 +1,28 @@
+From 56b7ce2a4f0c61ed2b39179f9f4ca28ab59de4df Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:38:02 +0000
+Subject: [PATCH 181/214] arm64: configs: mt6858: Add the sensor drivers
+
+The JP2601 needs the ICM-42607 SPI, MMC5633 and STK3310 drivers, and
+i2c-gpio for the bus its light sensor and magnetometer sit on.
+---
+ arch/arm64/configs/mt6858.config | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 3ab40d28f..eff61b661 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -74,3 +74,9 @@ CONFIG_DRM_PANTHOR=y
+ # Alpine's linux-firmware ships zstd files, Panthor's CSF firmware among them.
+ CONFIG_FW_LOADER_COMPRESS=y
+ CONFIG_FW_LOADER_COMPRESS_ZSTD=y
++# The motion, light/proximity and magnetic sensors, which the stock
++# firmware runs on the SCP sensor hub.
++CONFIG_INV_ICM42607_SPI=m
++CONFIG_MMC5633=m
++CONFIG_STK3310=m
++CONFIG_I2C_GPIO=m
+-- 
+2.55.0
+

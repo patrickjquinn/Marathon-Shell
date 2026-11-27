@@ -1,0 +1,219 @@
+From bb0ee0b17b45f71ac06451522be3d6d5b66e0988 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 21:42:42 +0000
+Subject: [PATCH 219/237] ASoC: mediatek: mt6858: Add the MT6858 MT6369 machine
+ driver
+
+A card on the MediaTek sound-card common code for MT6858 phones with
+the MT6369 codec and Awinic amplifiers on I2SOUT1: DL0/DL1 and UL0/UL1
+front ends, the I2SOUT1, I2SIN1 and ADDA back ends, and Speakers and
+Earpiece pins for the amplifier outputs.
+
+The amplifiers' profiles run 32-bit slots (64 fs), so the I2S back
+ends are fixed to S32_LE. MTKAIF runs protocol 2 without phase
+calibration for now.
+---
+ sound/soc/mediatek/mt6858/mt6858-mt6369.c | 191 ++++++++++++++++++++++
+ 1 file changed, 191 insertions(+)
+ create mode 100644 sound/soc/mediatek/mt6858/mt6858-mt6369.c
+
+diff --git a/sound/soc/mediatek/mt6858/mt6858-mt6369.c b/sound/soc/mediatek/mt6858/mt6858-mt6369.c
+new file mode 100644
+index 000000000..31e6cb20b
+--- /dev/null
++++ b/sound/soc/mediatek/mt6858/mt6858-mt6369.c
+@@ -0,0 +1,191 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * mt6858-mt6369.c  --  MT6858 MT6369 ALSA SoC machine driver
++ *
++ * Based on mt8189-nau8825.c, Copyright (c) 2025 MediaTek Inc.
++ */
++
++#include <linux/module.h>
++#include <linux/of.h>
++#include <sound/pcm_params.h>
++#include <sound/soc.h>
++
++#include "mt6858-afe-common.h"
++#include "../../codecs/mt6369.h"
++#include "../common/mtk-soc-card.h"
++#include "../common/mtk-soundcard-driver.h"
++#include "../common/mtk-afe-platform-driver.h"
++
++static const struct snd_soc_dapm_widget mt6858_mt6369_widgets[] = {
++	SND_SOC_DAPM_SPK("Speakers", NULL),
++	SND_SOC_DAPM_SPK("Earpiece", NULL),
++};
++
++static const struct snd_kcontrol_new mt6858_mt6369_controls[] = {
++	SOC_DAPM_PIN_SWITCH("Speakers"),
++	SOC_DAPM_PIN_SWITCH("Earpiece"),
++};
++
++static int mt6858_i2s_hw_params(struct snd_pcm_substream *substream,
++				struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++
++	return snd_soc_dai_set_sysclk(cpu_dai, 0, params_rate(params) * 128,
++				      SND_SOC_CLOCK_OUT);
++}
++
++static const struct snd_soc_ops mt6858_i2s_ops = {
++	.hw_params = mt6858_i2s_hw_params,
++};
++
++/* The amplifiers' profiles run I2S with 32-bit slots (64 fs) */
++static int mt6858_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
++				      struct snd_pcm_hw_params *params)
++{
++	snd_mask_none(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT));
++	snd_mask_set_format(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT),
++			    SNDRV_PCM_FORMAT_S32_LE);
++
++	return 0;
++}
++
++static int mt6858_mt6369_init(struct snd_soc_pcm_runtime *rtd)
++{
++	struct snd_soc_component *cmpnt_afe =
++		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
++	struct snd_soc_component *cmpnt_codec =
++		snd_soc_rtd_to_codec(rtd, 0)->component;
++	struct mtk_base_afe *afe;
++	struct mt6858_afe_private *afe_priv;
++
++	if (!cmpnt_afe)
++		return -EINVAL;
++
++	afe = snd_soc_component_get_drvdata(cmpnt_afe);
++	afe_priv = afe->platform_priv;
++
++	/* MTKAIF protocol 2, without the phase calibration for now */
++	afe_priv->mtkaif_protocol = MTKAIF_PROTOCOL_2;
++	mt6369_set_mtkaif_protocol(cmpnt_codec, MT6369_MTKAIF_PROTOCOL_2);
++
++	return 0;
++}
++
++SND_SOC_DAILINK_DEFS(playback0,
++		     DAILINK_COMP_ARRAY(COMP_CPU("DL0")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++SND_SOC_DAILINK_DEFS(playback1,
++		     DAILINK_COMP_ARRAY(COMP_CPU("DL1")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++SND_SOC_DAILINK_DEFS(capture0,
++		     DAILINK_COMP_ARRAY(COMP_CPU("UL0")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++SND_SOC_DAILINK_DEFS(capture1,
++		     DAILINK_COMP_ARRAY(COMP_CPU("UL1")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++/* BE */
++SND_SOC_DAILINK_DEFS(adda,
++		     DAILINK_COMP_ARRAY(COMP_CPU("ADDA")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++SND_SOC_DAILINK_DEFS(i2sin1,
++		     DAILINK_COMP_ARRAY(COMP_CPU("I2SIN1")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++SND_SOC_DAILINK_DEFS(i2sout1,
++		     DAILINK_COMP_ARRAY(COMP_CPU("I2SOUT1")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++
++#define MT6858_FE_LINK(_name, _stream, _link, _dir)			\
++	{								\
++		.name = _name,						\
++		.stream_name = _stream,					\
++		.trigger = { SND_SOC_DPCM_TRIGGER_PRE,			\
++			     SND_SOC_DPCM_TRIGGER_PRE },		\
++		.dynamic = 1,						\
++		._dir##_only = 1,					\
++		.dpcm_merged_format = 1,				\
++		SND_SOC_DAILINK_REG(_link),				\
++	}
++
++static struct snd_soc_dai_link mt6858_mt6369_dai_links[] = {
++	/* Front End DAI links */
++	MT6858_FE_LINK("DL0_FE", "DL0 Playback", playback0, playback),
++	MT6858_FE_LINK("DL1_FE", "DL1 Playback", playback1, playback),
++	MT6858_FE_LINK("UL0_FE", "UL0 Capture", capture0, capture),
++	MT6858_FE_LINK("UL1_FE", "UL1 Capture", capture1, capture),
++	/* Back End DAI links */
++	{
++		.name = "ADDA_BE",
++		.init = mt6858_mt6369_init,
++		.no_pcm = 1,
++		.ignore_suspend = 1,
++		SND_SOC_DAILINK_REG(adda),
++	},
++	{
++		.name = "I2SIN1_BE",
++		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBC_CFC
++			| SND_SOC_DAIFMT_GATED,
++		.ops = &mt6858_i2s_ops,
++		.be_hw_params_fixup = mt6858_i2s_hw_params_fixup,
++		.no_pcm = 1,
++		.capture_only = 1,
++		.ignore_suspend = 1,
++		SND_SOC_DAILINK_REG(i2sin1),
++	},
++	{
++		.name = "I2SOUT1_BE",
++		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBC_CFC
++			| SND_SOC_DAIFMT_GATED,
++		.ops = &mt6858_i2s_ops,
++		.be_hw_params_fixup = mt6858_i2s_hw_params_fixup,
++		.no_pcm = 1,
++		.playback_only = 1,
++		.ignore_suspend = 1,
++		SND_SOC_DAILINK_REG(i2sout1),
++	},
++};
++
++static struct snd_soc_card mt6858_mt6369_soc_card = {
++	.owner = THIS_MODULE,
++	.dai_link = mt6858_mt6369_dai_links,
++	.num_links = ARRAY_SIZE(mt6858_mt6369_dai_links),
++	.driver_name = "mt6858-mt6369",
++	.dapm_widgets = mt6858_mt6369_widgets,
++	.num_dapm_widgets = ARRAY_SIZE(mt6858_mt6369_widgets),
++	.controls = mt6858_mt6369_controls,
++	.num_controls = ARRAY_SIZE(mt6858_mt6369_controls),
++};
++
++static const struct mtk_soundcard_pdata mt6858_mt6369_card = {
++	.card_name = "mt6858_mt6369",
++	.card_data = &(struct mtk_platform_card_data) {
++		.card = &mt6858_mt6369_soc_card,
++	},
++};
++
++static const struct of_device_id mt6858_mt6369_dt_match[] = {
++	{ .compatible = "mediatek,mt6858-mt6369-sound", .data = &mt6858_mt6369_card },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6858_mt6369_dt_match);
++
++static struct platform_driver mt6858_mt6369_driver = {
++	.driver = {
++		.name = "mt6858-mt6369",
++		.of_match_table = mt6858_mt6369_dt_match,
++		.pm = &snd_soc_pm_ops,
++	},
++	.probe = mtk_soundcard_common_probe,
++};
++module_platform_driver(mt6858_mt6369_driver);
++
++MODULE_DESCRIPTION("MT6858 MT6369 ALSA SoC machine driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

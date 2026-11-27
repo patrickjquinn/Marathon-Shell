@@ -1,0 +1,1299 @@
+From 94dbecad4735a0f09bc30f437f074460ce181b64 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:25:40 +0000
+Subject: [PATCH 027/214] clk: mediatek: Add MT6858 clock drivers
+
+Add drivers for the MT6858 apmixedsys PLLs, the topckgen dividers and
+muxes, and the pericfg_ao and infracfg_ao gates. The tables come from
+MediaTek's GPLv2 MT6858 clock driver.
+
+The muxes and gates follow MT8196: most muxes have a FENC status bit,
+and the display, multimedia, SPI, video and camera muxes and the
+pericfg_ao SPI gates are voted through the hardware voter. The audio
+composite clocks and the vlp_cksys muxes are left for later.
+---
+ drivers/clk/mediatek/Kconfig                 |  10 +
+ drivers/clk/mediatek/Makefile                |   2 +
+ drivers/clk/mediatek/clk-mt6858-apmixedsys.c | 110 +++
+ drivers/clk/mediatek/clk-mt6858-infra_ao.c   | 113 +++
+ drivers/clk/mediatek/clk-mt6858-peri_ao.c    | 131 +++
+ drivers/clk/mediatek/clk-mt6858-topckgen.c   | 858 +++++++++++++++++++
+ 6 files changed, 1224 insertions(+)
+ create mode 100644 drivers/clk/mediatek/clk-mt6858-apmixedsys.c
+ create mode 100644 drivers/clk/mediatek/clk-mt6858-infra_ao.c
+ create mode 100644 drivers/clk/mediatek/clk-mt6858-peri_ao.c
+ create mode 100644 drivers/clk/mediatek/clk-mt6858-topckgen.c
+
+diff --git a/drivers/clk/mediatek/Kconfig b/drivers/clk/mediatek/Kconfig
+index ba1ca9c90..ad6d3888c 100644
+--- a/drivers/clk/mediatek/Kconfig
++++ b/drivers/clk/mediatek/Kconfig
+@@ -469,6 +469,16 @@ config COMMON_CLK_MT7988
+ 	  This driver supports MediaTek MT7988 basic clocks and clocks
+ 	  required for various periperals found on this SoC.
+ 
++config COMMON_CLK_MT6858
++	tristate "Clock driver for MediaTek MT6858"
++	depends on ARM64 || COMPILE_TEST
++	select COMMON_CLK_MEDIATEK
++	select REGMAP_MMIO
++	default ARCH_MEDIATEK
++	help
++	  This driver supports the MediaTek MT6858 apmixedsys, topckgen,
++	  pericfg_ao and infracfg_ao clocks.
++
+ config COMMON_CLK_MT8135
+ 	tristate "Clock driver for MediaTek MT8135"
+ 	depends on (ARCH_MEDIATEK && ARM) || COMPILE_TEST
+diff --git a/drivers/clk/mediatek/Makefile b/drivers/clk/mediatek/Makefile
+index 892a54eeb..761d7c290 100644
+--- a/drivers/clk/mediatek/Makefile
++++ b/drivers/clk/mediatek/Makefile
+@@ -29,6 +29,8 @@ obj-$(CONFIG_COMMON_CLK_MT6795_MFGCFG) += clk-mt6795-mfg.o
+ obj-$(CONFIG_COMMON_CLK_MT6795_MMSYS) += clk-mt6795-mm.o
+ obj-$(CONFIG_COMMON_CLK_MT6795_VDECSYS) += clk-mt6795-vdecsys.o
+ obj-$(CONFIG_COMMON_CLK_MT6795_VENCSYS) += clk-mt6795-vencsys.o
++obj-$(CONFIG_COMMON_CLK_MT6858) += clk-mt6858-apmixedsys.o clk-mt6858-topckgen.o \
++				   clk-mt6858-peri_ao.o clk-mt6858-infra_ao.o
+ obj-$(CONFIG_COMMON_CLK_MT6797) += clk-mt6797.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_IMGSYS) += clk-mt6797-img.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_MMSYS) += clk-mt6797-mm.o
+diff --git a/drivers/clk/mediatek/clk-mt6858-apmixedsys.c b/drivers/clk/mediatek/clk-mt6858-apmixedsys.c
+new file mode 100644
+index 000000000..dd151e91c
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6858-apmixedsys.c
+@@ -0,0 +1,110 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ *
++ * Generated from the clock tables of MediaTek's GPLv2 MT6858 clock driver.
++ */
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include "clk-mtk.h"
++#include "clk-pll.h"
++
++#define MT6858_PLL_FMIN		(1500UL * MHZ)
++#define MT6858_PLL_FMAX		(3800UL * MHZ)
++
++#define FENC_STATUS_CON0	0x428
++
++#define PLL_FENC(_id, _name, _fenc_sta_bit, _pd_reg, _pd_shift,	\
++		 _pcw_reg, _pcw_shift, _pcwbits) {			\
++		.id = _id,						\
++		.name = _name,						\
++		.reg = (_pd_reg) - 4,					\
++		.fenc_sta_ofs = FENC_STATUS_CON0,			\
++		.fenc_sta_bit = _fenc_sta_bit,				\
++		.fmin = MT6858_PLL_FMIN,				\
++		.fmax = MT6858_PLL_FMAX,				\
++		.pd_reg = _pd_reg,					\
++		.pd_shift = _pd_shift,					\
++		.pcw_reg = _pcw_reg,					\
++		.pcw_shift = _pcw_shift,				\
++		.pcwbits = _pcwbits,					\
++		.pcwibits = 8,						\
++		.ops = &mtk_pll_fenc_ops,				\
++	}
++
++static const struct mtk_pll_data apmixed_plls[] = {
++	PLL_FENC(CLK_APMIXED_ARMPLL_LL, "armpll-ll", 2, 0x20c, 24, 0x20c, 0, 22),
++	PLL_FENC(CLK_APMIXED_ARMPLL_BL, "armpll-bl", 1, 0x21c, 24, 0x21c, 0, 22),
++	PLL_FENC(CLK_APMIXED_CCIPLL, "ccipll", 0, 0x23c, 24, 0x23c, 0, 22),
++	PLL_FENC(CLK_APMIXED_MAINPLL, "mainpll", 11, 0x354, 24, 0x354, 0, 22),
++	PLL_FENC(CLK_APMIXED_UNIVPLL, "univpll", 10, 0x30c, 24, 0x30c, 0, 22),
++	PLL_FENC(CLK_APMIXED_MSDCPLL, "msdcpll", 9, 0x364, 24, 0x364, 0, 22),
++	PLL_FENC(CLK_APMIXED_MMPLL, "mmpll", 4, 0x3a4, 24, 0x3a4, 0, 22),
++	PLL_FENC(CLK_APMIXED_TVDPLL, "tvdpll", 3, 0x24c, 24, 0x24c, 0, 22),
++	PLL_FENC(CLK_APMIXED_EMIPLL, "emipll", 7, 0x3b4, 24, 0x3b4, 0, 22),
++	PLL_FENC(CLK_APMIXED_ADSPPLL, "adsppll", 8, 0x384, 24, 0x384, 0, 22),
++	PLL_FENC(CLK_APMIXED_APLL1, "apll1", 6, 0x32c, 24, 0x330, 0, 32),
++	PLL_FENC(CLK_APMIXED_APLL2, "apll2", 5, 0x340, 24, 0x344, 0, 32),
++};
++
++static int clk_mt6858_apmixed_probe(struct platform_device *pdev)
++{
++	struct device_node *node = pdev->dev.of_node;
++	struct clk_hw_onecell_data *clk_data;
++	int r;
++
++	clk_data = mtk_alloc_clk_data(ARRAY_SIZE(apmixed_plls));
++	if (!clk_data)
++		return -ENOMEM;
++
++	r = mtk_clk_register_plls(&pdev->dev, apmixed_plls,
++				  ARRAY_SIZE(apmixed_plls), clk_data);
++	if (r)
++		goto free_clk_data;
++
++	r = of_clk_add_hw_provider(node, of_clk_hw_onecell_get, clk_data);
++	if (r)
++		goto unregister_plls;
++
++	platform_set_drvdata(pdev, clk_data);
++	return 0;
++
++unregister_plls:
++	mtk_clk_unregister_plls(apmixed_plls, ARRAY_SIZE(apmixed_plls), clk_data);
++free_clk_data:
++	mtk_free_clk_data(clk_data);
++	return r;
++}
++
++static void clk_mt6858_apmixed_remove(struct platform_device *pdev)
++{
++	struct clk_hw_onecell_data *clk_data = platform_get_drvdata(pdev);
++
++	of_clk_del_provider(pdev->dev.of_node);
++	mtk_clk_unregister_plls(apmixed_plls, ARRAY_SIZE(apmixed_plls), clk_data);
++	mtk_free_clk_data(clk_data);
++}
++
++static const struct of_device_id of_match_clk_mt6858_apmixed[] = {
++	{ .compatible = "mediatek,mt6858-apmixedsys" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, of_match_clk_mt6858_apmixed);
++
++static struct platform_driver clk_mt6858_apmixed_drv = {
++	.probe = clk_mt6858_apmixed_probe,
++	.remove = clk_mt6858_apmixed_remove,
++	.driver = {
++		.name = "clk-mt6858-apmixed",
++		.of_match_table = of_match_clk_mt6858_apmixed,
++	},
++};
++module_platform_driver(clk_mt6858_apmixed_drv);
++
++MODULE_DESCRIPTION("MediaTek MT6858 apmixedsys clock controller driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/clk/mediatek/clk-mt6858-infra_ao.c b/drivers/clk/mediatek/clk-mt6858-infra_ao.c
+new file mode 100644
+index 000000000..e81b3f2d3
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6858-infra_ao.c
+@@ -0,0 +1,113 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ *
++ * Generated from the clock tables of MediaTek's GPLv2 MT6858 clock driver.
++ */
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include "clk-gate.h"
++#include "clk-mtk.h"
++
++static const struct mtk_gate_regs infra_infracfg_ao_reg0_cg_regs = {
++	.set_ofs = 0x88,
++	.clr_ofs = 0x8c,
++	.sta_ofs = 0x94,
++};
++
++static const struct mtk_gate_regs infra_infracfg_ao_reg1_cg_regs = {
++	.set_ofs = 0xa4,
++	.clr_ofs = 0xa8,
++	.sta_ofs = 0xac,
++};
++
++static const struct mtk_gate_regs infra_infracfg_ao_reg2_cg_regs = {
++	.set_ofs = 0xc0,
++	.clr_ofs = 0xc4,
++	.sta_ofs = 0xc8,
++};
++
++static const struct mtk_gate_regs infra_infracfg_ao_reg3_cg_regs = {
++	.set_ofs = 0xe0,
++	.clr_ofs = 0xe4,
++	.sta_ofs = 0xe8,
++};
++
++#define GATE_INFRA_INFRACFG_AO_REG0(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &infra_infracfg_ao_reg0_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++#define GATE_INFRA_INFRACFG_AO_REG1(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &infra_infracfg_ao_reg1_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++#define GATE_INFRA_INFRACFG_AO_REG2(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &infra_infracfg_ao_reg2_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++#define GATE_INFRA_INFRACFG_AO_REG3(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &infra_infracfg_ao_reg3_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++static const struct mtk_gate infra_ao_clks[] = {
++	GATE_INFRA_INFRACFG_AO_REG0(CLK_INFRA_AO_CCIF1_AP, "infracfg_ao_ccif1_ap", "top_axi_ck", 12),
++	GATE_INFRA_INFRACFG_AO_REG0(CLK_INFRA_AO_CCIF1_MD, "infracfg_ao_ccif1_md", "top_axi_ck", 13),
++	GATE_INFRA_INFRACFG_AO_REG0(CLK_INFRA_AO_CCIF_AP, "infracfg_ao_ccif_ap", "top_axi_ck", 23),
++	GATE_INFRA_INFRACFG_AO_REG0(CLK_INFRA_AO_CCIF_MD, "infracfg_ao_ccif_md", "top_axi_ck", 26),
++	GATE_INFRA_INFRACFG_AO_REG1(CLK_INFRA_AO_CLDMABCLK, "infracfg_ao_cldmabclk", "top_axi_ck", 3),
++	GATE_INFRA_INFRACFG_AO_REG2(CLK_INFRA_AO_CCIF5_MD, "infracfg_ao_ccif5_md", "top_axi_ck", 10),
++	GATE_INFRA_INFRACFG_AO_REG2(CLK_INFRA_AO_CCIF2_AP, "infracfg_ao_ccif2_ap", "top_axi_ck", 16),
++	GATE_INFRA_INFRACFG_AO_REG2(CLK_INFRA_AO_CCIF2_MD, "infracfg_ao_ccif2_md", "top_axi_ck", 17),
++	GATE_INFRA_INFRACFG_AO_REG2(CLK_INFRA_AO_DPMAIF_MAIN, "infracfg_ao_dpmaif_main", "top_dpmaif_main_ck", 26),
++	GATE_INFRA_INFRACFG_AO_REG2(CLK_INFRA_AO_CCIF4_MD, "infracfg_ao_ccif4_md", "top_axi_ck", 29),
++	GATE_INFRA_INFRACFG_AO_REG3(CLK_INFRA_AO_DPMAIF_26M, "infracfg_ao_dpmaif_26m", "top_f26m_ck", 17),
++};
++
++static const struct mtk_clk_desc infra_ao_desc = {
++	.clks = infra_ao_clks,
++	.num_clks = ARRAY_SIZE(infra_ao_clks),
++};
++
++static const struct of_device_id of_match_clk_mt6858_infra_ao[] = {
++	{ .compatible = "mediatek,mt6858-infracfg-ao", .data = &infra_ao_desc },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, of_match_clk_mt6858_infra_ao);
++
++static struct platform_driver clk_mt6858_infra_ao_drv = {
++	.probe = mtk_clk_simple_probe,
++	.remove = mtk_clk_simple_remove,
++	.driver = {
++		.name = "clk-mt6858-infra-ao",
++		.of_match_table = of_match_clk_mt6858_infra_ao,
++	},
++};
++module_platform_driver(clk_mt6858_infra_ao_drv);
++
++MODULE_DESCRIPTION("MediaTek MT6858 infracfg_ao clock controller driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/clk/mediatek/clk-mt6858-peri_ao.c b/drivers/clk/mediatek/clk-mt6858-peri_ao.c
+new file mode 100644
+index 000000000..796de043c
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6858-peri_ao.c
+@@ -0,0 +1,131 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ *
++ * Generated from the clock tables of MediaTek's GPLv2 MT6858 clock driver.
++ */
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include "clk-gate.h"
++#include "clk-mtk.h"
++
++static const struct mtk_gate_regs perao0_cg_regs = {
++	.set_ofs = 0x24,
++	.clr_ofs = 0x28,
++	.sta_ofs = 0x10,
++};
++
++static const struct mtk_gate_regs perao1_cg_regs = {
++	.set_ofs = 0x2c,
++	.clr_ofs = 0x30,
++	.sta_ofs = 0x14,
++};
++
++static const struct mtk_gate_regs perao2_cg_regs = {
++	.set_ofs = 0x34,
++	.clr_ofs = 0x38,
++	.sta_ofs = 0x18,
++};
++
++static const struct mtk_gate_regs perao0_hwv_regs = {
++	.set_ofs = 0x10,
++	.clr_ofs = 0x14,
++	.sta_ofs = 0x1c08,
++};
++
++#define GATE_PERAO0(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &perao0_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++#define GATE_HWV_PERAO0(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &perao0_cg_regs,		\
++		.hwv_regs = &perao0_hwv_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_hwv_ops_setclr,	\
++	}
++
++#define GATE_PERAO1(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &perao1_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++#define GATE_PERAO2(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &perao2_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++static const struct mtk_gate peri_ao_clks[] = {
++	GATE_PERAO0(CLK_PERAO_P_UART0, "perao_p_uart0", "top_uart_ck", 0),
++	GATE_PERAO0(CLK_PERAO_P_UART1, "perao_p_uart1", "top_uart_ck", 1),
++	GATE_PERAO0(CLK_PERAO_P_UART2, "perao_p_uart2", "top_uart_ck", 2),
++	GATE_PERAO0(CLK_PERAO_P_UART3, "perao_p_uart3", "top_uart_ck", 3),
++	GATE_PERAO0(CLK_PERAO_P_PWM_H, "perao_p_pwm_h", "top_axi_p_ck", 4),
++	GATE_PERAO0(CLK_PERAO_P_PWM_B, "perao_p_pwm_b", "top_pwm_ck", 5),
++	GATE_PERAO0(CLK_PERAO_P_PWM_FB1, "perao_p_pwm_fb1", "top_pwm_ck", 6),
++	GATE_PERAO0(CLK_PERAO_P_PWM_FB2, "perao_p_pwm_fb2", "top_pwm_ck", 7),
++	GATE_PERAO0(CLK_PERAO_P_PWM_FB3, "perao_p_pwm_fb3", "top_pwm_ck", 8),
++	GATE_PERAO0(CLK_PERAO_P_PWM_FB4, "perao_p_pwm_fb4", "top_pwm_ck", 9),
++	GATE_PERAO0(CLK_PERAO_P_DISP_PWM0, "perao_p_disp_pwm0", "top_disp_pwm_ck", 10),
++	GATE_PERAO0(CLK_PERAO_P_DISP_PWM1, "perao_p_disp_pwm1", "top_disp_pwm_ck", 11),
++	GATE_HWV_PERAO0(CLK_PERAO_P_SPI0_B, "perao_p_spi0_b", "top_spi0_ck", 12),
++	GATE_HWV_PERAO0(CLK_PERAO_P_SPI1_B, "perao_p_spi1_b", "top_spi1_ck", 13),
++	GATE_HWV_PERAO0(CLK_PERAO_P_SPI2_B, "perao_p_spi2_b", "top_spi2_ck", 14),
++	GATE_HWV_PERAO0(CLK_PERAO_P_SPI3_B, "perao_p_spi3_b", "top_spi3_ck", 15),
++	GATE_HWV_PERAO0(CLK_PERAO_P_SPI4_B, "perao_p_spi4_b", "top_spi4_ck", 16),
++	GATE_HWV_PERAO0(CLK_PERAO_P_SPI5_B, "perao_p_spi5_b", "top_spi5_ck", 17),
++	GATE_HWV_PERAO0(CLK_PERAO_P_SPI6_B, "perao_p_spi6_b", "top_spi6_ck", 18),
++	GATE_HWV_PERAO0(CLK_PERAO_P_SPI7_B, "perao_p_spi7_b", "top_spi7_ck", 19),
++	GATE_PERAO0(CLK_PERAO_P_DMA_B, "perao_p_dma_b", "top_axi_p_ck", 29),
++	GATE_PERAO1(CLK_PERAO_P_MSDC1, "perao_p_msdc1", "top_msdc30_1_ck", 12),
++	GATE_PERAO1(CLK_PERAO_P_MSDC1_H, "perao_p_msdc1_h", "top_msdc30_1_h_ck", 13),
++	GATE_PERAO1(CLK_PERAO_P_MSDC1_MST_F, "perao_p_msdc1_mst_f", "top_axi_p_ck", 14),
++	GATE_PERAO1(CLK_PERAO_P_MSDC1_SLV_H, "perao_p_msdc1_slv_h", "top_axi_p_ck", 15),
++	GATE_PERAO2(CLK_PERAO_P_AUDIO0, "perao_p_audio0", "top_axi_p_ck", 0),
++	GATE_PERAO2(CLK_PERAO_P_AUDIO1, "perao_p_audio1", "top_axi_p_ck", 1),
++	GATE_PERAO2(CLK_PERAO_P_AUDIO2, "perao_p_audio2", "top_aud_intbus_ck", 2),
++};
++
++static const struct mtk_clk_desc peri_ao_desc = {
++	.clks = peri_ao_clks,
++	.num_clks = ARRAY_SIZE(peri_ao_clks),
++};
++
++static const struct of_device_id of_match_clk_mt6858_peri_ao[] = {
++	{ .compatible = "mediatek,mt6858-pericfg-ao", .data = &peri_ao_desc },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, of_match_clk_mt6858_peri_ao);
++
++static struct platform_driver clk_mt6858_peri_ao_drv = {
++	.probe = mtk_clk_simple_probe,
++	.remove = mtk_clk_simple_remove,
++	.driver = {
++		.name = "clk-mt6858-peri-ao",
++		.of_match_table = of_match_clk_mt6858_peri_ao,
++	},
++};
++module_platform_driver(clk_mt6858_peri_ao_drv);
++
++MODULE_DESCRIPTION("MediaTek MT6858 pericfg_ao clock controller driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/clk/mediatek/clk-mt6858-topckgen.c b/drivers/clk/mediatek/clk-mt6858-topckgen.c
+new file mode 100644
+index 000000000..bdceb8fc6
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6858-topckgen.c
+@@ -0,0 +1,858 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ *
++ * Generated from the clock tables of MediaTek's GPLv2 MT6858 clock driver.
++ */
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include "clk-mtk.h"
++#include "clk-mux.h"
++
++static DEFINE_SPINLOCK(mt6858_clk_lock);
++
++static const struct mtk_fixed_factor top_divs[] = {
++	FACTOR(CLK_TOP_MAINPLL, "top_mainpll", "mainpll", 1, 1),
++	FACTOR(CLK_TOP_MAINPLL_D3, "top_mainpll_d3", "mainpll", 1, 3),
++	FACTOR(CLK_TOP_MAINPLL_D4, "top_mainpll_d4", "mainpll", 1, 4),
++	FACTOR(CLK_TOP_MAINPLL_D4_D2, "top_mainpll_d4_d2", "mainpll", 1, 8),
++	FACTOR(CLK_TOP_MAINPLL_D4_D4, "top_mainpll_d4_d4", "mainpll", 1, 16),
++	FACTOR(CLK_TOP_MAINPLL_D4_D8, "top_mainpll_d4_d8", "mainpll", 1, 32),
++	FACTOR(CLK_TOP_MAINPLL_D5, "top_mainpll_d5", "mainpll", 1, 5),
++	FACTOR(CLK_TOP_MAINPLL_D5_D2, "top_mainpll_d5_d2", "mainpll", 1, 10),
++	FACTOR(CLK_TOP_MAINPLL_D5_D4, "top_mainpll_d5_d4", "mainpll", 1, 20),
++	FACTOR(CLK_TOP_MAINPLL_D5_D8, "top_mainpll_d5_d8", "mainpll", 1, 40),
++	FACTOR(CLK_TOP_MAINPLL_D6, "top_mainpll_d6", "mainpll", 1, 6),
++	FACTOR(CLK_TOP_MAINPLL_D6_D2, "top_mainpll_d6_d2", "mainpll", 1, 12),
++	FACTOR(CLK_TOP_MAINPLL_D6_D8, "top_mainpll_d6_d8", "mainpll", 1, 48),
++	FACTOR(CLK_TOP_MAINPLL_D7, "top_mainpll_d7", "mainpll", 1, 7),
++	FACTOR(CLK_TOP_MAINPLL_D7_D2, "top_mainpll_d7_d2", "mainpll", 1, 14),
++	FACTOR(CLK_TOP_MAINPLL_D7_D4, "top_mainpll_d7_d4", "mainpll", 1, 28),
++	FACTOR(CLK_TOP_MAINPLL_D7_D8, "top_mainpll_d7_d8", "mainpll", 1, 56),
++	FACTOR(CLK_TOP_UNIVPLL, "top_univpll", "univpll", 1, 1),
++	FACTOR(CLK_TOP_UNIVPLL_D2, "top_univpll_d2", "univpll", 1, 2),
++	FACTOR(CLK_TOP_UNIVPLL_D3, "top_univpll_d3", "univpll", 1, 3),
++	FACTOR(CLK_TOP_UNIVPLL_D4, "top_univpll_d4", "univpll", 1, 4),
++	FACTOR(CLK_TOP_UNIVPLL_D4_D2, "top_univpll_d4_d2", "univpll", 1, 8),
++	FACTOR(CLK_TOP_UNIVPLL_D4_D4, "top_univpll_d4_d4", "univpll", 1, 16),
++	FACTOR(CLK_TOP_UNIVPLL_D4_D8, "top_univpll_d4_d8", "univpll", 1, 32),
++	FACTOR(CLK_TOP_UNIVPLL_D5, "top_univpll_d5", "univpll", 1, 5),
++	FACTOR(CLK_TOP_UNIVPLL_D5_D2, "top_univpll_d5_d2", "univpll", 1, 10),
++	FACTOR(CLK_TOP_UNIVPLL_D5_D4, "top_univpll_d5_d4", "univpll", 1, 20),
++	FACTOR(CLK_TOP_UNIVPLL_D6, "top_univpll_d6", "univpll", 1, 6),
++	FACTOR(CLK_TOP_UNIVPLL_D6_D2, "top_univpll_d6_d2", "univpll", 1, 12),
++	FACTOR(CLK_TOP_UNIVPLL_D6_D4, "top_univpll_d6_d4", "univpll", 1, 24),
++	FACTOR(CLK_TOP_UNIVPLL_D6_D8, "top_univpll_d6_d8", "univpll", 1, 48),
++	FACTOR(CLK_TOP_UNIVPLL_D6_D16, "top_univpll_d6_d16", "univpll", 1, 96),
++	FACTOR(CLK_TOP_UNIVPLL_D7, "top_univpll_d7", "univpll", 1, 7),
++	FACTOR(CLK_TOP_UNIVPLL_D7_D2, "top_univpll_d7_d2", "univpll", 1, 14),
++	FACTOR(CLK_TOP_UNIVPLL_192M, "top_univpll_192m", "univpll", 1, 13),
++	FACTOR(CLK_TOP_UNIVPLL_192M_D2, "top_univpll_192m_d2", "univpll", 1, 26),
++	FACTOR(CLK_TOP_UNIVPLL_192M_D4, "top_univpll_192m_d4", "univpll", 1, 52),
++	FACTOR(CLK_TOP_UNIVPLL_192M_D8, "top_univpll_192m_d8", "univpll", 1, 104),
++	FACTOR(CLK_TOP_UNIVPLL_192M_D16, "top_univpll_192m_d16", "univpll", 1, 208),
++	FACTOR(CLK_TOP_UNIVPLL_192M_D32, "top_univpll_192m_d32", "univpll", 1, 416),
++	FACTOR(CLK_TOP_UNIVPLL_192M_D10, "top_univpll_192m_d10", "univpll", 1, 130),
++	FACTOR(CLK_TOP_APLL1_CK, "top_apll1_ck", "apll1", 1, 1),
++	FACTOR(CLK_TOP_APLL1_D2, "top_apll1_d2", "apll1", 1, 2),
++	FACTOR(CLK_TOP_APLL1_D4, "top_apll1_d4", "apll1", 1, 4),
++	FACTOR(CLK_TOP_APLL1_D8, "top_apll1_d8", "apll1", 1, 8),
++	FACTOR(CLK_TOP_APLL2_CK, "top_apll2_ck", "apll2", 1, 1),
++	FACTOR(CLK_TOP_APLL2_D2, "top_apll2_d2", "apll2", 1, 2),
++	FACTOR(CLK_TOP_APLL2_D4, "top_apll2_d4", "apll2", 1, 4),
++	FACTOR(CLK_TOP_APLL2_D8, "top_apll2_d8", "apll2", 1, 8),
++	FACTOR(CLK_TOP_ADSPPLL, "top_adsppll", "adsppll", 1, 1),
++	FACTOR(CLK_TOP_EMIPLL, "top_emipll", "emipll", 1, 1),
++	FACTOR(CLK_TOP_TVDPLL, "top_tvdpll", "tvdpll", 1, 1),
++	FACTOR(CLK_TOP_MSDCPLL, "top_msdcpll", "msdcpll", 1, 1),
++	FACTOR(CLK_TOP_MSDCPLL_D2, "top_msdcpll_d2", "msdcpll", 1, 2),
++	FACTOR(CLK_TOP_CLKRTC, "top_clkrtc", "clk32k", 1, 1),
++	FACTOR(CLK_TOP_TCK_26M_MX9_CK, "top_tck_26m_mx9_ck", "clk26m", 1, 1),
++	FACTOR(CLK_TOP_F26M_CK, "top_f26m_ck", "clk26m", 1, 1),
++	FACTOR(CLK_TOP_F26M_D2, "top_f26m_d2", "clk13m", 1, 1),
++	FACTOR(CLK_TOP_OSC_CK, "top_osc_ck", "ulposc", 1, 1),
++	FACTOR(CLK_TOP_OSC_D2, "top_osc_d2", "ulposc", 1, 2),
++	FACTOR(CLK_TOP_OSC_D4, "top_osc_d4", "ulposc", 1, 4),
++	FACTOR(CLK_TOP_OSC_D7, "top_osc_d7", "ulposc", 1, 7),
++	FACTOR(CLK_TOP_OSC_D8, "top_osc_d8", "ulposc", 1, 8),
++	FACTOR(CLK_TOP_OSC_D10, "top_osc_d10", "ulposc", 1, 10),
++	FACTOR(CLK_TOP_OSC_D16, "top_osc_d16", "ulposc", 1, 16),
++	FACTOR(CLK_TOP_MMPLL_D4, "top_mmpll_d4", "mmpll", 1, 4),
++	FACTOR(CLK_TOP_MMPLL_D4_D2, "top_mmpll_d4_d2", "mmpll", 1, 8),
++	FACTOR(CLK_TOP_MMPLL_D4_D4, "top_mmpll_d4_d4", "mmpll", 1, 16),
++	FACTOR(CLK_TOP_MMPLL_D5, "top_mmpll_d5", "mmpll", 1, 5),
++	FACTOR(CLK_TOP_MMPLL_D5_D2, "top_mmpll_d5_d2", "mmpll", 1, 10),
++	FACTOR(CLK_TOP_MMPLL_D6, "top_mmpll_d6", "mmpll", 1, 6),
++	FACTOR(CLK_TOP_MMPLL_D6_D2, "top_mmpll_d6_d2", "mmpll", 1, 12),
++	FACTOR(CLK_TOP_MMPLL_D7, "top_mmpll_d7", "mmpll", 1, 7),
++	FACTOR(CLK_TOP_MMPLL_D9, "top_mmpll_d9", "mmpll", 1, 9),
++	FACTOR(CLK_TOP_AXI_CK, "top_axi_ck", "top_axi_sel", 1, 1),
++	FACTOR(CLK_TOP_AXI_P_CK, "top_axi_p_ck", "top_axi_p_sel", 1, 1),
++	FACTOR(CLK_TOP_AXI_UFS_CK, "top_axi_ufs_ck", "top_axi_ufs_sel", 1, 1),
++	FACTOR(CLK_TOP_DISP0_CK, "top_disp0_ck", "top_disp0_sel", 1, 1),
++	FACTOR(CLK_TOP_MMINFRA_CK, "top_mminfra_ck", "top_mminfra_sel", 1, 1),
++	FACTOR(CLK_TOP_UART_CK, "top_uart_ck", "top_uart_sel", 1, 1),
++	FACTOR(CLK_TOP_SPI0_CK, "top_spi0_ck", "top_spi0_sel", 1, 1),
++	FACTOR(CLK_TOP_SPI1_CK, "top_spi1_ck", "top_spi1_sel", 1, 1),
++	FACTOR(CLK_TOP_SPI2_CK, "top_spi2_ck", "top_spi2_sel", 1, 1),
++	FACTOR(CLK_TOP_SPI3_CK, "top_spi3_ck", "top_spi3_sel", 1, 1),
++	FACTOR(CLK_TOP_SPI4_CK, "top_spi4_ck", "top_spi4_sel", 1, 1),
++	FACTOR(CLK_TOP_SPI5_CK, "top_spi5_ck", "top_spi5_sel", 1, 1),
++	FACTOR(CLK_TOP_SPI6_CK, "top_spi6_ck", "top_spi6_sel", 1, 1),
++	FACTOR(CLK_TOP_SPI7_CK, "top_spi7_ck", "top_spi7_sel", 1, 1),
++	FACTOR(CLK_TOP_MSDC30_1_CK, "top_msdc30_1_ck", "top_msdc30_1_sel", 1, 1),
++	FACTOR(CLK_TOP_MSDC30_1_H_CK, "top_msdc30_1_h_ck", "top_msdc30_1_h_sel", 1, 1),
++	FACTOR(CLK_TOP_AUD_INTBUS_CK, "top_aud_intbus_ck", "top_aud_intbus_sel", 1, 1),
++	FACTOR(CLK_TOP_DISP_PWM_CK, "top_disp_pwm_ck", "top_disp_pwm_sel", 1, 1),
++	FACTOR(CLK_TOP_I2C_CK, "top_i2c_ck", "top_i2c_sel", 1, 1),
++	FACTOR(CLK_TOP_AUD_ENGEN1_CK, "top_aud_engen1_ck", "top_aud_engen1_sel", 1, 1),
++	FACTOR(CLK_TOP_AUD_ENGEN2_CK, "top_aud_engen2_ck", "top_aud_engen2_sel", 1, 1),
++	FACTOR(CLK_TOP_AES_UFSFDE_CK, "top_aes_ufsfde_ck", "top_aes_ufsfde_sel", 1, 1),
++	FACTOR(CLK_TOP_UFS_CK, "top_ufs_ck", "top_ufs_sel", 1, 1),
++	FACTOR(CLK_TOP_AUD_1_CK, "top_aud_1_ck", "top_aud_1_sel", 1, 1),
++	FACTOR(CLK_TOP_AUD_2_CK, "top_aud_2_ck", "top_aud_2_sel", 1, 1),
++	FACTOR(CLK_TOP_DPMAIF_MAIN_CK, "top_dpmaif_main_ck", "top_dpmaif_main_sel", 1, 1),
++	FACTOR(CLK_TOP_VENC_CK, "top_venc_ck", "top_venc_sel", 1, 1),
++	FACTOR(CLK_TOP_VDEC_CK, "top_vdec_ck", "top_vdec_sel", 1, 1),
++	FACTOR(CLK_TOP_PWM_CK, "top_pwm_ck", "top_pwm_sel", 1, 1),
++	FACTOR(CLK_TOP_AUDIO_H_CK, "top_audio_h_ck", "top_audio_h_sel", 1, 1),
++	FACTOR(CLK_TOP_IMG1_CK, "top_img1_ck", "top_img1_sel", 1, 1),
++	FACTOR(CLK_TOP_IPE_CK, "top_ipe_ck", "top_ipe_sel", 1, 1),
++	FACTOR(CLK_TOP_CAM_CK, "top_cam_ck", "top_cam_sel", 1, 1),
++};
++
++static const char * const top_axi_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d4",
++	"top_mainpll_d7_d2",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d6_d2",
++	"top_osc_d4",
++};
++
++static const char * const top_axi_p_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d4",
++	"top_mainpll_d7_d2",
++	"top_osc_d4",
++};
++
++static const char * const top_axi_ufs_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d8",
++	"top_mainpll_d7_d4",
++	"top_osc_d8",
++};
++
++static const char * const top_bus_aximem_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d7_d2",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d6",
++};
++
++static const char * const top_disp0_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d5_d2",
++	"top_mmpll_d6_d2",
++	"top_mmpll_d4_d2",
++	"top_univpll_d6",
++	"top_mainpll_d5",
++	"top_tvdpll",
++	"top_mmpll_d6",
++	"top_mainpll_d5_d2",
++	"top_mmpll_d4_d4",
++};
++
++static const char * const top_mminfra_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d2",
++	"top_mainpll_d5_d2",
++	"top_mmpll_d6_d2",
++	"top_mainpll_d4_d2",
++	"top_mmpll_d4_d2",
++	"top_mainpll_d6",
++	"top_mmpll_d7",
++	"top_univpll_d6",
++	"top_mainpll_d5",
++	"top_mmpll_d6",
++	"top_univpll_d5",
++	"top_mainpll_d4",
++	"top_univpll_d4",
++	"top_mmpll_d4",
++	"top_mmpll_d5_d2",
++};
++
++static const char * const top_mmup_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d5_d2",
++	"top_mmpll_d4_d2",
++	"top_mainpll_d4",
++	"top_univpll_d4",
++	"top_mmpll_d4",
++	"top_mainpll_d3",
++};
++
++static const char * const top_uart_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d8",
++};
++
++static const char * const top_spi0_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_univpll_192m",
++	"top_mainpll_d6_d2",
++	"top_univpll_d4_d4",
++	"top_mainpll_d4_d4",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_spi1_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_univpll_192m",
++	"top_mainpll_d6_d2",
++	"top_univpll_d4_d4",
++	"top_mainpll_d4_d4",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_spi2_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_univpll_192m",
++	"top_mainpll_d6_d2",
++	"top_univpll_d4_d4",
++	"top_mainpll_d4_d4",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_spi3_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_univpll_192m",
++	"top_mainpll_d6_d2",
++	"top_univpll_d4_d4",
++	"top_mainpll_d4_d4",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_spi4_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_univpll_192m",
++	"top_mainpll_d6_d2",
++	"top_univpll_d4_d4",
++	"top_mainpll_d4_d4",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_spi5_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_univpll_192m",
++	"top_mainpll_d6_d2",
++	"top_univpll_d4_d4",
++	"top_mainpll_d4_d4",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_spi6_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_mainpll_d6_d2",
++	"top_univpll_d4_d4",
++	"top_mainpll_d4_d4",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_spi7_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_univpll_192m",
++	"top_mainpll_d6_d2",
++	"top_univpll_d4_d4",
++	"top_mainpll_d4_d4",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_msdc_macro_1p_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_msdcpll",
++	"top_mainpll_d6_d2",
++	"top_mainpll_d7_d2",
++};
++
++static const char * const top_msdc30_1_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d6_d2",
++	"top_msdcpll_d2",
++};
++
++static const char * const top_msdc30_1_h_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d6_d2",
++	"top_msdcpll_d2",
++};
++
++static const char * const top_aud_intbus_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d4",
++	"top_mainpll_d7_d4",
++};
++
++static const char * const top_atb_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d5_d2",
++};
++
++static const char * const top_disp_pwm_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d4",
++	"top_osc_d2",
++	"top_osc_d4",
++	"top_osc_d16",
++	"top_univpll_d5_d4",
++	"top_mainpll_d4_d4",
++};
++
++static const char * const top_usb_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_usb_xhci_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d5_d4",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_i2c_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d8",
++	"top_univpll_d5_d4",
++	"top_mainpll_d4_d4",
++};
++
++static const char * const top_seninf_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d2",
++	"top_osc_ck",
++	"top_mmpll_d5_d2",
++	"top_univpll_d4_d2",
++	"top_mmpll_d4_d2",
++	"top_mmpll_d7",
++	"top_univpll_d6",
++	"top_univpll_d5",
++};
++
++static const char * const top_seninf1_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d2",
++	"top_osc_ck",
++	"top_mmpll_d5_d2",
++	"top_univpll_d4_d2",
++	"top_mmpll_d4_d2",
++	"top_mmpll_d7",
++	"top_univpll_d6",
++	"top_univpll_d5",
++};
++
++static const char * const top_seninf2_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d2",
++	"top_osc_ck",
++	"top_mmpll_d5_d2",
++	"top_univpll_d4_d2",
++	"top_mmpll_d4_d2",
++	"top_mmpll_d7",
++	"top_univpll_d6",
++	"top_univpll_d5",
++};
++
++static const char * const top_aud_engen1_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_apll1_d2",
++	"top_apll1_d4",
++	"top_apll1_d8",
++};
++
++static const char * const top_aud_engen2_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_apll2_d2",
++	"top_apll2_d4",
++	"top_apll2_d8",
++};
++
++static const char * const top_aes_ufsfde_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d6",
++	"top_mainpll_d4_d4",
++	"top_univpll_d4_d2",
++	"top_univpll_d6",
++};
++
++static const char * const top_ufs_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4_d8",
++	"top_mainpll_d4_d4",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d6_d2",
++	"top_univpll_d6_d2",
++	"top_msdcpll_d2",
++};
++
++static const char * const top_aud_1_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_apll1_ck",
++};
++
++static const char * const top_aud_2_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_apll2_ck",
++};
++
++static const char * const top_dpmaif_main_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6",
++	"top_mainpll_d5",
++	"top_mainpll_d6",
++	"top_mainpll_d4_d2",
++	"top_univpll_d4_d2",
++};
++
++static const char * const top_venc_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mmpll_d4_d2",
++	"top_mainpll_d6",
++	"top_univpll_d4_d2",
++	"top_mainpll_d4_d2",
++	"top_univpll_d6",
++	"top_mmpll_d6",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d6_d2",
++	"top_mmpll_d9",
++	"top_mmpll_d4",
++	"top_mainpll_d4",
++	"top_univpll_d4",
++	"top_univpll_d5",
++	"top_univpll_d5_d2",
++	"top_mainpll_d5",
++};
++
++static const char * const top_vdec_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_192m_d2",
++	"top_univpll_d5_d4",
++	"top_mainpll_d5",
++	"top_mainpll_d5_d2",
++	"top_mmpll_d6_d2",
++	"top_univpll_d5_d2",
++	"top_mainpll_d4_d2",
++	"top_univpll_d4_d2",
++	"top_univpll_d7",
++	"top_mmpll_d7",
++	"top_mmpll_d6",
++	"top_univpll_d6",
++	"top_mainpll_d4",
++	"top_mmpll_d4_d2",
++	"top_mmpll_d5_d2",
++};
++
++static const char * const top_pwm_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d4_d8",
++};
++
++static const char * const top_audio_h_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d7_d2",
++	"top_apll1_ck",
++	"top_apll2_ck",
++};
++
++static const char * const top_mcupm_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d6_d2",
++};
++
++static const char * const top_mem_sub_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d4_d4",
++	"top_mainpll_d6_d2",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d6",
++	"top_mmpll_d7",
++	"top_mainpll_d5",
++	"top_univpll_d5",
++	"top_mainpll_d4",
++	"top_univpll_d4",
++};
++
++static const char * const top_mem_sub_p_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d4_d4",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d6",
++	"top_mainpll_d5",
++	"top_univpll_d5",
++	"top_mainpll_d4",
++};
++
++static const char * const top_mem_sub_ufs_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d4_d4",
++	"top_mainpll_d5_d2",
++	"top_mainpll_d4_d2",
++	"top_mainpll_d6",
++	"top_mainpll_d5",
++	"top_univpll_d5",
++	"top_mainpll_d4",
++};
++
++static const char * const top_emi_n_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d6_d2",
++	"top_osc_d2",
++	"top_mainpll_d6",
++	"top_mainpll_d4",
++	"top_emipll",
++};
++
++static const char * const top_dsi_occ_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6_d2",
++	"top_univpll_d5_d2",
++	"top_univpll_d4_d2",
++};
++
++static const char * const top_ap2conn_host_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d7_d4",
++};
++
++static const char * const top_img1_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d4",
++	"top_mmpll_d5",
++	"top_mmpll_d6",
++	"top_univpll_d6",
++	"top_mmpll_d7",
++	"top_mmpll_d4_d2",
++	"top_univpll_d4_d2",
++	"top_mainpll_d4_d2",
++	"top_mmpll_d6_d2",
++	"top_mmpll_d5_d2",
++};
++
++static const char * const top_ipe_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d4",
++	"top_mainpll_d4",
++	"top_mmpll_d6",
++	"top_univpll_d6",
++	"top_mainpll_d6",
++	"top_mmpll_d4_d2",
++	"top_univpll_d4_d2",
++	"top_mainpll_d4_d2",
++	"top_mmpll_d6_d2",
++	"top_mmpll_d5_d2",
++};
++
++static const char * const top_cam_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4",
++	"top_univpll_d4",
++	"top_univpll_d5",
++	"top_mmpll_d7",
++	"top_mmpll_d6",
++	"top_univpll_d6",
++	"top_univpll_d4_d2",
++	"top_mmpll_d9",
++	"top_mmpll_d5_d2",
++	"top_osc_d2",
++};
++
++static const char * const top_camtm_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d2",
++	"top_univpll_d6_d2",
++	"top_univpll_d6_d4",
++};
++
++static const char * const top_md_emi_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d4",
++};
++
++static const char * const top_mfg_ref_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6",
++	"top_mainpll_d5_d2",
++};
++
++static const char * const top_mfgsc_ref_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d6",
++	"top_mainpll_d5_d2",
++};
++
++static const char * const top_efuse_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_osc_d10",
++};
++
++static const char * const top_unipll_ses_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_d2",
++};
++
++static const char * const top_dramulp_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_mainpll_d6_d2",
++};
++
++static const char * const top_usb_frmcnt_parents[] = {
++	"top_tck_26m_mx9_ck",
++	"top_univpll_192m_d4",
++};
++
++static const struct mtk_mux top_muxes[] = {
++	MUX_CLR_SET_UPD(CLK_TOP_AXI_SEL, "top_axi_sel", top_axi_parents,
++		0x010, 0x014, 0x018, 0, 3,
++		0x004, 0),
++	MUX_CLR_SET_UPD(CLK_TOP_AXI_P_SEL, "top_axi_p_sel", top_axi_p_parents,
++		0x010, 0x014, 0x018, 8, 2,
++		0x004, 1),
++	MUX_CLR_SET_UPD(CLK_TOP_AXI_UFS_SEL, "top_axi_ufs_sel", top_axi_ufs_parents,
++		0x010, 0x014, 0x018, 16, 2,
++		0x004, 2),
++	MUX_CLR_SET_UPD(CLK_TOP_BUS_AXIMEM_SEL, "top_bus_aximem_sel", top_bus_aximem_parents,
++		0x010, 0x014, 0x018, 24, 3,
++		0x004, 3),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_DISP0_SEL, "top_disp0_sel", top_disp0_parents,
++		0x020, 0x024, 0x028,
++		0x1c0c, 0x0018, 0x001c,
++		0, 4, 7, 0x004, 4, 0x534, 27),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_MMINFRA_SEL, "top_mminfra_sel", top_mminfra_parents,
++		0x020, 0x024, 0x028,
++		0x1c0c, 0x0018, 0x001c,
++		8, 4, 15, 0x004, 5, 0x534, 26),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_MMUP_SEL, "top_mmup_sel", top_mmup_parents,
++		0x020, 0x024, 0x028, 16, 3, 23,
++		0x004, 6, 0x534, 25),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_UART_SEL, "top_uart_sel", top_uart_parents,
++		0x020, 0x024, 0x028, 24, 1, 31,
++		0x004, 7, 0x534, 24),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI0_SEL, "top_spi0_sel", top_spi0_parents,
++		0x030, 0x034, 0x038,
++		0x1c10, 0x0020, 0x0024,
++		0, 3, 7, 0x004, 8, 0x534, 23),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI1_SEL, "top_spi1_sel", top_spi1_parents,
++		0x030, 0x034, 0x038,
++		0x1c10, 0x0020, 0x0024,
++		8, 3, 15, 0x004, 9, 0x534, 22),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI2_SEL, "top_spi2_sel", top_spi2_parents,
++		0x030, 0x034, 0x038,
++		0x1c10, 0x0020, 0x0024,
++		16, 3, 23, 0x004, 10, 0x534, 21),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI3_SEL, "top_spi3_sel", top_spi3_parents,
++		0x030, 0x034, 0x038,
++		0x1c10, 0x0020, 0x0024,
++		24, 3, 31, 0x004, 11, 0x534, 20),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI4_SEL, "top_spi4_sel", top_spi4_parents,
++		0x040, 0x044, 0x048,
++		0x1c14, 0x0028, 0x002c,
++		0, 3, 7, 0x004, 12, 0x534, 19),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI5_SEL, "top_spi5_sel", top_spi5_parents,
++		0x040, 0x044, 0x048,
++		0x1c14, 0x0028, 0x002c,
++		8, 3, 15, 0x004, 13, 0x534, 18),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI6_SEL, "top_spi6_sel", top_spi6_parents,
++		0x040, 0x044, 0x048,
++		0x1c14, 0x0028, 0x002c,
++		16, 3, 23, 0x004, 14, 0x534, 17),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_SPI7_SEL, "top_spi7_sel", top_spi7_parents,
++		0x040, 0x044, 0x048,
++		0x1c14, 0x0028, 0x002c,
++		24, 3, 31, 0x004, 15, 0x534, 16),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_MSDC_MACRO_1P_SEL, "top_msdc_macro_1p_sel", top_msdc_macro_1p_parents,
++		0x050, 0x054, 0x058, 0, 2, 7,
++		0x004, 16, 0x534, 15),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_MSDC30_1_SEL, "top_msdc30_1_sel", top_msdc30_1_parents,
++		0x050, 0x054, 0x058, 8, 2, 15,
++		0x004, 17, 0x534, 14),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_MSDC30_1_H_SEL, "top_msdc30_1_h_sel", top_msdc30_1_h_parents,
++		0x050, 0x054, 0x058, 16, 2, 23,
++		0x004, 18, 0x534, 13),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUD_INTBUS_SEL, "top_aud_intbus_sel", top_aud_intbus_parents,
++		0x050, 0x054, 0x058, 24, 2, 31,
++		0x004, 19, 0x534, 12),
++	MUX_CLR_SET_UPD(CLK_TOP_ATB_SEL, "top_atb_sel", top_atb_parents,
++		0x060, 0x064, 0x068, 0, 2,
++		0x004, 20),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_DISP_PWM_SEL, "top_disp_pwm_sel", top_disp_pwm_parents,
++		0x060, 0x064, 0x068, 8, 3, 15,
++		0x004, 21, 0x534, 10),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_USB_SEL, "top_usb_sel", top_usb_parents,
++		0x060, 0x064, 0x068, 16, 2, 23,
++		0x004, 22, 0x534, 9),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_USB_XHCI_SEL, "top_usb_xhci_sel", top_usb_xhci_parents,
++		0x060, 0x064, 0x068, 24, 2, 31,
++		0x004, 23, 0x534, 8),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_I2C_SEL, "top_i2c_sel", top_i2c_parents,
++		0x070, 0x074, 0x078, 0, 2, 7,
++		0x004, 24, 0x534, 7),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_SENINF_SEL, "top_seninf_sel", top_seninf_parents,
++		0x070, 0x074, 0x078, 8, 4, 15,
++		0x004, 25, 0x534, 6),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_SENINF1_SEL, "top_seninf1_sel", top_seninf1_parents,
++		0x070, 0x074, 0x078, 16, 4, 23,
++		0x004, 26, 0x534, 5),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_SENINF2_SEL, "top_seninf2_sel", top_seninf2_parents,
++		0x070, 0x074, 0x078, 24, 4, 31,
++		0x004, 27, 0x534, 4),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUD_ENGEN1_SEL, "top_aud_engen1_sel", top_aud_engen1_parents,
++		0x080, 0x084, 0x088, 0, 2, 7,
++		0x004, 28, 0x534, 3),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUD_ENGEN2_SEL, "top_aud_engen2_sel", top_aud_engen2_parents,
++		0x080, 0x084, 0x088, 8, 2, 15,
++		0x004, 29, 0x534, 2),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AES_UFSFDE_SEL, "top_aes_ufsfde_sel", top_aes_ufsfde_parents,
++		0x080, 0x084, 0x088, 16, 3, 23,
++		0x004, 30, 0x534, 1),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_UFS_SEL, "top_ufs_sel", top_ufs_parents,
++		0x080, 0x084, 0x088, 24, 3, 31,
++		0x008, 0, 0x534, 0),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUD_1_SEL, "top_aud_1_sel", top_aud_1_parents,
++		0x090, 0x094, 0x098, 8, 1, 15,
++		0x008, 2, 0x538, 30),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUD_2_SEL, "top_aud_2_sel", top_aud_2_parents,
++		0x090, 0x094, 0x098, 16, 1, 23,
++		0x008, 3, 0x538, 29),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_DPMAIF_MAIN_SEL, "top_dpmaif_main_sel", top_dpmaif_main_parents,
++		0x090, 0x094, 0x098, 24, 3, 31,
++		0x008, 4, 0x538, 28),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_VENC_SEL, "top_venc_sel", top_venc_parents,
++		0x0a0, 0x0a4, 0x0a8,
++		0x1c18, 0x0030, 0x0034,
++		0, 4, 7, 0x008, 5, 0x538, 27),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_VDEC_SEL, "top_vdec_sel", top_vdec_parents,
++		0x0a0, 0x0a4, 0x0a8,
++		0x1c18, 0x0030, 0x0034,
++		8, 4, 15, 0x008, 6, 0x538, 26),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_PWM_SEL, "top_pwm_sel", top_pwm_parents,
++		0x0a0, 0x0a4, 0x0a8, 16, 1, 23,
++		0x008, 7, 0x538, 25),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_AUDIO_H_SEL, "top_audio_h_sel", top_audio_h_parents,
++		0x0a0, 0x0a4, 0x0a8, 24, 2, 31,
++		0x008, 8, 0x538, 24),
++	MUX_CLR_SET_UPD(CLK_TOP_MCUPM_SEL, "top_mcupm_sel", top_mcupm_parents,
++		0x0b0, 0x0b4, 0x0b8, 0, 2,
++		0x008, 9),
++	MUX_CLR_SET_UPD(CLK_TOP_MEM_SUB_SEL, "top_mem_sub_sel", top_mem_sub_parents,
++		0x0b0, 0x0b4, 0x0b8, 8, 4,
++		0x008, 10),
++	MUX_CLR_SET_UPD(CLK_TOP_MEM_SUB_P_SEL, "top_mem_sub_p_sel", top_mem_sub_p_parents,
++		0x0b0, 0x0b4, 0x0b8, 16, 3,
++		0x008, 11),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_MEM_SUB_UFS_SEL, "top_mem_sub_ufs_sel", top_mem_sub_ufs_parents,
++		0x0b0, 0x0b4, 0x0b8, 24, 3, 31,
++		0x008, 12, 0x538, 20),
++	MUX_CLR_SET_UPD(CLK_TOP_EMI_N_SEL, "top_emi_n_sel", top_emi_n_parents,
++		0x0c0, 0x0c4, 0x0c8, 0, 3,
++		0x008, 13),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_DSI_OCC_SEL, "top_dsi_occ_sel", top_dsi_occ_parents,
++		0x0c0, 0x0c4, 0x0c8, 8, 2, 15,
++		0x008, 14, 0x538, 18),
++	MUX_CLR_SET_UPD(CLK_TOP_AP2CONN_HOST_SEL, "top_ap2conn_host_sel", top_ap2conn_host_parents,
++		0x0c0, 0x0c4, 0x0c8, 16, 1,
++		0x008, 15),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_IMG1_SEL, "top_img1_sel", top_img1_parents,
++		0x0c0, 0x0c4, 0x0c8,
++		0x1c1c, 0x0038, 0x003c,
++		24, 4, 31, 0x008, 16, 0x538, 16),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_IPE_SEL, "top_ipe_sel", top_ipe_parents,
++		0x0d0, 0x0d4, 0x0d8,
++		0x1c20, 0x0040, 0x0044,
++		0, 4, 7, 0x008, 17, 0x538, 15),
++	MUX_GATE_HWV_FENC_CLR_SET_UPD(CLK_TOP_CAM_SEL, "top_cam_sel", top_cam_parents,
++		0x0d0, 0x0d4, 0x0d8,
++		0x1c20, 0x0040, 0x0044,
++		8, 4, 15, 0x008, 18, 0x538, 14),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_CAMTM_SEL, "top_camtm_sel", top_camtm_parents,
++		0x0d0, 0x0d4, 0x0d8, 16, 2, 23,
++		0x008, 19, 0x538, 13),
++	MUX_CLR_SET_UPD(CLK_TOP_MD_EMI_SEL, "top_md_emi_sel", top_md_emi_parents,
++		0x0d0, 0x0d4, 0x0d8, 24, 1,
++		0x008, 20),
++	MUX_CLR_SET_UPD(CLK_TOP_MFG_REF_SEL, "top_mfg_ref_sel", top_mfg_ref_parents,
++		0x0e0, 0x0e4, 0x0e8, 8, 2,
++		0x008, 22),
++	MUX_CLR_SET_UPD(CLK_TOP_MFGSC_REF_SEL, "top_mfgsc_ref_sel", top_mfgsc_ref_parents,
++		0x0e0, 0x0e4, 0x0e8, 16, 2,
++		0x008, 23),
++	MUX_CLR_SET_UPD(CLK_TOP_EFUSE_SEL, "top_efuse_sel", top_efuse_parents,
++		0x0e0, 0x0e4, 0x0e8, 24, 1,
++		0x008, 24),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_UNIPLL_SES_SEL, "top_unipll_ses_sel", top_unipll_ses_parents,
++		0x0f0, 0x0f4, 0x0f8, 8, 1, 15,
++		0x008, 26, 0x538, 6),
++	MUX_CLR_SET_UPD(CLK_TOP_DRAMULP_SEL, "top_dramulp_sel", top_dramulp_parents,
++		0x0f0, 0x0f4, 0x0f8, 24, 1,
++		0x008, 28),
++	MUX_GATE_FENC_CLR_SET_UPD(CLK_TOP_USB_FRMCNT_SEL, "top_usb_frmcnt_sel", top_usb_frmcnt_parents,
++		0x100, 0x104, 0x108, 0, 1, 7,
++		0x008, 29, 0x538, 3),
++};
++
++static const struct mtk_clk_desc top_desc = {
++	.factor_clks = top_divs,
++	.num_factor_clks = ARRAY_SIZE(top_divs),
++	.mux_clks = top_muxes,
++	.num_mux_clks = ARRAY_SIZE(top_muxes),
++	.clk_lock = &mt6858_clk_lock,
++};
++
++static const struct of_device_id of_match_clk_mt6858_top[] = {
++	{ .compatible = "mediatek,mt6858-topckgen", .data = &top_desc },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, of_match_clk_mt6858_top);
++
++static struct platform_driver clk_mt6858_top_drv = {
++	.probe = mtk_clk_simple_probe,
++	.remove = mtk_clk_simple_remove,
++	.driver = {
++		.name = "clk-mt6858-top",
++		.of_match_table = of_match_clk_mt6858_top,
++	},
++};
++module_platform_driver(clk_mt6858_top_drv);
++
++MODULE_DESCRIPTION("MediaTek MT6858 topckgen clock controller driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

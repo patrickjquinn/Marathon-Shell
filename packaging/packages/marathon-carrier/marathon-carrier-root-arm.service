@@ -1,0 +1,21 @@
+[Unit]
+Description=Boot the root image a system update installed
+Documentation=https://github.com/patrickjquinn/Marathon-Shell/blob/main/docs/OTA.md
+ConditionPathExists=/usr/lib/sysupdate.d/marathon-10-carrier-root.transfer
+RequiresMountsFor=/boot
+After=local-fs.target marathon-carrier-esp-readonly.service
+# Stopped after these at shutdown, so the state it carries is final and no
+# update is still being written.
+Before=greetd.service systemd-sysupdated.service NetworkManager.service bluetooth.service ModemManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# An update installed before a power-off or power loss is tried at boot;
+# one installed this boot is armed at shutdown for the restart.
+ExecStart=-/usr/libexec/marathon/marathon-carrier-root-install sync-boot --reboot
+ExecStart=-/usr/libexec/marathon/marathon-carrier-root-install arm --reboot
+ExecStop=/usr/libexec/marathon/marathon-carrier-root-install arm
+
+[Install]
+WantedBy=multi-user.target

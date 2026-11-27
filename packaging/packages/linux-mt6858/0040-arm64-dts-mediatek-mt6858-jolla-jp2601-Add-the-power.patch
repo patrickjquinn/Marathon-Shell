@@ -1,0 +1,108 @@
+From 1f381fe95e7c9407dadd9a3d3115db0b3005e774 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 04:51:43 +0000
+Subject: [PATCH 040/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ power and volume keys
+
+The power key is the MT6363's PWRKEY. Volume down is one of its home
+keys: like the stock firmware, map both HOMEKEY and HOMEKEY2 to it.
+Volume up is on GPIO 120, active low.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 53 +++++++++++++++++++
+ 1 file changed, 53 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 6147ce5ca..4b8665c76 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -7,6 +7,7 @@
+ #include "mt6858.dtsi"
+ #include "mt6858-pinfunc.h"
+ #include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
+ 
+ / {
+@@ -16,6 +17,7 @@ / {
+ 
+ 	aliases {
+ 		serial0 = &uart0;
++		spmi0 = &spmi;
+ 	};
+ 
+ 	chosen {
+@@ -36,6 +38,20 @@ framebuffer@fe450000 {
+ 		};
+ 	};
+ 
++	gpio-keys {
++		compatible = "gpio-keys";
++		pinctrl-names = "default";
++		pinctrl-0 = <&volume_up_pins>;
++
++		key-volume-up {
++			label = "Volume Up";
++			linux,code = <KEY_VOLUMEUP>;
++			gpios = <&pio 120 GPIO_ACTIVE_LOW>;
++			debounce-interval = <16>;
++			wakeup-source;
++		};
++	};
++
+ 	memory@40000000 {
+ 		device_type = "memory";
+ 		/* The bootloader fills in the size. */
+@@ -293,6 +309,36 @@ reg_vemc: regulator-vemc {
+ 	};
+ };
+ 
++&mt6363 {
++	keys {
++		compatible = "mediatek,mt6363-keys";
++
++		power {
++			interrupts = <4 48 IRQ_TYPE_LEVEL_HIGH>,
++				     <4 51 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "powerkey", "powerkey_r";
++			linux,keycodes = <KEY_POWER>;
++			wakeup-source;
++		};
++
++		/* Volume down: like the stock firmware, take both home keys. */
++		home {
++			interrupts = <4 49 IRQ_TYPE_LEVEL_HIGH>,
++				     <4 52 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "homekey", "homekey_r";
++			linux,keycodes = <KEY_VOLUMEDOWN>;
++		};
++
++		home2-key {
++			interrupts = <4 50 IRQ_TYPE_LEVEL_HIGH>,
++				     <4 53 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "homekey", "homekey_r";
++			linux,keycodes = <KEY_VOLUMEDOWN>;
++			wakeup-source;
++		};
++	};
++};
++
+ &pio {
+ 	spi3_pins: spi3-pins {
+ 		pins-spi {
+@@ -303,6 +349,13 @@ pins-spi {
+ 		};
+ 	};
+ 
++	volume_up_pins: volume-up-pins {
++		pins-key {
++			pinmux = <PINMUX_GPIO120__FUNC_GPIO120>;
++			input-enable;
++		};
++	};
++
+ 	ts_pins: touchscreen-pins {
+ 		pins-irq {
+ 			pinmux = <PINMUX_GPIO6__FUNC_GPIO6>;
+-- 
+2.55.0
+

@@ -24,6 +24,7 @@ use zbus::message::Type as MessageType;
 use zbus::{fdo, MatchRule, MessageStream};
 use zbus::{OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
+use crate::data_backoff::{self, activation_failed, Backoff};
 use crate::ipc::{self, value, State};
 use crate::network::{
     new_uuid, DeviceProxy, NmProxy, NmSettingsProxy, SavedConnectionProxy, Settings,
@@ -55,6 +56,8 @@ pub mod qobject {
         #[qproperty(bool, roaming, READ, NOTIFY)]
         #[qproperty(bool, sim_present, cxx_name = "simPresent", READ, NOTIFY)]
         #[qproperty(bool, data_enabled, cxx_name = "dataEnabled", READ, NOTIFY)]
+        /// Mobile data stopped dialling after failing again and again.
+        #[qproperty(bool, data_failed, cxx_name = "dataFailed", READ, NOTIFY)]
         #[qproperty(bool, data_roaming_allowed, cxx_name = "dataRoamingAllowed", READ, WRITE = set_data_roaming_allowed, NOTIFY)]
         #[qproperty(QList_QVariant, supported_modes, cxx_name = "supportedModes", READ, NOTIFY = modes_changed)]
         #[qproperty(u32, current_modes, cxx_name = "allowedModes", READ, NOTIFY)]
@@ -187,6 +190,7 @@ pub struct ModemRust {
     roaming: bool,
     sim_present: bool,
     data_enabled: bool,
+    data_failed: bool,
     data_roaming_allowed: bool,
     supported_modes: QList<QVariant>,
     current_modes: u32,
@@ -224,6 +228,8 @@ fn now_ms() -> i64 {
 enum Command {
     Enable(bool),
     Data(bool, bool),
+    /// A retry after failed activations, of the backoff's generation.
+    DataRetry(u32),
     /// Data roaming allowed: written to the profile at once.
     Roaming(bool),
     Modes(u32),
@@ -253,7 +259,8 @@ impl cxx_qt::Initialize for Modem {
     fn initialize(mut self: Pin<&mut Self>) {
         QT.set(self.qt_thread()).ok();
         let (tx, rx) = async_channel::bounded(16);
-        io::spawn(run(self.qt_thread(), rx));
+        let qt = self.qt_thread();
+        io::each_system_bus(move |_| run(qt.clone(), rx.clone()));
         let mut rust = self.as_mut().rust_mut();
         rust.actor = Some(tx);
         rust.call_state = QString::from("idle");
@@ -267,6 +274,7 @@ impl cxx_qt::Initialize for Modem {
         self.as_mut().on_network_type_changed(push).release();
         self.as_mut().on_roaming_changed(push).release();
         self.as_mut().on_data_enabled_changed(push).release();
+        self.as_mut().on_data_failed_changed(push).release();
         self.as_mut()
             .on_data_roaming_allowed_changed(push)
             .release();
@@ -399,7 +407,10 @@ impl Modem {
         if self.call_muted != muted {
             self.as_mut().rust_mut().call_muted = muted;
             self.as_mut().call_audio_changed();
-            route_audio("SetInputMuted", muted);
+            route_audio(
+                "SetInputMuted",
+                muted || crate::privacy::microphone_blocked(),
+            );
         }
     }
 
@@ -568,6 +579,7 @@ impl Modem {
         set!(self, modem_available, modem_available_changed, view.modem);
         set!(self, modem_enabled, modem_enabled_changed, view.enabled);
         set!(self, data_enabled, data_enabled_changed, view.data);
+        set!(self, data_failed, data_failed_changed, view.data_failed);
         set!(
             self,
             signal_strength,
@@ -676,6 +688,7 @@ fn state(modem: &Modem) -> State {
         ),
         ("roaming".to_owned(), value(modem.roaming)),
         ("dataEnabled".to_owned(), value(modem.data_enabled)),
+        ("dataFailed".to_owned(), value(modem.data_failed)),
         (
             "dataRoamingAllowed".to_owned(),
             value(modem.data_roaming_allowed),
@@ -688,6 +701,7 @@ fn state(modem: &Modem) -> State {
     ])
 }
 
+#[derive(Clone)]
 struct Modem1 {
     qt: cxx_qt::CxxQtThread<Modem>,
 }
@@ -761,6 +775,19 @@ impl Modem1 {
 }
 
 /// `WirePlumber`'s call routing follows marathon-audiod's speakerphone.
+/// The input's mute once the privacy switch moved: muted while it cuts the
+/// microphone, else as the call has it.
+pub fn reroute_input() {
+    let blocked = crate::privacy::microphone_blocked();
+    match QT.get() {
+        Some(qt) => {
+            qt.queue(move |obj| route_audio("SetInputMuted", obj.call_muted || blocked))
+                .ok();
+        }
+        None => route_audio("SetInputMuted", blocked),
+    }
+}
+
 fn route_audio(method: &'static str, on: bool) {
     io::spawn(async move {
         let routed = async { crate::audio::call(&io::session_bus().await?, method, &(on,)).await };
@@ -770,6 +797,7 @@ fn route_audio(method: &'static str, on: bool) {
     });
 }
 
+#[derive(Clone)]
 struct Telephony1 {
     qt: cxx_qt::CxxQtThread<Modem>,
 }
@@ -876,6 +904,7 @@ struct View {
     modem: bool,
     enabled: bool,
     data: bool,
+    data_failed: bool,
     strength: i32,
     registered: bool,
     roaming: bool,
@@ -910,6 +939,7 @@ struct Snapshot {
     power: u32,
     /// Low power was asked for this modem object.
     radio_off: bool,
+    data_retries: Backoff,
 }
 
 // ModemManager's MM_MODEM_MODE_CS: calls, not a choice of data mode.
@@ -1014,6 +1044,7 @@ impl Snapshot {
             modem: self.path.is_some(),
             enabled: self.state >= 6,
             data: (40..=100).contains(&self.nm_state),
+            data_failed: self.data_retries.stopped(),
             strength,
             registered: matches!(self.registration, 1 | 5),
             roaming: self.registration == 5,
@@ -1225,11 +1256,19 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 }
             }
             Some(Event::Command(Command::Data(on, roaming))) => {
+                data_retries_reset(&bus, &mut state).await;
                 // NetworkManager's device state confirms the toggle as it
                 // changes; only a refusal resets it here.
                 match mobile_data(&bus, &state, on, roaming).await {
                     Ok(()) => continue,
                     Err(e) => log::warn("modem", e),
+                }
+            }
+            Some(Event::Command(Command::DataRetry(generation))) => {
+                if wwan && state.data_retries.due(generation) {
+                    if let Err(e) = data_on_register(&bus, &state).await {
+                        log::warn("modem", format_args!("mobile data retry: {e}"));
+                    }
                 }
             }
             Some(Event::Command(command)) => {
@@ -1245,11 +1284,18 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
             }
             Some(Event::NmDevices) => follow_nm(&bus, &mut state).await,
-            Some(Event::NmState(path, nm_state)) => state.nm_changed(&path, nm_state),
+            Some(Event::NmState(path, nm_state)) => {
+                let was = state.nm_state;
+                state.nm_changed(&path, nm_state);
+                if wwan && state.nm_device.as_ref() == Some(&path) {
+                    data_attempt(&bus, &qt, &mut state, was, nm_state).await;
+                }
+            }
             Some(Event::Wwan(on)) => {
                 wwan = on;
                 if on {
                     state.radio_off = false;
+                    data_retries_reset(&bus, &mut state).await;
                 }
             }
             Some(Event::Changed(changed)) => {
@@ -1298,7 +1344,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             }
         }
         let registered = matches!(state.registration, 1 | 5);
-        if registered && !was_registered && wwan {
+        if registered && !was_registered && wwan && !state.data_retries.failing() {
             // NetworkManager gives up after a few tries; a new registration
             // is a new chance. At most once a minute, for a modem that flaps.
             if data_tried.is_none_or(|t| t.elapsed() >= DATA_RETRY_GAP) {
@@ -1701,7 +1747,7 @@ async fn act(
             }
         }
         Command::Roaming(allowed) => data_roaming(bus, allowed).await,
-        Command::Data(..) | Command::Inhibit(_) => Ok(()),
+        Command::Data(..) | Command::DataRetry(_) | Command::Inhibit(_) => Ok(()),
     }
 }
 
@@ -1748,6 +1794,51 @@ async fn mobile_data(
         return Ok(());
     }
     nm.deactivate_connection(&active).await
+}
+
+/// Counts a failed activation of mobile data and blocks `NetworkManager`
+/// from dialling again on its own (see `data_backoff`); the shell then dials
+/// after a growing wait, until it stops. A success unblocks it.
+async fn data_attempt(bus: &zbus::Connection, qt: &Qt, state: &mut Snapshot, was: u32, now: u32) {
+    let Some(device) = state.nm_device.clone() else {
+        return;
+    };
+    if now == 100 {
+        data_retries_reset(bus, state).await;
+        return;
+    }
+    if !activation_failed(was, now) {
+        return;
+    }
+    if let Err(e) = data_backoff::set_autoconnect(bus, device, false).await {
+        log::warn("modem", format_args!("mobile data autoconnect: {e}"));
+    }
+    let Some((wait, generation)) = state.data_retries.failed() else {
+        log::warn("modem", "mobile data failed again: stopped trying");
+        return;
+    };
+    log::warn(
+        "modem",
+        format_args!("mobile data failed: trying again in {}s", wait.as_secs()),
+    );
+    let qt = qt.clone();
+    io::spawn(async move {
+        async_io::Timer::after(wait).await;
+        qt.queue(move |obj| obj.send(Command::DataRetry(generation)))
+            .ok();
+    });
+}
+
+/// Forgets failed activations and lets `NetworkManager` dial again.
+async fn data_retries_reset(bus: &zbus::Connection, state: &mut Snapshot) {
+    if !state.data_retries.reset() {
+        return;
+    }
+    if let Some(device) = state.nm_device.clone() {
+        if let Err(e) = data_backoff::set_autoconnect(bus, device, true).await {
+            log::warn("modem", format_args!("mobile data autoconnect: {e}"));
+        }
+    }
 }
 
 /// Brings mobile data up on the modem that just registered, unless it is up

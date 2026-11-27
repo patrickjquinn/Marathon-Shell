@@ -184,6 +184,8 @@ TextBaseItem {
     property alias enableSoftwareInputPanel: textBase.softwareInputPanelEnabled
 
     property bool _suppressPressAndHoldOnText
+    property bool _copyProtected // Modified by Marathon: a secret's text is never copied or cut
+    property Item _editMenu // Modified by Marathon: the edit menu, made on the first long press
     property Item _backgroundItem
     readonly property bool _filled: backgroundStyle == TextEditor.FilledBackground
     property QtObject _feedbackEffect
@@ -243,6 +245,14 @@ TextBaseItem {
         rect.x = translatedPos.x
         rect.y = translatedPos.y
         return rect
+    }
+
+    // Modified by Marathon: select all, cut, copy and paste over the selection
+    function _openEditMenu(): void {
+        Qt.inputMethod.commit()
+        if (!_editMenu)
+            _editMenu = editMenuComponent.createObject(textBase, { field: textBase })
+        _editMenu.open()
     }
 
     function _fixupScrollPosition(): void { // Modified by Shipwright for Qt 6: typed
@@ -503,6 +513,7 @@ TextBaseItem {
         property bool cursorGrabbed
         property bool handleGrabbed
         property bool textSelected
+        property bool held // Modified by Marathon: for the edit menu
         property Item selectionStartHandle
         property Item selectionEndHandle
         property int cursorStepThreshold: Theme.itemSizeSmall / 2
@@ -582,6 +593,7 @@ TextBaseItem {
             handleGrabbed = false
             preventStealing = false
             textSelected = false
+            held = false // Modified by Marathon
         }
 
         parent: flickable
@@ -625,6 +637,7 @@ TextBaseItem {
         }
         // Modified by Shipwright for Qt 6: signal parameter declared
         onPressAndHold: function(mouse) {
+            held = true // Modified by Marathon
             if (!textBase._editor.activeFocus || !textBase._suppressPressAndHoldOnText) { // Modified by Shipwright for Qt 6: qualified
                 textBase.pressAndHold(mouse)
             }
@@ -655,6 +668,18 @@ TextBaseItem {
         }
 
         onReleased: {
+            // Modified by Marathon: a long press, or the end of a selection, opens the edit menu;
+            // on a field without focus it focuses the field and selects the word pressed
+            if ((held || textSelected || handleGrabbed) && !cursorGrabbed && containsMouse) {
+                if (!textBase._editor.activeFocus) {
+                    textBase._editor.forceActiveFocus()
+                    textBase._editor.cursorPosition = mouseArea.positionAt(mouseX, mouseY)
+                    textBase._editor.selectWord()
+                }
+                textBase._openEditMenu()
+                reset()
+                return
+            }
             if (!handleGrabbed && !textSelected && !cursorGrabbed && containsMouse
                     && (textBase.focusOnClick || textBase._editor.activeFocus)) { // Modified by Shipwright for Qt 6: qualified
                 Qt.inputMethod.commit()
@@ -716,16 +741,13 @@ TextBaseItem {
             }
         }
 
-        onHandleGrabbedChanged: {
-            if (!handleGrabbed && textBase._editor.selectedText !== "") { // Modified by Shipwright for Qt 6: qualified
-                textBase._editor.copy() // Modified by Shipwright for Qt 6: qualified
-            }
-        }
+        // Modified by Marathon: a selection is not copied until Copy is chosen
     }
 
     InverseMouseArea {
         anchors.fill: parent
         enabled: textBase._editor.activeFocus && textBase.softwareInputPanelEnabled // Modified by Shipwright for Qt 6: qualified
+                 && !(textBase._editMenu && textBase._editMenu.visible) // Modified by Marathon: a tap on the edit menu keeps the focus
         onClickedOutside: focusLossTimer.start()
     }
 
@@ -841,9 +863,7 @@ TextBaseItem {
                 if (textBase._feedbackEffect) { // Modified by Shipwright for Qt 6: qualified
                     textBase._feedbackEffect.play() // Modified by Shipwright for Qt 6: qualified
                 }
-                if (textBase._editor.selectedText !== "") { // Modified by Shipwright for Qt 6: qualified
-                    textBase._editor.copy() // Modified by Shipwright for Qt 6: qualified
-                }
+                // Modified by Marathon: a selection is not copied until Copy is chosen
                 mouseArea.textSelected = true
             }
             mouseArea.cursorHit = false
@@ -951,6 +971,13 @@ TextBaseItem {
                 focusLossTimer.start()
             }
         }
+    }
+
+    // Modified by Marathon
+    Component {
+        id: editMenuComponent
+
+        TextEditMenu {}
     }
 
     Component {

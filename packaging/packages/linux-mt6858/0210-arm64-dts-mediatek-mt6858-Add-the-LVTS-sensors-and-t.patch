@@ -1,0 +1,493 @@
+From e1a68349eeb637a4b7ce7158b840ed11c0633e04 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 00:11:51 +0000
+Subject: [PATCH 210/214] arm64: dts: mediatek: mt6858: Add the LVTS sensors
+ and thermal zones
+
+The only thermal zone is the battery's, so nothing throttles the CPUs
+or the GPU however hot the SoC gets.
+
+Add the MCU and AP LVTS controllers and a zone for the hotter sensor of
+each core, for the DSU and for the top and bottom of the SoC. The hotter
+sensors were measured with every core loaded: each big core's second
+sensor, DSU1, AP top 2 and AP bottom 1. Each zone has:
+- polling every 2 s, every 250 ms past a trip;
+- a passive trip at 85 degC that throttles the cores' own cluster
+  (all CPUs for the DSU; all CPUs and the GPU for the SoC zones);
+- a critical trip at 110 degC, below the preloader's 115 degC thermal
+  reset, which stays as the preloader armed it.
+
+On the Jolla Phone (2026), through an overlay of these nodes: idle at a
+28.5 degC battery the zones read 34-37 degC, and loading the cores
+raised them by 9-15 degC. Panthor's devfreq cooling bound to the two
+SoC zones.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 377 +++++++++++++++++++++++
+ 1 file changed, 377 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 7d1cffdb1..6de79a5e1 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -9,6 +9,8 @@
+ #include <dt-bindings/phy/phy.h>
+ #include <dt-bindings/power/mediatek,mt6858-power.h>
+ #include <dt-bindings/spmi/spmi.h>
++#include <dt-bindings/thermal/mediatek,lvts-thermal.h>
++#include <dt-bindings/thermal/thermal.h>
+ 
+ / {
+ 	compatible = "mediatek,mt6858";
+@@ -48,6 +50,7 @@ cpu0: cpu@0 {
+ 			cpu-idle-states = <&cpu_off_l &cluster_off_l &mcusys_off_l
+ 					    &system_vcore>;
+ 			capacity-dmips-mhz = <346>;
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu1: cpu@100 {
+@@ -59,6 +62,7 @@ cpu1: cpu@100 {
+ 			cpu-idle-states = <&cpu_off_l &cluster_off_l &mcusys_off_l
+ 					    &system_vcore>;
+ 			capacity-dmips-mhz = <346>;
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu2: cpu@200 {
+@@ -70,6 +74,7 @@ cpu2: cpu@200 {
+ 			cpu-idle-states = <&cpu_off_l &cluster_off_l &mcusys_off_l
+ 					    &system_vcore>;
+ 			capacity-dmips-mhz = <346>;
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu3: cpu@300 {
+@@ -81,6 +86,7 @@ cpu3: cpu@300 {
+ 			cpu-idle-states = <&cpu_off_l &cluster_off_l &mcusys_off_l
+ 					    &system_vcore>;
+ 			capacity-dmips-mhz = <346>;
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu4: cpu@400 {
+@@ -92,6 +98,7 @@ cpu4: cpu@400 {
+ 			cpu-idle-states = <&cpu_off_b &cluster_off_b &mcusys_off_b
+ 					    &system_vcore>;
+ 			capacity-dmips-mhz = <1024>;
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu5: cpu@500 {
+@@ -103,6 +110,7 @@ cpu5: cpu@500 {
+ 			cpu-idle-states = <&cpu_off_b &cluster_off_b &mcusys_off_b
+ 					    &system_vcore>;
+ 			capacity-dmips-mhz = <1024>;
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu6: cpu@600 {
+@@ -114,6 +122,7 @@ cpu6: cpu@600 {
+ 			cpu-idle-states = <&cpu_off_b &cluster_off_b &mcusys_off_b
+ 					    &system_vcore>;
+ 			capacity-dmips-mhz = <1024>;
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu7: cpu@700 {
+@@ -125,6 +134,7 @@ cpu7: cpu@700 {
+ 			cpu-idle-states = <&cpu_off_b &cluster_off_b &mcusys_off_b
+ 					    &system_vcore>;
+ 			capacity-dmips-mhz = <1024>;
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		/* The stock firmware's states and parameters */
+@@ -357,6 +367,21 @@ apmixedsys: syscon@1000c000 {
+ 			#clock-cells = <1>;
+ 		};
+ 
++		/* The preloader configures and runs these, and arms the thermal reset */
++		lvts_ap: thermal-sensor@10315000 {
++			compatible = "mediatek,mt6858-lvts-ap";
++			reg = <0 0x10315000 0 0x1000>;
++			interrupts = <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH 0>;
++			#thermal-sensor-cells = <1>;
++		};
++
++		lvts_mcu: thermal-sensor@10316000 {
++			compatible = "mediatek,mt6858-lvts-mcu";
++			reg = <0 0x10316000 0 0x1000>;
++			interrupts = <GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH 0>;
++			#thermal-sensor-cells = <1>;
++		};
++
+ 		hwv: syscon@10320000 {
+ 			compatible = "mediatek,mt6858-hwv", "syscon";
+ 			reg = <0 0x10320000 0 0x2000>;
+@@ -800,6 +825,7 @@ gpu: gpu@13000000 {
+ 			nvmem-cells = <&shader_present>;
+ 			nvmem-cell-names = "shader-present";
+ 			power-domains = <&gpufreq>;
++			#cooling-cells = <2>;
+ 			status = "disabled";
+ 		};
+ 
+@@ -1073,4 +1099,355 @@ timer {
+ 			     <GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH 0>;
+ 		clock-frequency = <13000000>;
+ 	};
++
++	/*
++	 * One zone for the hotter sensor of each core and of the DSU, the top
++	 * and the bottom of the SoC. The controllers belong to the preloader,
++	 * so the zones are polled; its own thermal reset stays at 115 degC.
++	 */
++	thermal-zones {
++		cpu-big0-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_BIG_CPU0_1>;
++
++			trips {
++				cpu_big0_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				cpu_big0_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu_big0_alert>;
++					cooling-device = <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		cpu-big1-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_BIG_CPU1_1>;
++
++			trips {
++				cpu_big1_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				cpu_big1_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu_big1_alert>;
++					cooling-device = <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		cpu-big2-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_BIG_CPU2_1>;
++
++			trips {
++				cpu_big2_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				cpu_big2_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu_big2_alert>;
++					cooling-device = <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		cpu-big3-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_BIG_CPU3_1>;
++
++			trips {
++				cpu_big3_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				cpu_big3_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu_big3_alert>;
++					cooling-device = <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		cpu-little0-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_LITTLE_CPU0>;
++
++			trips {
++				cpu_little0_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				cpu_little0_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu_little0_alert>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		cpu-little1-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_LITTLE_CPU1>;
++
++			trips {
++				cpu_little1_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				cpu_little1_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu_little1_alert>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		cpu-little2-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_LITTLE_CPU2>;
++
++			trips {
++				cpu_little2_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				cpu_little2_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu_little2_alert>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		cpu-little3-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_LITTLE_CPU3>;
++
++			trips {
++				cpu_little3_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				cpu_little3_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu_little3_alert>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		dsu-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_mcu MT6858_MCU_DSU1>;
++
++			trips {
++				dsu_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				dsu_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&dsu_alert>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		soc-top-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_ap MT6858_AP_TOP2>;
++
++			trips {
++				soc_top_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				soc_top_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&soc_top_alert>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		soc-bot-thermal {
++			polling-delay = <2000>;
++			polling-delay-passive = <250>;
++			thermal-sensors = <&lvts_ap MT6858_AP_BOT1>;
++
++			trips {
++				soc_bot_alert: trip-alert {
++					temperature = <85000>;
++					hysteresis = <2000>;
++					type = "passive";
++				};
++
++				soc_bot_crit: trip-crit {
++					temperature = <110000>;
++					hysteresis = <0>;
++					type = "critical";
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&soc_bot_alert>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++	};
+ };
+-- 
+2.55.0
+

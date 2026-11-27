@@ -1,0 +1,27 @@
+From 9ac192cc5ee0d398de4e61866bb864dcc8b2c521 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:36:43 +0000
+Subject: [PATCH 096/214] dt-bindings: display: mediatek: dsi: Add MT6858
+
+The MT6858 DSI has the MT8186/MT8188 register layout (command queue at
+0xd00, VM command at 0x200, shadow at 0xc00) but its own HS buffer and
+QoS setup in the vendor driver, so it gets its own compatible.
+---
+ .../devicetree/bindings/display/mediatek/mediatek,dsi.yaml       | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
+index 27ffbccc2..2e6ceaba2 100644
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,dsi.yaml
+@@ -24,6 +24,7 @@ properties:
+     oneOf:
+       - enum:
+           - mediatek,mt2701-dsi
++          - mediatek,mt6858-dsi
+           - mediatek,mt7623-dsi
+           - mediatek,mt8167-dsi
+           - mediatek,mt8173-dsi
+-- 
+2.55.0
+

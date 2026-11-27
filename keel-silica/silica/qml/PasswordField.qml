@@ -58,6 +58,7 @@ TextField {
 
     width: parent ? parent.width : KeelSilica.Screen.width
     echoMode: _usePasswordEchoMode ? passwordEchoMode : TextInput.Normal
+    _copyProtected: true // Modified by Marathon: shown or not, a password is pasted, never copied
     inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
 
     //% "Password"

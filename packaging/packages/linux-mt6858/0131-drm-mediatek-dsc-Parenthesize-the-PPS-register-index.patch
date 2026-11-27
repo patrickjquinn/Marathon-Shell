@@ -1,0 +1,30 @@
+From e55a7afdfaca70245ae64a6ac40676a064b741f5 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:00:20 +0000
+Subject: [PATCH 131/214] drm/mediatek: dsc: Parenthesize the PPS register
+ index
+
+DISP_REG_DSC_PPS(8 + i) expanded to 0x80 + (8 + i * 4), so the rate
+buffer thresholds and the RC ranges landed at PPS2..PPS10 instead of
+PPS8..PPS19, overwriting the scale, BPG, offset and flatness values
+just written. Seen on MT6858 against the bootloader's register values.
+---
+ drivers/gpu/drm/mediatek/mtk_disp_dsc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+index d123fe0e9..c6f0a618b 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+@@ -94,7 +94,7 @@
+ #define DISP_REG_DSC_OUTBUF		0x70
+ #  define DSC_OBUF_SIZE			GENMASK(11, 0)
+ 
+-#define DISP_REG_DSC_PPS(x)		(0x80 + (x * 4)) /* 0..19 */
++#define DISP_REG_DSC_PPS(x)		(0x80 + (x) * 4) /* 0..19 */
+ #  define DSC_P0_UP_LINE_BUF_DEPTH	GENMASK(3, 0)
+ #  define DSC_P0_BPC			GENMASK(7, 4)
+ #  define DSC_P0_BPP			GENMASK(17, 8)
+-- 
+2.55.0
+

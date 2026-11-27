@@ -1,0 +1,83 @@
+# The userdata carrier's runtime, for every phone whose root is an ext4 file
+# on a carrier partition beside an ESP (devices/*/*/device.toml
+# [boot.carrier]): the encrypted /home, root growth and direct I/O, the
+# over-the-air root install and its boot counting. The names come from
+# /usr/share/marathon/carrier.conf, which build-image.sh writes. These are
+# the Q25's q25-* units made generic; the Q25 still ships its own.
+pkgname=marathon-carrier
+pkgver=1.0.0
+pkgrel=3
+pkgdesc="Marathon userdata carrier: encrypted /home, root growth and over-the-air root install"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="noarch"
+license="Apache-2.0"
+options="!check"
+depends="cryptsetup e2fsprogs e2fsprogs-extra findmnt losetup unl0kr"
+source="
+	marathon-carrier-home-crypt
+	marathon-carrier-home-crypt.service
+	marathon-carrier-home-unlock
+	marathon-carrier-unl0kr.conf
+	marathon-carrier-root-dio.service
+	marathon-carrier-root-grow
+	marathon-carrier-root-grow.service
+	marathon-carrier-esp-readonly.service
+	marathon-carrier-root-install
+	marathon-carrier-root-arm.service
+	marathon-carrier-boot-check.service
+	marathon-carrier-boot-bless
+	marathon-carrier-boot-bless.service
+"
+
+package() {
+	local f unit
+	for f in marathon-carrier-home-crypt marathon-carrier-root-grow marathon-carrier-root-install marathon-carrier-boot-bless; do
+		install -Dm755 "$srcdir/$f" "$pkgdir/usr/libexec/marathon/$f"
+	done
+	# Run over ssh on a developer image; refuses on any other.
+	install -Dm755 "$srcdir/marathon-carrier-home-unlock" "$pkgdir/usr/bin/marathon-carrier-home-unlock"
+	install -Dm644 "$srcdir/marathon-carrier-unl0kr.conf" "$pkgdir/etc/unl0kr.conf.d/90-marathon-carrier.conf"
+	for unit in home-crypt root-dio root-grow esp-readonly root-arm boot-check boot-bless; do
+		install -Dm644 "$srcdir/marathon-carrier-$unit.service" \
+			"$pkgdir/usr/lib/systemd/system/marathon-carrier-$unit.service"
+	done
+	install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants" \
+		"$pkgdir/usr/lib/systemd/system/local-fs.target.wants" \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants" \
+		"$pkgdir/usr/lib/systemd/system/graphical.target.wants" \
+		"$pkgdir/usr/lib/systemd/system/boot-complete.target.requires"
+	for unit in root-dio root-grow esp-readonly; do
+		ln -s ../marathon-carrier-$unit.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/"
+	done
+	# /home is a LUKS2 file beside the root image (docs/ENCRYPTION.md).
+	ln -s ../marathon-carrier-home-crypt.service "$pkgdir/usr/lib/systemd/system/local-fs.target.wants/"
+	# Over the air, systemd-sysupdate writes the next root beside the running
+	# one; marathon-carrier-root-arm boots it, counted, at the next restart,
+	# and a boot that reaches the session blesses it (docs/OTA.md).
+	ln -s ../marathon-carrier-root-arm.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/"
+	ln -s ../marathon-carrier-boot-check.service "$pkgdir/usr/lib/systemd/system/boot-complete.target.requires/"
+	ln -s ../marathon-carrier-boot-bless.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/"
+	# The root is an ext4 file inside userdata, behind an ESP whose loader
+	# only the root install changes: nothing may repartition or touch the
+	# loader, and /etc is not a confext.
+	install -d "$pkgdir/etc/systemd/system"
+	for unit in systemd-repart.service systemd-repart.socket systemd-repart@.service systemd-boot-update.service systemd-confext.service; do
+		ln -s /dev/null "$pkgdir/etc/systemd/system/$unit"
+	done
+}
+
+sha512sums="
+3453e5b0d9016bc1d7879d20527ca94936c442c30bdd61e58847effe5da9a43009e4fccc6fc692950f11d435a8cde8a202e732b41b4eba96dbaab0a6eae648e3  marathon-carrier-home-crypt
+4a981e472bbaa686df63dafa7ec6ba94d66131ca9822e6261abc34e7e120e125be30e89cc9a30e87e58b0cb7eb2814db2738903324c8c6123da8bbcd6fca1983  marathon-carrier-home-crypt.service
+5b7cd80761894bcf96cf1287a4f4fcccff0c226484a9611ca772aa49a602359e51676f33cd57531ec498bce00d2b09207021a9e6407afc0ad06e9d26f5194af1  marathon-carrier-home-unlock
+084cf44a6a681f386a06913e434098a2b2a2f124b675fe29c9431abdb8e020bd3a863e33c39812e6dc2775ccdb52cbefad534d07f77f40a40aa14738fdca04a2  marathon-carrier-unl0kr.conf
+0d5b2c56a83afeb19cd7a4eb35969bb3eddeae7b5a662effaac10568bb1f35dadfcbbe3bce689d7a4e5378a5125995fcb5fc0cd2c1f3b82b0868009e07f13fb5  marathon-carrier-root-dio.service
+63df205323a38c534decdc6a030e872f4c5997778aabed08a619151361d7c1531c90275938511c61a6c1bdb1c75d0739b7d00567bde2ea33c6ba11c952352fa0  marathon-carrier-root-grow
+caa7698ca12c3e4c7c5f8e38fcf5b4d5a74e3221abeda28ac1ccead6fc7d30b1e287cafdd00c4fca4bda51e666e9aa2e78147301404cb0a9239ce37eccdf3efe  marathon-carrier-root-grow.service
+5f38a121b29778d24cfd0150966e20675bbfb55dedac557f50649be59046f38676a5407d38664c20bab1796457825e90f6a883a6b1cec3e6fb617478b2e40621  marathon-carrier-esp-readonly.service
+cebd14afa82c9d1f56db7d1f4052249e8ea67af53ccd0ba024251b66299701a9fcc9549d8a6118b5372cba7c8e07e34a8b8249f462b2141046b41eba4f72d846  marathon-carrier-root-install
+0216dbe619c2f2d38e2353b00e73c88fc7673da43d64e8b7fd107225ffdcdedb6a954e0f5cc8d6a93eeff04062c6c1c0cbf3e1f41e05abe0639ca2f563e00e2f  marathon-carrier-root-arm.service
+909ab3ff016e3ca27477a0d4353d83fbbc8b42400a4092910437e52f6e9848d4c95167e31a56879be5412662b2d632d4b1b80a926145f4a7260f2bf16c66c0a3  marathon-carrier-boot-check.service
+c93f27fd6cbad24f6c1b888242c31b7ca7f427ac53dd762e7150e71b563cd293ec6708a7fbc5fd2fa952d3db4b607823950074f59e5a6237828fb9f31f167c4e  marathon-carrier-boot-bless
+e550874e183ac67d5c9dd5220e393ca73bdcda7cae2899139f85455b5451953cfa2efabae7170ff1a5c5c1801648af88479d3ca5d8300d239bcdd354fb1a5193  marathon-carrier-boot-bless.service
+"

@@ -1,0 +1,41 @@
+# What a MediaTek Dimensity 7100 (MT6858) phone runs above its kernel for
+# CONNSYS: the factory NVRAM copy, Wi-Fi power, the Bluetooth HCI and the
+# GNSS data link. The
+# drivers are linux-mt6858's mt6858-connsys-modules; the firmware is the
+# board's (jp2601-connsys-firmware).
+pkgname=mt6858-platform
+pkgver=1.0.0
+pkgrel=3
+pkgdesc="MediaTek MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) services"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0"
+options="!check"
+depends="e2fsprogs-extra bluez-btmgmt wpa_supplicant wpa_supplicant-systemd mt6858-connsys-modules
+ marathon-gnssd"
+source="mt6858-connsys-nvram mt6858-connsys-nvram.service mt6858-wifi.service
+ mt6858-wifi-on mt6858-bluetooth.service mt6858-bt-address mt6858-gnss.service
+ 50-mt6858-wpa_supplicant.conf 50-mt6858-gnssd.conf"
+
+package() {
+	install -Dm755 "$srcdir/mt6858-connsys-nvram" "$pkgdir/usr/libexec/marathon/mt6858-connsys-nvram"
+	install -Dm755 "$srcdir/mt6858-wifi-on" "$pkgdir/usr/libexec/marathon/mt6858-wifi-on"
+	install -Dm755 "$srcdir/mt6858-bt-address" "$pkgdir/usr/libexec/marathon/mt6858-bt-address"
+	local unit
+	for unit in mt6858-connsys-nvram mt6858-wifi mt6858-bluetooth mt6858-gnss; do
+		install -Dm644 "$srcdir/$unit.service" "$pkgdir/usr/lib/systemd/system/$unit.service"
+	done
+	# NetworkManager reaches wpa_supplicant over D-Bus (-u); wpa_cli needs
+	# the control socket.
+	install -Dm644 "$srcdir/50-mt6858-wpa_supplicant.conf" \
+		"$pkgdir/usr/lib/systemd/system/wpa_supplicant.service.d/50-mt6858.conf"
+	install -Dm644 "$srcdir/50-mt6858-gnssd.conf" \
+		"$pkgdir/usr/lib/systemd/system/marathon-gnssd.service.d/50-mt6858.conf"
+
+	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants" \
+		"$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
+	for unit in mt6858-connsys-nvram mt6858-wifi mt6858-bluetooth mt6858-gnss; do
+		ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
+	done
+	ln -s ../mt6858-bluetooth.service "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants/mt6858-bluetooth.service"
+}

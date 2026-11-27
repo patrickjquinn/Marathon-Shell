@@ -1,0 +1,22 @@
+[Unit]
+Description=MT6858 Wi-Fi (gen4m over conninfra)
+Wants=mt6858-connsys-nvram.service
+# After the boot proper: a CONNSYS power-up that never returns must not
+# hold multi-user.target. NetworkManager takes wlan0 when it appears.
+After=multi-user.target mt6858-connsys-nvram.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# CONNSYS pre-calibration, which the first power-on and hci0 both wait
+# for, runs once the Bluetooth and Wi-Fi drivers have both registered.
+ExecStartPre=/usr/sbin/modprobe -a bt_drv_6858 wlan_drv_gen4m_6858 wmt_chrdev_wifi_connac2
+ExecStart=/usr/libexec/marathon/mt6858-wifi-on
+# A power-off the driver never finishes leaves the process unkillable;
+# give up on it rather than on systemd's job queue.
+ExecStop=-/usr/bin/timeout -k 2 10 /bin/sh -c 'echo 0 > /dev/wmtWifi'
+TimeoutStartSec=90
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

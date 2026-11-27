@@ -1,0 +1,50 @@
+From eeda63c066a670f7c623b8960d9ade88c7400694 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:23:11 +0000
+Subject: [PATCH 221/237] ASoC: mediatek: mt6858-mt6369: Set the MTKAIF
+ protocol only on the MT6369
+
+With no codec on the ADDA link, the link runs on the dummy DAI, and
+the init passed the dummy component to mt6369_set_mtkaif_protocol(),
+which took its missing driver data for the MT6369's and oopsed.
+---
+ sound/soc/mediatek/mt6858/mt6858-mt6369.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/mediatek/mt6858/mt6858-mt6369.c b/sound/soc/mediatek/mt6858/mt6858-mt6369.c
+index 31e6cb20b..4fe08d7bd 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-mt6369.c
++++ b/sound/soc/mediatek/mt6858/mt6858-mt6369.c
+@@ -51,12 +51,13 @@ static int mt6858_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+ 	return 0;
+ }
+ 
++#define MT6369_CODEC_DAI "mt6369-snd-codec-aif1"
++
+ static int mt6858_mt6369_init(struct snd_soc_pcm_runtime *rtd)
+ {
+ 	struct snd_soc_component *cmpnt_afe =
+ 		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
+-	struct snd_soc_component *cmpnt_codec =
+-		snd_soc_rtd_to_codec(rtd, 0)->component;
++	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
+ 	struct mtk_base_afe *afe;
+ 	struct mt6858_afe_private *afe_priv;
+ 
+@@ -67,8 +68,12 @@ static int mt6858_mt6369_init(struct snd_soc_pcm_runtime *rtd)
+ 	afe_priv = afe->platform_priv;
+ 
+ 	/* MTKAIF protocol 2, without the phase calibration for now */
++	/* Without the codec the link runs on the dummy DAI */
++	if (strcmp(codec_dai->name, MT6369_CODEC_DAI))
++		return 0;
++
+ 	afe_priv->mtkaif_protocol = MTKAIF_PROTOCOL_2;
+-	mt6369_set_mtkaif_protocol(cmpnt_codec, MT6369_MTKAIF_PROTOCOL_2);
++	mt6369_set_mtkaif_protocol(codec_dai->component, MT6369_MTKAIF_PROTOCOL_2);
+ 
+ 	return 0;
+ }
+-- 
+2.55.0
+

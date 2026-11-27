@@ -1,0 +1,48 @@
+From 33f681aa8328cbf4c4ab8396ee1a70deb36689da Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:45:28 +0000
+Subject: [PATCH 185/214] rust: bindgen: Keep the alignment of an empty
+ sched_statistics
+
+Without CONFIG_SCHEDSTATS, struct sched_statistics has no members but is
+____cacheline_aligned. bindgen 0.73 emits it as an empty #[repr(C)]
+struct and drops the alignment, so rustc lays out task_struct with
+`stats` at 792 where C has it at 832 (arm64, 64-byte lines), and every
+later field is 40 bytes early in Rust.
+
+Rust binder reads current->mm through these bindings in
+ShrinkablePageRange::new(). On the Jolla Phone it reads
+pushable_tasks.node_list.next instead, an empty list head that points to
+itself, and mmgrab() increments it. The second binder device a process
+opens then grabs a misaligned "mm" and oopses in rust_helper_mmgrab, and
+every open before that corrupts the task's pushable list. Android opens
+binder and hwbinder in one process, so it never boots.
+
+Mark the type opaque: bindgen then emits a zero-sized blob with
+#[repr(align(64))]. With bindgen's layout tests compiled, the bindings
+had exactly two mismatches before (sched_statistics' alignment and
+task_struct::stats) and none after.
+---
+ rust/bindgen_parameters | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/rust/bindgen_parameters b/rust/bindgen_parameters
+index 5bab3cf06..2b876fdf4 100644
+--- a/rust/bindgen_parameters
++++ b/rust/bindgen_parameters
+@@ -26,6 +26,12 @@
+ # warning. We don't need to peek into it anyway.
+ --opaque-type spinlock
+ 
++# Without CONFIG_SCHEDSTATS, `struct sched_statistics` is an empty
++# cacheline-aligned struct. bindgen drops the alignment of an empty struct, so
++# every `task_struct` field after `stats` (mm, pid, cred, ...) sits 40 bytes
++# early on arm64. An opaque blob keeps the alignment.
++--opaque-type sched_statistics
++
+ # enums that appear in indirect function calls should specify a cfi type
+ --newtype-enum fwctl_rpc_scope
+ --with-attribute-custom-enum=fwctl_rpc_scope='#[cfi_encoding="15fwctl_rpc_scope"]'
+-- 
+2.55.0
+

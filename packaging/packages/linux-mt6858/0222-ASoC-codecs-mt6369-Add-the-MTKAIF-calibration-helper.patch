@@ -1,0 +1,185 @@
+From 60e12e3338e31745d70d63fa11ab804446168f57 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:56:12 +0000
+Subject: [PATCH 222/237] ASoC: codecs: mt6369: Add the MTKAIF calibration
+ helpers
+
+On the MT6858 the codec's miso data is clocked back by the AP's mosi
+clock (MTKAIF protocol 2 CLK_P2), so the AP has to find each miso pad's
+delay before capture. It does that with the codec looping its mosi sync
+back on the miso pads while it steps the codec's phase.
+
+These helpers follow the MT6359 ones: they power the codec's clocks for
+the test, switch the loopback, and set the phases. The MISO3 loopback
+bit is in AUDIO_DIG_CFG2, which MediaTek's driver sets in CFG1 instead.
+
+Tested on the Jolla Phone (2026): the calibration settles at phase 1
+with 3 cycles on both miso pads.
+---
+ sound/soc/codecs/mt6369.c | 92 +++++++++++++++++++++++++++++++++++++++
+ sound/soc/codecs/mt6369.h | 12 +++++
+ 2 files changed, 104 insertions(+)
+
+diff --git a/sound/soc/codecs/mt6369.c b/sound/soc/codecs/mt6369.c
+index 99932d671..0f50afd23 100644
+--- a/sound/soc/codecs/mt6369.c
++++ b/sound/soc/codecs/mt6369.c
+@@ -9,6 +9,7 @@
+ // This first version covers the uplink: the three analog microphone
+ // inputs, both preamplifiers and ADCs and the MTKAIF link to the AFE.
+ 
++#include <linux/bitfield.h>
+ #include <linux/clk.h>
+ #include <linux/delay.h>
+ #include <linux/module.h>
+@@ -78,6 +79,21 @@ static void mt6369_reset_capture_gpio(struct mt6369_priv *priv)
+ 	regmap_update_bits(priv->regmap, MT6369_GPIO_DIR1, 0x3 << 6, 0x0);
+ }
+ 
++static void mt6369_set_playback_gpio(struct mt6369_priv *priv)
++{
++	unsigned int reg_value;
++
++	regmap_read(priv->regmap, MT6369_GPIO_MODE4, &reg_value);
++	if ((reg_value & 0x38) != 0x8) {
++		regmap_write(priv->regmap, MT6369_GPIO_MODE4_CLR, 0x38);
++		regmap_write(priv->regmap, MT6369_GPIO_MODE4_SET, 0x8);
++	}
++	regmap_write(priv->regmap, MT6369_GPIO_MODE5_CLR, 0x3f);
++	regmap_write(priv->regmap, MT6369_GPIO_MODE5_SET, 0x9);
++	regmap_write(priv->regmap, MT6369_GPIO_MODE6_CLR, 0x7);
++	regmap_write(priv->regmap, MT6369_GPIO_MODE6_SET, 0x1);
++}
++
+ static void mt6369_reset_playback_gpio(struct mt6369_priv *priv)
+ {
+ 	/* the mosi data pads are boot straps; keep clk/sync for protocol 2 */
+@@ -133,6 +149,82 @@ void mt6369_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
+ }
+ EXPORT_SYMBOL_GPL(mt6369_set_mtkaif_protocol);
+ 
++static const unsigned int mt6369_dig_cfg[] = {
++	MT6369_AUDIO_DIG_CFG0, MT6369_AUDIO_DIG_CFG1, MT6369_AUDIO_DIG_CFG2,
++};
++
++static void mt6369_set_miso_loopback(struct mt6369_priv *priv, bool enable)
++{
++	for (int i = 0; i < ARRAY_SIZE(mt6369_dig_cfg); i++)
++		regmap_update_bits(priv->regmap, mt6369_dig_cfg[i],
++				   RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK,
++				   enable ? RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK : 0);
++}
++
++/*
++ * The AP measures the miso delays against its own clock with the codec
++ * looping its mosi sync back on every miso pad.
++ */
++int mt6369_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
++{
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++	int ret;
++
++	ret = clk_prepare_enable(priv->clk_xo);
++	if (ret)
++		return ret;
++
++	mt6369_set_playback_gpio(priv);
++	mt6369_set_capture_gpio(priv);
++	mt6369_mtkaif_tx_enable(priv);
++
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON24,
++			   BIT(RG_AUDGLB_PWRDN_VA28_SFT), 0);
++	regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON12,
++			   BIT(RG_CLKSQ_EN_SFT), BIT(RG_CLKSQ_EN_SFT));
++	regmap_update_bits(priv->regmap, MT6369_AUD_TOP_CKPDN_CON0, 0x66, 0);
++
++	mt6369_set_miso_loopback(priv, true);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mt6369_mtkaif_calibration_enable);
++
++void mt6369_mtkaif_calibration_disable(struct snd_soc_component *cmpnt)
++{
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++
++	mt6369_set_miso_loopback(priv, false);
++
++	regmap_update_bits(priv->regmap, MT6369_AUD_TOP_CKPDN_CON0, 0x66, 0x66);
++	regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON12,
++			   BIT(RG_CLKSQ_EN_SFT), 0);
++	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON24,
++			   BIT(RG_AUDGLB_PWRDN_VA28_SFT),
++			   BIT(RG_AUDGLB_PWRDN_VA28_SFT));
++
++	mt6369_mtkaif_tx_disable(priv);
++	mt6369_reset_playback_gpio(priv);
++	mt6369_reset_capture_gpio(priv);
++
++	clk_disable_unprepare(priv->clk_xo);
++}
++EXPORT_SYMBOL_GPL(mt6369_mtkaif_calibration_disable);
++
++void mt6369_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
++					 int phase_1, int phase_2, int phase_3)
++{
++	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
++	int phase[] = { phase_1, phase_2, phase_3 };
++
++	for (int i = 0; i < ARRAY_SIZE(mt6369_dig_cfg); i++)
++		regmap_update_bits(priv->regmap, mt6369_dig_cfg[i],
++				   RG_AUD_PAD_TOP_PHASE_MODE_MASK,
++				   FIELD_PREP(RG_AUD_PAD_TOP_PHASE_MODE_MASK,
++					      phase[i]));
++}
++EXPORT_SYMBOL_GPL(mt6369_set_mtkaif_calibration_phase);
++
+ static int mt_clk_buf_event(struct snd_soc_dapm_widget *w,
+ 			    struct snd_kcontrol *kcontrol, int event)
+ {
+diff --git a/sound/soc/codecs/mt6369.h b/sound/soc/codecs/mt6369.h
+index f6dd2a596..68f3aad68 100644
+--- a/sound/soc/codecs/mt6369.h
++++ b/sound/soc/codecs/mt6369.h
+@@ -21,6 +21,8 @@
+ #define MT6369_GPIO_MODE4_CLR                    0xc9
+ #define MT6369_GPIO_MODE5_SET                    0xcb
+ #define MT6369_GPIO_MODE5_CLR                    0xcc
++#define MT6369_GPIO_MODE6_SET                    0xce
++#define MT6369_GPIO_MODE6_CLR                    0xcf
+ #define MT6369_GPIO_MODE7_SET                    0xd1
+ #define MT6369_GPIO_MODE7_CLR                    0xd2
+ #define MT6369_AUD_TOP_CKPDN_CON0                0x230c
+@@ -33,6 +35,9 @@
+ #define MT6369_AFE_DCCLK_CFG0                    0x23cd
+ #define MT6369_AFE_DCCLK_CFG1                    0x23ce
+ #define MT6369_AFE_DCCLK_CFG2                    0x23cf
++#define MT6369_AUDIO_DIG_CFG0                    0x23d0
++#define MT6369_AUDIO_DIG_CFG1                    0x23d1
++#define MT6369_AUDIO_DIG_CFG2                    0x23d2
+ #define MT6369_AFE_AUD_PAD_TOP                   0x23d3
+ #define MT6369_AFE_MTKAIF_MUX_CFG0               0x23de
+ #define MT6369_AUDENC_ANA_CON0                   0x2508
+@@ -110,6 +115,9 @@
+ #define RG_VA28REFGEN_EN_VA28_SFT                5
+ #define RG_VA28REFGEN_EN_VA28_MASK_SFT           (0x1 << 5)
+ #define PDN_ADDA6_ADC_CTL_SFT                    4
++/* AUDIO_DIG_CFG0..2: one per miso pad */
++#define RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK         BIT(7)
++#define RG_AUD_PAD_TOP_PHASE_MODE_MASK           GENMASK(6, 0)
+ #define PDN_AFE_DL_PREDIST_CTL_SFT               0
+ 
+ enum {
+@@ -200,5 +208,9 @@ struct snd_soc_component;
+ 
+ void mt6369_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
+ 				int mtkaif_protocol);
++int mt6369_mtkaif_calibration_enable(struct snd_soc_component *cmpnt);
++void mt6369_mtkaif_calibration_disable(struct snd_soc_component *cmpnt);
++void mt6369_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
++					 int phase_1, int phase_2, int phase_3);
+ 
+ #endif /* __MT6369_H__ */
+-- 
+2.55.0
+

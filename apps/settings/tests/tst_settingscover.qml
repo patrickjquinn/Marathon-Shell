@@ -42,6 +42,12 @@ TestCase {
         compare(findChild(cover, "coverBattery").text, "12%");
     }
 
+    function test_noWifiAdapterNoWifiLine() {
+        Network.wifiAvailable = false;
+        const cover = createTemporaryObject(coverComponent, testCase);
+        verify(!findChild(cover, "coverWifi").visible);
+    }
+
     function test_actions() {
         const cover = createTemporaryObject(coverComponent, testCase);
         const wifi = signalSpy.createObject(testCase, {

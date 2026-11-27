@@ -130,6 +130,9 @@ Item {
             compare(area.text, "a\nb")
             compare(root.areaEnterCount, 1)
             verify(area._editor.lineCount >= 2)
+            keyClick(Qt.Key_Return, Qt.ShiftModifier)
+            compare(area.text, "a\nb\n")
+            compare(root.areaEnterCount, 1)
         }
 
         function test_clipboard_roundtrip() {
@@ -140,6 +143,145 @@ Item {
             field.text = ""
             field.paste()
             compare(field.text, "copy me")
+        }
+
+        // A press held still, as a person holds a word.
+        function longPress(item, x, y) {
+            mousePress(item, x, y)
+            wait(1000)
+            mouseRelease(item, x, y)
+        }
+
+        // Within the first line of text.
+        readonly property real textY: Theme.paddingMedium + 5
+
+        function menuOf(item) {
+            verify(item._editMenu !== null)
+            return item._editMenu
+        }
+
+        // The menu lays its actions out before the next frame.
+        function tap(menu, name) {
+            const action = findChild(menu, name)
+            tryVerify(() => !isPolishScheduled(action.parent))
+            mouseClick(action)
+        }
+
+        function cleanup() {
+            for (const item of [field, password, area]) {
+                item.text = ""
+                if (item._editMenu)
+                    item._editMenu.close()
+            }
+        }
+
+        function shown(menu, name) {
+            const action = findChild(menu, name)
+            return menu.visible && action.visible
+        }
+
+        function test_long_press_selects_a_word_and_copies_only_on_copy() {
+            field.focus = false
+            field.text = "hello world"
+            Clipboard.text = "before"
+            longPress(field, field.positionToRectangle(8).x, textY)
+            verify(field._editor.activeFocus)
+            compare(field.selectedText, "world")
+            compare(Clipboard.text, "before")
+            const menu = menuOf(field)
+            verify(shown(menu, "selectAll"))
+            verify(shown(menu, "cut"))
+            verify(shown(menu, "copy"))
+            verify(shown(menu, "paste"))
+            tap(menu, "copy")
+            compare(Clipboard.text, "world")
+            verify(!menu.visible)
+            compare(field.text, "hello world")
+        }
+
+        function test_long_press_in_a_focused_field() {
+            field.text = "hello world"
+            field.forceActiveFocus()
+            field.cursorPosition = 0
+            longPress(field, field.positionToRectangle(1).x, textY)
+            compare(field.selectedText, "hello")
+            const menu = menuOf(field)
+            verify(menu.visible)
+            tap(menu, "cut")
+            compare(Clipboard.text, "hello")
+            compare(field.text, " world")
+            verify(!menu.visible)
+        }
+
+        function test_select_all_then_paste_over_it() {
+            field.text = "old text"
+            field.focus = false
+            Clipboard.text = "new"
+            longPress(field, field.positionToRectangle(1).x, textY)
+            const menu = menuOf(field)
+            tap(menu, "selectAll")
+            compare(field.selectedText, "old text")
+            verify(menu.visible)
+            verify(!shown(menu, "selectAll"))
+            tap(menu, "paste")
+            compare(field.text, "new")
+            verify(field._editor.activeFocus)
+        }
+
+        function test_empty_field_offers_paste() {
+            field.text = ""
+            field.forceActiveFocus()
+            Clipboard.text = "pasted"
+            longPress(field, field.width / 2, textY)
+            const menu = menuOf(field)
+            verify(shown(menu, "paste"))
+            verify(!shown(menu, "copy"))
+            verify(!shown(menu, "cut"))
+            verify(!shown(menu, "selectAll"))
+            tap(menu, "paste")
+            compare(field.text, "pasted")
+        }
+
+        function test_password_offers_paste_only() {
+            for (const hidden of [true, false]) {
+                password._usePasswordEchoMode = hidden
+                password.text = "secret"
+                password.focus = false
+                Clipboard.text = "hunter2"
+                longPress(password, password.positionToRectangle(2).x, textY)
+                const menu = menuOf(password)
+                verify(shown(menu, "paste"))
+                verify(!shown(menu, "copy"))
+                verify(!shown(menu, "cut"))
+                verify(!shown(menu, "selectAll"))
+                tap(menu, "paste")
+                verify(password.text.indexOf("hunter2") >= 0)
+                compare(Clipboard.text, "hunter2")
+            }
+            password._usePasswordEchoMode = true
+        }
+
+        function test_menu_closes_on_a_press_elsewhere_and_on_typing() {
+            field.text = "hello world"
+            field.focus = false
+            longPress(field, field.positionToRectangle(1).x, textY)
+            const menu = menuOf(field)
+            verify(menu.visible)
+            mouseClick(area, area.width / 2, Theme.paddingMedium + 5)
+            verify(!menu.visible)
+            field.forceActiveFocus()
+            longPress(field, field.positionToRectangle(1).x, textY)
+            verify(menu.visible)
+            keyClick(Qt.Key_X)
+            verify(!menu.visible)
+        }
+
+        function test_text_area_long_press() {
+            area.text = "first line"
+            area.focus = false
+            longPress(area, area.positionToRectangle(1).x, textY)
+            compare(area.selectedText, "first")
+            verify(shown(menuOf(area), "copy"))
         }
     }
 }

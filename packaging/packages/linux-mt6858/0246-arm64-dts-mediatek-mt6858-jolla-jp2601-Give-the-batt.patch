@@ -1,0 +1,28 @@
+From 7233f921250b4cc4b3a946d706317eb7a14d2ee2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 06:49:27 +0000
+Subject: [PATCH 246/250] arm64: dts: mediatek: mt6858-jolla-jp2601: Give the
+ battery its operating range
+
+The stock charger stops charging below -11 C and above 55 C; give the
+battery that range, so that its health reports too cold or too hot.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 84f5408e8..56692e1ec 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -45,6 +45,8 @@ battery: battery {
+ 		constant-charge-voltage-max-microvolt = <4340000>;
+ 		constant-charge-current-max-microamp = <2000000>;
+ 		factory-internal-resistance-micro-ohms = <110000>;
++		/* The stock charger's temperature limits */
++		operating-range-celsius = <(-11) 55>;
+ 		ocv-capacity-celsius = <25>;
+ 		ocv-capacity-table-0 = <4516000 100>,
+ 				       <4444000 95>,
+-- 
+2.55.0
+

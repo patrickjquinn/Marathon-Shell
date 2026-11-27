@@ -1,0 +1,103 @@
+From 1dd9410d86b0e6f76700dedeb3ad1f2de72a731c Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 06:46:51 +0000
+Subject: [PATCH 241/250] clk: mediatek: mt6685: Add XO_BBCK4
+
+XO_BBCK4 is the 26 MHz reference of the JP2601's NFC controller. Its
+control register follows XO_BBCK5's, one byte below it, and the bootloader
+leaves it on its EN_BB line like XO_BBCK5, so register it the same way.
+
+The register map comes from a read of the PMIC: the 13 buffers' CW0
+registers run from 0x79a (XO_BBCK1) to 0x7a6 (XO_CONCK2).
+---
+ drivers/clk/mediatek/clk-mt6685.c | 46 ++++++++++++++++++++-----------
+ 1 file changed, 30 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6685.c b/drivers/clk/mediatek/clk-mt6685.c
+index 7142303e9..7183b457e 100644
+--- a/drivers/clk/mediatek/clk-mt6685.c
++++ b/drivers/clk/mediatek/clk-mt6685.c
+@@ -23,6 +23,7 @@
+ 
+ #include <dt-bindings/clock/mediatek,mt6685-clkbuf.h>
+ 
++#define MT6685_DCXO_EXTBUF4_CW0		0x79d
+ #define MT6685_DCXO_EXTBUF5_CW0		0x79e
+ #define MT6685_XO_MODE_MASK		GENMASK(1, 0)
+ #define MT6685_XO_MODE_EN_M		0
+@@ -53,9 +54,9 @@ static int mt6685_xo_prepare(struct clk_hw *hw)
+ 		return ret;
+ 
+ 	/*
+-	 * The bootloader leaves XO_BBCK5 on its EN_BB line, which nothing
+-	 * raises for it, so EN_M alone does not start it: take it under
+-	 * register control while prepared.
++	 * The bootloader leaves the buffers on their EN_BB lines, which
++	 * nothing raises for them, so EN_M alone does not start one: take
++	 * it under register control while prepared.
+ 	 */
+ 	xo->hw_mode = FIELD_GET(MT6685_XO_MODE_MASK, val);
+ 	ret = regmap_update_bits(xo->regmap, xo->reg,
+@@ -105,11 +106,19 @@ static const struct clk_ops mt6685_xo_ops = {
+ 	.is_prepared = mt6685_xo_is_prepared,
+ };
+ 
++static const struct {
++	unsigned int id;
++	unsigned int reg;
++	const char *name;
++} mt6685_xos[] = {
++	{ MT6685_CLK_XO_BBCK4, MT6685_DCXO_EXTBUF4_CW0, "mt6685_xo_bbck4" },
++	{ MT6685_CLK_XO_BBCK5, MT6685_DCXO_EXTBUF5_CW0, "mt6685_xo_bbck5" },
++};
++
+ static int mt6685_clkbuf_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 	struct clk_hw_onecell_data *data;
+-	struct clk_init_data init = {};
+ 	struct mt6685_xo *xo;
+ 	struct regmap *regmap;
+ 	int ret;
+@@ -127,21 +136,26 @@ static int mt6685_clkbuf_probe(struct platform_device *pdev)
+ 	for (int i = 0; i < MT6685_NUM_CLKS; i++)
+ 		data->hws[i] = ERR_PTR(-ENOENT);
+ 
+-	xo = devm_kzalloc(dev, sizeof(*xo), GFP_KERNEL);
+-	if (!xo)
+-		return -ENOMEM;
++	for (int i = 0; i < ARRAY_SIZE(mt6685_xos); i++) {
++		struct clk_init_data init = {
++			.name = mt6685_xos[i].name,
++			.ops = &mt6685_xo_ops,
++		};
+ 
+-	init.name = "mt6685_xo_bbck5";
+-	init.ops = &mt6685_xo_ops;
+-	xo->hw.init = &init;
+-	xo->regmap = regmap;
+-	xo->reg = MT6685_DCXO_EXTBUF5_CW0;
++		xo = devm_kzalloc(dev, sizeof(*xo), GFP_KERNEL);
++		if (!xo)
++			return -ENOMEM;
+ 
+-	ret = devm_clk_hw_register(dev, &xo->hw);
+-	if (ret)
+-		return ret;
++		xo->hw.init = &init;
++		xo->regmap = regmap;
++		xo->reg = mt6685_xos[i].reg;
++
++		ret = devm_clk_hw_register(dev, &xo->hw);
++		if (ret)
++			return ret;
+ 
+-	data->hws[MT6685_CLK_XO_BBCK5] = &xo->hw;
++		data->hws[mt6685_xos[i].id] = &xo->hw;
++	}
+ 
+ 	return devm_of_clk_add_hw_provider(dev, of_clk_hw_onecell_get, data);
+ }
+-- 
+2.55.0
+

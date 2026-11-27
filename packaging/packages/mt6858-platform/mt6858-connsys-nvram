@@ -1,0 +1,14 @@
+#!/bin/sh
+# Copy the factory Wi-Fi and Bluetooth NVRAM (calibration, MAC and BD
+# address) out of the nvdata partition, read-only through debugfs. Wi-Fi
+# power-on hands its copy to the driver (mt6858-wifi-on).
+set -eu
+dev=/dev/disk/by-partlabel/nvdata
+out=/var/lib/mt6858-connsys
+mkdir -p "$out"
+for f in WIFI BT_Addr; do
+	debugfs -R "dump /APCFG/APRDEB/$f $out/$f.new" "$dev" 2>/dev/null
+	[ -s "$out/$f.new" ] || { rm -f "$out/$f.new"; echo "mt6858-connsys-nvram: no $f in nvdata" >&2; exit 1; }
+	chmod 644 "$out/$f.new"
+	mv "$out/$f.new" "$out/$f"
+done

@@ -1,0 +1,29 @@
+From 774124ecac54bb3ecdbe768316ce413b104d6e66 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 18:00:03 +0000
+Subject: [PATCH 006/214] dt-bindings: watchdog: mediatek,mtk-wdt: Add MT6858
+
+The MT6858 TOPRGU at 0x1c00a000 is compatible with the MT6589 watchdog,
+which is how the stock device tree describes it. Add it to the list that
+falls back to mediatek,mt6589-wdt.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml b/Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml
+index f9b725592..7d8a9d3d1 100644
+--- a/Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml
++++ b/Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml
+@@ -38,6 +38,7 @@ properties:
+               - mediatek,mt6572-wdt
+               - mediatek,mt6582-wdt
+               - mediatek,mt6797-wdt
++              - mediatek,mt6858-wdt
+               - mediatek,mt7622-wdt
+               - mediatek,mt7623-wdt
+               - mediatek,mt7629-wdt
+-- 
+2.55.0
+

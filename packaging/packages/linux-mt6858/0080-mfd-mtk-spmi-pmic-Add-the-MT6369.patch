@@ -1,0 +1,42 @@
+From 4b7888fa67cd2cfe02db484412e48707dd55f511 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:26:34 +0000
+Subject: [PATCH 080/214] mfd: mtk-spmi-pmic: Add the MT6369
+
+The MT6369 reads 0x69 from the chip ID register the other SPMI PMICs
+use. On the MT6858 it sits on SPMI-P, whose RCS requests share SPMI-M's
+interrupt, so describe it without interrupt groups: the driver checks
+the chip ID and populates the sub-devices, nothing else.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index 8ce15dd18..e60514804 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -404,6 +404,12 @@ static const struct mtk_spmi_pmic_variant mt6373_variant = {
+ 	.chip_id = 0x73,
+ };
+ 
++/* Its interrupts are not wired up: it shares SPMI-P's absent RCS interrupt */
++static const struct mtk_spmi_pmic_variant mt6369_variant = {
++	.chip_id_reg = MTK_SPMI_PMIC_REG_CHIP_ID,
++	.chip_id = 0x69,
++};
++
+ static const struct regmap_config mtk_spmi_regmap_config = {
+ 	.reg_bits	= 16,
+ 	.val_bits	= MTK_SPMI_PMIC_VAL_BITS,
+@@ -449,6 +455,8 @@ static int mtk_spmi_pmic_probe(struct spmi_device *sdev)
+ 
+ static const struct of_device_id mtk_pmic_spmi_id_table[] = {
+ 	{ .compatible = "mediatek,mt6363", .data = &mt6363_variant },
++	{ .compatible = "mediatek,mt6369", .data = &mt6369_variant },
++
+ 	{ .compatible = "mediatek,mt6373", .data = &mt6373_variant },
+ 	{ /* sentinel */ }
+ };
+-- 
+2.55.0
+

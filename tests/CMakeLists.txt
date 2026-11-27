@@ -106,6 +106,7 @@ if(Python3_FOUND)
     add_test(NAME Q25_RootInstall COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/q25/test_q25_root_install.py)
     add_test(NAME Carrier_Hook COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/carrier/test_carrier_hook.py)
     add_test(NAME Carrier_UserdataImage COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/carrier/test_carrier_userdata_image.py)
+    add_test(NAME Carrier_RootInstall COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/carrier/test_carrier_root_install.py)
     add_test(NAME Q25_GnssFrames COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/devices/zinwa/q25/gnss/test_mtk_gnss_frames.py)
     # Alpine has no systemd-tmpfiles; CI runs this on its Ubuntu host as well.
     find_program(SYSTEMD_TMPFILES_EXECUTABLE systemd-tmpfiles)

@@ -123,7 +123,10 @@ struct Fix {
 impl cxx_qt::Initialize for Location {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(8);
-        io::spawn(run(self.qt_thread(), rx));
+        let qt = self.qt_thread();
+        let (left, gone) = async_channel::bounded(16);
+        io::each_session_bus(move |session| follow_left(session, left.clone()));
+        io::each_system_bus(move |_| run(qt.clone(), rx.clone(), gone.clone()));
         self.as_mut().rust_mut().actor = Some(tx.clone());
         self.as_mut()
             .on_location_changed(|obj| ipc::signal("Location", "LocationChanged", (fix(&obj),)))
@@ -153,6 +156,7 @@ fn fix(location: &Location) -> State {
     ])
 }
 
+#[derive(Clone)]
 struct Location1 {
     qt: cxx_qt::CxxQtThread<Location>,
     actor: Sender<Ask>,
@@ -339,11 +343,29 @@ enum Event {
     GiveUp(u32),
 }
 
+/// The apps that leave the session bus, and with it their hold on the
+/// location.
+async fn follow_left(session: zbus::Connection, left: Sender<String>) {
+    let Ok(dbus) = DBusProxy::new(&session).await else {
+        return;
+    };
+    let Ok(mut changes) = dbus.receive_name_owner_changed().await else {
+        return;
+    };
+    while let Some(change) = changes.next().await {
+        let Ok(args) = change.args() else { continue };
+        let name = args.name().to_string();
+        if args.new_owner().is_none() && name.starts_with(':') {
+            left.try_send(name).ok();
+        }
+    }
+}
+
 #[allow(
     clippy::too_many_lines,
     reason = "the GeoClue connection and event-loop state belong to one actor task"
 )]
-async fn run(qt: Qt, asks: Receiver<Ask>) {
+async fn run(qt: Qt, asks: Receiver<Ask>, left: Receiver<String>) {
     let bus = match io::system_bus().await {
         Ok(bus) => bus,
         Err(e) => return log::warn("location", format_args!("no system bus: {e}")),
@@ -381,31 +403,13 @@ async fn run(qt: Qt, asks: Receiver<Ask>) {
             .boxed(),
         Err(_) => stream::empty().boxed(),
     };
-    let session = match io::session_bus().await {
-        Ok(session) => DBusProxy::new(&session).await.ok(),
-        Err(_) => None,
-    };
-    let left = match &session {
-        Some(session) => match session.receive_name_owner_changed().await {
-            Ok(s) => s
-                .filter_map(|s| {
-                    let args = s.args().ok()?;
-                    let name = args.name().to_string();
-                    (args.new_owner().is_none() && name.starts_with(':'))
-                        .then_some(Event::Left(name))
-                })
-                .boxed(),
-            Err(_) => stream::empty().boxed(),
-        },
-        None => stream::empty().boxed(),
-    };
     let (new_fixes, fixes) = async_channel::bounded(8);
     let (give_up, rounds_over) = async_channel::bounded(1);
     let events = stream::once(Event::Relocate)
         .chain(asks.map(Event::Ask))
         .chain(stream::once(Event::Closed))
         .or(owners)
-        .or(left)
+        .or(left.map(Event::Left))
         .or(fixes.map(Event::Updated))
         .or(Timer::interval(RELOCATE).map(|_| Event::Relocate))
         .or(rounds_over.map(Event::GiveUp));
@@ -429,12 +433,12 @@ async fn run(qt: Qt, asks: Receiver<Ask>) {
                 }
             }
             Event::Ask(Ask::Hold(name)) => {
-                let pid = match (&session, BusName::try_from(name.as_str())) {
-                    (Some(s), Ok(bus_name)) => {
-                        s.get_connection_unix_process_id(bus_name).await.ok()
-                    }
-                    _ => None,
-                };
+                let pid = async {
+                    let bus_name = BusName::try_from(name.as_str()).ok()?;
+                    let session = DBusProxy::new(&io::session_bus().await.ok()?).await.ok()?;
+                    session.get_connection_unix_process_id(bus_name).await.ok()
+                }
+                .await;
                 let app = pid.map_or_default(privacy::name);
                 if holders.insert(name, app).is_none() {
                     users(&qt, &holders);

@@ -1,0 +1,108 @@
+From 15f42bb14a9120a738f266992f12bcafda25502d Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 04:11:30 +0000
+Subject: [PATCH 032/214] mfd: mtk-spmi-pmic: Check the chip ID and mask the
+ interrupts at probe
+
+Read the chip ID register, which the variants already name, before
+touching the PMIC, and give up unless it reads back the expected chip.
+The first SPMI access may only wake a PMIC that the bootloader left
+asleep, so read it a second time if the first read fails.
+
+The bootloader can leave PMIC interrupts enabled and pending, which a
+level interrupt then raises again and again before any sub-device has
+asked for it. Like MediaTek's driver, mask every interrupt and clear
+its status before registering the interrupt domain.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 33 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index 320c2cc35..f1b0b3eb8 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -57,6 +57,7 @@ struct mtk_spmi_pmic_irq_grp {
+  *               if this is zero, it means that there is only one
+  *               group and the device has no irqgroup register
+  * @chip_id_reg: Chip ID Register
++ * @chip_id:     Expected value of the Chip ID Register
+  */
+ struct mtk_spmi_pmic_variant {
+ 	const struct mtk_spmi_pmic_irq_grp *pmic_irq;
+@@ -64,6 +65,7 @@ struct mtk_spmi_pmic_variant {
+ 	u8 con_reg_len;
+ 	u8 irq_grp_reg;
+ 	u8 chip_id_reg;
++	u8 chip_id;
+ };
+ 
+ /**
+@@ -314,7 +316,7 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ {
+ 	struct fwnode_handle *fwnode = of_fwnode_handle(dev->of_node);
+ 	struct mtk_spmi_pmic *pmic;
+-	int ret;
++	int i, j, ret;
+ 
+ 	pmic = devm_kzalloc(dev, sizeof(*pmic), GFP_KERNEL);
+ 	if (!pmic)
+@@ -328,6 +330,18 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ 	pmic->regmap = regmap;
+ 	pmic->variant = variant;
+ 
++	/* Start with every interrupt masked, and none left pending from boot */
++	for (i = 0; i < variant->num_groups; i++) {
++		const struct mtk_spmi_pmic_irq_grp *irq_grp = &variant->pmic_irq[i];
++
++		for (j = 0; j < irq_grp->num_int_regs; j++) {
++			ret = regmap_write(regmap, irq_grp->con_reg + variant->con_reg_len * j, 0);
++			ret = ret ?: regmap_write(regmap, irq_grp->sta_reg + j, 0xff);
++			if (ret)
++				return dev_err_probe(dev, ret, "Cannot mask interrupts\n");
++		}
++	}
++
+ 	pmic->dom = irq_domain_create_tree(fwnode, &mtk_spmi_pmic_irq_domain_ops, pmic);
+ 	if (!pmic->dom)
+ 		return dev_err_probe(dev, -ENOMEM, "Cannot create IRQ domain\n");
+@@ -373,6 +387,7 @@ static const struct mtk_spmi_pmic_variant mt6363_variant = {
+ 	.con_reg_len = 3,
+ 	.irq_grp_reg = MT6363_REG_TOP_INT_STATUS1,
+ 	.chip_id_reg = MTK_SPMI_PMIC_REG_CHIP_ID,
++	.chip_id = 0x63,
+ };
+ 
+ static const struct mtk_spmi_pmic_variant mt6373_variant = {
+@@ -381,6 +396,7 @@ static const struct mtk_spmi_pmic_variant mt6373_variant = {
+ 	.con_reg_len = 3,
+ 	.irq_grp_reg = MT6373_REG_TOP_INT_STATUS1,
+ 	.chip_id_reg = MTK_SPMI_PMIC_REG_CHIP_ID,
++	.chip_id = 0x73,
+ };
+ 
+ static const struct regmap_config mtk_spmi_regmap_config = {
+@@ -402,6 +418,21 @@ static int mtk_spmi_pmic_probe(struct spmi_device *sdev)
+ 		return PTR_ERR(regmap);
+ 
+ 	variant = (const struct mtk_spmi_pmic_variant *)device_get_match_data(dev);
++	if (variant && variant->chip_id_reg) {
++		unsigned int id;
++
++		/* The first access may only wake a PMIC the bootloader left asleep */
++		ret = regmap_read(regmap, variant->chip_id_reg, &id);
++		if (ret)
++			ret = regmap_read(regmap, variant->chip_id_reg, &id);
++		if (ret)
++			return dev_err_probe(dev, ret, "Cannot read the chip ID\n");
++		if (id != variant->chip_id)
++			return dev_err_probe(dev, -ENODEV, "Unexpected chip ID %#04x, not %#04x\n",
++					     id, variant->chip_id);
++		dev_info(dev, "chip ID %#04x\n", id);
++	}
++
+ 	if (variant && variant->num_groups) {
+ 		ret = mtk_spmi_pmic_irq_init(dev, regmap, variant);
+ 		if (ret)
+-- 
+2.55.0
+

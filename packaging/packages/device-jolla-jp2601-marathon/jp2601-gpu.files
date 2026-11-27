@@ -1,0 +1,2 @@
+# Panthor is built in and loads its CSF firmware at probe, from the initramfs.
+/lib/firmware/arm/mali/arch10.8/mali_csffw.bin.zst

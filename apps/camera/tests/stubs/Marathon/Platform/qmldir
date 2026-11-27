@@ -1,2 +1,3 @@
 module Marathon.Platform
 singleton Lifecycle 1.0 Lifecycle.qml
+singleton Power 1.0 Power.qml

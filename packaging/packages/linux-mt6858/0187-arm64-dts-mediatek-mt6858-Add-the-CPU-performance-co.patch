@@ -1,0 +1,106 @@
+From f8591ec8d827a55e81bd0ac8f02e06e129725e74 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:37:37 +0000
+Subject: [PATCH 187/214] arm64: dts: mediatek: mt6858: Add the CPU performance
+ controller
+
+With no cpufreq driver, the clusters stay at whatever operating points
+LK left them on: the A55s at their top 2.0 GHz and the A78s at 1.15 GHz,
+loaded or idle.
+
+MCUPM runs DVFS on this SoC and has the same CSRAM interface as on the
+MT8192/MT8195: a 0x120-byte block per cluster at 0x0c57c010 and
+0x0c57c130, as in the stock device tree. On the phone, both blocks hold
+a populated table (A55 650-2000 MHz, A78 650-2400 MHz) and the hardware
+reports itself enabled (HW_STATE 3). Writing PERF_STATE to the A55
+block's index 19 halved a pinned loop's speed, to the table's 1000 MHz,
+and writing index 0 restored it.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index d52dbfcae..464d2c38d 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -44,6 +44,7 @@ cpu0: cpu@0 {
+ 			compatible = "arm,cortex-a55";
+ 			reg = <0x000>;
+ 			enable-method = "psci";
++			performance-domains = <&performance 0>;
+ 			capacity-dmips-mhz = <346>;
+ 		};
+ 
+@@ -52,6 +53,7 @@ cpu1: cpu@100 {
+ 			compatible = "arm,cortex-a55";
+ 			reg = <0x100>;
+ 			enable-method = "psci";
++			performance-domains = <&performance 0>;
+ 			capacity-dmips-mhz = <346>;
+ 		};
+ 
+@@ -60,6 +62,7 @@ cpu2: cpu@200 {
+ 			compatible = "arm,cortex-a55";
+ 			reg = <0x200>;
+ 			enable-method = "psci";
++			performance-domains = <&performance 0>;
+ 			capacity-dmips-mhz = <346>;
+ 		};
+ 
+@@ -68,6 +71,7 @@ cpu3: cpu@300 {
+ 			compatible = "arm,cortex-a55";
+ 			reg = <0x300>;
+ 			enable-method = "psci";
++			performance-domains = <&performance 0>;
+ 			capacity-dmips-mhz = <346>;
+ 		};
+ 
+@@ -76,6 +80,7 @@ cpu4: cpu@400 {
+ 			compatible = "arm,cortex-a78";
+ 			reg = <0x400>;
+ 			enable-method = "psci";
++			performance-domains = <&performance 1>;
+ 			capacity-dmips-mhz = <1024>;
+ 		};
+ 
+@@ -84,6 +89,7 @@ cpu5: cpu@500 {
+ 			compatible = "arm,cortex-a78";
+ 			reg = <0x500>;
+ 			enable-method = "psci";
++			performance-domains = <&performance 1>;
+ 			capacity-dmips-mhz = <1024>;
+ 		};
+ 
+@@ -92,6 +98,7 @@ cpu6: cpu@600 {
+ 			compatible = "arm,cortex-a78";
+ 			reg = <0x600>;
+ 			enable-method = "psci";
++			performance-domains = <&performance 1>;
+ 			capacity-dmips-mhz = <1024>;
+ 		};
+ 
+@@ -100,6 +107,7 @@ cpu7: cpu@700 {
+ 			compatible = "arm,cortex-a78";
+ 			reg = <0x700>;
+ 			enable-method = "psci";
++			performance-domains = <&performance 1>;
+ 			capacity-dmips-mhz = <1024>;
+ 		};
+ 
+@@ -212,6 +220,13 @@ ppi_cluster1: interrupt-partition-1 {
+ 			};
+ 		};
+ 
++		/* MCUPM's DVFS interface, one register block per cluster */
++		performance: performance-controller@c57c010 {
++			compatible = "mediatek,cpufreq-hw";
++			reg = <0 0x0c57c010 0 0x120>, <0 0x0c57c130 0 0x120>;
++			#performance-domain-cells = <1>;
++		};
++
+ 		topckgen: syscon@10000000 {
+ 			compatible = "mediatek,mt6858-topckgen", "syscon";
+ 			reg = <0 0x10000000 0 0x1000>;
+-- 
+2.55.0
+

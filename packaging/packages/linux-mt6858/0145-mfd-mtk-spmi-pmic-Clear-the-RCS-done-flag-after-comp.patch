@@ -1,0 +1,41 @@
+From ef9b6c059c8a579491c6ff7ecb6d627a6060caa0 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:53:03 +0000
+Subject: [PATCH 145/214] mfd: mtk-spmi-pmic: Clear the RCS done flag after
+ completing at probe
+
+Writing RCS_IRQ_DONE at probe completes a request the bootloader left
+pending, but with none pending the flag stays set. The Jolla Phone's
+MT6363 then raises no further request: in boots where its key IRQs
+never fired, 0x41b read 0x01 from probe on and no request ever reached
+SPMI-M, although key presses latched in its PSC status; in the boot
+where they worked it read 0x00. A done written for a real request is
+cleared by the PMIC itself, so only probe needs this.
+
+Clear the flag again after setting it.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index eab1e7a76..2aa700741 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -342,8 +342,13 @@ static int mtk_spmi_pmic_irq_init(struct device *dev, struct regmap *regmap,
+ 		}
+ 	}
+ 
+-	/* Complete a request left pending at boot, or the PMIC sends no more */
++	/*
++	 * Complete a request left pending at boot, or the PMIC sends no more.
++	 * With none pending the done flag stays set and blocks the next one,
++	 * so clear it again.
++	 */
+ 	ret = regmap_write(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 1);
++	ret = ret ?: regmap_write(regmap, MTK_SPMI_PMIC_RCS_IRQ_DONE, 0);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Cannot complete the RCS request\n");
+ 
+-- 
+2.55.0
+

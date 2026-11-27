@@ -125,6 +125,22 @@ TestCase {
         tryCompare(doneSpy, "count", 1, 2000);
     }
 
+    function test_edgeCueShowsUntilThePeekOpens() {
+        const cue = findChild(hub, "oobeHubEdgeCue");
+        verify(cue.visible);
+        peek().showIcons();
+        tryVerify(() => !cue.visible);
+    }
+
+    function test_edgeCueHoldsStillUnderReduceMotion() {
+        MMotion.reduceMotion = true;
+        enter();
+        const cue = findChild(hub, "oobeHubEdgeCue");
+        wait(300);
+        compare(cue.reveal, 1);
+        verify(cue.visible);
+    }
+
     function test_idleStartsTheDemo() {
         verify(!demo().running);
         tryVerify(() => demo().running, 10000);

@@ -27,6 +27,7 @@
 #include <functional>
 
 #include "src/wayland/hiddenframethrottle.h"
+#include "src/wayland/symcontrol.h"
 
 class SecurityContextManagerV1;
 class FifoManagerV1;
@@ -36,6 +37,8 @@ class WlDrmManager;
 class NativeClientScale;
 class XdgActivationV1;
 class MarathonSurfaceManagerV1;
+class SharedClipboard;
+class QMimeData;
 class QWaylandPresentationTime;
 struct wl_client;
 
@@ -182,7 +185,8 @@ class WaylandCompositor : public QWaylandCompositor {
     void systemCallTriggered();
     void systemEndTriggered();
     void systemSwitcherTriggered();
-    // A Super shortcut: search, switcher, lock, quicksettings, close, keyboard.
+    // A Super shortcut: search, switcher, lock, quicksettings, close, keyboard,
+    // or Sym+Shift+V's clipboard.
     void systemShortcut(const QString &name);
     void systemHangupTriggered();
     void userActivity();
@@ -196,6 +200,7 @@ class WaylandCompositor : public QWaylandCompositor {
 
   protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void retainedSelectionReceived(QMimeData *data) override;
 
   public:
     // The surface of a Keel app's cover window, or null.
@@ -276,6 +281,7 @@ class WaylandCompositor : public QWaylandCompositor {
     CommitTimingManagerV1                  *m_commitTimingManager    = nullptr;
     LinuxDmabufManagerV1                   *m_linuxDmabufManager     = nullptr;
     WlDrmManager                           *m_wlDrmManager           = nullptr;
+    SharedClipboard                        *m_sharedClipboard        = nullptr;
     NativeClientScale                      *m_nativeClientScale      = nullptr;
     XdgActivationV1                        *m_xdgActivation          = nullptr;
     MarathonSurfaceManagerV1               *m_marathonSurfaceManager = nullptr;
@@ -347,6 +353,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QElapsedTimer           m_activityEmitted;
     bool                    m_superShortcut = false;
     bool                    m_level3Held    = false;
+    SymControl              m_symControl;
     QElapsedTimer           m_keyboardFocusSince;
     QStringList             m_secureApps;
     QTimer                  m_hiddenFrameTimer;

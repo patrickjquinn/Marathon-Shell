@@ -30,7 +30,7 @@ Page {
                 objectName: "dataSwitch"
                 visible: page.ready
                 text: qsTr("Mobile data")
-                description: qsTr("Use the mobile network for internet")
+                description: Modem.dataFailed ? qsTr("Couldn't connect. Tap to try again.") : qsTr("Use the mobile network for internet")
                 automaticCheck: false
                 checked: Modem.dataEnabled
                 onClicked: Modem.dataEnabled ? Modem.disableData() : Modem.enableData()

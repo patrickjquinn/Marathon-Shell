@@ -211,8 +211,8 @@ build_if_missing "marathon-shipwright-apps"  'marathon-shipwright-apps-*.apk' "$
 DECKARD_SRC="${DECKARD_SRC-}" \
 build_if_missing "deckard"                   'deckard-[0-9]*.apk'             "$LIB/build-deckard-apk.sh"                   "$APORTS_DIR/deckard/APKBUILD"
 # Android's images, for the HackberryPi overlay on the Pi 5 and for the Q25
-# (mkosi-configure.py).
-if [ "$DEVICE" = raspberry-pi5 ] || [ "$DEVICE" = zinwa-q25 ]; then
+# (mkosi-configure.py), and for the Jolla Phone (its overlay's depends).
+if [ "$DEVICE" = raspberry-pi5 ] || [ "$DEVICE" = zinwa-q25 ] || [ "$DEVICE" = jolla-jp2601 ]; then
 APORT=deckard-images NO_DEPS=1 \
 build_if_missing "deckard-images"            'deckard-images-*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/deckard-images/APKBUILD"
 fi
@@ -255,6 +255,26 @@ if [ "$DEVICE" = minimal-mp01 ]; then
     APORT=mesa build_if_missing "mesa" 'mesa-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/mesa/APKBUILD"
 fi
+# Jolla Phone: the SoC kernel device-jolla-jp2601 names, that package, the
+# carrier runtime its overlay depends on, and the radios: CONNSYS services
+# and firmware (jp2601-connsys-firmware's files come from
+# build-jolla-jp2601-image.sh), the modem stack and its ModemManager.
+if [ "$DEVICE" = jolla-jp2601 ]; then
+    # shellcheck source=/dev/null disable=SC2154 # _kernel comes from the APKBUILD
+    kernel=$(set +u; . "$APORTS_DIR/device-jolla-jp2601/APKBUILD"; echo "$_kernel")
+    for aport in "$APORTS_DIR/$kernel" "$APORTS_DIR"/device-jolla-jp2601 "$APORTS_DIR"/marathon-carrier \
+        "$APORTS_DIR"/mt6858-platform "$APORTS_DIR"/jp2601-connsys-firmware "$APORTS_DIR"/jp2601-modem; do
+        name="$(basename "$aport")"
+        APORT="$name" NO_DEPS=1 build_if_missing "$name" "$name-[0-9]*.apk" \
+            "$LIB/build-aport-apk.sh" "$aport/APKBUILD"
+    done
+    # Its depends are Alpine's only; abuild needs them to trace libmm-glib.
+    APORT=modemmanager-mtk-ccci build_if_missing "modemmanager-mtk-ccci" 'modemmanager-mtk-ccci-[0-9]*.apk' \
+        "$LIB/build-aport-apk.sh" "$APORTS_DIR/modemmanager-mtk-ccci/APKBUILD"
+    # Satellite positioning (mt6858-platform depends on it), from this tree.
+    PILOT_PKGS=marathon-gnssd build_if_missing "marathon-gnssd" 'marathon-gnssd-[0-9]*.apk' \
+        "$LIB/build-pilot-apk.sh" "$APORTS_DIR/marathon-gnssd/APKBUILD"
+fi
 # marathon-shell's camera app builds against it (build-marathon-shell-apk.sh
 # installs it from mkosi.packages), on every device; the Q25's cameras also
 # need its software ISP patches, which postmarketOS's lacks.
@@ -288,11 +308,14 @@ fi
 
 # A/B images update over the air (docs/OTA.md): sysupdate transfers for the
 # feed at $MARATHON_OTA_URL and the keyring that verifies it go into the
-# image through mkosi.extra. Single-root images get neither, except the
-# Q25's, whose root is a file on its carrier with room for the next one.
+# image through mkosi.extra. Single-root images get neither, except those
+# whose root is a file on a userdata carrier (the Q25's, the Jolla Phone's)
+# with room for the next one.
 export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
+CARRIER="$(python3 "$MARATHON_SHELL_SRC/tools/devices/devices.py" carrier "$MARATHON_TARGET_DEVICE")"
+CARRIER_NAME="$(printf '%s\n' "$CARRIER" | sed -n 's/^CARRIER_NAME=//p')"
 OTA=0
-if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ] || [ "$MARATHON_TARGET_DEVICE" = zinwa-q25 ]; then
+if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ] || [ -n "$CARRIER" ]; then
     OTA=1
 fi
 export MARATHON_DEV_SSH_KEY="${MARATHON_DEV_SSH_KEY:-}"
@@ -312,6 +335,7 @@ OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/sysupdate.d"
 case "$MARATHON_TARGET_DEVICE" in
     raspberry-pi*) OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/pi/sysupdate.d" ;;
     zinwa-q25) OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/q25/sysupdate.d" ;;
+    *) [ -z "$CARRIER" ] || OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/carrier/sysupdate.d" ;;
 esac
 if [ "$OTA" = 1 ]; then
     OTA_URL="${MARATHON_OTA_URL:-https://github.com/patrickjquinn/marathon-updates/releases/download/${MARATHON_OTA_CHANNEL:-stable}}"
@@ -323,7 +347,7 @@ if [ "$OTA" = 1 ]; then
     fi
     mkdir -p "$OTA_TRANSFERS" "$(dirname "$OTA_KEYRING")"
     for t in "$OTA_TEMPLATES"/*.transfer.in; do
-        sed "s|@MARATHON_OTA_URL@|${OTA_URL%/}|g" "$t" > "$OTA_TRANSFERS/$(basename "$t" .in)"
+        sed -e "s|@MARATHON_OTA_URL@|${OTA_URL%/}|g" -e "s|@CARRIER_NAME@|$CARRIER_NAME|g" "$t" > "$OTA_TRANSFERS/$(basename "$t" .in)"
     done
     gpg --dearmor < "$OTA_PUBKEY" > "$OTA_KEYRING"
     case "$MARATHON_TARGET_DEVICE" in
@@ -356,7 +380,6 @@ EXTRA="$DURANIUM_DIR/mkosi.extra"
 CARRIER_CONF="$EXTRA/usr/share/marathon/carrier.conf"
 rm -f "$CARRIER_CONF" "$EXTRA/usr/share/mkinitfs/hooks-cleanup/50-marathon-carrier.sh" \
     "$EXTRA/usr/share/mkinitfs/files/50-marathon-carrier.files"
-CARRIER="$(python3 "$MARATHON_SHELL_SRC/tools/devices/devices.py" carrier "$MARATHON_TARGET_DEVICE")"
 if [ -n "$CARRIER" ]; then
     if [ "$MARATHON_IMAGE_LAYOUT" != single ]; then
         echo "error: $MARATHON_TARGET_DEVICE boots its root from a userdata carrier, not MARATHON_IMAGE_LAYOUT=$MARATHON_IMAGE_LAYOUT" >&2

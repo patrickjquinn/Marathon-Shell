@@ -1,0 +1,41 @@
+From af6cff6fe150a10bf0d928a89ca8e64ed39c9bcd Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 03:04:35 +0000
+Subject: [PATCH 234/237] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ flash LED
+
+The rear flash LED is on an AW36515 at 0x63 on I2C12, both current
+sources on. Torch is capped at 200 mA and flash at 1 A for now.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts     | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index af2c7683c..1af07c9ea 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -794,6 +794,21 @@ &i2c12 {
+ 	pinctrl-0 = <&i2c12_pins>;
+ 	status = "okay";
+ 
++	/* The rear flash LED, on both current sources */
++	flash-led@63 {
++		compatible = "awinic,aw36515";
++		reg = <0x63>;
++
++		led {
++			function = LED_FUNCTION_FLASH;
++			color = <LED_COLOR_ID_WHITE>;
++			led-sources = <0>, <1>;
++			led-max-microamp = <200000>;
++			flash-max-microamp = <1000000>;
++			flash-max-timeout-us = <600000>;
++		};
++	};
++
+ 	/* The status LED; the stock driver runs each channel at 1 mA */
+ 	led-controller@45 {
+ 		compatible = "awinic,aw2023";
+-- 
+2.55.0
+

@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrickjquinn@users.noreply.github.com>
+Date: Thu, 26 Nov 2026 21:44:24 +0000
+Subject: [PATCH] mtk-ccci: don't stop enabling on an ATZ error
+
+The MT6858 (Jolla Phone 2026) modem answers ATZ with +CME ERROR: 100,
+which aborted enabling before any other command. Send ATZ as before but
+carry on when it fails; the MT6789 modem still answers OK.
+---
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.c    | 39 +++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index 61ee4e4..6f7864e 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -803,6 +803,43 @@ iface_modem_init (MMIfaceModemInterface *iface)
+     iface->modem_power_down_finish = modem_power_finish;
+ }
+ 
++/*****************************************************************************/
++/* Modem init: ATZ, whose error does not stop enabling. The MT6858 modem
++ * answers ATZ with +CME ERROR: 100; the MT6789 one with OK. */
++
++static gboolean
++enabling_modem_init_finish (MMBroadbandModem  *self,
++                            GAsyncResult      *res,
++                            GError           **error)
++{
++    g_autoptr(GError) init_error = NULL;
++
++    if (!mm_base_modem_at_command_full_finish (MM_BASE_MODEM (self), res, &init_error))
++        mm_obj_dbg (self, "ignoring ATZ failure: %s", init_error->message);
++    return TRUE;
++}
++
++static void
++enabling_modem_init (MMBroadbandModem    *self,
++                     GAsyncReadyCallback  callback,
++                     gpointer             user_data)
++{
++    MMPortSerialAt *primary;
++
++    primary = mm_base_modem_peek_port_primary (MM_BASE_MODEM (self));
++    mm_base_modem_at_command_full (MM_BASE_MODEM (self),
++                                   MM_IFACE_PORT_AT (primary),
++                                   "Z",
++                                   6,
++                                   FALSE,
++                                   FALSE,
++                                   NULL,
++                                   callback,
++                                   user_data);
++}
++
++/*****************************************************************************/
++
+ static void
+ mm_broadband_modem_mtk_ccci_class_init (MMBroadbandModemMtkCcciClass *klass)
+ {
+@@ -815,4 +852,6 @@ mm_broadband_modem_mtk_ccci_class_init (MMBroadbandModemMtkCcciClass *klass)
+     broadband_modem_class->setup_ports = setup_ports;
+     broadband_modem_class->enabling_started = enabling_started;
+     broadband_modem_class->enabling_started_finish = enabling_started_finish;
++    broadband_modem_class->enabling_modem_init = enabling_modem_init;
++    broadband_modem_class->enabling_modem_init_finish = enabling_modem_init_finish;
+ }
+-- 
+2.55.0
+

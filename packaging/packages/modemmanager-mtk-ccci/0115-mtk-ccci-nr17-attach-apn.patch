@@ -1,0 +1,107 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrickjquinn@users.noreply.github.com>
+Date: Fri, 27 Nov 2026 00:05:30 +0000
+Subject: [PATCH] mtk-ccci: on NR17 modems, take the attach APN from context 1
+
+MT6858's NR17 firmware has no +EDALLOW and refuses to activate the APN
+the network gave the attach PDN (+CME ERROR: 5873), so a connect with
+no APN, as NetworkManager sends for Marathon's mobile data profile,
+always failed. The APN the attach asked for, which q25-modem-init sets
+in context 1, activates. MT6768 modems, which take +EDALLOW, keep
+reusing the attach PDN's APN.
+---
+ .../mtk-ccci/mm-broadband-bearer-mtk-ccci.c   | 59 ++++++++++++++++++-
+ 1 file changed, 58 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+index eacebe6..a880b0f 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+@@ -137,6 +137,7 @@ parse_address (const gchar *str,
+ typedef enum {
+     CONNECT_STEP_FIRST,
+     CONNECT_STEP_EDALLOW,
++    CONNECT_STEP_ATTACH_APN,
+     CONNECT_STEP_STALE_CHECK,
+     CONNECT_STEP_STALE_DEACTIVATE,
+     CONNECT_STEP_EAPNACT,
+@@ -163,6 +164,8 @@ typedef struct {
+     GPtrArray        *dns6;
+     /* The +EIF: ifup lines in the activation's reply */
+     GPtrArray        *ifups;
++    /* NR17 modems (MT6858) dropped +EDALLOW */
++    gboolean          no_edallow;
+ } ConnectContext;
+ 
+ static void
+@@ -200,8 +203,45 @@ edallow_ready (MMBaseModem  *modem,
+ 
+     ctx = g_task_get_task_data (task);
+     /* Not fatal: data may already be allowed */
+-    if (!mm_base_modem_at_command_full_finish (modem, res, &error))
++    if (!mm_base_modem_at_command_full_finish (modem, res, &error)) {
+         mm_obj_dbg (g_task_get_source_object (task), "couldn't allow data: %s", error->message);
++        ctx->no_edallow = g_error_matches (error, MM_MOBILE_EQUIPMENT_ERROR,
++                                           MM_MOBILE_EQUIPMENT_ERROR_NOT_SUPPORTED);
++    }
++    ctx->step++;
++    connect_step (task);
++}
++
++/* The APN context 1 asks for: the initial-attach APN q25-modem-init sets */
++static void
++attach_apn_ready (MMBaseModem  *modem,
++                  GAsyncResult *res,
++                  GTask        *task)
++{
++    ConnectContext *ctx;
++    const gchar    *response;
++    g_auto(GStrv)   lines = NULL;
++    guint           i;
++
++    ctx = g_task_get_task_data (task);
++    response = mm_base_modem_at_command_full_finish (modem, res, NULL);
++    lines = g_strsplit (response ? response : "", "\n", -1);
++    for (i = 0; lines[i] && !ctx->apn; i++) {
++        g_autoptr(GPtrArray)  fields = NULL;
++        const gchar          *line;
++        guint                 cid;
++
++        line = g_strstrip (lines[i]);
++        if (!g_str_has_prefix (line, "+CGDCONT:"))
++            continue;
++        fields = split_fields (line + strlen ("+CGDCONT:"));
++        if (fields->len >= 3 &&
++            mm_get_uint_from_str (g_ptr_array_index (fields, 0), &cid) && cid == 1 &&
++            ((const gchar *) g_ptr_array_index (fields, 2))[0]) {
++            ctx->apn = g_strdup (g_ptr_array_index (fields, 2));
++            mm_obj_msg (g_task_get_source_object (task), "no APN given, using context 1's APN '%s'", ctx->apn);
++        }
++    }
+     ctx->step++;
+     connect_step (task);
+ }
+@@ -638,6 +678,23 @@ connect_step (GTask *task)
+                                        task);
+         return;
+ 
++    case CONNECT_STEP_ATTACH_APN:
++        /* These modems refuse to activate the APN the network gave the
++         * attach PDN (+CME ERROR: 5873); the APN the attach asked for works */
++        if (ctx->no_edallow && !ctx->apn) {
++            mm_base_modem_at_command_full (ctx->modem,
++                                           MM_IFACE_PORT_AT (ctx->primary),
++                                           "+CGDCONT?",
++                                           10,
++                                           FALSE, FALSE,
++                                           g_task_get_cancellable (task),
++                                           (GAsyncReadyCallback) attach_apn_ready,
++                                           task);
++            return;
++        }
++        ctx->step++;
++        /* fall through */
++
+     case CONNECT_STEP_STALE_CHECK:
+         mm_base_modem_at_command_full (ctx->modem,
+                                        MM_IFACE_PORT_AT (ctx->primary),

@@ -1,0 +1,26 @@
+From fb3cac3f62cb47954c903cfb75b152de6f835a3a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 04:51:43 +0000
+Subject: [PATCH 041/214] arm64: configs: mt6858: Add the SPMI PMIC and its
+ keys
+
+Build in the MediaTek SPMI controller, the SPMI PMIC MFD and the PMIC
+keys driver for the Jolla Phone's power and volume keys.
+---
+ arch/arm64/configs/mt6858.config | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index e8b89579c..c38d51388 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -39,3 +39,6 @@ CONFIG_SPI_MT65XX=y
+ CONFIG_INPUT_EVDEV=y
+ CONFIG_INPUT_TOUCHSCREEN=y
+ CONFIG_TOUCHSCREEN_HYNITRON_CST66XX=y
++CONFIG_SPMI_MTK_PMIF=y
++CONFIG_MFD_MTK_SPMI_PMIC=y
++CONFIG_KEYBOARD_MTK_PMIC=y
+-- 
+2.55.0
+

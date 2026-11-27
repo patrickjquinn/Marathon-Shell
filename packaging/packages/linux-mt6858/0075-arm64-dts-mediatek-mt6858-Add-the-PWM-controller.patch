@@ -1,0 +1,41 @@
+From 112b349f5a5a02d739912d91d289104437d49cc3 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:24:33 +0000
+Subject: [PATCH 075/214] arm64: dts: mediatek: mt6858: Add the PWM controller
+
+Add the four-channel PWM at 0x11008000, clocked from pericfg_ao: the
+PWM and bus clocks and one clock per channel, as the stock device tree
+lists them. Leave it disabled for boards to enable.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index ae4fa4638..e9ceed359 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -283,6 +283,21 @@ uart2: serial@11003000 {
+ 			status = "disabled";
+ 		};
+ 
++		pwm: pwm@11008000 {
++			compatible = "mediatek,mt6858-pwm", "mediatek,mt6991-pwm";
++			reg = <0 0x11008000 0 0x1000>;
++			interrupts = <GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH 0>;
++			#pwm-cells = <2>;
++			clocks = <&pericfg_ao CLK_PERAO_P_PWM_B>,
++				 <&pericfg_ao CLK_PERAO_P_PWM_H>,
++				 <&pericfg_ao CLK_PERAO_P_PWM_FB1>,
++				 <&pericfg_ao CLK_PERAO_P_PWM_FB2>,
++				 <&pericfg_ao CLK_PERAO_P_PWM_FB3>,
++				 <&pericfg_ao CLK_PERAO_P_PWM_FB4>;
++			clock-names = "top", "main", "pwm1", "pwm2", "pwm3", "pwm4";
++			status = "disabled";
++		};
++
+ 		spi0: spi@11010800 {
+ 			compatible = "mediatek,mt6858-spi", "mediatek,mt6991-spi";
+ 			reg = <0 0x11010800 0 0x100>;
+-- 
+2.55.0
+

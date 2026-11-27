@@ -1,0 +1,32 @@
+From 8194d83d308330aff5ac748901f5f9fe07b9ea2f Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:34:38 +0000
+Subject: [PATCH 170/214] arm64: dts: mediatek: mt6858: Add the CONN power
+ domain
+
+CONNSYS (Wi-Fi, Bluetooth, GNSS) sits behind the CONN MTCMOS, which the
+power controller driver already describes. List it so that boards with
+a CONNSYS consumer can reach it.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index e7c532e5e..a266b659a 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -808,6 +808,11 @@ spm: power-controller {
+ 						     <&cam_sub1_bus>, <&cam_sub0_bus>,
+ 						     <&ipe_sub0_bus>, <&vlpcfg>;
+ 
++				power-domain@MT6858_POWER_DOMAIN_CONN {
++					reg = <MT6858_POWER_DOMAIN_CONN>;
++					#power-domain-cells = <0>;
++				};
++
+ 				power-domain@MT6858_POWER_DOMAIN_MM_INFRA {
+ 					reg = <MT6858_POWER_DOMAIN_MM_INFRA>;
+ 					#address-cells = <1>;
+-- 
+2.55.0
+

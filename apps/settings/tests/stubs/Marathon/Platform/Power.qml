@@ -10,6 +10,7 @@ QtObject {
     property string powerProfile: "balanced"
     property bool powerProfilesSupported: true
     property bool hasAssistKey: true
+    property bool hasPrivacySwitch: true
     property bool hasTrackpad: true
     property var chargeHistory: []
     property var rateHistory: []

@@ -1,0 +1,3 @@
+# Proprietary MediaTek firmware, staged at build time (see APKBUILD).
+*.bin
+*.cfg

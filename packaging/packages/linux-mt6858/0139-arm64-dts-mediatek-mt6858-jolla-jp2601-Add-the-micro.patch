@@ -1,0 +1,96 @@
+From 3ae3f38e09859748771fa1c5468136a0c79beec8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:10:03 +0000
+Subject: [PATCH 139/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ microSD slot
+
+The slot is on MSDC1, 4 bits wide, with card detect on GPIO9 and the
+MT6369's VMCH and VMC as card and I/O supplies. Use the stock pin setup
+(8 mA, pull-up on CMD/DAT and pull-down on CLK with the stock R1R0
+values).
+
+Start without UHS: both supplies stay at 3.0 V, VMCH's bootloader
+setting, so the I/O never exceeds the card's supply, and the bus runs
+at high speed. Card detect is taken as active low (a switch to ground):
+the polarity is still to be confirmed with a card.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 49 +++++++++++++++++++
+ 1 file changed, 49 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 01de41660..4389805d2 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -617,6 +617,20 @@ &mipi_tx0 {
+ 	status = "okay";
+ };
+ 
++&mmc1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&mmc1_pins>;
++	bus-width = <4>;
++	max-frequency = <50000000>;
++	cap-sd-highspeed;
++	cd-gpios = <&pio 9 GPIO_ACTIVE_LOW>;
++	vmmc-supply = <&mt6369_vmch>;
++	vqmmc-supply = <&mt6369_vmc>;
++	no-mmc;
++	no-sdio;
++	status = "okay";
++};
++
+ &mt6363 {
+ 	keys {
+ 		compatible = "mediatek,mt6363-keys";
+@@ -651,6 +665,22 @@ &mt6369 {
+ 	regulators {
+ 		compatible = "mediatek,mt6369-regulator";
+ 
++		mt6369_vmch: vmch {
++			regulator-name = "vmch";
++			/* As LK leaves it selected; the card's VDD */
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3000000>;
++			regulator-enable-ramp-delay = <680>;
++		};
++
++		mt6369_vmc: vmc {
++			regulator-name = "vmc";
++			/* The card's I/O, no higher than its VDD; no UHS yet */
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3000000>;
++			regulator-enable-ramp-delay = <680>;
++		};
++
+ 		mt6369_vibr: vibr {
+ 			regulator-name = "vibr";
+ 			/* The stock driver asks for 2.8-3.5 V, so runs at 2.8 V */
+@@ -786,6 +816,25 @@ pins-key {
+ 		};
+ 	};
+ 
++	mmc1_pins: mmc1-pins {
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO83__FUNC_MSDC1_CMD>,
++				 <PINMUX_GPIO84__FUNC_MSDC1_DAT0>,
++				 <PINMUX_GPIO85__FUNC_MSDC1_DAT1>,
++				 <PINMUX_GPIO86__FUNC_MSDC1_DAT2>,
++				 <PINMUX_GPIO87__FUNC_MSDC1_DAT3>;
++			input-enable;
++			drive-strength = <8>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++
++		pins-clk {
++			pinmux = <PINMUX_GPIO82__FUNC_MSDC1_CLK>;
++			drive-strength = <8>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++	};
++
+ 	pwm_pins: pwm-pins {
+ 		pins-ir {
+ 			pinmux = <PINMUX_GPIO25__FUNC_PWM_3>;
+-- 
+2.55.0
+

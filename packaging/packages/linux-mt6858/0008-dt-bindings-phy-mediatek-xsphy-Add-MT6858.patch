@@ -1,0 +1,28 @@
+From 3a1a83c0b036b6d5d96b0865e78991c43c76ece0 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 18:00:06 +0000
+Subject: [PATCH 008/214] dt-bindings: phy: mediatek,xsphy: Add MT6858
+
+The MT6858 USB 2.0 port uses an XS-PHY at 0x11e10000 with a single U2
+port and no shared U3 bank. Add its compatible.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml b/Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml
+index c00115edf..fdbe04a52 100644
+--- a/Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml
++++ b/Documentation/devicetree/bindings/phy/mediatek,xsphy.yaml
+@@ -49,6 +49,7 @@ properties:
+       - enum:
+           - mediatek,mt3611-xsphy
+           - mediatek,mt3612-xsphy
++          - mediatek,mt6858-xsphy
+           - mediatek,mt7988-xsphy
+       - const: mediatek,xsphy
+ 
+-- 
+2.55.0
+

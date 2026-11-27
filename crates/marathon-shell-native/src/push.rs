@@ -46,15 +46,14 @@ fn set_fallback_notifications(on: bool) {
 }
 
 fn serve() {
-    io::spawn(async {
-        if let Err(e) = start().await {
+    io::each_session_bus(|conn| async move {
+        if let Err(e) = start(conn).await {
             log::warn("push", format_args!("no distributor: {e}"));
         }
     });
 }
 
-async fn start() -> zbus::Result<()> {
-    let conn = io::session_bus().await?;
+async fn start(conn: Connection) -> zbus::Result<()> {
     let registrations = load();
     let distributor = Distributor {
         registrations: registrations.clone(),
@@ -333,7 +332,13 @@ async fn listen(
             Ok::<_, async_tungstenite::tungstenite::Error>(())
         };
         match future::or(async { Some(Box::pin(session).await) }, async {
-            stopped.recv().await.ok();
+            future::or(
+                async {
+                    stopped.recv().await.ok();
+                },
+                conn.closed(),
+            )
+            .await;
             None
         })
         .await
@@ -347,7 +352,13 @@ async fn listen(
                 Timer::after(retry).await;
                 false
             },
-            async { stopped.recv().await.is_err() },
+            async {
+                future::or(async { stopped.recv().await.is_err() }, async {
+                    conn.closed().await;
+                    true
+                })
+                .await
+            },
         );
         if stop.await {
             return;

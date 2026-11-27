@@ -80,6 +80,18 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-usb-mode</annotate>
   </action>
 
+  <!-- The privacy switch: cut the microphones and cameras, or give them back. -->
+  <action id="org.marathonos.shell.privacy">
+    <description>Cut the microphones and cameras with the privacy switch</description>
+    <message>Authentication is required to change what the privacy switch cuts</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-privacy</annotate>
+  </action>
+
   <!-- Which feed system updates come from: stable or developer builds. -->
   <action id="org.marathonos.shell.update-channel">
     <description>Choose the system update channel</description>

@@ -1,0 +1,65 @@
+From b87bf61a2b83e5615a206abee8b269da0814a2a5 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:36:43 +0000
+Subject: [PATCH 108/214] mailbox: mtk-gpueb: Add the MT6858 GPUEB mailbox
+
+The MT6858's GPUEB mailbox has the MT8196's registers, but eleven
+channels: there is no "ppb" channel, and "brisket" sends three words,
+not four. The receive area follows the send area directly, so it starts
+at 0xd8 instead of 0xe0. The layout comes from the send-table and
+recv-table of the vendor device tree, laid out the way the vendor mbox
+driver packs them.
+
+The MT6858 EB has no clock of its own that the kernel can name, so make
+the clock optional; the binding still requires it on the MT8196.
+---
+ drivers/mailbox/mtk-gpueb-mailbox.c | 25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mailbox/mtk-gpueb-mailbox.c b/drivers/mailbox/mtk-gpueb-mailbox.c
+index cb5d830f7..ad5230fd2 100644
+--- a/drivers/mailbox/mtk-gpueb-mailbox.c
++++ b/drivers/mailbox/mtk-gpueb-mailbox.c
+@@ -224,7 +224,7 @@ static int mtk_gpueb_mbox_probe(struct platform_device *pdev)
+ 	if (ebm->irq < 0)
+ 		return ebm->irq;
+ 
+-	ebm->clk = devm_clk_get_prepared(ebm->dev, NULL);
++	ebm->clk = devm_clk_get_optional_prepared(ebm->dev, NULL);
+ 	if (IS_ERR(ebm->clk))
+ 		return dev_err_probe(ebm->dev, PTR_ERR(ebm->clk),
+ 				     "Failed to get 'eb' clock\n");
+@@ -298,7 +298,30 @@ static const struct mtk_gpueb_mbox_variant mtk_gpueb_mbox_mt8196 = {
+ 	},
+ };
+ 
++/*
++ * Same block as on MT8196, but with one channel less and a smaller
++ * brisket channel, so the receive area starts right after the send area
++ * at 0xd8.
++ */
++static const struct mtk_gpueb_mbox_variant mtk_gpueb_mbox_mt6858 = {
++	.num_channels = 11,
++	.channels = {
++		{ "fast-dvfs-event", 0, 0x0000, 16, 0x00d8, 16 },
++		{ "gpufreq",         1, 0x0010, 32, 0x00e8, 32 },
++		{ "sleep",           2, 0x0030, 12, 0x0108,  4 },
++		{ "timer",           3, 0x003c, 24, 0x010c,  4 },
++		{ "fhctl",           4, 0x0054, 36, 0x0110,  4 },
++		{ "ccf",             5, 0x0078, 16, 0x0114, 16 },
++		{ "gpumpu",          6, 0x0088, 24, 0x0124,  4 },
++		{ "fast-dvfs",       7, 0x00a0, 24, 0x0128, 24 },
++		{ "ipir-c-met",      8, 0x00b8,  4, 0x0140, 16 },
++		{ "ipis-c-met",      9, 0x00bc, 16, 0x0150,  4 },
++		{ "brisket",        10, 0x00cc, 12, 0x0154, 12 },
++	},
++};
++
+ static const struct of_device_id mtk_gpueb_mbox_of_ids[] = {
++	{ .compatible = "mediatek,mt6858-gpueb-mbox", .data = &mtk_gpueb_mbox_mt6858 },
+ 	{ .compatible = "mediatek,mt8196-gpueb-mbox", .data = &mtk_gpueb_mbox_mt8196 },
+ 	{ /* Sentinel */ }
+ };
+-- 
+2.55.0
+

@@ -1160,9 +1160,27 @@ Page {
     }
     readonly property var linkMenu: linkMenuLoader.item
 
+    Loader {
+        id: editMenuLoader
+        anchors.fill: parent
+        active: page._deferred
+        asynchronous: true
+        sourceComponent: EditMenu {
+            objectName: "editMenu"
+        }
+    }
+
     Connections {
         target: page.browser
         function onLinkMenuRequested(tab, info) {
+            // A text field's edit bar, unless WebKit has spelling to offer.
+            if (info.editable && !info.linkUrl && !info.imageUrl && !info.misspelled) {
+                if (info.editMenu && editMenuLoader.item)
+                    editMenuLoader.item.open(tab, info);
+                return;
+            }
+            if (editMenuLoader.item)
+                editMenuLoader.item.visible = false;
             var menu = page.linkMenu;
             if (!menu)
                 return;

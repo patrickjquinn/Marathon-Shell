@@ -1,0 +1,430 @@
+#!/bin/sh
+# Install a new root image next to the running one on a userdata carrier and
+# boot it by default, keeping the current entry as the fallback: the Q25's
+# q25-root-install for every carrier device, its names taken from
+# /usr/share/marathon/carrier.conf (CARRIER_NAME, CARRIER_DTB,
+# CARRIER_CMDLINE). Kernel, initramfs and DTB stay exactly as the current
+# default entry has them; only <name>.rootfs_file changes. Runs on the phone
+# as root.
+#
+#   marathon-carrier-root-install [opts] install IMAGE.ext4 [SHA256]
+#   marathon-carrier-root-install [opts] rollback NAME
+#   marathon-carrier-root-install [opts] arm [--reboot]
+#   marathon-carrier-root-install [opts] sync-boot [--reboot]
+#
+#   --dry-run     print what would change, change nothing
+#   --counted     boot-counted entry marathon-<name>-b-NAME+3.conf, a
+#                 fallback copy of the current entry, and
+#                 `default marathon-<name>-*`; without it the new entry is
+#                 the plain default.
+#   --esp DIR     ESP mount (default /boot)
+#   --carrier DIR carrier root (default /.<name>-carrier/root)
+#   --root DIR    running root whose state arm carries (tests; default /)
+#   --conf FILE   carrier.conf (tests; default /usr/share/marathon/carrier.conf)
+#   --no-remount  leave the ESP mount as it is (tests)
+#
+# IMAGE should already be on the carrier filesystem so the move is a rename.
+# NAME is the image basename without .ext4. Rollback restores loader.conf
+# and removes the entries; the image file is left for inspection.
+#
+# arm is the over-the-air path (docs/OTA.md): the newest root systemd-sysupdate
+# installed, IMAGE_ID_VARIANT_ID_VERSION_ID_<version>.ext4, gets this phone's
+# state and a --counted entry. A root with its own /boot boots its kernel,
+# initramfs and DTB, copied to the ESP's <name>-boot/NAME, and its command
+# line; otherwise the entry is a copy of the booted one. A version with an
+# entry already was tried, and is left alone. --reboot restarts into it.
+set -eu
+
+ESP=/boot
+CARRIER=
+CONF=/usr/share/marathon/carrier.conf
+DRY=0
+COUNTED=0
+REMOUNT=1
+ROOT=
+IMAGES_REL=/var/lib/marathon/images
+
+die() { echo "marathon-carrier-root-install: $*" >&2; exit 1; }
+say() { echo "marathon-carrier-root-install: $*"; }
+
+while [ $# -gt 0 ]; do
+	case $1 in
+	--dry-run) DRY=1 ;;
+	--counted) COUNTED=1 ;;
+	--esp) ESP=$2; shift ;;
+	--carrier) CARRIER=$2; shift ;;
+	--root) ROOT=$2; shift ;;
+	--conf) CONF=$2; shift ;;
+	--no-remount) REMOUNT=0 ;;
+	-*) die "unknown option $1" ;;
+	*) break ;;
+	esac
+	shift
+done
+[ $# -ge 1 ] || die "usage: $0 [opts] install IMAGE [SHA256] | rollback NAME | arm [--reboot] | sync-boot [--reboot]"
+CMD=$1
+conf() { sed -n "s/^$1=//p" "$CONF" | tail -n 1; }
+C=$(conf CARRIER_NAME)
+case $C in '' | *[!a-z0-9]*) die "$CONF: CARRIER_NAME must be [a-z0-9]+" ;; esac
+[ -n "$CARRIER" ] || CARRIER=/.$C-carrier/root
+ENTRIES=$ESP/loader/entries
+LOADER=$ESP/loader/loader.conf
+
+esp_rw() {
+	[ "$REMOUNT" = 1 ] || return 0
+	mount -o remount,rw "$ESP"
+	trap 'sync -f "$ESP"; mount -o remount,ro,nosuid,nodev,noexec "$ESP"' EXIT
+}
+
+# Write $2 to $1 via a temporary name so a crash never leaves half a file.
+put() {
+	printf '%s\n' "$2" > "$1.carrier-tmp"
+	sync "$1.carrier-tmp"
+	mv "$1.carrier-tmp" "$1"
+}
+
+loader_default() { awk '$1 == "default" { print $2 }' "$LOADER"; }
+
+set_default() {
+	put "$LOADER" "$(awk -v d="$1" '$1 == "default" { print "default " d; next } { print }' "$LOADER")"
+}
+
+# The entry on stdin, sorted with the other marathon-<name> entries as version $1.
+ours() {
+	awk -v v="$1" -v k="marathon-$C" '$1 == "sort-key" || $1 == "version" { next }
+		{ print } END { print "sort-key " k; print "version " v }'
+}
+
+words() { tr -s '[:space:]' '\n' | sed '/^$/d'; }
+
+osr() { sed -n "s/^$1=//p" "$ROOT/etc/os-release" | tr -d "\"'"; }
+
+install_image() {
+	image=$1
+	sha=${2:-}
+	base=${image##*/}
+	name=${base%.ext4}
+	case $base in
+	*.ext4) ;;
+	*) die "$image: expected a .ext4 file" ;;
+	esac
+	case $name in
+	*[!A-Za-z0-9._-]* | '') die "$base: name must be [A-Za-z0-9._-]" ;;
+	esac
+	[ -f "$image" ] || die "$image: no such file"
+
+	target=$CARRIER$IMAGES_REL/$base
+	[ ! -e "$target" ] || die "$target already exists; refusing to overwrite a root image"
+	backup=$LOADER.before-$name
+	[ ! -e "$backup" ] || die "$backup exists: $name was installed before (roll it back first)"
+
+	current=$(loader_default)
+	[ -f "$ENTRIES/$current" ] || die "default '$current' is not a plain entry file"
+	n=$(grep -o "$C\\.rootfs_file=[^ ]*" "$ENTRIES/$current" | wc -l)
+	[ "$n" -eq 1 ] || die "$current: expected exactly one $C.rootfs_file token, found $n"
+	old_root=$(grep -o "$C\\.rootfs_file=[^ ]*" "$ENTRIES/$current")
+	new_root=$C.rootfs_file=$IMAGES_REL/$base
+	entry=$(sed "s|$C\\.rootfs_file=[^ ]*|$new_root|" "$ENTRIES/$current")
+
+	if [ "$COUNTED" = 1 ]; then
+		new_id=marathon-$C-b-$name.conf
+		new_file=marathon-$C-b-$name+3.conf
+		new_default="marathon-$C-*"
+		entry=$(printf '%s\n' "$entry" | ours "$name")
+		fallback=$ENTRIES/marathon-$C-a-fallback.conf
+		fallback_body=$(ours 0 < "$ENTRIES/$current")
+	else
+		new_id=marathon-$C-$name.conf
+		new_file=$new_id
+		new_default=$new_id
+		fallback=
+	fi
+	for f in "$ENTRIES/marathon-$C-b-$name".conf "$ENTRIES/marathon-$C-b-$name"+*.conf "$ENTRIES/marathon-$C-$name.conf"; do
+		[ ! -e "$f" ] || die "$f already exists"
+	done
+
+	say "image:    $image -> $target"
+	say "entry:    $ENTRIES/$new_file (copy of $current, $old_root -> $new_root)"
+	[ -z "$fallback" ] || [ -e "$fallback" ] || say "fallback: $fallback (copy of $current)"
+	say "default:  $current -> $new_default (backup $backup)"
+	if [ "$DRY" = 1 ]; then
+		say "dry run; new entry would read:"
+		printf '%s\n' "$entry"
+		exit 0
+	fi
+
+	if [ -n "$sha" ]; then
+		say "verifying sha256 of $image"
+		echo "$sha  $image" | sha256sum -c - >/dev/null || die "$image: sha256 mismatch"
+	fi
+	mkdir -p "$CARRIER$IMAGES_REL"
+	mv -n "$image" "$target"
+	[ ! -e "$image" ] || die "move of $image did not complete"
+	sync -f "$target"
+
+	esp_rw
+	cp "$LOADER" "$backup"
+	if [ -n "$fallback" ] && [ ! -e "$fallback" ]; then
+		put "$fallback" "$fallback_body"
+	fi
+	put "$ENTRIES/$new_file" "$entry"
+	set_default "$new_default"
+	sync -f "$ESP"
+	say "installed; loader.conf now:"
+	cat "$LOADER"
+}
+
+rollback() {
+	name=$1
+	backup=$LOADER.before-$name
+	[ -f "$backup" ] || die "$backup: no backup for $name"
+	say "restore:  $LOADER from $backup"
+	set -- "$ENTRIES/marathon-$C-$name.conf" "$ENTRIES/marathon-$C-b-$name".conf "$ENTRIES/marathon-$C-b-$name"+*.conf
+	for f; do [ ! -e "$f" ] || say "remove:   $f"; done
+	if [ "$DRY" = 1 ]; then
+		say "dry run; nothing changed"
+		exit 0
+	fi
+	esp_rw
+	put "$LOADER" "$(cat "$backup")"
+	for f; do [ ! -e "$f" ] || rm -- "$f"; done
+	if ! ls "$ENTRIES/marathon-$C-"b-* >/dev/null 2>&1 && [ -e "$ENTRIES/marathon-$C-a-fallback.conf" ]; then
+		say "remove:   $ENTRIES/marathon-$C-a-fallback.conf (no counted entries left)"
+		rm -- "$ENTRIES/marathon-$C-a-fallback.conf"
+	fi
+	sync -f "$ESP"
+	say "rolled back; loader.conf now:"
+	cat "$LOADER"
+	say "root image left in place: $CARRIER$IMAGES_REL/$name.ext4"
+}
+
+# Per-phone state a new root lacks (scripts/q25/explain/per-phone-state.toml):
+# identity, clock and time zone, connections and pairings, the Q25's APN
+# and modem NV writes, the radio switches, remote login and root's keys,
+# and the record of what happened: the journal, crash dumps and battery
+# history. A path a phone does not have is skipped.
+# /home is its own volume.
+CARRY='etc/machine-id
+etc/hostname
+etc/machine-info
+etc/locale.conf
+etc/localtime
+etc/adjtime
+etc/ssh/ssh_host_*
+etc/NetworkManager/system-connections
+etc/q25-modem/modem.conf
+etc/marathon/update-channel
+var/lib/bluetooth
+var/lib/NetworkManager
+var/lib/q25-modem
+var/lib/systemd/rfkill
+var/lib/systemd/timesync
+var/log/journal
+var/lib/systemd/coredump
+var/lib/upower
+etc/systemd/system/multi-user.target.wants/sshd.service
+root/.ssh'
+
+carry() {
+	mnt=$ROOT/run/marathon-carrier-root-arm
+	mkdir -p "$mnt"
+	mount -o loop "$1" "$mnt" || die "cannot mount $1"
+	failed=
+	while read -r p; do
+		for src in "$ROOT"/$p; do
+			[ -e "$src" ] || [ -L "$src" ] || continue
+			dst=$mnt${src#"$ROOT"}
+			if [ -d "$src" ] && [ ! -L "$src" ]; then
+				mkdir -p "$dst" && cp -ax "$src/." "$dst/"
+			else
+				mkdir -p "${dst%/*}" && rm -rf "$dst" && cp -a "$src" "$dst"
+			fi || failed=$src
+		done
+	done <<END
+$CARRY
+END
+	sync -f "$mnt"
+	[ -n "$failed" ] || boot_files "$mnt" "$2" || failed="its boot files"
+	umount "$mnt"
+	[ -z "$failed" ] || die "cannot carry $failed into $1"
+}
+
+BOOT_REL=/$C-boot
+DTB=dtbs/$(conf CARRIER_DTB)
+CMDLINE_CONF=$(conf CARRIER_CMDLINE)
+CMDLINE_CONF=${CMDLINE_CONF#/}
+
+# The kernel, initramfs and DTB of the root mounted at $1, on the ESP as
+# <name>-boot/$2; its command line in $new_cmdline. Nothing to do for a root
+# without them.
+boot_files() {
+	new_cmdline=
+	for f in boot/linux.efi boot/initramfs boot/$DTB $CMDLINE_CONF; do
+		[ -f "$1/$f" ] || return 0
+	done
+	dir=$ESP$BOOT_REL/$2
+	need=$(du -kc "$1/boot/linux.efi" "$1/boot/initramfs" "$1/boot/$DTB" | tail -n 1 | cut -f1)
+	free=$(df -k "$ESP" | awk 'NR == 2 { print $4 }')
+	[ "$free" -gt $((need + 1024)) ] || { say "ESP has $free KiB free, $need KiB needed"; return 1; }
+	rm -rf "$dir"
+	mkdir -p "$dir"
+	for f in linux.efi:boot/linux.efi initramfs:boot/initramfs $C.dtb:boot/$DTB; do
+		if ! { cp "$1/${f#*:}" "$dir/${f%%:*}" && cmp -s "$1/${f#*:}" "$dir/${f%%:*}"; }; then
+			rm -rf "$dir"
+			return 1
+		fi
+	done
+	new_cmdline=$(sed 's/#.*//' "$1/$CMDLINE_CONF" | words | tr '\n' ' ')
+}
+
+# <name>-boot directories that no entry boots any more.
+prune_boot() {
+	for d in "$ESP$BOOT_REL"/*/; do
+		[ -d "$d" ] || continue
+		n=${d%/}
+		n=${n##*/}
+		grep -qs "$BOOT_REL/$n/" "$ENTRIES"/*.conf || { say "remove:   $d"; rm -rf -- "$d"; }
+	done
+}
+
+# The entry whose options are this boot's command line, less the initrd=
+# words systemd-boot adds; among several, ours, then the default.
+booted_entry() {
+	want=$(words < "$ROOT/proc/cmdline" | sed '/^initrd=/d')
+	found=
+	for e in "$ENTRIES"/*.conf; do
+		[ -f "$e" ] || continue
+		[ "$(sed -n 's/^options[[:space:]]//p' "$e" | words)" != "$want" ] || found="$found $e"
+	done
+	# shellcheck disable=SC2086 # entry paths have no spaces
+	set -- $found
+	if [ $# -gt 1 ]; then
+		mine=
+		for e; do
+			case ${e##*/} in marathon-$C-[ab]-*) mine="$mine $e" ;; esac
+		done
+		# shellcheck disable=SC2086
+		[ -z "$mine" ] || set -- $mine
+	fi
+	if [ $# -gt 1 ]; then
+		default=$ENTRIES/$(loader_default)
+		for e; do
+			[ "$e" != "$default" ] || set -- "$e"
+		done
+	fi
+	[ $# -eq 1 ] || die "cannot tell which entry booted (${*:-none} match /proc/cmdline)"
+	echo "$1"
+}
+
+arm() {
+	running=$(osr IMAGE_VERSION)
+	[ -n "$running" ] || die "no IMAGE_VERSION in $ROOT/etc/os-release"
+	prefix=$(osr IMAGE_ID)_$(osr VARIANT_ID)_$(osr VERSION_ID)_
+	newest=$(for f in "$CARRIER$IMAGES_REL/$prefix"*.ext4; do
+		[ -f "$f" ] || continue
+		v=${f##*/"$prefix"}
+		echo "${v%.ext4}"
+	done | sort -V | tail -n 1)
+	[ -n "$newest" ] && [ "$newest" != "$running" ] || return 0
+	[ "$(printf '%s\n' "$running" "$newest" | sort -V | tail -n 1)" = "$newest" ] || return 0
+	name=$prefix$newest
+	for f in "$ENTRIES/marathon-$C-b-$name.conf" "$ENTRIES/marathon-$C-b-$name"+*.conf; do
+		[ ! -e "$f" ] || { say "$name was armed before (${f##*/})"; return 0; }
+	done
+
+	booted=$(booted_entry)
+	n=$(grep -o "$C\\.rootfs_file=[^ ]*" "$booted" | wc -l)
+	[ "$n" -eq 1 ] || die "${booted##*/}: expected exactly one $C.rootfs_file token, found $n"
+	new_file=marathon-$C-b-$name+3.conf
+	entry=$(sed "s|$C\\.rootfs_file=[^ ]*|$C.rootfs_file=$IMAGES_REL/$name.ext4|" "$booted" | ours "$newest")
+	fallback=$ENTRIES/marathon-$C-a-fallback.conf
+	say "arm:      $name ($running -> $newest)"
+	say "entry:    $ENTRIES/$new_file (copy of ${booted##*/})"
+	say "fallback: $fallback (copy of ${booted##*/})"
+	if [ "$DRY" = 1 ]; then
+		say "dry run; new entry would read:"
+		printf '%s\n' "$entry"
+		exit 0
+	fi
+
+	esp_rw
+	new_cmdline=
+	carry "$CARRIER$IMAGES_REL/$name.ext4" "$name"
+	if [ -n "$new_cmdline" ]; then
+		ids=$(sed -n 's/^options[[:space:]]//p' "$booted" | words | grep -E '^pmos_(boot|root)_uuid=' | tr '\n' ' ')
+		entry=$(printf 'title Marathon\nlinux %s\ninitrd %s\ndevicetree %s\noptions %s%s%s.rootfs_file=%s\n' \
+			"$BOOT_REL/$name/linux.efi" "$BOOT_REL/$name/initramfs" "$BOOT_REL/$name/$C.dtb" \
+			"$new_cmdline" "$ids" "$C" "$IMAGES_REL/$name.ext4" | ours "$newest")
+		say "boot:     $ESP$BOOT_REL/$name (the root's own kernel, initramfs and DTB)"
+	fi
+	fallback_body=$(ours 0 < "$booted")
+	[ -e "$LOADER.before-$name" ] || cp "$LOADER" "$LOADER.before-$name"
+	put "$fallback" "$fallback_body"
+	put "$ENTRIES/$new_file" "$entry"
+	set_default "marathon-$C-*"
+	for f in "$ENTRIES/marathon-$C-"b-*.conf; do
+		[ -e "$f" ] && [ "${f##*/}" != "$new_file" ] || continue
+		say "remove:   $f"
+		rm -- "$f"
+	done
+	prune_boot
+	sync -f "$ESP"
+	say "armed; loader.conf now:"
+	cat "$LOADER"
+	[ "${1:-}" != --reboot ] || systemctl --no-block reboot
+}
+
+# The booted entry boots this root's own kernel, initramfs, DTB and command
+# line: a root armed by an older one starts on the older root's kernel.
+# --reboot restarts into its own.
+sync_boot() {
+	booted=$(booted_entry)
+	# Only an update's counted entry; a test or hand-made entry boots what it names.
+	case ${booted##*/} in marathon-$C-b-*) ;; *) return 0 ;; esac
+	root_file=$(grep -o "$C\\.rootfs_file=[^ ]*" "$booted" | head -n 1)
+	name=${root_file##*/}
+	name=${name%.ext4}
+	[ -n "$name" ] || die "${booted##*/}: no $C.rootfs_file"
+	# The ESP is mounted over /boot; a bind mount of / shows the root's own.
+	self=$ROOT/run/marathon-carrier-root-self
+	mkdir -p "$self"
+	mount --bind "$ROOT/" "$self" || die "cannot bind-mount $ROOT/"
+	trap 'umount "$self"' EXIT
+	[ -f "$self/$CMDLINE_CONF" ] || return 0
+	want=$(sed 's/#.*//' "$self/$CMDLINE_CONF" | words | tr '\n' ' ')
+	ids=$(sed -n 's/^options[[:space:]]//p' "$booted" | words | grep -E '^pmos_(boot|root)_uuid=' | tr '\n' ' ')
+	same=1
+	for f in linux:boot/linux.efi initrd:boot/initramfs devicetree:boot/$DTB; do
+		p=$(sed -n "s/^${f%%:*}[[:space:]]*//p" "$booted")
+		cmp -s "$self/${f#*:}" "$ESP$p" || same=
+	done
+	[ "$(sed -n 's/^options[[:space:]]//p' "$booted" | words)" = "$(echo "$want$ids$root_file" | words)" ] || same=
+	[ -z "$same" ] || return 0
+	say "sync:     ${booted##*/} boots another root's kernel; installing $name's own"
+	if [ "$DRY" = 1 ]; then
+		say "dry run; nothing changed"
+		exit 0
+	fi
+	trap 'umount "$self"; sync -f "$ESP"; [ "$REMOUNT" = 0 ] || mount -o remount,ro,nosuid,nodev,noexec "$ESP"' EXIT
+	[ "$REMOUNT" = 0 ] || mount -o remount,rw "$ESP"
+	boot_files "$self" "$name" || die "cannot install $name's boot files"
+	[ -n "$new_cmdline" ] || return 0
+	put "$booted" "$(awk -v l="$BOOT_REL/$name/linux.efi" -v i="$BOOT_REL/$name/initramfs" \
+		-v d="$BOOT_REL/$name/$C.dtb" -v o="$new_cmdline$ids$root_file" '
+		$1 == "linux" { print "linux " l; next }
+		$1 == "initrd" { print "initrd " i; next }
+		$1 == "devicetree" { print "devicetree " d; next }
+		$1 == "options" { print "options " o; next }
+		{ print }' "$booted")"
+	prune_boot
+	say "synced:   ${booted##*/} now boots $BOOT_REL/$name"
+	[ "${1:-}" != --reboot ] || systemctl --no-block reboot
+}
+
+case $CMD in
+install) shift; [ $# -ge 1 ] || die "install needs IMAGE"; install_image "$@" ;;
+rollback) [ $# -ge 2 ] || die "rollback needs NAME"; rollback "$2" ;;
+arm) shift; arm "$@" ;;
+sync-boot) shift; sync_boot "$@" ;;
+*) die "unknown command $CMD" ;;
+esac

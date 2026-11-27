@@ -1,0 +1,54 @@
+From 80d1fc809d8d78380d65d1936b928bbc78dffbdd Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 13:07:02 +0000
+Subject: [PATCH 161/214] Revert "DEBUG: drm/panel: visionox-vtdr6126:
+ Optionally keep the bootloader's panel init"
+
+This reverts commit 52cd57221eec6abd8cc2a34dc1963d2562e6fb2b.
+---
+ drivers/gpu/drm/panel/panel-visionox-vtdr6126.c | 15 ---------------
+ 1 file changed, 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+index d42f9dc28..d8779df83 100644
+--- a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
++++ b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+@@ -24,10 +24,6 @@ static unsigned int refresh = 60;
+ module_param(refresh, uint, 0644);
+ MODULE_PARM_DESC(refresh, "Refresh rate in Hz: 60 or 90");
+ 
+-/* DEBUG: keep the bootloader's panel state: no reset, no init, no sleep-out */
+-static bool keep_boot_init = true;
+-module_param(keep_boot_init, bool, 0644);
+-
+ struct visionox_vtdr6126 {
+ 	struct drm_panel panel;
+ 	struct mipi_dsi_device *dsi;
+@@ -364,12 +360,6 @@ static int visionox_vtdr6126_enable(struct drm_panel *panel)
+ 	struct visionox_vtdr6126 *ctx = to_visionox_vtdr6126(panel);
+ 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
+ 
+-	if (keep_boot_init) {
+-		visionox_vtdr6126_dbg_read(ctx, "kept boot init, enable");
+-		schedule_delayed_work(&ctx->dbg_work, 3 * HZ);
+-		return 0;
+-	}
+-
+ 	ctx->dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+ 
+ 	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
+@@ -423,11 +413,6 @@ static int visionox_vtdr6126_prepare(struct drm_panel *panel)
+ 		goto err_vsn;
+ 	usleep_range(10000, 15000);
+ 
+-	if (keep_boot_init) {
+-		dev_info(panel->dev, "dbg keeping the bootloader's panel init\n");
+-		return 0;
+-	}
+-
+ 	visionox_vtdr6126_reset(ctx);
+ 
+ 	ret = visionox_vtdr6126_on(ctx);
+-- 
+2.55.0
+

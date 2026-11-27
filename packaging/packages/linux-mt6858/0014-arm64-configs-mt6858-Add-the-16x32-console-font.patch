@@ -1,0 +1,30 @@
+From d2ab9a0761fca3a35330bf5520b89bc03c9bf83a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 20:12:59 +0000
+Subject: [PATCH 014/214] arm64: configs: mt6858: Add the 16x32 console font
+
+With the kernel's default 8x16 font, fbcon on the Jolla Phone's
+1032x2272 panel is 129 columns of 8-pixel text. Build in Terminus 16x32
+for the first-boot console (fbcon=font:TER16x32).
+---
+ arch/arm64/configs/mt6858.config | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 64c51adfe..acc8385b5 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -14,6 +14,10 @@ CONFIG_DRM=y
+ CONFIG_DRM_SIMPLEDRM=y
+ CONFIG_DRM_FBDEV_EMULATION=y
+ CONFIG_FRAMEBUFFER_CONSOLE=y
++# A font that is legible on a 1032x2272 panel (fbcon=font:TER16x32).
++CONFIG_FONTS=y
++CONFIG_FONT_8x16=y
++CONFIG_FONT_TER16x32=y
+ CONFIG_SCSI_UFSHCD=y
+ CONFIG_SCSI_UFSHCD_PLATFORM=y
+ CONFIG_SCSI_UFS_MEDIATEK=y
+-- 
+2.55.0
+

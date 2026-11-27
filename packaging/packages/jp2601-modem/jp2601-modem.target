@@ -1,0 +1,12 @@
+[Unit]
+Description=JP2601 MD1 cellular modem stack
+ConditionPathExists=/proc/device-tree/soc/mddriver@d180000
+# Wants, not Requires: the reset path restarts jp2601-modem-init, and a
+# requirement would carry that restart up to the target and, through
+# PartOf, to fsd, rpcd and mdinit while MD1 reboots.
+Wants=jp2601-modem-stack.service jp2601-modem-nv.service jp2601-ccci-rpcd.service jp2601-ccci-fsd.service jp2601-ccci-mdinit.service jp2601-modem-init.service
+Wants=jp2601-modem-reset.path
+After=jp2601-modem-init.service
+
+[Install]
+WantedBy=multi-user.target

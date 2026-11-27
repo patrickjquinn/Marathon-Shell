@@ -9,14 +9,66 @@ Rectangle {
 
     property var predictions: []
     property string currentWord: ""
+    readonly property bool canPaste: Silica.Clipboard.hasText
 
     signal predictionSelected(string word)
+    signal pasteRequested(string text)
 
     implicitHeight: Math.round(48 * Constants.scaleFactor)
-    visible: predictions.length > 0
+    visible: predictions.length > 0 || canPaste
     height: visible ? implicitHeight : 0
     // Plain words, the best guess in the highlight.
     color: "transparent"
+
+    // As Sailfish's keyboard: the clipboard, ready to paste, at the start of the bar.
+    Rectangle {
+        id: pasteChip
+
+        objectName: "pasteChip"
+        x: chipRow.spacing
+        width: predictionBar.canPaste ? pasteRow.width + 2 * Silica.Theme.paddingMedium : 0
+        height: Math.round(40 * Constants.scaleFactor)
+        visible: predictionBar.canPaste
+        radius: Silica.Theme.paddingSmall
+        color: pasteMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+        anchors.verticalCenter: parent.verticalCenter
+        //: Accessible name of the keyboard's key that pastes the clipboard
+        Accessible.name: qsTr("Paste")
+        Accessible.role: Accessible.Button
+
+        Row {
+            id: pasteRow
+
+            anchors.centerIn: parent
+            spacing: Silica.Theme.paddingSmall
+
+            GlyphIcon {
+                name: "clipboard-text"
+                size: Silica.Theme.iconSizeSmall
+                color: pasteMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text {
+                text: qsTr("Paste")
+                color: pasteMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                font.family: Silica.Theme.fontFamily
+                font.pixelSize: Silica.Theme.fontSizeSmall
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+
+        MouseArea {
+            id: pasteMouseArea
+
+            anchors.fill: parent
+            onClicked: {
+                if (SettingsManagerCpp.keyboardHapticStrength !== "off")
+                    HapticManager.light();
+                predictionBar.pasteRequested(Silica.Clipboard.text);
+            }
+        }
+    }
 
     Row {
         id: chipRow
@@ -24,7 +76,7 @@ Rectangle {
         readonly property var shown: predictionBar.predictions.slice(0, 3)
 
         anchors.fill: parent
-        anchors.leftMargin: spacing
+        anchors.leftMargin: pasteChip.width + spacing
         anchors.rightMargin: spacing
         spacing: Math.round(6 * Constants.scaleFactor)
         visible: predictionBar.predictions.length > 0

@@ -1,0 +1,59 @@
+From d2e523dab26fe57699df697b0136ab3c6937f4d5 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 02:58:54 +0000
+Subject: [PATCH 230/237] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ MT6369 codec
+
+The microphones are on the MT6369's codec, clocked by the MT6685's
+XO_BBCK5 and linked to the AFE's ADDA back end. All three inputs are
+ACC microphones, as in the stock device tree: AIN0 the main one and
+AIN2 the second on MICBIAS0, AIN1 the headset's on MICBIAS1.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts   | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index afb906a85..af2c7683c 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -6,6 +6,7 @@
+ /dts-v1/;
+ #include "mt6858.dtsi"
+ #include "mt6858-pinfunc.h"
++#include <dt-bindings/clock/mediatek,mt6685-clkbuf.h>
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/input/input.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
+@@ -608,6 +609,14 @@ sound {
+ 			"Speakers", "Top DAC Output",
+ 			"Earpiece", "Top DAC Output";
+ 
++		adda-link {
++			link-name = "ADDA_BE";
++
++			codec {
++				sound-dai = <&mt6369_codec>;
++			};
++		};
++
+ 		i2s-out1-link {
+ 			link-name = "I2SOUT1_BE";
+ 			dai-format = "i2s";
+@@ -895,6 +904,14 @@ mt6363_vrfio18: vrf-io18 {
+ };
+ 
+ &mt6369 {
++	/* AIN0 main and AIN2 second microphone on MICBIAS0, AIN1 headset on MICBIAS1 */
++	mt6369_codec: audio-codec {
++		compatible = "mediatek,mt6369-codec";
++		clocks = <&mt6685_clkbuf MT6685_CLK_XO_BBCK5>;
++		mediatek,mic-type = <1 1 1>;
++		#sound-dai-cells = <0>;
++	};
++
+ 	regulators {
+ 		compatible = "mediatek,mt6369-regulator";
+ 
+-- 
+2.55.0
+

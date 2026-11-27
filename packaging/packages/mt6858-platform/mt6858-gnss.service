@@ -1,0 +1,13 @@
+[Unit]
+Description=MT6858 GNSS data link (gps_drv over conninfra): /dev/gpsdl0
+Wants=mt6858-wifi.service
+After=multi-user.target mt6858-wifi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/modprobe gps_drv_dl_v051
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -32,6 +32,13 @@ pub mod qobject {
     extern "RustQt" {
         #[qobject]
         #[qproperty(f64, user_scale_factor, cxx_name = "userScaleFactor", READ, WRITE = set_user_scale_factor, NOTIFY)]
+        #[qproperty(
+            f64,
+            default_user_scale_factor,
+            cxx_name = "defaultUserScaleFactor",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(QString, wallpaper_path, cxx_name = "wallpaperPath", READ, WRITE = set_wallpaper_path, NOTIFY)]
         #[qproperty(QString, device_name, cxx_name = "deviceName", READ, WRITE = set_device_name, NOTIFY)]
         #[qproperty(bool, auto_lock, cxx_name = "autoLock", READ, WRITE = set_auto_lock, NOTIFY)]
@@ -69,6 +76,7 @@ pub mod qobject {
         #[qproperty(QString, app_sort_order, cxx_name = "appSortOrder", READ, WRITE = set_app_sort_order, NOTIFY)]
         #[qproperty(QString, assist_key_press, cxx_name = "assistKeyPress", READ, WRITE = set_assist_key_press, NOTIFY)]
         #[qproperty(QString, assist_key_hold, cxx_name = "assistKeyHold", READ, WRITE = set_assist_key_hold, NOTIFY)]
+        #[qproperty(QString, privacy_switch, cxx_name = "privacySwitch", READ, WRITE = set_privacy_switch, NOTIFY)]
         #[qproperty(QString, trackpad_mode, cxx_name = "trackpadMode", READ, WRITE = set_trackpad_mode, NOTIFY)]
         #[qproperty(i32, app_grid_columns, cxx_name = "appGridColumns", READ, WRITE = set_app_grid_columns, NOTIFY)]
         #[qproperty(bool, search_native_apps, cxx_name = "searchNativeApps", READ, WRITE = set_search_native_apps, NOTIFY)]
@@ -173,6 +181,8 @@ pub mod qobject {
         fn set_assist_key_press(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setAssistKeyHold"]
         fn set_assist_key_hold(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setPrivacySwitch"]
+        fn set_privacy_switch(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setTrackpadMode"]
         fn set_trackpad_mode(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setAppGridColumns"]
@@ -260,11 +270,12 @@ use qobject::Settings;
 
 const SETTINGS: Service = Service::shell("Settings");
 
-/// The properties: field, type and any default, the shell's name, and setter.
+/// The properties: field, type and any default, the shell's name, and the
+/// setter (none for one only the shell sets).
 macro_rules! properties {
     (@default $ty:ty) => { <$ty>::default() };
     (@default $ty:ty, $default:expr) => { $default };
-    ($($field:ident: $ty:ty $(= $default:expr)?, $key:literal, $changed:ident, $setter:ident($arg:ty);)*) => {
+    ($($field:ident: $ty:ty $(= $default:expr)?, $key:literal, $changed:ident $(, $setter:ident($arg:ty))?;)*) => {
         pub struct SettingsRust {
             $($field: $ty,)*
         }
@@ -276,9 +287,9 @@ macro_rules! properties {
         }
 
         impl Settings {
-            $(fn $setter(self: Pin<&mut Self>, value: $arg) {
+            $($(fn $setter(self: Pin<&mut Self>, value: $arg) {
                 store($key, value.wire().into());
-            })*
+            })?)*
         }
 
         /// The shell's `name` changed to `value`.
@@ -298,6 +309,7 @@ macro_rules! properties {
 
 properties! {
     user_scale_factor: f64 = 1.0, "userScaleFactor", user_scale_factor_changed, set_user_scale_factor(f64);
+    default_user_scale_factor: f64 = 1.0, "defaultUserScaleFactor", default_user_scale_factor_changed;
     wallpaper_path: QString, "wallpaperPath", wallpaper_path_changed, set_wallpaper_path(&QString);
     device_name: QString, "deviceName", device_name_changed, set_device_name(&QString);
     auto_lock: bool = true, "autoLock", auto_lock_changed, set_auto_lock(bool);
@@ -335,6 +347,7 @@ properties! {
     app_sort_order: QString = QString::from("alphabetical"), "appSortOrder", app_sort_order_changed, set_app_sort_order(&QString);
     assist_key_press: QString = QString::from("camera"), "assistKeyPress", assist_key_press_changed, set_assist_key_press(&QString);
     assist_key_hold: QString = QString::from("pilot-voice"), "assistKeyHold", assist_key_hold_changed, set_assist_key_hold(&QString);
+    privacy_switch: QString = QString::from("microphone,camera,location"), "privacySwitch", privacy_switch_changed, set_privacy_switch(&QString);
     trackpad_mode: QString = QString::from("gesture"), "trackpadMode", trackpad_mode_changed, set_trackpad_mode(&QString);
     app_grid_columns: i32, "appGridColumns", app_grid_columns_changed, set_app_grid_columns(i32);
     search_native_apps: bool = true, "searchNativeApps", search_native_apps_changed, set_search_native_apps(bool);

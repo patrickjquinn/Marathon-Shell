@@ -1,0 +1,111 @@
+From 4ae7490738be5becfc880dd021859448d8445c24 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:00:59 +0000
+Subject: [PATCH 129/214] arm64: dts: mediatek: mt6858: Reach the MT6369
+ through SPMI-M
+
+The MT6369 read 0x00 from every ID register through the SPMI-P PMIF.
+The downstream driver sends a SID to SPMI-P only when its bit is set in
+spmi-dev-mask, and the stock device tree sets it to 0: it talks to the
+MT6369 (SID 5) through the SPMI-M PMIF like to the MT6363. Describe it
+there and drop the SPMI-P bus node.
+
+Update the MT6369 variant's comment to match, and drop three blank lines
+the quick-wins commits left in the JP2601 device tree and one in the
+PMIC match table.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts |  8 --------
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi      | 20 ++++---------------
+ drivers/mfd/mtk-spmi-pmic.c                   |  3 +--
+ 3 files changed, 5 insertions(+), 26 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index df17cee05..01de41660 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -31,7 +31,6 @@ aliases {
+ 		i2c12 = &i2c12;
+ 		serial0 = &uart0;
+ 		spmi0 = &spmi;
+-		spmi1 = &spmi_p;
+ 	};
+ 
+ 	battery: battery {
+@@ -794,7 +793,6 @@ pins-ir {
+ 	};
+ 
+ 	switch_pins: switch-pins {
+-
+ 		pins-switch {
+ 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>,
+ 				 <PINMUX_GPIO13__FUNC_GPIO13>;
+@@ -821,13 +819,7 @@ &pwm {
+ 	status = "disabled";
+ };
+ 
+-&spmi_p {
+-
+-	status = "okay";
+-};
+-
+ &spi3 {
+-
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&spi3_pins>;
+ 	mediatek,pad-select = <0>;
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 834390943..b714b5bba 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -862,23 +862,11 @@ mt6363: pmic@4 {
+ 					#address-cells = <1>;
+ 					#size-cells = <0>;
+ 				};
+-			};
+-
+-			/*
+-			 * The MT6369 is on the second bus, whose RCS requests
+-			 * share the first bus's interrupt: no interrupts here.
+-			 */
+-			spmi_p: spmi@6000 {
+-				reg = <0x6000 0x900>, <0x0 0x100>;
+-				reg-names = "pmif", "spmimst";
+-				clocks = <&vlpckgen CLK_VLP_PWRAP_ULPOSC_SEL>,
+-					 <&vlpckgen CLK_VLP_PWRAP_ULPOSC_SEL>,
+-					 <&vlpckgen CLK_VLP_SPMI_P_SEL>;
+-				clock-names = "pmif_sys_ck", "pmif_tmr_ck", "spmimst_clk_mux";
+-				#address-cells = <2>;
+-				#size-cells = <0>;
+-				status = "disabled";
+ 
++				/*
++				 * Wired to the SPMI-P pads, but the downstream driver
++				 * reaches it through this PMIF (spmi-dev-mask = 0).
++				 */
+ 				mt6369: pmic@5 {
+ 					compatible = "mediatek,mt6369";
+ 					reg = <0x5 SPMI_USID>;
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index 460e5b760..eab1e7a76 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -404,7 +404,7 @@ static const struct mtk_spmi_pmic_variant mt6373_variant = {
+ 	.chip_id = 0x73,
+ };
+ 
+-/* Its interrupts are not wired up: it shares SPMI-P's absent RCS interrupt */
++/* Its interrupts are not described yet: only its regulators are used */
+ static const struct mtk_spmi_pmic_variant mt6369_variant = {
+ 	.chip_id_reg = MTK_SPMI_PMIC_REG_CHIP_ID,
+ 	.chip_id = 0x69,
+@@ -462,7 +462,6 @@ static int mtk_spmi_pmic_probe(struct spmi_device *sdev)
+ static const struct of_device_id mtk_pmic_spmi_id_table[] = {
+ 	{ .compatible = "mediatek,mt6363", .data = &mt6363_variant },
+ 	{ .compatible = "mediatek,mt6369", .data = &mt6369_variant },
+-
+ 	{ .compatible = "mediatek,mt6373", .data = &mt6373_variant },
+ 	{ /* sentinel */ }
+ };
+-- 
+2.55.0
+

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Power Wi-Fi on the way the stock HAL does: hand gen4m the factory NVRAM
+# through /dev/wmtWifi in one write, then switch it on. The first power-on
+# waits for CONNSYS pre-calibration, which runs once BT and Wi-Fi have both
+# registered and takes a few seconds; the driver gives up after 10 s.
+set -eu
+buf=/run/mt6858-wifi-nvram
+{ printf 'WR-BUF:NVRAM'; cat /var/lib/mt6858-connsys/WIFI; } > "$buf"
+dd if="$buf" of=/dev/wmtWifi bs=16k count=1 2>/dev/null
+rm -f "$buf"
+for _ in 1 2 3; do
+	echo 1 > /dev/wmtWifi 2>/dev/null && exit 0
+	sleep 1
+done
+echo 1 > /dev/wmtWifi

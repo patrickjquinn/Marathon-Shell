@@ -1,0 +1,119 @@
+From 90362aadcc72bbf01fff518ec59f88e4fdca25b5 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:09:55 +0000
+Subject: [PATCH 135/214] regulator: mt6369: Add the SD card LDOs
+
+The Jolla Phone's microSD slot takes VMCH as card supply and VMC as I/O
+supply. They are MT6369 LDOs of the same kind as VIBR (from the
+downstream driver: enable bit 0 of 0x1c95/0x1ca4, selector bits 3:0 of
+0x1da9/0x1dad into the same table). Describe them with a common macro.
+---
+ .../regulator/mediatek,mt6369-regulator.yaml  |  5 +-
+ drivers/regulator/mt6369-regulator.c          | 48 ++++++++++++-------
+ 2 files changed, 33 insertions(+), 20 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/regulator/mediatek,mt6369-regulator.yaml b/Documentation/devicetree/bindings/regulator/mediatek,mt6369-regulator.yaml
+index 2bf81b3a0..fed886111 100644
+--- a/Documentation/devicetree/bindings/regulator/mediatek,mt6369-regulator.yaml
++++ b/Documentation/devicetree/bindings/regulator/mediatek,mt6369-regulator.yaml
+@@ -11,14 +11,15 @@ maintainers:
+ 
+ description:
+   The MT6369 is the second SPMI PMIC of MT6858 phones. Its LDOs are
+-  children of the PMIC node; only the vibrator LDO is described so far.
++  children of the PMIC node; the vibrator and SD card LDOs are described
++  so far.
+ 
+ properties:
+   compatible:
+     const: mediatek,mt6369-regulator
+ 
+ patternProperties:
+-  "^vibr$":
++  "^(vibr|vmch|vmc)$":
+     type: object
+     $ref: regulator.yaml#
+     unevaluatedProperties: false
+diff --git a/drivers/regulator/mt6369-regulator.c b/drivers/regulator/mt6369-regulator.c
+index fc3eec7a9..c31009308 100644
+--- a/drivers/regulator/mt6369-regulator.c
++++ b/drivers/regulator/mt6369-regulator.c
+@@ -2,7 +2,7 @@
+ /*
+  * MediaTek MT6369 PMIC regulators
+  *
+- * Only the vibrator LDO is described so far; its registers come from the
++ * The vibrator and SD card LDOs so far; their registers come from the
+  * downstream mt6369-regulator driver.
+  */
+ 
+@@ -15,15 +15,22 @@
+ #include <linux/regulator/of_regulator.h>
+ 
+ #define MT6369_LDO_VIBR_CON0		0x1bc1
+-#define MT6369_LDO_VIBR_EN		BIT(0)
+ #define MT6369_VIBR_ANA_CON0		0x1d99
+-#define MT6369_VIBR_VOSEL_MASK		GENMASK(3, 0)
++#define MT6369_LDO_VMCH_CON0		0x1c95
++#define MT6369_LDO_VMC_CON0		0x1ca4
++#define MT6369_VMCH_ANA_CON0		0x1da9
++#define MT6369_VMC_ANA_CON0		0x1dad
++#define MT6369_LDO_EN			BIT(0)
++#define MT6369_LDO_VOSEL_MASK		GENMASK(3, 0)
+ 
+ enum mt6369_regulator_id {
+ 	MT6369_ID_VIBR,
++	MT6369_ID_VMCH,
++	MT6369_ID_VMC,
+ };
+ 
+-static const unsigned int mt6369_vibr_volts[] = {
++/* VIBR, VMCH and VMC share one selector table */
++static const unsigned int mt6369_ldo_volts[] = {
+ 	1200000, 1300000, 1500000, 1700000, 1800000, 2000000, 2500000, 2600000,
+ 	2700000, 2800000, 2900000, 3000000, 3100000, 3300000, 3400000, 3500000,
+ };
+@@ -38,21 +45,26 @@ static const struct regulator_ops mt6369_ldo_table_ops = {
+ 	.is_enabled = regulator_is_enabled_regmap,
+ };
+ 
++#define MT6369_LDO(_name, _id, _en_reg, _vsel_reg)			\
++	{								\
++		.name = _name,						\
++		.of_match = of_match_ptr(_name),			\
++		.id = _id,						\
++		.ops = &mt6369_ldo_table_ops,				\
++		.type = REGULATOR_VOLTAGE,				\
++		.owner = THIS_MODULE,					\
++		.n_voltages = ARRAY_SIZE(mt6369_ldo_volts),		\
++		.volt_table = mt6369_ldo_volts,				\
++		.vsel_reg = _vsel_reg,					\
++		.vsel_mask = MT6369_LDO_VOSEL_MASK,			\
++		.enable_reg = _en_reg,					\
++		.enable_mask = MT6369_LDO_EN,				\
++	}
++
+ static const struct regulator_desc mt6369_regulators[] = {
+-	{
+-		.name = "vibr",
+-		.of_match = of_match_ptr("vibr"),
+-		.id = MT6369_ID_VIBR,
+-		.ops = &mt6369_ldo_table_ops,
+-		.type = REGULATOR_VOLTAGE,
+-		.owner = THIS_MODULE,
+-		.n_voltages = ARRAY_SIZE(mt6369_vibr_volts),
+-		.volt_table = mt6369_vibr_volts,
+-		.vsel_reg = MT6369_VIBR_ANA_CON0,
+-		.vsel_mask = MT6369_VIBR_VOSEL_MASK,
+-		.enable_reg = MT6369_LDO_VIBR_CON0,
+-		.enable_mask = MT6369_LDO_VIBR_EN,
+-	},
++	MT6369_LDO("vibr", MT6369_ID_VIBR, MT6369_LDO_VIBR_CON0, MT6369_VIBR_ANA_CON0),
++	MT6369_LDO("vmch", MT6369_ID_VMCH, MT6369_LDO_VMCH_CON0, MT6369_VMCH_ANA_CON0),
++	MT6369_LDO("vmc", MT6369_ID_VMC, MT6369_LDO_VMC_CON0, MT6369_VMC_ANA_CON0),
+ };
+ 
+ static int mt6369_regulator_probe(struct platform_device *pdev)
+-- 
+2.55.0
+

@@ -1,0 +1,49 @@
+From 48459257e3e55a4457644a686c2d9d948936e4fc Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:40:43 +0000
+Subject: [PATCH 101/214] soc: mediatek: mt6858-mmsys: Disconnect the unused
+ OVL_2L0
+
+The bootloader cascades OVL_2L0 -> OVL_2L1 -> OVL_2L2. The kernel's path
+starts at OVL_2L1, so when connecting OVL_2L1 to OVL_2L2 also clear
+OVL_2L0's background output and its blend/background select, which
+otherwise keep feeding OVL_2L1's background input.
+---
+ drivers/soc/mediatek/mt6858-mmsys.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/soc/mediatek/mt6858-mmsys.h b/drivers/soc/mediatek/mt6858-mmsys.h
+index 8b2253481..ef441db57 100644
+--- a/drivers/soc/mediatek/mt6858-mmsys.h
++++ b/drivers/soc/mediatek/mt6858-mmsys.h
+@@ -13,6 +13,7 @@
+ #define MT6858_MMSYS_OVL_CON0			0xc00
+ #define MT6858_MMSYS_OVL_MOUT_EN		0xc08
+ #define MT6858_MMSYS_OVL_CON3			0xc0c
++#define MT6858_DISP_OVL0_2L_BG_MOUT_EN		0xc10
+ #define MT6858_DISP_OVL1_2L_BG_MOUT_EN		0xc14
+ #define MT6858_DISP_OVL2_2L_MOUT_EN		0xc3c
+ #define MT6858_DISP_PQ0_IN_CB0_MOUT_EN		0xd00
+@@ -26,6 +27,7 @@
+ #define MT6858_OVL_CON0_EN			BIT(0)
+ #define MT6858_OVL_CON3_EN			GENMASK(23, 16)
+ 
++#define MT6858_OVL0_2L_MASK			GENMASK(3, 2)
+ #define MT6858_OVL1_2L_GO_BLEND			BIT(4)
+ #define MT6858_OVL1_2L_GO_BG			BIT(5)
+ #define MT6858_OVL1_2L_MASK			GENMASK(5, 4)
+@@ -61,6 +63,11 @@ static const struct mtk_mmsys_routes mmsys_mt6858_routing_table[] = {
+ 	MMSYS_ROUTE(OVL_2L, 1, OVL_2L, 2,
+ 		    MT6858_DISP_OVL1_2L_BG_MOUT_EN, MT6858_OVL_BG_MOUT_MASK,
+ 		    MT6858_OVL1_2L_BG_TO_OVL2_2L),
++	/* OVL_2L0 is unused: cut the bootloader's OVL_2L0 -> OVL_2L1 cascade */
++	MMSYS_ROUTE(OVL_2L, 1, OVL_2L, 2,
++		    MT6858_MMSYS_OVL_MOUT_EN, MT6858_OVL0_2L_MASK, 0),
++	MMSYS_ROUTE(OVL_2L, 1, OVL_2L, 2,
++		    MT6858_DISP_OVL0_2L_BG_MOUT_EN, MT6858_OVL_BG_MOUT_MASK, 0),
+ 	MMSYS_ROUTE(OVL_2L, 2, DSC, 0,
+ 		    MT6858_MMSYS_OVL_CON0, MT6858_OVL_CON0_EN,
+ 		    MT6858_OVL_CON0_EN),
+-- 
+2.55.0
+

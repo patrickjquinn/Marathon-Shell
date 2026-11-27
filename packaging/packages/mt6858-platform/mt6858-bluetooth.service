@@ -1,0 +1,16 @@
+[Unit]
+Description=MT6858 Bluetooth (bt_drv over conninfra) and its factory address
+# hci0 comes after the pre-calibration mt6858-wifi starts; bluetoothd
+# takes it once the address configures it.
+Wants=mt6858-wifi.service
+After=multi-user.target mt6858-wifi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/modprobe bt_drv_6858
+ExecStart=/usr/libexec/marathon/mt6858-bt-address
+TimeoutStartSec=60
+
+[Install]
+WantedBy=bluetooth.target multi-user.target

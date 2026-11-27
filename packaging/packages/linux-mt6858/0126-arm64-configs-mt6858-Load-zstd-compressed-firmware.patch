@@ -1,0 +1,27 @@
+From bc72f34c82345665b7d8568d2f3340189f878914 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:52:51 +0000
+Subject: [PATCH 126/214] arm64: configs: mt6858: Load zstd-compressed firmware
+
+Alpine and postmarketOS ship linux-firmware compressed with zstd, so the
+Marathon image has arm/mali/arch10.8/mali_csffw.bin.zst. The built-in
+Panthor requests it at probe and finds nothing unless the firmware
+loader can decompress it.
+---
+ arch/arm64/configs/mt6858.config | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index fa2454c3f..2d76a34cf 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -68,3 +68,6 @@ CONFIG_DRM_PANEL_VISIONOX_VTDR6126=y
+ CONFIG_MTK_GPUEB_MBOX=y
+ CONFIG_MTK_MFG_PM_DOMAIN=y
+ CONFIG_DRM_PANTHOR=y
++# Alpine's linux-firmware ships zstd files, Panthor's CSF firmware among them.
++CONFIG_FW_LOADER_COMPRESS=y
++CONFIG_FW_LOADER_COMPRESS_ZSTD=y
+-- 
+2.55.0
+

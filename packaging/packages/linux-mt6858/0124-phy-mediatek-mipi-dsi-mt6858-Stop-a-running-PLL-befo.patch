@@ -1,0 +1,29 @@
+From bf263f71e181fc1dc3c405648127ecae5aae5218 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:50:12 +0000
+Subject: [PATCH 124/214] phy: mediatek: mipi-dsi-mt6858: Stop a running PLL
+ before programming it
+
+The bootloader hands over the MIPI TX PLL enabled. Setting PLL_EN again
+does not load a new PCW, so the link would stay at the bootloader's
+rate. Clear PLL_EN first, as the MT8196 variant does.
+---
+ drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c b/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
+index 22a973b5d..e73d2fc0a 100644
+--- a/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
++++ b/drivers/phy/mediatek/phy-mtk-mipi-dsi-mt6858.c
+@@ -102,6 +102,8 @@ static int mtk_mipi_tx_pll_enable(struct clk_hw *hw)
+ 	/* The lanes stay in software-controlled LP-11 until power_on_signal */
+ 	mtk_mipi_tx_sw_ctl(base, true);
+ 
++	/* The bootloader leaves the PLL running: stop it, or the PCW won't load */
++	mtk_phy_clear_bits(base + MIPITX_PLL_CON1, RG_DSI_PLL_EN);
+ 	mtk_phy_set_bits(base + MIPITX_PLL_PWR, AD_DSI_PLL_SDM_PWR_ON);
+ 	udelay(10);
+ 	mtk_phy_clear_bits(base + MIPITX_PLL_PWR, AD_DSI_PLL_SDM_ISO_EN);
+-- 
+2.55.0
+

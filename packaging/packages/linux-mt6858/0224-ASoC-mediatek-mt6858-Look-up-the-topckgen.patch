@@ -1,0 +1,52 @@
+From 5d7a8e51ad5adf9b21e1fb7a3573701bd1feaa39 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:56:13 +0000
+Subject: [PATCH 224/237] ASoC: mediatek: mt6858: Look up the topckgen
+
+The machine driver's MTKAIF calibration reads the miso delay test in
+topckgen through the AFE's private data.
+---
+ sound/soc/mediatek/mt6858/mt6858-afe-clk.c    | 6 ++++++
+ sound/soc/mediatek/mt6858/mt6858-afe-common.h | 6 ++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/sound/soc/mediatek/mt6858/mt6858-afe-clk.c b/sound/soc/mediatek/mt6858/mt6858-afe-clk.c
+index 0e57b6a70..56c2a7770 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-afe-clk.c
++++ b/sound/soc/mediatek/mt6858/mt6858-afe-clk.c
+@@ -786,6 +786,12 @@ int mt6858_init_clock(struct mtk_base_afe *afe)
+ 					     "failed to get clock %s\n", aud_clks[i]);
+ 	}
+ 
++	afe_priv->topckgen = syscon_regmap_lookup_by_phandle(afe->dev->of_node,
++							     "mediatek,topckgen");
++	if (IS_ERR(afe_priv->topckgen))
++		return dev_err_probe(afe->dev, PTR_ERR(afe_priv->topckgen),
++				     "failed to get topckgen\n");
++
+ 	ret = mt6858_afe_disable_apll(afe);
+ 	if (ret)
+ 		return ret;
+diff --git a/sound/soc/mediatek/mt6858/mt6858-afe-common.h b/sound/soc/mediatek/mt6858/mt6858-afe-common.h
+index a3470ffac..b3e5eee25 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-afe-common.h
++++ b/sound/soc/mediatek/mt6858/mt6858-afe-common.h
+@@ -178,9 +178,15 @@ enum {
+ };
+ 
+ struct clk;
++struct regmap;
++
++/* topckgen: the MTKAIF miso phase test */
++#define CKSYS_AUD_TOP_CFG	0x032c
++#define CKSYS_AUD_TOP_MON	0x0330
+ 
+ struct mt6858_afe_private {
+ 	struct clk **clk;
++	struct regmap *topckgen;
+ 
+ 	/* dai */
+ 	void *dai_priv[MT6858_DAI_NUM];
+-- 
+2.55.0
+

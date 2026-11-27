@@ -1,0 +1,40 @@
+From a0313f487f9d1f9d0e74857e4087dc07c968e831 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 20:44:03 +0000
+Subject: [PATCH 183/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Orient the
+ IMU and set the proximity level
+
+Measured on the phone: held upright the ICM-42607 reads +1 g on its X
+axis, with the top to the left -1 g on Y, and face up +1 g on Z, so the
+device's Y is the sensor's X and its X the sensor's -Y. The STK3A5X
+proximity reads about 500 with nothing near and 1500 to 19000 with a
+hand 3 cm over the earpiece; 1000 is the near level.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index b88c3b782..812642e34 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -299,6 +299,7 @@ magnetometer@30 {
+ 		light-sensor@46 {
+ 			compatible = "sensortek,stk3a5x", "sensortek,stk3310";
+ 			reg = <0x46>;
++			proximity-near-level = <1000>;
+ 		};
+ 	};
+ 
+@@ -1159,6 +1160,9 @@ imu@0 {
+ 		compatible = "invensense,icm42607p";
+ 		reg = <0>;
+ 		spi-max-frequency = <10000000>;
++		mount-matrix = "0", "-1", "0",
++			       "1", "0", "0",
++			       "0", "0", "1";
+ 	};
+ };
+ 
+-- 
+2.55.0
+

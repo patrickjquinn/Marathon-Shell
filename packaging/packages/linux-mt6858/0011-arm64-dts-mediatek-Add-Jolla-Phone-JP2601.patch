@@ -1,0 +1,354 @@
+From dac1e64d20cdebd03329a7ecb552ba8807b6f0a1 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 18:07:23 +0000
+Subject: [PATCH 011/214] arm64: dts: mediatek: Add Jolla Phone (JP2601)
+
+Add a board for the Jolla Phone (2026) that can reach userspace from a
+bootloader-supplied initramfs: the serial console the stock firmware
+uses, LK's boot framebuffer, UFS and a USB device port.
+
+The framebuffer is LK's: 1032x2272 at 0xfe450000, lines padded to 1056
+pixels. LK reserves 0x1b80000 bytes there, exactly three such frames
+rounded up to 64 KiB. It holds the DIS0 power domain so the domain is
+not switched off under the scanout.
+
+The reserved regions are the ones LK placed on the stock firmware
+(Sailfish OS 5.2.0.22). Most are allocated by LK at boot, so the FDT
+LK hands over remains the authority; these copies only keep a kernel
+booted without them away from firmware memory. The ramoops region uses
+the stock kernel's layout so a crash log survives a warm reboot into
+either kernel.
+
+UFS VCC is an MT6363 LDO that LK leaves on. Until the SPMI PMIC
+drivers can name it, an always-on fixed regulator stands in.
+
+The USB port is peripheral-only: no Type-C or charger driver can report
+the role yet.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/Makefile         |   1 +
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 299 ++++++++++++++++++
+ 2 files changed, 300 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+
+diff --git a/arch/arm64/boot/dts/mediatek/Makefile b/arch/arm64/boot/dts/mediatek/Makefile
+index a86fb313b..64b7717f8 100644
+--- a/arch/arm64/boot/dts/mediatek/Makefile
++++ b/arch/arm64/boot/dts/mediatek/Makefile
+@@ -6,6 +6,7 @@ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6795-evb.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6795-sony-xperia-m5.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6797-evb.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt6797-x20-dev.dtb
++dtb-$(CONFIG_ARCH_MEDIATEK) += mt6858-jolla-jp2601.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt7622-rfb1.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt7622-bananapi-bpi-r64.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt7981b-cudy-wr3000-v1.dtb
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+new file mode 100644
+index 000000000..c20a2ce35
+--- /dev/null
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -0,0 +1,299 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
++/*
++ * Jolla Phone (2026), board JP2601
++ */
++
++/dts-v1/;
++#include "mt6858.dtsi"
++
++/ {
++	model = "Jolla Phone (JP2601)";
++	compatible = "jolla,jp2601", "mediatek,mt6858";
++	chassis-type = "handset";
++
++	aliases {
++		serial0 = &uart0;
++	};
++
++	chosen {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++		stdout-path = "serial0:921600n8";
++
++		/* LK's boot framebuffer; LK pads each line to 32 pixels. */
++		framebuffer@fe450000 {
++			compatible = "simple-framebuffer";
++			reg = <0 0xfe450000 0 (1056 * 2272 * 4)>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
++			width = <1032>;
++			height = <2272>;
++			stride = <(1056 * 4)>;
++			format = "a8r8g8b8";
++		};
++	};
++
++	memory@40000000 {
++		device_type = "memory";
++		/* The bootloader fills in the size. */
++		reg = <0 0x40000000 0 0>;
++	};
++
++	/*
++	 * LK's placements on the stock firmware. LK lays most of these out
++	 * at boot, so the FDT it passes stays the authority.
++	 */
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		debug-kinfo@48080000 {
++			reg = <0 0x48080000 0 0x10000>;
++			no-map;
++		};
++
++		minirdump@48170000 {
++			reg = <0 0x48170000 0 0x10000>;
++			no-map;
++		};
++
++		crypto@48410000 {
++			reg = <0 0x48410000 0 0x10000>;
++			no-map;
++		};
++
++		bl31@48800000 {
++			reg = <0 0x48800000 0 0x200000>;
++			no-map;
++		};
++
++		/* The stock kernel's ramoops layout, so either can read the other's. */
++		ramoops@6ec00000 {
++			compatible = "ramoops";
++			reg = <0 0x6ec00000 0 0x310000>;
++			record-size = <0x1000>;
++			console-size = <0x200000>;
++			ftrace-size = <0x1000>;
++			pmsg-size = <0x100000>;
++		};
++
++		aee@7e000000 {
++			reg = <0 0x7e000000 0 0x800000>;
++		};
++
++		sspm-shared@7f9e0000 {
++			reg = <0 0x7f9e0000 0 0x110000>;
++			no-map;
++		};
++
++		gpueb-shared@7faf0000 {
++			reg = <0 0x7faf0000 0 0x180000>;
++			no-map;
++		};
++
++		mcupm@7fc70000 {
++			reg = <0 0x7fc70000 0 0x100000>;
++			no-map;
++		};
++
++		sspm@7fd70000 {
++			reg = <0 0x7fd70000 0 0x280000>;
++			no-map;
++		};
++
++		emi-mbist@7fff0000 {
++			reg = <0 0x7fff0000 0 0x10000>;
++			no-map;
++		};
++
++		connsys@8de00000 {
++			reg = <0 0x8de00000 0 0xd00000>;
++			no-map;
++		};
++
++		wifi@8eb00000 {
++			reg = <0 0x8eb00000 0 0x1400000>;
++			no-map;
++		};
++
++		connsys-scp@8ff00000 {
++			reg = <0 0x8ff00000 0 0x20000>;
++			no-map;
++		};
++
++		adsp-shared@9f000000 {
++			reg = <0 0x9f000000 0 0xbe0000>;
++			no-map;
++		};
++
++		spm@9fff0000 {
++			reg = <0 0x9fff0000 0 0x10000>;
++			no-map;
++		};
++
++		smmu-pgd@bbe00000 {
++			reg = <0 0xbbe00000 0 0x200000>;
++			no-map;
++		};
++
++		vcp@bec00000 {
++			reg = <0 0xbec00000 0 0x800000>;
++			no-map;
++		};
++
++		tee@bf400000 {
++			reg = <0 0xbf400000 0 0x900000>;
++			no-map;
++		};
++
++		ccci-tag@bfdf0000 {
++			reg = <0 0xbfdf0000 0 0x10000>;
++			no-map;
++		};
++
++		atf-log@bfe00000 {
++			reg = <0 0xbfe00000 0 0x200000>;
++			no-map;
++		};
++
++		modem@d8000000 {
++			reg = <0 0xd8000000 0 0x140000>;
++			no-map;
++		};
++
++		modem@da000000 {
++			reg = <0 0xda000000 0 0x2650000>;
++			no-map;
++		};
++
++		modem@dd000000 {
++			reg = <0 0xdd000000 0 0x140000>;
++			no-map;
++		};
++
++		modem@de000000 {
++			reg = <0 0xde000000 0 0x59a0000>;
++			no-map;
++		};
++
++		modem@e3a00000 {
++			reg = <0 0xe3a00000 0 0x740000>;
++			no-map;
++		};
++
++		scp@e8000000 {
++			reg = <0 0xe8000000 0 0x1ba0000>;
++			no-map;
++		};
++
++		scp-shared@ef000000 {
++			reg = <0 0xef000000 0 0xf60000>;
++			no-map;
++		};
++
++		modem@f7000000 {
++			reg = <0 0xf7000000 0 0x1000000>;
++			no-map;
++		};
++
++		dfd-dump@f9000000 {
++			reg = <0 0xf9000000 0 0xd00000>;
++			no-map;
++		};
++
++		modem@fa000000 {
++			reg = <0 0xfa000000 0 0x1160000>;
++			no-map;
++		};
++
++		pvmfw@fb600000 {
++			reg = <0 0xfb600000 0 0x200000>;
++			no-map;
++		};
++
++		geniezone@fb800000 {
++			reg = <0 0xfb800000 0 0x2600000>;
++			no-map;
++		};
++
++		gpu@fde00000 {
++			reg = <0 0xfde00000 0 0x600000>;
++			no-map;
++		};
++
++		framebuffer@fe450000 {
++			reg = <0 0xfe450000 0 0x1b80000>;
++			no-map;
++		};
++
++		dice@fffd0000 {
++			reg = <0 0xfffd0000 0 0x30000>;
++			no-map;
++		};
++
++		dramc-rk0@1bfff0000 {
++			reg = <0x1 0xbfff0000 0 0x10000>;
++			no-map;
++		};
++
++		gpu@33fa00000 {
++			reg = <0x3 0x3fa00000 0 0x200000>;
++			no-map;
++		};
++
++		cmdq@33fc00000 {
++			reg = <0x3 0x3fc00000 0 0x200000>;
++			no-map;
++		};
++
++		gz-log@33fe00000 {
++			reg = <0x3 0x3fe00000 0 0x50000>;
++		};
++
++		gz-ffa-mailbox@33ff60000 {
++			reg = <0x3 0x3ff60000 0 0x10000>;
++			no-map;
++		};
++
++		log-store@33ff70000 {
++			reg = <0x3 0x3ff70000 0 0x80000>;
++		};
++
++		dramc-rk1@33fff0000 {
++			reg = <0x3 0x3fff0000 0 0x10000>;
++			no-map;
++		};
++	};
++
++	/* An MT6363 LDO that LK leaves on; no driver can name it yet. */
++	reg_vemc: regulator-vemc {
++		compatible = "regulator-fixed";
++		regulator-name = "vemc";
++		regulator-always-on;
++		regulator-boot-on;
++	};
++};
++
++&ssusb {
++	dr_mode = "peripheral";
++	maximum-speed = "high-speed";
++	status = "okay";
++};
++
++&uart0 {
++	status = "okay";
++};
++
++&ufshci {
++	vcc-supply = <&reg_vemc>;
++	status = "okay";
++};
++
++&ufsphy {
++	status = "okay";
++};
++
++&xsphy {
++	status = "okay";
++};
+-- 
+2.55.0
+

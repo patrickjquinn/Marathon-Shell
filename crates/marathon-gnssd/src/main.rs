@@ -28,7 +28,7 @@ use marathon_gnssd::meas::{self, Channel};
 use marathon_gnssd::mtk::{self, Deframer};
 use marathon_gnssd::rinex::{self, LEAP_SECONDS};
 use marathon_gnssd::sat::Sat;
-use marathon_gnssd::{clock, d1, dsp, iono, lnav, nmea, orbit, spp, tz};
+use marathon_gnssd::{boot, clock, d1, dsp, iono, lnav, nmea, orbit, spp, tz};
 use nalgebra::Vector3;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
@@ -1212,7 +1212,11 @@ fn main() -> io::Result<()> {
         None => Box::new(io::stdout().lock()),
     };
     let path = arg(&args, "--device").unwrap_or_else(|| "/dev/gnss0".into());
-    let mut dev = OpenOptions::new().read(true).write(true).open(path)?;
+    let mut dev = OpenOptions::new().read(true).write(true).open(&path)?;
+    // gps_drv's data link powers the receiver on open but leaves the DSP to the host.
+    if path.starts_with("/dev/gpsdl") {
+        boot::tfa(&mut dev)?;
+    }
     let mut record = arg(&args, "--record")
         .map(std::fs::File::create)
         .transpose()?;

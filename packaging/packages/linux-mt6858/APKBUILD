@@ -1,0 +1,642 @@
+# MT6858 kernel, one for every board on the SoC: mainline at 4dce97c6c
+# (after v7.4-rc4) with the MT6858 series below, built from arm64 defconfig,
+# the series' mt6858.config and marathon.config. The patches are
+# git format-patch 4dce97c6c..d2c834312 of the jp2601/initial branch
+# plus 0185-0186 from jp2601/deckard and git format-patch
+# d2c834312..93ee882fe of jp2601/modem (the audio and flash LED series, the
+# battery fix, then the MD1 modem) from 0215
+# (devices/jolla/jp2601/BRINGUP.md says what each one is).
+pkgname=linux-mt6858
+pkgver=7.4.0_rc4_git20261124
+pkgrel=18
+_commit=4dce97c6c265544342e716e62fd24bbb232590c5
+_release=7.4.0-rc4-mt6858
+# MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
+# the vendor connectivity tree and the connectivity adapter's sources.
+_conn=9fe8054b021c59e1abfc9c8ca52a9e6c19156749
+_devmods=a7f9e9efa1ec7e31dd8aade57716cd61ae50da1a
+# MediaTek's ECCCI modem drivers that modules/ builds (modules/modem).
+_eccci=4d505a4292dab3176a45fec66dc85debc362e24c
+pkgdesc="MediaTek Dimensity 7100 (MT6858) kernel"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps"
+# LLVM=1: the Rust binder Deckard needs (marathon.config).
+makedepends="
+	bash
+	bc
+	bison
+	clang
+	coreutils
+	elfutils-dev
+	findutils
+	flex
+	kmod
+	linux-headers
+	lld
+	llvm
+	openssl-dev
+	patch
+	perl
+	python3
+	rust
+	rust-bindgen
+	rust-src
+	zstd
+"
+subpackages="mt6858-connsys-modules:_connsys mt6858-modem-modules:_modem"
+install="mt6858-connsys-modules.post-install mt6858-connsys-modules.post-upgrade
+	mt6858-modem-modules.post-install mt6858-modem-modules.post-upgrade"
+source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commit.tar.gz
+	kernel_xiaomi_tanzanite-mediatek_modules-$_conn.tar.gz::https://github.com/YaAlex3/kernel_xiaomi_tanzanite-mediatek_modules/archive/$_conn.tar.gz
+	kernel_xiaomi_tanzanite-modules-$_devmods.tar.gz::https://github.com/YaAlex3/kernel_xiaomi_tanzanite-modules/archive/$_devmods.tar.gz
+	android_kernel_modules_and_devicetree_oppo_mt6993-$_eccci.tar.gz::https://github.com/oppo-source/android_kernel_modules_and_devicetree_oppo_mt6993/archive/$_eccci.tar.gz
+	0001-dt-bindings-vendor-prefixes-Add-Jolla-Mobile-Ltd.patch
+	0002-dt-bindings-arm-mediatek-Add-Jolla-Phone-JP2601.patch
+	0003-dt-bindings-mfd-syscon-Add-MT6858-bus-protection-blo.patch
+	0004-dt-bindings-mfd-mediatek-mt8195-scpsys-Add-MT6858.patch
+	0005-dt-bindings-serial-mediatek-uart-Add-MT6858.patch
+	0006-dt-bindings-watchdog-mediatek-mtk-wdt-Add-MT6858.patch
+	0007-dt-bindings-usb-mediatek-mtu3-Add-MT6858.patch
+	0008-dt-bindings-phy-mediatek-xsphy-Add-MT6858.patch
+	0009-arm64-dts-mediatek-Add-MT6858-SoC.patch
+	0010-arm64-dts-mediatek-mt6858-Add-UFS-and-USB-on-a-stand.patch
+	0011-arm64-dts-mediatek-Add-Jolla-Phone-JP2601.patch
+	0012-arm64-configs-Add-an-MT6858-first-boot-fragment.patch
+	0013-arm64-configs-mt6858-Leave-KVM-out.patch
+	0014-arm64-configs-mt6858-Add-the-16x32-console-font.patch
+	0015-dt-bindings-phy-mediatek-xsphy-Add-mediatek-force-vb.patch
+	0016-phy-mediatek-xsphy-Force-a-valid-B-session-in-device.patch
+	0017-usb-mtu3-Put-a-device-only-controller-s-PHYs-into-de.patch
+	0018-arm64-dts-mediatek-mt6858-jolla-jp2601-Force-VBUS-in.patch
+	0019-dt-bindings-spi-mediatek-spi-mt65xx-Add-MT6858.patch
+	0020-dt-bindings-input-touchscreen-Add-Hynitron-CST66xx.patch
+	0021-Input-Add-a-driver-for-Hynitron-CST66xx-SPI-touchscr.patch
+	0022-arm64-dts-mediatek-mt6858-Add-the-SPI-controllers.patch
+	0023-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-touch.patch
+	0024-arm64-configs-mt6858-Add-SPI-and-the-touchscreen.patch
+	0025-clk-mediatek-pll-Add-ops-for-PLLs-the-SoC-enables-it.patch
+	0026-dt-bindings-clock-mediatek-Add-MT6858-clock-controll.patch
+	0027-clk-mediatek-Add-MT6858-clock-drivers.patch
+	0028-arm64-dts-mediatek-mt6858-Add-the-clock-controllers.patch
+	0029-dt-bindings-mfd-Add-binding-for-MediaTek-MT6363-seri.patch
+	0030-mfd-Add-support-for-MediaTek-SPMI-PMICs-and-MT6363-7.patch
+	0031-mfd-mtk-spmi-pmic-Fix-the-interrupt-group-lookups.patch
+	0032-mfd-mtk-spmi-pmic-Check-the-chip-ID-and-mask-the-int.patch
+	0033-Input-mtk-pmic-keys-Support-PMICs-on-SPMI.patch
+	0034-Input-mtk-pmic-keys-Add-support-for-the-MT6363.patch
+	0035-dt-bindings-input-mediatek-pmic-keys-Add-MT6363.patch
+	0036-dt-bindings-mfd-mediatek-mt6363-Add-the-keys.patch
+	0037-dt-bindings-spmi-mediatek-mt8196-spmi-Add-MT6858.patch
+	0038-spmi-mtk-pmif-Set-up-the-software-channel-before-add.patch
+	0039-arm64-dts-mediatek-mt6858-Add-the-SPMI-arbiter-and-t.patch
+	0040-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-power.patch
+	0041-arm64-configs-mt6858-Add-the-SPMI-PMIC-and-its-keys.patch
+	0042-dt-bindings-clock-mediatek-Add-the-MT6858-vlpckgen.patch
+	0043-clk-mediatek-mt6858-Add-the-vlpckgen-clocks.patch
+	0044-arm64-dts-mediatek-mt6858-Add-the-vlpckgen-and-clock.patch
+	0045-dt-bindings-arm-mediatek-mmsys-Add-MT6858.patch
+	0046-dt-bindings-soc-mediatek-mutex-Add-MT6858.patch
+	0047-dt-bindings-clock-mediatek-Add-the-MT6858-mmsys-cloc.patch
+	0048-clk-mediatek-mt6858-Add-the-mmsys-clocks.patch
+	0049-soc-mediatek-mmsys-Add-MT6858-routing.patch
+	0050-soc-mediatek-mutex-Add-MT6858.patch
+	0051-dt-bindings-clock-mediatek-Add-the-MT6858-I2C-wrappe.patch
+	0052-clk-mediatek-mt6858-Add-the-I2C-wrapper-clocks.patch
+	0053-dt-bindings-i2c-mt65xx-Add-MT6858.patch
+	0054-arm64-dts-mediatek-mt6858-Add-the-I2C-controllers.patch
+	0055-arm64-dts-mediatek-mt6858-jolla-jp2601-Enable-the-I2.patch
+	0056-dt-bindings-mfd-Add-MediaTek-MT6720.patch
+	0057-mfd-Add-MediaTek-MT6720-SubPMIC.patch
+	0058-iio-adc-Add-MediaTek-MT6720-charger-ADC-and-fuel-gau.patch
+	0059-power-supply-Add-MediaTek-MT6720-charger-and-battery.patch
+	0060-arm64-configs-mt6858-Add-the-MT6720-drivers.patch
+	0061-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT672.patch
+	0062-mfd-mt6720-Mask-every-event-before-adding-the-irq-ch.patch
+	0063-dt-bindings-mfd-mediatek-mt6720-Add-the-charger-s-in.patch
+	0064-power-supply-mt6720-charger-Manage-charging-by-batte.patch
+	0065-arm64-dts-mediatek-mt6858-jolla-jp2601-Wire-the-MT67.patch
+	0066-arm64-configs-mt6858-Build-in-the-display-mmsys-and-.patch
+	0067-arm64-dts-mediatek-mt6858-Add-the-display-mmsys-and-.patch
+	0068-mfd-mtk-spmi-pmic-Complete-a-pending-RCS-request-at-.patch
+	0069-spmi-mtk-pmif-Fix-the-SID-decode-of-RCS-interrupts.patch
+	0070-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-hall-.patch
+	0071-dt-bindings-leds-leds-aw2013-Add-AW2023.patch
+	0072-leds-aw2013-Add-support-for-the-AW2023.patch
+	0073-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-statu.patch
+	0074-dt-bindings-pwm-mediatek-mt2712-pwm-Add-MT6858.patch
+	0075-arm64-dts-mediatek-mt6858-Add-the-PWM-controller.patch
+	0076-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-IR-tr.patch
+	0077-dt-bindings-spmi-mediatek-mt8196-spmi-Allow-a-bus-wi.patch
+	0078-spmi-mtk-pmif-Allow-a-bus-without-RCS-interrupt.patch
+	0079-dt-bindings-mfd-mediatek-mt6363-Add-MT6369.patch
+	0080-mfd-mtk-spmi-pmic-Add-the-MT6369.patch
+	0081-regulator-Add-a-driver-for-the-MT6369-vibrator-LDO.patch
+	0082-arm64-dts-mediatek-mt6858-Add-SPMI-P-and-the-MT6369.patch
+	0083-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-vibra.patch
+	0084-dt-bindings-display-mediatek-dsc-Add-MT8196-compatib.patch
+	0085-drm-mediatek-Implement-Display-Stream-Compression-su.patch
+	0086-drm-mediatek-mtk_dsi-Enable-interrupt-at-component-b.patch
+	0087-drm-mediatek-mtk_dsi-Enable-PM-Runtime-on-probe.patch
+	0088-dt-bindings-phy-mediatek-dsi-phy-Add-MT6858.patch
+	0089-phy-mediatek-mipi-dsi-Add-MT6858-support.patch
+	0090-dt-bindings-display-panel-Add-Visionox-VTDR6126.patch
+	0091-drm-panel-Add-Visionox-VTDR6126-panel-driver.patch
+	0092-dt-bindings-display-mediatek-dsc-Add-MT6858.patch
+	0093-drm-mediatek-Set-up-the-DSC-when-the-DSI-ends-the-pa.patch
+	0094-drm-mediatek-mtk_dsi-Support-DSC-in-video-mode.patch
+	0095-drm-mediatek-Add-the-MT6858-main-display-path.patch
+	0096-dt-bindings-display-mediatek-dsi-Add-MT6858.patch
+	0097-dt-bindings-display-mediatek-ovl-2l-Add-MT6858.patch
+	0098-drm-mediatek-mtk_dsi-Add-MT6858-support.patch
+	0099-arm64-dts-mediatek-mt6858-Add-the-display-engines.patch
+	0100-soc-mediatek-mutex-Start-from-an-empty-mutex-at-prep.patch
+	0101-soc-mediatek-mt6858-mmsys-Disconnect-the-unused-OVL_.patch
+	0102-drm-mediatek-dsc-Make-the-GCE-client-register-option.patch
+	0103-arm64-configs-mt6858-Build-in-the-CMDQ-helper.patch
+	0104-arm64-configs-mt6858-Build-in-mediatek-drm-and-the-M.patch
+	0105-arm64-dts-mediatek-mt6858-jolla-jp2601-Enable-the-di.patch
+	0106-regulator-mt6369-Include-of.h-for-of_match_ptr.patch
+	0107-dt-bindings-mailbox-mediatek-mt8196-gpueb-mbox-Add-M.patch
+	0108-mailbox-mtk-gpueb-Add-the-MT6858-GPUEB-mailbox.patch
+	0109-dt-bindings-power-mediatek-mt8196-gpufreq-Add-MT6858.patch
+	0110-pmdomain-mediatek-mtk-mfg-Add-MT6858-support.patch
+	0111-dt-bindings-gpu-mali-valhall-csf-Add-MediaTek-MT6858.patch
+	0112-drm-panthor-Add-the-MediaTek-MT6858-compatible.patch
+	0113-arm64-dts-mediatek-mt6858-Add-the-GPU.patch
+	0114-arm64-dts-mediatek-mt6858-jolla-jp2601-Enable-the-GP.patch
+	0115-arm64-configs-mt6858-Build-in-Panthor-and-the-GPUEB-.patch
+	0116-arm64-dts-mediatek-mt6858-jolla-jp2601-Disable-the-P.patch
+	0117-drm-panthor-Drop-the-MediaTek-MT6858-compatible.patch
+	0118-mfd-mtk-spmi-pmic-Log-the-ID-registers-on-an-unexpec.patch
+	0119-drm-mediatek-dsc-Fix-the-picture-group-width-height-.patch
+	0120-drm-mediatek-dsc-Add-MT6858-settings.patch
+	0121-drm-mediatek-Find-the-MT6858-display-mutex.patch
+	0122-phy-mediatek-mipi-dsi-mt6858-Put-the-clock-lane-in-c.patch
+	0123-drm-panel-visionox-vtdr6126-Use-sync-pulses-and-EoT-.patch
+	0124-phy-mediatek-mipi-dsi-mt6858-Stop-a-running-PLL-befo.patch
+	0125-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-Visio.patch
+	0126-arm64-configs-mt6858-Load-zstd-compressed-firmware.patch
+	0127-Revert-spmi-mtk-pmif-Allow-a-bus-without-RCS-interru.patch
+	0128-Revert-dt-bindings-spmi-mediatek-mt8196-spmi-Allow-a.patch
+	0129-arm64-dts-mediatek-mt6858-Reach-the-MT6369-through-S.patch
+	0130-spmi-mtk-pmif-Clear-the-RCS-flags-of-SIDs-without-a-.patch
+	0131-drm-mediatek-dsc-Parenthesize-the-PPS-register-index.patch
+	0132-drm-mediatek-mtk_dsi-Fix-the-fractional-DSC-bits-per.patch
+	0133-drm-mediatek-dsc-Write-the-last-RC-range-parameter-s.patch
+	0134-drm-mediatek-Clear-the-background-input-of-the-other.patch
+	0135-regulator-mt6369-Add-the-SD-card-LDOs.patch
+	0136-dt-bindings-mmc-mtk-sd-Add-MT6858.patch
+	0137-mmc-mtk-sd-Add-support-for-the-MT6858.patch
+	0138-arm64-dts-mediatek-mt6858-Add-MSDC1.patch
+	0139-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-micro.patch
+	0140-drm-mediatek-dsc-Program-the-RC-model-size-and-every.patch
+	0141-arm64-dts-mediatek-mt6858-jolla-jp2601-Fix-the-micro.patch
+	0142-drm-mediatek-mtk_dsi-Start-in-command-mode-at-power-.patch
+	0143-Revert-drm-mediatek-mtk_dsi-Enable-interrupt-at-comp.patch
+	0144-drm-mediatek-mtk_dsi-Stop-a-bootloader-video-stream-.patch
+	0145-mfd-mtk-spmi-pmic-Clear-the-RCS-done-flag-after-comp.patch
+	0146-drm-mediatek-mtk_dsi-Request-the-interrupt-before-re.patch
+	0147-drm-mediatek-mtk_dsi-Send-MT6858-DSC-video-as-compre.patch
+	0148-drm-mediatek-mtk_dsi-Program-MT6858-DSI0-like-the-bo.patch
+	0149-DEBUG-drm-mediatek-mtk_dsi-Log-the-DSI-state-at-each.patch
+	0150-DEBUG-mfd-mtk-spmi-pmic-Log-RCS_IRQ_DONE-around-the-.patch
+	0151-arm64-configs-mt6858-Reserve-128-MiB-of-CMA-for-scan.patch
+	0152-soc-mediatek-mtk-mutex-Add-the-MT6858-DSI0-as-a-mute.patch
+	0153-mfd-mtk-spmi-pmic-Complete-an-RCS-request-lost-durin.patch
+	0154-DEBUG-drm-panel-visionox-vtdr6126-Make-the-refresh-r.patch
+	0155-drm-panel-visionox-vtdr6126-Exit-sleep-in-enable-wit.patch
+	0156-DEBUG-drm-panel-visionox-vtdr6126-Read-the-panel-sta.patch
+	0157-Revert-DEBUG-mfd-mtk-spmi-pmic-Log-RCS_IRQ_DONE-arou.patch
+	0158-arm64-dts-mediatek-mt6858-jolla-jp2601-Drop-the-seco.patch
+	0159-DEBUG-drm-panel-visionox-vtdr6126-Optionally-keep-th.patch
+	0160-drm-mediatek-mtk_dsi-Use-the-bootloader-s-MT6858-lan.patch
+	0161-Revert-DEBUG-drm-panel-visionox-vtdr6126-Optionally-.patch
+	0162-Revert-DEBUG-drm-panel-visionox-vtdr6126-Read-the-pa.patch
+	0163-Revert-DEBUG-drm-panel-visionox-vtdr6126-Make-the-re.patch
+	0164-Revert-DEBUG-drm-mediatek-mtk_dsi-Log-the-DSI-state-.patch
+	0165-drm-panel-visionox-vtdr6126-Default-to-90-Hz.patch
+	0166-drm-mediatek-mtk_dsi-Refuse-transfers-while-the-DSI-.patch
+	0167-drm-panel-visionox-vtdr6126-Send-the-brightness-only.patch
+	0168-drm-panel-visionox-vtdr6126-Power-cycle-the-panel-be.patch
+	0169-regulator-mt6369-Add-the-CONNSYS-3.3-V-LDOs.patch
+	0170-arm64-dts-mediatek-mt6858-Add-the-CONN-power-domain.patch
+	0171-arm64-configs-mt6858-Build-in-the-MT6363-regulators.patch
+	0172-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-CONNS.patch
+	0173-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-CONN.patch
+	0174-ASoC-dt-bindings-awinic-aw88395-Add-AW88271.patch
+	0175-ASoC-codecs-aw88081-Add-AW88271-support.patch
+	0176-arm64-dts-mediatek-mt6858-Add-the-audio-power-domain.patch
+	0177-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-speak.patch
+	0178-arm64-dts-mediatek-mt6858-Add-the-MT6685.patch
+	0179-dt-bindings-iio-light-stk33xx-Add-STK3A5X.patch
+	0180-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-motio.patch
+	0181-arm64-configs-mt6858-Add-the-sensor-drivers.patch
+	0182-iio-light-stk3310-Add-support-for-the-STK3A5X.patch
+	0183-arm64-dts-mediatek-mt6858-jolla-jp2601-Orient-the-IM.patch
+	0184-arm64-dts-mediatek-mt6858-jolla-jp2601-Raise-the-pro.patch
+	0185-rust-bindgen-Keep-the-alignment-of-an-empty-sched_st.patch
+	0186-rust_binder-Look-up-freeze-targets-in-the-caller-s-p.patch
+	0187-arm64-dts-mediatek-mt6858-Add-the-CPU-performance-co.patch
+	0188-arm64-configs-mt6858-Build-in-the-CPU-frequency-driv.patch
+	0189-arm64-dts-mediatek-mt6858-Add-the-memory-mapped-time.patch
+	0190-arm64-dts-mediatek-mt6858-Add-the-CPU-idle-states.patch
+	0191-arm64-dts-mediatek-mt6858-jolla-jp2601-Make-a-crash-.patch
+	0192-arm64-dts-mediatek-mt6858-jolla-jp2601-Leave-LK-s-lo.patch
+	0193-arm64-configs-mt6858-Use-transparent-huge-pages-only.patch
+	0194-arm64-configs-mt6858-Add-the-LZ4-and-zstd-backends-t.patch
+	0195-rtc-mt6397-Add-support-for-the-MT6685.patch
+	0196-arm64-dts-mediatek-mt6858-Add-the-MT6685-RTC.patch
+	0197-arm64-configs-mt6858-Build-in-the-PMIC-RTC-driver.patch
+	0198-dt-bindings-clock-Add-the-MediaTek-MT6685-clock-buff.patch
+	0199-dt-bindings-mfd-mediatek-mt6363-Add-the-MT6685.patch
+	0200-mfd-mtk-spmi-pmic-Add-the-MT6685.patch
+	0201-clk-mediatek-Add-the-MT6685-clock-buffer-driver.patch
+	0202-arm64-dts-mediatek-mt6858-Describe-the-MT6685-clock-.patch
+	0203-spmi-mtk-pmif-Split-transfers-into-commands-of-up-to.patch
+	0204-spmi-mtk-pmif-Move-at-most-2-bytes-per-command-on-th.patch
+	0205-mfd-mtk-spmi-pmic-Read-the-MT6685-chip-ID-at-0x0b-li.patch
+	0206-arm64-dts-mediatek-mt6858-Give-the-AFE-its-topckgen.patch
+	0207-dt-bindings-thermal-mediatek-Add-the-MT6858-LVTS-con.patch
+	0208-thermal-drivers-mediatek-lvts-Support-controllers-th.patch
+	0209-thermal-drivers-mediatek-lvts-Add-the-MT6858.patch
+	0210-arm64-dts-mediatek-mt6858-Add-the-LVTS-sensors-and-t.patch
+	0211-arm64-configs-mt6858-Build-in-the-LVTS-thermal-drive.patch
+	0212-arm64-dts-mediatek-mt6858-Poll-the-thermal-zones-les.patch
+	0213-thermal-drivers-mediatek-lvts-Poll-a-firmware-run-do.patch
+	0214-arm64-dts-mediatek-mt6858-Let-the-LVTS-driver-poll-t.patch
+	0215-ASoC-codecs-aw88395-lib-Accept-register-only-multi-b.patch
+	0216-ASoC-dt-bindings-Add-the-MediaTek-MT6858-AFE.patch
+	0217-ASoC-mediatek-Add-the-MT6858-AFE-platform-driver.patch
+	0218-ASoC-codecs-Add-an-MT6369-codec-driver-uplink.patch
+	0219-ASoC-mediatek-mt6858-Add-the-MT6858-MT6369-machine-d.patch
+	0220-arm64-dts-mediatek-mt6858-jolla-jp2601-Release-the-I.patch
+	0221-ASoC-mediatek-mt6858-mt6369-Set-the-MTKAIF-protocol-.patch
+	0222-ASoC-codecs-mt6369-Add-the-MTKAIF-calibration-helper.patch
+	0223-ASoC-dt-bindings-mediatek-mt6858-afe-pcm-Add-the-top.patch
+	0224-ASoC-mediatek-mt6858-Look-up-the-topckgen.patch
+	0225-ASoC-mediatek-mt6858-mt6369-Calibrate-the-MTKAIF-pha.patch
+	0226-ASoC-mediatek-mt6858-Balance-the-clocks-on-removal.patch
+	0227-ASoC-mediatek-mt6858-Ungate-the-UL0-timing-clock-for.patch
+	0228-clk-mediatek-mt6685-Take-XO_BBCK5-under-register-con.patch
+	0229-ASoC-dt-bindings-Add-the-MediaTek-MT6369-codec.patch
+	0230-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT636.patch
+	0231-arm64-configs-mt6858-Add-the-audio-drivers.patch
+	0232-dt-bindings-leds-Add-the-Awinic-AW36515-flash-LED-dr.patch
+	0233-leds-flash-Add-a-driver-for-the-Awinic-AW36515.patch
+	0234-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-flash.patch
+	0235-arm64-configs-mt6858-Add-the-AW36515-flash-LED-drive.patch
+	0236-power-supply-mt6720-battery-Report-100-at-the-charge.patch
+	0237-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
+	0238-dt-bindings-net-nfc-st-st-nci-Add-ST21NFCD.patch
+	0239-nfc-st-nci-i2c-Enable-an-optional-reference-clock.patch
+	0240-nfc-st-nci-Add-support-for-the-ST21NFCD.patch
+	0241-clk-mediatek-mt6685-Add-XO_BBCK4.patch
+	0242-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
+	0243-arm64-configs-mt6858-Add-the-ST21NFCD-NFC-driver.patch
+	0244-iio-magnetometer-mmc5633-Report-the-zero-field-offse.patch
+	0245-power-supply-mt6720-battery-Report-the-battery-s-hea.patch
+	0246-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-the-batt.patch
+	0247-arm64-dts-mediatek-mt6858-jolla-jp2601-Detect-the-mi.patch
+	0248-power-supply-mt6720-battery-Import-the-IIO-consumer-.patch
+	0249-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-MD1-its-.patch
+	0250-arm64-configs-mt6858-Turn-lockups-and-RCU-stalls-int.patch
+	marathon.config
+"
+builddir="$srcdir/linux-$_commit"
+
+unpack() {
+	tar -C "$srcdir" -xzf "$SRCDEST/linux-$_commit.tar.gz"
+	tar -C "$srcdir" -xzf "$SRCDEST/kernel_xiaomi_tanzanite-mediatek_modules-$_conn.tar.gz" \
+		"kernel_xiaomi_tanzanite-mediatek_modules-$_conn/connectivity"
+	tar -C "$srcdir" -xzf "$SRCDEST/kernel_xiaomi_tanzanite-modules-$_devmods.tar.gz" \
+		"kernel_xiaomi_tanzanite-modules-$_devmods/drivers/misc/mediatek/connectivity"
+	local m=android_kernel_modules_and_devicetree_oppo_mt6993-$_eccci/kernel/kernel_device_modules-6.12/drivers/misc/mediatek
+	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_modules_and_devicetree_oppo_mt6993-$_eccci.tar.gz" \
+		"$m/eccci" "$m/ccci_util" "$m/ccmni" "$m/include/mt-plat" "$m/conn_md/include"
+}
+
+prepare() {
+	default_prepare
+	cp "$srcdir/marathon.config" arch/arm64/configs/marathon.config
+	make ARCH=arm64 LLVM=1 defconfig mt6858.config marathon.config
+	# A fragment line the config dropped is a dependency it lacks.
+	local line missing=
+	while read -r line; do
+		case $line in CONFIG_*=*) ;; *) continue ;; esac
+		grep -qxF "$line" .config || missing="$missing $line"
+	done < "$srcdir/marathon.config"
+	[ -z "$missing" ] || { error "not in .config:$missing"; return 1; }
+}
+
+_dtbs() {
+	local d
+	for d in arch/arm64/boot/dts/mediatek/mt6858-*.dts; do
+		echo "mediatek/$(basename "$d" .dts).dtb"
+	done
+}
+
+build() {
+	unset LDFLAGS
+	export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@$SOURCE_DATE_EPOCH")"
+	make ARCH=arm64 LLVM=1 DTC_FLAGS=-@ Image vmlinuz.efi modules $(_dtbs)
+	[ "$(cat include/config/kernel.release)" = "$_release" ]
+	JOBS="${JOBS:-2}" sh "$startdir/modules/build.sh" "$builddir" "$builddir" \
+		"$srcdir/kernel_xiaomi_tanzanite-mediatek_modules-$_conn" \
+		"$srcdir/kernel_xiaomi_tanzanite-modules-$_devmods" "$srcdir/connsys" \
+		"$srcdir/android_kernel_modules_and_devicetree_oppo_mt6993-$_eccci/kernel/kernel_device_modules-6.12/drivers/misc/mediatek"
+}
+
+package() {
+	make ARCH=arm64 LLVM=1 INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 modules_install
+	rm -f "$pkgdir"/usr/lib/modules/$_release/build
+	install -Dm644 arch/arm64/boot/vmlinuz.efi "$pkgdir"/boot/linux.efi
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/boot/vmlinuz
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/usr/lib/modules/$_release/vmlinuz
+	local dtb
+	for dtb in $(_dtbs); do
+		install -Dm644 "arch/arm64/boot/dts/$dtb" "$pkgdir/boot/dtbs/$dtb"
+	done
+	install -Dm644 include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/mt6858/kernel.release
+}
+
+_connsys() {
+	pkgdesc="MediaTek MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers for linux-mt6858"
+	depends="kmod $pkgname=$pkgver-r$pkgrel"
+	local m
+	for m in "$srcdir"/connsys/modules/*.ko; do
+		install -Dm644 "$m" "$subpkgdir/usr/lib/modules/$_release/extra/mt6858-connsys/${m##*/}"
+	done
+}
+
+_modem() {
+	pkgdesc="MediaTek MT6858 ECCCI (MD1 modem) drivers for linux-mt6858"
+	depends="kmod $pkgname=$pkgver-r$pkgrel"
+	local m n=0
+	for m in "$srcdir"/connsys/modem/*.ko; do
+		install -Dm644 "$m" "$subpkgdir/usr/lib/modules/$_release/extra/mt6858-modem/${m##*/}"
+		n=$((n + 1))
+	done
+	# ccci_util_lib, ccmni, ccci_auxadc, ccci_md_all, ccci_ccif, ccci_dpmaif
+	[ "$n" = 6 ]
+}
+
+sha512sums="
+f2bc059644b6199343e6c2667e10f1e17dac3fef8f59227af3a2d3c332ef22417eb883aea7225edef1edcb87a3fec589578e067c5d870f55269f602303221098  linux-4dce97c6c265544342e716e62fd24bbb232590c5.tar.gz
+cf56e889525f6d9d0b753b370b17a2417c168a67bb48475f18167f157e3867ed5f7bfbfbfd1791a628c1192df6dbffbeb7ee74ced2c8defe91e25c5cbe4e396b  kernel_xiaomi_tanzanite-mediatek_modules-9fe8054b021c59e1abfc9c8ca52a9e6c19156749.tar.gz
+4e30570d16ab00055a8664a8a4b76a03c66ebd5c60c42d135a790b4802e622ab9d7049ca954da2457f6c54e83abb8036e8c9e4b24c7d694c2a2351fd2871d3fd  kernel_xiaomi_tanzanite-modules-a7f9e9efa1ec7e31dd8aade57716cd61ae50da1a.tar.gz
+a7650aa5da31a79a3cdeb93a9f8b7bb8b2c6170a2eac5eac91560bd9fd49ebf2aab340ed95e9e57dbcd263ec3e9486d6ffb9067dce24e26eacc2833f8705dff4  android_kernel_modules_and_devicetree_oppo_mt6993-4d505a4292dab3176a45fec66dc85debc362e24c.tar.gz
+13922cc76ea944e1e98fe389ad74af03ea712f3a7cdaf088ff8ae4e49dd5d5e200a39fa8755f1db803805c48651f02fc1bf90edb6aafd3a55cd0971f8c3b271a  0001-dt-bindings-vendor-prefixes-Add-Jolla-Mobile-Ltd.patch
+e7c952007001480cedbc3d9c8ce74d8baa6934e1736008cac2d57aa6659a4354e60db6179346221476a3463ae562046ad7900b178223a220ce8a7ca4e38b0957  0002-dt-bindings-arm-mediatek-Add-Jolla-Phone-JP2601.patch
+f11cca2626c0505b4b7e9b958433cc5265e448952cfeb79fb9b966779ac1a01df28b0a30914346f780eabd01bb7eb593a8eeaedc0b63f076caa6a43692685df0  0003-dt-bindings-mfd-syscon-Add-MT6858-bus-protection-blo.patch
+1b926b11ff0896d680d0680b40ab62ce555dcc330ffb48748b6a17b8c59134602d404b01745095ce92b7f07036355065bd440d05dd9d749f4559094e69314cb0  0004-dt-bindings-mfd-mediatek-mt8195-scpsys-Add-MT6858.patch
+53802286a9008f31e6adc1d3f39332ee62788bdbc8bd70b3508002ba8601204a5fcf22fde311a8ae30a115ee8cf505477e9775c6ae153dd4f02e6d2682cfeb98  0005-dt-bindings-serial-mediatek-uart-Add-MT6858.patch
+d6e88bc46118292ee09e9a9f6f0798de22e2c5037166286fae5204177ea84398f965ec5900aee894358720bc0dd3fe6a9ad61d42f6f323a1cab33bd899e7a9d3  0006-dt-bindings-watchdog-mediatek-mtk-wdt-Add-MT6858.patch
+b49124278db6284bda579d611288839ce61654fa1448005ef0cd215172284a93dfb49fff9f7ea071fe4c065738a1d9997040495fea3ad44425ee789290db427d  0007-dt-bindings-usb-mediatek-mtu3-Add-MT6858.patch
+d9932cb4f3a55ea648056295263ad8e8a5793c5129ff0395a09774d38a7d8a5759e08a05bcd04d63f935c47fc083a798b818ddf2ba5c494992941b905d91eb03  0008-dt-bindings-phy-mediatek-xsphy-Add-MT6858.patch
+94a3afae3b9c97f4312ae314f7fffeb6a98da643043b9f72d4bf28d8a5afed6b52674880378f5eb62c14e0b005fadf266e36f2333542a8a5d988712f6bd82f9c  0009-arm64-dts-mediatek-Add-MT6858-SoC.patch
+20e43aed7361f1f306159bcd0cf613e445f2ce577c344034a0c747da6cfbc95b5086fa6221e0cfde99827fc06653e3290a875b369d74022ce4c064c1efb95c1b  0010-arm64-dts-mediatek-mt6858-Add-UFS-and-USB-on-a-stand.patch
+030a4a5781146d5231444ea135e3afc4e229f6011116f96715d551a2b2a95b3a55e426fa27a5da75ac4b0a81642be39de63b0c24b210696d043bac214f800387  0011-arm64-dts-mediatek-Add-Jolla-Phone-JP2601.patch
+b21d77018fd530827523996b6620e81a1db0e1105dcbd40d2b6cb4132dcc949abe2b8035b6241944ec06d2f081bfcb610adcafd7f498e85f10910920f5a6c636  0012-arm64-configs-Add-an-MT6858-first-boot-fragment.patch
+fb986c4a25b9b0a9007c62ef2fc2561aac0a4b94a29dd5573ce81f2d69811b2735cef2555edf044cad8b95d3bbd049a26f5b9a10e36128232170fecfde821850  0013-arm64-configs-mt6858-Leave-KVM-out.patch
+37b68891c12e67c7afe7bc72dbb742fe83132778f098101078c587ef42a01743daa07d8a79041237289de31f108b1953b1c8f497f446bbb68370457adbe63337  0014-arm64-configs-mt6858-Add-the-16x32-console-font.patch
+81f14ff2e737eda669e459c0fb664d45093007198d8735bd09aab3cc411b36ee694cf44e80898a9001e077bb7f82f3d115c819359cfcd4034d6237cbef14c42a  0015-dt-bindings-phy-mediatek-xsphy-Add-mediatek-force-vb.patch
+da038bb845a932f0d724e0fb3d28795e8f9fc0a3473edaf28d7607b895621462c85f4db2180763fea67f1a9ba73f610b938fc3948ea68cba28bcbd47e40a51b8  0016-phy-mediatek-xsphy-Force-a-valid-B-session-in-device.patch
+44707595fdb388d2cefd3969464828e5cdf7efbad2044757b1f9170bfca100b5be032b04274a1269063a765e0ccfbcbbd02c21dac8df98aa17ab7892516761cf  0017-usb-mtu3-Put-a-device-only-controller-s-PHYs-into-de.patch
+f2725cd3b77d68b44e8c419563b56a687688e8d40dc0cf79fc634b4658c031a6f121475eaa96e11baf4db8353213c44a73a2b5cbffa4f2304d0f4a3c09abd65f  0018-arm64-dts-mediatek-mt6858-jolla-jp2601-Force-VBUS-in.patch
+de11c8c5ec4f7dcdae19b6a444c8bc3503d358e5f926189e5afb0ad0472a200ca02b90176d1745ac8251fd10b7e97be6f826d41fb2352ef024ec4381b71b04d2  0019-dt-bindings-spi-mediatek-spi-mt65xx-Add-MT6858.patch
+0e2d5e7dc5a252b4548f437f35cfe9dafd100863186e2d4f60d5400092e5843712452fbb0ccc37edc120fa36766a80cbf1030dc4e24e6a97f02db3bb9e05d752  0020-dt-bindings-input-touchscreen-Add-Hynitron-CST66xx.patch
+082846263d074c563ab52f1c31a0427f3b51334eecf16b23f150f59feb36cfd0360f3962d60675780c085dd7260626dae09e301d2aacc4eb26039b232f3e2158  0021-Input-Add-a-driver-for-Hynitron-CST66xx-SPI-touchscr.patch
+0ba14e48e8cb8edc2ce1cc6d216d9e20f8eebb3efe4787cf508039c3ee6db319b306ea2afcd5ca874986ff79d90f39a5ad20ba8c061ea9e4bfff743c8f6a0847  0022-arm64-dts-mediatek-mt6858-Add-the-SPI-controllers.patch
+93124c8ed5b979a6743a6205cd334b5c9908ab8c497a866b1f84861dc9ce159195e2a9e10fb653dfa084cd8a3e358358112033d397877f0593c98d161fa3b634  0023-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-touch.patch
+8cb14fd8f3e4a0ea68454988386c87c1c88afd9f900e7d328ea0cf6769440eafd24ad4aa09ac6754cf302ac732f109349b2ced5b39010e0173bd3f0befa42870  0024-arm64-configs-mt6858-Add-SPI-and-the-touchscreen.patch
+df19f164f1dc1191c6787f5461ef60316b2d68207aefca51a265f6a9c3c3ff520ea89d851dc71b06e8a68cdadd742705b7e4dc63a5970b32b45d58c77745b8c4  0025-clk-mediatek-pll-Add-ops-for-PLLs-the-SoC-enables-it.patch
+c3aaadc49ee8a9e69ae860d3d6d05b8eac17af6add33ff7855633a631eac228503466d56ecdddf603f91b53fabb6e0d267cbe44c568825c971a29994498feb64  0026-dt-bindings-clock-mediatek-Add-MT6858-clock-controll.patch
+8530f3c6082eac073f701427e6bfd6558a130706181bd0d0020471cd0cf05a92bf92f43348d508a5762d3e53eabf3e458dd0d075cfa917422fa0201051b1e0c3  0027-clk-mediatek-Add-MT6858-clock-drivers.patch
+ef5b5446216c58b25d1c6d19ab5883bf09cec4799cba41770b67a80bbd25e24cdaefa1d6cf6ec134da11f7bca166b64cc1f9e51125c3e698410a97e3048981c3  0028-arm64-dts-mediatek-mt6858-Add-the-clock-controllers.patch
+86beb088de2bf0a3d9cd0747ca8719c3b4e98140dab53d9d66707aa55d25ab98fd01c5d0f0351da1b512133438a2258884dad63d51ec0ffd8f186b9b7660613d  0029-dt-bindings-mfd-Add-binding-for-MediaTek-MT6363-seri.patch
+175ca82beef1901b190b93ee514b4cc45081401bfe6ea958320894b6785829168704ba13298d0ad7f35e1986f32fdfc9c814ec85297b6e9e9c0b28e4fc55d42c  0030-mfd-Add-support-for-MediaTek-SPMI-PMICs-and-MT6363-7.patch
+aab8229eea6eb327b29c01c5773070a3cc9202ad50254211ae6f2a8434da30886ae966e25d3dd9ea7d4f5eb306eaee463bea69f7d1206413ac75676562d73bc2  0031-mfd-mtk-spmi-pmic-Fix-the-interrupt-group-lookups.patch
+05040fd6cac41d7f06de2fda1e0579baa12a08b7841e7f3bce6a8ea4ca6918c0c65c6b67e236d99eb55eb5b020196396cea0a4d067b8be0aa01f4de459862ef8  0032-mfd-mtk-spmi-pmic-Check-the-chip-ID-and-mask-the-int.patch
+e2cfa4a433fd7dee4c18d4295be77d16d649c08004a6b4838efd5542a60be2659f3c954670c68ac8699959d0187e5199d959284cd04edf7c32caf0d300b9c1bb  0033-Input-mtk-pmic-keys-Support-PMICs-on-SPMI.patch
+f50862ac6b7113cf37b636146772b73686690b449a8033ac59dd5f8e69ebf44489a79966823335895a7b59fc18d04882856b38fa2e1fd65120f8e231d1f72ba5  0034-Input-mtk-pmic-keys-Add-support-for-the-MT6363.patch
+97d7f0eae1dd569ec93d961acc23696b3d722e601c30f6c4228d2e3ae18a3ffc702edd60af6947810398cbc9b558cdc655abfba18b8cf509a224ab465e4374de  0035-dt-bindings-input-mediatek-pmic-keys-Add-MT6363.patch
+0b070699bc9b88b99fe47fd14db2bd3b9ada6896e94c8d2262887715a1668bc6dbd0b89323e8ed8d318c60baf8067f7255c5c07308d85d083c658c201943ecac  0036-dt-bindings-mfd-mediatek-mt6363-Add-the-keys.patch
+5556cbd1e1e5945657d81ee9e5fe72f4b79074068e52a3e685fcfdfc5349728737e384a1cedc974c37b9f362596936e1788d9d5ba1539c02a9a0c31d3525495d  0037-dt-bindings-spmi-mediatek-mt8196-spmi-Add-MT6858.patch
+b75829f9ac882eb0f1e77aec9cff8227c140953a4c535ac15aff6845607cdb6d7f25deb6a850dedede194c3544ba467513681c00eb5671d7c111d763840f023c  0038-spmi-mtk-pmif-Set-up-the-software-channel-before-add.patch
+f718ed6ab0263465b33773c6195baabe2ab71381897d574c6c3581a96cd85bb28dd9e93eaf51d0b21107b66fbe8d4c092fd7eb901dd047e99c34bc070c86b5db  0039-arm64-dts-mediatek-mt6858-Add-the-SPMI-arbiter-and-t.patch
+31455f61d3086f87a0f77716c19ed424e211c3e4de60da6f188f045082c4d945998de02ab9210fc70f9ebd02e7640c1eae829638eac9c09cc062d313e4668b37  0040-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-power.patch
+9248b01a383be4b99bd149383ee3da4bd0c7d262345ad2ea702bffbfe786e50f8a4116cce9dafbc5df7531b732f99285b2037f0767c2e9266bba38f141e0139e  0041-arm64-configs-mt6858-Add-the-SPMI-PMIC-and-its-keys.patch
+63b711374d22ec0d776abdbeca493546f2f37b8a07857e4d0ae89fc9b638e4c8d940570b499c3d8185646e77ed9f7c371cf39c47888dc6e97e519df7642856ee  0042-dt-bindings-clock-mediatek-Add-the-MT6858-vlpckgen.patch
+173426c4abdbd33538de5bf20d6f3fdb97dead1099bfcf27b5ab42075df63dcd9f3a551de5d83093075ed2f73afa3353341cfedeb5b965ec633e1764a4fbd90d  0043-clk-mediatek-mt6858-Add-the-vlpckgen-clocks.patch
+01652deae04beeeae054d86341aaf97020745ec5a0b000fbac147c0653790f43a93e0d374f5e1a4de6c259c7297123f262e0d96282b2a717d136f9fd68b5e3ee  0044-arm64-dts-mediatek-mt6858-Add-the-vlpckgen-and-clock.patch
+258d275454d45b074f788dab1f4b62ea913882890fe30de49f5333f211fba29b7aaa62e760f97238a956b7432aec23f6797e61bd372fa2da3825443518cf5dd2  0045-dt-bindings-arm-mediatek-mmsys-Add-MT6858.patch
+c291e14ff42efae798d73f547abf86284e6752c22ae87623bc99e07a652b84d706475a23a1e5036da0d9f824ecc4281ff4e388fbc5eb4f26d6184bbae926f76d  0046-dt-bindings-soc-mediatek-mutex-Add-MT6858.patch
+e4cd5a1e926a4bf531497b98956abd92cf872ed9b99c05b6b1708a84960ea6ed103aa10785bd8cb8405884970cf6b2220a26d1ae6525df98758abd860bf4239f  0047-dt-bindings-clock-mediatek-Add-the-MT6858-mmsys-cloc.patch
+22e8d91a3795dc7b981c93b3966f5362dbe8afbb132366d79d47ffbee0651cd5e62f657e37ad73e2fa0e71b79d661d93713346cb6c0ab3cf01452c49119c7107  0048-clk-mediatek-mt6858-Add-the-mmsys-clocks.patch
+213c761d0a7d7a8f8bce9ec99c1cc0ebbfcfa56c7fd3fb5a71c2999cde215daaea62c7097224c29a70673eeaa16d3f3463c050cc125c8aeb1d44e0f80356179b  0049-soc-mediatek-mmsys-Add-MT6858-routing.patch
+bc863478808d56f57d5fb7c7d80094910d304eec0b69a2ec4ea5902a6ed3ba376d185cda685e68f57a829cfe725784bf91942f317a7915e4495b6cfbeff212cf  0050-soc-mediatek-mutex-Add-MT6858.patch
+f7e02a1355491c518c300cea69e8e6031c64ac24317b6cf05678c9a3c50fd14a1e94fb72a5476a4bd748039d293de2cf25c2e6f4d66c7d52ae051c38193a55bd  0051-dt-bindings-clock-mediatek-Add-the-MT6858-I2C-wrappe.patch
+fe61da88b9b95270da7d1027fc7adc40c46c4e29588d5554e45183b98359d352f07879361f021d2b59c65587d2b718d53b2d642fabf9e5c7b8dc7102ce2c1412  0052-clk-mediatek-mt6858-Add-the-I2C-wrapper-clocks.patch
+3ce9a935f784446607a0de9a7c87a855c9151adeb9302c76ffcc028695d8323f8d23838a5d20ecc97f3359f49d2df897dd80661a12785175578b9d830cea6586  0053-dt-bindings-i2c-mt65xx-Add-MT6858.patch
+dec2f98dc7585f1701ab8a6e9fe08b6ccfea33c56958c0770b68b5febc62706f357eea276babbb2e61505853db6e05b7541bbc1e6f370e8e85f2562bedced0e7  0054-arm64-dts-mediatek-mt6858-Add-the-I2C-controllers.patch
+441bbf825a868f9e4089f5ba3ad1d503d36dd686f3175de1ca1ab4832ec54497ac353a792f77d0056b57d9281e13636a2357e60666a609297b26985c3690c9a3  0055-arm64-dts-mediatek-mt6858-jolla-jp2601-Enable-the-I2.patch
+b19186658267b46e6f63e178354dd7d1fd7ddf85e66279ec0d7bf8ba98db2ff2a94b929edda952bc70ebc70bbc988211ef403f8bdc09905749c6e5e61c879bc1  0056-dt-bindings-mfd-Add-MediaTek-MT6720.patch
+6a3c1ed0e70a24f4912bbb62e8ca4852d17a898a3c193b6b2b54a302a58676480e14755016521de59290ea99deaed49ebc3f892f7e1da076ec2446efcfcc793d  0057-mfd-Add-MediaTek-MT6720-SubPMIC.patch
+aabdb5e73baed441789ddf701d152b3eae4237f40c73a7fb7660a5c7672919706b3890591641c60c9fc7e97a89539ecac0f3eea858bb61d2e554131fb451ff74  0058-iio-adc-Add-MediaTek-MT6720-charger-ADC-and-fuel-gau.patch
+cec3157cd54f073101cf9904944b68813e5577c6b5f9c7e6c93b48a70863b69288e78fdea506e35eb5bb83fb7df1cf770a1a75216c0dd2ed94941162694525a8  0059-power-supply-Add-MediaTek-MT6720-charger-and-battery.patch
+37fe55670920b11118b5d9dff79ef013ff8d2d2faf46516ad227239ccdf4f9cbf33848c0d6ea239a8256fc21554c3500c9d2b95fa7b0e5672491f64a82722a73  0060-arm64-configs-mt6858-Add-the-MT6720-drivers.patch
+cb3ce80ae628c9f1201f32c52bca8f7f2cf0f399a106423a77e8e71ddde898dd372498cd64d7648286a0e3458ed8a4664225497b87c47e0c607ceb8b95997d96  0061-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT672.patch
+802f04f8a3f545000026944db7537491fccf7b4734f2808ef5b6fbe302d183ae414c727742568001c19401b6385102e7cbbc895cc7bf59881a8e684844abcce4  0062-mfd-mt6720-Mask-every-event-before-adding-the-irq-ch.patch
+c964fc073bf44b807a3d1ba86972c84a48513008f1357b66953e12c86741fc4529551bcfbd9e8713ab0b7d581ed7f470b63b7e47264d4ee4d6662905a2f5e2ae  0063-dt-bindings-mfd-mediatek-mt6720-Add-the-charger-s-in.patch
+846c59981fa496d813c7c7b128f0b9c2149a25a98ae1453b69c13244fcfe54d6d26a9adc449482f5da7b10aa1b318b0e1a7144856a2ae7d08c08a02977a6fd29  0064-power-supply-mt6720-charger-Manage-charging-by-batte.patch
+136a0189afa31f884d72d61d625d3d3233c25e6e5c4e37b66487d0439dd9ba8c276d85db60566811a8216b16d3d94e543d337144fbd13f425e75fdbfc68e41de  0065-arm64-dts-mediatek-mt6858-jolla-jp2601-Wire-the-MT67.patch
+8aa47c35df138bf66622c325eb66fd66ade56c1b55b6961e7d8f2819a4c28acf9c241ebbd8417c3b785a3edfb15c2bc1800e780fa3f837a786c7ad79c48bbefc  0066-arm64-configs-mt6858-Build-in-the-display-mmsys-and-.patch
+e9a531c78db3c96691df0c18476c6ba6ad20cc66fe07d73956b20b254565c24342425464c3b2a7bde0ace39fa9f79a64b19ad040f392f0688038593fab6e7453  0067-arm64-dts-mediatek-mt6858-Add-the-display-mmsys-and-.patch
+01b2e2d9ddbc68a5eb9b0124b66b2cea45a2dbd9a20cf58dfccb383cf6e91dbf478d8658944c3098e2fee80bd8ce8eb66abfd407b2db35c4a56b758ec178fdbc  0068-mfd-mtk-spmi-pmic-Complete-a-pending-RCS-request-at-.patch
+3d9fafab56870c9f9f4e12be371a4f03c2f4668ca07a6cb50f6140e08e9e34231a079faffb40b97beaf2790bf1b60a3a7cf0cc84d56530f50b186e353cdfdd40  0069-spmi-mtk-pmif-Fix-the-SID-decode-of-RCS-interrupts.patch
+2965d861f492b074a275205b68311dc43fdf1a2cf5c80cc74f20df5edc7640f6e674f2bc3cd707a8000b7479d0916744327b2df5b07c637458ec1f9046639bee  0070-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-hall-.patch
+b2023010580fb027d987c861d663a1d12e7bd4b18a266a3818071ef35229c39c909ea34e576c76ddd9d46bc30ffa8d89e7803e2e78f21ce8391974f4c0a04300  0071-dt-bindings-leds-leds-aw2013-Add-AW2023.patch
+d45d0fe8d68ca09aafed9cfba548dc77892717d59a299702274dc095039fc38012bdb65f8e713e674697ca9fc8bcf6cc53685e0e60c88276b5ac8ad6b9db9664  0072-leds-aw2013-Add-support-for-the-AW2023.patch
+913505606867d423f19a1c44c13440acb62ab6077cf3f931138015b68ea420a5ac73775c98fc831727d0b4a7160d9f9bca3a00702b4e60feb4fe087d8072124d  0073-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-statu.patch
+85247c4f2251a9d7dd9a2a59a164ded962120324d3f8ad9d8ca1f5119752335aab1ab13a12bbf6ea6f3e5b90663c89bf9a32b397f339e21a13ead63d1ddff771  0074-dt-bindings-pwm-mediatek-mt2712-pwm-Add-MT6858.patch
+3e4674290fbc042b003b227c72d0d2208bc8dc6ad1bf03d0d9a6fc70c886279f29909b69f1412c888501e2107cba80fcf49c71174f7425fd5d8937e728db4da1  0075-arm64-dts-mediatek-mt6858-Add-the-PWM-controller.patch
+3a115cbf05917162d2e2e515694c3e13afaffa4b429a0ddc5c391e3944adcad29cd99c972ca904b833bf3295b7d971ad881de5ec698fbbe6a8ce43d428b45ab4  0076-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-IR-tr.patch
+0220a07536ffe4bbbe66933d5f3648101564e10fd71f4b2be72c66a0a2308115776e65390612832a7624028708d97744de0857db5d62e7231c88683fb34623b1  0077-dt-bindings-spmi-mediatek-mt8196-spmi-Allow-a-bus-wi.patch
+690f3f5fa34314b1788ecb427ce048689d7f0cd8d18927af5ec19cafbebbae1b6be7daaab58b76b82a390e0aa1aaac5d3b0db7e29bede869bffe3ca4fc9a6374  0078-spmi-mtk-pmif-Allow-a-bus-without-RCS-interrupt.patch
+fb88d3e0a1b6e7a61f5a19acdf614e4ee8b0142d1efae1216972dd51401223a1f27c6f574826d80fcdd4373dc05b6bd0967d2e3f11d53bdd3348f20839b33826  0079-dt-bindings-mfd-mediatek-mt6363-Add-MT6369.patch
+d6df46d837800095dba8f14dccfe296a18f7c5c8695e54b808131a3eaaa8fff2c7e3427c464ee36ec398d91c14a9ed4a68badcf00f44afcc66fac79569fc3638  0080-mfd-mtk-spmi-pmic-Add-the-MT6369.patch
+7aebbe3eb47178a2752ecdf30d6f37d61df9201edbc4c646f297212e65fdab4ac9ca0b445f19ce96dc1e2a0ca9f6a50be3e495812527d825fa5ca21b62e8de3e  0081-regulator-Add-a-driver-for-the-MT6369-vibrator-LDO.patch
+f5204779ca8dec551d10501e98d5263aeb044951abcfab205c665c645c976ae27d5955b10b53e407978c33e467fb09411bd72fe9a5c86d1abaddd9c9a179e06a  0082-arm64-dts-mediatek-mt6858-Add-SPMI-P-and-the-MT6369.patch
+3d1c8af602c20eedee4252a117ef24e9c37dc22fb065ac9c3906dd95cb83b5c0ae63fd5d86e3bccf0dfe22405d3d51d5520b10fe6f738e7834b972fcfe5d87f6  0083-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-vibra.patch
+b7ed5bc973145c9a0ff13a611f7593884b9499505d42b3c091b8a9455d383057cab1625a9b8810e006c7a07e36580e0b5b2d2285ec27e1079c3ebe70f38970c1  0084-dt-bindings-display-mediatek-dsc-Add-MT8196-compatib.patch
+d64ae9d75d92937b43e84e20e4d0e1ee1325165a6adf8a622c07f9c3f25ce413771c52f5e623bc5987081980138b6ee24a8c14a33c125bded7d101e6ef4f7f24  0085-drm-mediatek-Implement-Display-Stream-Compression-su.patch
+a752537cc3472d75b6f14757b3f887d5daf8db3d41c7641f68f65c6a0c56b07bda06151b0f9529a37c2c9b163d33bab927d581a2d609a5ff8141a02f205af349  0086-drm-mediatek-mtk_dsi-Enable-interrupt-at-component-b.patch
+c98dc520da8f25d3f071225910b7bba9a5b8bc990977d657e5359140ee6c195fee95b7ae4f879fafa1d31461ec9fa60bc32f264e2c01b015d1ffc40395c7de00  0087-drm-mediatek-mtk_dsi-Enable-PM-Runtime-on-probe.patch
+2288b5d5ff85c21205cfb78fb2d3902c22af3bb79042a9d08c1b73b9e7f999c866bc7422fd1a054c9404583531becf6580beec0e483e5fd5839704aec3ef31d4  0088-dt-bindings-phy-mediatek-dsi-phy-Add-MT6858.patch
+a8be9c2a477ec539e94aac80e7a48b60c5b431fd625f081730b1ec8e02159fd9345e6220d8bed2856e4a50ec6a248d7072a43ae46e7f17eeeb0acb52367d63c4  0089-phy-mediatek-mipi-dsi-Add-MT6858-support.patch
+a3c475a979a0ca8c5a68f0e797f2b2a839a314923002f707358d1a5aae778e71f341a90ed50738c4f5936f938303d0a65b6fb0ef7c69de33ff5fedcbde37550c  0090-dt-bindings-display-panel-Add-Visionox-VTDR6126.patch
+1d254ea30d3df415a30e0713db14480f0bba7efefec250de988db0f1a8ea6b2b0a721d6dc264961c6a841b270501bc61d0ad5afc6b948ffbc0c6beef33efd37e  0091-drm-panel-Add-Visionox-VTDR6126-panel-driver.patch
+8c41d03a9ada73d9e28b7695f94a22a72d5f60911b8c53c589acdffd71fb077303fa7e0f21faf76386dbb4034cf0da5aa7356ef7e1bbb2a81bf9d6b8d719fb4d  0092-dt-bindings-display-mediatek-dsc-Add-MT6858.patch
+969a4e323b9159b5c84ef72361db40f2c117669e253759324462c8f7867ed68a5f6e7aa2e1ae8b08e025901c4416e4fd78b4587c0ab5022f8c191a924b3daf17  0093-drm-mediatek-Set-up-the-DSC-when-the-DSI-ends-the-pa.patch
+b8e64bb90c98d2a6bbbe87e40155103c09f54f43f47bbd733b8d8c6390194c74ecac8b451f42fc251272da79eca53091bf295a757ecbf04f39be01cfcb9674dc  0094-drm-mediatek-mtk_dsi-Support-DSC-in-video-mode.patch
+d62001210eb909d5cf2e46c3ec397dab9726fcaa35873bfccf56241fc8c7dad05d7c8a06a6324609dce7f7befb2b21133156e617210b54762400e6daba9ffb26  0095-drm-mediatek-Add-the-MT6858-main-display-path.patch
+5fb2c380a87c3e51b568296d123b5c078125807a67031490b89afb58cfbd219aef409472f4ca5583f79cdeaec546bf25fac773c2805e806bc28c869f4da71951  0096-dt-bindings-display-mediatek-dsi-Add-MT6858.patch
+252dcf731d87977032c7e36e02951a6ab34a692838b74a806ef6c38c1b57c5529d57a42022111efd2b6299fa2cfe9af24d64acaf624a35976e42a6dbe14a6448  0097-dt-bindings-display-mediatek-ovl-2l-Add-MT6858.patch
+163ff58ddc8bc08a40b2b55ba900c5f4741a628600b6fb172f709b9ee143557ba15e572aa1450657cf07372e8103a0b95d06a61f8bc3e48c7e06e30572f7d128  0098-drm-mediatek-mtk_dsi-Add-MT6858-support.patch
+0e27ddafc4206b107b41e834d5a9e48481c3fde6dc995fab50b94a0396f7d75b0e0e03d6f0aec5bbcdc7d2a967cbc464223b4965d7619d2b670b0eaab62181ce  0099-arm64-dts-mediatek-mt6858-Add-the-display-engines.patch
+1147c097d7a9ea81fa9b0b2f8455584c5e0aeab5ae991d52d20072c3c66d06bd2d1b18e5b2a238edda4262fb3ee4b864bb204d812417add953c031efb0824762  0100-soc-mediatek-mutex-Start-from-an-empty-mutex-at-prep.patch
+976e7909be57030f90b49c21567790b0070db9cd0ab1f75bfee941ca1bbbe10a827805bcca3e94501d91b0c1b800dadf1266b72206846f3facc889b4dd7e3bea  0101-soc-mediatek-mt6858-mmsys-Disconnect-the-unused-OVL_.patch
+7eb0030a4887c8c1830757eb17a680037f961b693164d260ac969a38d786a9cbf543ae2d1de0ccd6a83b808423a412d77663e910c3ed06751c56fcd4bedf99a3  0102-drm-mediatek-dsc-Make-the-GCE-client-register-option.patch
+c8a5398b1537f96c7d5512262d5dc4acec8063ad695883f8211b6eee4d627973befb4c9224730a8a2a3cd4e269437a98aa05170ce38bdd5bad14c13a7ee2a1de  0103-arm64-configs-mt6858-Build-in-the-CMDQ-helper.patch
+b553cf2a4686620005709a89bdfe8dcf236192e14b26ae7bd4c5a56a137bd1cdec91353d4ccef19105d1e6da4abc1c96db2755aa4171f05d3c26cd3ec7629d90  0104-arm64-configs-mt6858-Build-in-mediatek-drm-and-the-M.patch
+6f37c9606d12f069478d80e45387fe23fbf58043601f04fe894a0331887f56418a1d73fe0ff4081782ddec11f29a9dd03cd65d940d6ff7aceb4aed458b84d945  0105-arm64-dts-mediatek-mt6858-jolla-jp2601-Enable-the-di.patch
+21356624820e77621dc814b8b8d5e14eb90f887063b80b230ef51ca21b19608815313cefdbb4b979b5d59408f52a0d2c0f84f7cc61dc896e3b2ab3c2f7f49081  0106-regulator-mt6369-Include-of.h-for-of_match_ptr.patch
+8bbb9acb20ac02ba0c54583a10318f1685757e1cad112658796d5f2ba22044cacf5ec8780490c09383c080660576c3520b7f96cabc4287c7b691466e04b9d466  0107-dt-bindings-mailbox-mediatek-mt8196-gpueb-mbox-Add-M.patch
+87c6eb34ce2e8251d0e6720a39d788ab5f1f274d268851c588c22450214abfe3c83dc943aa8bfea13232027870a00984bd907e0d4ad927270848613deffff95b  0108-mailbox-mtk-gpueb-Add-the-MT6858-GPUEB-mailbox.patch
+611636fd4716f576b50885a314cfd99e4c7ba4c239004e309b08ce114d12cc81bc989697550f6a3eb51a6707eba34d38b2bf5ca87b1efcd3e587727a6ffb8a9e  0109-dt-bindings-power-mediatek-mt8196-gpufreq-Add-MT6858.patch
+2f299cfe0db4258c7e54eba737009fd0e81cb00b92e0d77fb0fe691c9b4a621ae47bec4b6f8e1b1676d17d471846839bf708d8ad985fef562dce88fbc4cff19b  0110-pmdomain-mediatek-mtk-mfg-Add-MT6858-support.patch
+50cd5f2f74953c8bf599ab7fb9f59dd89e2b8529d4c99f9a329c67dac797a955155b86787a66f5becf29828c5c340ce25d1e88bc30fc7a798fedfcff871736dc  0111-dt-bindings-gpu-mali-valhall-csf-Add-MediaTek-MT6858.patch
+41f1d158a6f98961db0e68bbc132370f7b8c627f48f263d7bea1d545bd2f0138ebd4a0195a15a7fb15aab46355c151c46534089adfe58d8fa9e94e9bf8101f0b  0112-drm-panthor-Add-the-MediaTek-MT6858-compatible.patch
+f5665d2426e2d7d7a0cc66b23a5627ed9c57c683d8aa77381743bc3564c8449f2079da898ee7af55a96a64842ccf96b88f3dd9ac4a6912827c234feaef134048  0113-arm64-dts-mediatek-mt6858-Add-the-GPU.patch
+4b6c2b3ff0e59e4532ccff193edda269c8fd77f054bcd65ff2b09e67adb989b231bf1a0fc273fa98d92690b32f64b6b28a71f5022b71dd131c6eb825f9c76215  0114-arm64-dts-mediatek-mt6858-jolla-jp2601-Enable-the-GP.patch
+9f855698a3f11384d22a2edd9b502c06d9348fa6d2fafa9bece6f8fc23987b6e7d95be2f41c9ae9bfb7764084b03fe76785ed784b177d21295155e1bc177fb8a  0115-arm64-configs-mt6858-Build-in-Panthor-and-the-GPUEB-.patch
+032f8fd6e0a879d53958d2bc7ad13c6e6f4dbe4158b6ea86d9c95e2fbc4c8fa958786dc802516ae742d9bdd738cc06840584d564dc3015cc5d06a9e64aa7d46c  0116-arm64-dts-mediatek-mt6858-jolla-jp2601-Disable-the-P.patch
+772a8a07edb7353369c3f43bf3ef1504b08552f29f137e2ce3eba1cd2fb1aa90a6366f483624c0112752da6937b382180f954b50b170db55f15cd18f5213d808  0117-drm-panthor-Drop-the-MediaTek-MT6858-compatible.patch
+4e4a1db6f73a905d3eceb6bfd022b236205571f1e3f178b299fed06924e7fad4597d7093874de107e16b99ef41033b6553c57a4553b1ebad64885c4c9bd47109  0118-mfd-mtk-spmi-pmic-Log-the-ID-registers-on-an-unexpec.patch
+6397f659e9d876a16cc055012da61617742b6c07301601ce53358fa69dddbeaca8bab45513e39afc7d7dee95085e16b92b0bb4e0d0b806c83c9143d5701306c6  0119-drm-mediatek-dsc-Fix-the-picture-group-width-height-.patch
+e60b991eacfed1c67272167d9fa7a506583549a4a073a42dad88c1d11896527a93b00adcdeec979c869eff53b5eff675631e82510214b3044a331fcac8d9f6ad  0120-drm-mediatek-dsc-Add-MT6858-settings.patch
+6ac22c80878c66bb9dce669faefff4c2594c6e95a5059f5f94e2ca906530b60d8451662d2ec6980af195a6c97c3e3bd6b44cca42e0aa55dbffdcee3935e74f61  0121-drm-mediatek-Find-the-MT6858-display-mutex.patch
+6715b4b8d3620aeceee1f01905436ce1f24addd3df7a065e609c7d0464d3004b6a62b6f48c3ed0e7618196f60149a341e21bb872ac22ae15c7f265b55d71b40e  0122-phy-mediatek-mipi-dsi-mt6858-Put-the-clock-lane-in-c.patch
+f538bc6d6643a9cf0c40b7d8c311e5f71ac9a07143889b0d29134c896859c88a7a312392d4a47e9c8e0090d3666f622b6926a95910e91aa3fe44204004467dd5  0123-drm-panel-visionox-vtdr6126-Use-sync-pulses-and-EoT-.patch
+d269a6228965dcd2f4f90e433684eed19f22105f0569468ca7c7294146ac35aec1adf4474dc3ddaa72c66ef5802b7f993f1696333541e7fe207f2f995fea7713  0124-phy-mediatek-mipi-dsi-mt6858-Stop-a-running-PLL-befo.patch
+b14ce384b93e5fe00ef72b37f4f4f5fda5bba6857d8a407a6ddf3edf5367eba792be1d8dce55dede4cd5920954c125dfb4d3a600568b9cb1200a18f9cdb670cf  0125-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-Visio.patch
+c0327252d20c67184900780cfec49480a5167ebef646cfd7f63cce733336c8f0bebe873aea82997bbcc5f46fbf753799efef3b5083f3603b76751e1ad198b565  0126-arm64-configs-mt6858-Load-zstd-compressed-firmware.patch
+d55762bc6bdf3c75c07da02a988bde158e0c02cee92a89e3239a88b5c613a571de8184ca2309893ceed9cb2f70f4de2d093db8aec6613ddd1988611059540b25  0127-Revert-spmi-mtk-pmif-Allow-a-bus-without-RCS-interru.patch
+9e6b3df7494cf190a2070add45d5c89eea7edb53ba4ca84b114d3e2a2873b4602c9b6b0707a686c8bfba01fde935ab922208137197595ee4aeada5393b90d81e  0128-Revert-dt-bindings-spmi-mediatek-mt8196-spmi-Allow-a.patch
+164924e206152e6e2493483781f5e47c5234e3d15f86ba1a423a82de247f456e73baeaac519cc6cb043d339354115c65ad2cdb2b348e7e5045f7065f157f6f93  0129-arm64-dts-mediatek-mt6858-Reach-the-MT6369-through-S.patch
+b5b8b3a9328f2e71f20dc0ab4c3db0ae66b944e7495a9587e65a4d01d163795583e47fc24512f2074e948b8fde1de11061d53a8583c7435c25279121322e184d  0130-spmi-mtk-pmif-Clear-the-RCS-flags-of-SIDs-without-a-.patch
+230e3586899c55c71850103d7b7ea220f5913d18cd805bdb2a6e00c70b8580f97e016e4494244be8099ada9353603c02f415a6015222ebaa7da942c514ac9e45  0131-drm-mediatek-dsc-Parenthesize-the-PPS-register-index.patch
+57181e3650b7dc2322e44e8d9247e7e18709e5e6a4006af6144d0f92c9d3ce01e053f0d5dc4424771b47e322853eb11a0d51e046a0898e8cc9599df58e54bebc  0132-drm-mediatek-mtk_dsi-Fix-the-fractional-DSC-bits-per.patch
+c39b3292bdfe6c1c115c5515f0a410e91d9042d5cb734a8ebeb21f07292d30f1d5960f1c1ef8ab5ff995bb52f2851722fcb8dfe12b5164bdd6f473ce42c302cf  0133-drm-mediatek-dsc-Write-the-last-RC-range-parameter-s.patch
+d1aec5ee71b3fdb28fbb072d89d050243fe7230501c191af8182a920264e98eefdc5bb25856f5ce5a0d90cb57d1a98cc8fea190fc86581dc8fe98da762cbecbc  0134-drm-mediatek-Clear-the-background-input-of-the-other.patch
+07c9185fac3de04e4c8f64c00eb9d13b801336315140128cb84ff2532e7df112ef471d18dce237fab0c9962a14c36e15bdf54696f69c911042c6be32a5aa3a58  0135-regulator-mt6369-Add-the-SD-card-LDOs.patch
+9d537b333373742669c33021c0a46384a1458c37e2eb092c21bb5db4b38a09e0fe5e7498ff84676b5d0e230169d5a1b4eb8a98e376c696d25505a8bdaeae8c94  0136-dt-bindings-mmc-mtk-sd-Add-MT6858.patch
+e493a090a55917303d8ae497117ae20c75a3db87566d7ab9e72c550df95850a8bdf2c449971d1ab9742654721cc751180e433fcdfef21597c0a4a560a5aaed0f  0137-mmc-mtk-sd-Add-support-for-the-MT6858.patch
+545a37ffc8b826dffc4ff475d681f314c7b8d07f3357bc262a77e9fd3c9f62016b4ad3e041d2b02095faed524a24661a252364ff90efc13c89ee015645173eab  0138-arm64-dts-mediatek-mt6858-Add-MSDC1.patch
+79a714b9c243edf428d7d470b0e119e99e1acdf594082e0e6e60c1597cdac2ceaafc625273e3cc0b4b730ffafe26205bc95762499464316c3da6f32e13947115  0139-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-micro.patch
+973168e7954891917998a3787134a24279e1a8720c0bba37e4d0f3a2c932df736921b8a378431bd737be894feacf050bf568509a562bf70abc1757657a4eed48  0140-drm-mediatek-dsc-Program-the-RC-model-size-and-every.patch
+2c75926a8c3128a4daf42e3651e1844c33af4b3ae8b8ac105118dcd6342e602eec57737568133fe24394d94b13479cb2df7d7ef03cb22ec109719f9d7e04bc0f  0141-arm64-dts-mediatek-mt6858-jolla-jp2601-Fix-the-micro.patch
+2a795ae9d42409d829b7edf57842ddae57002e1764baab6bb973da383cb1b1d1203bb2c24d7d2a742b01269c03eeedd87e6900f18c6e83cae9db4d62e2ead279  0142-drm-mediatek-mtk_dsi-Start-in-command-mode-at-power-.patch
+37fc7ad1453a8a0243360cc6a704564f359e07283f2b2aeaee4de3a032c5864cfa718fb0cf5b9b728fc0a0aa54cebd53a3f5b79d5d6d64063367fcc3fc0e379c  0143-Revert-drm-mediatek-mtk_dsi-Enable-interrupt-at-comp.patch
+68bef3402a588ea7d994408a624b53bab93261d2f2fb0b1ea0842cb2ceb54834b0756d45173104f19a414fd24a91fdb4549d6090d3a59c64cad90822387d98a1  0144-drm-mediatek-mtk_dsi-Stop-a-bootloader-video-stream-.patch
+8ae14f898e44f1216d2743e73b3b0050e1316de6e929bf422d5d6489a804323fb519f6a676e79102630aa84283994ba1ae7a1056ef28f0ed2bc114836789825c  0145-mfd-mtk-spmi-pmic-Clear-the-RCS-done-flag-after-comp.patch
+5dcc1f6144587603df80ee4a0d61521a83b5156e188e826a7541fba4c8c271b23c35bf09e42647e159033baec3aa50fbfee5fe4ab07974ff43228f3cea905c1b  0146-drm-mediatek-mtk_dsi-Request-the-interrupt-before-re.patch
+499f95627e23639642d94173082de044387ca72440c5b5671bfc1e372bc569b8ad1f17fd6b04704d086925cc47dc57349008f624efa59c2e2171cad4a39fbb12  0147-drm-mediatek-mtk_dsi-Send-MT6858-DSC-video-as-compre.patch
+22bb881a4c6040f348bb4a1ca602b66686c02be8352a2cdf06e862bc68ae4fba09d001eb97564f0fb00270a3512a4e875bb0ad5382a368d93a58c416924d63fd  0148-drm-mediatek-mtk_dsi-Program-MT6858-DSI0-like-the-bo.patch
+dd206f0457b97555c76a0fa5ecaf38e6107566bed80d25cca87608d1bbc660b136a21e02d829e0366e041395a752ab2ef7ebc46e07460d71a86da5cface9b24b  0149-DEBUG-drm-mediatek-mtk_dsi-Log-the-DSI-state-at-each.patch
+7cacb9e0d84794e2ef74df3a4e332fa76e4188edf56eab16de655a82a702547218c6d3beeb75d1cc5d6cafce00595c7c6790176aac92f0f4d57809e14ec06a2e  0150-DEBUG-mfd-mtk-spmi-pmic-Log-RCS_IRQ_DONE-around-the-.patch
+c96f5b94d030c22e3240b44e77de10c67c75db342c01d558eaa6779af879e603ebec3b9172e791c220950585a8929f8714a56a79d16055e1101218889070c676  0151-arm64-configs-mt6858-Reserve-128-MiB-of-CMA-for-scan.patch
+8f5fd905de64c8a78ef96216cdc247716a90cde5f4e459d521897be301b49a0856b96d995427994a14b75269a64463047b65aa0cba7c195fec4149d854efd65b  0152-soc-mediatek-mtk-mutex-Add-the-MT6858-DSI0-as-a-mute.patch
+b13437989bd6b4af1bbfaa50e5baf6a43ea639801143c16f7717c9c0909dd3146f9142a1ec71526830b525ed6090e71c9493c52316698ae1aa65539451f9eb99  0153-mfd-mtk-spmi-pmic-Complete-an-RCS-request-lost-durin.patch
+32fa71eb9119f03ea77421284751fb8bc273f3813e67430f5b1bd036c818ccb24a944dbf7376d1318e2b4a7a8c07f94e84e25057c06eed1fe1a192a3ca866694  0154-DEBUG-drm-panel-visionox-vtdr6126-Make-the-refresh-r.patch
+ad51bc0e7255d6ed706d5f5834ba2e46ba23ee250806d927b63b371c60ddde5a21254f2425af48a1dc3bf6429e416792b97c6fd6bf98b409b2947573344551d5  0155-drm-panel-visionox-vtdr6126-Exit-sleep-in-enable-wit.patch
+ce27454a876919f26a050263c4c7bdb2f47a4b6359087353663ad7c4efe04f04c943cfdec42ccaffd2a80aed62865172379e2593364bb4a01ad613d96c2e4b77  0156-DEBUG-drm-panel-visionox-vtdr6126-Read-the-panel-sta.patch
+c85cd752e40678f33a4d34e6f06d85ad9985ab0e17a8e9931f0866d3e077227bab1cd0b56e1aa3b8ac86304f80edce9f67c434b7c436142e439a302be1b8c7fd  0157-Revert-DEBUG-mfd-mtk-spmi-pmic-Log-RCS_IRQ_DONE-arou.patch
+736a9e9e7026c1508eed16c346f173f4f5f0e99cd23515cdff8c10d25bd43526ad6b0ae7855506936b2983847b8ef231543b2201b6169fcbc669117af3e23d64  0158-arm64-dts-mediatek-mt6858-jolla-jp2601-Drop-the-seco.patch
+628c3d5a1466361b42829361497d24f31104dfb066ce715833935fe3ace4a3d79206421b27e9087b0befaeb5e9fc2ffbb4a8173b44741af1c0ea3a552213dc55  0159-DEBUG-drm-panel-visionox-vtdr6126-Optionally-keep-th.patch
+195c45ff5e8bdffd18f8a9fc9be17c96e7dfa6128cea4dfe9b81f0f1798081e823d058ba6a944e830b9cdd0d87ad467e9b820b36c736f115ea1e1037673a7417  0160-drm-mediatek-mtk_dsi-Use-the-bootloader-s-MT6858-lan.patch
+53d5af4d2f8934396bc736de32accc26f764c082d4ae8551e0ddf24db94db5fd6b589ef0c4861a64b11fd8448646e23a8d3bf3dbaf8566697cb4401a4be4eec0  0161-Revert-DEBUG-drm-panel-visionox-vtdr6126-Optionally-.patch
+12735d11e3b28affd746d75c5fbb522ad9083881ef6faab6eda28bc119d1f570610f9c30033d15029fd2189b50c72a15536efb35dc5d8590e887b95162549981  0162-Revert-DEBUG-drm-panel-visionox-vtdr6126-Read-the-pa.patch
+98f616b0285d87f4021d4e60a9103049c40a054357a1adedf823450ff7c4cac7812a504c745976949dcdbab1ac3306d7dcaa34fd9d16894a97a95fd8d1a562ef  0163-Revert-DEBUG-drm-panel-visionox-vtdr6126-Make-the-re.patch
+fedecd862ff98f9e3f766deaafa1e37d575c51086d10866ea1839e8e0128f1d46e3d30c94c009636165bef51a653ee0586de87a2d8f60a11911d5691d71c7624  0164-Revert-DEBUG-drm-mediatek-mtk_dsi-Log-the-DSI-state-.patch
+ab9957c9d7ab08db33b90eb77029c1826531e4c1cb3fdc8bcf44d76d20b8573e3cc3a9442953ac6334317e63a8635f5245b81a6e519530bc0d4c20a4f619d364  0165-drm-panel-visionox-vtdr6126-Default-to-90-Hz.patch
+81b470eb885f72ef4e78ddcb9ee04dc8fc653a931da590f65b103c696a5d86d9adee53bc121d7d1f8fcb8bf25aad75f5f17b5607fa6023e8deca70a56d8e3ab6  0166-drm-mediatek-mtk_dsi-Refuse-transfers-while-the-DSI-.patch
+26b7d7eaffb29d36ac09d668ac99598846759ce0fee194656d2ad46a05e65b601eddff364639d5e22e35c1d80499f16127134a2b288999367694f262bb057261  0167-drm-panel-visionox-vtdr6126-Send-the-brightness-only.patch
+f4565a9bf371b9a6a5d8308b11fb824a1aa119da9860f1e0c3705bc55ca6b74cc45f24c210d8188f44e01c6af571eb0811d67ab04f4a99f6c9ca7bd2b0165a91  0168-drm-panel-visionox-vtdr6126-Power-cycle-the-panel-be.patch
+e484607519c6c6c7e8030adce3bb341dad075b1baf156009158914de78a451ac518537eca641071638850553cfc28db09bf79f7dce6fd57be234866dec2bb1a8  0169-regulator-mt6369-Add-the-CONNSYS-3.3-V-LDOs.patch
+696bd01bd25c675d1515a9e3e6e71b0c7858fbfae359de488404898be2ed71cc1ee9b9c6d5478881be0f990a446a6bfb78778384cb5cdb4f6fcea0aec27ed254  0170-arm64-dts-mediatek-mt6858-Add-the-CONN-power-domain.patch
+9597640d3c9370f6c27d18a5dc1a29fa70fd20096730e8f1d07f1d401633ceefe8a3e902395375c1a5f7274d664df8b8170b2514c34d20398424f6281cdfb019  0171-arm64-configs-mt6858-Build-in-the-MT6363-regulators.patch
+4d70f7c94c85f1bfad6dea23e61f3cf8958babab20ad704fe56aaa3494163f9a6a3a23507a662752046e786025c76660594b08ffb25822aa3ed2219ad665d6d3  0172-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-CONNS.patch
+bd49976b34d3a2f1a8ccde4f3081d20a4858330b34dff66179371b2c16133c308feb6e686799003d825c5d77465651013e73fc2add2750bbea8ef827ca952c18  0173-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-CONN.patch
+9cde4183a9232c3148401ce63c126f46e2e45935aa038b4cf531a82a51de94dc2acffa5b88c09e16057b2e0f60b76054ae671b9f573f35cc6d490967d8091c59  0174-ASoC-dt-bindings-awinic-aw88395-Add-AW88271.patch
+e366a8ec41992acaaeea13ce46e309dcd18eec8ef3e25eec670f322eac9db9cb3a784124e1d82225558ecd1bf3813c716239e57458f349435d6a0f0cc69c095d  0175-ASoC-codecs-aw88081-Add-AW88271-support.patch
+b64910659d1e50d891ed4be997b818fb3ab4d9ebf03a1d4a34aa2acc4de91301c8ae4f81ff60c225a9c7807e22c747a32003ca1ebf0a79282c0ab9eca6a204f7  0176-arm64-dts-mediatek-mt6858-Add-the-audio-power-domain.patch
+6c9ba9980c16c53f9763b21fee8aece05ae4aca6bc68234051f117d0e81fb1e08c3d6888c6c325972d66a49d7bee30569e84a9f19c2036c67e4b1e31d28fc581  0177-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-speak.patch
+9273cf99918bb6b51294d3871f6b8050be553a6b852a7061820172d006b9fab957c0f07325b2dd88a746826aca2ec7bd9742d0b7eb458506f3527ecbde796b01  0178-arm64-dts-mediatek-mt6858-Add-the-MT6685.patch
+82090f9fa51933903a6fedac5df922b2bd6819e677bd40f196899264e3c4c02b56f35d7adf3b2112a811a0c4044bc573bef37bbf9abed848cc5360efff84ac90  0179-dt-bindings-iio-light-stk33xx-Add-STK3A5X.patch
+d34fe674fea7e26bc123dfa6b6ec28c7cf2dfdda86c278c4505f96e66cd78958ea9a2fbce892ea5f11d913b4970a4015aea1ed00b977f69c84d1e261f13d6c7e  0180-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-motio.patch
+32e4581ed6291e075049036d904448ba4b639bb57ad3ad4787846d7b6d84ec653d8703619f90722666f7835d3abdbbc9fdbfa07cb6790ca48b4290f02d092cf7  0181-arm64-configs-mt6858-Add-the-sensor-drivers.patch
+482a32d1f1300ec69d00081aca209fb13d7b4b9acd5a81c8f66fa6e10aba2d482b0154577cc9a3107629f197b98fa2db6cf8ce9f50a230b19d7c8a23bc8d0241  0182-iio-light-stk3310-Add-support-for-the-STK3A5X.patch
+34704befd5b4119bf26a4ad200dc14c5f6e83a22e7f7c98967e29cec8d1da93ae172dadca19557cfe661c72bf9a67d90127c82c3acf04906b929e7f04d7e9c85  0183-arm64-dts-mediatek-mt6858-jolla-jp2601-Orient-the-IM.patch
+f8d7ef5018b774501e2611a15d08a9fd1858d14f6630c65051175f28dfff2cf4c53b8822aedc97d1fc30f589143133fcf824425f3c85aed4840c776ea1f051d6  0184-arm64-dts-mediatek-mt6858-jolla-jp2601-Raise-the-pro.patch
+083a5822543329624f338cbce67f6c459d280c3b0fc9db9dd8afb81927d7cfc67e952e0e0744e1eb63c43ef23102e2f1c7c15e95799ef1dc88b9b8d32a4a911e  0185-rust-bindgen-Keep-the-alignment-of-an-empty-sched_st.patch
+e69f5f237076c588824f584dd563f62ad9c2712dbf706be0cee32d86a461b4ef288d11dfa8a52f9300e44466d9d002f2d30715319dee8612d31ca93a050eb949  0186-rust_binder-Look-up-freeze-targets-in-the-caller-s-p.patch
+f26c1a245c5d37be9f399deafc2838ea61cbf2f83a087cd73af4d5e7dee43019a2f78410a3bcd050bff58ded6e17e77b21710d676533192851a3a32f2558e650  0187-arm64-dts-mediatek-mt6858-Add-the-CPU-performance-co.patch
+8bcfbb4f6c4f021371d6f19e5f78fe34f06fdeef8c4941bbbbd6c50c04c2f4f7d5c4ddbf8cb657b42f0216a875a66351e32f35424b8625a22f0c0d04b7e078bd  0188-arm64-configs-mt6858-Build-in-the-CPU-frequency-driv.patch
+51c0e777762ed803f401dd3b751921ed0d64b760e1b2ac361ca8639b60e0a4398e5d13e33eb2923fffe075a137dfe48730d43815f463e515f11f28b70a098bfc  0189-arm64-dts-mediatek-mt6858-Add-the-memory-mapped-time.patch
+3bdd1ac5a9351c0dd9629e03658c69b126141e753e8816657b604074011d496249db97b2291a4bfe03111310591ef6891958055ea7b74771407f32a0aa27f444  0190-arm64-dts-mediatek-mt6858-Add-the-CPU-idle-states.patch
+2d37f396b1463e0a677a79fa7cb034f3d92ad1c7d5380e1c5d22180d3c447e080256bdfc9394a350bcc03c2d25dac06bb4454b640545bd9bb09642a130c2f2ad  0191-arm64-dts-mediatek-mt6858-jolla-jp2601-Make-a-crash-.patch
+f723c62b7801d201430d5ef1707b52f52a89d1dcccec816ac8966441f3f08d716f2fe95c4fb765b5dfeec5c3b80a13b6de556762c194b3734cdcacafa2829df9  0192-arm64-dts-mediatek-mt6858-jolla-jp2601-Leave-LK-s-lo.patch
+5f8401cbcf47506aff6b25a10e444aabd0ed5126c0e9901194144c3df5d391105a02063084d72f517dacbb2887551be27d2a475169e3a5cefbaaa5ca0193d2a6  0193-arm64-configs-mt6858-Use-transparent-huge-pages-only.patch
+86b271156e1615f0995848ab9cd9a2422b57d52165630bddcc170da731cfc7edc6b96f6ef968828bef918290a9f7ea6d4aff571f78aecfbdcdee701d7d2fcca9  0194-arm64-configs-mt6858-Add-the-LZ4-and-zstd-backends-t.patch
+c19675597a1557f5d0ddbe45883a6aaa38e6aa75b1112000f5afb897c3e9ed549816ae43c750b4219c8421faadd8b44c4f29fb05796bd8e7e0474fbd05ff20a1  0195-rtc-mt6397-Add-support-for-the-MT6685.patch
+233a0e239c0c9a742d5fc4bdcf57dbaca422e4c710fe3efe330b997f190689f7e6e3cf14f83fbcae8b004254886fc791ad16d135e440bf53407fcbfcaaf6c3ee  0196-arm64-dts-mediatek-mt6858-Add-the-MT6685-RTC.patch
+03009d0c2537256a17cff621fcdf5f381c2a6265a9734b83e78d281590513910e3cf01cd39aeeb82de8ba0f68c63b4cb4ec9af7d0315bca05aff7876be96c301  0197-arm64-configs-mt6858-Build-in-the-PMIC-RTC-driver.patch
+e226daa6244aa3ba84b9bd5c0ccfa18631b4a4bdde2b759cf91ba0ab5ec8c4acff33539f6a4f1170459fee3089c6fb2d6144de33cfd50e46a2f5b88e2ed7654c  0198-dt-bindings-clock-Add-the-MediaTek-MT6685-clock-buff.patch
+8c48daf4a2fc52c398ec02ed1de9e2767be34a8a88b0f791c35110a17e757799fdda8b6860656cf2475132f1bec7c3dc39227365214f315549416d30efd39750  0199-dt-bindings-mfd-mediatek-mt6363-Add-the-MT6685.patch
+07fb7ba4210ae96b93ac3896e0faccf719e02f0b4d93501aa585140e037fde422f9ed0cacdc64fa5eff4e3c06b51c16d1a6c3ddfe5bd2575ab3902b5e5f4e0cf  0200-mfd-mtk-spmi-pmic-Add-the-MT6685.patch
+2b2e6ec05a5a5b6a88b0dbbc371055906d06d54406c8902e6e0e2b1ec2ac37a9fc66ea38254af593df025e6bcb27353f0f5dde39c1066798785ec1eef1424fbc  0201-clk-mediatek-Add-the-MT6685-clock-buffer-driver.patch
+32a94a2206aefbf9499c02760bd555b6e497c1d445a346f5769517086b99f4f004334b76762e4bbdff22d23ff38378494bb7842e582ed97d31a7475a1d6c6a78  0202-arm64-dts-mediatek-mt6858-Describe-the-MT6685-clock-.patch
+2cb59e55390e172dda89260e2764b8557872f316204b71fc00d713944d47fba024acaa13b2a02526581f321c035a59e6d4f3ec23f0df3a96757421c983e10ba5  0203-spmi-mtk-pmif-Split-transfers-into-commands-of-up-to.patch
+984d564ad0b0c77b0e10a4d3b52348f1d826376ea28119493b82bfee778bbd809318eadab25fd7741e328d6cfc97456cafd774af8d071762c2f5b46711cc02df  0204-spmi-mtk-pmif-Move-at-most-2-bytes-per-command-on-th.patch
+6e47d793a1ed0790b282529f4f178a04413925e6456f0ceb154f3172fbd5f4676747d3b7838384ce792b23c6dac7834a3dd1d4907cca70fedecf010579ac4359  0205-mfd-mtk-spmi-pmic-Read-the-MT6685-chip-ID-at-0x0b-li.patch
+bdbb9b6f7fb3e6d7a4c75a1cd51ff0fcab479df8cb0d816e8dbc23e29830b04f585481e3832440121ecbff07f1f65edb0949ac09e729047f2b950c49d2e826b0  0206-arm64-dts-mediatek-mt6858-Give-the-AFE-its-topckgen.patch
+b3a125cf06f42d9afbf7e7849d5c7c833dc43fa9698db579802791f4f77f96dbff4881e0a9b3447c99465b14d202a27083437a64193831c019c5597bc54806ef  0207-dt-bindings-thermal-mediatek-Add-the-MT6858-LVTS-con.patch
+e88baa420731cfbf39dc39832d5bf2d9bbe6309c28723fcfbe106d6aff15f16fdb88086dd85d2fdecb94f745b3e8b0e2d0f610c3b9b1f5aa3c61d8549645a143  0208-thermal-drivers-mediatek-lvts-Support-controllers-th.patch
+2c79883eb99b6dbcca28def132368f2678520f5a67fa45369e6345394aabd207f9d73145c7c99ff76ecc3eafc54e29b2ff854dc16b97ccf47b2075b9255a6333  0209-thermal-drivers-mediatek-lvts-Add-the-MT6858.patch
+c1e7e960736bd2479bc776019abfb30f09b59a8ef89a2bd556177a32b381906fa1ee67f4fa87bfa969a828ca147116492f409f5f698dc0ad35119180edd7abdf  0210-arm64-dts-mediatek-mt6858-Add-the-LVTS-sensors-and-t.patch
+67a866e151fc7c9c7de0e12b70290ab803768f115956d797f0e9237486e198f7105417fbc2e41399b80eaa086b550df32def87b5224b432e1b5a405cbda61c46  0211-arm64-configs-mt6858-Build-in-the-LVTS-thermal-drive.patch
+7e2219a87a5e49c82d7e88a58b0c03b5d858bea4bef2b4593b899b23600805c14181e075e40dd912e8cf8949b08766345ab7edd128c8c12bfd694a463ce3fabf  0212-arm64-dts-mediatek-mt6858-Poll-the-thermal-zones-les.patch
+34461580c9019753eaca4943d7e05a5c5f1eaad5a66027277484ab070beb8897b2dd3541378846698e52ac4b27aba802709f0aa0eebfe42bb437de7146cfd9e5  0213-thermal-drivers-mediatek-lvts-Poll-a-firmware-run-do.patch
+70cd7f12fe8ed4d4a077816737ef1141bb7bf918e763ee487a0c6d734d008dcb29f99d9912d8033bb2fc3e55a59c7e56708c32f93cecc98c6f1c32ce647b3eb0  0214-arm64-dts-mediatek-mt6858-Let-the-LVTS-driver-poll-t.patch
+4812b3dd57678350d7979a1d1a8111d9b09d6965a3e9858dbbf8b44f0d75d100238b4627a39b065851d69e2c1fdd83500d585ac1675fd2aa788d904c18aa7855  0215-ASoC-codecs-aw88395-lib-Accept-register-only-multi-b.patch
+920273a2077372b805c642c0dcb2e05482a7fa0262f9baa393927d8d251e72e0035290009eb86940c0e79a660639f45cf0f9175984f0358a5fc1626a677332b0  0216-ASoC-dt-bindings-Add-the-MediaTek-MT6858-AFE.patch
+e08f294d1640c258655da563ee565ff9dd832ee2bdd25377237bf132a63caead0bb729c9df66ebfcadd92b270c334dd71fca4a818d5a9a1b7078ce1fdb47bcdb  0217-ASoC-mediatek-Add-the-MT6858-AFE-platform-driver.patch
+1bdfc0de527f93bdb69e8bbaf506190548b3de2b6fd9a9329bdd915bd549e4ccc667765c113430114cb516cbdb3f39819f93bfa6a9df9e02b582e93d872d37fe  0218-ASoC-codecs-Add-an-MT6369-codec-driver-uplink.patch
+a70525ac9f7d337f4d5677bc58a254f0efe5bdd2260e2ec8cccc4d55b74dace62e36954a9f5a51f792adf8b186e1f658555b5414ea02a9899580a8c7ee7900f3  0219-ASoC-mediatek-mt6858-Add-the-MT6858-MT6369-machine-d.patch
+6058a45746764fad199f24e3825a78473d4efbeecd54cf79cc189c5510d8cf97275b5a2dd1d12cc6c718f22e53d6f0d6ff774558e8f31d6b831876eb1474b5d4  0220-arm64-dts-mediatek-mt6858-jolla-jp2601-Release-the-I.patch
+2a62b46d622aface05bc1cacaf3107ad198c1e9a36b6842d11c517139d5fa1eae60127a8dbaf2a622e2c68838444c71540b47517e8061190a0abb5c34572b986  0221-ASoC-mediatek-mt6858-mt6369-Set-the-MTKAIF-protocol-.patch
+87a178fb69c9d0831c84a11d8b803f0db0531ddabda82d677b952d4d1bf8440d853ce49fbbd3f5bc0983b88446c5c8c2809b4ffce806e0972f22dc0f19c926b2  0222-ASoC-codecs-mt6369-Add-the-MTKAIF-calibration-helper.patch
+54cb1f8ea9bc84a6d53971879c8baf35f591c4dbad398fd7e3fa3c1bab1ff08405e040a4b1d0be676799c0daf59429c468d14319cb3458e1a2f58319a3fc4010  0223-ASoC-dt-bindings-mediatek-mt6858-afe-pcm-Add-the-top.patch
+7db46c2e27b2e13add43f60ef440537355c5bf8005abfbb9ad02755cf8a35caecb9f8ab167a3a5b3870abba420fda284a62b2ea5981e19d348923b3abd3508b3  0224-ASoC-mediatek-mt6858-Look-up-the-topckgen.patch
+8dc3b04f80e0e6ecb7fa9cd15b50ad0b71a1f457d8fe4d97e90c6cca986693d19fa70164ac36c31a2b74a94f2653ea0fc5c62a6bcd88e0790a7b38a7612e3879  0225-ASoC-mediatek-mt6858-mt6369-Calibrate-the-MTKAIF-pha.patch
+6a516f8e170fa5e3003c61cf2a02b62a1c20b0a5f1d206a98c12ae8a40f976f5574a077f6709d4a5886935d751dd95676be4a0187b4c36d24e57db71a247e084  0226-ASoC-mediatek-mt6858-Balance-the-clocks-on-removal.patch
+bbf129998359afa5c8bd3c7a4f6785793fc022e954c3d19e8913c5bf8b06ccdbb16fc8f0d3c9b824ace0e268bd81334246207bfe275b7387bd285d279b63d3ca  0227-ASoC-mediatek-mt6858-Ungate-the-UL0-timing-clock-for.patch
+a826e98ada4edb96edac5fa4a7bd72e781c77bca282d4f75ceea93a3a392bb5e73ba8ec97e3185c0418cfaf9f53573dcc16810aa0285a178e290cc97c4087a9b  0228-clk-mediatek-mt6685-Take-XO_BBCK5-under-register-con.patch
+895bd5e3d87fc7e7ce1433a0cf6758137c5d793af653ec8ef272f8237e238a3e39b8101501472ad9a880087dc682e64fff1275431fc85bc4fd948b501f21f319  0229-ASoC-dt-bindings-Add-the-MediaTek-MT6369-codec.patch
+6baabd6ba430744f68c95e975368c0c6a76ddf79a2133725ac8784f8aad106656b6686d8dff63378d53000a9787aafb117aa9b715b414049100e643d5d920b4a  0230-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-MT636.patch
+a548010b2d2019388123fc300da19c62ed851dfdab15ee3425b981e7d0ea0e97d33e672f0d406dc42c0baf4039b8d3920084d7eb6bfa53cddb73ea0810efe0f5  0231-arm64-configs-mt6858-Add-the-audio-drivers.patch
+52ef6284b9bb4fb418a76af482d9e7241f46cd41d8ab8046aa51689195acae03af0748307de72a2dbabf354386a04e8829ee6a9e1163ca7252bee3ff6442d027  0232-dt-bindings-leds-Add-the-Awinic-AW36515-flash-LED-dr.patch
+25ffbba38281c28b525d224a49e36d3eeda131236b8dde52c3b81de3f2bddfdb14e2d6ee169564dd9d6dd14123176f4a228fc8a691a9fa477f4ec55790c8a8c2  0233-leds-flash-Add-a-driver-for-the-Awinic-AW36515.patch
+73d85eeb7caa28dfe9179d350b89dd203553cefd0e019c8e6d022e944118ea9d01f3be0681ece0daef5abc1e6f9923476758d166bfb8b9ed0c5309e90a7e0fb0  0234-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-flash.patch
+aecf88263fc24d0dcb279e39909ce823d8ef52691933febb17724090d64647709201ce56cd43dc1731e09cf241630b5d9e8641096ea96235ec4bfcd312491a9b  0235-arm64-configs-mt6858-Add-the-AW36515-flash-LED-drive.patch
+a98e655fe8c633088dbcdb73ce465659d23d9812cd0443fa7eaa9aec8eccb2a88e80f9ee018006f5a803e509d77a4d1e60b2926db3b92b8cd59cb4ade3d4f749  0236-power-supply-mt6720-battery-Report-100-at-the-charge.patch
+3b1f3db3b3a641939c078ce9f7f9717a54fa853f93770fb6340fed03cd160bbb2208019776edaf3456a901f0202fecade30cd4a326b5a1b42c2053b6b4be708b  0237-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
+47f90baec780973e98b15e3e441fe6cca24be3474459aead1cd0df26c72a8449cc7ee5cd215d88af0117c670459f43dd3aa1d8fc6c9f45a1ac5392a066ef7f9a  0238-dt-bindings-net-nfc-st-st-nci-Add-ST21NFCD.patch
+45f5feb972281de8135c738c91a8a4953e722c19baa7d383d57af7c08ad0fc4d363546dc0398680cae04958b93c3e0967a7972265a12ae4ae384e6fe961601af  0239-nfc-st-nci-i2c-Enable-an-optional-reference-clock.patch
+b161c8bbaf35dd9e9560714ea8469c975531d71b173d1827fed806e083e888e529e20dd71cd300ce0f939b653a65d661a0e76fac00851a1c2c2a32949fb3a9a2  0240-nfc-st-nci-Add-support-for-the-ST21NFCD.patch
+7c216f5c42d1a8dad02a20545bd6cddb0a3b67db11f280d12ad6b559aaa0c56ee06f23c2553684a94949a49fe066bc1e8d1d42b0a4daf59fe7633e8c913d83b5  0241-clk-mediatek-mt6685-Add-XO_BBCK4.patch
+38c1f9e313d94b6a0cd6386bf08409e407328d7d6004ca907d91f12802c00851ae072f089863e57006e375eb272724046514c73ada3eb602644caada105c03cd  0242-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
+07a439e82f011620a5b14c4438d258d1bec92ff1e50b5a9a8b22fac5493a35f88f8307a76bc36df9bd47b1edcbe7c2bf18a585b5d00f60c2d0aaaa08b676f66b  0243-arm64-configs-mt6858-Add-the-ST21NFCD-NFC-driver.patch
+4577abebba882f374c734c178893e89770b4b8bb3a72379557a03f87f1065343e35b4bd600b78b7958818939499309c66c914feeb069036d102153e464076fee  0244-iio-magnetometer-mmc5633-Report-the-zero-field-offse.patch
+de2f5640070e2524403579b1cc21d24cd306f97694bd285965f95577921616355ea0c4272d6f66379432a4b7eb66c8eb43481072eb9711645ef09131aee1ba32  0245-power-supply-mt6720-battery-Report-the-battery-s-hea.patch
+dbdb75931808816e1186125da6f76e8debda61cb91f1e9b39fcbde624a04869b18287999b34cd0ae09fb10e7e249c8d1167be653b075bfe59bef2095158b9c6e  0246-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-the-batt.patch
+ec0e0b06ffd215c9a80ccc63a0d5541bc870aec461765f38230cc5764c7847f0a64bda322bd4f9a1ab9dad09e8abfdfc6405a8d5a829947be3dda780c99957f0  0247-arm64-dts-mediatek-mt6858-jolla-jp2601-Detect-the-mi.patch
+a3504ca83ce68ade70455db5f1c96fbe98341d24b34a537269fbcce76ad1d2a565f634792f7b0acc866add940ce6c06b5ecaebdf498978816ff711050864d25a  0248-power-supply-mt6720-battery-Import-the-IIO-consumer-.patch
+832a3018de0120ab700c9c5c710899178e93b975cb2ae99b1699df066eb3be8d98898207d7834948366c9bc03999e9976f4f14d99753be300835da9aa0b20a3f  0249-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-MD1-its-.patch
+aa724556c61b2f85539790f6ef94d70bd23041bd2c602358989daabb57a90526958b3864e37daf3e10b96e8f28a13da32f75ffdde56b420defe97f97abbfcc4b  0250-arm64-configs-mt6858-Turn-lockups-and-RCU-stalls-int.patch
+1b57b13f8912bed14f0f0bc5ff65f8977e71649dd311c28fedb459248b1ac86d94543ae04bda8ec651cd28d9189925efca9f3ee3eeb39b3a0999fa09bcde9ae3  marathon.config
+"

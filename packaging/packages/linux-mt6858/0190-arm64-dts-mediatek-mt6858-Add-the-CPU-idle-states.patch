@@ -1,0 +1,166 @@
+From bd1023276177278c8c85ba4659ceb4972c98e33d Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:38:24 +0000
+Subject: [PATCH 190/214] arm64: dts: mediatek: mt6858: Add the CPU idle states
+
+The CPUs have no idle states, so idle cores only ever execute WFI. They
+never power down, and neither do the clusters or the MCU subsystem.
+
+Add the PSCI states of the stock device tree, with its suspend
+parameters and latencies: core, cluster and MCU-subsystem off for each
+cluster, and the system state that also lowers VCORE. Leave out its
+s2idle state, which only suspend-to-idle uses.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 84 ++++++++++++++++++++++++
+ 1 file changed, 84 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index da5fffce5..b0ee4bb37 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -45,6 +45,8 @@ cpu0: cpu@0 {
+ 			reg = <0x000>;
+ 			enable-method = "psci";
+ 			performance-domains = <&performance 0>;
++			cpu-idle-states = <&cpu_off_l &cluster_off_l &mcusys_off_l
++					    &system_vcore>;
+ 			capacity-dmips-mhz = <346>;
+ 		};
+ 
+@@ -54,6 +56,8 @@ cpu1: cpu@100 {
+ 			reg = <0x100>;
+ 			enable-method = "psci";
+ 			performance-domains = <&performance 0>;
++			cpu-idle-states = <&cpu_off_l &cluster_off_l &mcusys_off_l
++					    &system_vcore>;
+ 			capacity-dmips-mhz = <346>;
+ 		};
+ 
+@@ -63,6 +67,8 @@ cpu2: cpu@200 {
+ 			reg = <0x200>;
+ 			enable-method = "psci";
+ 			performance-domains = <&performance 0>;
++			cpu-idle-states = <&cpu_off_l &cluster_off_l &mcusys_off_l
++					    &system_vcore>;
+ 			capacity-dmips-mhz = <346>;
+ 		};
+ 
+@@ -72,6 +78,8 @@ cpu3: cpu@300 {
+ 			reg = <0x300>;
+ 			enable-method = "psci";
+ 			performance-domains = <&performance 0>;
++			cpu-idle-states = <&cpu_off_l &cluster_off_l &mcusys_off_l
++					    &system_vcore>;
+ 			capacity-dmips-mhz = <346>;
+ 		};
+ 
+@@ -81,6 +89,8 @@ cpu4: cpu@400 {
+ 			reg = <0x400>;
+ 			enable-method = "psci";
+ 			performance-domains = <&performance 1>;
++			cpu-idle-states = <&cpu_off_b &cluster_off_b &mcusys_off_b
++					    &system_vcore>;
+ 			capacity-dmips-mhz = <1024>;
+ 		};
+ 
+@@ -90,6 +100,8 @@ cpu5: cpu@500 {
+ 			reg = <0x500>;
+ 			enable-method = "psci";
+ 			performance-domains = <&performance 1>;
++			cpu-idle-states = <&cpu_off_b &cluster_off_b &mcusys_off_b
++					    &system_vcore>;
+ 			capacity-dmips-mhz = <1024>;
+ 		};
+ 
+@@ -99,6 +111,8 @@ cpu6: cpu@600 {
+ 			reg = <0x600>;
+ 			enable-method = "psci";
+ 			performance-domains = <&performance 1>;
++			cpu-idle-states = <&cpu_off_b &cluster_off_b &mcusys_off_b
++					    &system_vcore>;
+ 			capacity-dmips-mhz = <1024>;
+ 		};
+ 
+@@ -108,9 +122,79 @@ cpu7: cpu@700 {
+ 			reg = <0x700>;
+ 			enable-method = "psci";
+ 			performance-domains = <&performance 1>;
++			cpu-idle-states = <&cpu_off_b &cluster_off_b &mcusys_off_b
++					    &system_vcore>;
+ 			capacity-dmips-mhz = <1024>;
+ 		};
+ 
++		/* The stock firmware's states and parameters */
++		idle-states {
++			entry-method = "psci";
++
++			cpu_off_l: cpu-off-l {
++				compatible = "arm,idle-state";
++				arm,psci-suspend-param = <0x00010000>;
++				local-timer-stop;
++				entry-latency-us = <25>;
++				exit-latency-us = <57>;
++				min-residency-us = <1600>;
++			};
++
++			cpu_off_b: cpu-off-b {
++				compatible = "arm,idle-state";
++				arm,psci-suspend-param = <0x00010000>;
++				local-timer-stop;
++				entry-latency-us = <35>;
++				exit-latency-us = <82>;
++				min-residency-us = <1400>;
++			};
++
++			cluster_off_l: cluster-off-l {
++				compatible = "arm,idle-state";
++				arm,psci-suspend-param = <0x01010001>;
++				local-timer-stop;
++				entry-latency-us = <57>;
++				exit-latency-us = <134>;
++				min-residency-us = <2100>;
++			};
++
++			cluster_off_b: cluster-off-b {
++				compatible = "arm,idle-state";
++				arm,psci-suspend-param = <0x01010001>;
++				local-timer-stop;
++				entry-latency-us = <50>;
++				exit-latency-us = <144>;
++				min-residency-us = <1900>;
++			};
++
++			mcusys_off_l: mcusys-off-l {
++				compatible = "arm,idle-state";
++				arm,psci-suspend-param = <0x02010007>;
++				local-timer-stop;
++				entry-latency-us = <863>;
++				exit-latency-us = <1237>;
++				min-residency-us = <4000>;
++			};
++
++			mcusys_off_b: mcusys-off-b {
++				compatible = "arm,idle-state";
++				arm,psci-suspend-param = <0x02010007>;
++				local-timer-stop;
++				entry-latency-us = <648>;
++				exit-latency-us = <1172>;
++				min-residency-us = <4000>;
++			};
++
++			system_vcore: system-vcore {
++				compatible = "arm,idle-state";
++				arm,psci-suspend-param = <0x020100ff>;
++				local-timer-stop;
++				entry-latency-us = <2400>;
++				exit-latency-us = <4800>;
++				min-residency-us = <35200>;
++			};
++		};
++
+ 		cpu-map {
+ 			cluster0 {
+ 				core0 {
+-- 
+2.55.0
+
