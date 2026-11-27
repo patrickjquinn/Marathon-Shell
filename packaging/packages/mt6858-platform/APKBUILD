@@ -5,7 +5,7 @@
 # board's (jp2601-connsys-firmware).
 pkgname=mt6858-platform
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="MediaTek MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"

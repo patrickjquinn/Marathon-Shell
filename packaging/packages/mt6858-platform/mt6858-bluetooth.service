@@ -1,8 +1,9 @@
 [Unit]
 Description=MT6858 Bluetooth (bt_drv over conninfra) and its factory address
-Wants=mt6858-connsys-nvram.service
-# bluetoothd takes hci0 once the address configures it.
-After=multi-user.target mt6858-connsys-nvram.service
+# hci0 comes after the pre-calibration mt6858-wifi starts; bluetoothd
+# takes it once the address configures it.
+Wants=mt6858-wifi.service
+After=multi-user.target mt6858-wifi.service
 
 [Service]
 Type=oneshot
