@@ -5,8 +5,9 @@
 # plus 0185-0186 from jp2601/deckard and git format-patch
 # d2c834312..93ee882fe of jp2601/modem (the audio and flash LED series, the
 # battery fix, then the MD1 modem) from 0215, and git format-patch
-# 7b28de873..258142ecd of jp2601/camera-r21 (the IMX616 and IMX766 sensors,
-# CAM_MAIN's bus protection, the camera SMI path and the MM IOMMU) from 0274
+# 7b28de873..95d6c37c9 of jp2601/camera-r21 (the IMX616 and IMX766 sensors,
+# CAM_MAIN's bus protection, the camera SMI path, the MM IOMMU and its
+# GenieZone hyp-MMU sync) from 0274
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
@@ -341,6 +342,7 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0284-dt-bindings-iommu-mediatek-Add-the-MT6858-MM-IOMMU.patch
 	0285-iommu-mediatek-Add-the-MT6858-MM-IOMMU.patch
 	0286-arm64-dts-mediatek-mt6858-Add-the-camera-SMI-path-an.patch
+	0287-iommu-mediatek-Keep-the-GenieZone-hyp-MMU-in-sync-on.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -727,5 +729,6 @@ b94e9f6b7bbb4c6a5b7349063ff0b0f8ed1b5709ad33ff7cde02fa3541adfbe5742bf8066ad35d1f
 b29dc0c9b5c051bab5c442c06f28339742006f84702189c9842d43e099dfbef7ec818f36d8ff7afc4dfa03376ce728965b996b24a340f0519666690034dcedbe  0284-dt-bindings-iommu-mediatek-Add-the-MT6858-MM-IOMMU.patch
 c90460d5ed2daad5c260e7f68d6601d369dd2192a3552fb6a7212ecd63b921832124d8e7c62e3e75abc56cdf73749d17d25689be6b49ff4034a2a4db7486750e  0285-iommu-mediatek-Add-the-MT6858-MM-IOMMU.patch
 9ebc8a90c50212db3386022f17454fccc5c9ddbe7ab21446f42aeca382faaea79bbd05c6f2bc3f5b5669bb4cc6e3a703df549615ad4e7a72e543eeadf3a93977  0286-arm64-dts-mediatek-mt6858-Add-the-camera-SMI-path-an.patch
+9225be5ec8923cdb32fd3977051a0945b0435645cbe459405a3ec74ef82c8d51c7ac0df83445abfc52f0b1dd08e4dea65ac33e2ab040f2da85e93eed06241c1f  0287-iommu-mediatek-Keep-the-GenieZone-hyp-MMU-in-sync-on.patch
 1b57b13f8912bed14f0f0bc5ff65f8977e71649dd311c28fedb459248b1ac86d94543ae04bda8ec651cd28d9189925efca9f3ee3eeb39b3a0999fa09bcde9ae3  marathon.config
 "
