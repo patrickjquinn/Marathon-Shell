@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=18
+pkgrel=19
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -11,7 +11,8 @@ license="Apache-2.0"
 options="!check"
 depends="device-jolla-jp2601 marathon-base-config marathon-shell marathon-carrier greetd
  plymouth marathon-plymouth-theme deckard deckard-images mesa-vulkan-panfrost linux-firmware-arm
- jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf"
+ jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf
+ mt6858-camera-modules libcamera>=999990.8.0 libcamera-gstreamer"
 source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-session.conf
  jp2601-plymouth.files jp2601-plymouth-newroot.hook
  jp2601-splash-handover jp2601-splash-handover.service jp2601-splash-greetd.conf
@@ -20,7 +21,8 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
  eglfs-kms.json 60-jp2601-display.rules 61-jp2601-gpu-awake.rules jp2601-gpu.files jp2601-power.sysctl
  jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf
- jp2601-modules-match jp2601-modules-match.service"
+ jp2601-modules-match jp2601-modules-match.service
+ jp2601-camera.modules-load.conf jp2601-camera.modprobe.conf 60-jp2601-camera.rules"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
@@ -87,6 +89,11 @@ package() {
 	install -Dm644 "$srcdir/marathon-deckard.tmpfiles" "$pkgdir/usr/lib/tmpfiles.d/marathon-deckard.conf"
 	install -Dm644 "$srcdir/50-marathon-deckard.rules" "$pkgdir/usr/share/polkit-1/rules.d/50-marathon-deckard.rules"
 	install -Dm644 "$srcdir/jp2601-deckard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/jp2601-deckard.conf"
+
+	# Cameras: their overlay at boot, and the heap libcamera's software ISP uses.
+	install -Dm644 "$srcdir/jp2601-camera.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/jp2601-camera.conf"
+	install -Dm644 "$srcdir/jp2601-camera.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/jp2601-camera.conf"
+	install -Dm644 "$srcdir/60-jp2601-camera.rules" "$pkgdir/usr/lib/udev/rules.d/60-jp2601-camera.rules"
 }
 
 sha512sums="
@@ -122,4 +129,7 @@ ca01be36a4164a1192f6708247952efecdef1cbbca5615786a1ce2fd04c74407c9514a9a9634391b
 03c47767af679ce30238d5eeb70be9f7b68d48aeede5df96c89ccb4ddc83e9e0a40633cbf643821d626596351481bff4bada6f5016ebecdc2d8594035af53806  jp2601-upower.conf
 673768845394376e381079b7bff0f410343f4ef5f8938dc11b9a529d1074d262a9593a5c73be196d3426fc2ed07b1cadcaf170f3d281fe0a788906d285516866  jp2601-modules-match
 6642324e9bf3b36a956a5eeaed6712e1197398547a2df6f348b95876e486d2324616f7ccea13e8a68747598b608f41c35f8bf87ed8b4d23610d7bce526139b0f  jp2601-modules-match.service
+4f3942c03b4c1ce4ca340c4c8e998249ce92ea7d641bd1c6ec72bc4f5f248dbd864b78153af2cf96dbba203b61ec735d20ae4da2341a5fa052c7c34b0208d818  jp2601-camera.modules-load.conf
+15909d3d1c27e4057a94d0560d853c913363c6190cdf3f8625865b8a9f173dc3016f4294ddc2444ae6642d492b561e3339a6fc0b5e700889dd598b40797f2b93  jp2601-camera.modprobe.conf
+583e9cd23503b38eb36df925c3c5373e9c8826c11bc6f006d3972fc324367da14ee58968f54612be9dd975860419a03bc41e8195f10528dd4473072a6a948975  60-jp2601-camera.rules
 "
