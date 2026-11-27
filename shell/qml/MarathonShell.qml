@@ -916,13 +916,31 @@ Item {
             from: "pinEntry"
             to: "home"
 
+            // Home rises under the fading pad, as it does under the swipe.
             SequentialAnimation {
-                NumberAnimation {
-                    target: pinScreen
-                    property: "opacity"
-                    to: 0
-                    duration: MMotion.ms(Constants.animationNormal)
-                    easing.type: Easing.OutCubic
+                ParallelAnimation {
+                    NumberAnimation {
+                        target: pinScreen
+                        property: "opacity"
+                        to: 0
+                        duration: MMotion.ms(MMotion.moderate)
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: mainContent
+                        property: "opacity"
+                        from: 0
+                        duration: MMotion.ms(MMotion.moderate)
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: mainContent
+                        property: "scale"
+                        from: 0.94
+                        to: 1
+                        duration: MMotion.ms(MMotion.moderate)
+                        easing.type: Easing.OutCubic
+                    }
                 }
 
                 PropertyAction {
@@ -2515,9 +2533,10 @@ Item {
         z: Constants.zIndexPinScreen
         onPinCorrect: {
             Logger.state("Shell", "pinEntry", "unlocked");
+            // Unlocked first: the pad goes straight to home, not back through the lock screen.
+            SessionStore.unlock();
             shell.showPinScreen = false;
             pinScreen.reset();
-            SessionStore.unlock();
             if (shell.pendingLaunch) {
                 Logger.info("Shell", "Executing pending launch: " + shell.pendingLaunch.appName);
                 UIStore.openApp(shell.pendingLaunch.appId, shell.pendingLaunch.appName, "");
