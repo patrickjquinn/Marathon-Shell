@@ -23,6 +23,14 @@ Item {
     // and the home screen.
     property list<Item> backdrops
 
+    // A tall screen (a phone upright) has the height for two switches across,
+    // all on one page, and larger discs; a square or wide one keeps three
+    // across in pages of nine.
+    readonly property bool roomy: width > 0 && maxHeight >= 1.5 * width
+    // The switches', the shortcuts' and the media row's disc, and its glyph.
+    readonly property real discSize: roomy ? Silica.Theme.itemSizeSmall : Silica.Theme.itemSizeExtraSmall * 0.75
+    readonly property real glyphSize: roomy ? Math.round(discSize * 0.44) : Silica.Theme.iconSizeSmall
+
     signal closed
     signal launchApp(var app)
     // Emitted when the Power quick-action is tapped. Wired by
@@ -330,23 +338,24 @@ Item {
         ] : [];
         return refresh.concat(enabledOnly(t));
     }
-    // Switches in pages of three across by three. Paged by id: statuses change
-    // every few seconds, and a page made of the tiles themselves would rebuild
-    // every tile on it each time.
-    readonly property int tileColumns: 3
-    readonly property int tilesPerPage: 3 * tileColumns
+    // Switches in pages of three across by three, or two across by seven on a
+    // tall screen. Paged by id: statuses change every few seconds, and a page
+    // made of the tiles themselves would rebuild every tile on it each time.
+    readonly property int tileColumns: roomy ? 2 : 3
+    readonly property int tilesPerPage: (roomy ? 7 : 3) * tileColumns
     readonly property var tileIds: tiles.map(t => t.id)
     property var tilePages: []
     onTileIdsChanged: repage()
+    // Turned, the shade can change between three and two across.
+    onTilesPerPageChanged: repage()
     Component.onCompleted: repage()
     function repage() {
         const ids = tileIds;
-        if (JSON.stringify(ids) === JSON.stringify([].concat(...tilePages)))
-            return;
         const pages = [];
         for (let i = 0; i < ids.length; i += tilesPerPage)
             pages.push(ids.slice(i, i + tilesPerPage));
-        tilePages = pages;
+        if (JSON.stringify(pages) !== JSON.stringify(tilePages))
+            tilePages = pages;
     }
     function tileById(id) {
         return tiles.find(x => x.id === id) || null;
@@ -398,7 +407,7 @@ Item {
 
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: Silica.Theme.itemSizeExtraSmall * 0.75
+                width: quickSettings.discSize
                 height: width
                 radius: width / 2
                 color: shortcutMouse.pressed ? MColors.whiteOverlay16 : MColors.controlFill
@@ -406,7 +415,7 @@ Item {
                 GlyphIcon {
                     anchors.centerIn: parent
                     name: shortcut.iconName
-                    size: Silica.Theme.iconSizeSmall
+                    size: quickSettings.glyphSize
                     color: Silica.Theme.primaryColor
                 }
             }
@@ -522,7 +531,7 @@ Item {
             x: Silica.Theme.horizontalPageMargin
             y: Silica.Theme.paddingMedium
             width: shadeScroll.width - Silica.Theme.horizontalPageMargin * 2
-            spacing: Silica.Theme.paddingMedium
+            spacing: quickSettings.roomy ? Silica.Theme.paddingLarge : Silica.Theme.paddingMedium
 
             // Flattened only while it fades, so it fades as one piece; open,
             // a slider drag doesn't re-render an offscreen copy every frame.
@@ -538,7 +547,7 @@ Item {
             // ── Date, Settings and Power ─────────────────────────
             Item {
                 width: parent.width
-                height: Silica.Theme.itemSizeExtraSmall
+                height: quickSettings.roomy ? Silica.Theme.itemSizeSmall : Silica.Theme.itemSizeExtraSmall
 
                 Silica.Label {
                     anchors.left: parent.left
@@ -610,7 +619,8 @@ Item {
                     required property int index
                     width: tilePager.width
                     columns: quickSettings.tileColumns
-                    spacing: Silica.Theme.paddingSmall
+                    rowSpacing: quickSettings.roomy ? Silica.Theme.paddingMedium : Silica.Theme.paddingSmall
+                    columnSpacing: quickSettings.roomy ? Silica.Theme.paddingLarge : Silica.Theme.paddingSmall
 
                     Repeater {
                         model: quickSettings.tilePages[page.index] || []
@@ -618,7 +628,10 @@ Item {
                             required property var modelData
                             // Its live state, rebound in place as it changes.
                             readonly property var t: quickSettings.tileById(modelData) || ({})
-                            width: (page.width - (page.columns - 1) * page.spacing) / page.columns
+                            width: (page.width - (page.columns - 1) * page.columnSpacing) / page.columns
+                            height: quickSettings.roomy ? Silica.Theme.itemSizeLarge : implicitHeight
+                            discSize: quickSettings.discSize
+                            glyphSize: quickSettings.glyphSize
                             iconName: t.icon || ""
                             label: t.label || ""
                             status: t.status !== undefined ? t.status : t.id === "hotspot" && t.on ? SystemControlStore.hotspotSsid : quickSettings.onOff(t.on)
@@ -686,6 +699,7 @@ Item {
 
                 MQSSlider {
                     objectName: "brightnessSlider"
+                    height: quickSettings.roomy ? Silica.Theme.itemSizeSmall + Silica.Theme.paddingSmall : implicitHeight
                     width: parent.width
                     iconName: "sun"
                     a11yName: qsTr("Brightness")
@@ -694,6 +708,7 @@ Item {
                 }
                 MQSSlider {
                     objectName: "warmthSlider"
+                    height: quickSettings.roomy ? Silica.Theme.itemSizeSmall + Silica.Theme.paddingSmall : implicitHeight
                     visible: SystemControlStore.hasWarmLight && SystemControlStore.isNightLightOn
                     width: parent.width
                     iconName: "moon"
@@ -703,6 +718,7 @@ Item {
                 }
                 MQSSlider {
                     objectName: "volumeSlider"
+                    height: quickSettings.roomy ? Silica.Theme.itemSizeSmall + Silica.Theme.paddingSmall : implicitHeight
                     width: parent.width
                     iconName: "speaker-high"
                     a11yName: qsTr("Volume")
@@ -715,7 +731,9 @@ Item {
                 objectName: "nowPlaying"
                 readonly property bool active: MPRIS2Controller.hasActivePlayer
                 width: parent.width
-                height: Math.max(implicitHeight, Silica.Theme.itemSizeSmall)
+                height: Math.max(implicitHeight, quickSettings.roomy ? Silica.Theme.itemSizeLarge : Silica.Theme.itemSizeSmall)
+                badgeSize: quickSettings.roomy ? quickSettings.discSize : Silica.Theme.iconSizeMedium
+                badgeGlyphSize: quickSettings.roomy ? Silica.Theme.iconSizeSmall : Silica.Theme.iconSizeExtraSmall
                 variant: "music"
                 iconName: "music-note"
                 // A radio stream may have no title; its station is the artist.
