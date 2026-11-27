@@ -37,9 +37,14 @@ fail() {
 	exit 1
 }
 
+# Like the shell's pkexec pipe, stdin stays open: at end of input the
+# helper stops the enrolment.
+mkfifo "$W/stdin"
+exec 5<> "$W/stdin"
+
 run() {
 	rc=0
-	sh "$helper" "$@" < /dev/null > "$W/out" 2> "$W/err" || rc=$?
+	sh "$helper" "$@" < "$W/stdin" > "$W/out" 2> "$W/err" || rc=$?
 }
 
 run enroll right-index-finger
