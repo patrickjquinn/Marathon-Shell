@@ -1,0 +1,68 @@
+From ce4d158d50acbccae70460891b883d1cb9873bb7 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 11:07:55 +0000
+Subject: [PATCH] libcamera: camera_sensor_properties: Add IMX616 and
+ IMX766
+
+Add the unit cell sizes (0.8 um and 1.0 um), the standard Sony test
+pattern register values and the usual Sony control delays for the two
+sensors of the Jolla Phone JP2601.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../sensor/camera_sensor_properties.cpp       | 32 +++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/src/libcamera/sensor/camera_sensor_properties.cpp b/src/libcamera/sensor/camera_sensor_properties.cpp
+index 7cae3d98..79702bb2 100644
+--- a/src/libcamera/sensor/camera_sensor_properties.cpp
++++ b/src/libcamera/sensor/camera_sensor_properties.cpp
+@@ -351,6 +351,22 @@ const CameraSensorProperties *CameraSensorProperties::get(const std::string &sen
+ 				.hblankDelay = 3
+ 			},
+ 		} },
++		{ "imx616", {
++			.unitCellSize = { 800, 800 },
++			.testPatternModes = {
++				{ controls::draft::TestPatternModeOff, 0 },
++				{ controls::draft::TestPatternModeSolidColor, 1 },
++				{ controls::draft::TestPatternModeColorBars, 2 },
++				{ controls::draft::TestPatternModeColorBarsFadeToGray, 3 },
++				{ controls::draft::TestPatternModePn9, 4 },
++			},
++			.sensorDelays = {
++				.exposureDelay = 2,
++				.gainDelay = 1,
++				.vblankDelay = 2,
++				.hblankDelay = 2
++			},
++		} },
+ 		{ "imx662", {
+ 			.unitCellSize = { 2900, 2900 },
+ 			.testPatternModes = {},
+@@ -387,6 +403,22 @@ const CameraSensorProperties *CameraSensorProperties::get(const std::string &sen
+ 				.hblankDelay = 3
+ 			},
+ 		} },
++		{ "imx766", {
++			.unitCellSize = { 1000, 1000 },
++			.testPatternModes = {
++				{ controls::draft::TestPatternModeOff, 0 },
++				{ controls::draft::TestPatternModeSolidColor, 1 },
++				{ controls::draft::TestPatternModeColorBars, 2 },
++				{ controls::draft::TestPatternModeColorBarsFadeToGray, 3 },
++				{ controls::draft::TestPatternModePn9, 4 },
++			},
++			.sensorDelays = {
++				.exposureDelay = 2,
++				.gainDelay = 1,
++				.vblankDelay = 2,
++				.hblankDelay = 2
++			},
++		} },
+ 		{ "ov08d10", {
+ 			.unitCellSize = { 1120, 1120 },
+ 			.testPatternModes =  {
+-- 
+2.55.0
+

@@ -1,0 +1,63 @@
+From b5b1ac28b60859d806e8e8ad188d84021f73b73e Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 11:07:55 +0000
+Subject: [PATCH] libipa: camera_sensor_helper: Add IMX616 and IMX766
+ helpers
+
+Both Sony sensors code the analogue gain as 1024 / (1024 - code) and
+have a black level of 64 at 10 bits, as in MediaTek's GPLv2 imgsensor
+drivers for them. They are the front and main rear cameras of the Jolla
+Phone JP2601.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ src/ipa/libipa/camera_sensor_helper.cpp | 26 +++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/src/ipa/libipa/camera_sensor_helper.cpp b/src/ipa/libipa/camera_sensor_helper.cpp
+index 055e15bc..d97a7442 100644
+--- a/src/ipa/libipa/camera_sensor_helper.cpp
++++ b/src/ipa/libipa/camera_sensor_helper.cpp
+@@ -719,6 +719,19 @@ public:
+ };
+ REGISTER_CAMERA_SENSOR_HELPER("imx477", CameraSensorHelperImx477)
+ 
++class CameraSensorHelperImx616 : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperImx616()
++	{
++		/* 64 at 10 bits, as in the stock MediaTek driver. */
++		blackLevel_ = 4096;
++		gain_ = AnalogueGainLinear{ 0, 1024, -1, 1024 };
++		exposureMargin_ = 48;
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("imx616", CameraSensorHelperImx616)
++
+ class CameraSensorHelperImx662 : public CameraSensorHelper
+ {
+ public:
+@@ -745,6 +758,19 @@ public:
+ };
+ REGISTER_CAMERA_SENSOR_HELPER("imx678", CameraSensorHelperImx678)
+ 
++class CameraSensorHelperImx766 : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperImx766()
++	{
++		/* 64 at 10 bits, as in the stock MediaTek driver. */
++		blackLevel_ = 4096;
++		gain_ = AnalogueGainLinear{ 0, 1024, -1, 1024 };
++		exposureMargin_ = 48;
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("imx766", CameraSensorHelperImx766)
++
+ class CameraSensorHelperImx708 : public CameraSensorHelper
+ {
+ public:
+-- 
+2.55.0
+
