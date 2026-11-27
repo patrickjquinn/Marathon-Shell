@@ -486,6 +486,7 @@ impl Display {
             rust.proximity_available = channels.proximity.is_some();
             rust.sensors = Some(tx);
         }
+        crate::compass::start(Path::new(&iio_dir.to_string()));
         let (tx, rx) = async_channel::bounded(8);
         let qt = self.qt_thread();
         io::each_system_bus(move |_| rotation(qt.clone(), rx.clone()));
@@ -856,6 +857,7 @@ impl Display {
         SCREEN_ON.store(on, Ordering::Relaxed);
         eink::screen(on);
         crate::status_led::screen(on);
+        crate::compass::screen(on);
         if on {
             self.as_mut().keyboard_used();
         }
@@ -1693,6 +1695,31 @@ impl Sensor1 {
         ipc::admit(&h, "Sensor", &["sensors", "system"]).await?;
         ipc::on_gui(&self.qt, |obj| obj.ambient_light).await
     }
+
+    async fn has_compass(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        ipc::admit(&h, "Sensor", &["sensors", "system"]).await?;
+        Ok(crate::compass::available())
+    }
+
+    /// Until `StopCompass` or the caller leaves the bus, `HeadingChanged`
+    /// carries the heading: degrees from magnetic north, -1 while unknown,
+    /// and whether the compass is calibrated.
+    async fn start_compass(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Sensor", &["sensors", "system"]).await?;
+        crate::compass::ask(crate::compass::Ask::Hold(sender(&h)?)).await;
+        Ok(())
+    }
+
+    async fn stop_compass(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        crate::compass::ask(crate::compass::Ask::Release(sender(&h)?)).await;
+        Ok(())
+    }
+}
+
+fn sender(h: &Header<'_>) -> fdo::Result<String> {
+    h.sender()
+        .map(ToString::to_string)
+        .ok_or_else(|| fdo::Error::AccessDenied("Unknown caller".into()))
 }
 
 // On the blocking pool: the driver measures while the read waits.
