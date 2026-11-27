@@ -1,0 +1,13 @@
+[Unit]
+Description=Use the module tree built for the running kernel
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=systemd-modules-load.service systemd-udevd.service systemd-udev-trigger.service sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/jp2601-modules-match
+
+[Install]
+WantedBy=sysinit.target

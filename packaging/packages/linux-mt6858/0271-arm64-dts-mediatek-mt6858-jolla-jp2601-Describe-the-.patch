@@ -1,7 +1,7 @@
 From e09e423cd4b7357de0cc62ee807961481107a788 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:41 +0000
-Subject: [PATCH 271/271] arm64: dts: mediatek: mt6858-jolla-jp2601: Describe
+Subject: [PATCH 271/272] arm64: dts: mediatek: mt6858-jolla-jp2601: Describe
  the USB-C port
 
 The MT6720's port controller runs the USB-C port as a dual-role port

@@ -1,0 +1,34 @@
+From e4d8d621219c7c628d129283b2e8d5f60ae35980 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 15:28:43 +0000
+Subject: [PATCH 279/286] clk: mediatek: mt6858-cam: Drop runtime PM
+
+The camsys_main gates have to run before CAM_MAIN's bus protection is
+released, or the camera's path to memory stays blocked: CAMSV's first
+DMA write never completes and the larb hangs busy. The power domain
+can only turn them on during its own power-up as subsys clocks, and
+it can't take them if the clock controller resumes that same domain
+through runtime PM.
+
+Drop runtime PM, as on MT8192 and MT8195, whose camsys gates are their
+CAM domains' subsys clocks too. The gates are only switched by
+devices inside CAM_MAIN, which hold the domain on.
+---
+ drivers/clk/mediatek/clk-mt6858-cam.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6858-cam.c b/drivers/clk/mediatek/clk-mt6858-cam.c
+index 1aa528242..3befc1cb8 100644
+--- a/drivers/clk/mediatek/clk-mt6858-cam.c
++++ b/drivers/clk/mediatek/clk-mt6858-cam.c
+@@ -40,7 +40,6 @@ static const struct mtk_gate cam_m_clks[] = {
+ static const struct mtk_clk_desc cam_m_desc = {
+ 	.clks = cam_m_clks,
+ 	.num_clks = ARRAY_SIZE(cam_m_clks),
+-	.need_runtime_pm = true,
+ };
+ 
+ static const struct of_device_id of_match_clk_mt6858_cam[] = {
+-- 
+2.55.0
+

@@ -1,0 +1,94 @@
+From 7b28de873362692c4c24cb69f3a0ddf1bccb9c7e Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 13:56:17 +0000
+Subject: [PATCH 273/273] pmdomain: mediatek: mtk-mfg: Wait for each EB answer
+ in turn
+
+The JP2601's GPU did not come back from a runtime suspend: powering the
+MFG domain off timed out in the EB's power-control IPI after 500 ms,
+and the next resume found the MCU dead ("Failed to boot MCU").
+
+A late answer to a timed-out command was also taken as the answer to
+the next one, as the completion was never re-armed, so from then on
+every command returned before the EB had acted on it. Serialise the
+commands, re-arm the completion before each one, and let a variant set
+how long the EB may take: the MT6858's vendor driver waits up to 10 s.
+Say which command went unanswered.
+---
+ drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c b/drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c
+index 0f5896796..dc2f285e7 100644
+--- a/drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c
++++ b/drivers/pmdomain/mediatek/mtk-mfg-pmdomain.c
+@@ -6,6 +6,7 @@
+  */
+ 
+ #include <linux/completion.h>
++#include <linux/mutex.h>
+ #include <linux/clk.h>
+ #include <linux/clk-provider.h>
+ #include <linux/container_of.h>
+@@ -273,6 +274,8 @@ struct mtk_mfg_shmem_layout {
+ 
+ struct mtk_mfg_mbox {
+ 	struct mbox_client cl;
++	/* One command in flight, so a reply always answers the last command */
++	struct mutex lock;
+ 	struct completion rx_done;
+ 	struct mtk_mfg *mfg;
+ 	struct mbox_chan *ch;
+@@ -321,6 +324,8 @@ struct mtk_mfg_variant {
+ 	bool eb_always_on;
+ 	/** @single_commit: set OPPs with CMD_COMMIT on the GPU target */
+ 	bool single_commit;
++	/** @ipi_timeout_ms: how long the EB may take to answer, 500 if 0 */
++	unsigned int ipi_timeout_ms;
+ 	int (*init)(struct mtk_mfg *mfg);
+ };
+ 
+@@ -476,15 +481,21 @@ static int mtk_mfg_send_ipi(struct mtk_mfg *mfg, struct mtk_mfg_ipi_msg *msg)
+ 
+ 	msg->magic = mfg->ipi_magic;
+ 
++	guard(mutex)(&mfg->gf_mbox->lock);
++	reinit_completion(&mfg->gf_mbox->rx_done);
++
+ 	ret = mbox_send_message(mfg->gf_mbox->ch, msg);
+ 	if (ret < 0) {
+ 		dev_err(dev, "Cannot send GPUFreq IPI command: %pe\n", ERR_PTR(ret));
+ 		return ret;
+ 	}
+ 
+-	wait = wait_for_completion_timeout(&mfg->gf_mbox->rx_done, msecs_to_jiffies(500));
+-	if (!wait)
++	wait = wait_for_completion_timeout(&mfg->gf_mbox->rx_done,
++					   msecs_to_jiffies(mfg->variant->ipi_timeout_ms ?: 500));
++	if (!wait) {
++		dev_err(dev, "No answer to GPUFreq IPI command %u\n", le32_to_cpu(msg->cmd));
+ 		return -ETIMEDOUT;
++	}
+ 
+ 	msg = mfg->gf_mbox->rx_data;
+ 
+@@ -729,6 +740,8 @@ static const struct mtk_mfg_variant mtk_mfg_mt6858_variant = {
+ 	.shmem = &mtk_mfg_mt6858_shmem,
+ 	.eb_always_on = true,
+ 	.single_commit = true,
++	/* As long as the vendor driver waits */
++	.ipi_timeout_ms = 10000,
+ 	.init = mtk_mfg_mt6858_init,
+ };
+ 
+@@ -916,6 +929,7 @@ static int mtk_mfg_init_mbox(struct mtk_mfg *mfg)
+ 		return -ENOMEM;
+ 
+ 	gf->mfg = mfg;
++	mutex_init(&gf->lock);
+ 	init_completion(&gf->rx_done);
+ 	gf->cl.dev = dev;
+ 	gf->cl.rx_callback = mtk_mfg_mbox_rx_callback;
+-- 
+2.55.0
+

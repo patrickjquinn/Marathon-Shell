@@ -1,7 +1,7 @@
 From eee0187918b8b58419b58f4c75a437f56937a7b6 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:27 +0000
-Subject: [PATCH 262/271] dt-bindings: usb: fcs,fsa4480: Add the Halo HL5280
+Subject: [PATCH 262/272] dt-bindings: usb: fcs,fsa4480: Add the Halo HL5280
 
 The HL5280 is register compatible with the FSA4480: it reads device ID
 0x49 and comes out of reset with the FSA4480's switch enable (0x98) and

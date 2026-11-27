@@ -1,7 +1,7 @@
 From f8b03db69a27183c0a377bd63d3ac6084c5c2aef Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:28 +0000
-Subject: [PATCH 265/271] mfd: mt6720: Add a regmap for the port controller
+Subject: [PATCH 265/272] mfd: mt6720: Add a regmap for the port controller
 
 The port controller's TCPCI registers are the MT6720's bank 4 (I2C
 address 0x4e). The TCPCI core addresses them from 0, so give the port

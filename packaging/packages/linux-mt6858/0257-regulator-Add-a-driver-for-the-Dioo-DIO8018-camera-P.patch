@@ -1,7 +1,7 @@
 From c5f6bf56a9983fe6dfde0906995fb1a3b458bd9f Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:47:10 +0000
-Subject: [PATCH 257/271] regulator: Add a driver for the Dioo DIO8018 camera
+Subject: [PATCH 257/272] regulator: Add a driver for the Dioo DIO8018 camera
  PMIC
 
 Add a regmap driver for the seven LDOs of the Dioo DIO8018. The register

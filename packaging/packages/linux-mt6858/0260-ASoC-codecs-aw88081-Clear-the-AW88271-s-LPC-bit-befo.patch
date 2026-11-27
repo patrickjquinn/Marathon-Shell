@@ -1,7 +1,7 @@
 From 3d11e6a73673c34aee6ba88828c1543e8c8d228e Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 11:06:58 +0000
-Subject: [PATCH 260/271] ASoC: codecs: aw88081: Clear the AW88271's LPC bit
+Subject: [PATCH 260/272] ASoC: codecs: aw88081: Clear the AW88271's LPC bit
  before power-on
 
 The AW88271 profiles of the Jolla Phone (2026) set bit 5 of register

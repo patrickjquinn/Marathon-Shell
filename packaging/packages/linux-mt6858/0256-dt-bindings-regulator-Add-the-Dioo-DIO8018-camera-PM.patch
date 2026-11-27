@@ -1,7 +1,7 @@
 From bb76263d1f5302ab5800715fe7ffbaf5fca54acb Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:47:10 +0000
-Subject: [PATCH 256/271] dt-bindings: regulator: Add the Dioo DIO8018 camera
+Subject: [PATCH 256/272] dt-bindings: regulator: Add the Dioo DIO8018 camera
  PMIC
 
 The DIO8018 is a seven-LDO camera power management IC on I2C, found on

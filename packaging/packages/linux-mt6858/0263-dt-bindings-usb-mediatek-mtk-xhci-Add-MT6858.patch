@@ -1,7 +1,7 @@
 From d112ba3ed5e2da39dc47cebdcb21deee583a8125 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:27 +0000
-Subject: [PATCH 263/271] dt-bindings: usb: mediatek,mtk-xhci: Add MT6858
+Subject: [PATCH 263/272] dt-bindings: usb: mediatek,mtk-xhci: Add MT6858
 
 The MT6858's xHCI sits under its MTU3 dual-role controller, as on the
 MT8183 and MT8195.

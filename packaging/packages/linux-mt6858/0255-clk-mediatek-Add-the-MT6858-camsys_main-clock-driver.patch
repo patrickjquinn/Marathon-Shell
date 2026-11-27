@@ -1,7 +1,7 @@
 From 7e948971ad736569486ac7f940c0060b0330be7f Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:46:53 +0000
-Subject: [PATCH 255/271] clk: mediatek: Add the MT6858 camsys_main clock
+Subject: [PATCH 255/272] clk: mediatek: Add the MT6858 camsys_main clock
  driver
 
 Add the gates of the MT6858 camsys_main clock controller at 0x1a000000:

@@ -1,7 +1,7 @@
 From ccef81dad52e2b8104cbd9603bcfd4fbce56cf69 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 09:41:35 +0000
-Subject: [PATCH 251/271] arm64: configs: mt6858: Make the soft-lockup panic
+Subject: [PATCH 251/272] arm64: configs: mt6858: Make the soft-lockup panic
  numeric, add watchdog sysfs
 
 BOOTPARAM_SOFTLOCKUP_PANIC is an int (the number of 20 s periods before

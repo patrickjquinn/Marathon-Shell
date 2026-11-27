@@ -1,7 +1,7 @@
 From 819b0a4cfdcddf02036eacaf951dd5dda7c7fe78 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:29 +0000
-Subject: [PATCH 267/271] arm64: configs: mt6858: Add the MT6720 Type-C driver
+Subject: [PATCH 267/272] arm64: configs: mt6858: Add the MT6720 Type-C driver
 
 ---
  arch/arm64/configs/mt6858.config | 1 +

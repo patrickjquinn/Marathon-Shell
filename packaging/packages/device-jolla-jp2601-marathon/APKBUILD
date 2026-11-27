@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=15
+pkgrel=18
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -18,8 +18,9 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  jp2601-splash-plymouth-quit.conf jp2601-splash-plymouth-quit-wait.conf jp2601-splash-plymouth-start.conf
  jp2601.preset unudhcpd-usb0.conf jp2601-usb.nm.conf jp2601-usb-gadget jp2601-usb-gadget.service
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
- eglfs-kms.json 60-jp2601-display.rules jp2601-gpu.files jp2601-power.sysctl
- jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf"
+ eglfs-kms.json 60-jp2601-display.rules 61-jp2601-gpu-awake.rules jp2601-gpu.files jp2601-power.sysctl
+ jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf
+ jp2601-modules-match jp2601-modules-match.service"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
@@ -31,6 +32,7 @@ package() {
 	# built-in driver finds it at boot.
 	install -Dm644 "$srcdir/eglfs-kms.json" "$pkgdir/etc/jp2601/eglfs-kms.json"
 	install -Dm644 "$srcdir/60-jp2601-display.rules" "$pkgdir/usr/lib/udev/rules.d/60-jp2601-display.rules"
+	install -Dm644 "$srcdir/61-jp2601-gpu-awake.rules" "$pkgdir/usr/lib/udev/rules.d/61-jp2601-gpu-awake.rules"
 	install -Dm644 "$srcdir/jp2601-gpu.files" "$pkgdir/usr/share/mkinitfs/files/50-jp2601-gpu.files"
 
 	install -Dm644 "$srcdir/jp2601-logind.conf" "$pkgdir/usr/lib/systemd/logind.conf.d/50-jp2601.conf"
@@ -39,6 +41,13 @@ package() {
 	# The microphones' ALSA use case (capture only until the amplifiers work).
 	install -Dm644 "$srcdir/jp2601-mt6369.conf" "$pkgdir/usr/share/alsa/ucm2/conf.d/mt6858-mt6369/mt6858-mt6369.conf"
 	install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Jolla/JP2601/HiFi.conf"
+
+	# Test kernels share r18's release name; boot with the module tree whose
+	# stamp matches the running kernel, so a fallback never loads another's.
+	install -Dm755 "$srcdir/jp2601-modules-match" "$pkgdir/usr/libexec/marathon/jp2601-modules-match"
+	install -Dm644 "$srcdir/jp2601-modules-match.service" "$pkgdir/usr/lib/systemd/system/jp2601-modules-match.service"
+	install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
+	ln -s ../jp2601-modules-match.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/jp2601-modules-match.service"
 
 	# Fewer idle wakeups, as on the Q25.
 	install -Dm644 "$srcdir/jp2601-power.sysctl" "$pkgdir/usr/lib/sysctl.d/60-jp2601-power.conf"
@@ -104,10 +113,13 @@ e4d9c1dc757e14591323b8e4606bb6a5975a34a2dbf548d928ba84f80240882077abeeb19f867f59
 e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99e63c486882373de76f6433906e7a00c4c0774235b798981c  jp2601-deckard.modules-load.conf
 78d4df2860723e8d28ad09241ea93dbb63bdfb4643cebedd80a887b724819a5451f73cd6e759fa9906df3ee3478030be593a4bf3e4c956a084e88b18d893426c  eglfs-kms.json
 89c9f9c50f486405f3f729a305c0433bf223a0f20d2bdba2a2896842b9927c7cab2dc16fce7b69a32c4d492ff70752e356c699ad287f7f3cc883f6465b18c1d5  60-jp2601-display.rules
+3cba4a6c0e79a65db22d67a7fe23ad83499812f3345170080fea3fd0e3d1fc340f79eef096614dff51517946da32e405f958c21a299b680d48c4d1c4ba93838f  61-jp2601-gpu-awake.rules
 8d1809de50ed5ec279cabdefa131057c846e77d33b545a73c9c4edc92ea1982c8a3b8490752e10c06ba7921485c51813d40071a7fe4b97191bbab01a38ed513d  jp2601-gpu.files
 3d02a98ea91a676c94c2b0607945759f8deca606604dffa438fe755c68caad7563bd131b65374ca72c3dc50e732531864e7e288a742f84da9ce214f52111d11f  jp2601-power.sysctl
 ca01be36a4164a1192f6708247952efecdef1cbbca5615786a1ce2fd04c74407c9514a9a9634391bc55275d42811933bc7d5614eca52fa36b6af664851c65f1e  jp2601-mt6369.conf
 715cfbd47db4a114241268c5fc22543440f7f7bc5621063166c61a8bcbc6cb9d499b7d335a57bed8b49d00d68a757e8e8adcbf2d2de62eca319e1b42014c4412  HiFi.conf
 411e02105c6d079ff47cabb091fde65037d6916c8eab687e268065e063bc33eb4abc2cd7a8c41f66b958e99d4cd762cd66937c6f5ab591d3650f416eefa148b0  jp2601-logind.conf
 03c47767af679ce30238d5eeb70be9f7b68d48aeede5df96c89ccb4ddc83e9e0a40633cbf643821d626596351481bff4bada6f5016ebecdc2d8594035af53806  jp2601-upower.conf
+673768845394376e381079b7bff0f410343f4ef5f8938dc11b9a529d1074d262a9593a5c73be196d3426fc2ed07b1cadcaf170f3d281fe0a788906d285516866  jp2601-modules-match
+6642324e9bf3b36a956a5eeaed6712e1197398547a2df6f348b95876e486d2324616f7ccea13e8a68747598b608f41c35f8bf87ed8b4d23610d7bce526139b0f  jp2601-modules-match.service
 "
