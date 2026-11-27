@@ -5,16 +5,17 @@
 # board's (jp2601-connsys-firmware).
 pkgname=mt6858-platform
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="MediaTek MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="Apache-2.0"
 options="!check"
-depends="e2fsprogs-extra bluez-btmgmt wpa_supplicant wpa_supplicant-systemd mt6858-connsys-modules"
+depends="e2fsprogs-extra bluez-btmgmt wpa_supplicant wpa_supplicant-systemd mt6858-connsys-modules
+ marathon-gnssd"
 source="mt6858-connsys-nvram mt6858-connsys-nvram.service mt6858-wifi.service
  mt6858-wifi-on mt6858-bluetooth.service mt6858-bt-address mt6858-gnss.service
- 50-mt6858-wpa_supplicant.conf"
+ 50-mt6858-wpa_supplicant.conf 50-mt6858-gnssd.conf"
 
 package() {
 	install -Dm755 "$srcdir/mt6858-connsys-nvram" "$pkgdir/usr/libexec/marathon/mt6858-connsys-nvram"
@@ -28,6 +29,8 @@ package() {
 	# the control socket.
 	install -Dm644 "$srcdir/50-mt6858-wpa_supplicant.conf" \
 		"$pkgdir/usr/lib/systemd/system/wpa_supplicant.service.d/50-mt6858.conf"
+	install -Dm644 "$srcdir/50-mt6858-gnssd.conf" \
+		"$pkgdir/usr/lib/systemd/system/marathon-gnssd.service.d/50-mt6858.conf"
 
 	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants" \
 		"$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
