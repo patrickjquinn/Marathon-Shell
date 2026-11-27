@@ -593,15 +593,18 @@ fi
 #
 # xdg-desktop-portal (file chooser, and the Secret portal flatpak apps use for
 # their keyrings) is PartOf/Requisite graphical-session.target, which only a
-# session unit may start. Once the compositor's socket exists, hand the user
-# manager the display and start marathon-session.target, which binds it.
+# session unit may start. Once the shell has drawn its first frame, hand the
+# user manager the display and start marathon-session.target, which binds it:
+# what that target starts (Deckard's Android, mail, portals) would otherwise
+# load alongside the shell's QML.
 if command -v systemctl >/dev/null 2>&1; then
+    rm -f "$XDG_RUNTIME_DIR/marathon-shell-ready"
     (
         socket="${MARATHON_WL_SOCKET_NAME:-marathon-wayland-0}"
         # $$ is the shell once the launch below execs it.
-        while [ ! -S "$XDG_RUNTIME_DIR/$socket" ]; do
+        while [ ! -e "$XDG_RUNTIME_DIR/marathon-shell-ready" ]; do
             kill -0 $$ 2>/dev/null || exit 0
-            sleep 0.5
+            sleep 0.2
         done
         systemctl --user set-environment WAYLAND_DISPLAY="$socket" \
             XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" XDG_SESSION_TYPE=wayland \

@@ -1,8 +1,13 @@
 [Unit]
 Description=Wait for Marathon Shell's first frame
+# The phone's user is uid 1000. Its runtime directory is mounted first,
+# here rather than when logind gets to it: a watch set before that mount,
+# or a glob under /run/user, misses the marker.
+Wants=user-runtime-dir@1000.service
+After=user-runtime-dir@1000.service
 
 [Path]
-PathExistsGlob=/run/user/*/marathon-shell-ready
+PathExists=/run/user/1000/marathon-shell-ready
 
 [Install]
 WantedBy=multi-user.target

@@ -163,9 +163,10 @@ impl Sink {
         (self.write_volume(), self.write_muted())
     }
 
-    /// Whether the level of a sink already reported changed.
+    /// Whether the level of a sink already reported changed. Before a
+    /// default sink exists the service's level is no sink's.
     fn report(&mut self, name: &str, volume: f64, muted: bool) -> bool {
-        if name != self.name {
+        if name.is_empty() || name != self.name {
             return false;
         }
         let (before, was_muted) = (self.volume, self.muted);
@@ -1012,6 +1013,16 @@ mod tests {
         assert!(!s.report("speaker", 0.6, false));
         s.set_default("headset");
         assert!(!s.report("headset", 0.2, false));
+    }
+
+    #[test]
+    fn levels_before_a_default_sink_are_not_changes() {
+        let mut s = Sink::default();
+        assert!(!s.report("", 0.0, false));
+        assert!(!s.report("", 0.03, false));
+        s.set_default("speaker");
+        assert!(!s.report("speaker", 0.03, false));
+        assert!((s.volume - 0.03).abs() < 1e-9);
     }
 
     #[test]

@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=19
+pkgrel=20
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -19,14 +19,16 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  jp2601.preset unudhcpd-usb0.conf jp2601-usb.nm.conf jp2601-usb-gadget jp2601-usb-gadget.service
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
  eglfs-kms.json 60-jp2601-display.rules 61-jp2601-gpu-awake.rules 61-jp2601-sensors.rules jp2601-gpu.files jp2601-power.sysctl
- jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf
- jp2601-modules-match jp2601-modules-match.service"
+ jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service
+ jp2601-modules-match jp2601-modules-match.service 99-jp2601-partitions.rules"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
 	install -Dm755 "$srcdir/jp2601-shell-session" "$pkgdir/usr/libexec/marathon/jp2601-shell-session"
 	install -Dm644 "$srcdir/greetd-jp2601.toml" "$pkgdir/etc/greetd/jp2601-config.toml"
 	install -Dm644 "$srcdir/50-jp2601-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-jp2601-session.conf"
+	# Logins from /home's opening, not from NetworkManager's start.
+	install -Dm644 "$srcdir/jp2601-user-sessions.service" "$pkgdir/etc/systemd/system/systemd-user-sessions.service"
 
 	# The GPU session's KMS device, and Panthor's firmware where the
 	# built-in driver finds it at boot.
@@ -34,6 +36,8 @@ package() {
 	install -Dm644 "$srcdir/60-jp2601-display.rules" "$pkgdir/usr/lib/udev/rules.d/60-jp2601-display.rules"
 	install -Dm644 "$srcdir/61-jp2601-gpu-awake.rules" "$pkgdir/usr/lib/udev/rules.d/61-jp2601-gpu-awake.rules"
 	install -Dm644 "$srcdir/61-jp2601-sensors.rules" "$pkgdir/usr/lib/udev/rules.d/61-jp2601-sensors.rules"
+	# After 99-systemd.rules, which tags every block device.
+	install -Dm644 "$srcdir/99-jp2601-partitions.rules" "$pkgdir/usr/lib/udev/rules.d/99-zz-jp2601-partitions.rules"
 	install -Dm644 "$srcdir/jp2601-gpu.files" "$pkgdir/usr/share/mkinitfs/files/50-jp2601-gpu.files"
 
 	install -Dm644 "$srcdir/jp2601-logind.conf" "$pkgdir/usr/lib/systemd/logind.conf.d/50-jp2601.conf"
@@ -124,4 +128,6 @@ ca01be36a4164a1192f6708247952efecdef1cbbca5615786a1ce2fd04c74407c9514a9a9634391b
 03c47767af679ce30238d5eeb70be9f7b68d48aeede5df96c89ccb4ddc83e9e0a40633cbf643821d626596351481bff4bada6f5016ebecdc2d8594035af53806  jp2601-upower.conf
 673768845394376e381079b7bff0f410343f4ef5f8938dc11b9a529d1074d262a9593a5c73be196d3426fc2ed07b1cadcaf170f3d281fe0a788906d285516866  jp2601-modules-match
 6642324e9bf3b36a956a5eeaed6712e1197398547a2df6f348b95876e486d2324616f7ccea13e8a68747598b608f41c35f8bf87ed8b4d23610d7bce526139b0f  jp2601-modules-match.service
+9d5b420c0011dd7509d8547d86beeafe385baf69a66cdde397998535a059fa4fbd5941dcd6c2555bb9e64d2b83d6f6933d626b7cf029ff3499736f4067c91592  jp2601-user-sessions.service
+b71706101fbb0d16d1cea9dfbfc94229811e7b06425e3573b2e06b222b4f48d58c773314faee9525dcc2f5e693acdcafe691654ec40bc3ab9850d803e301b366  99-jp2601-partitions.rules
 "

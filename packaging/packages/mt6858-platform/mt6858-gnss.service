@@ -10,4 +10,4 @@ ExecStart=/usr/sbin/modprobe gps_drv_dl_v051
 TimeoutStartSec=60
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=mt6858-connsys.target
