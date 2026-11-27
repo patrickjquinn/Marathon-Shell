@@ -1368,6 +1368,29 @@ index 63644a6..c51cd6c 100644
  	}
  	g_conninfra_conf.cfg_exist = 0;
  	return 0;
+diff --git a/conninfra/conn_drv/connv2/debug_utility/connsyslog/connsyslog.c b/conninfra/conn_drv/connv2/debug_utility/connsyslog/connsyslog.c
+index a5ee27e..c7d020b 100644
+--- a/conninfra/conn_drv/connv2/debug_utility/connsyslog/connsyslog.c
++++ b/conninfra/conn_drv/connv2/debug_utility/connsyslog/connsyslog.c
+@@ -733,7 +733,8 @@ static void connlog_fw_log_parser(struct connlog_dev* handler, ssize_t sz)
+ 				print_len = buf_len >= LOG_MAX_LEN ? LOG_MAX_LEN - 1 : buf_len;
+ 				memcpy(log_line, buf + LOG_HEAD_LENG, print_len);
+ 				log_line[print_len] = 0;
+-				pr_info("%s: %s\n", type_to_title[conn_type], log_line);
++				/* No log daemon reads the ring on Linux. */
++				pr_debug("%s: %s\n", type_to_title[conn_type], log_line);
+ 				sz -= (LOG_HEAD_LENG + buf_len);
+ 				buf += (LOG_HEAD_LENG + buf_len);
+ 				continue;
+@@ -742,7 +743,7 @@ static void connlog_fw_log_parser(struct connlog_dev* handler, ssize_t sz)
+ 				memcpy(&systime, buf + 28, sizeof(systime));
+ 				memcpy(&utc_s, buf + 32, sizeof(utc_s));
+ 				memcpy(&utc_us, buf + 36, sizeof(utc_us));
+-				pr_info("%s: timesync :  (%u) %u.%06u\n",
++				pr_debug("%s: timesync :  (%u) %u.%06u\n",
+ 					type_to_title[conn_type], systime, utc_s, utc_us);
+ 				sz -= TIMESYNC_LENG;
+ 				buf += TIMESYNC_LENG;
 diff --git a/conninfra/conn_drv/connv2/platform/consys_hw.c b/conninfra/conn_drv/connv2/platform/consys_hw.c
 index 648992b..1139dcf 100644
 --- a/conninfra/conn_drv/connv2/platform/consys_hw.c
