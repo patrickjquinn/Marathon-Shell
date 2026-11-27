@@ -1,8 +1,12 @@
 # The radios' drivers load and calibrate for ~2.7 s; started with the boot
 # they ran alongside the shell's QML load. Start them once it has drawn.
-# The phone's user is uid 1000; a glob here would watch /run/user only.
 [Unit]
 Description=Start the radios once the shell has drawn
+# The phone's user is uid 1000. Its runtime directory is mounted first,
+# here rather than when logind gets to it: a watch set before that mount,
+# or a glob under /run/user, misses the marker.
+Wants=user-runtime-dir@1000.service
+After=user-runtime-dir@1000.service
 
 [Path]
 PathExists=/run/user/1000/marathon-shell-ready
