@@ -46,14 +46,14 @@ diagonal_in = 6.36
 # unit) plus 5 %, which the user preferred on this larger screen.
 scale_dpi = 336
 quirks = [
-  "simpledrm on LK's framebuffer, 1056 pixels a line: no DSI or panel driver, so no brightness control or display power-off",
+  "display power-off and wake are not yet checked with the screen timeout on",
 ]
 
 [input]
 touch = "Hynitron CST66xx (hyn,66xx) on SPI3 (0x11013800) CS0, EINT6; no mainline driver, and SPI waits on clk-mt6858"
 keyboard = "none"
 quirks = [
-  "no power or volume key driver (MT6363 PMIC keys, mtk-kpd): nothing can wake a blanked screen, so it never blanks",
+  "MT6363 PMIC power key, both home keys as volume down, volume up on gpio-keys; hall sensor SW_LID and privacy switch SW_MUTE_DEVICE",
 ]
 
 [hardware]
@@ -74,8 +74,11 @@ quirks = [
 # Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
 force_dpi = 336
 panel_dpi = 392
-# No input wakes the screen yet (display.quirks, input.quirks).
+# Until display power-off and wake are checked (display.quirks).
 screen_timeout_ms = 0
+# As on the Q25: ondemand ramps only past 95% load; schedutil follows the
+# foreground uclamp.
+cpu_governor = "schedutil"
 # The camera notch, from Sailfish's cutouts=[[310, 0, 414, 66]].
 display_cutout = "310,0,414,66"
 # 12 GB, as on the Q25: a warm spare runner with the media folders and one
