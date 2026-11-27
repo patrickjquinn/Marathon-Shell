@@ -19,6 +19,7 @@ QtObject {
     property string networkType: "LTE"
     property bool roaming: false
     property bool dataEnabled: false
+    property bool dataFailed: false
     property bool dataRoamingAllowed: false
     property var supportedModes: [14, 6, 2]
     property int allowedModes: 14
@@ -32,12 +33,14 @@ QtObject {
         networkType = "LTE";
         roaming = false;
         dataEnabled = false;
+        dataFailed = false;
         dataRoamingAllowed = false;
         supportedModes = [14, 6, 2];
         allowedModes = 14;
     }
     function enableData() {
         dataEnabled = true;
+        dataFailed = false;
     }
     function disableData() {
         dataEnabled = false;
