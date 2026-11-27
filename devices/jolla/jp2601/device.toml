@@ -45,9 +45,6 @@ diagonal_in = 6.36
 # UI policy (2.1x): the Q25's physical size (1.5x at 295 ppi, 0.129 mm a
 # unit) plus 5 %, which the user preferred on this larger screen.
 scale_dpi = 336
-quirks = [
-  "display power-off and wake are not yet checked with the screen timeout on",
-]
 
 [input]
 touch = "Hynitron CST66xx (hyn,66xx) on SPI3 (0x11013800) CS0, EINT6; no mainline driver, and SPI waits on clk-mt6858"
@@ -74,8 +71,6 @@ quirks = [
 # Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
 force_dpi = 336
 panel_dpi = 392
-# Until display power-off and wake are checked (display.quirks).
-screen_timeout_ms = 0
 # As on the Q25: ondemand ramps only past 95% load; schedutil follows the
 # foreground uclamp.
 cpu_governor = "schedutil"
