@@ -1,0 +1,107 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 17:30:33 +0000
+Subject: [PATCH 274/274] ASoC: codecs: aw88081: Follow the stream's sample
+ rate on the AW88271
+
+The AW88271 profiles program I2SCTRL1 for 48 kHz. The modem's speech
+path runs at 16 kHz, where the PLL never locks with the profile's rate
+("pll check failed"). Take the rate from hw_params and write I2SSR
+before power-on.
+
+Tested on the Jolla: the earpiece amplifier starts at 16 kHz with
+I2SSR 16 kHz and no PLL error.
+---
+ sound/soc/codecs/aw88081.c | 38 ++++++++++++++++++++++++++++++++++++++
+ sound/soc/codecs/aw88081.h |  1 +
+ 2 files changed, 39 insertions(+)
+
+diff --git a/sound/soc/codecs/aw88081.c b/sound/soc/codecs/aw88081.c
+index cfdaa0285..a88a9b337 100644
+--- a/sound/soc/codecs/aw88081.c
++++ b/sound/soc/codecs/aw88081.c
+@@ -30,6 +30,8 @@ struct aw88081 {
+ 	struct aw_container *aw_cfg;
+ 	enum aw8808x_type devtype;
+ 	bool phase_sync;
++	/* I2SCTRL1 I2SSR for the stream's rate; the profiles assume 48 kHz */
++	int i2s_sr;
+ };
+ 
+ static const struct regmap_config aw88081_regmap_config = {
+@@ -712,6 +714,10 @@ static int aw88271_dev_start(struct aw88081 *aw88081)
+ 
+ 	aw88271_i2c_wen(aw_dev, true);
+ 
++	if (aw88081->i2s_sr >= 0)
++		regmap_update_bits(aw_dev->regmap, AW88081_I2SCTRL1_REG,
++				   AW88081_I2SSR_BITS, aw88081->i2s_sr);
++
+ 	/* The profiles set LPC, with which the PLL never locks */
+ 	regmap_update_bits(aw_dev->regmap, AW88271_LPC_REG,
+ 			   ~AW88271_LPC_MASK, AW88271_LPC_DISABLE_VALUE);
+@@ -979,6 +985,35 @@ static void aw88081_start(struct aw88081 *aw88081, bool sync_start)
+ 			AW88081_START_WORK_DELAY_MS);
+ }
+ 
++static int aw88081_hw_params(struct snd_pcm_substream *substream,
++			     struct snd_pcm_hw_params *params,
++			     struct snd_soc_dai *dai)
++{
++	struct aw88081 *aw88081 = snd_soc_component_get_drvdata(dai->component);
++	static const unsigned int rates[] = { 8000, 11025, 12000, 16000, 22050,
++					      24000, 32000, 44100, 48000 };
++	int i;
++
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++		return 0;
++
++	for (i = 0; i < ARRAY_SIZE(rates); i++)
++		if (params_rate(params) == rates[i])
++			break;
++	if (i == ARRAY_SIZE(rates))
++		return -EINVAL;
++
++	mutex_lock(&aw88081->lock);
++	aw88081->i2s_sr = i;
++	mutex_unlock(&aw88081->lock);
++
++	return 0;
++}
++
++static const struct snd_soc_dai_ops aw88081_dai_ops = {
++	.hw_params = aw88081_hw_params,
++};
++
+ static struct snd_soc_dai_driver aw88081_dai[] = {
+ 	{
+ 		.name = "aw88081-aif",
+@@ -997,6 +1032,7 @@ static struct snd_soc_dai_driver aw88081_dai[] = {
+ 			.rates = AW88081_RATES,
+ 			.formats = AW88081_FORMATS,
+ 		},
++		.ops = &aw88081_dai_ops,
+ 	},
+ };
+ 
+@@ -1494,6 +1530,8 @@ static int aw88081_i2c_probe(struct i2c_client *i2c)
+ 	if (reset)
+ 		usleep_range(AW88081_2000_US, AW88081_2000_US + 10);
+ 
++	aw88081->i2s_sr = -1;
++
+ 	aw88081->regmap = devm_regmap_init_i2c(i2c, regmap_config);
+ 	if (IS_ERR(aw88081->regmap))
+ 		return dev_err_probe(&i2c->dev, PTR_ERR(aw88081->regmap),
+diff --git a/sound/soc/codecs/aw88081.h b/sound/soc/codecs/aw88081.h
+index 4e65263c5..d9df4e371 100644
+--- a/sound/soc/codecs/aw88081.h
++++ b/sound/soc/codecs/aw88081.h
+@@ -17,6 +17,7 @@
+ #define AW88081_SYSCTRL_REG		(0x04)
+ #define AW88081_SYSCTRL2_REG		(0x05)
+ #define AW88081_I2SCTRL1_REG		(0x06)
++#define AW88081_I2SSR_BITS		GENMASK(3, 0)
+ #define AW88081_I2SCTRL2_REG		(0x07)
+ #define AW88081_I2SCTRL3_REG		(0x08)
+ #define AW88081_DACCFG1_REG		(0x09)

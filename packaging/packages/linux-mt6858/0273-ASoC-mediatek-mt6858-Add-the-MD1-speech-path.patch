@@ -1,0 +1,531 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 17:30:33 +0000
+Subject: [PATCH 273/274] ASoC: mediatek: mt6858: Add the MD1 speech path
+
+Calls need the modem's speech PCM (PCM 1, as the stock audio_device.xml
+names it) connected to the amplifiers on I2SOUT1 or the codec on ADDA,
+and the microphones connected back to it, while a Hostless Speech front
+end holds those back ends open without a memory interface.
+
+Add the PCM 1 DAI with its clock gate and interconnects (downlink into
+I2SOUT1, ADDA_DL and UL1 for recording the far end; uplink from
+ADDA_UL), the Hostless Speech DAI with the stock routes, and the
+machine's front-end and back-end links. The platform pointer callback
+returns 0 for the hostless front end, which has no memif to read.
+
+On the Jolla the routes power up (DAPM), PCM 1 enables and the modem
+acks speech on. The modem did not clock PCM 1 at 48 kHz (TX FIFO
+overflow); far-end audio has not been heard yet.
+---
+ sound/soc/mediatek/mt6858/Makefile            |  3 +-
+ sound/soc/mediatek/mt6858/mt6858-afe-common.h |  3 +
+ sound/soc/mediatek/mt6858/mt6858-afe-pcm.c    | 22 ++++-
+ sound/soc/mediatek/mt6858/mt6858-dai-adda.c   |  6 ++
+ .../soc/mediatek/mt6858/mt6858-dai-hostless.c | 99 +++++++++++++++++++
+ sound/soc/mediatek/mt6858/mt6858-dai-i2s.c    |  6 ++
+ sound/soc/mediatek/mt6858/mt6858-dai-pcm.c    | 80 +++++++++++++++
+ .../mediatek/mt6858/mt6858-interconnection.h  |  2 +
+ sound/soc/mediatek/mt6858/mt6858-mt6369.c     | 24 +++++
+ sound/soc/mediatek/mt6858/mt6858-reg.h        | 23 +++++
+ 10 files changed, 266 insertions(+), 2 deletions(-)
+ create mode 100644 sound/soc/mediatek/mt6858/mt6858-dai-hostless.c
+
+diff --git a/sound/soc/mediatek/mt6858/Makefile b/sound/soc/mediatek/mt6858/Makefile
+index e688a7091..fe39d0c31 100644
+--- a/sound/soc/mediatek/mt6858/Makefile
++++ b/sound/soc/mediatek/mt6858/Makefile
+@@ -9,7 +9,8 @@ snd-soc-mt6858-afe-y := \
+ 	mt6858-afe-clk.o \
+ 	mt6858-dai-adda.o \
+ 	mt6858-dai-i2s.o \
+-	mt6858-dai-pcm.o
++	mt6858-dai-pcm.o \
++	mt6858-dai-hostless.o
+ 
+ obj-$(CONFIG_SND_SOC_MT6858) += snd-soc-mt6858-afe.o
+ 
+diff --git a/sound/soc/mediatek/mt6858/mt6858-afe-common.h b/sound/soc/mediatek/mt6858/mt6858-afe-common.h
+index b3e5eee25..c76d48700 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-afe-common.h
++++ b/sound/soc/mediatek/mt6858/mt6858-afe-common.h
+@@ -110,6 +110,8 @@ enum {
+ 	MT6858_DAI_I2S_OUT1,
+ 	MT6858_DAI_I2S_OUT4,
+ 	MT6858_DAI_PCM_0,
++	MT6858_DAI_PCM_1,
++	MT6858_DAI_HOSTLESS_SPEECH,
+ 	MT6858_DAI_NUM,
+ };
+ 
+@@ -208,5 +210,6 @@ struct mt6858_afe_private {
+ int mt6858_dai_adda_register(struct mtk_base_afe *afe);
+ int mt6858_dai_i2s_register(struct mtk_base_afe *afe);
+ int mt6858_dai_pcm_register(struct mtk_base_afe *afe);
++int mt6858_dai_hostless_register(struct mtk_base_afe *afe);
+ 
+ #endif
+diff --git a/sound/soc/mediatek/mt6858/mt6858-afe-pcm.c b/sound/soc/mediatek/mt6858/mt6858-afe-pcm.c
+index f3167aecb..3314f33cc 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-afe-pcm.c
++++ b/sound/soc/mediatek/mt6858/mt6858-afe-pcm.c
+@@ -627,6 +627,8 @@ static const struct snd_kcontrol_new memif_ul1_ch1_mix[] = {
+ 				    I_DL_24CH_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_0_CAP_CH1", AFE_CONN020_4,
+ 				    I_PCM_0_CAP_CH1, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN020_4,
++				    I_PCM_1_CAP_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("I2SIN1_CH1", AFE_CONN020_4,
+ 				    I_I2SIN1_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_0_OUT_CH1", AFE_CONN020_6,
+@@ -660,6 +662,8 @@ static const struct snd_kcontrol_new memif_ul1_ch2_mix[] = {
+ 				    I_PCM_0_CAP_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_0_CAP_CH2", AFE_CONN021_4,
+ 				    I_PCM_0_CAP_CH2, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN021_4,
++				    I_PCM_1_CAP_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("I2SIN1_CH2", AFE_CONN021_4,
+ 				    I_I2SIN1_CH2, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_0_OUT_CH2", AFE_CONN021_6,
+@@ -1394,6 +1398,8 @@ static const struct snd_soc_dapm_route mt6858_memif_routes[] = {
+ 
+ 	{"UL1_CH1", "PCM_0_CAP_CH1", "PCM 0 Capture"},
+ 	{"UL1_CH2", "PCM_0_CAP_CH1", "PCM 0 Capture"},
++	{"UL1_CH1", "PCM_1_CAP_CH1", "PCM 1 Capture"},
++	{"UL1_CH2", "PCM_1_CAP_CH1", "PCM 1 Capture"},
+ 
+ 	{"UL2", NULL, "UL2_CH1"},
+ 	{"UL2", NULL, "UL2_CH2"},
+@@ -2205,6 +2211,19 @@ static int mt6858_afe_pcm_open(struct snd_soc_component *component,
+ 	return 0;
+ }
+ 
++/* The hostless front ends have no memory interface to read a pointer from */
++static snd_pcm_uframes_t mt6858_afe_pcm_pointer(struct snd_soc_component *component,
++						struct snd_pcm_substream *substream)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
++
++	if (snd_soc_rtd_to_cpu(rtd, 0)->id >= afe->memif_size)
++		return 0;
++
++	return mtk_afe_pcm_pointer(component, substream);
++}
++
+ static void mt6858_afe_pcm_free(struct snd_soc_component *component,
+ 				struct snd_pcm *pcm)
+ {
+@@ -2217,7 +2236,7 @@ static const struct snd_soc_component_driver mt6858_afe_component = {
+ 	.pcm_new = mtk_afe_pcm_new,
+ 	.pcm_free = mt6858_afe_pcm_free,
+ 	.open = mt6858_afe_pcm_open,
+-	.pointer = mtk_afe_pcm_pointer,
++	.pointer = mt6858_afe_pcm_pointer,
+ };
+ 
+ static int mt6858_dai_memif_register(struct mtk_base_afe *afe)
+@@ -2245,6 +2264,7 @@ static const dai_register_cb dai_register_cbs[] = {
+ 	mt6858_dai_adda_register,
+ 	mt6858_dai_i2s_register,
+ 	mt6858_dai_pcm_register,
++	mt6858_dai_hostless_register,
+ 	mt6858_dai_memif_register,
+ };
+ 
+diff --git a/sound/soc/mediatek/mt6858/mt6858-dai-adda.c b/sound/soc/mediatek/mt6858/mt6858-dai-adda.c
+index c49ab8e99..0bf8b8c20 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-dai-adda.c
++++ b/sound/soc/mediatek/mt6858/mt6858-dai-adda.c
+@@ -157,6 +157,8 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch1_mix[] = {
+ 				    I_GAIN0_OUT_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_0_CAP_CH1", AFE_CONN014_4,
+ 				    I_PCM_0_CAP_CH1, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN014_4,
++				    I_PCM_1_CAP_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_0_OUT_CH1", AFE_CONN014_6,
+ 				    I_SRC_0_OUT_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_1_OUT_CH1", AFE_CONN014_6,
+@@ -190,6 +192,10 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch2_mix[] = {
+ 				    I_PCM_0_CAP_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_0_CAP_CH2", AFE_CONN015_4,
+ 				    I_PCM_0_CAP_CH2, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN015_4,
++				    I_PCM_1_CAP_CH1, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH2", AFE_CONN015_4,
++				    I_PCM_1_CAP_CH2, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_0_OUT_CH2", AFE_CONN015_6,
+ 				    I_SRC_0_OUT_CH2, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_1_OUT_CH2", AFE_CONN015_6,
+diff --git a/sound/soc/mediatek/mt6858/mt6858-dai-hostless.c b/sound/soc/mediatek/mt6858/mt6858-dai-hostless.c
+new file mode 100644
+index 000000000..f48300e9d
+--- /dev/null
++++ b/sound/soc/mediatek/mt6858/mt6858-dai-hostless.c
+@@ -0,0 +1,99 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * MediaTek ALSA SoC Audio DAI Hostless Control
++ *
++ * Copyright (c) 2025 MediaTek Inc.
++ */
++
++#include "mt6858-afe-common.h"
++
++/*
++ * Hostless Speech: while it runs, the modem's PCM 1 feeds the earpiece or
++ * speaker amplifiers (I2SOUT1) or the codec (ADDA), and the microphones
++ * feed the modem. No memory interface is involved.
++ */
++static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
++	{"ADDA_DL_CH1", "PCM_1_CAP_CH1", "Hostless Speech DL"},
++	{"ADDA_DL_CH2", "PCM_1_CAP_CH1", "Hostless Speech DL"},
++	{"ADDA_DL_CH2", "PCM_1_CAP_CH2", "Hostless Speech DL"},
++	{"I2SOUT1_CH1", "PCM_1_CAP_CH1", "Hostless Speech DL"},
++	{"I2SOUT1_CH2", "PCM_1_CAP_CH1", "Hostless Speech DL"},
++	{"I2SOUT1_CH2", "PCM_1_CAP_CH2", "Hostless Speech DL"},
++	{"PCM_1_PB_CH1", "ADDA_UL_CH1", "Hostless Speech DL"},
++	{"PCM_1_PB_CH1", "ADDA_UL_CH2", "Hostless Speech DL"},
++	{"PCM_1_PB_CH2", "ADDA_UL_CH1", "Hostless Speech DL"},
++	{"PCM_1_PB_CH2", "ADDA_UL_CH2", "Hostless Speech DL"},
++
++	{"Hostless Speech UL", NULL, "PCM 1 Capture"},
++	{"Hostless Speech UL", NULL, "ADDA_UL_Mux"},
++};
++
++static const struct snd_pcm_hardware mt6858_hostless_hardware = {
++	.info = SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
++		SNDRV_PCM_INFO_MMAP_VALID,
++	.period_bytes_min = 256,
++	.period_bytes_max = 4 * 48 * 1024,
++	.periods_min = 2,
++	.periods_max = 256,
++	.buffer_bytes_max = 4 * 48 * 1024,
++};
++
++static int mtk_dai_hostless_startup(struct snd_pcm_substream *substream,
++				    struct snd_soc_dai *dai)
++{
++	snd_soc_set_runtime_hwparams(substream, &mt6858_hostless_hardware);
++
++	return snd_pcm_hw_constraint_integer(substream->runtime,
++					     SNDRV_PCM_HW_PARAM_PERIODS);
++}
++
++static const struct snd_soc_dai_ops mtk_dai_hostless_ops = {
++	.startup = mtk_dai_hostless_startup,
++};
++
++#define MTK_HOSTLESS_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
++			    SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000)
++
++#define MTK_HOSTLESS_FORMATS (SNDRV_PCM_FMTBIT_S16_LE |\
++			      SNDRV_PCM_FMTBIT_S24_LE |\
++			      SNDRV_PCM_FMTBIT_S32_LE)
++
++static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
++	{
++		.name = "Hostless Speech DAI",
++		.id = MT6858_DAI_HOSTLESS_SPEECH,
++		.playback = {
++			.stream_name = "Hostless Speech DL",
++			.channels_min = 1,
++			.channels_max = 2,
++			.rates = MTK_HOSTLESS_RATES,
++			.formats = MTK_HOSTLESS_FORMATS,
++		},
++		.capture = {
++			.stream_name = "Hostless Speech UL",
++			.channels_min = 1,
++			.channels_max = 2,
++			.rates = MTK_HOSTLESS_RATES,
++			.formats = MTK_HOSTLESS_FORMATS,
++		},
++		.ops = &mtk_dai_hostless_ops,
++	},
++};
++
++int mt6858_dai_hostless_register(struct mtk_base_afe *afe)
++{
++	struct mtk_base_afe_dai *dai;
++
++	dai = devm_kzalloc_obj(afe->dev, *dai);
++	if (!dai)
++		return -ENOMEM;
++
++	list_add(&dai->list, &afe->sub_dais);
++
++	dai->dai_drivers = mtk_dai_hostless_driver;
++	dai->num_dai_drivers = ARRAY_SIZE(mtk_dai_hostless_driver);
++	dai->dapm_routes = mtk_dai_hostless_routes;
++	dai->num_dapm_routes = ARRAY_SIZE(mtk_dai_hostless_routes);
++
++	return 0;
++}
+diff --git a/sound/soc/mediatek/mt6858/mt6858-dai-i2s.c b/sound/soc/mediatek/mt6858/mt6858-dai-i2s.c
+index 473afd197..dd3303106 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-dai-i2s.c
++++ b/sound/soc/mediatek/mt6858/mt6858-dai-i2s.c
+@@ -308,6 +308,8 @@ static const struct snd_kcontrol_new mtk_i2sout1_ch1_mix[] = {
+ 				    I_ADDA_UL_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_0_CAP_CH1", AFE_CONN110_4,
+ 				    I_PCM_0_CAP_CH1, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN110_4,
++				    I_PCM_1_CAP_CH1, 1, 0),
+ };
+ 
+ static const struct snd_kcontrol_new mtk_i2sout1_ch2_mix[] = {
+@@ -329,6 +331,10 @@ static const struct snd_kcontrol_new mtk_i2sout1_ch2_mix[] = {
+ 				    I_PCM_0_CAP_CH1, 1, 0),
+ 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_0_CAP_CH2", AFE_CONN111_4,
+ 				    I_PCM_0_CAP_CH2, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN111_4,
++				    I_PCM_1_CAP_CH1, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH2", AFE_CONN111_4,
++				    I_PCM_1_CAP_CH2, 1, 0),
+ };
+ 
+ static const struct snd_kcontrol_new mtk_i2sout4_ch1_mix[] = {
+diff --git a/sound/soc/mediatek/mt6858/mt6858-dai-pcm.c b/sound/soc/mediatek/mt6858/mt6858-dai-pcm.c
+index 18f60a55a..989a92cbc 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-dai-pcm.c
++++ b/sound/soc/mediatek/mt6858/mt6858-dai-pcm.c
+@@ -168,6 +168,21 @@ static const struct snd_kcontrol_new mtk_pcm_0_playback_ch4_mix[] = {
+ 				    I_DL_24CH_CH1, 1, 0),
+ };
+ 
++/* PCM 1 is the MD1 speech interface */
++static const struct snd_kcontrol_new mtk_pcm_1_playback_ch1_mix[] = {
++	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN102_0,
++				    I_ADDA_UL_CH1, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN102_0,
++				    I_ADDA_UL_CH2, 1, 0),
++};
++
++static const struct snd_kcontrol_new mtk_pcm_1_playback_ch2_mix[] = {
++	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN103_0,
++				    I_ADDA_UL_CH1, 1, 0),
++	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN103_0,
++				    I_ADDA_UL_CH2, 1, 0),
++};
++
+ static const struct snd_soc_dapm_widget mtk_dai_pcm_widgets[] = {
+ 	/* inter-connections */
+ 	SND_SOC_DAPM_MIXER("PCM_0_PB_CH1", SND_SOC_NOPM, 0, 0,
+@@ -179,6 +194,12 @@ static const struct snd_soc_dapm_widget mtk_dai_pcm_widgets[] = {
+ 	SND_SOC_DAPM_MIXER("PCM_0_PB_CH4", SND_SOC_NOPM, 0, 0,
+ 			   mtk_pcm_0_playback_ch4_mix,
+ 			   ARRAY_SIZE(mtk_pcm_0_playback_ch4_mix)),
++	SND_SOC_DAPM_MIXER("PCM_1_PB_CH1", SND_SOC_NOPM, 0, 0,
++			   mtk_pcm_1_playback_ch1_mix,
++			   ARRAY_SIZE(mtk_pcm_1_playback_ch1_mix)),
++	SND_SOC_DAPM_MIXER("PCM_1_PB_CH2", SND_SOC_NOPM, 0, 0,
++			   mtk_pcm_1_playback_ch2_mix,
++			   ARRAY_SIZE(mtk_pcm_1_playback_ch2_mix)),
+ 
+ 	SND_SOC_DAPM_SUPPLY("PCM_0_EN",
+ 			    AFE_PCM0_INTF_CON0, PCM0_EN_SFT, 0,
+@@ -187,6 +208,16 @@ static const struct snd_soc_dapm_widget mtk_dai_pcm_widgets[] = {
+ 	SND_SOC_DAPM_SUPPLY("PCM0_CG", AUDIO_TOP_CON0, PDN_PCM0_SFT, 1,
+ 			    NULL, 0),
+ 
++	SND_SOC_DAPM_SUPPLY("PCM_1_EN",
++			    AFE_PCM1_INTF_CON0, PCM1_EN_SFT, 0,
++			    NULL, 0),
++
++	SND_SOC_DAPM_SUPPLY("PCM1_CG", AUDIO_TOP_CON0, PDN_PCM1_SFT, 1,
++			    NULL, 0),
++
++	SND_SOC_DAPM_INPUT("MD1_TO_AFE"),
++	SND_SOC_DAPM_OUTPUT("AFE_TO_MD1"),
++
+ 	SND_SOC_DAPM_INPUT("AFE_PCM_INPUT"),
+ 	SND_SOC_DAPM_OUTPUT("AFE_PCM_OUTPUT"),
+ };
+@@ -211,6 +242,17 @@ static const struct snd_soc_dapm_route mtk_dai_pcm_routes[] = {
+ 	{"PCM_0_PB_CH1", "DL_24CH_CH1", "DL_24CH"},
+ 	{"PCM_0_PB_CH2", "DL_24CH_CH2", "DL_24CH"},
+ 	{"PCM_0_PB_CH4", "DL_24CH_CH1", "DL_24CH"},
++
++	{"PCM 1 Playback", NULL, "PCM_1_PB_CH1"},
++	{"PCM 1 Playback", NULL, "PCM_1_PB_CH2"},
++
++	{"PCM 1 Playback", NULL, "PCM_1_EN"},
++	{"PCM 1 Capture", NULL, "PCM_1_EN"},
++	{"PCM 1 Playback", NULL, "PCM1_CG"},
++	{"PCM 1 Capture", NULL, "PCM1_CG"},
++
++	{"AFE_TO_MD1", NULL, "PCM 1 Playback"},
++	{"PCM 1 Capture", NULL, "MD1_TO_AFE"},
+ };
+ 
+ /* dai ops */
+@@ -265,6 +307,23 @@ static int mtk_dai_pcm_hw_params(struct snd_pcm_substream *substream,
+ 				   GENMASK(31, 0),
+ 				   pcm_con1);
+ 		break;
++	case MT6858_DAI_PCM_1:
++		pcm_con0 = AUD_TX_LCH_RPT_NO_REPEAT << PCM1_TX_LCH_RPT_SFT;
++		pcm_con0 |= AUD_VBT_16K_MODE_DISABLE << PCM1_VBT_16K_MODE_SFT;
++		pcm_con0 |= AUD_BT_MODE_DUAL_MIC_ON_TX << PCM1_BT_MODE_SFT;
++		pcm_con0 |= AUD_PCM_AFIFO_AFIFO << PCM1_AFIFO_SFT;
++		pcm_con0 |= AUD_PCM_WLEN_PCM_32_BCK_CYCLES << PCM1_WLEN_SFT;
++		pcm_con0 |= rate_reg << PCM1_MODE_SFT;
++		pcm_con0 |= AUD_PCM_FMT_PCM_MODE_B << PCM1_FMT_SFT;
++
++		pcm_con1 = HOPPING_26M << PCM1_1X_EN_DOMAIN_SFT;
++		pcm_con1 |= x_rate_reg << PCM1_1X_EN_MODE_SFT;
++
++		regmap_update_bits(afe->regmap, AFE_PCM1_INTF_CON0,
++				   ~(unsigned int)PCM1_EN_MASK_SFT, pcm_con0);
++		regmap_update_bits(afe->regmap, AFE_PCM1_INTF_CON1,
++				   PCM1_1X_EN_MASK_SFT, pcm_con1);
++		break;
+ 	default:
+ 		dev_err(afe->dev, "%s(), id %d not support\n",
+ 			__func__, dai->id);
+@@ -309,6 +368,27 @@ static struct snd_soc_dai_driver mtk_dai_pcm_driver[] = {
+ 		.symmetric_rate = 1,
+ 		.symmetric_sample_bits = 1,
+ 	},
++	{
++		.name = "PCM 1",
++		.id = MT6858_DAI_PCM_1,
++		.playback = {
++			.stream_name = "PCM 1 Playback",
++			.channels_min = 1,
++			.channels_max = 2,
++			.rates = MTK_PCM_RATES,
++			.formats = MTK_PCM_FORMATS,
++		},
++		.capture = {
++			.stream_name = "PCM 1 Capture",
++			.channels_min = 1,
++			.channels_max = 2,
++			.rates = MTK_PCM_RATES,
++			.formats = MTK_PCM_FORMATS,
++		},
++		.ops = &mtk_dai_pcm_ops,
++		.symmetric_rate = 1,
++		.symmetric_sample_bits = 1,
++	},
+ };
+ 
+ int mt6858_dai_pcm_register(struct mtk_base_afe *afe)
+diff --git a/sound/soc/mediatek/mt6858/mt6858-interconnection.h b/sound/soc/mediatek/mt6858/mt6858-interconnection.h
+index 83c190ac7..1f211d214 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-interconnection.h
++++ b/sound/soc/mediatek/mt6858/mt6858-interconnection.h
+@@ -76,6 +76,8 @@
+ #define I_128_OFFSET 128
+ #define I_PCM_0_CAP_CH1 (130 - I_128_OFFSET)
+ #define I_PCM_0_CAP_CH2 (131 - I_128_OFFSET)
++#define I_PCM_1_CAP_CH1 (132 - I_128_OFFSET)
++#define I_PCM_1_CAP_CH2 (133 - I_128_OFFSET)
+ #define I_I2SIN0_CH1 (134 - I_128_OFFSET)
+ #define I_I2SIN0_CH2 (135 - I_128_OFFSET)
+ #define I_I2SIN1_CH1 (136 - I_128_OFFSET)
+diff --git a/sound/soc/mediatek/mt6858/mt6858-mt6369.c b/sound/soc/mediatek/mt6858/mt6858-mt6369.c
+index 45b1a388c..e7ff12fd9 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-mt6369.c
++++ b/sound/soc/mediatek/mt6858/mt6858-mt6369.c
+@@ -225,6 +225,14 @@ SND_SOC_DAILINK_DEFS(i2sout1,
+ 		     DAILINK_COMP_ARRAY(COMP_CPU("I2SOUT1")),
+ 		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
+ 		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++SND_SOC_DAILINK_DEFS(pcm1,
++		     DAILINK_COMP_ARRAY(COMP_CPU("PCM 1")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++SND_SOC_DAILINK_DEFS(hostless_speech,
++		     DAILINK_COMP_ARRAY(COMP_CPU("Hostless Speech DAI")),
++		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
+ 
+ #define MT6858_FE_LINK(_name, _stream, _link, _dir)			\
+ 	{								\
+@@ -244,6 +252,16 @@ static struct snd_soc_dai_link mt6858_mt6369_dai_links[] = {
+ 	MT6858_FE_LINK("DL1_FE", "DL1 Playback", playback1, playback),
+ 	MT6858_FE_LINK("UL0_FE", "UL0 Capture", capture0, capture),
+ 	MT6858_FE_LINK("UL1_FE", "UL1 Capture", capture1, capture),
++	/* The modem's speech path, held open for a call */
++	{
++		.name = "Hostless_Speech",
++		.stream_name = "Hostless_Speech",
++		.trigger = { SND_SOC_DPCM_TRIGGER_PRE,
++			     SND_SOC_DPCM_TRIGGER_PRE },
++		.dynamic = 1,
++		.ignore_suspend = 1,
++		SND_SOC_DAILINK_REG(hostless_speech),
++	},
+ 	/* Back End DAI links */
+ 	{
+ 		.name = "ADDA_BE",
+@@ -274,6 +292,12 @@ static struct snd_soc_dai_link mt6858_mt6369_dai_links[] = {
+ 		.ignore_suspend = 1,
+ 		SND_SOC_DAILINK_REG(i2sout1),
+ 	},
++	{
++		.name = "PCM1_BE",
++		.no_pcm = 1,
++		.ignore_suspend = 1,
++		SND_SOC_DAILINK_REG(pcm1),
++	},
+ };
+ 
+ static struct snd_soc_card mt6858_mt6369_soc_card = {
+diff --git a/sound/soc/mediatek/mt6858/mt6858-reg.h b/sound/soc/mediatek/mt6858/mt6858-reg.h
+index 7a3511418..19513a6a3 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-reg.h
++++ b/sound/soc/mediatek/mt6858/mt6858-reg.h
+@@ -40,6 +40,9 @@ enum {
+ #define PDN_PCM0_SFT                                          14
+ #define PDN_PCM0_MASK                                         0x1
+ #define PDN_PCM0_MASK_SFT                                     (0x1 << 14)
++#define PDN_PCM1_SFT                                          13
++#define PDN_PCM1_MASK                                         0x1
++#define PDN_PCM1_MASK_SFT                                     (0x1 << 13)
+ #define PDN_DL0_NLE_SFT                                       11
+ #define PDN_DL0_NLE_MASK                                      0x1
+ #define PDN_DL0_NLE_MASK_SFT                                  (0x1 << 11)
+@@ -505,6 +508,22 @@ enum {
+ #define PCM0_TX_FIX_VALUE_MASK                                0xff
+ #define PCM0_TX_FIX_VALUE_MASK_SFT                            (0xff << 0)
+ 
++/* AFE_PCM1_INTF_CON0 */
++#define PCM1_TX_LCH_RPT_SFT                                   13
++#define PCM1_VBT_16K_MODE_SFT                                 12
++#define PCM1_BT_MODE_SFT                                      7
++#define PCM1_AFIFO_SFT                                        6
++#define PCM1_WLEN_SFT                                         5
++#define PCM1_MODE_SFT                                         3
++#define PCM1_FMT_SFT                                          1
++#define PCM1_EN_SFT                                           0
++#define PCM1_EN_MASK_SFT                                      (0x1 << 0)
++
++/* AFE_PCM1_INTF_CON1 */
++#define PCM1_1X_EN_DOMAIN_SFT                                 23
++#define PCM1_1X_EN_MODE_SFT                                   18
++#define PCM1_1X_EN_MASK_SFT                                   (0xff << 18)
++
+ /* AFE_PCM_INTF_MON */
+ #define PCM0_TX_FIFO_OV_SFT                                   5
+ #define PCM0_TX_FIFO_OV_MASK                                  0x1
+@@ -7366,6 +7385,8 @@ enum {
+ #define AFE_CONNSYS_I2S_CON                         0xbc
+ #define AFE_PCM0_INTF_CON0                          0xc0
+ #define AFE_PCM0_INTF_CON1                          0xc4
++#define AFE_PCM1_INTF_CON0                          0xd0
++#define AFE_PCM1_INTF_CON1                          0xd4
+ #define AFE_PCM_INTF_MON                            0xc8
+ #define AFE_PCM_TOP_IP_VERSION                      0xe8
+ #define AFE_GAIN0_CON0                              0x400
+@@ -7872,6 +7893,8 @@ enum {
+ #define AFE_CONN100_2                               0x2d08
+ #define AFE_CONN100_4                               0x2d10
+ #define AFE_CONN100_6                               0x2d18
++#define AFE_CONN102_0                               0x2d40
++#define AFE_CONN103_0                               0x2d60
+ #define AFE_CONN110_0                               0x2e40
+ #define AFE_CONN110_1                               0x2e44
+ #define AFE_CONN110_2                               0x2e48
