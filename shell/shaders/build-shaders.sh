@@ -12,3 +12,7 @@ qsb=${QSB:-qsb}
 "$qsb" -b --glsl "100 es,120,150" -o "$here/nightlight.vert.qsb" "$here/nightlight.vert"
 "$qsb" --glsl "100 es,120,150" -o "$here/nightlight.frag.qsb" "$here/nightlight.frag"
 "$qsb" --glsl "100 es,120,150" -o "$here/eink.frag.qsb" "$here/eink.frag"
+"$qsb" --glsl "100 es,120,150" -o "$here/frostdown.frag.qsb" "$here/frostdown.frag"
+"$qsb" --glsl "100 es,120,150" -o "$here/frostup.frag.qsb" "$here/frostup.frag"
+"$qsb" --glsl "100 es,120,150" -o "$here/frost.vert.qsb" "$here/frost.vert"
+"$qsb" --glsl "100 es,120,150" -o "$here/frost.frag.qsb" "$here/frost.frag"

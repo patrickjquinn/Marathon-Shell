@@ -166,6 +166,7 @@
         "surface_alpha": {"description": "The CRTC framebuffer has alpha (ARGB).", "type": "boolean"},
         "gpu_msaa": {"description": "Max hardware FBO samples; 0 = none.", "type": "integer", "minimum": 0, "maximum": 16},
         "gpu_rgba16f": {"type": "boolean"},
+        "live_blur": {"description": "Quick Settings and the Hub blur what is behind them live; false = the precomputed ambience, for GPUs without the fill rate.", "type": "boolean"},
         "panel_dither": {"description": "Dither noise over the wallpaper.", "type": "boolean"},
         "render_node": {"type": "string", "pattern": "^/dev/dri/renderD[0-9]+$"},
         "cpu_governor": {"enum": ["ondemand", "schedutil", "conservative", "powersave", "performance"]},

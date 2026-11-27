@@ -44,6 +44,11 @@ QtObject {
     // v3d on Pi 5).
     readonly property int layerSamples: (typeof MARATHON_LAYER_SAMPLES !== "undefined") ? MARATHON_LAYER_SAMPLES : 4
     readonly property bool gpuHdr: (typeof MARATHON_GPU_HDR !== "undefined") ? MARATHON_GPU_HDR : false
+    // Quick Settings and the Hub frost what is behind them live
+    // (FrostedBackdrop); off, they lie on the ambience image.
+    // qmllint disable missing-property
+    readonly property bool liveBlur: typeof DeviceProfile === "undefined" || DeviceProfile.liveBlur !== false
+    // qmllint enable missing-property
     readonly property real baseHeight: 800
     readonly property real heightScaleFactor: screenHeight / baseHeight
     readonly property real tallScreenRatio: 1.2
