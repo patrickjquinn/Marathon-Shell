@@ -30,7 +30,6 @@ partition_table = "gpt"
 [boot.carrier]
 name = "jp2601"
 dtb = "mediatek/mt6858-jolla-jp2601.dtb"
-boot_behind_pin = true
 
 [kernel]
 package = "linux-mt6858"
