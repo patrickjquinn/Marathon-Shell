@@ -5,8 +5,10 @@ Subject: [PATCH 183/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Orient the
  IMU and set the proximity level
 
 Measured on the phone: held upright the ICM-42607 reads +1 g on its X
-axis, with the top to the left -1 g on Y, and face up +1 g on Z, so the
-device's Y is the sensor's X and its X the sensor's -Y. The STK3A5X
+axis, with the top to the left -1 g on Y, and face up +1 g on Z. In the
+mount-matrix frame an upright device reads -1 g on Y and one turned with
+its top to the left -1 g on X, so the device's Y is the sensor's -X and
+its X the sensor's Y. The STK3A5X
 proximity reads about 500 with nothing near and 1500 to 19000 with a
 hand 3 cm over the earpiece; 1000 is the near level.
 ---
@@ -29,8 +31,8 @@ index b88c3b782..812642e34 100644
  		compatible = "invensense,icm42607p";
  		reg = <0>;
  		spi-max-frequency = <10000000>;
-+		mount-matrix = "0", "-1", "0",
-+			       "1", "0", "0",
++		mount-matrix = "0", "1", "0",
++			       "-1", "0", "0",
 +			       "0", "0", "1";
  	};
  };

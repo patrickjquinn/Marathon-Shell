@@ -10,14 +10,14 @@
 pkgname=device-jolla-jp2601
 pkgdesc="Jolla Phone (2026)"
 pkgver=1
-pkgrel=3
+pkgrel=4
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="MIT"
 arch="aarch64"
 options="!check !archcheck"
 _kernel=linux-mt6858
 depends="
-	$_kernel>=7.4.0_rc4_git20261124-r19
+	$_kernel>=7.4.0_rc4_git20261124-r20
 	postmarketos-base
 	systemd-boot
 	python3
