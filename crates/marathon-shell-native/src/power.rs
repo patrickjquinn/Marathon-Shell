@@ -1560,6 +1560,7 @@ fn state(power: &Power) -> State {
             "hasPrivacySwitch".to_owned(),
             value(HAS_PRIVACY_SWITCH.load(std::sync::atomic::Ordering::Relaxed)),
         ),
+        ("hasNfc".to_owned(), value(crate::nfc::available())),
         (
             "cameraBlocked".to_owned(),
             value(crate::privacy::camera_blocked()),

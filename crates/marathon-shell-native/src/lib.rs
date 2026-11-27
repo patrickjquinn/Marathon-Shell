@@ -46,6 +46,7 @@ pub mod modem;
 pub mod mpris;
 pub mod network;
 pub mod ngf;
+mod nfc;
 mod night_light;
 pub mod notifications;
 mod pam;

@@ -858,6 +858,7 @@ impl Display {
         eink::screen(on);
         crate::status_led::screen(on);
         crate::compass::screen(on);
+        crate::nfc::screen(on);
         if on {
             self.as_mut().keyboard_used();
         }
