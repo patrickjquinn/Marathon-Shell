@@ -289,6 +289,19 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0235-arm64-configs-mt6858-Add-the-AW36515-flash-LED-drive.patch
 	0236-power-supply-mt6720-battery-Report-100-at-the-charge.patch
 	0237-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
+	0238-dt-bindings-net-nfc-st-st-nci-Add-ST21NFCD.patch
+	0239-nfc-st-nci-i2c-Enable-an-optional-reference-clock.patch
+	0240-nfc-st-nci-Add-support-for-the-ST21NFCD.patch
+	0241-clk-mediatek-mt6685-Add-XO_BBCK4.patch
+	0242-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
+	0243-arm64-configs-mt6858-Add-the-ST21NFCD-NFC-driver.patch
+	0244-iio-magnetometer-mmc5633-Report-the-zero-field-offse.patch
+	0245-power-supply-mt6720-battery-Report-the-battery-s-hea.patch
+	0246-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-the-batt.patch
+	0247-arm64-dts-mediatek-mt6858-jolla-jp2601-Detect-the-mi.patch
+	0248-power-supply-mt6720-battery-Import-the-IIO-consumer-.patch
+	0249-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-MD1-its-.patch
+	0250-arm64-configs-mt6858-Turn-lockups-and-RCU-stalls-int.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -612,5 +625,18 @@ a548010b2d2019388123fc300da19c62ed851dfdab15ee3425b981e7d0ea0e97d33e672f0d406dc4
 aecf88263fc24d0dcb279e39909ce823d8ef52691933febb17724090d64647709201ce56cd43dc1731e09cf241630b5d9e8641096ea96235ec4bfcd312491a9b  0235-arm64-configs-mt6858-Add-the-AW36515-flash-LED-drive.patch
 a98e655fe8c633088dbcdb73ce465659d23d9812cd0443fa7eaa9aec8eccb2a88e80f9ee018006f5a803e509d77a4d1e60b2926db3b92b8cd59cb4ade3d4f749  0236-power-supply-mt6720-battery-Report-100-at-the-charge.patch
 3b1f3db3b3a641939c078ce9f7f9717a54fa853f93770fb6340fed03cd160bbb2208019776edaf3456a901f0202fecade30cd4a326b5a1b42c2053b6b4be708b  0237-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
+47f90baec780973e98b15e3e441fe6cca24be3474459aead1cd0df26c72a8449cc7ee5cd215d88af0117c670459f43dd3aa1d8fc6c9f45a1ac5392a066ef7f9a  0238-dt-bindings-net-nfc-st-st-nci-Add-ST21NFCD.patch
+45f5feb972281de8135c738c91a8a4953e722c19baa7d383d57af7c08ad0fc4d363546dc0398680cae04958b93c3e0967a7972265a12ae4ae384e6fe961601af  0239-nfc-st-nci-i2c-Enable-an-optional-reference-clock.patch
+b161c8bbaf35dd9e9560714ea8469c975531d71b173d1827fed806e083e888e529e20dd71cd300ce0f939b653a65d661a0e76fac00851a1c2c2a32949fb3a9a2  0240-nfc-st-nci-Add-support-for-the-ST21NFCD.patch
+7c216f5c42d1a8dad02a20545bd6cddb0a3b67db11f280d12ad6b559aaa0c56ee06f23c2553684a94949a49fe066bc1e8d1d42b0a4daf59fe7633e8c913d83b5  0241-clk-mediatek-mt6685-Add-XO_BBCK4.patch
+38c1f9e313d94b6a0cd6386bf08409e407328d7d6004ca907d91f12802c00851ae072f089863e57006e375eb272724046514c73ada3eb602644caada105c03cd  0242-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
+07a439e82f011620a5b14c4438d258d1bec92ff1e50b5a9a8b22fac5493a35f88f8307a76bc36df9bd47b1edcbe7c2bf18a585b5d00f60c2d0aaaa08b676f66b  0243-arm64-configs-mt6858-Add-the-ST21NFCD-NFC-driver.patch
+4577abebba882f374c734c178893e89770b4b8bb3a72379557a03f87f1065343e35b4bd600b78b7958818939499309c66c914feeb069036d102153e464076fee  0244-iio-magnetometer-mmc5633-Report-the-zero-field-offse.patch
+de2f5640070e2524403579b1cc21d24cd306f97694bd285965f95577921616355ea0c4272d6f66379432a4b7eb66c8eb43481072eb9711645ef09131aee1ba32  0245-power-supply-mt6720-battery-Report-the-battery-s-hea.patch
+dbdb75931808816e1186125da6f76e8debda61cb91f1e9b39fcbde624a04869b18287999b34cd0ae09fb10e7e249c8d1167be653b075bfe59bef2095158b9c6e  0246-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-the-batt.patch
+ec0e0b06ffd215c9a80ccc63a0d5541bc870aec461765f38230cc5764c7847f0a64bda322bd4f9a1ab9dad09e8abfdfc6405a8d5a829947be3dda780c99957f0  0247-arm64-dts-mediatek-mt6858-jolla-jp2601-Detect-the-mi.patch
+a3504ca83ce68ade70455db5f1c96fbe98341d24b34a537269fbcce76ad1d2a565f634792f7b0acc866add940ce6c06b5ecaebdf498978816ff711050864d25a  0248-power-supply-mt6720-battery-Import-the-IIO-consumer-.patch
+832a3018de0120ab700c9c5c710899178e93b975cb2ae99b1699df066eb3be8d98898207d7834948366c9bc03999e9976f4f14d99753be300835da9aa0b20a3f  0249-arm64-dts-mediatek-mt6858-jolla-jp2601-Give-MD1-its-.patch
+aa724556c61b2f85539790f6ef94d70bd23041bd2c602358989daabb57a90526958b3864e37daf3e10b96e8f28a13da32f75ffdde56b420defe97f97abbfcc4b  0250-arm64-configs-mt6858-Turn-lockups-and-RCU-stalls-int.patch
 1b57b13f8912bed14f0f0bc5ff65f8977e71649dd311c28fedb459248b1ac86d94543ae04bda8ec651cd28d9189925efca9f3ee3eeb39b3a0999fa09bcde9ae3  marathon.config
 "

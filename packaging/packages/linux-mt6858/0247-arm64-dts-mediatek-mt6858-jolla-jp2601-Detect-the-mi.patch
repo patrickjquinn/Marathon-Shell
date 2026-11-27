@@ -1,0 +1,34 @@
+From 7f77b1fd3e64376ac7617a085fd9e0aa03eee087 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 06:49:36 +0000
+Subject: [PATCH 247/250] arm64: dts: mediatek: mt6858-jolla-jp2601: Detect the
+ microSD card on GPIO9
+
+With the slot empty GPIO9 reads high, pulled up on the board against
+the SoC's pull-down, so take it as the card detect, active low. Polling
+for the card instead tried to start an absent card every second,
+powering the slot each time and logging about 15 command timeouts a
+second.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 56692e1ec..d3114db86 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -999,8 +999,9 @@ &mmc1 {
+ 	bus-width = <4>;
+ 	max-frequency = <50000000>;
+ 	cap-sd-highspeed;
+-	/* Stock card detect is GPIO9, but it reads 1 with and without a card */
+-	broken-cd;
++	/* GPIO9, high with the slot empty */
++	cd-gpios = <&pio 9 GPIO_ACTIVE_LOW>;
++	cd-debounce-delay-ms = <0>;
+ 	vmmc-supply = <&mt6369_vmch>;
+ 	vqmmc-supply = <&mt6369_vmc>;
+ 	no-mmc;
+-- 
+2.55.0
+

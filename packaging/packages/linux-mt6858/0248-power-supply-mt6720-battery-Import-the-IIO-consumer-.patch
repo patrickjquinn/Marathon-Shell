@@ -1,0 +1,25 @@
+From 8d0fa8b37970d29e65c25196fe7803e4f30039e7 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 06:50:20 +0000
+Subject: [PATCH 248/250] power: supply: mt6720-battery: Import the IIO
+ consumer namespace
+
+The driver reads its channels through the IIO consumer API, whose symbols
+are in the IIO_CONSUMER namespace, so it fails modpost when built as a
+module. Import the namespace.
+---
+ drivers/power/supply/mt6720-battery.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/power/supply/mt6720-battery.c b/drivers/power/supply/mt6720-battery.c
+index 100e4d3dd..2d28150ec 100644
+--- a/drivers/power/supply/mt6720-battery.c
++++ b/drivers/power/supply/mt6720-battery.c
+@@ -296,3 +296,4 @@ module_platform_driver(mt6720_bat_driver);
+ 
+ MODULE_DESCRIPTION("MediaTek MT6720 battery monitor driver");
+ MODULE_LICENSE("GPL");
++MODULE_IMPORT_NS("IIO_CONSUMER");
+-- 
+2.55.0
+
