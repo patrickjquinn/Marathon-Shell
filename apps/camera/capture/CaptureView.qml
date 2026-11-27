@@ -13,6 +13,7 @@ import Sailfish.Silica 1.0 as S
 import QtQuick 2.4
 import Nemo.Ngf 1.0
 import MarathonApp.Camera 1.0
+import Marathon.Platform 1.0 as Platform
 
 FocusScope {
     id: captureView
@@ -1020,5 +1021,13 @@ FocusScope {
         } else if ((event.key == Qt.Key_VolumeDown || event.key == Qt.Key_VolumeUp) && captureOnVolumeRelease && handleVolumeKeys) {
             captureView._triggerCapture();
         }
+    }
+
+    // The privacy switch has cut the cameras.
+    InfoLabel {
+        objectName: "cameraBlockedLabel"
+        anchors.centerIn: parent
+        visible: Platform.Power.cameraBlocked
+        text: qsTr("Camera blocked by the privacy switch")
     }
 }
