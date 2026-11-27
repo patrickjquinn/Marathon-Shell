@@ -181,5 +181,7 @@ TestCase {
         compare(Logic.scaleDescription(at(1.25), 1), "Large");
         compare(Logic.scaleDescription(at(1.25), 1.25), "Default");
         compare(Logic.scaleDescription(at(1), 1.25), "Medium");
+        // A Repeater's modelData is a copy of the entry, not the entry.
+        compare(Logic.scaleDescription(Object.assign({}, at(1)), 1), "Default");
     }
 }

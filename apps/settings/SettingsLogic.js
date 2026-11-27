@@ -263,7 +263,7 @@ const scales = [
 
 // The size the device starts at (Settings.defaultUserScaleFactor) reads as its default.
 function scaleDescription(scale, deviceDefault) {
-    return scales[nearestIndex(scales.map(s => s.factor), deviceDefault)] === scale ? qsTr("Default") : scale.description;
+    return scales[nearestIndex(scales.map(s => s.factor), deviceDefault)].factor === scale.factor ? qsTr("Default") : scale.description;
 }
 
 // The shell's screenTimeout is in milliseconds; 0 keeps the screen on.
