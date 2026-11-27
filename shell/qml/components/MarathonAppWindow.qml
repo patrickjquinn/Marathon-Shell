@@ -155,6 +155,13 @@ Rectangle {
             Logger.info("AppWindow", "Surface arrived for " + id + " (surfaceId: " + sid + ") - creating native window");
             appWindow.waylandSurface = surface;
             appWindow.surfaceId = sid;
+            // A running app shown again after a splash keeps its window: a
+            // second one beside its minimized original showed a frozen frame.
+            var runningInstance = AppInstances.get(id);
+            if (runningInstance) {
+                _reuseInstance(runningInstance, id, surface, sid);
+                return;
+            }
             // isLoadingComponent stays true until revealReady — the surface
             // object existing is not the app having rendered.
             var surfComponent = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
@@ -191,31 +198,7 @@ Rectangle {
         if (hasSurface) {
             var existingNativeInstance = AppInstances.get(id);
             if (existingNativeInstance) {
-                Logger.info("AppWindow", "Reusing existing app instance: " + id);
-                // An instance closed from the switcher while minimized is kept
-                // with its dead surface; a relaunch must not show that.
-                _rebindSurface(existingNativeInstance, id, surface, sid);
-                existingNativeInstance.visible = true;
-                // Going home minimized it, which locks its buffer; left set,
-                // the restored window showed no new frames.
-                _unminimize(existingNativeInstance);
-                // A backgrounded app sits in a frozen cgroup. The switcher
-                // thaws it through restoreApp(), but a restore that arrives
-                // here (home-screen tap, LaunchApp) drew the app's last frame
-                // over a process that could not respond to input.
-                Tasks.bringToForeground(id);
-                // Its new surface may have painted before this show(): no
-                // revealReady edge would come to lift the splash.
-                if (existingNativeInstance.revealReady === true)
-                    appWindow.isLoadingComponent = false;
-                appWindow.pendingAppInstance = existingNativeInstance;
-                if (appContentLoader.status === Loader.Ready && appWindow.appContainer) {
-                    appWindow.appContainer["adoptPendingApp"]();
-                } else {
-                    suppressSplash = true;
-                    appContentLoader.sourceComponent = undefined;
-                    appContentLoader.sourceComponent = appInstanceContainer;
-                }
+                _reuseInstance(existingNativeInstance, id, surface, sid);
             } else {
                 Logger.info("AppWindow", "Creating app window with surface for: " + id + " (surfaceId: " + sid + ")");
                 appWindow.isLoadingComponent = true;
@@ -321,6 +304,35 @@ Rectangle {
     function _unminimize(instance) {
         if (instance.isMinimized !== undefined)
             instance.isMinimized = false;
+    }
+
+    // An app has one window: its instance comes back with this surface.
+    function _reuseInstance(instance, id, surface, sid) {
+        Logger.info("AppWindow", "Reusing existing app instance: " + id);
+        // An instance closed from the switcher while minimized is kept
+        // with its dead surface; a relaunch must not show that.
+        _rebindSurface(instance, id, surface, sid);
+        instance.visible = true;
+        // Going home minimized it, which locks its buffer; left set,
+        // the restored window showed no new frames.
+        _unminimize(instance);
+        // A backgrounded app sits in a frozen cgroup. The switcher
+        // thaws it through restoreApp(), but a restore that arrives
+        // here (home-screen tap, LaunchApp) drew the app's last frame
+        // over a process that could not respond to input.
+        Tasks.bringToForeground(id);
+        // Its new surface may have painted before this show(): no
+        // revealReady edge would come to lift the splash.
+        if (instance.revealReady === true)
+            appWindow.isLoadingComponent = false;
+        appWindow.pendingAppInstance = instance;
+        if (appContentLoader.status === Loader.Ready && appWindow.appContainer) {
+            appWindow.appContainer["adoptPendingApp"]();
+        } else {
+            suppressSplash = true;
+            appContentLoader.sourceComponent = undefined;
+            appContentLoader.sourceComponent = appInstanceContainer;
+        }
     }
 
     function _rebindSurface(instance, id, surface, sid) {
