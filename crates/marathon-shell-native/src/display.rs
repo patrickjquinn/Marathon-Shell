@@ -847,6 +847,7 @@ impl Display {
         set!(self, screen_on, screen_on_changed, on);
         SCREEN_ON.store(on, Ordering::Relaxed);
         eink::screen(on);
+        crate::status_led::screen(on);
         if on {
             self.as_mut().keyboard_used();
         }

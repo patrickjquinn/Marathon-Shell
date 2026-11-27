@@ -62,6 +62,7 @@ pub mod security;
 pub mod session;
 pub mod settings;
 pub mod share;
+mod status_led;
 pub mod storage;
 mod stored;
 mod svg;

@@ -697,6 +697,7 @@ impl Notifications {
         if self.unread_count != unread {
             self.as_mut().rust_mut().unread_count = unread;
             self.unread_count_changed();
+            crate::status_led::unread(unread);
         }
     }
 
