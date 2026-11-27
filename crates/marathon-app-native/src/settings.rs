@@ -80,6 +80,7 @@ pub mod qobject {
         #[qproperty(QString, trackpad_mode, cxx_name = "trackpadMode", READ, WRITE = set_trackpad_mode, NOTIFY)]
         #[qproperty(i32, app_grid_columns, cxx_name = "appGridColumns", READ, WRITE = set_app_grid_columns, NOTIFY)]
         #[qproperty(bool, search_native_apps, cxx_name = "searchNativeApps", READ, WRITE = set_search_native_apps, NOTIFY)]
+        #[qproperty(bool, nfc_enabled, cxx_name = "nfcEnabled", READ, WRITE = set_nfc_enabled, NOTIFY)]
         #[qproperty(bool, show_notification_badges, cxx_name = "showNotificationBadges", READ, WRITE = set_show_notification_badges, NOTIFY)]
         #[qproperty(QMap_QString_QVariant, app_notification_settings, cxx_name = "appNotificationSettings", READ, WRITE = set_app_notification_settings, NOTIFY)]
         #[qproperty(QMap_QString_QVariant, speed_keys, cxx_name = "speedKeys", READ, WRITE = set_speed_keys, NOTIFY)]
@@ -189,6 +190,8 @@ pub mod qobject {
         fn set_app_grid_columns(self: Pin<&mut Settings>, value: i32);
         #[cxx_name = "setSearchNativeApps"]
         fn set_search_native_apps(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setNfcEnabled"]
+        fn set_nfc_enabled(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setShowNotificationBadges"]
         fn set_show_notification_badges(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setAppNotificationSettings"]
@@ -351,6 +354,7 @@ properties! {
     trackpad_mode: QString = QString::from("gesture"), "trackpadMode", trackpad_mode_changed, set_trackpad_mode(&QString);
     app_grid_columns: i32, "appGridColumns", app_grid_columns_changed, set_app_grid_columns(i32);
     search_native_apps: bool = true, "searchNativeApps", search_native_apps_changed, set_search_native_apps(bool);
+    nfc_enabled: bool = true, "nfcEnabled", nfc_enabled_changed, set_nfc_enabled(bool);
     show_notification_badges: bool = true, "showNotificationBadges", show_notification_badges_changed, set_show_notification_badges(bool);
     app_notification_settings: QMap<QMapPair_QString_QVariant>, "appNotificationSettings", app_notification_settings_changed, set_app_notification_settings(&QMap<QMapPair_QString_QVariant>);
     speed_keys: QMap<QMapPair_QString_QVariant>, "speedKeys", speed_keys_changed, set_speed_keys(&QMap<QMapPair_QString_QVariant>);

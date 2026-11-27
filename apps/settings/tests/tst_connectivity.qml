@@ -72,6 +72,17 @@ TestCase {
         compare(child(s.page, "networks").count, 0);
     }
 
+    function test_nfcSwitchFollowsTheSetting() {
+        const s = open("nfc");
+        const nfc = child(s.page, "nfcSwitch");
+        verify(nfc.checked);
+        nfc.clicked(null);
+        verify(!Settings.nfcEnabled);
+        verify(!nfc.checked);
+        nfc.clicked(null);
+        verify(Settings.nfcEnabled);
+    }
+
     function test_turningWifiOnScans() {
         Network.wifiEnabled = false;
         const s = open("wifi");

@@ -5,6 +5,7 @@ const pages = {
     wifi: "WiFiPage.qml",
     savednetworks: "SavedNetworksPage.qml",
     bluetooth: "BluetoothPage.qml",
+    nfc: "NfcPage.qml",
     cellular: "CellularPage.qml",
     apn: "ApnPage.qml",
     display: "DisplayPage.qml",
@@ -73,6 +74,7 @@ const sections = [
         entries: [
             { page: "wifi", title: qsTr("Wi-Fi"), icon: "image://theme/icon-m-wlan", keywords: "wifi wireless network internet wlan password" },
             { page: "bluetooth", title: qsTr("Bluetooth"), icon: "image://theme/icon-m-bluetooth", keywords: "pair devices headphones speaker wireless" },
+            { page: "nfc", title: qsTr("NFC"), icon: "image://theme/icon-m-nfc", keywords: "nfc tag card contactless near field" },
             { page: "cellular", title: qsTr("Mobile network"), icon: "image://theme/icon-m-cellular", keywords: "cellular data roaming sim carrier operator 4g 5g lte" }
         ]
     },

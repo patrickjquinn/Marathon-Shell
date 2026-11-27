@@ -205,6 +205,7 @@ navigate compass
 new plus
 next skip-forward
 next-song skip-forward
+nfc contactless-payment
 note note
 office briefcase
 notifications bell

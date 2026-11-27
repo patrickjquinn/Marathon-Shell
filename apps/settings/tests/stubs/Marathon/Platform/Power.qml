@@ -11,6 +11,7 @@ QtObject {
     property bool powerProfilesSupported: true
     property bool hasAssistKey: true
     property bool hasPrivacySwitch: true
+    property bool hasNfc: true
     property bool hasTrackpad: true
     property var chargeHistory: []
     property var rateHistory: []
