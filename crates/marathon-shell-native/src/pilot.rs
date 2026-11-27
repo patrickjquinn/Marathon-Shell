@@ -92,39 +92,42 @@ impl cxx_qt::Initialize for PilotClient {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, watching) = async_channel::unbounded();
         let qt = self.qt_thread();
-        io::spawn(async move {
-            let dbus = match async { DBusProxy::new(&io::session_bus().await?).await }.await {
-                Ok(dbus) => dbus,
-                Err(e) => return log::warn("pilot", e),
-            };
-            let mut owners = dbus
-                .receive_name_owner_changed_with_args(&[(0, NAME)])
-                .await
-                .ok();
-            let mut watch = false;
-            loop {
-                publish(&qt, available(&dbus).await);
-                let poll = async {
-                    if watch {
-                        Timer::after(Duration::from_secs(30)).await;
-                    } else {
-                        future::pending::<()>().await;
-                    }
-                    Some(watch)
+        io::each_session_bus(move |bus| {
+            let (qt, watching) = (qt.clone(), watching.clone());
+            async move {
+                let dbus = match DBusProxy::new(&bus).await {
+                    Ok(dbus) => dbus,
+                    Err(e) => return log::warn("pilot", e),
                 };
-                let owner = async {
-                    match &mut owners {
-                        Some(owners) => owners.next().await.map(|_| watch),
-                        None => future::pending().await,
+                let mut owners = dbus
+                    .receive_name_owner_changed_with_args(&[(0, NAME)])
+                    .await
+                    .ok();
+                let mut watch = false;
+                loop {
+                    publish(&qt, available(&dbus).await);
+                    let poll = async {
+                        if watch {
+                            Timer::after(Duration::from_secs(30)).await;
+                        } else {
+                            future::pending::<()>().await;
+                        }
+                        Some(watch)
+                    };
+                    let owner = async {
+                        match &mut owners {
+                            Some(owners) => owners.next().await.map(|_| watch),
+                            None => future::pending().await,
+                        }
+                    };
+                    match future::or(future::or(poll, owner), async {
+                        watching.recv().await.ok()
+                    })
+                    .await
+                    {
+                        Some(now) => watch = now,
+                        None => return,
                     }
-                };
-                match future::or(future::or(poll, owner), async {
-                    watching.recv().await.ok()
-                })
-                .await
-                {
-                    Some(now) => watch = now,
-                    None => return,
                 }
             }
         });

@@ -81,23 +81,25 @@ pub struct NgfRust;
 impl cxx_qt::Initialize for Ngf {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        io::spawn(async move {
-            let served = async {
-                let conn = io::system_bus().await?;
-                conn.object_server()
-                    .at(
-                        PATH,
-                        Server {
-                            qt,
-                            next: 1,
-                            playing: HashMap::new(),
-                        },
-                    )
-                    .await?;
-                conn.request_name(NAME).await
-            };
-            if let Err(e) = served.await {
-                log::warn("ngf", format_args!("Nemo.Ngf backend not registered: {e}"));
+        io::each_system_bus(move |conn| {
+            let qt = qt.clone();
+            async move {
+                let served = async {
+                    conn.object_server()
+                        .at(
+                            PATH,
+                            Server {
+                                qt,
+                                next: 1,
+                                playing: HashMap::new(),
+                            },
+                        )
+                        .await?;
+                    conn.request_name(NAME).await
+                };
+                if let Err(e) = served.await {
+                    log::warn("ngf", format_args!("Nemo.Ngf backend not registered: {e}"));
+                }
             }
         });
     }

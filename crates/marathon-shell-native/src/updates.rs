@@ -562,7 +562,9 @@ fn developer_channel() -> bool {
 impl cxx_qt::Initialize for Updates {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::unbounded();
-        io::spawn(run(self.qt_thread(), tx.clone(), rx));
+        let (qt, msgs) = (self.qt_thread(), tx.clone());
+        io::each_system_bus(move |_| run(qt.clone(), msgs.clone(), rx.clone()));
+        Notifier::listen(&tx);
         self.as_mut().rust_mut().actor = Some(tx);
         self.as_mut()
             .on_state_changed(|obj| ipc::signal("Updates", "StateChanged", (wire(&obj.json),)))
@@ -655,7 +657,6 @@ async fn run(qt: Qt, tx: Sender<Msg>, rx: Receiver<Msg>) {
         shown: None,
     };
     spawn(&tx, probe());
-    Notifier::listen(&tx);
     let mut actor = Actor {
         qt,
         tx,
@@ -1192,22 +1193,25 @@ struct Notifier {
 impl Notifier {
     fn listen(tx: &Sender<Msg>) {
         let tx = tx.clone();
-        io::spawn(async move {
-            let actions = async {
-                NotificationsProxy::new(&io::session_bus().await?)
-                    .await?
-                    .receive_action_invoked()
-                    .await
-            };
-            let mut actions = match actions.await {
-                Ok(actions) => actions,
-                Err(e) => {
-                    return log::warn("updates", format_args!("no notification actions: {e}"))
-                }
-            };
-            while let Some(signal) = actions.next().await {
-                if let Ok(args) = signal.args() {
-                    tx.send(Msg::Action(args.id, args.action_key)).await.ok();
+        io::each_session_bus(move |session| {
+            let tx = tx.clone();
+            async move {
+                let actions = async {
+                    NotificationsProxy::new(&session)
+                        .await?
+                        .receive_action_invoked()
+                        .await
+                };
+                let mut actions = match actions.await {
+                    Ok(actions) => actions,
+                    Err(e) => {
+                        return log::warn("updates", format_args!("no notification actions: {e}"))
+                    }
+                };
+                while let Some(signal) = actions.next().await {
+                    if let Ok(args) = signal.args() {
+                        tx.send(Msg::Action(args.id, args.action_key)).await.ok();
+                    }
                 }
             }
         });

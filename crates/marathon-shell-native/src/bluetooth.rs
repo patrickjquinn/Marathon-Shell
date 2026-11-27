@@ -181,7 +181,9 @@ impl cxx_qt::Initialize for Bluetooth {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(32);
         let (answer, answers) = async_channel::bounded(4);
-        io::spawn(run(self.qt_thread(), rx, answer.clone(), answers));
+        let qt = self.qt_thread();
+        let asker = answer.clone();
+        io::each_system_bus(move |_| run(qt.clone(), rx.clone(), asker.clone(), answers.clone()));
         let mut rust = self.as_mut().rust_mut();
         rust.actor = Some(tx);
         rust.answers = Some(answer);

@@ -155,7 +155,8 @@ struct Track {
 impl cxx_qt::Initialize for Mpris {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(16);
-        io::spawn(run(self.qt_thread(), rx));
+        let qt = self.qt_thread();
+        io::each_session_bus(move |_| run(qt.clone(), rx.clone()));
         let mut rust = self.as_mut().rust_mut();
         rust.playback_status = QString::from("Stopped");
         rust.actor = Some(tx);
@@ -417,14 +418,18 @@ pub(crate) async fn stop_players_of(bus: &zbus::Connection, app_id: &str, pids: 
         let pid = dbus.get_connection_unix_process_id(bus_name).await.ok();
         if !pid.is_some_and(|p| pids.contains(&p)) {
             let mut player = Player::new(name);
-            let get = bus.call_method(
-                Some(name),
-                PATH,
-                Some(PROPERTIES),
-                "Get",
-                &(ROOT, "DesktopEntry"),
-            );
-            if let Some(Ok(reply)) = io::timeout(Duration::from_secs(2), get).await {
+            let (bus, owned) = (bus.clone(), name.to_owned());
+            let get = async move {
+                bus.call_method(
+                    Some(owned.as_str()),
+                    PATH,
+                    Some(PROPERTIES),
+                    "Get",
+                    &(ROOT, "DesktopEntry"),
+                )
+                .await
+            };
+            if let Some(Ok(reply)) = io::call_within(Duration::from_secs(2), get).await {
                 if let Ok(entry) = reply.body().deserialize::<OwnedValue>() {
                     player.set("DesktopEntry", &entry);
                 }
@@ -433,8 +438,12 @@ pub(crate) async fn stop_players_of(bus: &zbus::Connection, app_id: &str, pids: 
                 continue;
             }
         }
-        let stop = bus.call_method(Some(name), PATH, Some(PLAYER), "Stop", &());
-        if let Some(Err(e)) = io::timeout(Duration::from_secs(2), stop).await {
+        let (bus, owned) = (bus.clone(), name.to_owned());
+        let stop = async move {
+            bus.call_method(Some(owned.as_str()), PATH, Some(PLAYER), "Stop", &())
+                .await
+        };
+        if let Some(Err(e)) = io::call_within(Duration::from_secs(2), stop).await {
             log::warn("mpris", format_args!("{name} Stop: {e}"));
         }
     }
@@ -574,7 +583,7 @@ impl Actor {
 
     /// Reads an interface's properties into the player; false if it didn't answer.
     async fn read(&mut self, interface: &str) -> bool {
-        let reply = self.call(PROPERTIES, "GetAll", &(interface,)).await;
+        let reply = self.call("GetAll", (interface.to_owned(),)).await;
         let Some(props) =
             reply.and_then(|m| m.body().deserialize::<HashMap<String, OwnedValue>>().ok())
         else {
@@ -587,22 +596,24 @@ impl Actor {
     }
 
     async fn read_position(&mut self) {
-        let reply = self.call(PROPERTIES, "Get", &(PLAYER, "Position")).await;
+        let reply = self.call("Get", (PLAYER, "Position")).await;
         if let Some(position) = reply.and_then(|m| m.body().deserialize::<OwnedValue>().ok()) {
             self.player.position = int(&position);
             self.publish();
         }
     }
 
-    async fn call<B>(&self, interface: &str, method: &str, body: &B) -> Option<zbus::Message>
+    async fn call<B>(&self, method: &'static str, body: B) -> Option<zbus::Message>
     where
-        B: serde::Serialize + DynamicType,
+        B: serde::Serialize + DynamicType + Send + Sync + 'static,
     {
         let name = self.player.bus_name.as_str();
-        let call = self
-            .bus
-            .call_method(Some(name), PATH, Some(interface), method, body);
-        match io::timeout(Duration::from_secs(2), call).await {
+        let (bus, owned) = (self.bus.clone(), name.to_owned());
+        let call = async move {
+            bus.call_method(Some(owned.as_str()), PATH, Some(PROPERTIES), method, &body)
+                .await
+        };
+        match io::call_within(Duration::from_secs(2), call).await {
             Some(Ok(reply)) => Some(reply),
             Some(Err(e)) => {
                 log::warn("mpris", format_args!("{name} {method}: {e}"));

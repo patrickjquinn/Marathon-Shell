@@ -4,7 +4,6 @@ use crate::i18n::fl;
 use std::pin::Pin;
 use std::time::Duration;
 
-use async_io::Timer;
 use cxx_qt::{CxxQtThread, CxxQtType, Threading};
 use cxx_qt_lib::{QMap, QMapPair_QString_QVariant, QString};
 use futures_lite::{future, StreamExt};
@@ -94,9 +93,12 @@ pub struct WeatherClientRust {
 impl cxx_qt::Initialize for WeatherClient {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        io::spawn(async move {
-            if let Err(e) = watch(&qt).await {
-                log::warn("weather", e);
+        io::each_session_bus(move |_| {
+            let qt = qt.clone();
+            async move {
+                if let Err(e) = watch(&qt).await {
+                    log::warn("weather", e);
+                }
             }
         });
     }
@@ -182,18 +184,11 @@ impl WeatherClient {
         let qt = self.qt_thread();
         let query = query.to_string();
         io::spawn(async move {
-            let found = future::or(
-                async {
-                    async { weather().await?.search(&query).await }
-                        .await
-                        .map_err(|e| e.to_string())
-                },
-                async {
-                    Timer::after(Duration::from_secs(15)).await;
-                    Err(fl!("weather-timed-out"))
-                },
-            );
-            let found: Result<String, String> = found.await;
+            let search = async move { weather().await?.search(&query).await };
+            let found = match io::call_within(Duration::from_secs(15), search).await {
+                Some(found) => found.map_err(|e| e.to_string()),
+                None => Err(fl!("weather-timed-out")),
+            };
             let (json, error) = match found {
                 Ok(json) => (
                     serde_json::from_str(&json).unwrap_or_default(),

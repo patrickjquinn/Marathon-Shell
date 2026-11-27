@@ -487,7 +487,8 @@ impl Display {
             rust.sensors = Some(tx);
         }
         let (tx, rx) = async_channel::bounded(8);
-        io::spawn(rotation(self.qt_thread(), rx));
+        let qt = self.qt_thread();
+        io::each_system_bus(move |_| rotation(qt.clone(), rx.clone()));
         self.as_mut().rust_mut().accelerometer = Some(tx);
         self.want_sensors();
         let (tx, rx) = async_channel::bounded(8);

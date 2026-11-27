@@ -268,7 +268,10 @@ struct Links {
 impl cxx_qt::Initialize for Network {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(32);
-        io::spawn(run(self.qt_thread(), rx));
+        let qt = self.qt_thread();
+        let (taps, tapped) = async_channel::bounded(8);
+        io::each_session_bus(move |session| follow_taps(session, taps.clone()));
+        io::each_system_bus(move |_| run(qt.clone(), rx.clone(), tapped.clone()));
         self.as_mut().rust_mut().actor = Some(tx);
         let push = |obj: Pin<&mut Self>| ipc::signal("Network", "StateChanged", (state(&obj),));
         self.as_mut().on_wifi_enabled_changed(push).release();
@@ -1088,20 +1091,20 @@ fn deactivation_error(reason: u32) -> String {
 }
 
 /// Taps on notifications; the actor keeps those on its own.
-async fn notice_actions() -> stream::Boxed<Event> {
+async fn follow_taps(session: zbus::Connection, taps: Sender<u32>) {
     let actions = async {
-        NotificationsProxy::new(&io::session_bus().await?)
+        NotificationsProxy::new(&session)
             .await?
             .receive_action_invoked()
             .await
     };
-    match actions.await {
-        Ok(actions) => actions
-            .filter_map(|signal| Some(Event::NoticeAction(signal.args().ok()?.id)))
-            .boxed(),
-        Err(e) => {
-            log::warn("network", format_args!("no notification actions: {e}"));
-            stream::empty().boxed()
+    let mut actions = match actions.await {
+        Ok(actions) => actions,
+        Err(e) => return log::warn("network", format_args!("no notification actions: {e}")),
+    };
+    while let Some(signal) = actions.next().await {
+        if let Ok(args) = signal.args() {
+            taps.try_send(args.id).ok();
         }
     }
 }
@@ -1226,7 +1229,7 @@ struct Actor {
     links_due: bool,
 }
 
-async fn run(qt: Qt, commands: Receiver<Command>) {
+async fn run(qt: Qt, commands: Receiver<Command>, taps: Receiver<u32>) {
     let bus = match io::system_bus().await {
         Ok(bus) => bus,
         Err(e) => return log::warn("network", format_args!("no system bus: {e}")),
@@ -1261,7 +1264,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         .chain(stream::once(Event::Closed))
         .or(actor.nm_events().await)
         .or(actor.signal_events().await)
-        .or(notice_actions().await)
+        .or(taps.map(Event::NoticeAction))
         .or(rescans)
         .or(Timer::interval(Duration::from_secs(30)).map(|_| Event::Rescan))
         .or(Timer::interval(Duration::from_secs(15)).map(|_| Event::PortalRecheck));

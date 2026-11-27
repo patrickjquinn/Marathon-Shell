@@ -910,23 +910,26 @@ impl cxx_qt::Initialize for Settings {
         let qt = self.qt_thread();
         QT.set(qt.clone()).ok();
         ipc::export("Settings", Settings1 { qt: qt.clone() });
-        io::spawn(async move {
-            let Ok(proxy) = timedate().await else { return };
-            let ntp = proxy
-                .receive_ntp_changed()
-                .await
-                .then(|c| async move { c.get().await.ok().map(Timedated::Ntp) });
-            let zone = proxy
-                .receive_timezone_changed()
-                .await
-                .then(|c| async move { c.get().await.ok().map(Timedated::Zone) });
-            let mut changes = std::pin::pin!(ntp.or(zone));
-            if let Ok(on) = proxy.ntp().await {
-                qt.queue(move |obj| obj.timedated(Timedated::Ntp(on))).ok();
-            }
-            while let Some(change) = changes.next().await {
-                if let Some(change) = change {
-                    qt.queue(move |obj| obj.timedated(change)).ok();
+        io::each_system_bus(move |_| {
+            let qt = qt.clone();
+            async move {
+                let Ok(proxy) = timedate().await else { return };
+                let ntp = proxy
+                    .receive_ntp_changed()
+                    .await
+                    .then(|c| async move { c.get().await.ok().map(Timedated::Ntp) });
+                let zone = proxy
+                    .receive_timezone_changed()
+                    .await
+                    .then(|c| async move { c.get().await.ok().map(Timedated::Zone) });
+                let mut changes = std::pin::pin!(ntp.or(zone));
+                if let Ok(on) = proxy.ntp().await {
+                    qt.queue(move |obj| obj.timedated(Timedated::Ntp(on))).ok();
+                }
+                while let Some(change) = changes.next().await {
+                    if let Some(change) = change {
+                        qt.queue(move |obj| obj.timedated(change)).ok();
+                    }
                 }
             }
         });

@@ -253,7 +253,8 @@ impl cxx_qt::Initialize for Modem {
     fn initialize(mut self: Pin<&mut Self>) {
         QT.set(self.qt_thread()).ok();
         let (tx, rx) = async_channel::bounded(16);
-        io::spawn(run(self.qt_thread(), rx));
+        let qt = self.qt_thread();
+        io::each_system_bus(move |_| run(qt.clone(), rx.clone()));
         let mut rust = self.as_mut().rust_mut();
         rust.actor = Some(tx);
         rust.call_state = QString::from("idle");

@@ -311,7 +311,7 @@ impl cxx_qt::Initialize for Power {
         self.as_mut().rust_mut().auto = Auto::load();
         ipc::export("Power", Power1 { qt: qt.clone() });
         watch_power_keys(qt.clone());
-        io::spawn(run(qt, rx));
+        io::each_system_bus(move |_| run(qt.clone(), rx.clone()));
         self.as_mut().rust_mut().actor = Some(tx);
     }
 }
