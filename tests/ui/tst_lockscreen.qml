@@ -82,6 +82,18 @@ TestCase {
         compare(pad.clicks, 0);
     }
 
+    function test_aLiftingLockScreenCanBePushedBack() {
+        lockScreen.swipeProgress = 0.5;
+        mousePress(lockScreen, 360, 400);
+        for (let y = 400; y <= 520; y += 20) {
+            mouseMove(lockScreen, 360, y);
+            wait(16);
+        }
+        mouseRelease(lockScreen, 360, 520);
+        verify(lockScreen.swipeProgress < 0.2, "it followed the finger down");
+        verify(!pad.enabled, "it stayed locked");
+    }
+
     function test_screenTurnedOnWhileOnLeavesTheSessionAlone() {
         SessionStore.showLockScreen = false;
         Display.turnScreenOn();

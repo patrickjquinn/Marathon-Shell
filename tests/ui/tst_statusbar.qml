@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtTest
 import MarathonOS.Shell
 import "../../shell/qml/components"
@@ -7,13 +8,16 @@ TestCase {
     name: "StatusBar"
     when: windowShown
 
-    width: 1032
-    height: 80
-
-    MarathonStatusBar {
-        id: bar
-
+    Window {
         width: 1032
+        height: 80
+        visible: true
+
+        MarathonStatusBar {
+            id: bar
+
+            width: 1032
+        }
     }
 
     function cleanup() {
@@ -39,6 +43,19 @@ TestCase {
         verify(radios.x >= 724, "radios start at " + radios.x);
         verify(battery.x >= radios.x + radios.width, "battery sits right of the radios");
         verify(battery.x + battery.width <= bar.width);
+    }
+
+    function test_noBandWithoutACutout() {
+        verify(!findChild(bar, "cutoutBand").visible);
+    }
+
+    function test_aCutoutSitsInABlackBand() {
+        Constants.displayCutout = Qt.rect(310, 0, 414, 66);
+        const band = findChild(bar, "cutoutBand");
+        verify(band.visible);
+        compare(band.height, bar.height);
+        const image = grabImage(bar);
+        compare(image.pixel(bar.width / 2, bar.height / 2), Qt.color("#000000"));
     }
 
     function test_offCentreCutoutKeepsTheLayout() {

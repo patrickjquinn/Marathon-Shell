@@ -4,7 +4,8 @@ import Sailfish.Silica 1.0 as Silica
 
 // The status area: battery left, clock (or lock glyph) centre,
 // radios right. No background; small regular-weight text.
-// Around a centre camera cutout: clock left, radios then battery right.
+// Around a centre camera cutout: clock left, radios then battery right, on
+// black, which hides the notch.
 Item {
     id: statusBar
 
@@ -66,7 +67,7 @@ Item {
 
     // Each cluster's glyphs go dark over a light backdrop, light over a dark one.
     component Tone: BackdropProbe {
-        property color glyph: light ? Silica.Theme.darkPrimaryColor : Silica.Theme.lightPrimaryColor
+        property color glyph: light && Constants.displayCutout.width === 0 ? Silica.Theme.darkPrimaryColor : Silica.Theme.lightPrimaryColor
 
         height: parent.height
         fallbackLight: Silica.Theme.colorScheme === Silica.Theme.DarkOnLight
@@ -77,6 +78,13 @@ Item {
                 easing.type: MMotion.easingFor("hover")
             }
         }
+    }
+
+    Rectangle {
+        objectName: "cutoutBand"
+        anchors.fill: parent
+        color: MColors.cutoutBand
+        visible: Constants.displayCutout.width > 0
     }
 
     Tone {

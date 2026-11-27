@@ -12,6 +12,9 @@ Item {
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
     property bool showPinScreen: false
+    // Whether unlocking skips the PIN. The grace after locking is a clock,
+    // not a property, so it is read again on locking, waking and swiping.
+    property bool sessionOpen: false
     property bool isTransitioningToActiveFrames: false
     // The lock and PIN screens paint their own full-screen backdrop. While
     // one of them is at rest, the shell wallpaper below is never seen but
@@ -716,20 +719,21 @@ Item {
             StateChangeScript {
                 script: {
                     lockScreen.swipeProgress = 0;
+                    shell.sessionOpen = SessionStore.checkSession();
                 }
             }
 
             // With a PIN to enter, the pad fades in as the lock screen lifts.
             PropertyChanges {
-                pinScreen.visible: !SessionStore.checkSession()
+                pinScreen.visible: !shell.sessionOpen
                 pinScreen.enabled: false
-                pinScreen.opacity: SessionStore.checkSession() ? 0 : Math.pow(lockScreen.swipeProgress, 0.7)
+                pinScreen.opacity: shell.sessionOpen ? 0 : Math.pow(lockScreen.swipeProgress, 0.7)
             }
 
             PropertyChanges {
-                mainContent.visible: SessionStore.checkSession()
+                mainContent.visible: shell.sessionOpen
                 mainContent.enabled: false
-                mainContent.opacity: SessionStore.checkSession() ? Math.pow(lockScreen.swipeProgress, 0.7) : 0
+                mainContent.opacity: shell.sessionOpen ? Math.pow(lockScreen.swipeProgress, 0.7) : 0
                 // Home rises into place under the lifting lock screen.
                 mainContent.scale: 0.94 + 0.06 * lockScreen.swipeProgress
             }
@@ -739,8 +743,13 @@ Item {
             }
 
             // Only Quick Settings over the lock screen: the bar closes it.
+            // The swipe brings it in with the home screen or the PIN pad,
+            // still to the touch until the swipe is done.
             PropertyChanges {
-                navBar.visible: UIStore.quickSettingsHeight > 0
+                navBar.visible: UIStore.quickSettingsHeight > 0 || lockScreen.swipeProgress > 0
+                navBar.opacity: UIStore.quickSettingsHeight > 0 ? 1 : Math.pow(lockScreen.swipeProgress, 0.7)
+                navBar.enabled: UIStore.quickSettingsHeight > 0
+                navBar.pinScreenMode: lockScreen.swipeProgress > 0 && !shell.sessionOpen
             }
         },
         State {
@@ -867,7 +876,7 @@ Item {
                         easing.type: Easing.OutCubic
                     }
                     NumberAnimation {
-                        target: mainContent
+                        targets: [mainContent, navBar]
                         properties: "opacity,scale"
                         duration: MMotion.reduceMotion || lockScreen.swipeProgress >= 1 ? 0 : MMotion.moderate
                         easing.type: Easing.OutCubic
@@ -912,13 +921,31 @@ Item {
             from: "pinEntry"
             to: "home"
 
+            // Home rises under the fading pad, as it does under the swipe.
             SequentialAnimation {
-                NumberAnimation {
-                    target: pinScreen
-                    property: "opacity"
-                    to: 0
-                    duration: MMotion.ms(Constants.animationNormal)
-                    easing.type: Easing.OutCubic
+                ParallelAnimation {
+                    NumberAnimation {
+                        target: pinScreen
+                        property: "opacity"
+                        to: 0
+                        duration: MMotion.ms(MMotion.moderate)
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: mainContent
+                        property: "opacity"
+                        from: 0
+                        duration: MMotion.ms(MMotion.moderate)
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: mainContent
+                        property: "scale"
+                        from: 0.94
+                        to: 1
+                        duration: MMotion.ms(MMotion.moderate)
+                        easing.type: Easing.OutCubic
+                    }
                 }
 
                 PropertyAction {
@@ -1372,6 +1399,24 @@ Item {
         target: SessionStore
     }
 
+    Connections {
+        function onSwipeProgressChanged() {
+            if (shell.state === "locked")
+                shell.sessionOpen = SessionStore.checkSession();
+        }
+
+        target: lockScreen
+    }
+
+    Connections {
+        function onScreenOnChanged() {
+            if (Display.screenOn && shell.state === "locked")
+                shell.sessionOpen = SessionStore.checkSession();
+        }
+
+        target: Display
+    }
+
     Comp.ShellInitialization {
         id: shellInitialization
     }
@@ -1684,7 +1729,7 @@ Item {
         anchors.bottom: parent.bottom
         z: PermissionManager.promptActive ? permissionDialog.z + 1 : Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
-        shadeOnly: SessionStore.isLocked && shell.state !== "pinEntry"
+        shadeOnly: SessionStore.isLocked && shell.state !== "pinEntry" && lockScreen.swipeProgress === 0
         keyboardVisible: virtualKeyboard.active
         searchActive: UIStore.searchOpen
         pilotEnabled: PilotClient.available && SettingsManagerCpp.firstRunComplete && !SessionStore.isLocked && !navBar.pinScreenMode && !virtualKeyboard.active && !UIStore.quickSettingsOpen && !UIStore.searchOpen
@@ -2493,9 +2538,10 @@ Item {
         z: Constants.zIndexPinScreen
         onPinCorrect: {
             Logger.state("Shell", "pinEntry", "unlocked");
+            // Unlocked first: the pad goes straight to home, not back through the lock screen.
+            SessionStore.unlock();
             shell.showPinScreen = false;
             pinScreen.reset();
-            SessionStore.unlock();
             if (shell.pendingLaunch) {
                 Logger.info("Shell", "Executing pending launch: " + shell.pendingLaunch.appName);
                 UIStore.openApp(shell.pendingLaunch.appId, shell.pendingLaunch.appName, "");

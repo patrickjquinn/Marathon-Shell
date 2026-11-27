@@ -19,8 +19,6 @@ Item {
     property real searchPullProgress: 0
     property bool searchGestureActive: false
     property var compositor: null
-    // Re-read when the date string turns over at midnight.
-    readonly property date today: SystemStatusStore.dateString ? new Date() : new Date()
 
     signal closed
 
@@ -118,72 +116,14 @@ Item {
         }
     }
 
-    // The time and the date take the tone of their own backdrops, as on the lock screen.
-    WallpaperTone {
-        id: clockTone
-
-        objectName: "emptyClockTone"
-        x: emptyClock.x
-        y: emptyClock.y - emptyClock.spacing
-        width: emptyClock.width
-        height: emptyTime.height + Math.round(1.5 * emptyClock.spacing)
-        visible: emptyClock.visible
-    }
-
-    WallpaperTone {
-        id: dateTone
-
-        objectName: "emptyDateTone"
-        x: emptyClock.x
-        y: emptyClock.y + emptyTime.height + Math.round(emptyClock.spacing / 2)
-        width: emptyClock.width
-        height: emptyClock.height - emptyTime.height + Math.round(emptyClock.spacing / 2)
-        visible: emptyClock.visible
-    }
-
     // No open apps: the lock screen's clock, in the same place.
-    Column {
-        id: emptyClock
-
+    LockClock {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        // Matches MarathonLockScreen's clockColumn, compact rule included.
-        anchors.topMargin: (Constants.isSquareScreen || Constants.screenHeight < 800 ? Math.round(Constants.screenHeight * 0.14) : Math.round(190 * Constants.scaleFactor)) - Constants.statusBarHeight
+        anchors.topMargin: screenY - Constants.statusBarHeight
         width: parent.width * 0.9
-        spacing: Constants.spacingSmall
         visible: Tasks.taskCount === 0
         z: 1
-
-        Silica.Label {
-            id: emptyTime
-
-            width: parent.width
-            text: SystemStatusStore.timeString
-            horizontalAlignment: Text.AlignHCenter
-            fontSizeMode: Text.HorizontalFit
-            font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * 1.9)
-            font.weight: Font.ExtraLight
-            color: clockTone.glyph
-            style: Text.Outline
-            styleColor: clockTone.halo
-        }
-        Silica.Label {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: Qt.formatDate(taskSwitcher.today, "dddd")
-            font.pixelSize: Silica.Theme.fontSizeLarge
-            color: dateTone.glyph
-            style: Text.Outline
-            styleColor: dateTone.halo
-        }
-        Silica.Label {
-            anchors.horizontalCenter: parent.horizontalCenter
-            //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the task switcher date, e.g. 26 October
-            text: Qt.formatDate(taskSwitcher.today, qsTr("d MMMM"))
-            font.pixelSize: Silica.Theme.fontSizeLarge
-            color: dateTone.glyph
-            style: Text.Outline
-            styleColor: dateTone.halo
-        }
     }
 
     Connections {
