@@ -743,8 +743,13 @@ Item {
             }
 
             // Only Quick Settings over the lock screen: the bar closes it.
+            // The swipe brings it in with the home screen or the PIN pad,
+            // still to the touch until the swipe is done.
             PropertyChanges {
-                navBar.visible: UIStore.quickSettingsHeight > 0
+                navBar.visible: UIStore.quickSettingsHeight > 0 || lockScreen.swipeProgress > 0
+                navBar.opacity: UIStore.quickSettingsHeight > 0 ? 1 : Math.pow(lockScreen.swipeProgress, 0.7)
+                navBar.enabled: UIStore.quickSettingsHeight > 0
+                navBar.pinScreenMode: lockScreen.swipeProgress > 0 && !shell.sessionOpen
             }
         },
         State {
@@ -871,7 +876,7 @@ Item {
                         easing.type: Easing.OutCubic
                     }
                     NumberAnimation {
-                        target: mainContent
+                        targets: [mainContent, navBar]
                         properties: "opacity,scale"
                         duration: MMotion.reduceMotion || lockScreen.swipeProgress >= 1 ? 0 : MMotion.moderate
                         easing.type: Easing.OutCubic
@@ -1724,7 +1729,7 @@ Item {
         anchors.bottom: parent.bottom
         z: PermissionManager.promptActive ? permissionDialog.z + 1 : Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
-        shadeOnly: SessionStore.isLocked && shell.state !== "pinEntry"
+        shadeOnly: SessionStore.isLocked && shell.state !== "pinEntry" && lockScreen.swipeProgress === 0
         keyboardVisible: virtualKeyboard.active
         searchActive: UIStore.searchOpen
         pilotEnabled: PilotClient.available && SettingsManagerCpp.firstRunComplete && !SessionStore.isLocked && !navBar.pinScreenMode && !virtualKeyboard.active && !UIStore.quickSettingsOpen && !UIStore.searchOpen
