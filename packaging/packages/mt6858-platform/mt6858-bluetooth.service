@@ -1,8 +1,8 @@
 [Unit]
 Description=MT6858 Bluetooth (bt_drv over conninfra) and its factory address
 Wants=mt6858-connsys-nvram.service
-After=mt6858-connsys-nvram.service systemd-modules-load.service
-Before=bluetooth.service
+# bluetoothd takes hci0 once the address configures it.
+After=multi-user.target mt6858-connsys-nvram.service
 
 [Service]
 Type=oneshot
