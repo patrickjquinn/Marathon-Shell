@@ -5,6 +5,24 @@ import "../SettingsLogic.js" as Logic
 TestCase {
     name: "SettingsLogic"
 
+    function test_pageRow() {
+        compare(Logic.pageRow("scale"), "scale");
+        compare(Logic.pageRow("/screentimeout"), "timeout");
+        compare(Logic.pageRow("display"), "");
+        compare(Logic.pageRow("wifi"), "");
+    }
+
+    function test_privacySwitch() {
+        compare(Logic.privacySwitchCovers("silent"), []);
+        compare(Logic.privacySwitchCovers("location,microphone"), ["microphone", "location"]);
+        compare(Logic.privacySwitchToggled("microphone,camera,location", "camera"), "microphone,location");
+        compare(Logic.privacySwitchToggled("location", "microphone"), "microphone,location");
+        compare(Logic.privacySwitchToggled("microphone", "microphone"), "");
+        compare(Logic.privacySwitchSummary("microphone,camera"), "Microphones · Cameras");
+        compare(Logic.privacySwitchSummary(""), "Cuts nothing");
+        compare(Logic.privacySwitchSummary("silent"), "Silent switch");
+    }
+
     function test_pageFile() {
         compare(Logic.pageFile("wifi"), "WiFiPage.qml");
         compare(Logic.pageFile("/about"), "AboutPage.qml");
@@ -173,5 +191,15 @@ TestCase {
         compare(Logic.nearestIndex(factors, 1), 2);
         compare(Logic.nearestIndex(factors, 1.0999), 3);
         compare(Logic.nearestIndex(factors, 3), factors.length - 1);
+    }
+
+    function test_scaleDescriptionNamesTheDevicesDefault() {
+        const at = f => Logic.scales.find(s => s.factor === f);
+        compare(Logic.scaleDescription(at(1), 1), "Default");
+        compare(Logic.scaleDescription(at(1.25), 1), "Large");
+        compare(Logic.scaleDescription(at(1.25), 1.25), "Default");
+        compare(Logic.scaleDescription(at(1), 1.25), "Medium");
+        // A Repeater's modelData is a copy of the entry, not the entry.
+        compare(Logic.scaleDescription(Object.assign({}, at(1)), 1), "Default");
     }
 }

@@ -1,0 +1,55 @@
+From f7b34bab743e96882c86d530de94f0bd4e902595 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:37:55 +0000
+Subject: [PATCH 189/214] arm64: dts: mediatek: mt6858: Add the memory-mapped
+ timer
+
+The CPU idle states power the cores down, and the architected timer
+stops with them. Without a timer outside the cores, the kernel falls
+back to the hrtimer broadcast, which keeps one CPU out of the deep
+states to wake the others.
+
+Describe the always-on memory-mapped timer at 0x1c033000 as the stock
+device tree does. On the phone, its CNTACR grants frame 0 full access
+(0x3f), and both of its timers are masked and unused. Its CNTFRQ reads
+1 GHz, but the counter runs at 13 MHz, as the architected timer's does,
+so give the rate explicitly.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 464d2c38d..da5fffce5 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -948,6 +948,27 @@ mt6369: pmic@5 {
+ 				};
+ 			};
+ 		};
++
++		/*
++		 * The always-on memory-mapped timer, to wake CPUs whose
++		 * architected timer stops in idle. Its CNTFRQ reads 1 GHz;
++		 * the counter runs at 13 MHz.
++		 */
++		timer@1c033000 {
++			compatible = "arm,armv7-timer-mem";
++			reg = <0 0x1c033000 0 0x1000>;
++			#address-cells = <2>;
++			#size-cells = <2>;
++			ranges;
++			clock-frequency = <13000000>;
++
++			frame@1c034000 {
++				frame-number = <0>;
++				interrupts = <GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH 0>,
++					     <GIC_SPI 586 IRQ_TYPE_LEVEL_HIGH 0>;
++				reg = <0 0x1c034000 0 0x1000>;
++			};
++		};
+ 	};
+ 
+ 	timer {
+-- 
+2.55.0
+

@@ -1,0 +1,27 @@
+From 026aa31597138687c7ce5f9b8f0faff72ad51050 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 00:11:51 +0000
+Subject: [PATCH 211/214] arm64: configs: mt6858: Build in the LVTS thermal
+ driver
+
+defconfig builds MTK_THERMAL, and with it the LVTS driver, as modules.
+Build both in, so that the SoC's thermal zones protect it from the
+start of boot.
+---
+ arch/arm64/configs/mt6858.config | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 2051aa671..240170932 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -92,3 +92,6 @@ CONFIG_ZRAM_BACKEND_LZ4=y
+ CONFIG_ZRAM_BACKEND_ZSTD=y
+ # The MT6685 RTC, so the clock is right from boot.
+ CONFIG_RTC_DRV_MT6397=y
++# SoC temperatures from the LVTS sensors, for thermal throttling.
++CONFIG_MTK_THERMAL=y
++CONFIG_MTK_LVTS_THERMAL=y
+-- 
+2.55.0
+

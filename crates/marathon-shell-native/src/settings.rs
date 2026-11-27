@@ -47,6 +47,13 @@ pub mod qobject {
     extern "RustQt" {
         #[qobject]
         #[qproperty(f64, user_scale_factor, cxx_name = "userScaleFactor", READ, WRITE = set_user_scale_factor, NOTIFY)]
+        #[qproperty(
+            f64,
+            default_user_scale_factor,
+            cxx_name = "defaultUserScaleFactor",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(QString, wallpaper_path, cxx_name = "wallpaperPath", READ, WRITE = set_wallpaper_path, NOTIFY)]
         #[qproperty(QString, device_name, cxx_name = "deviceName", READ, WRITE = set_device_name, NOTIFY)]
         #[qproperty(bool, auto_lock, cxx_name = "autoLock", READ, WRITE = set_auto_lock, NOTIFY)]
@@ -95,6 +102,7 @@ pub mod qobject {
         #[qproperty(QString, app_sort_order, cxx_name = "appSortOrder", READ, WRITE = set_app_sort_order, NOTIFY)]
         #[qproperty(QString, assist_key_press, cxx_name = "assistKeyPress", READ, WRITE = set_assist_key_press, NOTIFY)]
         #[qproperty(QString, assist_key_hold, cxx_name = "assistKeyHold", READ, WRITE = set_assist_key_hold, NOTIFY)]
+        #[qproperty(QString, privacy_switch, cxx_name = "privacySwitch", READ, WRITE = set_privacy_switch, NOTIFY)]
         #[qproperty(QString, trackpad_mode, cxx_name = "trackpadMode", READ, WRITE = set_trackpad_mode, NOTIFY)]
         #[qproperty(i32, app_grid_columns, cxx_name = "appGridColumns", READ, WRITE = set_app_grid_columns, NOTIFY)]
         #[qproperty(bool, search_native_apps, cxx_name = "searchNativeApps", READ, WRITE = set_search_native_apps, NOTIFY)]
@@ -203,6 +211,8 @@ pub mod qobject {
         fn set_assist_key_press(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setAssistKeyHold"]
         fn set_assist_key_hold(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setPrivacySwitch"]
+        fn set_privacy_switch(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setTrackpadMode"]
         fn set_trackpad_mode(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setAppGridColumns"]
@@ -250,8 +260,8 @@ pub mod qobject {
         #[cxx_name = "setUnthemedApps"]
         fn set_unthemed_apps(self: Pin<&mut Settings>, value: &QStringList);
 
-        /// Reads the file; `screen_timeout` is the device's default.
-        fn load(self: Pin<&mut Settings>, screen_timeout: i32);
+        /// Reads the file; `screen_timeout` and `user_scale` are the device's defaults.
+        fn load(self: Pin<&mut Settings>, screen_timeout: i32, user_scale: f64);
         /// Any key: an app's own `<appId>/...` or one of the shell's.
         #[qinvokable]
         fn get(self: &Settings, key: &QString, default_value: &QVariant) -> QVariant;
@@ -490,6 +500,7 @@ macro_rules! properties {
 
 properties! {
     user_scale_factor: f64 = 1.0, "ui/userScaleFactor", "userScaleFactor", user_scale_factor_changed, on_user_scale_factor_changed, set_user_scale_factor(f64) custom;
+    default_user_scale_factor: f64 = 1.0, "", "defaultUserScaleFactor", default_user_scale_factor_changed, on_default_user_scale_factor_changed, set_default_user_scale_factor(f64) custom;
     wallpaper_path: QString = QString::from(&asset_url("wallpapers/carbon.svg")), "ui/wallpaperPath", "wallpaperPath", wallpaper_path_changed, on_wallpaper_path_changed, set_wallpaper_path(&QString);
     device_name: QString = QString::from(&model_name()), "system/deviceName", "deviceName", device_name_changed, on_device_name_changed, set_device_name(&QString) custom;
     auto_lock: bool = true, "system/autoLock", "autoLock", auto_lock_changed, on_auto_lock_changed, set_auto_lock(bool);
@@ -529,6 +540,8 @@ properties! {
     // The key between the volume keys: "camera", "pilot", "pilot-voice" or "none".
     assist_key_press: QString = QString::from("camera"), "keys/assistPress", "assistKeyPress", assist_key_press_changed, on_assist_key_press_changed, set_assist_key_press(&QString);
     assist_key_hold: QString = QString::from("pilot-voice"), "keys/assistHold", "assistKeyHold", assist_key_hold_changed, on_assist_key_hold_changed, set_assist_key_hold(&QString);
+    // The privacy switch: "silent", else what it cuts, of "microphone,camera,location".
+    privacy_switch: QString = QString::from("microphone,camera,location"), "keys/privacySwitch", "privacySwitch", privacy_switch_changed, on_privacy_switch_changed, set_privacy_switch(&QString);
     // The keyboard's trackpad: "gesture" (scroll, caret, Enter) or "mouse" (pointer).
     trackpad_mode: QString = QString::from("gesture"), "keys/trackpadMode", "trackpadMode", trackpad_mode_changed, on_trackpad_mode_changed, set_trackpad_mode(&QString);
     app_grid_columns: i32 = 0, "apps/gridColumns", "appGridColumns", app_grid_columns_changed, on_app_grid_columns_changed, set_app_grid_columns(i32);
@@ -902,23 +915,26 @@ impl cxx_qt::Initialize for Settings {
         let qt = self.qt_thread();
         QT.set(qt.clone()).ok();
         ipc::export("Settings", Settings1 { qt: qt.clone() });
-        io::spawn(async move {
-            let Ok(proxy) = timedate().await else { return };
-            let ntp = proxy
-                .receive_ntp_changed()
-                .await
-                .then(|c| async move { c.get().await.ok().map(Timedated::Ntp) });
-            let zone = proxy
-                .receive_timezone_changed()
-                .await
-                .then(|c| async move { c.get().await.ok().map(Timedated::Zone) });
-            let mut changes = std::pin::pin!(ntp.or(zone));
-            if let Ok(on) = proxy.ntp().await {
-                qt.queue(move |obj| obj.timedated(Timedated::Ntp(on))).ok();
-            }
-            while let Some(change) = changes.next().await {
-                if let Some(change) = change {
-                    qt.queue(move |obj| obj.timedated(change)).ok();
+        io::each_system_bus(move |_| {
+            let qt = qt.clone();
+            async move {
+                let Ok(proxy) = timedate().await else { return };
+                let ntp = proxy
+                    .receive_ntp_changed()
+                    .await
+                    .then(|c| async move { c.get().await.ok().map(Timedated::Ntp) });
+                let zone = proxy
+                    .receive_timezone_changed()
+                    .await
+                    .then(|c| async move { c.get().await.ok().map(Timedated::Zone) });
+                let mut changes = std::pin::pin!(ntp.or(zone));
+                if let Ok(on) = proxy.ntp().await {
+                    qt.queue(move |obj| obj.timedated(Timedated::Ntp(on))).ok();
+                }
+                while let Some(change) = changes.next().await {
+                    if let Some(change) = change {
+                        qt.queue(move |obj| obj.timedated(change)).ok();
+                    }
                 }
             }
         });
@@ -954,6 +970,10 @@ impl Settings {
             self.as_mut().user_scale_factor_changed();
         }
     }
+
+    /// The device profile's, set at load: Settings1 cannot change it.
+    #[allow(clippy::unused_self, reason = "the property setter takes the object")]
+    fn set_default_user_scale_factor(self: Pin<&mut Self>, _value: f64) {}
 
     fn set_status_bar_clock_position(mut self: Pin<&mut Self>, value: &QString) {
         if ["left", "center", "right"].contains(&value.to_string().as_str()) {
@@ -1032,12 +1052,14 @@ impl Settings {
         }
     }
 
-    fn load(mut self: Pin<&mut Self>, screen_timeout: i32) {
+    fn load(mut self: Pin<&mut Self>, screen_timeout: i32, user_scale: f64) {
         let mut ini = fs::read_to_string(file()).map_or_default(|t| Ini::parse(&t));
         let migrated = migrate(&mut ini);
         let mut rust = self.as_mut().rust_mut();
         rust.ini = ini;
         rust.screen_timeout = screen_timeout;
+        rust.user_scale_factor = user_scale;
+        rust.default_user_scale_factor = user_scale;
         rust.dirty = migrated;
         self.as_mut().read_properties();
         self.as_mut().resolve_units();
@@ -1358,6 +1380,7 @@ const DEFAULT_APPS: [(&str, &str, &str); 9] = [
     ("files", "apps/defaultFiles", ""),
 ];
 
+#[derive(Clone)]
 struct Settings1 {
     qt: Qt,
 }
@@ -1550,7 +1573,9 @@ impl Settings1 {
 
 #[cfg(test)]
 mod tests {
-    use super::{migrate, nightshade_due, sound_name, within, Field, Ini, SettingsRust, Value};
+    use super::{
+        migrate, nightshade_due, sound_name, state, within, Field, Ini, SettingsRust, Value,
+    };
     use cxx_qt_lib::QString;
 
     #[test]
@@ -1590,6 +1615,16 @@ mod tests {
         assert!(!within(60, 5 * 60, 23 * 60));
         assert!(!within(8 * 60, 8 * 60, 8 * 60));
         assert!(within(-120, 25 * 60, 23 * 60), "out-of-range minutes wrap");
+    }
+
+    #[test]
+    fn apps_read_the_device_default_size() {
+        let mut rust = SettingsRust::default();
+        rust.default_user_scale_factor = 1.25;
+        let shown = state(&rust)
+            .remove("defaultUserScaleFactor")
+            .map(|v| Value::from_dbus(&v));
+        assert_eq!(shown.as_ref().and_then(Value::as_f64), Some(1.25));
     }
 
     #[test]

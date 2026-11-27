@@ -1,0 +1,19 @@
+#!/bin/sh
+# Keep the splash on screen until the shell has the display open, then let
+# Plymouth go: the shell draws into simpledrm's fbdev, or on the GPU into
+# simpledrm's KMS device, which shows once Plymouth no longer holds the
+# card.
+card=$(readlink -f /dev/dri/jp2601-display 2> /dev/null)
+i=0
+while [ $i -lt 150 ]; do
+	for pid in $(pgrep marathon-shell); do
+		for fd in /proc/"$pid"/fd/*; do
+			case "$(readlink "$fd" 2> /dev/null)" in /dev/fb0|"${card:-/dev/fb0}") break 3 ;; esac
+		done
+	done
+	sleep 0.1
+	i=$((i + 1))
+done
+# Nothing to hand over when Plymouth has already gone.
+/usr/bin/plymouth --ping || exit 0
+exec /usr/bin/plymouth quit

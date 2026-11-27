@@ -54,6 +54,12 @@ Item {
     readonly property real swipeTravel: height * 0.15
     // Short/square screens (HackberryPi, Q25) place by height, not design px.
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
+    // A tall phone: the same layout, spaced out and larger.
+    readonly property bool tallLayout: !compactLayout && Constants.isTallScreen
+    readonly property real dateSize: tallLayout ? Silica.Theme.fontSizeExtraLarge : Silica.Theme.fontSizeLarge
+    readonly property real noteTitleSize: tallLayout ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeSmall
+    readonly property real noteTextSize: tallLayout ? Silica.Theme.fontSizeSmall : Silica.Theme.fontSizeExtraSmall
+    readonly property real quickButtonSize: tallLayout ? Silica.Theme.itemSizeLarge : Silica.Theme.itemSizeSmall
     // Honour Settings → Display & Brightness → Screen Timeout for the
     // lock screen too. SettingsManager.screenTimeout==0 means "Never"
     // (handled below in idleTimer.running). Falls back to the previous
@@ -297,7 +303,7 @@ Item {
 
             anchors.fill: parent
             visible: !MColors.eink
-            source: SettingsManagerCpp.wallpaperPath
+            source: MColors.wallpaper(SettingsManagerCpp.wallpaperPath)
             // The home screen's size too, so both share one decoded image.
             sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
@@ -515,7 +521,7 @@ Item {
                 // Where the clock sits: lower with nothing below it.
                 Item {
                     width: 1
-                    height: Math.max(0, (lockScreen.compactLayout ? Math.round(lockScreen.height * (clockColumn.mediaActive || unreadModel.count > 0 ? 0.04 : 0.14)) : Math.round((clockColumn.mediaActive ? 170 : 190) * Constants.scaleFactor)) - statusBar.height - lockStack.spacing)
+                    height: Math.max(0, (lockScreen.compactLayout ? Math.round(lockScreen.height * (clockColumn.mediaActive || unreadModel.count > 0 ? 0.04 : 0.14)) : lockScreen.tallLayout ? Math.round(lockScreen.height * (clockColumn.mediaActive || unreadModel.count > 0 ? 0.06 : 0.1)) : Math.round((clockColumn.mediaActive ? 170 : 190) * Constants.scaleFactor)) - statusBar.height - lockStack.spacing)
 
                     Behavior on height {
                         NumberAnimation {
@@ -553,7 +559,7 @@ Item {
                     Silica.Label {
                         id: lockClock
 
-                        readonly property int clockSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
+                        readonly property int clockSize: Math.round(Silica.Theme.fontSizeHuge * (lockScreen.tallLayout ? (clockColumn.mediaActive ? 2.6 : 3.2) : (clockColumn.mediaActive ? 1.6 : 1.9)))
 
                         objectName: "lockClock"
                         text: SystemStatusStore.timeString
@@ -586,7 +592,7 @@ Item {
                             //: Weekday and date on one line on the lock screen, e.g. Monday, 26 October
                             text: clockColumn.mediaActive ? qsTr("%1, %2").arg(Qt.formatDate(clockColumn.today, "dddd")).arg(date) : Qt.formatDate(clockColumn.today, "dddd")
                             anchors.verticalCenter: parent.verticalCenter
-                            font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                            font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : lockScreen.dateSize
                             color: dateTone.glyph
                             style: Text.Outline
                             styleColor: dateTone.halo
@@ -595,7 +601,7 @@ Item {
                             objectName: "lockWeather"
                             glyph: dateTone.glyph
                             halo: dateTone.halo
-                            pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
+                            pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : lockScreen.dateSize
                             visible: current !== null
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -605,7 +611,7 @@ Item {
                         visible: !clockColumn.mediaActive
                         text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
                         anchors.horizontalCenter: parent.horizontalCenter
-                        font.pixelSize: Silica.Theme.fontSizeLarge
+                        font.pixelSize: lockScreen.dateSize
                         color: dateTone.glyph
                         style: Text.Outline
                         styleColor: dateTone.halo
@@ -632,7 +638,7 @@ Item {
 
                     x: Silica.Theme.horizontalPageMargin
                     width: parent.width - 2 * x
-                    spacing: Silica.Theme.paddingMedium
+                    spacing: lockScreen.tallLayout ? Silica.Theme.paddingLarge : Silica.Theme.paddingMedium
                     visible: unreadModel.count > 0
 
                     Repeater {
@@ -741,7 +747,7 @@ Item {
 
                                     Rectangle {
                                         id: notifIcon
-                                        width: Silica.Theme.iconSizeMedium
+                                        width: lockScreen.tallLayout ? Silica.Theme.iconSizeLarge : Silica.Theme.iconSizeMedium
                                         height: width
                                         radius: width / 2
                                         color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.16)
@@ -749,7 +755,7 @@ Item {
                                         NotificationIcon {
                                             anchors.centerIn: parent
                                             source: notifCard.icon
-                                            size: hasImage ? notifIcon.width : Silica.Theme.iconSizeExtraSmall
+                                            size: hasImage ? notifIcon.width : lockScreen.tallLayout ? Silica.Theme.iconSizeSmall : Silica.Theme.iconSizeExtraSmall
                                             color: Silica.Theme.highlightColor
                                         }
                                     }
@@ -769,7 +775,7 @@ Item {
                                                 anchors.rightMargin: Silica.Theme.paddingMedium
                                                 text: notifCard.title
                                                 color: Silica.Theme.primaryColor
-                                                font.pixelSize: Silica.Theme.fontSizeSmall
+                                                font.pixelSize: lockScreen.noteTitleSize
                                                 font.weight: Font.DemiBold
                                                 truncationMode: Silica.TruncationMode.Fade
                                             }
@@ -779,7 +785,7 @@ Item {
                                                 anchors.verticalCenter: nameText.verticalCenter
                                                 text: lockScreen.relativeTime(notifCard.timestamp)
                                                 color: Silica.Theme.secondaryColor
-                                                font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                                font.pixelSize: lockScreen.noteTextSize
                                                 font.features: ({
                                                         "tnum": 1
                                                     })
@@ -790,7 +796,7 @@ Item {
                                             width: parent.width
                                             text: notifCard.body
                                             color: Silica.Theme.secondaryColor
-                                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                            font.pixelSize: lockScreen.noteTextSize
                                             elide: Text.ElideRight
                                             maximumLineCount: 2
                                             wrapMode: Text.WordWrap
@@ -801,7 +807,7 @@ Item {
                                             //: Notifications beneath the top one in an app's stack
                                             text: qsTr("%n more", "", notifCard.stackSize - 1)
                                             color: Silica.Theme.highlightColor
-                                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                                            font.pixelSize: lockScreen.noteTextSize
                                             visible: notifCard.stacked
                                         }
                                     }
@@ -905,17 +911,17 @@ Item {
             anchors.bottom: parent.bottom
             anchors.leftMargin: Silica.Theme.horizontalPageMargin
             anchors.rightMargin: Silica.Theme.horizontalPageMargin
-            anchors.bottomMargin: Silica.Theme.paddingLarge
-            height: Silica.Theme.itemSizeSmall
+            anchors.bottomMargin: lockScreen.tallLayout ? Silica.Theme.paddingLarge * 2 : Silica.Theme.paddingLarge
+            height: lockScreen.quickButtonSize
             z: 10
 
             MCircularIconButton {
-                width: Silica.Theme.itemSizeSmall
+                width: lockScreen.quickButtonSize
                 height: width
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: "phone"
-                iconSize: Silica.Theme.iconSizeSmall
+                iconSize: lockScreen.tallLayout ? Silica.Theme.iconSizeMedium : Silica.Theme.iconSizeSmall
                 variant: "secondary"
                 a11yName: qsTr("Phone")
                 onClicked: {
@@ -925,12 +931,12 @@ Item {
             }
 
             MCircularIconButton {
-                width: Silica.Theme.itemSizeSmall
+                width: lockScreen.quickButtonSize
                 height: width
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: "camera"
-                iconSize: Silica.Theme.iconSizeSmall
+                iconSize: lockScreen.tallLayout ? Silica.Theme.iconSizeMedium : Silica.Theme.iconSizeSmall
                 variant: "secondary"
                 a11yName: qsTr("Camera")
                 onClicked: {
@@ -958,7 +964,7 @@ Item {
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: Silica.Theme.paddingLarge
+            anchors.bottomMargin: lockScreen.tallLayout ? Silica.Theme.paddingLarge * 2 + (lockScreen.quickButtonSize - height) / 2 : Silica.Theme.paddingLarge
             spacing: Silica.Theme.paddingSmall
             z: 11
             transform: Translate {
@@ -968,7 +974,7 @@ Item {
             GlyphIcon {
                 objectName: "unlockGlyph"
                 name: lockScreen.fingerprintReady ? "fingerprint" : "chevron-up"
-                size: Silica.Theme.iconSizeSmall
+                size: lockScreen.tallLayout ? Silica.Theme.iconSizeMedium : Silica.Theme.iconSizeSmall
                 color: lockScreen.fingerprintMissed ? Silica.Theme.errorColor : hintTone.glyph
                 anchors.horizontalCenter: parent.horizontalCenter
 
@@ -1000,7 +1006,7 @@ Item {
                 color: hintTone.glyph
                 style: Text.Outline
                 styleColor: hintTone.halo
-                font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                font.pixelSize: lockScreen.tallLayout ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeExtraSmall
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }

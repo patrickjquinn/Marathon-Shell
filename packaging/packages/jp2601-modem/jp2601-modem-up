@@ -1,0 +1,28 @@
+#!/bin/sh
+# jp2601-modem-up stack|wait|status  -- JP2601 MD1 stages for the units.
+#   stack   load the ECCCI modules (mt6858-modem-modules); LK has loaded MD1
+#   wait    wait for md1:4 (READY)
+#   status  read-only summary
+set -eu
+log() { printf '[jp2601-modem] %s\n' "$*"; }
+case "${1:-status}" in
+stack)
+	modprobe -a ccci_util_lib ccmni ccci_auxadc ccci_md_all ccci_ccif ccci_dpmaif
+	cat /sys/kernel/ccci/lk_md /sys/kernel/ccci/boot 2>/dev/null || true
+	;;
+wait)
+	for _ in $(seq 480); do
+		grep -q "md1:4" /sys/kernel/ccci/boot 2>/dev/null && { log "md1:4 (READY)"; exit 0; }
+		sleep 0.5
+	done
+	log "no md1:4; boot=$(cat /sys/kernel/ccci/boot 2>/dev/null)"; exit 1
+	;;
+status)
+	cat /sys/kernel/ccci/boot 2>/dev/null || true
+	for u in jp2601-ccci-rpcd jp2601-ccci-fsd jp2601-ccci-mdinit jp2601-modem-init; do
+		printf '%s %s\n' $u "$(systemctl is-active $u 2>/dev/null)"
+	done
+	ip -br link | grep ccmni | head -3 || true
+	;;
+*) echo "usage: $0 stack|wait|status"; exit 2 ;;
+esac

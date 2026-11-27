@@ -1,0 +1,60 @@
+From 4b31a866ef8a6a7947e3b4efd7b54496552f6829 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 06:56:29 +0000
+Subject: [PATCH 051/214] dt-bindings: clock: mediatek: Add the MT6858 I2C
+ wrapper clocks
+
+The MT6858 I2C controllers take their clocks from three imp_iic_wrap
+blocks, as on MT8196: C at 0x11286000 for I2C1/3/5/6/10/12, ES at
+0x11c03000 for I2C4/7/8 and S at 0x11d04000 for I2C0/2/9/11. Add their
+compatibles and gate IDs, numbered in the vendor's table order.
+---
+ .../bindings/clock/mediatek,mt8196-clock.yaml |  3 +++
+ .../dt-bindings/clock/mediatek,mt6858-clock.h | 19 +++++++++++++++++++
+ 2 files changed, 22 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml b/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
+index a43eaca02..cc394cf8b 100644
+--- a/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
++++ b/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
+@@ -24,6 +24,9 @@ properties:
+   compatible:
+     items:
+       - enum:
++          - mediatek,mt6858-imp-iic-wrap-c
++          - mediatek,mt6858-imp-iic-wrap-es
++          - mediatek,mt6858-imp-iic-wrap-s
+           - mediatek,mt6858-infracfg-ao
+           - mediatek,mt6858-pericfg-ao
+           - mediatek,mt8196-imp-iic-wrap-c
+diff --git a/include/dt-bindings/clock/mediatek,mt6858-clock.h b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+index 2c8d2c882..7e1e44be2 100644
+--- a/include/dt-bindings/clock/mediatek,mt6858-clock.h
++++ b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+@@ -289,4 +289,23 @@
+ #define CLK_MM_DSI0_CK				28
+ #define CLK_MM_26M_CK				29
+ 
++/* IMP_IIC_WRAP_C */
++#define CLK_IMPC_I2C1				0
++#define CLK_IMPC_I2C3				1
++#define CLK_IMPC_I2C5				2
++#define CLK_IMPC_I2C6				3
++#define CLK_IMPC_I2C10				4
++#define CLK_IMPC_I2C12				5
++
++/* IMP_IIC_WRAP_ES */
++#define CLK_IMPES_I2C4				0
++#define CLK_IMPES_I2C7				1
++#define CLK_IMPES_I2C8				2
++
++/* IMP_IIC_WRAP_S */
++#define CLK_IMPS_I2C0				0
++#define CLK_IMPS_I2C2				1
++#define CLK_IMPS_I2C9				2
++#define CLK_IMPS_I2C11				3
++
+ #endif /* _DT_BINDINGS_CLK_MT6858_H */
+-- 
+2.55.0
+

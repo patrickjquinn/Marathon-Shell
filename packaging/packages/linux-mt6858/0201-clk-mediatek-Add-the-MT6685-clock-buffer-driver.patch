@@ -1,0 +1,206 @@
+From 10544f58c88bc2d29846f99b96bf664c428a733a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:50:33 +0000
+Subject: [PATCH 201/214] clk: mediatek: Add the MT6685 clock buffer driver
+
+The MT6369 audio codec on the Jolla Phone (2026) runs from the MT6685's
+XO_BBCK5 output. The bootloader leaves it under hardware control with
+its software enable (EN_M) off, so the codec gets no 26 MHz clock until
+Linux sets EN_M.
+
+Only XO_BBCK5 is registered, as no other Linux consumer switches a
+buffer itself yet. As MediaTek's driver does, only EN_M is touched and
+the mode bits stay as the bootloader set them.
+---
+ drivers/clk/mediatek/Kconfig      |   8 ++
+ drivers/clk/mediatek/Makefile     |   1 +
+ drivers/clk/mediatek/clk-mt6685.c | 146 ++++++++++++++++++++++++++++++
+ 3 files changed, 155 insertions(+)
+ create mode 100644 drivers/clk/mediatek/clk-mt6685.c
+
+diff --git a/drivers/clk/mediatek/Kconfig b/drivers/clk/mediatek/Kconfig
+index 6c334fc2a..ff0c592de 100644
+--- a/drivers/clk/mediatek/Kconfig
++++ b/drivers/clk/mediatek/Kconfig
+@@ -124,6 +124,14 @@ config COMMON_CLK_MT2712_VENCSYS
+ 	help
+ 	  This driver supports MediaTek MT2712 vencsys clocks.
+ 
++config COMMON_CLK_MT6685
++	tristate "MediaTek MT6685 clock buffers"
++	depends on MFD_MTK_SPMI_PMIC || COMPILE_TEST
++	help
++	  This driver supports the 26 MHz crystal oscillator buffers of the
++	  MediaTek MT6685 PMIC, which clock the other chips on the board,
++	  such as the audio codec.
++
+ config COMMON_CLK_MT6735
+ 	tristate "Main clock drivers for MediaTek MT6735"
+ 	depends on ARCH_MEDIATEK || COMPILE_TEST
+diff --git a/drivers/clk/mediatek/Makefile b/drivers/clk/mediatek/Makefile
+index 41f9742bd..bf8c43044 100644
+--- a/drivers/clk/mediatek/Makefile
++++ b/drivers/clk/mediatek/Makefile
+@@ -2,6 +2,7 @@
+ obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-mtk.o clk-pll.o clk-gate.o clk-apmixed.o clk-cpumux.o reset.o clk-mux.o
+ obj-$(CONFIG_COMMON_CLK_MEDIATEK_FHCTL) += clk-fhctl.o clk-pllfh.o
+ 
++obj-$(CONFIG_COMMON_CLK_MT6685) += clk-mt6685.o
+ obj-$(CONFIG_COMMON_CLK_MT6735) += clk-mt6735-apmixedsys.o clk-mt6735-infracfg.o clk-mt6735-pericfg.o clk-mt6735-topckgen.o
+ obj-$(CONFIG_COMMON_CLK_MT6735_IMGSYS) += clk-mt6735-imgsys.o
+ obj-$(CONFIG_COMMON_CLK_MT6735_MFGCFG) += clk-mt6735-mfgcfg.o
+diff --git a/drivers/clk/mediatek/clk-mt6685.c b/drivers/clk/mediatek/clk-mt6685.c
+new file mode 100644
+index 000000000..887390d24
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6685.c
+@@ -0,0 +1,146 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6685 clock buffers
++ *
++ * The MT6685 buffers the 26 MHz crystal oscillator to the other chips on
++ * the board. Each buffer output (XO_BBCKn) is either switched by hardware
++ * (one of the EN_BB or CLK_SEL lines) or by its EN_M register bit. Only
++ * the buffers that a Linux consumer switches itself are registered.
++ *
++ * Register layout from MediaTek's mt6685-audclk.c (GPLv2).
++ *
++ * Copyright (c) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#include <linux/clk-provider.h>
++#include <linux/delay.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++
++#include <dt-bindings/clock/mediatek,mt6685-clkbuf.h>
++
++#define MT6685_DCXO_EXTBUF5_CW0		0x79e
++#define MT6685_XO_EN_M			BIT(2)
++
++#define MT6685_NUM_CLKS			(MT6685_CLK_XO_CONCK2 + 1)
++
++struct mt6685_xo {
++	struct clk_hw hw;
++	struct regmap *regmap;
++	unsigned int reg;
++};
++
++static inline struct mt6685_xo *to_mt6685_xo(struct clk_hw *hw)
++{
++	return container_of(hw, struct mt6685_xo, hw);
++}
++
++static int mt6685_xo_prepare(struct clk_hw *hw)
++{
++	struct mt6685_xo *xo = to_mt6685_xo(hw);
++	int ret;
++
++	/* As MediaTek's driver: EN_M only, the mode stays as the bootloader set it */
++	ret = regmap_update_bits(xo->regmap, xo->reg, MT6685_XO_EN_M,
++				 MT6685_XO_EN_M);
++	if (ret)
++		return ret;
++
++	/* The buffer output settles within 400 us */
++	usleep_range(400, 420);
++
++	return 0;
++}
++
++static void mt6685_xo_unprepare(struct clk_hw *hw)
++{
++	struct mt6685_xo *xo = to_mt6685_xo(hw);
++
++	regmap_update_bits(xo->regmap, xo->reg, MT6685_XO_EN_M, 0);
++}
++
++static int mt6685_xo_is_prepared(struct clk_hw *hw)
++{
++	struct mt6685_xo *xo = to_mt6685_xo(hw);
++	unsigned int val;
++
++	if (regmap_read(xo->regmap, xo->reg, &val))
++		return 0;
++
++	return !!(val & MT6685_XO_EN_M);
++}
++
++static unsigned long mt6685_xo_recalc_rate(struct clk_hw *hw,
++					   unsigned long parent_rate)
++{
++	return 26000000;
++}
++
++static const struct clk_ops mt6685_xo_ops = {
++	.recalc_rate = mt6685_xo_recalc_rate,
++	.prepare = mt6685_xo_prepare,
++	.unprepare = mt6685_xo_unprepare,
++	.is_prepared = mt6685_xo_is_prepared,
++};
++
++static int mt6685_clkbuf_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct clk_hw_onecell_data *data;
++	struct clk_init_data init = {};
++	struct mt6685_xo *xo;
++	struct regmap *regmap;
++	int ret;
++
++	regmap = dev_get_regmap(dev->parent, NULL);
++	if (!regmap)
++		return dev_err_probe(dev, -ENODEV, "no PMIC regmap\n");
++
++	data = devm_kzalloc(dev, struct_size(data, hws, MT6685_NUM_CLKS),
++			    GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->num = MT6685_NUM_CLKS;
++	for (int i = 0; i < MT6685_NUM_CLKS; i++)
++		data->hws[i] = ERR_PTR(-ENOENT);
++
++	xo = devm_kzalloc(dev, sizeof(*xo), GFP_KERNEL);
++	if (!xo)
++		return -ENOMEM;
++
++	init.name = "mt6685_xo_bbck5";
++	init.ops = &mt6685_xo_ops;
++	xo->hw.init = &init;
++	xo->regmap = regmap;
++	xo->reg = MT6685_DCXO_EXTBUF5_CW0;
++
++	ret = devm_clk_hw_register(dev, &xo->hw);
++	if (ret)
++		return ret;
++
++	data->hws[MT6685_CLK_XO_BBCK5] = &xo->hw;
++
++	return devm_of_clk_add_hw_provider(dev, of_clk_hw_onecell_get, data);
++}
++
++static const struct of_device_id mt6685_clkbuf_of_match[] = {
++	{ .compatible = "mediatek,mt6685-clkbuf" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6685_clkbuf_of_match);
++
++static struct platform_driver mt6685_clkbuf_driver = {
++	.probe = mt6685_clkbuf_probe,
++	.driver = {
++		.name = "mt6685-clkbuf",
++		.of_match_table = mt6685_clkbuf_of_match,
++	},
++};
++module_platform_driver(mt6685_clkbuf_driver);
++
++MODULE_AUTHOR("Patrick Quinn <patrick.jm.quinn@gmail.com>");
++MODULE_DESCRIPTION("MediaTek MT6685 clock buffers");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

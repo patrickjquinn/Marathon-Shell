@@ -1,0 +1,126 @@
+From b306924861c6cb67bf14f9d675315a3bbfe0e648 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 00:14:19 +0000
+Subject: [PATCH 212/214] arm64: dts: mediatek: mt6858: Poll the thermal zones
+ less often while cool
+
+At 2 s, the eleven polled zones woke the phone about 5.5 times a second,
+which Doze cannot afford. Poll the CPU and DSU zones every 10 s and the
+SoC zones, which also cover the GPU, every 5 s: about 1.3 wakeups a
+second. Past a trip, every zone is still polled every 250 ms.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 25 ++++++++++++------------
+ 1 file changed, 13 insertions(+), 12 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 6de79a5e1..d5d5ec8fa 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -1103,11 +1103,12 @@ timer {
+ 	/*
+ 	 * One zone for the hotter sensor of each core and of the DSU, the top
+ 	 * and the bottom of the SoC. The controllers belong to the preloader,
+-	 * so the zones are polled; its own thermal reset stays at 115 degC.
++	 * so the zones are polled, slowly while cool to spare idle wakeups;
++	 * its own thermal reset stays at 115 degC.
+ 	 */
+ 	thermal-zones {
+ 		cpu-big0-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_BIG_CPU0_1>;
+ 
+@@ -1137,7 +1138,7 @@ map0 {
+ 		};
+ 
+ 		cpu-big1-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_BIG_CPU1_1>;
+ 
+@@ -1167,7 +1168,7 @@ map0 {
+ 		};
+ 
+ 		cpu-big2-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_BIG_CPU2_1>;
+ 
+@@ -1197,7 +1198,7 @@ map0 {
+ 		};
+ 
+ 		cpu-big3-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_BIG_CPU3_1>;
+ 
+@@ -1227,7 +1228,7 @@ map0 {
+ 		};
+ 
+ 		cpu-little0-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_LITTLE_CPU0>;
+ 
+@@ -1257,7 +1258,7 @@ map0 {
+ 		};
+ 
+ 		cpu-little1-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_LITTLE_CPU1>;
+ 
+@@ -1287,7 +1288,7 @@ map0 {
+ 		};
+ 
+ 		cpu-little2-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_LITTLE_CPU2>;
+ 
+@@ -1317,7 +1318,7 @@ map0 {
+ 		};
+ 
+ 		cpu-little3-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_LITTLE_CPU3>;
+ 
+@@ -1347,7 +1348,7 @@ map0 {
+ 		};
+ 
+ 		dsu-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <10000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_mcu MT6858_MCU_DSU1>;
+ 
+@@ -1381,7 +1382,7 @@ map0 {
+ 		};
+ 
+ 		soc-top-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <5000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_ap MT6858_AP_TOP2>;
+ 
+@@ -1416,7 +1417,7 @@ map0 {
+ 		};
+ 
+ 		soc-bot-thermal {
+-			polling-delay = <2000>;
++			polling-delay = <5000>;
+ 			polling-delay-passive = <250>;
+ 			thermal-sensors = <&lvts_ap MT6858_AP_BOT1>;
+ 
+-- 
+2.55.0
+

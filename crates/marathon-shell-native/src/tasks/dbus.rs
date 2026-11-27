@@ -72,6 +72,7 @@ async fn service(h: &Header<'_>) -> fdo::Result<()> {
     ))
 }
 
+#[derive(Clone)]
 struct Navigation1 {
     qt: Qt,
 }
@@ -250,6 +251,7 @@ impl Navigation1 {
     }
 }
 
+#[derive(Clone)]
 struct AppLifecycle1 {
     qt: Qt,
 }
@@ -300,6 +302,7 @@ impl AppLifecycle1 {
     }
 }
 
+#[derive(Clone)]
 struct AppStore1;
 
 async fn system(h: &Header<'_>) -> fdo::Result<()> {

@@ -1,0 +1,27 @@
+From bcff48f271e4374d0d3cc515d23aa5fe1c1974e3 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:35:01 +0000
+Subject: [PATCH 171/214] arm64: configs: mt6858: Build in the MT6363
+ regulators
+
+The MT6363's VRFIO18 supplies the CONNSYS I/O; the mainline driver
+reaches it through the regulators@30 node.
+---
+ arch/arm64/configs/mt6858.config | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 15a337e40..3ab40d28f 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -57,6 +57,7 @@ CONFIG_RC_CORE=y
+ CONFIG_LIRC=y
+ CONFIG_RC_DEVICES=y
+ CONFIG_IR_PWM_TX=y
++CONFIG_REGULATOR_MT6363=y
+ CONFIG_REGULATOR_MT6369=y
+ CONFIG_INPUT_MISC=y
+ CONFIG_INPUT_REGULATOR_HAPTIC=y
+-- 
+2.55.0
+

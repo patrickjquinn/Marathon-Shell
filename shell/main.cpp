@@ -1,7 +1,9 @@
 #include <cmath>
 #include <QClipboard>
+#include <QMimeData>
 #include <QGuiApplication>
 #include <QStyleHints>
+#include <QRect>
 #include <QScreen>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
@@ -89,6 +91,7 @@
 #include "src/services/trackpadinput.h"
 #endif
 #include "src/components/svgimageprovider.h"
+#include "src/components/wallpaperimageprovider.h"
 
 #include "marathon-shell-native/src/mpris.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
@@ -107,6 +110,7 @@
 #include "marathon-shell-native/src/ui.cxxqt.h"
 #include "marathon-shell-native/src/share.cxxqt.h"
 #include "src/services/inputcontext.h"
+#include "src/services/homeunlock.h"
 #include "src/services/remotetextinput.h"
 #include "marathon-shell-native/src/text_input.cxxqt.h"
 #include "marathon-shell-native/src/words.cxxqt.h"
@@ -284,6 +288,11 @@ static void startTouchInput(const QString &specification) {
         },
         qApp);
     const auto keys        = new TouchDevices(openTouchKeys, qApp);
+    // The reader threads stop before the application tears down the devices they report to.
+    QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, [devices, keys] {
+        delete keys;
+        delete devices;
+    });
     const auto updateCount = [devices] {
         int registered = 0;
         for (QObject *handler : devices->handlers())
@@ -412,9 +421,44 @@ static void startupMark(const char *phase) {
     fprintf(stderr, "[Startup] %lld ms %s\n", static_cast<long long>(t.elapsed()), phase);
 }
 
+static QVariantMap deviceProfileMap(const marathon::device::Profile &device) {
+    return QVariantMap{{QStringLiteral("panelDither"), device.panel_dither},
+                       {QStringLiteral("panelDepth"), device.panel_depth},
+                       {QStringLiteral("panelDpi"), device.panel_dpi},
+                       {QStringLiteral("displayTechnology"), device.display_technology},
+                       {QStringLiteral("cutout"), QRect(device.cutout_x, device.cutout_y,
+                                                        device.cutout_width, device.cutout_height)}};
+}
+
+// marathon-carrier-home-crypt's PIN pad for the encrypted /home: the screen,
+// touch and theme, and nothing from the session, which lives on /home.
+static int runHomeUnlock(const QStringList &command) {
+    const marathon::device::Profile device = marathon::device::profile();
+    // Silica at the shell's scale (Ambience::setScale) in the default
+    // ambience's highlight (Meridian's); the person's own is on /home.
+    qputenv("KEEL_THEME_PIXEL_RATIO",
+            QByteArray::number(ScreenMetrics::computeDpi(QGuiApplication::primaryScreen()) / 320));
+    qputenv("KEEL_THEME_HIGHLIGHT_COLOR", "#7df0d4");
+    QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
+
+    QQmlApplicationEngine engine;
+    QQmlContext          *ctx = engine.rootContext();
+    ctx->setContextProperty(QStringLiteral("DeviceProfile"), deviceProfileMap(device));
+    ctx->setContextProperty(QStringLiteral("MARATHON_LAYER_SAMPLES"), device.hw_msaa_samples);
+    createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &engine);
+    createObject<HomeUnlock>(ctx, "HomeUnlockCpp", command, &engine);
+    engine.load(QUrl(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/HomeUnlock.qml")));
+    if (engine.rootObjects().isEmpty())
+        return 1;
+    return QGuiApplication::exec();
+}
+
 int main(int argc, char *argv[]) {
     if (argc == 4 && std::strcmp(argv[1], "--rename-app-ids") == 0)
         return marathon::app_ids::rename_app_ids(argv[2], argv[3]);
+    // --home-unlock -- <command that takes the PIN on stdin>
+    const bool homeUnlock =
+        argc > 3 && std::strcmp(argv[1], "--home-unlock") == 0 && std::strcmp(argv[2], "--") == 0;
     startupMark("main");
 
     qputenv("QML_XHR_ALLOW_FILE_READ", "1");
@@ -589,6 +633,8 @@ int main(int argc, char *argv[]) {
         if (dp.display_technology == QLatin1String("epaper"))
             QGuiApplication::styleHints()->setCursorFlashTime(0);
     }
+    if (homeUnlock)
+        return runHomeUnlock(QCoreApplication::arguments().mid(3));
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
     // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1, so the target HW
@@ -812,18 +858,14 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<Session>("MarathonOS.Shell", 1, 0, "SessionStore", sessionStore);
 
     engine.addImageProvider("svg", new SvgImageProvider());
+    engine.addImageProvider("wallpaper", new WallpaperImageProvider());
 
     auto *ctx = engine.rootContext();
 
     auto *screenMetrics = createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
 
     const marathon::device::Profile device = marathon::device::profile();
-    ctx->setContextProperty(
-        QStringLiteral("DeviceProfile"),
-        QVariantMap{{QStringLiteral("panelDither"), device.panel_dither},
-                    {QStringLiteral("panelDepth"), device.panel_depth},
-                    {QStringLiteral("panelDpi"), device.panel_dpi},
-                    {QStringLiteral("displayTechnology"), device.display_technology}});
+    ctx->setContextProperty(QStringLiteral("DeviceProfile"), deviceProfileMap(device));
     ctx->setContextProperty(QStringLiteral("Platform"),
                             QVariantMap{{QStringLiteral("hasHardwareKeyboard"),
                                          marathon::device::has_hardware_keyboard()}});
@@ -837,7 +879,7 @@ int main(int argc, char *argv[]) {
     startupMark("stores");
     auto *settingsManager = new marathon::Settings();
     settingsManager->setParent(&app);
-    settingsManager->load(device.screen_timeout_ms);
+    settingsManager->load(device.screen_timeout_ms, device.ui_scale);
     qmlRegisterSingletonInstance<marathon::Settings>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                      settingsManager);
 
@@ -1008,6 +1050,9 @@ int main(int argc, char *argv[]) {
     auto *privacy = new Privacy();
     privacy->setParent(&app);
     qmlRegisterSingletonInstance<Privacy>("MarathonOS.Shell", 1, 0, "Privacy", privacy);
+    privacy->setCovers(settingsManager->getPrivacySwitch());
+    QObject::connect(settingsManager, &marathon::Settings::privacySwitchChanged, privacy,
+                     [=] { privacy->setCovers(settingsManager->getPrivacySwitch()); });
     auto *usb = new Usb();
     usb->setParent(&app);
     qmlRegisterSingletonInstance<Usb>("MarathonOS.Shell", 1, 0, "Usb", usb);
@@ -1086,9 +1131,15 @@ int main(int argc, char *argv[]) {
     auto *locationManager = new Location();
     locationManager->setParent(&app);
     ctx->setContextProperty("LocationManager", locationManager);
-    locationManager->setEnabled(settingsManager->getLocationEnabled());
+    // The privacy switch cuts location as the Location switch does.
+    const auto applyLocation = [=] {
+        locationManager->setEnabled(settingsManager->getLocationEnabled() &&
+                                    !privacy->getBlocked().contains(QStringLiteral("location")));
+    };
+    applyLocation();
     QObject::connect(settingsManager, &marathon::Settings::locationEnabledChanged, locationManager,
-                     [=] { locationManager->setEnabled(settingsManager->getLocationEnabled()); });
+                     applyLocation);
+    QObject::connect(privacy, &Privacy::switchChanged, locationManager, applyLocation);
     // Never starts location itself: with Location off there is no fix and the zone stays.
     const auto automaticTimeZone = [=] {
         if (!settingsManager->getAutomaticTimeZone() || !locationManager->getActive() ||
@@ -1121,6 +1172,13 @@ int main(int argc, char *argv[]) {
     auto *clipboard = new Clipboard();
     clipboard->setParent(&app);
     ctx->setContextProperty("ClipboardManagerCpp", clipboard);
+    QObject::connect(
+        QGuiApplication::clipboard(), &QClipboard::dataChanged, clipboard, [clipboard] {
+            const QMimeData *data = QGuiApplication::clipboard()->mimeData();
+            // A password manager's copy stays out of the history.
+            if (data && data->hasText() && data->data("x-kde-passwordManagerHint") != "secret")
+                clipboard->remember(data->text());
+        });
     auto *alarmManager = new Alarms();
     alarmManager->setParent(&app);
     ctx->setContextProperty("AlarmManagerCpp", alarmManager);

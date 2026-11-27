@@ -1,0 +1,7 @@
+disable unudhcpd@.service
+# No modem driver yet.
+disable ModemManager.service
+# Nothing on the phone uses mDNS; it would announce the phone on every
+# network it joins. Sorts before 10-marathon.preset, which enables it.
+disable avahi-daemon.service
+disable avahi-daemon.socket

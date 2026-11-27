@@ -1,0 +1,114 @@
+From 144b27d4ddd017773c6c69ee37fe6b038b3f1853 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 07:58:27 +0000
+Subject: [PATCH 061/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ MT6720 and the battery
+
+Number the I2C buses after the SoC's controllers. Add the MT6720 on
+I2C5 with its ADC, AUXADC, charger and fuel gauge, and the battery: the
+stock gauge's 25 C capacity (5424 mAh), its OCV profile reduced to 5%
+steps, 110 mOhm internal resistance and 4.52 V maximum. The MT6720's
+interrupt is left out until a function needs it.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 74 +++++++++++++++++++
+ 1 file changed, 74 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 9f4cee071..5b2bf3fc7 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -16,10 +16,54 @@ / {
+ 	chassis-type = "handset";
+ 
+ 	aliases {
++		i2c1 = &i2c1;
++		i2c2 = &i2c2;
++		i2c3 = &i2c3;
++		i2c4 = &i2c4;
++		i2c5 = &i2c5;
++		i2c6 = &i2c6;
++		i2c7 = &i2c7;
++		i2c8 = &i2c8;
++		i2c9 = &i2c9;
++		i2c10 = &i2c10;
++		i2c11 = &i2c11;
++		i2c12 = &i2c12;
+ 		serial0 = &uart0;
+ 		spmi0 = &spmi;
+ 	};
+ 
++	battery: battery {
++		compatible = "simple-battery";
++		/* The stock gauge's 25 C capacity and OCV profile */
++		charge-full-design-microamp-hours = <5424000>;
++		voltage-min-design-microvolt = <3400000>;
++		voltage-max-design-microvolt = <4520000>;
++		charge-term-current-microamp = <150000>;
++		factory-internal-resistance-micro-ohms = <110000>;
++		ocv-capacity-celsius = <25>;
++		ocv-capacity-table-0 = <4516000 100>,
++				       <4444000 95>,
++				       <4405000 90>,
++				       <4359000 85>,
++				       <4307000 80>,
++				       <4249000 75>,
++				       <4188000 70>,
++				       <4101000 65>,
++				       <4043000 60>,
++				       <3994000 55>,
++				       <3949000 50>,
++				       <3892000 45>,
++				       <3837000 40>,
++				       <3777000 35>,
++				       <3738000 30>,
++				       <3680000 25>,
++				       <3612000 20>,
++				       <3533000 15>,
++				       <3452000 10>,
++				       <3345000 5>,
++				       <3227000 0>;
++	};
++
+ 	chosen {
+ 		#address-cells = <2>;
+ 		#size-cells = <2>;
+@@ -341,6 +385,36 @@ &i2c5 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2c5_pins>;
+ 	status = "okay";
++
++	pmic@34 {
++		compatible = "mediatek,mt6720";
++		reg = <0x34>;
++
++		mt6720_adc: adc {
++			compatible = "mediatek,mt6720-adc";
++			#io-channel-cells = <1>;
++		};
++
++		mt6720_auxadc: auxadc {
++			compatible = "mediatek,mt6720-auxadc";
++			#io-channel-cells = <1>;
++		};
++
++		mt6720_charger: charger {
++			compatible = "mediatek,mt6720-charger";
++			io-channels = <&mt6720_adc 11>, <&mt6720_adc 5>;
++			io-channel-names = "vbus", "ibus";
++		};
++
++		fuel-gauge {
++			compatible = "mediatek,mt6720-gauge";
++			io-channels = <&mt6720_auxadc 0>, <&mt6720_auxadc 1>,
++				      <&mt6720_auxadc 2>, <&mt6720_adc 6>;
++			io-channel-names = "batsns", "baton", "vref", "ibat";
++			monitored-battery = <&battery>;
++			power-supplies = <&mt6720_charger>;
++		};
++	};
+ };
+ 
+ &i2c6 {
+-- 
+2.55.0
+

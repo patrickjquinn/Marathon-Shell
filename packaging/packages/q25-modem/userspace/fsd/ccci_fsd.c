@@ -63,6 +63,7 @@
 #define FS_OP_BIN_REGION	0x1023
 #define FS_OP_CMPT_WRITE	0x1024	/* compound open+seek+write+close */
 #define FS_OP_GET_FILE_DETAIL	0x1025
+#define FS_OP_CMPT_READ_EX	0x1026	/* CMPT_Read on a new or an open handle */
 
 #define FS_DISK_INFO_DWORDS	21	/* 84 bytes, the second response segment's length */
 #define FS_FILE_DETAIL_BYTES	24	/* GetFileDetail's second segment (stock: v46[4] = 24) */
@@ -574,37 +575,23 @@ static int errno_to_fs_result(int err)
 }
 
 /* ------------------------------------------------------------------ */
-/* file_handle table                                                    */
+/* CMPT_Write handles live in the same table as Open's (g_fs_handles):   */
+/* the MT6858 modem keeps a CMPT_Write handle open (no CLOSE bit) and    */
+/* closes it later with a plain Close, so the two must agree.            */
 /* ------------------------------------------------------------------ */
-#define MAX_OPEN_HANDLES 32
-
-struct fs_handle {
-	int fd;		/* -1 if free */
-	char path[PATH_MAX];
-};
-static struct fs_handle g_handles[MAX_OPEN_HANDLES];
-
 static void handles_init(void)
 {
-	int i;
-
-	for (i = 0; i < MAX_OPEN_HANDLES; i++)
-		g_handles[i].fd = -1;
 }
 
-/* Handle numbers we hand back are 1-based slot indices. 0/negative means
- * "no handle" on the wire (struct ccci_fs_cmpt_write_req.file_handle < 0
- * means "please open fresh", per the stock CMPT_Write logic).
- */
 static int handle_alloc(int fd, const char *path)
 {
-	int i;
+	unsigned i;
 
-	for (i = 0; i < MAX_OPEN_HANDLES; i++) {
-		if (g_handles[i].fd < 0) {
-			g_handles[i].fd = fd;
-			snprintf(g_handles[i].path, sizeof(g_handles[i].path), "%s", path);
-			return i + 1;
+	(void)path;
+	for (i = 1; i < FS_HANDLE_MAX; i++) {
+		if (g_fs_handles[i] < 0) {
+			g_fs_handles[i] = fd;
+			return (int)i;
 		}
 	}
 	return -1;
@@ -612,16 +599,16 @@ static int handle_alloc(int fd, const char *path)
 
 static int handle_get_fd(int handle)
 {
-	if (handle < 1 || handle > MAX_OPEN_HANDLES)
+	if (handle <= 0 || handle >= FS_HANDLE_MAX)
 		return -1;
-	return g_handles[handle - 1].fd;
+	return g_fs_handles[handle];
 }
 
 static void handle_free(int handle)
 {
-	if (handle < 1 || handle > MAX_OPEN_HANDLES)
+	if (handle <= 0 || handle >= FS_HANDLE_MAX)
 		return;
-	g_handles[handle - 1].fd = -1;
+	g_fs_handles[handle] = -1;
 }
 
 static void log_hexdump(const char *tag, const void *buf, size_t len)
@@ -722,6 +709,7 @@ struct cmpt_write_out {
 };
 
 static int32_t handle_cmpt_write(const struct ccci_fs_cmpt_write_req *req, size_t req_and_data_len,
+				  const unsigned char *seg_data, size_t seg_len,
 				  const char *real_path, struct cmpt_write_out *o)
 {
 	int handle = (req->file_handle >= 0) ? (int)req->file_handle : -1;
@@ -767,8 +755,10 @@ static int32_t handle_cmpt_write(const struct ccci_fs_cmpt_write_req *req, size_
 
 	/* WRITE is bit5 here, bit3 on the read side. */
 	if (req->opid_map & 0x20) {
-		const unsigned char *data = (const unsigned char *)req + sizeof(*req);
-		size_t avail = (req_and_data_len > sizeof(*req)) ? req_and_data_len - sizeof(*req) : 0;
+		/* The data follows the request in segment 1, or (MT6858) is segment 2. */
+		const unsigned char *data = seg_data ? seg_data : (const unsigned char *)req + sizeof(*req);
+		size_t avail = seg_data ? seg_len :
+			(req_and_data_len > sizeof(*req)) ? req_and_data_len - sizeof(*req) : 0;
 		size_t want = (req->length > 0 && (size_t)req->length <= avail) ? (size_t)req->length : avail;
 		ssize_t n = write(fd, data, want);
 
@@ -789,6 +779,54 @@ static int32_t handle_cmpt_write(const struct ccci_fs_cmpt_write_req *req, size_
 
 	return FS_NO_ERROR;
 }
+
+#if MINDONE_FS_ALLOW_WRITES
+/*
+ * FS_Move flags (segment 2): FS_MOVE_COPY keeps the source, FS_MOVE_KILL
+ * removes it. The MT6858 modem backs NVRAM files up from X: to Y: with
+ * COPY | OVERWRITE, and X: and Y: are separate partitions, which rename(2)
+ * cannot cross either.
+ */
+#define FS_MOVE_COPY		0x00000001u
+#define FS_MOVE_OVERWRITE	0x00010000u
+
+static int fs_copy_file(const char *from, const char *to, int overwrite)
+{
+	unsigned char buf[4096];
+	ssize_t n;
+	int in, out, ret = -1;
+
+	in = open(from, O_RDONLY | O_CLOEXEC);
+	if (in < 0)
+		return -1;
+	out = open(to, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | (overwrite ? 0 : O_EXCL),
+		   FS_OPEN_MODE);
+	if (out < 0)
+		goto out_in;
+	while ((n = read(in, buf, sizeof(buf))) > 0)
+		if (write(out, buf, (size_t)n) != n)
+			goto out_out;
+	if (n == 0 && fsync(out) == 0)
+		ret = 0;
+out_out:
+	if (close(out) != 0)
+		ret = -1;
+out_in:
+	close(in);
+	return ret;
+}
+
+static int fs_move(const char *from, const char *to, uint32_t flags)
+{
+	if (flags & FS_MOVE_COPY)
+		return fs_copy_file(from, to, !!(flags & FS_MOVE_OVERWRITE));
+	if (rename(from, to) == 0)
+		return 0;
+	if (errno != EXDEV || fs_copy_file(from, to, 1) != 0)
+		return -1;
+	return unlink(from);
+}
+#endif
 
 /* ------------------------------------------------------------------ */
 /* CMPT_Read-shaped request: base = payload+0x30, per ccci_fs_wire.h.    */
@@ -917,7 +955,8 @@ static void handle_bin_region_access(const char *filename, int32_t *out_result)
  * header plus the op word plus <= 3456 stream bytes; data[0] bit31 marks "more
  * packets follow".
  */
-#define FS_STREAM_SIZE		CCCI_FS_INST_BUF_A
+/* The larger of the stock's two buffer sizes: MT6858's modem sends 16520-byte streams. */
+#define FS_STREAM_SIZE		CCCI_FS_INST_BUF_B
 #define FS_PKT_PREFIX		20
 #define FS_PKT_DATA_MAX		(CCCI_FS_READ_CHUNK - FS_PKT_PREFIX)
 #define FS_PKT_MORE		0x80000000u
@@ -1100,6 +1139,7 @@ int main(void)
 				case FS_OP_COUNT:
 				case FS_OP_FIND_FIRST:
 				case FS_OP_CMPT_READ:
+				case FS_OP_CMPT_READ_EX:
 				case FS_OP_CMPT_WRITE:
 				case FS_OP_GET_FILE_DETAIL:
 				case FS_OP_RESTORE:
@@ -1364,21 +1404,26 @@ int main(void)
 					goto send_resp;
 
 				case FS_OP_RENAME:
-				case FS_OP_MOVE:
+				case FS_OP_MOVE: {
+					uint32_t mflags = 0;
+
 					rc = FS_NO_ERROR;
+					if (req.op_id == FS_OP_MOVE && req.nseg >= 3 && req.seglen[2] >= 4)
+						memcpy(&mflags, req.seg[2], sizeof(mflags));
 #if MINDONE_FS_ALLOW_WRITES
-					if (rename(real, real2) != 0)
+					if (fs_move(real, real2, mflags) != 0)
 						rc = (errno == ENOENT) ? FS_ERR_ENOENT_MAPPED
 								       : FS_ERR_GENERIC_MAPPED;
 #else
 					rc = FS_ERR_GENERIC_MAPPED;
 #endif
-					LOGW("Main: %s \"%s\" -> \"%s\": %d",
+					LOGW("Main: %s \"%s\" -> \"%s\" flags=0x%x: %d",
 					     (req.op_id == FS_OP_MOVE) ? "Move" : "Rename",
-					     path, path2, rc);
+					     path, path2, mflags, rc);
 					resp_len = build_result_resp(txbuf, sizeof(txbuf), &hdr,
 								      req.op_id, rc);
 					goto send_resp;
+				}
 
 				case FS_OP_RESTORE:
 					/* The stock's FS_CCCI_Restore undoes a delete from its own
@@ -1664,6 +1709,81 @@ int main(void)
 					goto send_resp;
 				}
 
+				case FS_OP_CMPT_READ_EX: {
+					/*
+					 * MT6858's md_fsd v2.3, FS_CCCI_CMPT_Read_EX: segment 1 is
+					 * opid_map +0x00, flag +0x0c, size +0x10, offset +0x14,
+					 * whence +0x18, length +0x20, handle +0x28 (used when
+					 * OPEN is not asked). The reply is {done, err}, size,
+					 * read length, the data and the handle.
+					 */
+					struct { uint32_t done; int32_t err; } de = { 0, FS_NO_ERROR };
+					uint32_t w[12], size, read_len = 0;
+					int32_t h;
+					struct stat st;
+					struct fs_seg segs[5];
+
+					if (req.nseg < 2 || req.seglen[1] < 0x2c)
+						goto not_served;
+					memset(w, 0, sizeof(w));
+					memcpy(w, req.seg[1], req.seglen[1] < sizeof(w) ?
+					       req.seglen[1] : sizeof(w));
+					size = w[4];
+					h = (int32_t)w[10];
+					if (w[0] & 0x1) {
+						h = fs_handle_open(real, w[3]);
+						if (h < 0) {
+							de.err = h;
+							h = -1;
+							goto read_ex_reply;
+						}
+						de.done |= 0x1;
+					} else if (h <= 0 || h >= FS_HANDLE_MAX || g_fs_handles[h] < 0) {
+						de.err = FS_PARAM_ERROR;
+						goto read_ex_reply;
+					}
+					if (w[0] & 0x2) {
+						if (fstat(g_fs_handles[h], &st) < 0) {
+							de.err = errno_to_fs_result(errno);
+							goto read_ex_reply;
+						}
+						size = (uint32_t)st.st_size;
+						de.done |= 0x2;
+					}
+					if (w[0] & 0x4) {
+						if (fs_handle_seek(h, (int32_t)w[5], (int32_t)w[6]) < 0) {
+							de.err = errno_to_fs_result(errno);
+							goto read_ex_reply;
+						}
+						de.done |= 0x4;
+					}
+					if (w[0] & 0x8) {
+						ssize_t n = fs_handle_read(h, rdbuf, sizeof(rdbuf), w[8]);
+
+						if (n < 0) {
+							de.err = errno_to_fs_result(errno);
+							goto read_ex_reply;
+						}
+						read_len = (uint32_t)n;
+						de.done |= 0x8;
+					}
+					if (w[0] & 0x10) {
+						fs_handle_close(h);
+						de.done |= 0x10;
+					}
+read_ex_reply:
+					LOGI("Main: CMPT_Read_EX \"%s\" -> %s opid_map=0x%x flag=0x%x: "
+					     "done=0x%x err=%d size=%u len=%u handle=%d",
+					     path, real, w[0], w[3], de.done, de.err, size, read_len, h);
+					segs[0] = (struct fs_seg){ &de, 8 };
+					segs[1] = (struct fs_seg){ &size, 4 };
+					segs[2] = (struct fs_seg){ &read_len, 4 };
+					segs[3] = (struct fs_seg){ rdbuf, read_len };
+					segs[4] = (struct fs_seg){ &h, 4 };
+					resp_len = build_resp(txbuf, sizeof(txbuf), &hdr, req.op_id, segs, 5);
+					goto send_resp;
+				}
+
 				case FS_OP_CMPT_WRITE: {
 					struct cmpt_write_out o;
 					const struct ccci_fs_cmpt_write_req *wr;
@@ -1673,7 +1793,9 @@ int main(void)
 					    req.seglen[1] < sizeof(struct ccci_fs_cmpt_write_req))
 						goto not_served;
 					wr = (const struct ccci_fs_cmpt_write_req *)req.seg[1];
-					o.err = handle_cmpt_write(wr, req.seglen[1], real, &o);
+					o.err = handle_cmpt_write(wr, req.seglen[1],
+								  req.nseg >= 3 ? req.seg[2] : NULL,
+								  req.nseg >= 3 ? req.seglen[2] : 0, real, &o);
 					LOGW("Main: CMPT_Write \"%s\" -> %s opid_map=0x%x flag=0x%x: "
 					     "done=0x%x err=%d handle=%d written=%u",
 					     path, real, wr->opid_map, wr->flag, o.done, o.err,

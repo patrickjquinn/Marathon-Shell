@@ -1,0 +1,11 @@
+[Unit]
+Description=JP2601 MD1: load the ECCCI modules (util, ccmni, auxadc, md_all, ccif, dpmaif)
+ConditionPathExists=/proc/device-tree/soc/mddriver@d180000
+After=systemd-modules-load.service
+PartOf=jp2601-modem.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=60
+ExecStart=/usr/libexec/jp2601-modem/jp2601-modem-up stack

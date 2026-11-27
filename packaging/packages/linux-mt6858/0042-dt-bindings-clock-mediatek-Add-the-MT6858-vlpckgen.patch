@@ -1,0 +1,64 @@
+From 079a39349d7fbeaeedd452bd25b1b9ac5daa7fdd Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 05:16:10 +0000
+Subject: [PATCH 042/214] dt-bindings: clock: mediatek: Add the MT6858 vlpckgen
+
+Add the MT6858 VLP clock generator, which works like the MT8196 one,
+and its clock IDs.
+---
+ .../clock/mediatek,mt8196-sys-clock.yaml      |  1 +
+ .../dt-bindings/clock/mediatek,mt6858-clock.h | 28 +++++++++++++++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/clock/mediatek,mt8196-sys-clock.yaml b/Documentation/devicetree/bindings/clock/mediatek,mt8196-sys-clock.yaml
+index 7f02f34bd..373777d07 100644
+--- a/Documentation/devicetree/bindings/clock/mediatek,mt8196-sys-clock.yaml
++++ b/Documentation/devicetree/bindings/clock/mediatek,mt8196-sys-clock.yaml
+@@ -29,6 +29,7 @@ properties:
+       - enum:
+           - mediatek,mt6858-apmixedsys
+           - mediatek,mt6858-topckgen
++          - mediatek,mt6858-vlpckgen
+           - mediatek,mt8196-apmixedsys
+           - mediatek,mt8196-armpll-b-pll-ctrl
+           - mediatek,mt8196-armpll-bl-pll-ctrl
+diff --git a/include/dt-bindings/clock/mediatek,mt6858-clock.h b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+index 4bcb5dbaa..07ec23d29 100644
+--- a/include/dt-bindings/clock/mediatek,mt6858-clock.h
++++ b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+@@ -229,4 +229,32 @@
+ #define CLK_INFRA_AO_CCIF4_MD			9
+ #define CLK_INFRA_AO_DPMAIF_26M			10
+ 
++/* VLPCKGEN */
++#define CLK_VLP_SCP_SEL				0
++#define CLK_VLP_PWRAP_ULPOSC_SEL		1
++#define CLK_VLP_SPMI_P_SEL			2
++#define CLK_VLP_SPMI_M_SEL			3
++#define CLK_VLP_DVFSRC_SEL			4
++#define CLK_VLP_PWM_VLP_SEL			5
++#define CLK_VLP_AXI_VLP_SEL			6
++#define CLK_VLP_SYSTIMER_26M_SEL		7
++#define CLK_VLP_SSPM_SEL			8
++#define CLK_VLP_SSPM_F26M_SEL			9
++#define CLK_VLP_SRCK_SEL			10
++#define CLK_VLP_SCP_SPI_SEL			11
++#define CLK_VLP_SCP_IIC_SEL			12
++#define CLK_VLP_SCP_IIC_HS_SEL			13
++#define CLK_VLP_SSPM_ULPOSC_SEL			14
++#define CLK_VLP_TIA_ULPOSC_SEL			15
++#define CLK_VLP_APXGPT_26M_SEL			16
++#define CLK_VLP_CAMTG0_SEL			17
++#define CLK_VLP_CAMTG1_SEL			18
++#define CLK_VLP_CAMTG2_SEL			19
++#define CLK_VLP_CAMTG3_SEL			20
++#define CLK_VLP_SSR_PKA_SEL			21
++#define CLK_VLP_SSR_DMA_SEL			22
++#define CLK_VLP_SSR_KDF_SEL			23
++#define CLK_VLP_SSR_RNG_SEL			24
++#define CLK_VLP_OSC				25
++
+ #endif /* _DT_BINDINGS_CLK_MT6858_H */
+-- 
+2.55.0
+

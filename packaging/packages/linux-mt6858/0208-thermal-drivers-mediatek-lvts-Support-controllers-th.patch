@@ -1,0 +1,308 @@
+From fbc0f1f22abb75cb7389d345603feffde7bb041f Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:57:25 +0000
+Subject: [PATCH 208/214] thermal/drivers/mediatek/lvts: Support controllers
+ the bootloader runs
+
+On some SoCs, such as the MT6858, the preloader configures, calibrates
+and starts every LVTS controller, and arms the thermal reset (PROTCTL,
+PROTTC) on it. Firmware and the kernel only read the results. The
+efuse calibration may also not be readable from the kernel at all: the
+MT6858's comes to the vendor kernel through LK's devinfo, not from a
+register block.
+
+Re-running the driver's reset and initialization on such a controller
+would replace a working configuration with one meant for another SoC,
+and briefly blind the thermal reset while it runs.
+
+Add fw_configured to the match data. Such a domain needs no clock,
+reset, interrupt or efuse cells, and the driver writes nothing to it:
+- its zones are polled through get_temp only;
+- the golden temperature comes from def_golden_temp;
+- suspend, resume and removal leave the controllers running.
+
+A running controller's valid bit clears when read and sets again only
+with the next result; on the MT6858's AP controllers that is about
+300 ms later, so the 400 us poll would mostly fail. Read the latest
+result instead, as the vendor kernel does: it is 0 only before the
+first measurement.
+---
+ drivers/thermal/mediatek/lvts_thermal.c | 160 ++++++++++++++++++------
+ 1 file changed, 124 insertions(+), 36 deletions(-)
+
+diff --git a/drivers/thermal/mediatek/lvts_thermal.c b/drivers/thermal/mediatek/lvts_thermal.c
+index 350fffd3e..3506d823f 100644
+--- a/drivers/thermal/mediatek/lvts_thermal.c
++++ b/drivers/thermal/mediatek/lvts_thermal.c
+@@ -160,6 +160,13 @@ struct lvts_data {
+ 	int gt_calib_bit_offset;
+ 	unsigned int def_calibration;
+ 	u16 msr_offset;
++	/*
++	 * The bootloader configures, calibrates and starts the controllers,
++	 * and arms their thermal reset: only read their measurements.
++	 */
++	bool fw_configured;
++	/* The golden temperature when no efuse data gives it */
++	u8 def_golden_temp;
+ };
+ 
+ struct lvts_sensor {
+@@ -348,6 +355,21 @@ static int lvts_get_temp(struct thermal_zone_device *tz, int *temp)
+ 	u32 value;
+ 	int rc;
+ 
++	/*
++	 * A running controller's valid bit clears on read and sets again
++	 * only with the next measurement, up to some 300 ms later on the
++	 * MT6858, so take the latest result. It is 0 only before the first.
++	 */
++	if (lvts_data->fw_configured) {
++		value = readl(msr);
++		if (!(value & 0xffff))
++			return -EAGAIN;
++
++		*temp = lvts_raw_to_temp(value, lvts_data);
++
++		return 0;
++	}
++
+ 	/*
+ 	 * Measurement registers:
+ 	 *
+@@ -630,6 +652,11 @@ static const struct thermal_zone_device_ops lvts_ops = {
+ 	.set_trips = lvts_set_trips,
+ };
+ 
++/* Polled only: setting trips would reprogram a firmware-owned controller */
++static const struct thermal_zone_device_ops lvts_fw_ops = {
++	.get_temp = lvts_get_temp,
++};
++
+ static int lvts_sensor_init(struct device *dev, struct lvts_ctrl *lvts_ctrl,
+ 					const struct lvts_ctrl_data *lvts_ctrl_data)
+ {
+@@ -946,16 +973,23 @@ static int lvts_ctrl_init(struct device *dev, struct lvts_domain *lvts_td,
+ 	struct lvts_ctrl *lvts_ctrl;
+ 	int i, ret;
+ 
+-	/*
+-	 * Create the calibration bytes stream from efuse data
+-	 */
+-	ret = lvts_calibration_read(dev, lvts_td, lvts_data);
+-	if (ret)
+-		return ret;
++	if (lvts_data->fw_configured) {
++		/* The controllers hold their calibration already */
++		if (lvts_data->def_golden_temp)
++			golden_temp = lvts_data->def_golden_temp;
++		golden_temp_offset = golden_temp * 500 + lvts_data->temp_offset;
++	} else {
++		/*
++		 * Create the calibration bytes stream from efuse data
++		 */
++		ret = lvts_calibration_read(dev, lvts_td, lvts_data);
++		if (ret)
++			return ret;
+ 
+-	ret = lvts_golden_temp_init(dev, lvts_td->calib, lvts_data);
+-	if (ret)
+-		return ret;
++		ret = lvts_golden_temp_init(dev, lvts_td->calib, lvts_data);
++		if (ret)
++			return ret;
++	}
+ 
+ 	lvts_ctrl = devm_kzalloc(dev, size, GFP_KERNEL);
+ 	if (!lvts_ctrl)
+@@ -971,12 +1005,14 @@ static int lvts_ctrl_init(struct device *dev, struct lvts_domain *lvts_td,
+ 		if (ret)
+ 			return ret;
+ 
+-		ret = lvts_calibration_init(dev, &lvts_ctrl[i],
+-					    &lvts_data->lvts_ctrl[i],
+-					    lvts_td->calib,
+-					    lvts_td->calib_len);
+-		if (ret)
+-			return ret;
++		if (!lvts_data->fw_configured) {
++			ret = lvts_calibration_init(dev, &lvts_ctrl[i],
++						    &lvts_data->lvts_ctrl[i],
++						    lvts_td->calib,
++						    lvts_td->calib_len);
++			if (ret)
++				return ret;
++		}
+ 
+ 		/*
+ 		 * The mode the ctrl will use to read the temperature
+@@ -1282,28 +1318,23 @@ static int lvts_ctrl_configure(struct device *dev, struct lvts_ctrl *lvts_ctrl)
+ 	return lvts_irq_init(lvts_ctrl);
+ }
+ 
+-static int lvts_ctrl_start(struct device *dev, struct lvts_ctrl *lvts_ctrl)
++/* Register the zones of the controller's sensors; return the ones found */
++static int lvts_ctrl_register_zones(struct device *dev, struct lvts_ctrl *lvts_ctrl,
++				    const struct thermal_zone_device_ops *ops,
++				    u8 *registered)
+ {
+ 	struct lvts_sensor *lvts_sensors = lvts_ctrl->sensors;
+ 	struct thermal_zone_device *tz;
+-	u32 sensor_map = 0;
+ 	int i;
+-	/*
+-	 * Bitmaps to enable each sensor on immediate and filtered modes, as
+-	 * described in MSRCTL1 and MONCTL0 registers below, respectively.
+-	 */
+-	u32 sensor_imm_bitmap[] = { BIT(4), BIT(5), BIT(6), BIT(9) };
+-	u32 sensor_filt_bitmap[] = { BIT(0), BIT(1), BIT(2), BIT(3) };
+ 
+-	u32 *sensor_bitmap = lvts_ctrl->mode == LVTS_MSR_IMMEDIATE_MODE ?
+-			     sensor_imm_bitmap : sensor_filt_bitmap;
++	*registered = 0;
+ 
+ 	lvts_for_each_valid_sensor(i, lvts_ctrl) {
+ 
+ 		int dt_id = lvts_sensors[i].dt_id;
+ 
+ 		tz = devm_thermal_of_zone_register(dev, dt_id, &lvts_sensors[i],
+-						   &lvts_ops);
++						   ops);
+ 		if (IS_ERR(tz)) {
+ 			/*
+ 			 * This thermal zone is not described in the
+@@ -1328,15 +1359,40 @@ static int lvts_ctrl_start(struct device *dev, struct lvts_ctrl *lvts_ctrl)
+ 		 */
+ 		lvts_sensors[i].tz = tz;
+ 
+-		/*
+-		 * This sensor was correctly associated with a thermal
+-		 * zone, let's set the corresponding bit in the sensor
+-		 * map, so we can enable the temperature monitoring in
+-		 * the hardware thermal controller.
+-		 */
+-		sensor_map |= sensor_bitmap[i];
++		*registered |= BIT(i);
+ 	}
+ 
++	return 0;
++}
++
++static int lvts_ctrl_start(struct device *dev, struct lvts_ctrl *lvts_ctrl)
++{
++	u32 sensor_map = 0;
++	u8 registered;
++	int i, ret;
++	/*
++	 * Bitmaps to enable each sensor on immediate and filtered modes, as
++	 * described in MSRCTL1 and MONCTL0 registers below, respectively.
++	 */
++	u32 sensor_imm_bitmap[] = { BIT(4), BIT(5), BIT(6), BIT(9) };
++	u32 sensor_filt_bitmap[] = { BIT(0), BIT(1), BIT(2), BIT(3) };
++
++	u32 *sensor_bitmap = lvts_ctrl->mode == LVTS_MSR_IMMEDIATE_MODE ?
++			     sensor_imm_bitmap : sensor_filt_bitmap;
++
++	ret = lvts_ctrl_register_zones(dev, lvts_ctrl, &lvts_ops, &registered);
++	if (ret)
++		return ret;
++
++	/*
++	 * Each sensor correctly associated with a thermal zone gets its
++	 * bit in the sensor map, so we can enable the temperature
++	 * monitoring in the hardware thermal controller.
++	 */
++	for (i = 0; i < LVTS_SENSOR_MAX; i++)
++		if (registered & BIT(i))
++			sensor_map |= sensor_bitmap[i];
++
+ 	/*
+ 	 * The initialization of the thermal zones give us
+ 	 * which sensor point to enable. If any thermal zone
+@@ -1380,6 +1436,19 @@ static int lvts_domain_init(struct device *dev, struct lvts_domain *lvts_td,
+ 	if (ret)
+ 		return ret;
+ 
++	if (lvts_data->fw_configured) {
++		u8 registered;
++
++		for (i = 0; i < lvts_td->num_lvts_ctrl; i++) {
++			ret = lvts_ctrl_register_zones(dev, &lvts_td->lvts_ctrl[i],
++						       &lvts_fw_ops, &registered);
++			if (ret)
++				return ret;
++		}
++
++		return lvts_debugfs_init(dev, lvts_td);
++	}
++
+ 	ret = lvts_domain_reset(dev, lvts_td->reset);
+ 	if (ret) {
+ 		dev_dbg(dev, "Failed to reset domain");
+@@ -1458,7 +1527,10 @@ static int lvts_probe(struct platform_device *pdev)
+ 	if (!lvts_data)
+ 		return -ENODEV;
+ 
+-	lvts_td->clk = devm_clk_get_enabled(dev, NULL);
++	if (lvts_data->fw_configured)
++		lvts_td->clk = devm_clk_get_optional_enabled(dev, NULL);
++	else
++		lvts_td->clk = devm_clk_get_enabled(dev, NULL);
+ 	if (IS_ERR(lvts_td->clk))
+ 		return dev_err_probe(dev, PTR_ERR(lvts_td->clk), "Failed to retrieve clock\n");
+ 
+@@ -1487,12 +1559,22 @@ static int lvts_probe(struct platform_device *pdev)
+ 	if (IS_ERR(lvts_td->reset))
+ 		return dev_err_probe(dev, PTR_ERR(lvts_td->reset), "Failed to get reset control\n");
+ 
++	golden_temp_offset = lvts_data->temp_offset;
++
++	if (lvts_data->fw_configured) {
++		ret = lvts_domain_init(dev, lvts_td, lvts_data);
++		if (ret)
++			return dev_err_probe(dev, ret, "Failed to initialize the lvts domain\n");
++
++		platform_set_drvdata(pdev, lvts_td);
++
++		return 0;
++	}
++
+ 	irq = platform_get_irq(pdev, 0);
+ 	if (irq < 0)
+ 		return irq;
+ 
+-	golden_temp_offset = lvts_data->temp_offset;
+-
+ 	ret = lvts_domain_init(dev, lvts_td, lvts_data);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to initialize the lvts domain\n");
+@@ -1517,6 +1599,8 @@ static void lvts_remove(struct platform_device *pdev)
+ 	int i;
+ 
+ 	lvts_td = platform_get_drvdata(pdev);
++	if (lvts_td->lvts_ctrl->lvts_data->fw_configured)
++		return;
+ 
+ 	for (i = 0; i < lvts_td->num_lvts_ctrl; i++)
+ 		lvts_ctrl_set_enable(&lvts_td->lvts_ctrl[i], false);
+@@ -1573,6 +1657,8 @@ static int lvts_suspend(struct device *dev)
+ 	int i;
+ 
+ 	lvts_td = dev_get_drvdata(dev);
++	if (lvts_td->lvts_ctrl->lvts_data->fw_configured)
++		return 0;
+ 
+ 	for (i = 0; i < lvts_td->num_lvts_ctrl; i++) {
+ 		lvts_ctrl_monitor_enable(dev, &lvts_td->lvts_ctrl[i], false);
+@@ -1591,6 +1677,8 @@ static int lvts_resume(struct device *dev)
+ 	int i, ret;
+ 
+ 	lvts_td = dev_get_drvdata(dev);
++	if (lvts_td->lvts_ctrl->lvts_data->fw_configured)
++		return 0;
+ 
+ 	ret = clk_prepare_enable(lvts_td->clk);
+ 	if (ret)
+-- 
+2.55.0
+

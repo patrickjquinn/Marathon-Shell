@@ -1,0 +1,95 @@
+From 6d3d1d92cf11355ab0cb42b6e4a7a0cf8bb1c596 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:22:20 +0000
+Subject: [PATCH 169/214] regulator: mt6369: Add the CONNSYS 3.3 V LDOs
+
+The MT6858's CONNSYS (Wi-Fi, Bluetooth, GNSS) is powered from the
+MT6369's VCN33_1 and VCN33_2 besides the MT6363's VRFIO18; the stock
+conninfra driver enables both whenever CONNSYS is on. They are LDOs of
+the same kind as VIBR (from the downstream driver: enable bit 0 of
+0x1c3f/0x1c4d, selector bits 3:0 of 0x1db1/0x1db5 into the same table),
+so describe them with the common macro.
+---
+ .../regulator/mediatek,mt6369-regulator.yaml       |  6 +++---
+ drivers/regulator/mt6369-regulator.c               | 14 +++++++++++---
+ 2 files changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/regulator/mediatek,mt6369-regulator.yaml b/Documentation/devicetree/bindings/regulator/mediatek,mt6369-regulator.yaml
+index fed886111..dd222a275 100644
+--- a/Documentation/devicetree/bindings/regulator/mediatek,mt6369-regulator.yaml
++++ b/Documentation/devicetree/bindings/regulator/mediatek,mt6369-regulator.yaml
+@@ -11,15 +11,15 @@ maintainers:
+ 
+ description:
+   The MT6369 is the second SPMI PMIC of MT6858 phones. Its LDOs are
+-  children of the PMIC node; the vibrator and SD card LDOs are described
+-  so far.
++  children of the PMIC node; the vibrator, SD card and CONNSYS 3.3 V
++  LDOs are described so far.
+ 
+ properties:
+   compatible:
+     const: mediatek,mt6369-regulator
+ 
+ patternProperties:
+-  "^(vibr|vmch|vmc)$":
++  "^(vibr|vmch|vmc|vcn33-[12])$":
+     type: object
+     $ref: regulator.yaml#
+     unevaluatedProperties: false
+diff --git a/drivers/regulator/mt6369-regulator.c b/drivers/regulator/mt6369-regulator.c
+index c31009308..dc69031d7 100644
+--- a/drivers/regulator/mt6369-regulator.c
++++ b/drivers/regulator/mt6369-regulator.c
+@@ -2,8 +2,8 @@
+ /*
+  * MediaTek MT6369 PMIC regulators
+  *
+- * The vibrator and SD card LDOs so far; their registers come from the
+- * downstream mt6369-regulator driver.
++ * The vibrator, SD card and CONNSYS 3.3 V LDOs so far; their registers
++ * come from the downstream mt6369-regulator driver.
+  */
+ 
+ #include <linux/mod_devicetable.h>
+@@ -15,11 +15,15 @@
+ #include <linux/regulator/of_regulator.h>
+ 
+ #define MT6369_LDO_VIBR_CON0		0x1bc1
++#define MT6369_LDO_VCN33_1_CON0		0x1c3f
++#define MT6369_LDO_VCN33_2_CON0		0x1c4d
+ #define MT6369_VIBR_ANA_CON0		0x1d99
+ #define MT6369_LDO_VMCH_CON0		0x1c95
+ #define MT6369_LDO_VMC_CON0		0x1ca4
+ #define MT6369_VMCH_ANA_CON0		0x1da9
+ #define MT6369_VMC_ANA_CON0		0x1dad
++#define MT6369_VCN33_1_ANA_CON0		0x1db1
++#define MT6369_VCN33_2_ANA_CON0		0x1db5
+ #define MT6369_LDO_EN			BIT(0)
+ #define MT6369_LDO_VOSEL_MASK		GENMASK(3, 0)
+ 
+@@ -27,9 +31,11 @@ enum mt6369_regulator_id {
+ 	MT6369_ID_VIBR,
+ 	MT6369_ID_VMCH,
+ 	MT6369_ID_VMC,
++	MT6369_ID_VCN33_1,
++	MT6369_ID_VCN33_2,
+ };
+ 
+-/* VIBR, VMCH and VMC share one selector table */
++/* These LDOs share one selector table */
+ static const unsigned int mt6369_ldo_volts[] = {
+ 	1200000, 1300000, 1500000, 1700000, 1800000, 2000000, 2500000, 2600000,
+ 	2700000, 2800000, 2900000, 3000000, 3100000, 3300000, 3400000, 3500000,
+@@ -65,6 +71,8 @@ static const struct regulator_desc mt6369_regulators[] = {
+ 	MT6369_LDO("vibr", MT6369_ID_VIBR, MT6369_LDO_VIBR_CON0, MT6369_VIBR_ANA_CON0),
+ 	MT6369_LDO("vmch", MT6369_ID_VMCH, MT6369_LDO_VMCH_CON0, MT6369_VMCH_ANA_CON0),
+ 	MT6369_LDO("vmc", MT6369_ID_VMC, MT6369_LDO_VMC_CON0, MT6369_VMC_ANA_CON0),
++	MT6369_LDO("vcn33-1", MT6369_ID_VCN33_1, MT6369_LDO_VCN33_1_CON0, MT6369_VCN33_1_ANA_CON0),
++	MT6369_LDO("vcn33-2", MT6369_ID_VCN33_2, MT6369_LDO_VCN33_2_CON0, MT6369_VCN33_2_ANA_CON0),
+ };
+ 
+ static int mt6369_regulator_probe(struct platform_device *pdev)
+-- 
+2.55.0
+

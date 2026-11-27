@@ -1,0 +1,29 @@
+From 4873e8e128b4a35373483f2ba7bca3c35b2a4b1a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 17:58:46 +0000
+Subject: [PATCH 001/214] dt-bindings: vendor-prefixes: Add Jolla Mobile Ltd.
+
+Jolla Mobile Ltd. makes the Jolla Phone (2026), board JP2601, on the
+MediaTek MT6858. Add its prefix so the board's device tree can name it.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/vendor-prefixes.yaml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index 5471a06f9..3119a5755 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -901,6 +901,8 @@ patternProperties:
+     description: Jiandangjing Technology Co., Ltd.
+   "^jide,.*":
+     description: Jide Tech
++  "^jolla,.*":
++    description: Jolla Mobile Ltd.
+   "^joz,.*":
+     description: JOZ BV
+   "^jty,.*":
+-- 
+2.55.0
+

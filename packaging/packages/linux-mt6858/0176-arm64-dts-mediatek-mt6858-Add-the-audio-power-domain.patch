@@ -1,0 +1,74 @@
+From aca33099233da21f108693cc885be0fd82d42c48 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:36:22 +0000
+Subject: [PATCH 176/214] arm64: dts: mediatek: mt6858: Add the audio power
+ domain and AFE
+
+The audio front end sits behind the AUDIO power domain, which the
+bootloader leaves off (SPM 0xe18 reads with both ACK bits clear), so any
+access to the AFE needs the domain described first. Its one basic clock
+is top_aud_intbus_sel, as in MediaTek's scpsys data ("audio_0").
+
+The AFE takes the topckgen audio muxes, both APLLs and their /4 taps,
+the 26 MHz clock and the three pericfg audio gates. It stays disabled
+until a board wires up its I2S pins.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 35 ++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index a266b659a..a610a8619 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -416,6 +416,34 @@ pericfg_ao: syscon@11032000 {
+ 			#clock-cells = <1>;
+ 		};
+ 
++		afe: audio-controller@11050000 {
++			compatible = "mediatek,mt6858-afe-pcm";
++			reg = <0 0x11050000 0 0x10000>;
++			interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH 0>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_AUDIO>;
++			clocks = <&topckgen CLK_TOP_AUD_INTBUS_SEL>,
++				 <&topckgen CLK_TOP_AUD_ENGEN1_SEL>,
++				 <&topckgen CLK_TOP_AUD_ENGEN2_SEL>,
++				 <&topckgen CLK_TOP_AUDIO_H_SEL>,
++				 <&topckgen CLK_TOP_APLL1_CK>,
++				 <&topckgen CLK_TOP_APLL2_CK>,
++				 <&topckgen CLK_TOP_APLL1_D4>,
++				 <&topckgen CLK_TOP_APLL2_D4>,
++				 <&topckgen CLK_TOP_AUD_1_SEL>,
++				 <&topckgen CLK_TOP_AUD_2_SEL>,
++				 <&topckgen CLK_TOP_TCK_26M_MX9_CK>,
++				 <&pericfg_ao CLK_PERAO_P_AUDIO0>,
++				 <&pericfg_ao CLK_PERAO_P_AUDIO1>,
++				 <&pericfg_ao CLK_PERAO_P_AUDIO2>;
++			clock-names = "top_aud_intbus", "top_aud_eng1",
++				      "top_aud_eng2", "top_aud_h", "apll1",
++				      "apll2", "apll1_d4", "apll2_d4",
++				      "top_apll1", "top_apll2", "clk26m",
++				      "aud_slv_ck_peri", "aud_mst_ck_peri",
++				      "aud_intbus_ck_peri";
++			status = "disabled";
++		};
++
+ 		ssusb: usb@11201000 {
+ 			compatible = "mediatek,mt6858-mtu3", "mediatek,mtu3";
+ 			reg = <0 0x11201000 0 0x2e00>,
+@@ -825,6 +853,13 @@ power-domain@MT6858_POWER_DOMAIN_DIS0 {
+ 					};
+ 				};
+ 
++				power-domain@MT6858_POWER_DOMAIN_AUDIO {
++					reg = <MT6858_POWER_DOMAIN_AUDIO>;
++					clocks = <&topckgen CLK_TOP_AUD_INTBUS_SEL>;
++					clock-names = "audio";
++					#power-domain-cells = <0>;
++				};
++
+ 				power-domain@MT6858_POWER_DOMAIN_SSUSB {
+ 					reg = <MT6858_POWER_DOMAIN_SSUSB>;
+ 					#power-domain-cells = <0>;
+-- 
+2.55.0
+

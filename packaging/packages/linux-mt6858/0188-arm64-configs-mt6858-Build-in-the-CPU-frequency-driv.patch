@@ -1,0 +1,26 @@
+From c1eb97c005d1813d4f3b333948f39188ea7899cf Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:37:37 +0000
+Subject: [PATCH 188/214] arm64: configs: mt6858: Build in the CPU frequency
+ driver
+
+defconfig builds mediatek-cpufreq-hw as a module, so the CPUs stay at
+LK's operating points until userspace loads it. Build it in so that
+schedutil scales them from the start.
+---
+ arch/arm64/configs/mt6858.config | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index eff61b661..3a067c2d5 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -80,3 +80,5 @@ CONFIG_INV_ICM42607_SPI=m
+ CONFIG_MMC5633=m
+ CONFIG_STK3310=m
+ CONFIG_I2C_GPIO=m
++# CPU DVFS through MCUPM, from the start of boot.
++CONFIG_ARM_MEDIATEK_CPUFREQ_HW=y
+-- 
+2.55.0
+

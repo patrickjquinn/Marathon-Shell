@@ -1,0 +1,156 @@
+From 93ee882fe807a0e5b3b119c878e419d224746d7a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 03:09:28 +0000
+Subject: [PATCH 237/237] arm64: dts: mediatek: mt6858-jolla-jp2601: Describe
+ the MD1 modem
+
+Add the nodes MediaTek's ECCCI modem driver binds to: the MD1 control
+block with the tag header of the image BL2_EXT loads, the CCIF mailboxes,
+DPMAIF, the infracfg windows the driver maps, and the pins the modem
+reads over RPC (SIM and the two FDD band-detect pins it uses to pick its
+RF set). Taken from the stock device tree with the clocks renumbered to
+mainline's infracfg_ao. No regulators are given, so the rails stay as
+the bootloader left them.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 118 ++++++++++++++++++
+ 1 file changed, 118 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 1af07c9ea..18b7baf4b 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -226,6 +226,15 @@ gps@18c00000 {
+ 		b13b14-status-addr = <0x1c000008>;
+ 	};
+ 
++	/*
++	 * The modem's RF setup asks for its DRDI RF set index; 0x0f0f0f0f has
++	 * it detect the board from the FDD band pins in md-gpio-usage.
++	 */
++	md-attr {
++		compatible = "mediatek,md_attr_node";
++		mediatek,md_drdi_rf_set_idx = <0x0f0f0f0f>;
++	};
++
+ 	/*
+ 	 * The stock HWID selects "nofem" (no hwid node, no connfem module
+ 	 * parameter), so no FEM pins are claimed.
+@@ -629,6 +638,115 @@ codec {
+ 	};
+ };
+ 
++/*
++ * The MD1 modem (ECCCI), from the stock DT, with mainline infracfg_ao clock
++ * numbers. ccci,modem_info_v2 is LK's tag header for the MD image BL2_EXT
++ * loads (tag table at 0xbfdf0000). No regulators: the rails stay as the
++ * boot left them.
++ */
++&{/soc} {
++	mddriver@d180000 {
++		compatible = "mediatek,mddriver";
++		reg = <0 0x0d180000 0 0x2000>;
++		interrupts = <GIC_SPI 491 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH 0>;
++		ccci,modem_info_v2 = <0xdfbf 0x00 0xd0190000 0x00 0x3000000 0x1c000000
++			0x1000000 0x00 0x1000000 0x00 0x2d8 0x00 0x4002d8 0x00 0x8002d8
++			0x00 0x800000 0xe000000 0x1000000 0x00>;
++		md1_ccb_cap_gear = <0x0e>;
++		md1_ccb_gear_list = "1(1,20);2(1,10);3(0,0);4(1,30);11(1,2);12(1,62);13(1,94);14(1,14);16(1,190)";
++		md1_ccb_gear_ver = <0x01>;
++		md_dbm_addr = <0 0xd8024000>;
++		md_low_power_addr = <0 0xd8020000>;
++		mediatek,mdhif-type = <0x06>;
++		mediatek,ap-plat-info = <6858>;
++		mediatek,md-generation = <6299>;
++		mediatek,md-sub-version = <0>;
++		mediatek,offset-epon-md1 = <0x64 0x06>;
++		mediatek,cldma-capability = <0x0a>;
++		mediatek,boot-status-value = <0x544300f1>;
++		mediatek,md-buck-iso-con = <0x1c001f20>;
++		load-md-stage = "bl2_ext_load_md";
++		mediatek,mdsrc-settle-time = <0x14>;
++		mediatek,ccci-ctrl-mtcmos = <1>;
++		mediatek,power-flow-config = <0x40>;
++		ccci-infracfg = <&infracfg_ao>;
++		ccci-topckgen = <&topckgen>;
++		md-vmodem = <825000 825000>;
++		md-vsram = <825000 825000>;
++		md-vdigrf = <700000 700000>;
++	};
++
++	ccifdriver@10209000 {
++		compatible = "mediatek,ccci_ccif";
++		reg = <0 0x10209000 0 0x1000>, <0 0x1020a000 0 0x1000>;
++		interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH 0>;
++		mediatek,sram-size = <0x200>;
++		mediatek,ccif-hw-reset-ver = <1>;
++		mediatek,ccif-hw-reset-bit = <0x1a>;
++		/* CCIF_AP, CCIF_MD, CCIF1_AP, CCIF1_MD, CCIF4_MD, CCIF5_MD */
++		clocks = <&infracfg_ao 2>, <&infracfg_ao 3>, <&infracfg_ao 0>,
++			 <&infracfg_ao 1>, <&infracfg_ao 9>, <&infracfg_ao 5>;
++		clock-names = "infra-ccif-ap", "infra-ccif-md", "infra-ccif1-ap",
++			      "infra-ccif1-md", "infra-ccif4-md", "infra-ccif5-md";
++	};
++
++	/* Pins the modem reads over RPC: <&pio AP-pin MD-pin> */
++	md-gpio-usage {
++		compatible = "mediatek,gpio_usage_mapping";
++		GPIO-SIM1-SCLK = <&pio 88 0>;
++		GPIO-SIM1-SRST = <&pio 89 0>;
++		GPIO-SIM1-SIO = <&pio 90 0>;
++		GPIO-SIM2-SCLK = <&pio 91 0>;
++		GPIO-SIM2-SRST = <&pio 92 0>;
++		GPIO-SIM2-SIO = <&pio 93 0>;
++		GPIO-SIM1-HOT-PLUG = <&pio 94 0>;
++		GPIO-SIM2-HOT-PLUG = <&pio 95 0>;
++		GPIO-FDD-BAND-SUPPORT-DETECT-1ST-PIN = <&pio 103 0>;
++		GPIO-FDD-BAND-SUPPORT-DETECT-2ND-PIN = <&pio 104 0>;
++	};
++
++	infracfg@1020e000 {
++		compatible = "mediatek,infracfg";
++		reg = <0 0x1020e000 0 0x1000>;
++	};
++
++	infracfg-ao-mem@10002000 {
++		compatible = "mediatek,infracfg_ao_mem";
++		reg = <0 0x10002000 0 0x1000>;
++	};
++
++	md-ccif4@1024d000 {
++		compatible = "mediatek,md_ccif4";
++		reg = <0 0x1024d000 0 0x1000>;
++	};
++
++	md-ccif5@1025d000 {
++		compatible = "mediatek,md_ccif5";
++		reg = <0 0x1025d000 0 0x1000>;
++	};
++
++	dpmaif@10014000 {
++		compatible = "mediatek,dpmaif";
++		reg = <0 0x10014000 0 0x1000>, <0 0x1022d000 0 0x1000>,
++		      <0 0x1022c000 0 0x1000>, <0 0x1022e000 0 0x1000>;
++		interrupts = <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH 0>;
++		mediatek,dpmaif-ver = <3>;
++		mediatek,dpmaif-cap = <0x4a>;
++		mediatek,plat-info = <6858>;
++		/* DPMAIF_MAIN, CLDMABCLK, DPMAIF_26M */
++		clocks = <&infracfg_ao 8>, <&infracfg_ao 4>, <&infracfg_ao 10>;
++		clock-names = "infra-dpmaif-clk", "infra-dpmaif-blk-clk",
++			      "infra-dpmaif-rg-mmw-clk";
++		net-spd-ver = <2>;
++		hw-reset-ver = <1>;
++		dpmaif-infracfg = <&infracfg_ao>;
++	};
++};
++
+ &afe {
+ 	pinctrl-names = "aud-gpio-i2s1-off", "aud-gpio-i2s1-on";
+ 	pinctrl-0 = <&aud_i2s1_off_pins>;
+-- 
+2.55.0
+

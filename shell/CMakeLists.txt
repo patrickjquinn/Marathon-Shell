@@ -3,6 +3,8 @@ set(SOURCES
     src/diag/fpsmonitor.h
     src/diag/fpsmonitor.cpp
     src/components/svgimageprovider.h
+    src/components/wallpaperimageprovider.h
+    src/components/wallpaperimageprovider.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/marathoninputmethodengine.h
@@ -18,6 +20,8 @@ set(SOURCES
     src/services/waketouchfilter.cpp
     src/services/inputcontext.h
     src/services/inputcontext.cpp
+    src/services/homeunlock.h
+    src/services/homeunlock.cpp
     src/services/remotetextinput.h
     src/services/remotetextinput.cpp
     src/services/translations.h
@@ -39,6 +43,10 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/waylandcompositor.cpp
         src/wayland/securitycontextv1.h
         src/wayland/securitycontextv1.cpp
+        src/wayland/sharedclipboard.h
+        src/wayland/sharedclipboard.cpp
+        src/wayland/symcontrol.h
+        src/wayland/symcontrol.cpp
         src/wayland/fifov1.h
         src/wayland/fifov1.cpp
         src/wayland/committimingv1.h
@@ -102,6 +110,7 @@ endif()
 
 set(QML_FILES
     qml/Main.qml
+    qml/HomeUnlock.qml
     qml/MarathonShell.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonNightshade.qml
@@ -121,6 +130,7 @@ set(QML_FILES
     qml/components/WeatherSheet.qml
     qml/components/WeatherTile.qml
     qml/components/MarathonPinScreen.qml
+    qml/components/MarathonHomeUnlock.qml
     qml/components/MarathonAppWindow.qml
     qml/components/KeelAmbienceBackground.qml
     qml/components/WallpaperTone.qml

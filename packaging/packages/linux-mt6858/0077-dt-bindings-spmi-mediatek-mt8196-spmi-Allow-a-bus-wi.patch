@@ -1,0 +1,35 @@
+From 8af8c6c46b518ba5821c24047709cc009fe9fda2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:25:12 +0000
+Subject: [PATCH 077/214] dt-bindings: spmi: mediatek,mt8196-spmi: Allow a bus
+ without RCS interrupt
+
+On the MT6858 the arbiter's two buses share one RCS interrupt: the
+downstream driver handles both from SPMI-M's EINT and gives SPMI-P none.
+Such a bus is no interrupt controller, so require the interrupt
+properties only of a bus that is one.
+---
+ .../devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml     | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml b/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
+index 281cfe842..8723f32f1 100644
+--- a/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
++++ b/Documentation/devicetree/bindings/spmi/mediatek,mt8196-spmi.yaml
+@@ -86,10 +86,9 @@ patternProperties:
+       - reg-names
+       - clocks
+       - clock-names
+-      - interrupts
+-      - interrupt-names
+-      - interrupt-controller
+-      - "#interrupt-cells"
++
++    dependentRequired:
++      interrupt-controller: [interrupts, interrupt-names, "#interrupt-cells"]
+ 
+ required:
+   - compatible
+-- 
+2.55.0
+

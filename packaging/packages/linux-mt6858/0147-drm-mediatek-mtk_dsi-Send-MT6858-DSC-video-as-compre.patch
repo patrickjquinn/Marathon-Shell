@@ -1,0 +1,63 @@
+From b22ed9fcdcd2a5f7a640e1f2d969e99dbf186b58 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:52:26 +0000
+Subject: [PATCH 147/214] drm/mediatek: mtk_dsi: Send MT6858 DSC video as
+ compressed pixel stream packets
+
+With DSC the MT6858 DSI takes the data type of its video packets from
+DSI_PSCTRL[31:26]. Left at zero, the compressed lines go out as packets
+of data type 0, which the panel ignores. The bootloader sets 0x0b,
+Compressed Pixel Stream (DSI_PSCTRL = 0x2c050408), and so does the
+vendor driver.
+
+Set the field for SoCs that need it, MT6858 for now.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index d361c436f..35030e64b 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -79,6 +79,7 @@
+ #define LOOSELY_PS_24BIT_RGB666		2
+ #define PACKED_PS_24BIT_RGB888		3
+ #define COMPRESSED_PS_DSC		5
++#define DSI_PS_DT			GENMASK(31, 26)
+ 
+ #define DSI_VSA_NL		0x20
+ #define DSI_VBP_NL		0x24
+@@ -197,6 +198,7 @@ struct mtk_dsi_driver_data {
+ 	bool has_size_ctl;
+ 	bool cmdq_long_packet_ctl;
+ 	bool support_per_frame_lp;
++	bool dsc_ps_dt;
+ };
+ 
+ struct mtk_dsi {
+@@ -448,9 +450,12 @@ static void mtk_dsi_ps_control(struct mtk_dsi *dsi, bool config_vact)
+ 	default:
+ 		fallthrough;
+ 	case MIPI_DSI_FMT_RGB888:
+-		if (dsi->dsc)
++		if (dsi->dsc) {
+ 			ps_val |= FIELD_PREP(DSI_PS_SEL, COMPRESSED_PS_DSC);
+-		else
++			if (dsi->driver_data->dsc_ps_dt)
++				ps_val |= FIELD_PREP(DSI_PS_DT,
++						     MIPI_DSI_COMPRESSED_PIXEL_STREAM);
++		} else
+ 			ps_val |= FIELD_PREP(DSI_PS_SEL, PACKED_PS_24BIT_RGB888);
+ 		break;
+ 	case MIPI_DSI_FMT_RGB666:
+@@ -1429,6 +1434,7 @@ static const struct mtk_dsi_driver_data mt6858_dsi_driver_data = {
+ 	.has_size_ctl = true,
+ 	.cmdq_long_packet_ctl = true,
+ 	.support_per_frame_lp = true,
++	.dsc_ps_dt = true,
+ };
+ 
+ static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
+-- 
+2.55.0
+

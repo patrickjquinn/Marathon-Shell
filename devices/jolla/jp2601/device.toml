@@ -1,7 +1,6 @@
 # Jolla Phone (2026), board JP2601, bring-up policy; BRINGUP.md has the
-# state of the mainline kernel and what comes next. Nothing here builds yet:
-# scripts/build-image.sh has no jolla-jp2601 target, and there is no overlay
-# or kernel package.
+# state of the mainline kernel, what the first image carries and what comes
+# next.
 schema = 1
 vendor = "jolla"
 codename = "jp2601"
@@ -10,20 +9,31 @@ name = "Jolla Phone (2026)"
 manufacturer = "Jolla"
 soc = "mt6858"
 status = "bring-up"
+package = "device-jolla-jp2601-marathon"
 
+# mkosi builds the root alone; the wrapper puts it on the userdata carrier
+# beside an ESP made from the root's /boot, as for the Q25 and the MP01.
 [build]
 target = "jolla-jp2601"
+wrapper = "scripts/build-jolla-jp2601-image.sh"
 bootloader = "none"
 
-# Planned, untested: the stock LK stays in lk_a/lk_b and loads a U-Boot
-# packed as boot_b's kernel, as on the MP01. Slot A keeps Sailfish OS.
+# The stock LK stays in lk_a/lk_b and loads a mainline U-Boot packed in
+# boot_b (slot B); U-Boot maps userdata with blkmap and starts systemd-boot
+# from the ESP in it, or, without one, a rescue FIT in boot_b.
 [boot]
 method = "android-u-boot"
 partition_table = "gpt"
 
-# Planned per-SoC package (one kernel, every MT6858 board's DTB).
+# Installed phones boot by jp2601.rootfs_file= and keep the carrier at
+# /.jp2601-carrier/root.
+[boot.carrier]
+name = "jp2601"
+dtb = "mediatek/mt6858-jolla-jp2601.dtb"
+
 [kernel]
 package = "linux-mt6858"
+version = "7.4.0_rc4_git20261124"
 
 [display]
 # LK's lcmname: yft_vtdr6126_fhdp_dsi_vdo_90hz_boe_dphy_lcm_drv.
@@ -31,10 +41,20 @@ panel = "BOE panel on a Visionox VTDR6126 driver IC, DSI video mode, D-PHY"
 interface = "dsi"
 width = 1032
 height = 2272
+diagonal_in = 6.36
+# UI policy (2.1x): the Q25's physical size (1.5x at 295 ppi, 0.129 mm a
+# unit) plus 5 %, which the user preferred on this larger screen.
+scale_dpi = 336
+quirks = [
+  "display power-off and wake are not yet checked with the screen timeout on",
+]
 
 [input]
-touch = "Hynitron over SPI (hynitron_spi); no mainline driver"
+touch = "Hynitron CST66xx (hyn,66xx) on SPI3 (0x11013800) CS0, EINT6; no mainline driver, and SPI waits on clk-mt6858"
 keyboard = "none"
+quirks = [
+  "MT6363 PMIC power key, both home keys as volume down, volume up on gpio-keys; hall sensor SW_LID and privacy switch SW_MUTE_DEVICE",
+]
 
 [hardware]
 ram_mb = 12288
@@ -43,9 +63,29 @@ gps = "CONNSYS GNSS (conninfra soc7_0); no mainline driver"
 wifi = "CONNSYS gen4m (wlan_drv_gen4m_6858); no mainline driver"
 bluetooth = "CONNSYS (bt_drv_6858); no mainline driver"
 battery = "MT6720 charger and fuel gauge on i2c5 0x34"
-sensors = []
+sensors = ["InvenSense ICM-42607-P accelerometer/gyroscope on SPI2 (inv_icm42607)", "MEMSIC MMC5603 magnetometer at 0x30 (mmc5633)", "SensorTek STK3A5X proximity/ambient light at 0x46 (stk3310)"]
 quirks = [
   "PMICs are MT6363 and MT6369 on SPMI at 0x1c024000",
-  "accelerometer and the other motion sensors sit behind the SCP sensor hub, not on the AP",
+  "the SCP sensor hub never leaves reset: the AP drives the sensors itself, the magnetometer and light sensor on i2c-gpio over GPIO157/158",
   "NFC is an ST21NFC part (/dev/st21nfc); fingerprint is Goodix gf_spi with matching in the TEE",
 ]
+
+[profile]
+# Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
+force_dpi = 336
+panel_dpi = 392
+# Until display power-off and wake are checked (display.quirks).
+screen_timeout_ms = 0
+# As on the Q25: ondemand ramps only past 95% load; schedutil follows the
+# foreground uclamp.
+cpu_governor = "schedutil"
+# The user's own interface size on this screen, 125%.
+ui_scale = 1.25
+# An AMOLED panel: its blacks are pixels off, so no noise overlay lifts them.
+display_technology = "oled"
+panel_dither = false
+# The camera notch, from Sailfish's cutouts=[[310, 0, 414, 66]].
+display_cutout = "310,0,414,66"
+# 12 GB, as on the Q25: a warm spare runner with the media folders and one
+# without.
+runner_pool = 2

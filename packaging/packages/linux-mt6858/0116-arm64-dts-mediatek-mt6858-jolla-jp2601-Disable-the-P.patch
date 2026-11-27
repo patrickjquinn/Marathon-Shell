@@ -1,0 +1,40 @@
+From 468059b1e13e49170ad5f31f6a2f5f739eb056df Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:42:41 +0000
+Subject: [PATCH 116/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Disable
+ the PWM and IR transmitter
+
+Reading the PWM's registers took a synchronous external abort on the
+phone, although pwm-mediatek enables its top, main and channel clocks
+around every access. So the perao PWM gates are not all the block needs,
+and any PWM access can fault, transmitting IR included. Keep the PWM and
+pwm-ir-tx disabled until the PWM's clocking is understood.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index ceb58e219..c8f41b518 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -99,6 +99,7 @@ vibrator {
+ 	ir-transmitter {
+ 		compatible = "pwm-ir-tx";
+ 		pwms = <&pwm 3 0>;
++		status = "disabled";
+ 	};
+ 
+ 	gpio-keys {
+@@ -768,7 +769,8 @@ pins-reset {
+ &pwm {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pwm_pins>;
+-	status = "okay";
++	/* Its registers abort on access with the clocks enabled so far */
++	status = "disabled";
+ };
+ 
+ &spmi_p {
+-- 
+2.55.0
+

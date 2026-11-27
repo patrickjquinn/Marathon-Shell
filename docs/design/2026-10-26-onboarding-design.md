@@ -110,9 +110,9 @@ what's new."), which stays in the Hub after setup. When the peek reaches
 its icon stop or opens fully, the beat confirms ("That's it" / "Let go
 part-way to glance; keep going to open it.") and moves on after 1.5 s.
 
-**Off you go.** "You're ready" / "Flick the bar up, the way you began, to
-go home." The flick on the real pill drives setup's surface with the
-finger: it shrinks (to 45 %) and rises with rounded corners (the shell's
+**Off you go.** "You're ready" / "Flick the bar up to go home." The
+flick on the real pill drives setup's surface with the finger: it
+shrinks (to 45 %) and rises with rounded corners (the shell's
 `windowcorner` shader), committing past the same threshold as minimising
 an app, springing back otherwise. On commit, setup completes
 (`firstRunComplete = true`, unlock as today) and the home screen's icons

@@ -1,0 +1,40 @@
+From 45909a3eb45ce5257c63933a74364dd48a8d8977 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:50:23 +0000
+Subject: [PATCH 118/214] mfd: mtk-spmi-pmic: Log the ID registers on an
+ unexpected chip ID
+
+The MT6369 on the Jolla Phone's SPMI-P reads 0x00 as its chip ID with no
+bus error: either it keeps its ID elsewhere or the bus reads zeros. Log
+registers 0x08-0x0b too (the downstream debug driver reads the MT6363's
+ID from 0x08/0x09), so the failed probe tells the two apart. Reads only.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index e60514804..460e5b760 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -438,9 +438,15 @@ static int mtk_spmi_pmic_probe(struct spmi_device *sdev)
+ 			ret = regmap_read(regmap, variant->chip_id_reg, &id);
+ 		if (ret)
+ 			return dev_err_probe(dev, ret, "Cannot read the chip ID\n");
+-		if (id != variant->chip_id)
+-			return dev_err_probe(dev, -ENODEV, "Unexpected chip ID %#04x, not %#04x\n",
+-					     id, variant->chip_id);
++		if (id != variant->chip_id) {
++			u8 ids[4] = {};
++
++			/* The ID registers around it tell a dead bus from another chip */
++			regmap_bulk_read(regmap, MTK_SPMI_PMIC_REG_CHIP_ID - 3, ids, 4);
++			return dev_err_probe(dev, -ENODEV,
++					     "Unexpected chip ID %#04x, not %#04x (0x08-0x0b: %*ph)\n",
++					     id, variant->chip_id, 4, ids);
++		}
+ 		dev_info(dev, "chip ID %#04x\n", id);
+ 	}
+ 
+-- 
+2.55.0
+

@@ -1105,7 +1105,7 @@
     </message>
     <message>
         <location line="+12"/>
-        <source>Flick the bar up, the way you began, to go home.</source>
+        <source>Flick the bar up to go home.</source>
         <extracomment>Last setup step: how to finish</extracomment>
         <translation type="unfinished"></translation>
     </message>

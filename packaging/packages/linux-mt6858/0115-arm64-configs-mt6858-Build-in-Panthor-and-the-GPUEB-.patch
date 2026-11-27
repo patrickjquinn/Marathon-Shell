@@ -1,0 +1,25 @@
+From 4401144e6a03e7e73890b23b83ced4e3505e994a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:39:28 +0000
+Subject: [PATCH 115/214] arm64: configs: mt6858: Build in Panthor and the
+ GPUEB power domain
+
+---
+ arch/arm64/configs/mt6858.config | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index b34d4d079..88ac0c562 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -62,3 +62,7 @@ CONFIG_INPUT_MISC=y
+ CONFIG_INPUT_REGULATOR_HAPTIC=y
+ CONFIG_DRM_MEDIATEK=y
+ CONFIG_PHY_MTK_MIPI_DSI=y
++# The Mali-G610, under the GPUEB's power and frequency control.
++CONFIG_MTK_GPUEB_MBOX=y
++CONFIG_MTK_MFG_PM_DOMAIN=y
++CONFIG_DRM_PANTHOR=y
+-- 
+2.55.0
+

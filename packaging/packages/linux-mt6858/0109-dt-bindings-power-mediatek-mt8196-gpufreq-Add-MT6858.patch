@@ -1,0 +1,133 @@
+From 7ec327a8b7eb2fe5fe24d9a3d30de5c9308a9357 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:36:49 +0000
+Subject: [PATCH 109/214] dt-bindings: power: mediatek,mt8196-gpufreq: Add
+ MT6858
+
+On the MT6858 the bootloader loads and starts the GPUEB, and the EB
+never sleeps. It switches the GPU power, PLLs and voltages itself, so
+the node needs only the GPR area, the gpufreq mailbox channel and the
+shared memory, plus the SPM syscon: MFG0, the EB's power domain, is
+controlled there, and the driver checks it before touching the EB.
+---
+ .../power/mediatek,mt8196-gpufreq.yaml        | 68 ++++++++++++++++---
+ 1 file changed, 58 insertions(+), 10 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/power/mediatek,mt8196-gpufreq.yaml b/Documentation/devicetree/bindings/power/mediatek,mt8196-gpufreq.yaml
+index 66fc59b3c..c9a59308b 100644
+--- a/Documentation/devicetree/bindings/power/mediatek,mt8196-gpufreq.yaml
++++ b/Documentation/devicetree/bindings/power/mediatek,mt8196-gpufreq.yaml
+@@ -19,15 +19,18 @@ properties:
+ 
+   compatible:
+     enum:
++      - mediatek,mt6858-gpufreq
+       - mediatek,mt8196-gpufreq
+ 
+   reg:
++    minItems: 1
+     items:
+       - description: GPR memory area
+       - description: RPC memory area
+       - description: SoC variant ID register
+ 
+   reg-names:
++    minItems: 1
+     items:
+       - const: gpr
+       - const: rpc
+@@ -48,6 +51,7 @@ properties:
+       - const: stack1
+ 
+   mboxes:
++    minItems: 1
+     items:
+       - description: FastDVFS events
+       - description: frequency control
+@@ -58,14 +62,14 @@ properties:
+       - description: FastDVFS control
+ 
+   mbox-names:
+-    items:
+-      - const: fast-dvfs-event
+-      - const: gpufreq
+-      - const: sleep
+-      - const: timer
+-      - const: fhctl
+-      - const: ccf
+-      - const: fast-dvfs
++    minItems: 1
++    maxItems: 7
++
++  mediatek,spm:
++    $ref: /schemas/types.yaml#/definitions/phandle
++    description:
++      The SPM syscon, which holds the power control of MFG0, the power
++      domain of the embedded controller.
+ 
+   memory-region:
+     items:
+@@ -90,14 +94,58 @@ required:
+   - compatible
+   - reg
+   - reg-names
+-  - clocks
+-  - clock-names
+   - mboxes
+   - mbox-names
+   - memory-region
+   - "#clock-cells"
+   - "#power-domain-cells"
+ 
++allOf:
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: mediatek,mt6858-gpufreq
++    then:
++      description:
++        The bootloader starts the embedded controller, which then controls
++        the GPU's power, clocks and voltages on its own.
++      properties:
++        reg:
++          maxItems: 1
++        reg-names:
++          maxItems: 1
++        clocks: false
++        clock-names: false
++        mboxes:
++          maxItems: 1
++        mbox-names:
++          items:
++            - const: gpufreq
++      required:
++        - mediatek,spm
++    else:
++      properties:
++        reg:
++          minItems: 3
++        reg-names:
++          minItems: 3
++        mboxes:
++          minItems: 7
++        mbox-names:
++          items:
++            - const: fast-dvfs-event
++            - const: gpufreq
++            - const: sleep
++            - const: timer
++            - const: fhctl
++            - const: ccf
++            - const: fast-dvfs
++        mediatek,spm: false
++      required:
++        - clocks
++        - clock-names
++
+ additionalProperties: false
+ 
+ examples:
+-- 
+2.55.0
+

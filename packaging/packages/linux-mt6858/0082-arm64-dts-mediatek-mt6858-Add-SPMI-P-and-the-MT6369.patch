@@ -1,0 +1,51 @@
+From 4372957f83f2423f166727e81f06dd7133a921ac Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:26:35 +0000
+Subject: [PATCH 082/214] arm64: dts: mediatek: mt6858: Add SPMI-P and the
+ MT6369
+
+The arbiter's second bus, SPMI-P (PMIF 0x1c026000, master 0x1c020000,
+clocked by vlp_spmi_p_sel), carries the MT6369 at SID 5. Its RCS
+requests share SPMI-M's interrupt, so it has none of its own. Leave the
+bus disabled for boards to enable.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index e9ceed359..bd490938e 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -751,6 +751,29 @@ mt6363: pmic@4 {
+ 					#size-cells = <0>;
+ 				};
+ 			};
++
++			/*
++			 * The MT6369 is on the second bus, whose RCS requests
++			 * share the first bus's interrupt: no interrupts here.
++			 */
++			spmi_p: spmi@6000 {
++				reg = <0x6000 0x900>, <0x0 0x100>;
++				reg-names = "pmif", "spmimst";
++				clocks = <&vlpckgen CLK_VLP_PWRAP_ULPOSC_SEL>,
++					 <&vlpckgen CLK_VLP_PWRAP_ULPOSC_SEL>,
++					 <&vlpckgen CLK_VLP_SPMI_P_SEL>;
++				clock-names = "pmif_sys_ck", "pmif_tmr_ck", "spmimst_clk_mux";
++				#address-cells = <2>;
++				#size-cells = <0>;
++				status = "disabled";
++
++				mt6369: pmic@5 {
++					compatible = "mediatek,mt6369";
++					reg = <0x5 SPMI_USID>;
++					#address-cells = <1>;
++					#size-cells = <0>;
++				};
++			};
+ 		};
+ 	};
+ 
+-- 
+2.55.0
+

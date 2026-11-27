@@ -1,0 +1,45 @@
+From 905dcc97cd6894ffb65d33bb7d14ccd91a0f29ef Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 00:10:03 +0000
+Subject: [PATCH 227/237] ASoC: mediatek: mt6858: Ungate the UL0 timing clock
+ for capture
+
+On the MT6858 the UL0 source produces nothing while PDN_UL0_TML in
+AUDIO_TOP_CON1 is set, and on the Jolla Phone (2026) it is set when
+Linux starts. MT8189, which this driver follows, only ungates
+PDN_UL0_ADC; MediaTek's MT6858 driver clears every AUDIO_TOP gate at
+runtime resume instead.
+
+Tested with the UL0 source's own sine generator (UL0_SRC_CON2): silence
+before, a clean sine after.
+---
+ sound/soc/mediatek/mt6858/mt6858-dai-adda.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/sound/soc/mediatek/mt6858/mt6858-dai-adda.c b/sound/soc/mediatek/mt6858/mt6858-dai-adda.c
+index 2a42040f6..c49ab8e99 100644
+--- a/sound/soc/mediatek/mt6858/mt6858-dai-adda.c
++++ b/sound/soc/mediatek/mt6858/mt6858-dai-adda.c
+@@ -396,6 +396,11 @@ static const struct snd_soc_dapm_widget mtk_dai_adda_widgets[] = {
+ 			      AUDIO_TOP_CON1,
+ 			      PDN_UL0_ADC_SFT, 1,
+ 			      NULL, 0),
++	/* The UL source stops without it */
++	SND_SOC_DAPM_SUPPLY_S("ADDA_UL0_TML_CG", SUPPLY_SEQ_ADDA_UL_ON,
++			      AUDIO_TOP_CON1,
++			      PDN_UL0_TML_SFT, 1,
++			      NULL, 0),
+ 
+ 	SND_SOC_DAPM_SUPPLY_S("ADDA Playback Enable", SUPPLY_SEQ_ADDA_DL_ON,
+ 			      AFE_ADDA_DL_SRC_CON0,
+@@ -491,6 +496,7 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
+ 	{"ADDA Capture", NULL, "AUD_PAD_TOP"},
+ 	{"ADDA Capture", NULL, "ADDA_MTKAIF_CFG"},
+ 	{"ADDA Capture", NULL, "ADDA_UL0_CG"},
++	{"ADDA Capture", NULL, "ADDA_UL0_TML_CG"},
+ 
+ 	/* capture */
+ 	{"ADDA_UL_Mux", "MTKAIF", "ADDA Capture"},
+-- 
+2.55.0
+

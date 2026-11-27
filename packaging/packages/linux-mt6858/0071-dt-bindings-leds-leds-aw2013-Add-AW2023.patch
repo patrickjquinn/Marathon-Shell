@@ -1,0 +1,40 @@
+From 3561df93a5214bf755f864419575bf9e4d2304e9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:21:06 +0000
+Subject: [PATCH 071/214] dt-bindings: leds: leds-aw2013: Add AW2023
+
+The Awinic AW2023 is a successor of the AW2013 with the same register
+layout for channels, brightness and patterns, but a global maximum
+current (5, 10, 15 or 30 mA) of which each channel takes a fifteenth
+step, and different pattern timings. It reads 0x09 as its chip ID.
+---
+ Documentation/devicetree/bindings/leds/leds-aw2013.yaml | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/leds/leds-aw2013.yaml b/Documentation/devicetree/bindings/leds/leds-aw2013.yaml
+index 26238446f..e3546ef86 100644
+--- a/Documentation/devicetree/bindings/leds/leds-aw2013.yaml
++++ b/Documentation/devicetree/bindings/leds/leds-aw2013.yaml
+@@ -4,7 +4,7 @@
+ $id: http://devicetree.org/schemas/leds/leds-aw2013.yaml#
+ $schema: http://devicetree.org/meta-schemas/core.yaml#
+ 
+-title: AWINIC AW2013 3-channel LED Driver
++title: AWINIC AW2013 and AW2023 3-channel LED Drivers
+ 
+ maintainers:
+   - Nikita Travkin <nikitos.tr@gmail.com>
+@@ -15,7 +15,9 @@ description: |
+ 
+ properties:
+   compatible:
+-    const: awinic,aw2013
++    enum:
++      - awinic,aw2013
++      - awinic,aw2023
+ 
+   reg:
+     maxItems: 1
+-- 
+2.55.0
+

@@ -1,0 +1,107 @@
+From 4362054e239a42a35c706ecc193382250ef071a4 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 23:57:43 +0000
+Subject: [PATCH 207/214] dt-bindings: thermal: mediatek: Add the MT6858 LVTS
+ controllers
+
+The MT6858 has an MCU domain (big and little cores, DSU) and an AP
+domain (top and bottom of the SoC) of LVTS controllers. Its preloader
+configures, calibrates and starts them and arms the thermal reset, so
+the OS only reads them: they take no clock, reset or efuse calibration
+cells. The interrupt is described but optional.
+---
+ .../thermal/mediatek,lvts-thermal.yaml        | 29 ++++++++++++++++---
+ .../thermal/mediatek,lvts-thermal.h           | 21 ++++++++++++++
+ 2 files changed, 46 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/thermal/mediatek,lvts-thermal.yaml b/Documentation/devicetree/bindings/thermal/mediatek,lvts-thermal.yaml
+index 29f431fcd..39c26eb24 100644
+--- a/Documentation/devicetree/bindings/thermal/mediatek,lvts-thermal.yaml
++++ b/Documentation/devicetree/bindings/thermal/mediatek,lvts-thermal.yaml
+@@ -18,6 +18,8 @@ description: |
+ properties:
+   compatible:
+     enum:
++      - mediatek,mt6858-lvts-ap
++      - mediatek,mt6858-lvts-mcu
+       - mediatek,mt7987-lvts-ap
+       - mediatek,mt7988-lvts-ap
+       - mediatek,mt8186-lvts
+@@ -100,19 +102,38 @@ allOf:
+           not:
+             contains:
+               enum:
++                - mediatek,mt6858-lvts-ap
++                - mediatek,mt6858-lvts-mcu
+                 - mediatek,mt8196-lvts-ap
+                 - mediatek,mt8196-lvts-mcu
+     then:
+       required:
+         - resets
+ 
++  # The bootloader runs these controllers; the OS only reads them.
++  - if:
++      properties:
++        compatible:
++          contains:
++            enum:
++              - mediatek,mt6858-lvts-ap
++              - mediatek,mt6858-lvts-mcu
++    then:
++      properties:
++        clocks: false
++        resets: false
++        nvmem-cells: false
++        nvmem-cell-names: false
++    else:
++      required:
++        - interrupts
++        - clocks
++        - nvmem-cells
++        - nvmem-cell-names
++
+ required:
+   - compatible
+   - reg
+-  - interrupts
+-  - clocks
+-  - nvmem-cells
+-  - nvmem-cell-names
+ 
+ additionalProperties: false
+ 
+diff --git a/include/dt-bindings/thermal/mediatek,lvts-thermal.h b/include/dt-bindings/thermal/mediatek,lvts-thermal.h
+index 350f98178..16674a1ab 100644
+--- a/include/dt-bindings/thermal/mediatek,lvts-thermal.h
++++ b/include/dt-bindings/thermal/mediatek,lvts-thermal.h
+@@ -7,6 +7,27 @@
+ #ifndef __MEDIATEK_LVTS_DT_H
+ #define __MEDIATEK_LVTS_DT_H
+ 
++#define MT6858_MCU_BIG_CPU0_0		0
++#define MT6858_MCU_BIG_CPU0_1		1
++#define MT6858_MCU_BIG_CPU1_0		2
++#define MT6858_MCU_BIG_CPU1_1		3
++#define MT6858_MCU_BIG_CPU2_0		4
++#define MT6858_MCU_BIG_CPU2_1		5
++#define MT6858_MCU_BIG_CPU3_0		6
++#define MT6858_MCU_BIG_CPU3_1		7
++#define MT6858_MCU_LITTLE_CPU0		8
++#define MT6858_MCU_LITTLE_CPU1		9
++#define MT6858_MCU_LITTLE_CPU2		10
++#define MT6858_MCU_LITTLE_CPU3		11
++#define MT6858_MCU_DSU0			12
++#define MT6858_MCU_DSU1			13
++
++#define MT6858_AP_TOP0			0
++#define MT6858_AP_TOP1			1
++#define MT6858_AP_TOP2			2
++#define MT6858_AP_BOT0			3
++#define MT6858_AP_BOT1			4
++
+ #define MT7987_CPU		0
+ #define MT7987_ETH2P5G		1
+ 
+-- 
+2.55.0
+

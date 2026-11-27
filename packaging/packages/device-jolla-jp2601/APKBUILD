@@ -1,0 +1,53 @@
+# JP2601 deviceinfo and kernel command line. The kernel is the SoC's
+# (linux-mt6858); scripts/build-image.sh builds the one named here.
+#
+# The command line: splash comes first (the initramfs takes the first splash
+# word it finds); Plymouth uses simpledrm, the only display driver; fbcon
+# leaves VT1, so with no DRM master after Plymouth lets go it cannot put its
+# frame back over the shell's, and the kernel's lines (loglevel 7) stay off
+# the splash but still reach ramoops, which U-Boot shows after a crash. No
+# clock or PMIC drivers yet: clk_ignore_unused and pd_ignore_unused keep
+# what LK left running.
+pkgname=device-jolla-jp2601
+pkgdesc="Jolla Phone (2026)"
+pkgver=1
+pkgrel=2
+url="https://github.com/patrickjquinn/Marathon-Shell"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+_kernel=linux-mt6858
+depends="
+	$_kernel>=7.4.0_rc4
+	postmarketos-base
+	systemd-boot
+	python3
+"
+makedepends="devicepkg-dev"
+source="
+	deviceinfo
+	kernel-cmdline.conf
+	jp2601-mark-boot-successful
+	jp2601-mark-boot-successful.service
+"
+
+build() {
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+	# LK falls back to the other slot once slot B's tries run out, unless the
+	# booted slot is marked successful in misc.
+	install -Dm755 "$srcdir/jp2601-mark-boot-successful" "$pkgdir/usr/libexec/marathon/jp2601-mark-boot-successful"
+	install -Dm644 "$srcdir/jp2601-mark-boot-successful.service" "$pkgdir/usr/lib/systemd/system/jp2601-mark-boot-successful.service"
+	install -d "$pkgdir/usr/lib/systemd/system/graphical.target.wants"
+	ln -s ../jp2601-mark-boot-successful.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/jp2601-mark-boot-successful.service"
+}
+
+sha512sums="
+79a53f236c2ea6e5bfbf0fa735818f39ab35db1eac6bc629e4089cac0d9e3c6db9be4121cbd9aae66bd94ca95ded51c77673219386af67830ecfb5f3099492fa  deviceinfo
+d9c37c6603fcabf1c1e2a87dcf81acb951df1c0cef5114d19d9bf229ececc121e62a94f847637b0a1edf8ea70ac0a0dbcf9c6c79222c159078e25a92ac25ae68  kernel-cmdline.conf
+086613bf243f4fd95785314a0f5b834b38c02c3edea88a1de531e12441b0c5be73eb9da55de68a78d64dccfaf520df26a1fcbf6af430f219e596e1c2723ad5df  jp2601-mark-boot-successful
+3459fcfe05b6c0237994817649512014e13ff038d753a14e1d0beff90d0a08ee458f41382b01eafe8770c81e79b9a32b5094d943f84fcb62d9d58adc0151ddf3  jp2601-mark-boot-successful.service
+"

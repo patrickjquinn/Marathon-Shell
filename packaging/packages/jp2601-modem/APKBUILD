@@ -1,0 +1,46 @@
+# Jolla Phone (2026) MD1 cellular modem, as q25-modem is the Q25's: udev
+# starts jp2601-modem.target at boot when the DTB has the mddriver node. LK
+# loads the modem image; the ECCCI modules ship in linux-mt6858's
+# mt6858-modem-modules; the open CCCI daemons and the SIM power-up script
+# build from q25-modem.
+pkgname=jp2601-modem
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Jolla Phone (2026) MD1 modem stack: CCCI daemons and services"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="GPL-2.0-only AND Apache-2.0"
+options="!check !strip !tracedeps"
+depends="kmod util-linux mt6858-modem-modules modemmanager-mtk-ccci mobile-broadband-provider-info"
+makedepends="gcc make musl-dev linux-headers"
+_units="jp2601-modem.target jp2601-modem-stack.service jp2601-modem-nv.service
+ jp2601-ccci-rpcd.service jp2601-ccci-fsd.service jp2601-ccci-mdinit.service jp2601-modem-init.service
+ jp2601-modem-reset.path jp2601-modem-reset.service"
+source="jp2601-modem-up jp2601-modem-nv properties 78-jp2601-modem.rules $_units"
+
+prepare() {
+	default_prepare
+	mkdir -p "$builddir"
+	cp -r "$startdir/../q25-modem/userspace/." "$builddir/"
+	cp "$startdir/../q25-modem/q25-modem-init" "$srcdir/"
+}
+
+build() {
+	make -C "$builddir" CC="${CC:-gcc}" out/ccci_mdinit out/ccci_fsd out/ccci_rpcd
+}
+
+package() {
+	local x="$pkgdir/usr/libexec/jp2601-modem" m u
+	for m in ccci_mdinit ccci_fsd ccci_rpcd; do
+		install -Dm755 "$builddir/out/$m" "$x/$m"
+	done
+	for m in jp2601-modem-up jp2601-modem-nv q25-modem-init; do
+		install -Dm755 "$srcdir/$m" "$x/$m"
+	done
+	# The daemons' property shim reads its defaults from here.
+	install -Dm644 "$srcdir/properties" "$pkgdir/etc/q25-modem/properties"
+	install -Dm644 "$srcdir/78-jp2601-modem.rules" "$pkgdir/usr/lib/udev/rules.d/78-jp2601-modem.rules"
+	for u in $_units; do
+		install -Dm644 "$srcdir/$u" "$pkgdir/usr/lib/systemd/system/$u"
+	done
+}

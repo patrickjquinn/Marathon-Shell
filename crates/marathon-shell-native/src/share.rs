@@ -680,9 +680,8 @@ pub struct ShareRust;
 impl cxx_qt::Initialize for Share {
     fn initialize(self: Pin<&mut Self>) {
         QT.set(self.qt_thread()).ok();
-        io::spawn(async {
+        io::each_session_bus(|bus| async move {
             let served = async {
-                let bus = io::session_bus().await?;
                 bus.object_server().at("/", ShareIface).await?;
                 bus.request_name("org.sailfishos.share").await
             };

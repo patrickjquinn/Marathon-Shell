@@ -33,18 +33,15 @@ pub fn path(name: &str) -> String {
     format!("/org/marathonos/Shell/{name}")
 }
 
-/// Serves `iface` at `/org/marathonos/Shell/<name>`.
-pub fn export<I: Interface>(name: &'static str, iface: I) {
-    io::spawn(async move {
-        let served = async {
-            io::session_bus()
-                .await?
-                .object_server()
-                .at(path(name), iface)
-                .await
-        };
-        if let Err(e) = served.await {
-            log::warn("ipc", format_args!("cannot serve {name}: {e}"));
+/// Serves `iface` at `/org/marathonos/Shell/<name>`, on each new session
+/// bus connection too.
+pub fn export<I: Interface + Clone>(name: &'static str, iface: I) {
+    io::each_session_bus(move |bus| {
+        let iface = iface.clone();
+        async move {
+            if let Err(e) = bus.object_server().at(path(name), iface).await {
+                log::warn("ipc", format_args!("cannot serve {name}: {e}"));
+            }
         }
     });
 }
@@ -52,11 +49,7 @@ pub fn export<I: Interface>(name: &'static str, iface: I) {
 static NAMED: async_lock::OnceCell<()> = async_lock::OnceCell::new();
 
 fn own_name() {
-    io::spawn(async {
-        let bus = match io::session_bus().await {
-            Ok(bus) => bus,
-            Err(e) => return log::warn("ipc", format_args!("no session bus: {e}")),
-        };
+    io::each_session_bus(|bus| async move {
         if let Err(e) = bus.request_name(NAME).await {
             return log::warn("ipc", format_args!("cannot own {NAME}: {e}"));
         }
@@ -153,7 +146,49 @@ where
         .map_err(|_stopping| fdo::Error::Failed("the shell is stopping".into()))
 }
 
-/// A `State` entry.
+/// A `State` entry. A string loses any NUL: the bus drops the connection
+/// that sends one, and with it every service on it.
 pub fn value(v: impl Into<zbus::Variant<'static>>) -> OwnedValue {
-    OwnedValue::try_from(v.into()).unwrap_or_else(|_| OwnedValue::from(false))
+    let v = match v.into() {
+        zbus::Variant::Str(s) if s.as_str().contains('\0') => {
+            zbus::Variant::from(s.as_str().replace('\0', ""))
+        }
+        v => v,
+    };
+    OwnedValue::try_from(v).unwrap_or_else(|_| OwnedValue::from(false))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod tests {
+    use marathon_rt::testing::PrivateBus;
+
+    use super::{value, State};
+
+    #[test]
+    fn a_state_with_a_nul_keeps_the_connection() {
+        let Some(bus) = PrivateBus::start() else {
+            return;
+        };
+        async_io::block_on(async {
+            let connection = bus.connect().await.unwrap();
+            let state = State::from([("ssid".to_owned(), value("Cafe\0\0".to_owned()))]);
+            connection
+                .emit_signal(
+                    None::<&str>,
+                    "/org/marathonos/Shell/Network",
+                    "org.marathonos.Shell.Network1",
+                    "StateChanged",
+                    &(state,),
+                )
+                .await
+                .unwrap();
+            let id = zbus::fdo::DBusProxy::new(&connection)
+                .await
+                .unwrap()
+                .get_id()
+                .await;
+            assert!(id.is_ok(), "the bus dropped the connection: {id:?}");
+        });
+    }
 }

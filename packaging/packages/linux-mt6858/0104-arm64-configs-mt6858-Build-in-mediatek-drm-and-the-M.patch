@@ -1,0 +1,24 @@
+From 9aa2ba000a586d2788ba421c555460e3280744af Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:40:55 +0000
+Subject: [PATCH 104/214] arm64: configs: mt6858: Build in mediatek-drm and the
+ MIPI DSI PHY
+
+The display engines probe from the module-less test initramfs.
+---
+ arch/arm64/configs/mt6858.config | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index c85f2bc45..b34d4d079 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -60,3 +60,5 @@ CONFIG_IR_PWM_TX=y
+ CONFIG_REGULATOR_MT6369=y
+ CONFIG_INPUT_MISC=y
+ CONFIG_INPUT_REGULATOR_HAPTIC=y
++CONFIG_DRM_MEDIATEK=y
++CONFIG_PHY_MTK_MIPI_DSI=y
+-- 
+2.55.0
+

@@ -183,6 +183,15 @@ Rectangle {
             keyboard.shifted = true;
     }
 
+    function paste(text) {
+        inputContextInstance.insertText(text);
+        keyboard.currentWord = "";
+        keyboard.currentPredictions = [];
+        keyboard.autoSpaced = false;
+        keyboard.canUndoAutoCorrect = false;
+        keyboard.lastTyped = text.slice(-1);
+    }
+
     function atSentenceStart() {
         if (keyboard.lastTyped !== "")
             return keyboard.sentenceEndingPunctuation.indexOf(keyboard.lastTyped) !== -1;
@@ -325,6 +334,9 @@ Rectangle {
                 predictions: keyboard.currentPredictions
                 onPredictionSelected: function (word) {
                     keyboard.acceptPrediction(word);
+                }
+                onPasteRequested: function (text) {
+                    keyboard.paste(text);
                 }
             }
         }

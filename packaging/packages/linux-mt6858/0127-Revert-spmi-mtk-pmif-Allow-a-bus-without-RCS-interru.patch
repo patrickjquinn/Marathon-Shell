@@ -1,0 +1,39 @@
+From 084e7032c0035e6b530f24e161c14492a75bfd20 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:59:02 +0000
+Subject: [PATCH 127/214] Revert "spmi: mtk-pmif: Allow a bus without RCS
+ interrupt"
+
+This reverts commit 582baa8b5ce45b68adf9b151dff4ed38b3b8fb55.
+
+The MT6369 is reached through SPMI-M, as the downstream driver does
+(spmi-dev-mask = 0 routes every SID through the SPMI-M PMIF), so no bus
+without an RCS interrupt is described any more.
+---
+ drivers/spmi/spmi-mtk-pmif.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/spmi/spmi-mtk-pmif.c b/drivers/spmi/spmi-mtk-pmif.c
+index fe2cc7d16..b1c147c3e 100644
+--- a/drivers/spmi/spmi-mtk-pmif.c
++++ b/drivers/spmi/spmi-mtk-pmif.c
+@@ -672,14 +672,8 @@ static int mtk_spmi_irq_init(struct device_node *node,
+ 	struct pmif *arb = to_mtk_pmif(pbus->ctrl);
+ 	unsigned int i;
+ 
+-	/*
+-	 * No interrupts required for SPMI 1.x controller, nor on a bus whose
+-	 * RCS interrupt is not described (MT6858's SPMI-P, which shares
+-	 * SPMI-M's).
+-
+-	 */
+-	if (pdata->spmi_ver < 2 ||
+-	    of_property_match_string(node, "interrupt-names", "rcs") < 0) {
++	/* No interrupts required for SPMI 1.x controller */
++	if (pdata->spmi_ver < 2) {
+ 		pbus->dom = NULL;
+ 		return 0;
+ 	}
+-- 
+2.55.0
+

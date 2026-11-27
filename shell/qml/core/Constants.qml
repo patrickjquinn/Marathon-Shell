@@ -94,14 +94,12 @@ QtObject {
     // 720 px panel. compactLayout drops the base 64/70 to 48/56 so the
     // dock keeps a tappable height (still ≥ Apple HIG 44pt @1×) without
     // eating the rest of the screen.
-    readonly property real statusBarHeight: Math.round(28 * scaleFactor)
-    // 64 × scaleFactor = 128 px on the L5. Lower the design value so the
-    // combined dock + navBar doesn't dominate the bottom of the panel.
-    // On the Librem 5 (1440×720, scaleFactor ≈ 1.8) a 56 design-px nav
-    // bar lands ≈ 100 actual-px, which combined with the bottomBar reads
-    // as too much bottom chrome. Drop to 48 — still ≥ 44 px touch target
-    // even at scaleFactor 1.0 (so OOBE on small screens stays tappable).
-    readonly property real navBarHeight: (isSquareScreen || screenHeight < 800) ? Math.max(44, Math.round(30 * scaleFactor)) : Math.round(48 * scaleFactor)
+    // qmllint disable missing-property
+    readonly property rect displayCutout: typeof DeviceProfile !== "undefined" && DeviceProfile.cutout ? DeviceProfile.cutout : Qt.rect(0, 0, 0, 0)
+    // qmllint enable missing-property
+    readonly property real statusBarHeight: Math.max(Math.round(28 * scaleFactor), displayCutout.width > 0 ? displayCutout.y + displayCutout.height : 0)
+    // At least 44 px, so OOBE on small screens stays tappable.
+    readonly property real navBarHeight: Math.max(44, Math.round(30 * scaleFactor))
     // Same DPI math as navBarHeight — 56 design-px × 1.8 scale = 100 actual.
     // 44 lands ≈ 80 actual, restoring iOS-like dock proportions on the L5.
     readonly property real bottomBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 44 : 44) * scaleFactor)

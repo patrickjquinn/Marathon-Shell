@@ -1,0 +1,28 @@
+From 21bb07f7e3f3ca0362517f087bf918593c1398e7 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 07:58:24 +0000
+Subject: [PATCH 060/214] arm64: configs: mt6858: Add the MT6720 drivers
+
+Build in the MT6720 SubPMIC core, its ADCs and its charger and battery
+supplies, and the I2C character device for register access.
+---
+ arch/arm64/configs/mt6858.config | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index c38d51388..2c9fb933d 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -42,3 +42,9 @@ CONFIG_TOUCHSCREEN_HYNITRON_CST66XX=y
+ CONFIG_SPMI_MTK_PMIF=y
+ CONFIG_MFD_MTK_SPMI_PMIC=y
+ CONFIG_KEYBOARD_MTK_PMIC=y
++CONFIG_I2C_CHARDEV=y
++CONFIG_MFD_MT6720=y
++CONFIG_IIO=y
++CONFIG_MEDIATEK_MT6720_ADC=y
++CONFIG_POWER_SUPPLY=y
++CONFIG_CHARGER_MT6720=y
+-- 
+2.55.0
+

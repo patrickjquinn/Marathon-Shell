@@ -1,0 +1,160 @@
+From 03873e374faba3f1c99d089de7279cccf27aa40a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 05:44:32 +0000
+Subject: [PATCH 048/214] clk: mediatek: mt6858: Add the mmsys clocks
+
+Add the MT6858 display mmsys clock gates, generated from the tables of
+MediaTek's GPLv2 MT6858 clock driver. The mmsys driver instantiates
+the clock driver, as on MT8192.
+
+The vendor calls bit 24 of the first gate register "mm_CLK0". Its
+device tree feeds that gate to DSI0 as the engine clock, so it is
+named mm_disp_dsi0 here.
+---
+ drivers/clk/mediatek/Kconfig         |   7 ++
+ drivers/clk/mediatek/Makefile        |   1 +
+ drivers/clk/mediatek/clk-mt6858-mm.c | 102 +++++++++++++++++++++++++++
+ 3 files changed, 110 insertions(+)
+ create mode 100644 drivers/clk/mediatek/clk-mt6858-mm.c
+
+diff --git a/drivers/clk/mediatek/Kconfig b/drivers/clk/mediatek/Kconfig
+index 8c6c44a2a..b3aa4d54c 100644
+--- a/drivers/clk/mediatek/Kconfig
++++ b/drivers/clk/mediatek/Kconfig
+@@ -479,6 +479,13 @@ config COMMON_CLK_MT6858
+ 	  This driver supports the MediaTek MT6858 apmixedsys, topckgen,
+ 	  vlpckgen, pericfg_ao and infracfg_ao clocks.
+ 
++config COMMON_CLK_MT6858_MMSYS
++	tristate "Clock driver for MediaTek MT6858 mmsys"
++	depends on COMMON_CLK_MT6858
++	default COMMON_CLK_MT6858
++	help
++	  This driver supports the MediaTek MT6858 mmsys clocks.
++
+ config COMMON_CLK_MT8135
+ 	tristate "Clock driver for MediaTek MT8135"
+ 	depends on (ARCH_MEDIATEK && ARM) || COMPILE_TEST
+diff --git a/drivers/clk/mediatek/Makefile b/drivers/clk/mediatek/Makefile
+index 9ef0d4dfe..b26b3f34f 100644
+--- a/drivers/clk/mediatek/Makefile
++++ b/drivers/clk/mediatek/Makefile
+@@ -32,6 +32,7 @@ obj-$(CONFIG_COMMON_CLK_MT6795_VENCSYS) += clk-mt6795-vencsys.o
+ obj-$(CONFIG_COMMON_CLK_MT6858) += clk-mt6858-apmixedsys.o clk-mt6858-topckgen.o \
+ 				   clk-mt6858-peri_ao.o clk-mt6858-infra_ao.o \
+ 				   clk-mt6858-vlpckgen.o
++obj-$(CONFIG_COMMON_CLK_MT6858_MMSYS) += clk-mt6858-mm.o
+ obj-$(CONFIG_COMMON_CLK_MT6797) += clk-mt6797.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_IMGSYS) += clk-mt6797-img.o
+ obj-$(CONFIG_COMMON_CLK_MT6797_MMSYS) += clk-mt6797-mm.o
+diff --git a/drivers/clk/mediatek/clk-mt6858-mm.c b/drivers/clk/mediatek/clk-mt6858-mm.c
+new file mode 100644
+index 000000000..a8a5db188
+--- /dev/null
++++ b/drivers/clk/mediatek/clk-mt6858-mm.c
+@@ -0,0 +1,102 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ *
++ * Generated from the clock tables of MediaTek's GPLv2 MT6858 clock driver.
++ */
++#include <dt-bindings/clock/mediatek,mt6858-clock.h>
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include "clk-gate.h"
++#include "clk-mtk.h"
++
++static const struct mtk_gate_regs mm0_cg_regs = {
++	.set_ofs = 0x104,
++	.clr_ofs = 0x108,
++	.sta_ofs = 0x100,
++};
++
++static const struct mtk_gate_regs mm1_cg_regs = {
++	.set_ofs = 0x114,
++	.clr_ofs = 0x118,
++	.sta_ofs = 0x110,
++};
++
++#define GATE_MM0(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &mm0_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++#define GATE_MM1(_id, _name, _parent, _shift) {	\
++		.id = _id,				\
++		.name = _name,				\
++		.parent_name = _parent,			\
++		.regs = &mm1_cg_regs,		\
++		.shift = _shift,			\
++		.ops = &mtk_clk_gate_ops_setclr,	\
++	}
++
++static const struct mtk_gate mm_clks[] = {
++	GATE_MM0(CLK_MM_DISP_OVL0_2L, "mm_disp_ovl0_2l", "top_disp0_ck", 0),
++	GATE_MM0(CLK_MM_DISP_OVL1_2L, "mm_disp_ovl1_2l", "top_disp0_ck", 1),
++	GATE_MM0(CLK_MM_DISP_OVL2_2L, "mm_disp_ovl2_2l", "top_disp0_ck", 2),
++	GATE_MM0(CLK_MM_DISP_RSZ1, "mm_disp_rsz1", "top_disp0_ck", 5),
++	GATE_MM0(CLK_MM_DISP_RSZ0, "mm_disp_rsz0", "top_disp0_ck", 6),
++	GATE_MM0(CLK_MM_DISP_TDSHP0, "mm_disp_tdshp0", "top_disp0_ck", 7),
++	GATE_MM0(CLK_MM_DISP_C3D0, "mm_disp_c3d0", "top_disp0_ck", 8),
++	GATE_MM0(CLK_MM_DISP_COLOR0, "mm_disp_color0", "top_disp0_ck", 9),
++	GATE_MM0(CLK_MM_DISP_CCORR0, "mm_disp_ccorr0", "top_disp0_ck", 10),
++	GATE_MM0(CLK_MM_DISP_CCORR1, "mm_disp_ccorr1", "top_disp0_ck", 11),
++	GATE_MM0(CLK_MM_DISP_AAL0, "mm_disp_aal0", "top_disp0_ck", 12),
++	GATE_MM0(CLK_MM_DISP_GAMMA0, "mm_disp_gamma0", "top_disp0_ck", 13),
++	GATE_MM0(CLK_MM_DISP_POSTMASK0, "mm_disp_postmask0", "top_disp0_ck", 14),
++	GATE_MM0(CLK_MM_DISP_DITHER0, "mm_disp_dither0", "top_disp0_ck", 15),
++	GATE_MM0(CLK_MM_DISP_TDSHP1, "mm_disp_tdshp1", "top_disp0_ck", 16),
++	GATE_MM0(CLK_MM_DISP_C3D1, "mm_disp_c3d1", "top_disp0_ck", 17),
++	GATE_MM0(CLK_MM_DISP_CCORR2, "mm_disp_ccorr2", "top_disp0_ck", 18),
++	GATE_MM0(CLK_MM_DISP_CCORR3, "mm_disp_ccorr3", "top_disp0_ck", 19),
++	GATE_MM0(CLK_MM_DISP_GAMMA1, "mm_disp_gamma1", "top_disp0_ck", 20),
++	GATE_MM0(CLK_MM_DISP_DITHER1, "mm_disp_dither1", "top_disp0_ck", 21),
++	GATE_MM0(CLK_MM_DISP_DSC_WRAP0, "mm_disp_dsc_wrap0", "top_disp0_ck", 23),
++	GATE_MM0(CLK_MM_DISP_DSI0, "mm_disp_dsi0", "top_disp0_ck", 24),
++	GATE_MM0(CLK_MM_DISP_WDMA1, "mm_disp_wdma1", "top_disp0_ck", 26),
++	GATE_MM0(CLK_MM_DISP_APB_BUS, "mm_disp_apb_bus", "top_disp0_ck", 27),
++	GATE_MM0(CLK_MM_DISP_FAKE_ENG0, "mm_disp_fake_eng0", "top_disp0_ck", 28),
++	GATE_MM0(CLK_MM_DISP_FAKE_ENG1, "mm_disp_fake_eng1", "top_disp0_ck", 29),
++	GATE_MM0(CLK_MM_DISP_MUTEX0, "mm_disp_mutex0", "top_disp0_ck", 30),
++	GATE_MM0(CLK_MM_SMI_COMMON, "mm_smi_common", "top_disp0_ck", 31),
++	GATE_MM1(CLK_MM_DSI0_CK, "mm_dsi0_ck", "top_disp0_ck", 0),
++	GATE_MM1(CLK_MM_26M_CK, "mm_26m_ck", "top_disp0_ck", 11),
++};
++
++static const struct mtk_clk_desc mm_desc = {
++	.clks = mm_clks,
++	.num_clks = ARRAY_SIZE(mm_clks),
++};
++
++static const struct platform_device_id clk_mt6858_mm_id_table[] = {
++	{ .name = "clk-mt6858-mm", .driver_data = (kernel_ulong_t)&mm_desc },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(platform, clk_mt6858_mm_id_table);
++
++static struct platform_driver clk_mt6858_mm_drv = {
++	.probe = mtk_clk_pdev_probe,
++	.remove = mtk_clk_pdev_remove,
++	.driver = {
++		.name = "clk-mt6858-mm",
++	},
++	.id_table = clk_mt6858_mm_id_table,
++};
++module_platform_driver(clk_mt6858_mm_drv);
++
++MODULE_DESCRIPTION("MediaTek MT6858 mmsys clock controller driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

@@ -40,7 +40,7 @@ fn client_ssid(all: &Sections) -> Option<String> {
         return None;
     }
     let ssid = Vec::<u8>::try_from(wireless.get("ssid")?.try_clone().ok()?).ok()?;
-    Some(String::from_utf8_lossy(&ssid).into_owned()).filter(|s| !s.is_empty())
+    Some(crate::network::ssid_text(&ssid)).filter(|s| !s.is_empty())
 }
 
 async fn saved(bus: &zbus::Connection) -> Vec<Saved> {

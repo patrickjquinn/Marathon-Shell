@@ -1,0 +1,475 @@
+From 5dfeb4443a367b2f050f902210aa149246deb409 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 07:58:22 +0000
+Subject: [PATCH 058/214] iio: adc: Add MediaTek MT6720 charger ADC and fuel
+ gauge AUXADC
+
+The charger ADC converts one channel at a time: the channel number goes
+to 0x14f, which reads back non-zero until the conversion is done, then
+to the report select in 0x155, and the result is read big-endian from
+0x156. Results are in mV and mA; the junction temperature is in degrees
+C offset by 64. This is the sequence of MediaTek's mt6720-adc driver.
+
+The fuel gauge AUXADC has its own trigger register (0x938, one bit per
+channel). Each channel's data has a ready bit on top: the battery
+voltage (15 bits of 7.36 V full scale), the thermistor and its
+reference (12 bits of 2.76 V), as MediaTek's mt6375-auxadc driver reads
+them for the MT6720.
+
+Consumers name a charger ADC channel by its hardware number.
+---
+ drivers/iio/adc/Kconfig         |  11 ++
+ drivers/iio/adc/Makefile        |   1 +
+ drivers/iio/adc/mt6720-adc.c    | 225 ++++++++++++++++++++++++++++++++
+ drivers/iio/adc/mt6720-auxadc.c | 173 ++++++++++++++++++++++++
+ 4 files changed, 410 insertions(+)
+ create mode 100644 drivers/iio/adc/mt6720-adc.c
+ create mode 100644 drivers/iio/adc/mt6720-auxadc.c
+
+diff --git a/drivers/iio/adc/Kconfig b/drivers/iio/adc/Kconfig
+index a802d8ee4..1e3fe675f 100644
+--- a/drivers/iio/adc/Kconfig
++++ b/drivers/iio/adc/Kconfig
+@@ -1272,6 +1272,17 @@ config MEDIATEK_MT6370_ADC
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called "mt6370-adc".
+ 
++config MEDIATEK_MT6720_ADC
++	tristate "MediaTek MT6720 ADC drivers"
++	depends on MFD_MT6720
++	help
++	  Say yes here to enable the MediaTek MT6720 charger ADC (charger
++	  and USB voltages, currents and temperatures) and fuel gauge
++	  AUXADC (battery voltage and thermistor).
++
++	  These drivers can also be built as modules. If so, the modules
++	  will be called "mt6720-adc" and "mt6720-auxadc".
++
+ config MEDIATEK_MT6577_AUXADC
+ 	tristate "MediaTek AUXADC driver"
+ 	depends on ARCH_MEDIATEK || COMPILE_TEST
+diff --git a/drivers/iio/adc/Makefile b/drivers/iio/adc/Makefile
+index 9e82c21db..b85ebc9f6 100644
+--- a/drivers/iio/adc/Makefile
++++ b/drivers/iio/adc/Makefile
+@@ -108,6 +108,7 @@ obj-$(CONFIG_MEDIATEK_MT6323_AUXADC) += mt6323-auxadc.o
+ obj-$(CONFIG_MEDIATEK_MT6359_AUXADC) += mt6359-auxadc.o
+ obj-$(CONFIG_MEDIATEK_MT6360_ADC) += mt6360-adc.o
+ obj-$(CONFIG_MEDIATEK_MT6370_ADC) += mt6370-adc.o
++obj-$(CONFIG_MEDIATEK_MT6720_ADC) += mt6720-adc.o mt6720-auxadc.o
+ obj-$(CONFIG_MEDIATEK_MT6577_AUXADC) += mt6577_auxadc.o
+ obj-$(CONFIG_MEN_Z188_ADC) += men_z188_adc.o
+ obj-$(CONFIG_MESON_SARADC) += meson_saradc.o
+diff --git a/drivers/iio/adc/mt6720-adc.c b/drivers/iio/adc/mt6720-adc.c
+new file mode 100644
+index 000000000..6bf127fb1
+--- /dev/null
++++ b/drivers/iio/adc/mt6720-adc.c
+@@ -0,0 +1,225 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6720 SubPMIC ADC: one-shot conversions of the charger's
++ * voltages, currents and temperatures.
++ */
++#include <linux/bits.h>
++#include <linux/delay.h>
++#include <linux/iio/iio.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mod_devicetable.h>
++#include <linux/mutex.h>
++#include <linux/platform_device.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/sysfs.h>
++#include <linux/units.h>
++
++#define MT6720_REG_ADC_ONESHOT	0x14f
++#define MT6720_REG_ADC_RPT_SEL	0x155
++#define MT6720_REG_ADC_RPT	0x156
++
++#define MT6720_ADC_CHAN_MASK	GENMASK(4, 0)
++
++enum mt6720_adc_chan {
++	MT6720_CHAN_USBDP = 2,
++	MT6720_CHAN_VSYS,
++	MT6720_CHAN_VBAT,
++	MT6720_CHAN_IBUS,
++	MT6720_CHAN_IBAT,
++	MT6720_CHAN_USBDM,
++	MT6720_CHAN_TEMP_JC,
++	MT6720_CHAN_VREF_TS,
++	MT6720_CHAN_TS,
++	MT6720_CHAN_VBUS,
++	MT6720_CHAN_CC1,
++	MT6720_CHAN_CC2,
++	MT6720_CHAN_SBU1,
++	MT6720_CHAN_SBU2,
++	MT6720_CHAN_MAX
++};
++
++struct mt6720_adc {
++	struct device *dev;
++	struct regmap *regmap;
++	/* One conversion at a time: they share the start and report registers. */
++	struct mutex lock;
++};
++
++static int mt6720_adc_read_channel(struct mt6720_adc *adc, unsigned int chan,
++				   int *val)
++{
++	unsigned int busy;
++	__be16 raw;
++	int ret;
++
++	guard(mutex)(&adc->lock);
++
++	ret = regmap_write(adc->regmap, MT6720_REG_ADC_ONESHOT, chan);
++	if (ret)
++		return ret;
++
++	/* The channel field reads back non-zero until the conversion is done. */
++	usleep_range(4400, 6600);
++	ret = regmap_read_poll_timeout(adc->regmap, MT6720_REG_ADC_ONESHOT,
++				       busy, !(busy & MT6720_ADC_CHAN_MASK),
++				       100, 20 * USEC_PER_MSEC);
++	if (ret) {
++		dev_err(adc->dev, "Channel %u conversion timed out\n", chan);
++		return ret;
++	}
++
++	ret = regmap_update_bits(adc->regmap, MT6720_REG_ADC_RPT_SEL,
++				 MT6720_ADC_CHAN_MASK, chan);
++	if (ret)
++		return ret;
++
++	usleep_range(1000, 1200);
++	ret = regmap_raw_read(adc->regmap, MT6720_REG_ADC_RPT, &raw,
++			      sizeof(raw));
++	if (ret)
++		return ret;
++
++	*val = be16_to_cpu(raw);
++	if (chan == MT6720_CHAN_IBAT)
++		*val = (s16)*val;
++
++	return IIO_VAL_INT;
++}
++
++static int mt6720_adc_read_raw(struct iio_dev *indio_dev,
++			       const struct iio_chan_spec *chan,
++			       int *val, int *val2, long mask)
++{
++	struct mt6720_adc *adc = iio_priv(indio_dev);
++
++	switch (mask) {
++	case IIO_CHAN_INFO_RAW:
++		return mt6720_adc_read_channel(adc, chan->channel, val);
++	case IIO_CHAN_INFO_SCALE:
++		/* mV and mA as they are, the junction temperature in degrees C */
++		*val = chan->type == IIO_TEMP ? MILLI : 1;
++		return IIO_VAL_INT;
++	case IIO_CHAN_INFO_OFFSET:
++		*val = -64;
++		return IIO_VAL_INT;
++	default:
++		return -EINVAL;
++	}
++}
++
++static const char * const mt6720_adc_labels[MT6720_CHAN_MAX] = {
++	[MT6720_CHAN_USBDP] = "usb_dp",
++	[MT6720_CHAN_VSYS] = "vsys",
++	[MT6720_CHAN_VBAT] = "vbat",
++	[MT6720_CHAN_IBUS] = "ibus",
++	[MT6720_CHAN_IBAT] = "ibat",
++	[MT6720_CHAN_USBDM] = "usb_dm",
++	[MT6720_CHAN_TEMP_JC] = "temp_jc",
++	[MT6720_CHAN_VREF_TS] = "vref_ts",
++	[MT6720_CHAN_TS] = "ts_bat",
++	[MT6720_CHAN_VBUS] = "vbus",
++	[MT6720_CHAN_CC1] = "cc1",
++	[MT6720_CHAN_CC2] = "cc2",
++	[MT6720_CHAN_SBU1] = "sbu1",
++	[MT6720_CHAN_SBU2] = "sbu2",
++};
++
++static int mt6720_adc_read_label(struct iio_dev *indio_dev,
++				 const struct iio_chan_spec *chan, char *label)
++{
++	return sysfs_emit(label, "%s\n", mt6720_adc_labels[chan->channel]);
++}
++
++/* Consumers name a channel by its hardware number, not its array index. */
++static int mt6720_adc_fwnode_xlate(struct iio_dev *indio_dev,
++				   const struct fwnode_reference_args *iiospec)
++{
++	int i;
++
++	for (i = 0; i < indio_dev->num_channels; i++)
++		if (indio_dev->channels[i].channel == iiospec->args[0])
++			return i;
++
++	return -EINVAL;
++}
++
++static const struct iio_info mt6720_adc_info = {
++	.read_raw = mt6720_adc_read_raw,
++	.read_label = mt6720_adc_read_label,
++	.fwnode_xlate = mt6720_adc_fwnode_xlate,
++};
++
++#define MT6720_ADC_CHAN(_ch, _type, _extra) {			\
++	.type = _type,						\
++	.channel = MT6720_CHAN_##_ch,				\
++	.indexed = 1,						\
++	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
++			      BIT(IIO_CHAN_INFO_SCALE) | (_extra), \
++}
++
++static const struct iio_chan_spec mt6720_adc_channels[] = {
++	MT6720_ADC_CHAN(USBDP, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(VSYS, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(VBAT, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(IBUS, IIO_CURRENT, 0),
++	MT6720_ADC_CHAN(IBAT, IIO_CURRENT, 0),
++	MT6720_ADC_CHAN(USBDM, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(TEMP_JC, IIO_TEMP, BIT(IIO_CHAN_INFO_OFFSET)),
++	MT6720_ADC_CHAN(VREF_TS, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(TS, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(VBUS, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(CC1, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(CC2, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(SBU1, IIO_VOLTAGE, 0),
++	MT6720_ADC_CHAN(SBU2, IIO_VOLTAGE, 0),
++};
++
++static int mt6720_adc_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct iio_dev *indio_dev;
++	struct mt6720_adc *adc;
++	int ret;
++
++	indio_dev = devm_iio_device_alloc(dev, sizeof(*adc));
++	if (!indio_dev)
++		return -ENOMEM;
++
++	adc = iio_priv(indio_dev);
++	adc->dev = dev;
++	adc->regmap = dev_get_regmap(dev->parent, NULL);
++	if (!adc->regmap)
++		return dev_err_probe(dev, -ENODEV, "Failed to get regmap\n");
++
++	ret = devm_mutex_init(dev, &adc->lock);
++	if (ret)
++		return ret;
++
++	indio_dev->name = "mt6720-adc";
++	indio_dev->info = &mt6720_adc_info;
++	indio_dev->modes = INDIO_DIRECT_MODE;
++	indio_dev->channels = mt6720_adc_channels;
++	indio_dev->num_channels = ARRAY_SIZE(mt6720_adc_channels);
++
++	return devm_iio_device_register(dev, indio_dev);
++}
++
++static const struct of_device_id mt6720_adc_of_match[] = {
++	{ .compatible = "mediatek,mt6720-adc" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6720_adc_of_match);
++
++static struct platform_driver mt6720_adc_driver = {
++	.driver = {
++		.name = "mt6720-adc",
++		.of_match_table = mt6720_adc_of_match,
++	},
++	.probe = mt6720_adc_probe,
++};
++module_platform_driver(mt6720_adc_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6720 ADC driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/iio/adc/mt6720-auxadc.c b/drivers/iio/adc/mt6720-auxadc.c
+new file mode 100644
+index 000000000..a5b6748b3
+--- /dev/null
++++ b/drivers/iio/adc/mt6720-auxadc.c
+@@ -0,0 +1,173 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6720 SubPMIC fuel gauge AUXADC: the battery cell voltage,
++ * the battery thermistor and the thermistor's reference.
++ */
++#include <linux/bits.h>
++#include <linux/delay.h>
++#include <linux/iio/iio.h>
++#include <linux/iopoll.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mod_devicetable.h>
++#include <linux/mutex.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/sysfs.h>
++#include <linux/units.h>
++
++#define MT6720_REG_AUXADC_TRIG	0x938
++#define MT6720_AUXADC_RDY	BIT(15)
++
++enum {
++	MT6720_AUXADC_BATSNS,
++	MT6720_AUXADC_BATON,
++	MT6720_AUXADC_VREF,
++};
++
++struct mt6720_auxadc_chan {
++	const char *label;
++	unsigned int data_reg;
++	unsigned int trig;
++	unsigned int bits;
++	unsigned int full_scale_mv;
++};
++
++static const struct mt6720_auxadc_chan mt6720_auxadc_chans[] = {
++	[MT6720_AUXADC_BATSNS] = { "batsns", 0x910, BIT(0), 15, 7360 },
++	[MT6720_AUXADC_BATON] = { "baton", 0x908, BIT(3), 12, 2760 },
++	[MT6720_AUXADC_VREF] = { "vref", 0x90a, BIT(4), 12, 2760 },
++};
++
++struct mt6720_auxadc {
++	struct device *dev;
++	struct regmap *regmap;
++	/* The channels share the trigger register. */
++	struct mutex lock;
++};
++
++static int mt6720_auxadc_read(struct mt6720_auxadc *adc,
++			      const struct mt6720_auxadc_chan *c, int *val)
++{
++	__le16 raw;
++	int ret, err;
++	u16 v;
++
++	guard(mutex)(&adc->lock);
++
++	ret = regmap_write(adc->regmap, MT6720_REG_AUXADC_TRIG, c->trig);
++	if (ret)
++		return ret;
++
++	usleep_range(1000, 1200);
++	/* The data's top bit sets once the conversion is done. */
++	ret = read_poll_timeout(regmap_raw_read, err,
++				err || (le16_to_cpu(raw) & MT6720_AUXADC_RDY),
++				500, 11 * USEC_PER_MSEC, false,
++				adc->regmap, c->data_reg, &raw, sizeof(raw));
++	if (!ret)
++		ret = err;
++	if (ret) {
++		dev_err(adc->dev, "%s conversion failed (%d)\n", c->label, ret);
++		return ret;
++	}
++
++	v = le16_to_cpu(raw);
++
++	*val = v & GENMASK(c->bits - 1, 0);
++	return IIO_VAL_INT;
++}
++
++static int mt6720_auxadc_read_raw(struct iio_dev *indio_dev,
++				  const struct iio_chan_spec *chan,
++				  int *val, int *val2, long mask)
++{
++	struct mt6720_auxadc *adc = iio_priv(indio_dev);
++	const struct mt6720_auxadc_chan *c = &mt6720_auxadc_chans[chan->channel];
++
++	switch (mask) {
++	case IIO_CHAN_INFO_RAW:
++		return mt6720_auxadc_read(adc, c, val);
++	case IIO_CHAN_INFO_SCALE:
++		*val = c->full_scale_mv;
++		*val2 = c->bits;
++		return IIO_VAL_FRACTIONAL_LOG2;
++	default:
++		return -EINVAL;
++	}
++}
++
++static int mt6720_auxadc_read_label(struct iio_dev *indio_dev,
++				    const struct iio_chan_spec *chan,
++				    char *label)
++{
++	return sysfs_emit(label, "%s\n",
++			  mt6720_auxadc_chans[chan->channel].label);
++}
++
++static const struct iio_info mt6720_auxadc_info = {
++	.read_raw = mt6720_auxadc_read_raw,
++	.read_label = mt6720_auxadc_read_label,
++};
++
++#define MT6720_AUXADC_CHAN(_idx) {				\
++	.type = IIO_VOLTAGE,					\
++	.channel = _idx,					\
++	.indexed = 1,						\
++	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
++			      BIT(IIO_CHAN_INFO_SCALE),		\
++}
++
++static const struct iio_chan_spec mt6720_auxadc_iio_chans[] = {
++	MT6720_AUXADC_CHAN(MT6720_AUXADC_BATSNS),
++	MT6720_AUXADC_CHAN(MT6720_AUXADC_BATON),
++	MT6720_AUXADC_CHAN(MT6720_AUXADC_VREF),
++};
++
++static int mt6720_auxadc_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct iio_dev *indio_dev;
++	struct mt6720_auxadc *adc;
++	int ret;
++
++	indio_dev = devm_iio_device_alloc(dev, sizeof(*adc));
++	if (!indio_dev)
++		return -ENOMEM;
++
++	adc = iio_priv(indio_dev);
++	adc->dev = dev;
++	adc->regmap = dev_get_regmap(dev->parent, NULL);
++	if (!adc->regmap)
++		return dev_err_probe(dev, -ENODEV, "Failed to get regmap\n");
++
++	ret = devm_mutex_init(dev, &adc->lock);
++	if (ret)
++		return ret;
++
++	indio_dev->name = "mt6720-auxadc";
++	indio_dev->info = &mt6720_auxadc_info;
++	indio_dev->modes = INDIO_DIRECT_MODE;
++	indio_dev->channels = mt6720_auxadc_iio_chans;
++	indio_dev->num_channels = ARRAY_SIZE(mt6720_auxadc_iio_chans);
++
++	return devm_iio_device_register(dev, indio_dev);
++}
++
++static const struct of_device_id mt6720_auxadc_of_match[] = {
++	{ .compatible = "mediatek,mt6720-auxadc" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6720_auxadc_of_match);
++
++static struct platform_driver mt6720_auxadc_driver = {
++	.driver = {
++		.name = "mt6720-auxadc",
++		.of_match_table = mt6720_auxadc_of_match,
++	},
++	.probe = mt6720_auxadc_probe,
++};
++module_platform_driver(mt6720_auxadc_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6720 fuel gauge AUXADC driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

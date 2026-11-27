@@ -1,0 +1,47 @@
+From a89961afa1b65004bb539e40b3c6350b6f8d270e Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:17:16 +0000
+Subject: [PATCH 067/214] arm64: dts: mediatek: mt6858: Add the display mmsys
+ and mutex
+
+Describe the display subsystem config (mmsys0) and its mutex, so that
+mtk-mmsys can register the mm clock gates and the routing, and the
+mutex driver can bind. Both sit in the DIS0 power domain that the
+bootloader's framebuffer already holds on.
+
+No display engine nodes yet: without them the mediatek-drm master has
+nothing to bind, so the bootloader's pipeline and simple-framebuffer
+keep the panel.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 3a02b4189..ae4fa4638 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -617,6 +617,21 @@ u2port0: usb-phy@0 {
+ 			};
+ 		};
+ 
++		mmsys: syscon@14000000 {
++			compatible = "mediatek,mt6858-mmsys", "syscon";
++			reg = <0 0x14000000 0 0x1000>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
++			#clock-cells = <1>;
++		};
++
++		mutex: mutex@14001000 {
++			compatible = "mediatek,mt6858-disp-mutex";
++			reg = <0 0x14001000 0 0x1000>;
++			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH 0>;
++			clocks = <&mmsys CLK_MM_DISP_MUTEX0>;
++			power-domains = <&spm MT6858_POWER_DOMAIN_DIS0>;
++		};
++
+ 		img_sub0_bus: syscon@1502f000 {
+ 			compatible = "mediatek,mt6858-img-sub0-bus", "syscon";
+ 			reg = <0 0x1502f000 0 0x1000>;
+-- 
+2.55.0
+

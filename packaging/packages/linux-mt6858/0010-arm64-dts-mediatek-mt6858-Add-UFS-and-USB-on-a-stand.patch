@@ -1,0 +1,116 @@
+From 6abcd0d3e33802136662968058c6fb004de6fe90 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 18:07:17 +0000
+Subject: [PATCH 010/214] arm64: dts: mediatek: mt6858: Add UFS and USB on a
+ stand-in clock
+
+Storage and a USB gadget are what a first mainline boot needs, and both
+blocks already have drivers: the UFS host matches mediatek,mt8183-ufshci
+and the stock firmware describes it that way, and the USB 2.0 port is an
+MTU3 controller behind an XS-PHY.
+
+Their gates sit in topckgen and ufscfg, which have no MT6858 clock
+driver yet. LK leaves those gates running because it loads the kernel
+from UFS, so a fixed clock of unknown rate stands in for them; none of
+these drivers sets or reads the rate. Drop the stand-in when the clock
+driver lands. The XS-PHY reference clock is the 26 MHz crystal, as on
+the stock tree.
+
+MCQ stays off, as on the stock firmware, until its extra interrupts and
+power sequence are checked on this host.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 62 ++++++++++++++++++++++++
+ 1 file changed, 62 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 48cce9fca..327282748 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -5,6 +5,7 @@
+ 
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/phy/phy.h>
+ #include <dt-bindings/power/mediatek,mt6858-power.h>
+ 
+ / {
+@@ -13,6 +14,18 @@ / {
+ 	#address-cells = <2>;
+ 	#size-cells = <2>;
+ 
++	/*
++	 * Stands in for the UFS and USB gates, which the bootloader leaves
++	 * running, until an MT6858 clock driver can name them. Its rate is
++	 * unknown and unused. Drop it with that driver.
++	 */
++	clk_lk_gate: clock-lk-gate {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <0>;
++		clock-output-names = "lk_gate";
++	};
++
+ 	cpus {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+@@ -228,6 +241,55 @@ uart2: serial@11003000 {
+ 			status = "disabled";
+ 		};
+ 
++		ssusb: usb@11201000 {
++			compatible = "mediatek,mt6858-mtu3", "mediatek,mtu3";
++			reg = <0 0x11201000 0 0x2e00>,
++			      <0 0x11203e00 0 0x0100>;
++			reg-names = "mac", "ippc";
++			interrupts = <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH 0>;
++			phys = <&u2port0 PHY_TYPE_USB2>;
++			clocks = <&clk_lk_gate>;
++			clock-names = "sys_ck";
++			power-domains = <&spm MT6858_POWER_DOMAIN_SSUSB>;
++			status = "disabled";
++		};
++
++		ufsphy: ufs-phy@112a0000 {
++			compatible = "mediatek,mt8183-ufsphy";
++			reg = <0 0x112a0000 0 0x10000>;
++			clocks = <&clk_lk_gate>, <&clk_lk_gate>;
++			clock-names = "unipro", "mp";
++			#phy-cells = <0>;
++			status = "disabled";
++		};
++
++		ufshci: ufshci@112b0000 {
++			compatible = "mediatek,mt8183-ufshci";
++			reg = <0 0x112b0000 0 0x2300>;
++			interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH 0>;
++			phys = <&ufsphy>;
++			clocks = <&clk_lk_gate>;
++			clock-names = "ufs";
++			freq-table-hz = <0 0>;
++			mediatek,ufs-disable-mcq;
++			status = "disabled";
++		};
++
++		xsphy: xs-phy@11e10000 {
++			compatible = "mediatek,mt6858-xsphy", "mediatek,xsphy";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			ranges = <0 0 0x11e10000 0x400>;
++			status = "disabled";
++
++			u2port0: usb-phy@0 {
++				reg = <0 0x400>;
++				clocks = <&clk26m>;
++				clock-names = "ref";
++				#phy-cells = <1>;
++			};
++		};
++
+ 		img_sub0_bus: syscon@1502f000 {
+ 			compatible = "mediatek,mt6858-img-sub0-bus", "syscon";
+ 			reg = <0 0x1502f000 0 0x1000>;
+-- 
+2.55.0
+

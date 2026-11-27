@@ -1,0 +1,60 @@
+From 8f14c68672fea55cf4668dc57890b195b9ee8194 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 13:02:25 +0000
+Subject: [PATCH 160/214] drm/mediatek: mtk_dsi: Use the bootloader's MT6858
+ lane rate and front porch
+
+The JP2601 panel's vendor parameters fix the lanes at 880 Mbit/s (PLL
+440 MHz), and the bootloader programs HFP_WC = 460 for that rate. The
+pixel-clock formula gives 874 Mbit/s and HFP_WC 456. With everything
+else equal to the bootloader's setup, the panel turns on (power mode
+0x9c, no DSI errors) but shows nothing, so remove these two differences
+as well: let the SoC data fix the lane rate and the front porch word
+count, with the bootloader's values for MT6858 for now.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index e096e6f7c..eea465d84 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -204,6 +204,8 @@ struct mtk_dsi_driver_data {
+ 	const struct mtk_phy_timing *phy_timing;
+ 	u32 hstx_ckl_wc;
+ 	u32 vdo_txrx_sel;
++	u32 data_rate;
++	u32 hfp_wc;
+ };
+ 
+ struct mtk_dsi {
+@@ -565,6 +567,8 @@ static void mtk_dsi_config_vdo_timing_per_frame_lp(struct mtk_dsi *dsi)
+ 		}
+ 	}
+ 	horizontal_frontporch_byte = vm->hfront_porch * dsi_tmp_buf_bpp - hfp_byte_adjust;
++	if (dsi->driver_data->hfp_wc)
++		horizontal_frontporch_byte = dsi->driver_data->hfp_wc;
+ 	v_active_roundup = (v_active_adjust + horizontal_backporch_byte + ps_wc +
+ 			   horizontal_frontporch_byte) % dsi->lanes;
+ 	if (v_active_roundup)
+@@ -852,6 +856,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 					   dsi->vm.hactive + dsi->vm.hfront_porch +
+ 					   dsi->vm.hback_porch + dsi->vm.hsync_len,
+ 					   bit_per_pixel);
++	if (dsi->driver_data->data_rate)
++		dsi->data_rate = dsi->driver_data->data_rate;
+ 
+ 	ret = clk_set_rate(dsi->hs_clk, dsi->data_rate);
+ 	if (ret < 0) {
+@@ -1508,6 +1514,8 @@ static const struct mtk_dsi_driver_data mt6858_dsi_driver_data = {
+ 	.phy_timing = &mt6858_phy_timing,
+ 	.hstx_ckl_wc = 0x10000,
+ 	.vdo_txrx_sel = 1,
++	.data_rate = 880000000,
++	.hfp_wc = 460,
+ };
+ 
+ static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
+-- 
+2.55.0
+

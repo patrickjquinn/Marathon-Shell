@@ -1,0 +1,968 @@
+Port MediaTek's ECCCI modem stack (ccci_util_lib, ccmni, ccci_auxadc,
+ccci_md_all, ccci_ccif, ccci_dpmaif) from OPPO's kernel_device_modules-6.12
+to Linux 7.4 and the MT6858.
+
+Applies with -p1 to eccci/, ccci_util/ and ccmni/ of
+oppo-source/android_kernel_modules_and_devicetree_oppo_mt6993 at
+4d505a4292dab3176a45fec66dc85debc362e24c
+(kernel/kernel_device_modules-6.12/drivers/misc/mediatek), without their
+Bazel files, beside include/mt-plat/{mtk_ccci_common,sync_write}.h and
+include/conn_md_exp.h (conn_md/include). Adds the Kbuild files, compat
+headers and stubs for vendor-only services, the 7.4 API updates, a real
+of_get_named_gpio, the CCISM share memory the MT6858 modem asserts
+without, and the GRO flush ccmni needs on 7.4. The MT6661 PMIC voter code
+is stubbed, so no raw PMIC writes are built.
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..cfe95ca
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,9 @@
++*.o
++*.ko
++*.mod
++*.mod.c
++.*.cmd
++modules.order
++Module.symvers
++.tmp_versions/
++*.a
+diff --git a/Kbuild b/Kbuild
+new file mode 100644
+index 0000000..00056bc
+--- /dev/null
++++ b/Kbuild
+@@ -0,0 +1,3 @@
++# Out-of-tree build of MediaTek's ECCCI modem stack for MT6858:
++# make -C KDIR M=$PWD modules
++obj-m += ccci_util/ ccmni/ eccci/
+diff --git a/ccci_util/Kbuild b/ccci_util/Kbuild
+new file mode 100644
+index 0000000..eda8b22
+--- /dev/null
++++ b/ccci_util/Kbuild
+@@ -0,0 +1,8 @@
++ccflags-y += -I$(src)/../compat -I$(src)/../include -I$(src)/../eccci/inc -I$(src)
++ccflags-y += -DCCCI_KMODULE_ENABLE
++obj-m += ccci_util_lib.o
++ccci_util_lib-y := ccci_util_lib_fo.o ccci_util_lib_load_img.o ccci_util_lib_sys.o \
++	ccci_private_log.o ccci_util_lib_main.o ccci_util_ld_md_errno.o \
++	ccci_util_broadcast.o ccci_util_pin_broadcast.o ccci_util_sib.o \
++	ccci_util_lib_reserved_mem.o ccci_util_md_rat.o ccci_util_boot_args.o \
++	ccci_util_img_parsing.o ccci_util_md_mem.o
+diff --git a/ccmni/Kbuild b/ccmni/Kbuild
+new file mode 100644
+index 0000000..c2a49ca
+--- /dev/null
++++ b/ccmni/Kbuild
+@@ -0,0 +1,3 @@
++ccflags-y += -I$(src)/../compat -I$(src)/../include -I$(src)/../eccci/inc -I$(src)
++ccflags-y += -DCCCI_CCMNI_MODULE
++obj-m += ccmni.o
+diff --git a/ccmni/ccmni.c b/ccmni/ccmni.c
+index 0c9f9ff..d6a81ea 100644
+--- a/ccmni/ccmni.c
++++ b/ccmni/ccmni.c
+@@ -23,6 +23,7 @@
+  *
+  ****************************************************************************/
+ #include <linux/netdevice.h>
++#include <net/gro.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ip.h>
+ #include <linux/of.h>
+@@ -257,17 +258,15 @@ static int is_skb_gro(struct sk_buff *skb)
+ 
+ static inline unsigned int napi_gro_list_flush(struct ccmni_instance *ccmni)
+ {
+-	struct napi_struct *napi;
+-	unsigned int rx_count;
+-
+-	napi = ccmni->napi;
+-	rx_count = napi->rx_count;
+-
+-	napi_gro_flush(napi, false);
+-	if (napi->rx_count) {
+-		netif_receive_skb_list(&napi->rx_list);
+-		INIT_LIST_HEAD(&napi->rx_list);
+-		napi->rx_count = 0;
++	struct gro_node *gro = &ccmni->napi->gro;
++	unsigned int rx_count = gro->rx_count;
++
++	/* Linux 7.4 keeps the GRO lists in napi->gro */
++	gro_flush(gro, false);
++	if (gro->rx_count) {
++		netif_receive_skb_list(&gro->rx_list);
++		INIT_LIST_HEAD(&gro->rx_list);
++		gro->rx_count = 0;
+ 	}
+ 
+ 	return rx_count;
+@@ -1049,7 +1048,6 @@ static const struct net_device_ops ccmni_netdev_ops = {
+ 	.ndo_stop		= ccmni_close,
+ 	.ndo_start_xmit	= ccmni_start_xmit,
+ 	.ndo_tx_timeout	= ccmni_tx_timeout,
+-	.ndo_do_ioctl   = ccmni_ioctl,
+ 	.ndo_siocdevprivate = ccmni_private_ioctl,
+ 	.ndo_change_mtu = ccmni_change_mtu,
+ 	.ndo_select_queue = ccmni_select_queue,
+@@ -1063,7 +1061,7 @@ static int ccmni_napi_poll(struct napi_struct *napi, int budget)
+ 	struct ccmni_instance *ccmni =
+ 		(struct ccmni_instance *)netdev_priv(napi->dev);
+ 
+-	del_timer(ccmni->timer);
++	timer_delete(ccmni->timer);
+ 	return 0;
+ #endif
+ }
+@@ -1072,7 +1070,7 @@ static int ccmni_napi_poll(struct napi_struct *napi, int budget)
+ static void ccmni_napi_poll_timeout(struct timer_list *t)
+ {
+ 	//struct ccmni_instance *ccmni = (struct ccmni_instance *)data;
+-	//struct ccmni_instance *ccmni = from_timer(ccmni, t, timer);
++	//struct ccmni_instance *ccmni = timer_container_of(ccmni, t, timer);
+ 
+ 	//netdev_dbg(dev,
+ 	//	"CCMNI%d lost NAPI polling\n", ccmni->index);
+diff --git a/compat/ccci_compat.h b/compat/ccci_compat.h
+new file mode 100644
+index 0000000..5838856
+--- /dev/null
++++ b/compat/ccci_compat.h
+@@ -0,0 +1,9 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* Forced into every ECCCI unit: what the vendor tree's headers add on Linux 7.4. */
++#ifndef _ECCCI_COMPAT_H
++#define _ECCCI_COMPAT_H
++#include <linux/soc/mediatek/mtk_sip_svc.h>
++#ifndef MTK_SIP_KERNEL_CCCI_GET_INFO
++#define MTK_SIP_KERNEL_CCCI_GET_INFO	MTK_SIP_SMC_CMD(0x206)
++#endif
++#endif
+diff --git a/compat/eccci_stubs.c b/compat/eccci_stubs.c
+new file mode 100644
+index 0000000..a0f3516
+--- /dev/null
++++ b/compat/eccci_stubs.c
+@@ -0,0 +1,27 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Vendor services ECCCI calls that this kernel does not have: the AEE
++ * minidump (mrdump), OPLUS's keylog and the SLBC cache. Each reports
++ * success and does nothing.
++ */
++#include <linux/types.h>
++
++int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
++			       unsigned long size, const char *name);
++void mm_keylog_write_modemdump(unsigned int hashId, const char *cause, int id, char *subsys);
++int slbc_disable_dcc(bool disable);
++
++int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
++			       unsigned long size, const char *name)
++{
++	return 0;
++}
++
++void mm_keylog_write_modemdump(unsigned int hashId, const char *cause, int id, char *subsys)
++{
++}
++
++int slbc_disable_dcc(bool disable)
++{
++	return 0;
++}
+diff --git a/compat/linux/of_gpio.h b/compat/linux/of_gpio.h
+new file mode 100644
+index 0000000..558b710
+--- /dev/null
++++ b/compat/linux/of_gpio.h
+@@ -0,0 +1,31 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * Linux 7.4 dropped of_get_named_gpio(). The modem's RPC asks for GPIO
++ * values by name from the gpio_usage_mapping node (<&pio pin md_pin>), so
++ * resolve the phandle to a global GPIO number here.
++ */
++#ifndef _ECCCI_COMPAT_OF_GPIO_H
++#define _ECCCI_COMPAT_OF_GPIO_H
++#include <linux/errno.h>
++#include <linux/gpio.h>
++#include <linux/gpio/driver.h>
++#include <linux/of.h>
++
++static inline int of_get_named_gpio(const struct device_node *np, const char *name, int index)
++{
++	struct of_phandle_args args;
++	struct gpio_device *gdev;
++	int ret;
++
++	ret = of_parse_phandle_with_fixed_args(np, name, 2, index, &args);
++	if (ret)
++		return ret;
++	gdev = gpio_device_find_by_fwnode(of_fwnode_handle(args.np));
++	of_node_put(args.np);
++	if (!gdev)
++		return -EPROBE_DEFER;
++	ret = gpio_device_get_base(gdev) + args.args[0];
++	gpio_device_put(gdev);
++	return ret;
++}
++#endif
+diff --git a/compat/mt-plat/dvfsrc-exp.h b/compat/mt-plat/dvfsrc-exp.h
+new file mode 100644
+index 0000000..a104e2e
+--- /dev/null
++++ b/compat/mt-plat/dvfsrc-exp.h
+@@ -0,0 +1,5 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* No MediaTek DVFSRC: the modem speed hints change no bus or DRAM opp. */
++#ifndef _ECCCI_COMPAT_DVFSRC_EXP_H
++#define _ECCCI_COMPAT_DVFSRC_EXP_H
++#endif
+diff --git a/compat/rps_perf.h b/compat/rps_perf.h
+new file mode 100644
+index 0000000..c50cc6b
+--- /dev/null
++++ b/compat/rps_perf.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* No MediaTek rps_perf module: RPS is set through the rx-0/rps_cpus sysfs file. */
++#ifndef _ECCCI_COMPAT_RPS_PERF_H
++#define _ECCCI_COMPAT_RPS_PERF_H
++struct netdev_rx_queue;
++static inline int set_rps_map(struct netdev_rx_queue *queue, unsigned long rps_value)
++{
++	return 0;
++}
++#endif
+diff --git a/compat/slbc_ops.h b/compat/slbc_ops.h
+new file mode 100644
+index 0000000..7ba1bde
+--- /dev/null
++++ b/compat/slbc_ops.h
+@@ -0,0 +1,7 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* No MediaTek system-level cache (SLBC) driver; see compat/eccci_stubs.c. */
++#ifndef _ECCCI_COMPAT_SLBC_OPS_H
++#define _ECCCI_COMPAT_SLBC_OPS_H
++#include <linux/types.h>
++int slbc_disable_dcc(bool disable);
++#endif
+diff --git a/compat/soc/mediatek/emi.h b/compat/soc/mediatek/emi.h
+new file mode 100644
+index 0000000..7913538
+--- /dev/null
++++ b/compat/soc/mediatek/emi.h
+@@ -0,0 +1,13 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* No MediaTek EMI MPU driver: MD violation reports are not wired up. */
++#ifndef _ECCCI_COMPAT_SOC_MEDIATEK_EMI_H
++#define _ECCCI_COMPAT_SOC_MEDIATEK_EMI_H
++typedef void (*emimpu_md_handler)(const char *vio_msg);
++static inline int mtk_emimpu_md_handling_register(emimpu_md_handler fn)
++{
++	return 0;
++}
++static inline void mtk_clear_md_violation(void)
++{
++}
++#endif
+diff --git a/eccci/Kbuild b/eccci/Kbuild
+new file mode 100644
+index 0000000..60a752a
+--- /dev/null
++++ b/eccci/Kbuild
+@@ -0,0 +1,27 @@
++ccflags-y += -I$(src)/../compat -I$(src)/../include -I$(src)/../ccmni -I$(src)/../ccci_util \
++	-I$(src) -I$(src)/inc -I$(src)/hif -I$(src)/port -I$(src)/fsm -I$(src)/udc \
++	-I$(src)/udc/udc_lib_inc
++ccflags-y += -DCCCI_KMODULE_ENABLE -include $(src)/../compat/ccci_compat.h
++
++obj-m += ccci_auxadc.o ccci_md_all.o ccci_ccif.o ccci_dpmaif.o
++
++ccci_md_all-y := ccci_bm.o ccci_core.o ccci_modem.o \
++	port/ccci_mbrain.o port/ccci_swtp.o port/port_cfg.o port/port_char.o \
++	port/port_ctlmsg.o port/port_ipc.o port/port_kernel_interface.o \
++	port/port_poller.o port/port_proxy.o port/port_rpc.o port/port_smem.o \
++	port/port_sysmsg.o port/port_udc.o udc/udc.o \
++	fsm/ap_md_mem.o fsm/ap_md_reg_dump.o fsm/ap_md_reg_dump_gen93.o \
++	fsm/ap_md_reg_dump_gen95.o fsm/ap_md_reg_dump_gen97.o fsm/ccci_fsm.o \
++	fsm/ccci_fsm_ee.o fsm/ccci_fsm_ioctl.o fsm/ccci_fsm_monitor.o \
++	fsm/ccci_fsm_poller.o fsm/ccci_fsm_sys.o fsm/mdee_dumper_v1.o \
++	fsm/mdee_dumper_v2.o fsm/mdee_dumper_v3.o fsm/mdee_dumper_v5.o \
++	fsm/mdee_dumper_v6.o fsm/md_sys1_platform.o fsm/modem_sys1.o \
++	fsm/criticallog_class.o hif/ccci_hif.o eccci_stubs.o
++
++ccci_ccif-y := hif/ccci_hif_ccif.o hif/ccci_ringbuf.o
++
++ccci_dpmaif-y := hif/ccci_dpmaif_bat.o hif/ccci_dpmaif_com.o hif/ccci_dpmaif_debug.o \
++	hif/ccci_dpmaif_drv_com.o hif/ccci_dpmaif_drv_v1.o hif/ccci_dpmaif_drv_v2.o \
++	hif/ccci_dpmaif_drv_v3.o hif/ccci_dpmaif_page_pool.o hif/ccci_dpmaif_resv_mem.o \
++	hif/ccci_dpmaif_v1_6789.o hif/md_spd_dvfs_fn.o hif/md_spd_dvfs_method.o \
++	hif/net_pool.o hif/net_speed.o dpmaif_stubs.o
+diff --git a/eccci/ccci_auxadc.c b/eccci/ccci_auxadc.c
+index 44e11aa..392050a 100644
+--- a/eccci/ccci_auxadc.c
++++ b/eccci/ccci_auxadc.c
+@@ -150,3 +150,4 @@ module_exit(ccci_auxadc_exit);
+ MODULE_AUTHOR("ccci");
+ MODULE_DESCRIPTION("ccci auxadc driver");
+ MODULE_LICENSE("GPL");
++MODULE_IMPORT_NS("IIO_CONSUMER");
+diff --git a/eccci/dpmaif_stubs.c b/eccci/dpmaif_stubs.c
+new file mode 120000
+index 0000000..cfa47d5
+--- /dev/null
++++ b/eccci/dpmaif_stubs.c
+@@ -0,0 +1 @@
++../compat/eccci_stubs.c
+\ No newline at end of file
+diff --git a/eccci/eccci_stubs.c b/eccci/eccci_stubs.c
+new file mode 120000
+index 0000000..cfa47d5
+--- /dev/null
++++ b/eccci/eccci_stubs.c
+@@ -0,0 +1 @@
++../compat/eccci_stubs.c
+\ No newline at end of file
+diff --git a/eccci/fsm/ccci_fsm.c b/eccci/fsm/ccci_fsm.c
+index 5be0eee..905929c 100644
+--- a/eccci/fsm/ccci_fsm.c
++++ b/eccci/fsm/ccci_fsm.c
+@@ -220,7 +220,7 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
+ 		return -CCCI_ERR_INVALID_PARAM;
+ 	}
+ 	cmd = kmalloc(sizeof(struct ccci_fsm_command),
+-		(in_irq() || in_softirq()
++		(in_hardirq() || in_softirq()
+ 		|| irqs_disabled()) ? GFP_ATOMIC : GFP_KERNEL);
+ 	if (!cmd) {
+ 		CCCI_ERROR_LOG(0, FSM,
+@@ -231,14 +231,14 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
+ 	init_waitqueue_head(&cmd->complete_wq);
+ 	cmd->cmd_id = cmd_id;
+ 	cmd->complete = 0;
+-	if (in_irq() || irqs_disabled())
++	if (in_hardirq() || irqs_disabled())
+ 		flag &= ~FSM_CMD_FLAG_WAIT_FOR_COMPLETE;
+ 	cmd->flag = flag;
+ 
+ 	spin_lock_irqsave(&ctl->command_lock, flags);
+ 	list_add_tail(&cmd->entry, &ctl->command_queue);
+ 	spin_unlock_irqrestore(&ctl->command_lock, flags);
+-	if (!in_irq())
++	if (!in_hardirq())
+ 		CCCI_NORMAL_LOG(0, FSM,
+ 			"command %d is appended %x from %ps\n",
+ 			cmd_id, flag,
+@@ -494,7 +494,7 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
+ 		fsm_md_wdt_handler(&ctl->ee_ctl);
+ 		break;
+ 	case EXCEPTION_EE:
+-#if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
++#if IS_ENABLED(CONFIG_MTK_EMI) && !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+ 		mtk_emiisu_record_off();
+ 		CCCI_NORMAL_LOG(0, FSM, "Turn off EMIISU\n");
+ #endif
+@@ -567,13 +567,13 @@ static void config_ap_side_feature(struct ccci_modem *md,
+ 	md_feature->feature_set[CCIF_SHARE_MEMORY].support_mask
+ 		= CCCI_FEATURE_MUST_SUPPORT;
+ 
+-#ifdef FEATURE_SCP_CCCI_SUPPORT
++	/*
++	 * The MT6858 modem asserts in ccismcore without its SCP share memory,
++	 * even with no SCP running: hand it the region whether or not this
++	 * kernel talks to the SCP.
++	 */
+ 	md_feature->feature_set[CCISM_SHARE_MEMORY].support_mask
+ 		= CCCI_FEATURE_MUST_SUPPORT;
+-#else
+-	md_feature->feature_set[CCISM_SHARE_MEMORY].support_mask
+-		= CCCI_FEATURE_NOT_SUPPORT;
+-#endif
+ 
+ 	md_feature->feature_set[CCISM_SHARE_MEMORY_EXP].support_mask
+ 		= CCCI_FEATURE_MUST_SUPPORT;
+diff --git a/eccci/fsm/ccci_fsm_ee.c b/eccci/fsm/ccci_fsm_ee.c
+index 26b456a..59c6f64 100644
+--- a/eccci/fsm/ccci_fsm_ee.c
++++ b/eccci/fsm/ccci_fsm_ee.c
+@@ -445,7 +445,7 @@ void fsm_md_normal_ee_handler(struct ccci_fsm_ctl *ctl)
+ #if IS_ENABLED(CONFIG_MTK_EMI)
+ 	CCCI_NORMAL_LOG(0, FSM, "normal_ee_handler mtk_clear_md_violation\n");
+ 	mtk_clear_md_violation();
+-#if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
++#if IS_ENABLED(CONFIG_MTK_EMI) && !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+ 	ccci_get_vioinfo_clear_md_violation();
+ #endif
+ #endif
+diff --git a/eccci/fsm/md_sys1_platform.c b/eccci/fsm/md_sys1_platform.c
+index f41acd4..f297029 100644
+--- a/eccci/fsm/md_sys1_platform.c
++++ b/eccci/fsm/md_sys1_platform.c
+@@ -8,7 +8,6 @@
+ #include <linux/interrupt.h>
+ #include <linux/irq.h>
+ #include <linux/module.h>
+-#include <linux/mfd/mt6661/registers.h>
+ #include <linux/of.h>
+ #include <linux/of_fdt.h>
+ #include <linux/of_irq.h>
+@@ -16,7 +15,6 @@
+ #include <linux/of_platform.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+-#include <linux/regulator/mt6661-regulator.h>
+ #include <linux/sched/clock.h>
+ #include <linux/spmi.h>
+ #include "ccci_config.h"
+@@ -2047,66 +2045,7 @@ int md_cd_vcore_config(unsigned int hold_req)
+ #define VOTER_MD_BIT (0x1 << 3)
+ void md1_rf_voter_enable(void)
+ {
+-	struct device_node *np_pmic_slave3 = NULL;
+-	struct device_node *np_pmic_slave6 = NULL;
+-	struct platform_device *pmic_pdev_slave3 = NULL;
+-	struct platform_device *pmic_pdev_slave6 = NULL;
+-	struct regmap *map_slave3 = NULL;
+-	struct regmap *map_slave6 = NULL;
+-	int ret = -1;
+-
+-	CCCI_NORMAL_LOG(0, TAG, "[POWER ON]%s start\n", __func__);
+-
+-	np_pmic_slave3 = of_find_node_by_name(NULL, "mt6661-3");
+-	np_pmic_slave6 = of_find_node_by_name(NULL, "mt6661-6");
+-	if (!np_pmic_slave3 || !np_pmic_slave6) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:pmic slave3 or slave6 node not found\n",
+-			__func__);
+-		return;
+-	}
+-
+-	pmic_pdev_slave3 = of_find_device_by_node(np_pmic_slave3->child);
+-	pmic_pdev_slave6 = of_find_device_by_node(np_pmic_slave6->child);
+-	if (!pmic_pdev_slave3 || !pmic_pdev_slave6) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:pmic slave3 or slave6 child device not found\n",
+-			__func__);
+-		return;
+-	}
+-
+-	/* get regmap */
+-	map_slave3 = dev_get_regmap(pmic_pdev_slave3->dev.parent, NULL);
+-	map_slave6 = dev_get_regmap(pmic_pdev_slave6->dev.parent, NULL);
+-	if (!map_slave3 || !map_slave6) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get regmap slave3 or slave6 fail\n",
+-			__func__);
+-		return;
+-	}
+-
+-	// set VS1 voter
+-	ret = regmap_write(map_slave3, MT6661_BUCK5_VOTER0_CON0_SET, VOTER_MD_BIT);
+-	if (ret < 0) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:set VS1 voter fail, ret:%d\n",
+-			__func__, ret);
+-		return;
+-	}
+-
+-	// set VS2_2 voter
+-	ret = regmap_write(map_slave6, MT6661_BUCK6_VOTER0_CON0_SET, VOTER_MD_BIT);
+-	if (ret < 0) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:set VS2_2 voter fail, ret:%d\n",
+-			__func__, ret);
+-		return;
+-	}
+-
+-	// set VS3_2 voter
+-	ret = regmap_write(map_slave6, MT6661_BUCK5_VOTER0_CON0_SET, VOTER_MD_BIT);
+-	if (ret < 0) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:set VS3_2 voter fail, ret:%d\n",
+-			__func__, ret);
+-		return;
+-	}
+-
+-	CCCI_NORMAL_LOG(0, TAG, "[POWER ON]%s end success\n", __func__);
++	/* MT6661 PMIC projects only (MT6993); not built here. */
+ }
+ 
+ /* A0: sw_ver == 0x0
+@@ -2137,244 +2076,7 @@ static int ccci_get_chipid(void)
+ 
+ void md1_set_rf_pmic_lp(struct platform_device *plat_dev)
+ {
+-	struct arm_smccc_res res = {0};
+-	struct device_node *np_pmic_slave6;
+-	struct platform_device *pmic_pdev_slave6 = NULL;
+-	struct regmap *map_slave6;
+-	unsigned int val = 0;
+-	int ret = 0;
+-	struct regulator *reg_vmodem;
+-	struct regulator *reg_vdigrf;
+-	struct regulator *reg_vsram_digrf;
+-	struct regulator *reg_vrfio12;
+-	struct regulator *reg_vrfio18;
+-	struct regulator *reg_vs3_2;
+-	struct regulator *reg_vs2_2;
+-	struct regulator *reg_va10;
+-	struct regulator *reg_vrf09;
+-	struct regulator *reg_vrf12;
+-	struct regulator *reg_vrf18;
+-
+-	CCCI_NORMAL_LOG(0, TAG, "[POWER ON]%s start\n", __func__);
+-
+-	np_pmic_slave6 = of_find_node_by_name(NULL, "mt6661-6");
+-	if (!np_pmic_slave6 || !np_pmic_slave6->child) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:pmic node not found\n",
+-			__func__);
+-		return;
+-	}
+-
+-	pmic_pdev_slave6 = of_find_device_by_node(np_pmic_slave6->child);
+-	if (!pmic_pdev_slave6) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:pmic child device not found\n",
+-			__func__);
+-		return;
+-	}
+-
+-	/* get regmap */
+-	map_slave6 = dev_get_regmap(pmic_pdev_slave6->dev.parent, NULL);
+-	if (!map_slave6) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:pmic get map_slave6 fail\n",
+-			__func__);
+-		return;
+-	}
+-
+-	/* get regulator*/
+-	reg_vmodem = devm_regulator_get_optional(&plat_dev->dev, "md-vmodem");
+-	if (IS_ERR(reg_vmodem)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vmodem fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vdigrf = devm_regulator_get_optional(&plat_dev->dev, "md-vdigrf");
+-	if (IS_ERR(reg_vdigrf)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vdigrf fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vsram_digrf = devm_regulator_get_optional(&plat_dev->dev, "vsram-digrf");
+-	if (IS_ERR(reg_vsram_digrf)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vsram_digrf fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vrfio12 = devm_regulator_get_optional(&plat_dev->dev, "vrfio12");
+-	if (IS_ERR(reg_vrfio12)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vrfio12 fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vrfio18 = devm_regulator_get_optional(&plat_dev->dev, "vrfio18");
+-	if (IS_ERR(reg_vrfio18)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vrfio18 fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vs3_2 = devm_regulator_get_optional(&plat_dev->dev, "vs3-2");
+-	if (IS_ERR(reg_vs3_2)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vs3_2 fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vs2_2 = devm_regulator_get_optional(&plat_dev->dev, "vs2-2");
+-	if (IS_ERR(reg_vs2_2)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vs2_2 fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_va10 = devm_regulator_get_optional(&plat_dev->dev, "va10");
+-	if (IS_ERR(reg_va10)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_va10 fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vrf09 = devm_regulator_get_optional(&plat_dev->dev, "vrf09");
+-	if (IS_ERR(reg_vrf09)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vrf09 fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vrf12 = devm_regulator_get_optional(&plat_dev->dev, "vrf12");
+-	if (IS_ERR(reg_vrf12)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vrf12 fail\n", __func__);
+-		return;
+-	}
+-
+-	reg_vrf18 = devm_regulator_get_optional(&plat_dev->dev, "vrf18");
+-	if (IS_ERR(reg_vrf18)) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:get reg_vrf18 fail\n", __func__);
+-		return;
+-	}
+-
+-	// regulator setting
+-	ret = regulator_enable(reg_vmodem);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable vmodem: %d\n", __func__, ret);
+-	ret = regulator_enable(reg_vdigrf);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable vdigrf: %d\n", __func__, ret);
+-	ret = regulator_enable(reg_vs3_2);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable vs3_2: %d\n", __func__, ret);
+-	ret = regulator_enable(reg_vs2_2);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable vs2_2: %d\n", __func__, ret);
+-
+-	/* tfa Step 1: VDIGRF, Vmodem, VS2_2, VS3_2 mapping */
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+-			MD_SET_RF_PMIC_LP, 1, 0, 0, 0, 0, &res);
+-	if (res.a0 != 1) {
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to exec tfa step1: %lu\n", __func__, res.a0);
+-		return;
+-	}
+-	udelay(200);
+-
+-	// regulator setting
+-	ret = regulator_enable(reg_vsram_digrf);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable reg_vsram_digrf: %d\n", __func__, ret);
+-	ret = regulator_enable(reg_vrfio12);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable reg_vrfio12: %d\n", __func__, ret);
+-
+-	if (ccci_get_chipid() == 0x0) {
+-		ret = regulator_enable(reg_va10);
+-		if (ret)
+-			CCCI_ERROR_LOG(0, TAG, "%s fail to enable reg_va10: %d\n", __func__, ret);
+-	} else {
+-		ret = regmap_read(map_slave6, MT6661_LDO_LN60_7_CON0, &val);
+-		if (ret < 0) {
+-			CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:fail read LDO_LN60_7_CON0: ret: %d\n",
+-				__func__, ret);
+-			return;
+-		}
+-		ret = regmap_write(map_slave6, MT6661_LDO_LN60_7_CON0, val & 0xFFFFFFFE);
+-		if (ret < 0) {
+-			CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:fail mask write LDO_LN60_7_CON0 ret: %d\n",
+-				__func__, ret);
+-			return;
+-		}
+-	}
+-
+-	/* tfa Step 2: Vsram_rf, VRFIO12 mapping */
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+-			MD_SET_RF_PMIC_LP, 2, 0, 0, 0, 0, &res);
+-	if (res.a0 != 2) {
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to exec tfa step2: %lu\n", __func__, res.a0);
+-		return;
+-	}
+-	udelay(200);
+-
+-	// regulator setting
+-	ret = regulator_enable(reg_vrfio18);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable reg_vrfio18: %d\n", __func__, ret);
+-
+-	/* tfa Step 3: VRFIO18 mapping */
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+-			MD_SET_RF_PMIC_LP, 3, 0, 0, 0, 0, &res);
+-	if (res.a0 != 3) {
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to exec tfa step3: %lu\n", __func__, res.a0);
+-		return;
+-	}
+-	udelay(500);
+-
+-	/* Turn off PMRC4 PMIC */
+-	val = 0;
+-	ret = regmap_read(map_slave6, MT6661_PMRC_CON0, &val);
+-	if (ret < 0) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:fail read PMRC4: ret: %d\n",
+-			__func__, ret);
+-		return;
+-	}
+-
+-	// Mask PMRC4 and write PMRC0~7
+-	ret = regmap_write(map_slave6, MT6661_PMRC_CON0, val & 0xEF);
+-	if (ret < 0) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:fail mask write PMRC0~7: ret: %d\n",
+-			__func__, ret);
+-		return;
+-	}
+-
+-	/* tfa step 4: VRF18, VRF12, VRF09 mapping */
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+-			MD_SET_RF_PMIC_LP, 4, 0, 0, 0, 0, &res);
+-	if (res.a0 != 4) {
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to exec tfa step4: %lu\n", __func__, res.a0);
+-		return;
+-	}
+-
+-	/* Turn on PMRC4 @ PMIC, Set PMRC4 and write PMRC0~7 */
+-	ret = regmap_write(map_slave6, MT6661_PMRC_CON0, val | 0x10);
+-	if (ret < 0) {
+-		CCCI_ERROR_LOG(0, TAG, "[POWER ON]%s:fail Turn on PMRC4: ret: %d\n",
+-			__func__, ret);
+-		return;
+-	}
+-
+-	// regulator setting
+-	ret = regulator_enable(reg_vrf09);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable vrf09: %d\n", __func__, ret);
+-	ret = regulator_enable(reg_vrf12);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable vrf12: %d\n", __func__, ret);
+-	ret = regulator_enable(reg_vrf18);
+-	if (ret)
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to enable vrf18: %d\n", __func__, ret);
+-
+-	/* tfa step 5: set PMRC4 mapping to LP mode*/
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+-			MD_SET_RF_PMIC_LP, 5, 0, 0, 0, 0, &res);
+-	if (res.a0 != 5) {
+-		CCCI_ERROR_LOG(0, TAG, "%s fail to exec tfa step5: %lu\n", __func__, res.a0);
+-		return;
+-	}
+-
+-	udelay(200);
+-
+-	CCCI_BOOTUP_LOG(0, TAG, "[POWER ON] %s done\n", __func__);
+-	CCCI_NORMAL_LOG(0, TAG, "[POWER ON] %s done\n", __func__);
++	/* MT6661 PMIC projects only (MT6993); not built here. */
+ }
+ 
+ static int md_cd_power_on(struct ccci_modem *md)
+diff --git a/eccci/fsm/md_sys1_platform.h b/eccci/fsm/md_sys1_platform.h
+index 5e1372e..e5ea2b1 100644
+--- a/eccci/fsm/md_sys1_platform.h
++++ b/eccci/fsm/md_sys1_platform.h
+@@ -165,8 +165,8 @@ enum MD_REG_DUMP_ID {
+ };
+ 
+ /* ADD_SYS_CORE */
+-int ccci_modem_syssuspend(void);
+-void ccci_modem_sysresume(void);
++int ccci_modem_syssuspend(void *data);
++void ccci_modem_sysresume(void *data);
+ void legacy_md_dump_register(struct ccci_modem *md);
+ 
+ #if IS_ENABLED(CONFIG_MTK_EMI)
+diff --git a/eccci/fsm/mdee_dumper_v1.c b/eccci/fsm/mdee_dumper_v1.c
+index 8420b6a..b77e399 100644
+--- a/eccci/fsm/mdee_dumper_v1.c
++++ b/eccci/fsm/mdee_dumper_v1.c
+@@ -309,7 +309,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
+ 		db_opt |= (unsigned int)DB_OPT_FTRACE;
+ 		break;
+ 	case MD_EE_CASE_WDT:
+-		strncpy(ex_info, "\n[Others] MD watchdog timeout interrupt\n",
++		strscpy_pad(ex_info, "\n[Others] MD watchdog timeout interrupt\n",
+ 			EE_BUF_LEN);
+ 		break;
+ 	default:
+diff --git a/eccci/fsm/mdee_dumper_v2.c b/eccci/fsm/mdee_dumper_v2.c
+index a77603f..981cc76 100644
+--- a/eccci/fsm/mdee_dumper_v2.c
++++ b/eccci/fsm/mdee_dumper_v2.c
+@@ -328,12 +328,12 @@ static void mdee_info_dump_v2(struct ccci_fsm_ee *mdee)
+ 		/* use strcpy, otherwise if this happens after a MD EE,
+ 		 * the former EE info will be printed out
+ 		 */
+-		strncpy(ex_info, "\n[Others] MD long time no response\n",
++		strscpy_pad(ex_info, "\n[Others] MD long time no response\n",
+ 			EE_BUF_LEN_UMOLY);
+ 		db_opt |= (unsigned int)DB_OPT_FTRACE;
+ 		break;
+ 	case MD_EE_CASE_WDT:
+-		strncpy(ex_info, "\n[Others] MD watchdog timeout interrupt\n",
++		strscpy_pad(ex_info, "\n[Others] MD watchdog timeout interrupt\n",
+ 			EE_BUF_LEN_UMOLY);
+ 		break;
+ 	default:
+diff --git a/eccci/fsm/mdee_dumper_v5.c b/eccci/fsm/mdee_dumper_v5.c
+index 3fd22ae..5688cfe 100644
+--- a/eccci/fsm/mdee_dumper_v5.c
++++ b/eccci/fsm/mdee_dumper_v5.c
+@@ -99,7 +99,7 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
+ 		goto err_exit1;
+ 	}
+ 	memset(mdee->ex_start_time, 0x0, sizeof(mdee->ex_start_time));
+-		//#ifdef OPLUS_FEATURE_MODEM_MINIDUMP
++#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE) /* OPLUS minidump hash, needs the AEE locals */
+ 	aed_str_for_hash = aed_str;
+ 	if( aed_str_for_hash != NULL ) {
+ 		/* only startwith "(MCU_core" */
+@@ -178,7 +178,7 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
+ 		mm_keylog_write_modemdump(hashId, logBuf, MODEM_MONITOR_ID, "modem");
+ 		kfree(logBuf);
+ 	}
+-//#endif /*OPLUS_FEATURE_MODEM_MINIDUMP*/
++#endif
+ 	/* MD ID must sync with aee_dump_ccci_debug_info() */
+  err_exit1:
+ 	if ((dump_flag & CCCI_AED_DUMP_CCIF_REG) && (mdss_dbg != NULL)) {
+@@ -412,7 +412,7 @@ static void mdee_info_dump_v5(struct ccci_fsm_ee *mdee)
+ 		db_opt |= (unsigned int)DB_OPT_FTRACE;
+ 		fallthrough;
+ 	case MD_EE_CASE_WDT:
+-		strncpy(ex_info, mdee_more_inf_str[dumper->more_info],
++		strscpy_pad(ex_info, mdee_more_inf_str[dumper->more_info],
+ 			EE_BUF_LEN_UMOLY);
+ 		ex_info[EE_BUF_LEN_UMOLY] = '\0';
+ 		break;
+diff --git a/eccci/fsm/modem_sys1.c b/eccci/fsm/modem_sys1.c
+index afc10c2..0f52116 100644
+--- a/eccci/fsm/modem_sys1.c
++++ b/eccci/fsm/modem_sys1.c
+@@ -1100,7 +1100,7 @@ static void ccci_modem_restore_reg(struct ccci_modem *md)
+ 	ccci_hif_resume(md->hif_flag);
+ }
+ 
+-int ccci_modem_syssuspend(void)
++int ccci_modem_syssuspend(void *data)
+ {
+ 	struct ccci_modem *md;
+ 
+@@ -1111,7 +1111,7 @@ int ccci_modem_syssuspend(void)
+ 	return 0;
+ }
+ 
+-void ccci_modem_sysresume(void)
++void ccci_modem_sysresume(void *data)
+ {
+ 	struct ccci_modem *md;
+ 
+@@ -1122,11 +1122,15 @@ void ccci_modem_sysresume(void)
+ }
+ 
+ 
+-static struct syscore_ops ccci_modem_sysops = {
++static const struct syscore_ops ccci_modem_sysops = {
+ 	.suspend = ccci_modem_syssuspend,
+ 	.resume = ccci_modem_sysresume,
+ };
+ 
++static struct syscore ccci_modem_syscore = {
++	.ops = &ccci_modem_sysops,
++};
++
+ /* setup function is only for data structure initialization */
+ struct ccci_modem *ccci_md_alloc(int private_size)
+ {
+@@ -1330,7 +1334,7 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
+ 	}
+ 
+ 	/* register SYS CORE suspend resume call back */
+-	register_syscore_ops(&ccci_modem_sysops);
++	register_syscore(&ccci_modem_syscore);
+ 
+ 	/* add sysfs entries */
+ 	md_cd_sysfs_init(md);
+diff --git a/eccci/hif/ccci_dpmaif_bat.c b/eccci/hif/ccci_dpmaif_bat.c
+index f9d1c63..86c3da4 100644
+--- a/eccci/hif/ccci_dpmaif_bat.c
++++ b/eccci/hif/ccci_dpmaif_bat.c
+@@ -1309,8 +1309,8 @@ int ccci_dpmaif_bat_init(struct device *dev)
+ 		"[%s] g_skb_tbl_cnt: %u; g_frg_tbl_cnt: %u\n",
+ 		__func__, g_skb_tbl_cnt, g_frg_tbl_cnt);
+ 
+-	hrtimer_init(&g_dpmaif_ctrl->bat_alloc_done_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+-	g_dpmaif_ctrl->bat_alloc_done_timer.function = dpmaif_bat_alloc_timer_action;
++	hrtimer_setup(&g_dpmaif_ctrl->bat_alloc_done_timer, dpmaif_bat_alloc_timer_action,
++		      CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+ 
+ 	return 0;
+ }
+diff --git a/eccci/hif/ccci_dpmaif_com.c b/eccci/hif/ccci_dpmaif_com.c
+index 70d3c08..2d0b5ff 100644
+--- a/eccci/hif/ccci_dpmaif_com.c
++++ b/eccci/hif/ccci_dpmaif_com.c
+@@ -1681,8 +1681,8 @@ static int dpmaif_txq_sw_init(struct dpmaif_tx_queue *txq)
+ 
+ 	init_waitqueue_head(&txq->txq_done_wait);
+ 	atomic_set(&txq->txq_done, 0);
+-	hrtimer_init(&txq->txq_done_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+-	txq->txq_done_timer.function = txq_done_timer_action;
++	hrtimer_setup(&txq->txq_done_timer, txq_done_timer_action, CLOCK_MONOTONIC,
++		      HRTIMER_MODE_REL);
+ 	txq->txq_done_thread = NULL;
+ 
+ 	spin_lock_init(&txq->txq_lock);
+@@ -2895,7 +2895,7 @@ static int dpmaif_stop(unsigned char hif_id)
+ 
+ #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
+ 	/* stop debug mechnism */
+-	del_timer(&g_dpmaif_ctrl->traffic_monitor);
++	timer_delete(&g_dpmaif_ctrl->traffic_monitor);
+ #endif
+ 
+ 	dpmaif_disable_all_irq();
+diff --git a/eccci/hif/ccci_hif_ccif.c b/eccci/hif/ccci_hif_ccif.c
+index a3ace50..1bb6347 100644
+--- a/eccci/hif/ccci_hif_ccif.c
++++ b/eccci/hif/ccci_hif_ccif.c
+@@ -436,7 +436,7 @@ err_exit1:
+ 
+ static void md_ccif_traffic_monitor_func(struct timer_list *t)
+ {
+-	struct md_ccif_ctrl *ccif_ctrl = from_timer(ccif_ctrl, t, traffic_monitor);
++	struct md_ccif_ctrl *ccif_ctrl = timer_container_of(ccif_ctrl, t, traffic_monitor);
+ 
+ 	schedule_work(&ccif_ctrl->traffic_info.traffic_work_struct);
+ }
+@@ -966,7 +966,7 @@ static void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start)
+ 		mod_timer(&ccif_ctrl->traffic_monitor,
+ 			jiffies + CCIF_TRAFFIC_MONITOR_INTERVAL * HZ);
+ 	else
+-		del_timer(&ccif_ctrl->traffic_monitor);
++		timer_delete(&ccif_ctrl->traffic_monitor);
+ }
+ 
+ static int md_ccif_send_data(unsigned char hif_id, int channel_id)
+diff --git a/eccci/hif/ccci_hif_cldma.c b/eccci/hif/ccci_hif_cldma.c
+index cc8fab5..d9ee181 100644
+--- a/eccci/hif/ccci_hif_cldma.c
++++ b/eccci/hif/ccci_hif_cldma.c
+@@ -519,7 +519,7 @@ void md_cd_traffic_monitor_func(struct timer_list *t)
+ {
+ 	int i;
+ 	//struct md_cd_ctrl *md_ctrl = (struct md_cd_ctrl *)data;
+-	struct md_cd_ctrl *md_ctrl = from_timer(md_ctrl, t, traffic_monitor);
++	struct md_cd_ctrl *md_ctrl = timer_container_of(md_ctrl, t, traffic_monitor);
+ 
+ 	struct ccci_hif_traffic *tinfo = &md_ctrl->traffic_info;
+ 	unsigned long q_rx_rem_nsec[CLDMA_RXQ_NUM] = {0};
+@@ -1951,7 +1951,7 @@ static void cldma_irq_work_cb(struct md_cd_ctrl *md_ctrl)
+ 				& (1 << i)) {
+ #ifdef ENABLE_CLDMA_TIMER
+ 				md_ctrl->txq[i].timeout_end = local_clock();
+-				ret = del_timer(&md_ctrl->txq[i].timeout_timer);
++				ret = timer_delete(&md_ctrl->txq[i].timeout_timer);
+ 				CCCI_DEBUG_LOG(0, TAG,
+ 					"qno%d del_timer %d ptr=0x%p\n",
+ 					i, ret,
+@@ -2093,7 +2093,7 @@ static int cldma_stop(unsigned char hif_id)
+ 	/* stop timer */
+ #ifdef ENABLE_CLDMA_TIMER
+ 	for (qno = 0; qno < CLDMA_TXQ_NUM; qno++)
+-		del_timer(&md_ctrl->txq[qno].timeout_timer);
++		timer_delete(&md_ctrl->txq[qno].timeout_timer);
+ #endif
+ 
+ 	spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock,
+diff --git a/eccci/port/port_smem.c b/eccci/port/port_smem.c
+index 7d1d183..0a7fb5a 100644
+--- a/eccci/port/port_smem.c
++++ b/eccci/port/port_smem.c
+@@ -139,9 +139,8 @@ static void collect_ccb_info(struct ccci_smem_port *smem_port)
+ 			smem_port->wakeup = 0;
+ 			smem_port->type = TYPE_CCB;
+ 			init_waitqueue_head(&smem_port->rx_wq);
+-			hrtimer_init(&smem_port->notify_timer,
+-			CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+-			smem_port->notify_timer.function = smem_tx_timer_func;
++			hrtimer_setup(&smem_port->notify_timer, smem_tx_timer_func,
++				      CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+ 			break;
+ 		}
+ 	}

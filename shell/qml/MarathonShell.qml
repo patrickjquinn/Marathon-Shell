@@ -241,6 +241,9 @@ Item {
         case "keyboard":
             virtualKeyboard.active = !virtualKeyboard.active;
             break;
+        case "clipboard":
+            UIStore.openClipboardManager();
+            break;
         }
         HapticManager.light();
     }
@@ -1302,6 +1305,18 @@ Item {
             }
         }
 
+        // A flip cover: closing it locks and blanks, opening it wakes.
+        function onLidChanged(closed) {
+            if (closed) {
+                SessionStore.lock();
+                Display.turnScreenOff("lid closed");
+            } else if (Display.nightshade) {
+                nightshade.leave("");
+            } else if (!Display.screenOn) {
+                Display.turnScreenOn("lid opened");
+            }
+        }
+
         target: Power
     }
 
@@ -1328,6 +1343,7 @@ Item {
         function onHomeRequested(switcher) {
             UIStore.closeSearch();
             UIStore.closeQuickSettings();
+            UIStore.closeClipboardManager();
             virtualKeyboard.active = false;
             shell.handleHomeKey();
             if (!switcher) {
@@ -1375,7 +1391,7 @@ Item {
             id: wallpaperImage
             width: shell.width
             height: shell.height
-            source: SettingsManagerCpp.wallpaperPath
+            source: MColors.wallpaper(SettingsManagerCpp.wallpaperPath)
             // Decoded off the GUI thread at the screen's size; a new one
             // replaces the old once ready.
             sourceSize: Qt.size(width, height)
@@ -2524,6 +2540,9 @@ Item {
                 // notification, so the toggle only half-worked.
                 if (NotificationService.isDndEnabled)
                     return;
+                // Setup covers the screen; what arrives during it waits in the Hub.
+                if (!SettingsManagerCpp.firstRunComplete)
+                    return;
                 // The Hub already lists it, under where the banner would cover its header.
                 if (peekFlow.peekProgress > 0 || (!UIStore.appWindowOpen && pageView.currentIndex === 0))
                     return;
@@ -3087,7 +3106,7 @@ Item {
         function onNativeTextInputPanelRequested(show) {
             if (!Platform.hasHardwareKeyboard) {
                 Logger.info("Shell", "Native app text input panel requested: " + show);
-                if (show && !virtualKeyboard.active)
+                if (show && !virtualKeyboard.active && !SessionStore.isLocked)
                     virtualKeyboard.active = true;
                 else if (!show && virtualKeyboard.active)
                     virtualKeyboard.active = false;

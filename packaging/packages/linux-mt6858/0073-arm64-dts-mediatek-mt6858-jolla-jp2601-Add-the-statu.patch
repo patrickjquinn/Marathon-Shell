@@ -1,0 +1,90 @@
+From afb0ce094c9f813d97c91f47911407587c434c5d Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:21:07 +0000
+Subject: [PATCH 073/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ status LED
+
+The status LED is an RGB LED on an AW2023 at 0x45 on I2C12. The stock
+driver runs each channel at 1 mA (IMAX 5 mA, current step 3) and drives
+GPIO135 high at probe to hand the red channel to the AW2023, so do the
+same with a hog. Build the driver in.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 38 +++++++++++++++++++
+ arch/arm64/configs/mt6858.config              |  1 +
+ 2 files changed, 39 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index d542b5965..976f9200b 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -9,6 +9,7 @@
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/input/input.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/leds/common.h>
+ 
+ / {
+ 	model = "Jolla Phone (JP2601)";
+@@ -490,6 +491,35 @@ &i2c12 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2c12_pins>;
+ 	status = "okay";
++
++	/* The status LED; the stock driver runs each channel at 1 mA */
++	led-controller@45 {
++		compatible = "awinic,aw2023";
++		reg = <0x45>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		led@0 {
++			reg = <0>;
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_STATUS;
++			led-max-microamp = <1000>;
++		};
++
++		led@1 {
++			reg = <1>;
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_STATUS;
++			led-max-microamp = <1000>;
++		};
++
++		led@2 {
++			reg = <2>;
++			color = <LED_COLOR_ID_BLUE>;
++			function = LED_FUNCTION_STATUS;
++			led-max-microamp = <1000>;
++		};
++	};
+ };
+ 
+ &mt6363 {
+@@ -523,6 +553,14 @@ home2-key {
+ };
+ 
+ &pio {
++	/* Gives the status LED's red channel to the AW2023, as the stock driver does */
++	status-led-red-hog {
++		gpio-hog;
++		gpios = <135 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "status-led-red";
++	};
++
+ 	i2c1_pins: i2c1-pins {
+ 		pins-bus {
+ 			pinmux = <PINMUX_GPIO141__FUNC_SCL1>,
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 4ab189fac..6e700edad 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -49,3 +49,4 @@ CONFIG_MEDIATEK_MT6720_ADC=y
+ CONFIG_POWER_SUPPLY=y
+ CONFIG_CHARGER_MT6720=y
+ CONFIG_MTK_MMSYS=y
++CONFIG_LEDS_AW2013=y
+-- 
+2.55.0
+

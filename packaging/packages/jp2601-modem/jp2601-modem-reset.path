@@ -1,0 +1,11 @@
+[Unit]
+Description=JP2601 MD1: watch ccci_mdinit's modem status for resets
+# Not before paths.target: the stack it waits for starts after basic.target.
+DefaultDependencies=no
+After=sysinit.target jp2601-modem-init.service
+Before=shutdown.target
+Conflicts=shutdown.target
+PartOf=jp2601-modem.target
+
+[Path]
+PathChanged=/run/q25-modem/props/vendor.mtk.md1.status

@@ -1,0 +1,33 @@
+From 0caf045863d2b7749bb0710548aa41776600c3c2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:40:50 +0000
+Subject: [PATCH 194/214] arm64: configs: mt6858: Add the LZ4 and zstd backends
+ to zram
+
+defconfig enables no zram backend, so ZRAM_BACKEND_FORCE_LZO leaves LZO
+as the only one, and postmarketos-zram-swap failed every boot because
+it asked for zstd. With these backends it can choose zstd for density
+or lz4 for speed. The packaging asks for lzo-rle explicitly, which still
+works; the kernel's default becomes lz4.
+
+List ZRAM itself here as well, so that the backends resolve when this
+fragment is merged before the one that enables it.
+---
+ arch/arm64/configs/mt6858.config | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 0744540d0..6c7ba37a5 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -84,3 +84,7 @@ CONFIG_I2C_GPIO=m
+ CONFIG_ARM_MEDIATEK_CPUFREQ_HW=y
+ # Huge pages only where asked: "always" kept kcompactd waking on the Q25.
+ CONFIG_TRANSPARENT_HUGEPAGE_MADVISE=y
++# zram swap, with the faster and denser compressors, not only LZO.
++CONFIG_ZRAM=m
++CONFIG_ZRAM_BACKEND_LZ4=y
++CONFIG_ZRAM_BACKEND_ZSTD=y
+-- 
+2.55.0
+

@@ -1,0 +1,303 @@
+From 03c104c98eb618e14aace8a9ad031f069a8eb8df Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:47:39 +0000
+Subject: [PATCH 195/214] rtc: mt6397: Add support for the MT6685
+
+The MT6685 clock-buffer PMIC on MT6858 boards keeps the board's RTC.
+It is the MT6358 RTC (the same registers and write trigger), based at
+0x588 in the PMIC, behind an SPMI bus with 8-bit registers.
+
+- The RTC is a child of the SPMI PMIC, not of an MT6397-family MFD. Run
+  its 16-bit registers as byte pairs over the PMIC driver's regmap, or
+  over an SPMI regmap of its own if the parent has none.
+- The board may not route its interrupt, so take it as optional and
+  drop the alarm feature without it.
+- MediaTek's bootloaders and Android count the year register from
+  1968: on the Jolla Phone it reads 58 in 2026. The driver's 1900 base
+  with a 1968 start would read that as 2086. Give the MT6685 a 1968
+  year base instead, with the register's full 1968-2095 range.
+
+Tested on the Jolla Phone through an rtc1 test device: it read the time
+LK left, within a second of NTP time, and a write of the system time
+read back with the year register still 58.
+---
+ drivers/rtc/Kconfig            |   3 +-
+ drivers/rtc/rtc-mt6397.c       | 161 +++++++++++++++++++++++++++------
+ include/linux/mfd/mt6397/rtc.h |   4 +
+ 3 files changed, 138 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/rtc/Kconfig b/drivers/rtc/Kconfig
+index 73ec9230e..dc6f11b81 100644
+--- a/drivers/rtc/Kconfig
++++ b/drivers/rtc/Kconfig
+@@ -1974,8 +1974,9 @@ config RTC_DRV_MT2712
+ 
+ config RTC_DRV_MT6397
+ 	tristate "MediaTek PMIC based RTC"
+-	depends on MFD_MT6397 || COMPILE_TEST
++	depends on MFD_MT6397 || SPMI || COMPILE_TEST
+ 	select IRQ_DOMAIN
++	select REGMAP_SPMI if SPMI
+ 	help
+ 	  This selects the MediaTek(R) RTC driver. RTC is part of MediaTek
+ 	  MT6397 PMIC. You should enable MT6397 PMIC MFD before select
+diff --git a/drivers/rtc/rtc-mt6397.c b/drivers/rtc/rtc-mt6397.c
+index ab402f9f8..9a635ea16 100644
+--- a/drivers/rtc/rtc-mt6397.c
++++ b/drivers/rtc/rtc-mt6397.c
+@@ -15,6 +15,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/regmap.h>
+ #include <linux/rtc.h>
++#include <linux/spmi.h>
++#include <linux/unaligned.h>
+ #include <linux/mfd/mt6397/rtc.h>
+ 
+ static int mtk_rtc_write_trigger(struct mt6397_rtc *rtc)
+@@ -78,7 +80,7 @@ static int __mtk_rtc_read_time(struct mt6397_rtc *rtc,
+ 	tm->tm_mday = data[RTC_OFFSET_DOM];
+ 	tm->tm_wday = data[RTC_OFFSET_DOW];
+ 	tm->tm_mon = data[RTC_OFFSET_MTH] & RTC_TC_MTH_MASK;
+-	tm->tm_year = data[RTC_OFFSET_YEAR];
++	tm->tm_year = data[RTC_OFFSET_YEAR] + rtc->data->year_offset;
+ 
+ 	ret = regmap_read(rtc->regmap, rtc->addr_base + RTC_TC_SEC, sec);
+ exit:
+@@ -120,7 +122,7 @@ static int mtk_rtc_set_time(struct device *dev, struct rtc_time *tm)
+ 	data[RTC_OFFSET_DOM] = tm->tm_mday;
+ 	data[RTC_OFFSET_DOW] = tm->tm_wday;
+ 	data[RTC_OFFSET_MTH] = tm->tm_mon;
+-	data[RTC_OFFSET_YEAR] = tm->tm_year;
++	data[RTC_OFFSET_YEAR] = tm->tm_year - rtc->data->year_offset;
+ 
+ 	mutex_lock(&rtc->lock);
+ 	ret = regmap_bulk_write(rtc->regmap, rtc->addr_base + RTC_TC_SEC,
+@@ -166,7 +168,8 @@ static int mtk_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
+ 	tm->tm_hour = data[RTC_OFFSET_HOUR] & RTC_AL_HOU_MASK;
+ 	tm->tm_mday = data[RTC_OFFSET_DOM] & RTC_AL_DOM_MASK;
+ 	tm->tm_mon = data[RTC_OFFSET_MTH] & RTC_AL_MTH_MASK;
+-	tm->tm_year = data[RTC_OFFSET_YEAR] & RTC_AL_YEA_MASK;
++	tm->tm_year = (data[RTC_OFFSET_YEAR] & RTC_AL_YEA_MASK) +
++		      rtc->data->year_offset;
+ 
+ 	tm->tm_mon--;
+ 
+@@ -202,7 +205,8 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
+ 	data[RTC_OFFSET_MTH] = ((data[RTC_OFFSET_MTH] & ~(RTC_AL_MTH_MASK)) |
+ 				(tm->tm_mon & RTC_AL_MTH_MASK));
+ 	data[RTC_OFFSET_YEAR] = ((data[RTC_OFFSET_YEAR] & ~(RTC_AL_YEA_MASK)) |
+-				(tm->tm_year & RTC_AL_YEA_MASK));
++				((tm->tm_year - rtc->data->year_offset) &
++				 RTC_AL_YEA_MASK));
+ 
+ 	if (alm->enabled) {
+ 		ret = regmap_bulk_write(rtc->regmap,
+@@ -317,10 +321,90 @@ static int mtk_rtc_nvram_write(void *priv, unsigned int offset, void *val,
+ 	return ret;
+ }
+ 
+-static int mtk_rtc_probe(struct platform_device *pdev)
++/*
++ * On an SPMI PMIC, each 16-bit register is a byte pair on the 8-bit bus.
++ * Present the pairs as 16-bit registers to the rest of the driver.
++ */
++static int mtk_rtc_spmi_reg_read(void *context, unsigned int reg,
++				 unsigned int *val)
++{
++	u8 buf[2];
++	int ret;
++
++	ret = regmap_bulk_read(context, reg, buf, sizeof(buf));
++	if (ret)
++		return ret;
++
++	*val = get_unaligned_le16(buf);
++
++	return 0;
++}
++
++static int mtk_rtc_spmi_reg_write(void *context, unsigned int reg,
++				  unsigned int val)
+ {
++	u8 buf[2];
++
++	put_unaligned_le16(val, buf);
++
++	return regmap_bulk_write(context, reg, buf, sizeof(buf));
++}
++
++static const struct regmap_config mtk_rtc_spmi_regmap_config = {
++	.name = "rtc",
++	.reg_bits = 16,
++	.reg_stride = 2,
++	.val_bits = 16,
++	.max_register = 0xfffe,
++	.reg_read = mtk_rtc_spmi_reg_read,
++	.reg_write = mtk_rtc_spmi_reg_write,
++};
++
++static const struct regmap_config mtk_rtc_spmi_bus_config = {
++	.name = "rtc-bus",
++	.reg_bits = 16,
++	.val_bits = 8,
++	.max_register = 0xffff,
++	.fast_io = true,
++};
++
++static int mtk_rtc_init_regmap(struct platform_device *pdev,
++			       struct mt6397_rtc *rtc)
++{
++	struct device *parent = pdev->dev.parent;
++	struct mt6397_chip *mt6397_chip;
+ 	struct resource *res;
+-	struct mt6397_chip *mt6397_chip = dev_get_drvdata(pdev->dev.parent);
++	struct regmap *bus;
++
++	if (rtc->data->spmi_base) {
++		/* The PMIC driver's byte regmap, or one of our own */
++		bus = dev_get_regmap(parent, NULL);
++		if (!bus)
++			bus = devm_regmap_init_spmi_ext(to_spmi_device(parent),
++							&mtk_rtc_spmi_bus_config);
++		if (IS_ERR(bus))
++			return PTR_ERR(bus);
++
++		rtc->addr_base = rtc->data->spmi_base;
++		rtc->regmap = devm_regmap_init(&pdev->dev, NULL, bus,
++					       &mtk_rtc_spmi_regmap_config);
++
++		return PTR_ERR_OR_ZERO(rtc->regmap);
++	}
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res)
++		return -EINVAL;
++	rtc->addr_base = res->start;
++
++	mt6397_chip = dev_get_drvdata(parent);
++	rtc->regmap = mt6397_chip->regmap;
++
++	return 0;
++}
++
++static int mtk_rtc_probe(struct platform_device *pdev)
++{
+ 	struct nvmem_config nvmem_cfg = {
+ 		.name = "mt6397_rtc_spare",
+ 		.word_size = 1,
+@@ -337,18 +421,20 @@ static int mtk_rtc_probe(struct platform_device *pdev)
+ 	if (!rtc)
+ 		return -ENOMEM;
+ 
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!res)
+-		return -EINVAL;
+-	rtc->addr_base = res->start;
+-
+ 	rtc->data = of_device_get_match_data(&pdev->dev);
+ 
+-	rtc->irq = platform_get_irq(pdev, 0);
+-	if (rtc->irq < 0)
++	ret = mtk_rtc_init_regmap(pdev, rtc);
++	if (ret)
++		return ret;
++
++	/* An SPMI PMIC's RTC may have no interrupt wired up: no alarm then */
++	if (rtc->data->spmi_base)
++		rtc->irq = platform_get_irq_optional(pdev, 0);
++	else
++		rtc->irq = platform_get_irq(pdev, 0);
++	if (rtc->irq < 0 && rtc->irq != -ENXIO)
+ 		return rtc->irq;
+ 
+-	rtc->regmap = mt6397_chip->regmap;
+ 	mutex_init(&rtc->lock);
+ 
+ 	platform_set_drvdata(pdev, rtc);
+@@ -357,24 +443,34 @@ static int mtk_rtc_probe(struct platform_device *pdev)
+ 	if (IS_ERR(rtc->rtc_dev))
+ 		return PTR_ERR(rtc->rtc_dev);
+ 
+-	ret = devm_request_threaded_irq(&pdev->dev, rtc->irq, NULL,
+-					mtk_rtc_irq_handler_thread,
+-					IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+-					"mt6397-rtc", rtc);
+-
+-	if (ret) {
+-		dev_err(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
+-			rtc->irq, ret);
+-		return ret;
++	if (rtc->irq < 0) {
++		clear_bit(RTC_FEATURE_ALARM, rtc->rtc_dev->features);
++	} else {
++		ret = devm_request_threaded_irq(&pdev->dev, rtc->irq, NULL,
++						mtk_rtc_irq_handler_thread,
++						IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
++						"mt6397-rtc", rtc);
++
++		if (ret) {
++			dev_err(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
++				rtc->irq, ret);
++			return ret;
++		}
++
++		device_init_wakeup(&pdev->dev, true);
+ 	}
+ 
+-	device_init_wakeup(&pdev->dev, true);
+-
+ 	rtc->rtc_dev->ops = &mtk_rtc_ops;
+-	rtc->rtc_dev->range_min = RTC_TIMESTAMP_BEGIN_1900;
+-	rtc->rtc_dev->range_max = mktime64(2027, 12, 31, 23, 59, 59);
+-	rtc->rtc_dev->start_secs = mktime64(1968, 1, 2, 0, 0, 0);
+-	rtc->rtc_dev->set_start_time = true;
++	if (rtc->data->year_offset) {
++		/* The year register counts from 1968, as MediaTek's firmware sets it */
++		rtc->rtc_dev->range_min = mktime64(1968, 1, 1, 0, 0, 0);
++		rtc->rtc_dev->range_max = mktime64(2095, 12, 31, 23, 59, 59);
++	} else {
++		rtc->rtc_dev->range_min = RTC_TIMESTAMP_BEGIN_1900;
++		rtc->rtc_dev->range_max = mktime64(2027, 12, 31, 23, 59, 59);
++		rtc->rtc_dev->start_secs = mktime64(1968, 1, 2, 0, 0, 0);
++		rtc->rtc_dev->set_start_time = true;
++	}
+ 
+ 	ret = devm_rtc_register_device(rtc->rtc_dev);
+ 	if (ret)
+@@ -418,11 +514,18 @@ static const struct mtk_rtc_data mt6397_rtc_data = {
+ 	.wrtgr = RTC_WRTGR_MT6397,
+ };
+ 
++static const struct mtk_rtc_data mt6685_rtc_data = {
++	.wrtgr = RTC_WRTGR_MT6358,
++	.spmi_base = 0x588,
++	.year_offset = 68,
++};
++
+ static const struct of_device_id mt6397_rtc_of_match[] = {
+ 	{ .compatible = "mediatek,mt6323-rtc", .data = &mt6397_rtc_data },
+ 	{ .compatible = "mediatek,mt6357-rtc", .data = &mt6358_rtc_data },
+ 	{ .compatible = "mediatek,mt6358-rtc", .data = &mt6358_rtc_data },
+ 	{ .compatible = "mediatek,mt6397-rtc", .data = &mt6397_rtc_data },
++	{ .compatible = "mediatek,mt6685-rtc", .data = &mt6685_rtc_data },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, mt6397_rtc_of_match);
+diff --git a/include/linux/mfd/mt6397/rtc.h b/include/linux/mfd/mt6397/rtc.h
+index f4da579ec..83c06601d 100644
+--- a/include/linux/mfd/mt6397/rtc.h
++++ b/include/linux/mfd/mt6397/rtc.h
+@@ -72,6 +72,10 @@
+ 
+ struct mtk_rtc_data {
+ 	u32                     wrtgr;
++	/* For an RTC on an SPMI PMIC: its registers' base in the PMIC */
++	u32                     spmi_base;
++	/* Added to the year register to give tm_year */
++	u32                     year_offset;
+ };
+ 
+ struct mt6397_rtc {
+-- 
+2.55.0
+

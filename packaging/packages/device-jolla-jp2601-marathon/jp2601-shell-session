@@ -1,0 +1,27 @@
+#!/bin/sh
+# The shell on the G610 when Panthor has the render node: eglfs on
+# simpledrm's KMS device, which Mesa's kmsro pairs with Panthor. Without
+# the GPU it draws with Qt Quick's software renderer into simpledrm's
+# framebuffer, as the Q25 does without its GPU.
+set -eu
+unset QT_SCALE_FACTOR QT_SCREEN_SCALE_FACTORS QT_FONT_DPI QT_SCALE_FACTOR_ROUNDING_POLICY
+if [ "$(basename "$(readlink /sys/class/drm/renderD128/device/driver 2>/dev/null)")" = panthor ] &&
+   [ -e /dev/dri/jp2601-display ]; then
+	export QT_QPA_PLATFORM=eglfs
+	export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+	export QT_QPA_EGLFS_KMS_ATOMIC=1
+	export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
+	export QT_QPA_EGLFS_HIDECURSOR=1
+	export QT_QPA_EGLFS_KMS_CONFIG=/etc/jp2601/eglfs-kms.json
+	export QSG_RHI_BACKEND=opengl
+	export MARATHON_GPU_STACK=mesa-panfrost
+	unset QT_QUICK_BACKEND
+else
+	echo "jp2601-shell-session: no Panthor render node, drawing on the CPU" >&2
+	export QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
+	export QT_QUICK_BACKEND=software
+	export QSG_RENDER_LOOP=basic
+	export QT_QPA_FB_FORCE_FULLSCREEN=1
+	export MARATHON_GPU_STACK=llvmpipe
+fi
+exec /usr/bin/marathon-shell-session "$@"

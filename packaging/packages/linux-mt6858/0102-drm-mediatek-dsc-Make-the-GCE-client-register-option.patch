@@ -1,0 +1,30 @@
+From 7576e2581db8ed095f4deec6d70fa8c304a8a643 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:55:43 +0000
+Subject: [PATCH 102/214] drm/mediatek: dsc: Make the GCE client register
+ optional
+
+Like every other display component, the DSC can be programmed with CPU
+writes when the device tree gives it no mediatek,gce-client-reg, but
+its probe failed in that case whenever CMDQ support was built in. Only
+note it, as the others do.
+---
+ drivers/gpu/drm/mediatek/mtk_disp_dsc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+index f4bb26cd6..7d05478d8 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+@@ -400,7 +400,7 @@ static int mtk_dsc_probe(struct platform_device *pdev)
+ #if IS_REACHABLE(CONFIG_MTK_CMDQ)
+ 	ret = cmdq_dev_get_client_reg(dev, &priv->cmdq_reg, 0);
+ 	if (ret)
+-		return dev_err_probe(dev, ret, "failed to get gce client reg\n");
++		dev_dbg(dev, "get mediatek,gce-client-reg fail!\n");
+ #endif
+ 
+ 	platform_set_drvdata(pdev, priv);
+-- 
+2.55.0
+

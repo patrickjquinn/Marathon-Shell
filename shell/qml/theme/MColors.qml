@@ -10,12 +10,18 @@ QtObject {
     // 16 greys (multiples of 0x11), no glass. The ambience turns dark on
     // light with it (AmbienceController).
     property bool eink: typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "epaper"
+    // OLED pixels at the floor are off: black, and wallpapers dithered from 16 bits.
+    readonly property bool oled: typeof DeviceProfile !== "undefined" && DeviceProfile.displayTechnology === "oled"
+
+    function wallpaper(path) {
+        return oled && path ? "image://wallpaper/" + encodeURIComponent(path) + "?oled=1" : path;
+    }
 
     // ── Surface ramp · canonical DS Theme (engineering doc) ─────
     // Six near-blacks. Cards stack one step lighter than their parent;
     // there is no light theme. Match dev.marathon.UI Silica.Theme.elev0..5 in
     // ds-engineering.jsx and marathon-tokens.css :root.
-    readonly property color elev0: eink ? "#ffffff" : "#040404"   // black
+    readonly property color elev0: eink ? "#ffffff" : oled ? "#000000" : "#040404"   // black
     readonly property color elev1: eink ? "#ffffff" : "#0a0a0b"
     readonly property color elev2: eink ? "#eeeeee" : "#121213"
     readonly property color elev3: eink ? "#dddddd" : "#1c1c1d"
@@ -25,7 +31,7 @@ QtObject {
     // BB10-lineage surface tokens — kept for backward compat with
     // existing consumers. New code should prefer elev0..5 above.
     // Values intentionally differ from the DS ramp (more subtle).
-    readonly property color bb10Black: eink ? "#ffffff" : "#040404"
+    readonly property color bb10Black: eink ? "#ffffff" : oled ? "#000000" : "#040404"
     readonly property color bb10Surface: eink ? "#ffffff" : "#0d0d0e"
     readonly property color bb10Elevated: eink ? "#eeeeee" : "#161718"
     readonly property color bb10Card: eink ? "#eeeeee" : "#1a1b1c"
@@ -49,7 +55,7 @@ QtObject {
     readonly property color borderGlass: eink ? "#777777" : Qt.rgba(1, 1, 1, 0.06)
 
     // The nav bar under dark and light content: Keel's overlay backgrounds.
-    readonly property color barDark: eink ? "#ffffff" : Qt.rgba(0.04, 0.04, 0.06, 0.9)
+    readonly property color barDark: eink ? "#ffffff" : "#000000"
     readonly property color barLight: eink ? "#ffffff" : Qt.rgba(0.96, 0.96, 0.96, 0.9)
 
     readonly property color ripple: eink ? "transparent" : Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, 0.12)

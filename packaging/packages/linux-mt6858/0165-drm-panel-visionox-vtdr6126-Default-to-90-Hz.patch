@@ -1,0 +1,29 @@
+From eaf46753f9a28a9495195920b460f54d191ae7f7 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 13:08:07 +0000
+Subject: [PATCH 165/214] drm/panel: visionox-vtdr6126: Default to 90 Hz
+
+The panel runs at 90 Hz from the same 880 Mbit/s lanes and pixel clock,
+with a shorter vertical front porch and DCS 6Ch 01h. Verified on the
+JP2601: 89.95 Hz vblank rate through a full init and modeset. Make it
+the default; refresh=60 still selects the 60 Hz mode.
+---
+ drivers/gpu/drm/panel/panel-visionox-vtdr6126.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+index ab862a86d..0a46f1ef0 100644
+--- a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
++++ b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+@@ -19,7 +19,7 @@
+ 
+ #include <video/mipi_display.h>
+ 
+-static unsigned int refresh = 60;
++static unsigned int refresh = 90;
+ module_param(refresh, uint, 0444);
+ MODULE_PARM_DESC(refresh, "Refresh rate in Hz: 60 or 90");
+ 
+-- 
+2.55.0
+

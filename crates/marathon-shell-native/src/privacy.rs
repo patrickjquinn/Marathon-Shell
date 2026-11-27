@@ -6,11 +6,18 @@
 //! The camera's holders are all the user's, so /proc alone answers for it:
 //! inotify merges back-to-back closes, which left its count stuck above zero.
 //! PipeWire holds the microphone for its clients: marathon-audiod names them.
+//!
+//! Also the side privacy switch (`SW_MUTE_DEVICE`), where a device has one:
+//! on, it cuts what Settings has it cover. Microphones and cameras are cut
+//! at their device nodes by a root helper, and PipeWire's input is muted for
+//! a stream already running; location is cut at `GeoClue`'s agent. Its other
+//! mode is a silent switch.
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
 
@@ -18,11 +25,13 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QString, QStringList};
 use inotify::{EventMask, Inotify, WatchDescriptor, WatchMask};
 
-use crate::{gate, log};
+use crate::{gate, io, log, security};
 
 #[cxx_qt::bridge]
 pub mod qobject {
     unsafe extern "C++" {
+        include!("cxx-qt-lib/qstring.h");
+        type QString = cxx_qt_lib::QString;
         include!("cxx-qt-lib/qstringlist.h");
         type QStringList = cxx_qt_lib::QStringList;
     }
@@ -35,10 +44,24 @@ pub mod qobject {
         /// not look into.
         #[qproperty(QStringList, camera_users, cxx_name = "cameraUsers", READ, NOTIFY = changed)]
         #[qproperty(QStringList, microphone_users, cxx_name = "microphoneUsers", READ, NOTIFY = changed)]
+        /// The privacy switch: whether the device has one, and its position.
+        #[qproperty(bool, switch_available, cxx_name = "switchAvailable", READ, NOTIFY = switch_changed)]
+        #[qproperty(bool, switched, READ, NOTIFY = switch_changed)]
+        /// What the switch does: "silent", else the comma list of what it
+        /// cuts ("microphone", "camera", "location"); the setting.
+        #[qproperty(QString, covers, READ, WRITE = set_covers, NOTIFY = switch_changed)]
+        /// What the switch cuts now.
+        #[qproperty(QStringList, blocked, READ, NOTIFY = switch_changed)]
         type Privacy = super::PrivacyRust;
 
         #[qsignal]
         fn changed(self: Pin<&mut Self>);
+        #[qsignal]
+        #[cxx_name = "switchChanged"]
+        fn switch_changed(self: Pin<&mut Self>);
+
+        #[cxx_name = "setCovers"]
+        fn set_covers(self: Pin<&mut Privacy>, covers: &QString);
     }
 
     impl cxx_qt::Threading for Privacy {}
@@ -48,6 +71,7 @@ pub mod qobject {
 use qobject::Privacy;
 
 #[derive(Default)]
+#[allow(clippy::struct_excessive_bools, reason = "each is a QML property")]
 pub struct PrivacyRust {
     camera: bool,
     microphone: bool,
@@ -57,9 +81,83 @@ pub struct PrivacyRust {
     holding: Vec<String>,
     /// PipeWire's recording clients.
     recording: Vec<String>,
+    switch_available: bool,
+    switched: bool,
+    covers: QString,
+    blocked: QStringList,
 }
 
 static PRIVACY: OnceLock<cxx_qt::CxxQtThread<Privacy>> = OnceLock::new();
+/// The switch cuts the microphone: the call's mute keeps the input muted.
+static MICROPHONE_BLOCKED: AtomicBool = AtomicBool::new(false);
+static CAMERA_BLOCKED: AtomicBool = AtomicBool::new(false);
+/// Cuts for the root helper, the latest first.
+static CUTS: OnceLock<async_channel::Sender<String>> = OnceLock::new();
+const HELPER: &str = "/usr/libexec/marathon-privacy";
+
+/// The switch's last position, 0 before it is read: the key thread can
+/// read it before this object exists.
+static POSITION: AtomicU8 = AtomicU8::new(0);
+
+/// The privacy switch moved, or was read at start.
+pub fn switched(on: bool) {
+    POSITION.store(1 + u8::from(on), Ordering::Relaxed);
+    let Some(qt) = PRIVACY.get() else { return };
+    qt.queue(move |mut obj| {
+        // The first reading runs the helper: it gives back a cut from before a restart.
+        let first = !obj.switch_available;
+        let mut rust = obj.as_mut().rust_mut();
+        rust.switch_available = true;
+        rust.switched = on;
+        obj.as_mut().apply(first);
+        if obj.covers == QString::from("silent") {
+            crate::settings::with(move |s| s.set_dnd_enabled(on));
+        }
+    })
+    .ok();
+}
+
+pub fn microphone_blocked() -> bool {
+    MICROPHONE_BLOCKED.load(Ordering::Relaxed)
+}
+
+/// For apps: the camera app says why it has no camera.
+pub fn camera_blocked() -> bool {
+    CAMERA_BLOCKED.load(Ordering::Relaxed)
+}
+
+/// What a switch in `covers` cuts while on.
+fn cuts(covers: &str) -> Vec<&'static str> {
+    ["microphone", "camera", "location"]
+        .into_iter()
+        .filter(|k| covers.split(',').any(|c| c.trim() == *k))
+        .collect()
+}
+
+/// Hands the device cuts to the root helper, one run at a time.
+fn cut_devices(blocked: &[&str]) {
+    let devices: Vec<&str> = blocked
+        .iter()
+        .copied()
+        .filter(|k| *k != "location")
+        .collect();
+    let command = format!("block {}", devices.join(" "));
+    let tx = CUTS.get_or_init(|| {
+        let (tx, rx) = async_channel::unbounded::<String>();
+        io::spawn(async move {
+            while let Ok(mut command) = rx.recv().await {
+                while let Ok(newer) = rx.try_recv() {
+                    command = newer;
+                }
+                if security::run_helper(HELPER, command.trim_end(), "").await != Some(0) {
+                    log::warn("privacy", format_args!("{command} failed"));
+                }
+            }
+        });
+        tx
+    });
+    tx.try_send(command).ok();
+}
 
 /// PipeWire's recording streams, `(client pid, app)`, from marathon-audiod.
 pub fn recording(streams: &[(u32, String)]) {
@@ -270,6 +368,44 @@ fn watch(qt: &cxx_qt::CxxQtThread<Privacy>) -> std::io::Result<()> {
 }
 
 impl Privacy {
+    fn set_covers(mut self: Pin<&mut Self>, covers: &QString) {
+        if self.covers != *covers {
+            self.as_mut().rust_mut().covers = covers.clone();
+            self.as_mut().apply(false);
+            self.switch_changed();
+        }
+    }
+
+    /// Cuts what the switch covers while it is on, and gives the rest back.
+    fn apply(mut self: Pin<&mut Self>, force: bool) {
+        if !self.switch_available {
+            return;
+        }
+        let covers = self.covers.to_string();
+        let blocked = if self.switched {
+            cuts(&covers)
+        } else {
+            Vec::new()
+        };
+        let list = list(&blocked.iter().map(|k| (*k).to_owned()).collect::<Vec<_>>());
+        if self.blocked == list && !force {
+            self.switch_changed();
+            return;
+        }
+        let microphone = blocked.contains(&"microphone");
+        if microphone != MICROPHONE_BLOCKED.swap(microphone, Ordering::Relaxed) {
+            crate::modem::reroute_input();
+        }
+        if blocked.contains(&"camera")
+            != CAMERA_BLOCKED.swap(blocked.contains(&"camera"), Ordering::Relaxed)
+        {
+            crate::power::state_changed();
+        }
+        cut_devices(&blocked);
+        self.as_mut().rust_mut().blocked = list;
+        self.switch_changed();
+    }
+
     fn update(mut self: Pin<&mut Self>, seen: Seen) {
         let camera_users = list(&seen.camera_users);
         let changed = self.camera != seen.camera
@@ -312,6 +448,10 @@ impl cxx_qt::Initialize for Privacy {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
         PRIVACY.set(self.qt_thread()).ok();
+        match POSITION.load(Ordering::Relaxed) {
+            0 => {}
+            p => switched(p == 2),
+        }
         std::thread::Builder::new()
             .name("privacy".into())
             .spawn(move || {
@@ -326,6 +466,17 @@ impl cxx_qt::Initialize for Privacy {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_switch_cuts_only_what_it_covers() {
+        assert_eq!(cuts("location,microphone"), ["microphone", "location"]);
+        assert_eq!(
+            cuts("microphone,camera,location"),
+            ["microphone", "camera", "location"]
+        );
+        assert!(cuts("silent").is_empty());
+        assert!(cuts("").is_empty());
+    }
 
     #[test]
     fn a_stale_camera_count_does_not_light_the_dot_but_a_microphone_one_does() {

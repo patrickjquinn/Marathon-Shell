@@ -1,0 +1,26 @@
+From 8fe9b820fd56c8311fb52f695441447a3d623236 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:16:27 +0000
+Subject: [PATCH 066/214] arm64: configs: mt6858: Build in the display mmsys
+ and mutex
+
+The JP2601 test images boot an initramfs without modules, so the
+MT6858 mmsys (with its clock-gate child) and the display mutex have to
+be built in to probe. They only register clocks and map registers;
+nothing in the running boot pipeline is written.
+---
+ arch/arm64/configs/mt6858.config | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 2c9fb933d..4ab189fac 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -48,3 +48,4 @@ CONFIG_IIO=y
+ CONFIG_MEDIATEK_MT6720_ADC=y
+ CONFIG_POWER_SUPPLY=y
+ CONFIG_CHARGER_MT6720=y
++CONFIG_MTK_MMSYS=y
+-- 
+2.55.0
+

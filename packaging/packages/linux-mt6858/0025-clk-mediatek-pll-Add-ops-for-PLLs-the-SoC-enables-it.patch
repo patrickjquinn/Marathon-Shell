@@ -1,0 +1,49 @@
+From 3cd33aff2376f50368c7b05ff8c75211cc80de90 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:25:38 +0000
+Subject: [PATCH 025/214] clk: mediatek: pll: Add ops for PLLs the SoC enables
+ itself
+
+On MT6858 every apmixedsys PLL is switched on and off by the SoC; the
+kernel can only read whether it is on, from its FENC status bit, and
+its rate. mtk_pll_fenc_clr_set_ops instead write the PLLEN_ALL set and
+clear registers, which these PLLs do not have. Add mtk_pll_fenc_ops,
+with only is_prepared and recalc_rate.
+---
+ drivers/clk/mediatek/clk-pll.c | 7 +++++++
+ drivers/clk/mediatek/clk-pll.h | 1 +
+ 2 files changed, 8 insertions(+)
+
+diff --git a/drivers/clk/mediatek/clk-pll.c b/drivers/clk/mediatek/clk-pll.c
+index e97064868..04e0b633c 100644
+--- a/drivers/clk/mediatek/clk-pll.c
++++ b/drivers/clk/mediatek/clk-pll.c
+@@ -323,6 +323,13 @@ const struct clk_ops mtk_pll_fenc_clr_set_ops = {
+ };
+ EXPORT_SYMBOL_GPL(mtk_pll_fenc_clr_set_ops);
+ 
++/* PLLs that the SoC switches on and off itself: only their state and rate. */
++const struct clk_ops mtk_pll_fenc_ops = {
++	.is_prepared	= mtk_pll_fenc_is_prepared,
++	.recalc_rate	= mtk_pll_recalc_rate,
++};
++EXPORT_SYMBOL_GPL(mtk_pll_fenc_ops);
++
+ struct clk_hw *mtk_clk_register_pll_ops(struct mtk_clk_pll *pll,
+ 					const struct mtk_pll_data *data,
+ 					void __iomem *base,
+diff --git a/drivers/clk/mediatek/clk-pll.h b/drivers/clk/mediatek/clk-pll.h
+index f49dc2732..52da9a7cc 100644
+--- a/drivers/clk/mediatek/clk-pll.h
++++ b/drivers/clk/mediatek/clk-pll.h
+@@ -86,6 +86,7 @@ void mtk_clk_unregister_plls(const struct mtk_pll_data *plls, int num_plls,
+ 
+ extern const struct clk_ops mtk_pll_ops;
+ extern const struct clk_ops mtk_pll_fenc_clr_set_ops;
++extern const struct clk_ops mtk_pll_fenc_ops;
+ 
+ static inline struct mtk_clk_pll *to_mtk_clk_pll(struct clk_hw *hw)
+ {
+-- 
+2.55.0
+

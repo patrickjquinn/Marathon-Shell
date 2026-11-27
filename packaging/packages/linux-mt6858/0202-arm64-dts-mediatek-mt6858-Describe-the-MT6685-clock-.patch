@@ -1,0 +1,48 @@
+From 48a2a9fe50fd327dfe04fcd87ece246db2b45855 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:50:33 +0000
+Subject: [PATCH 202/214] arm64: dts: mediatek: mt6858: Describe the MT6685
+ clock buffers as a child
+
+The MT6685 is now an MFD whose functions are child nodes, so its clock
+provider moves into a clock-controller child, and the RTC can follow as
+another one. The driver is built as a module for the audio codec,
+which is a module too.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 6 +++++-
+ arch/arm64/configs/mt6858.config         | 2 ++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index e379893a8..aedfcad3f 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -1017,7 +1017,11 @@ mt6363: pmic@4 {
+ 				mt6685: pmic@9 {
+ 					compatible = "mediatek,mt6685";
+ 					reg = <0x9 SPMI_USID>;
+-					#clock-cells = <1>;
++
++					mt6685_clkbuf: clock-controller {
++						compatible = "mediatek,mt6685-clkbuf";
++						#clock-cells = <1>;
++					};
+ 
+ 					rtc {
+ 						compatible = "mediatek,mt6685-rtc";
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 245255583..2051aa671 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -41,6 +41,8 @@ CONFIG_INPUT_TOUCHSCREEN=y
+ CONFIG_TOUCHSCREEN_HYNITRON_CST66XX=y
+ CONFIG_SPMI_MTK_PMIF=y
+ CONFIG_MFD_MTK_SPMI_PMIC=y
++# The 26 MHz clock buffers of the MT6685, for the audio codec.
++CONFIG_COMMON_CLK_MT6685=m
+ CONFIG_KEYBOARD_MTK_PMIC=y
+ CONFIG_I2C_CHARDEV=y
+ CONFIG_MFD_MT6720=y
+-- 
+2.55.0
+

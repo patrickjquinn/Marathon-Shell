@@ -1,0 +1,89 @@
+From 7741bf120fa97a13e885f9be74c745608dd78f60 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:35:14 +0000
+Subject: [PATCH 143/214] Revert "drm/mediatek: mtk_dsi: Enable interrupt at
+ component bind time"
+
+This reverts commit 342c1720f.
+
+With the interrupt requested IRQF_NO_AUTOEN and enabled at bind, the
+MT6858 DSI interrupt is started without being activated (WARN in
+__irq_startup) and never shows up in /proc/interrupts, and every DSI
+command then times out waiting for CMD_DONE (combo-14). The bootloader
+leaves DSI_INTEN at 0, so the storm the patch guards against cannot
+happen here; request the interrupt at probe again.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 22 +++++++---------------
+ 1 file changed, 7 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index c6ce0e274..e7d0f0478 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -225,7 +225,6 @@ struct mtk_dsi {
+ 	int refcount;
+ 	bool enabled;
+ 	bool lanes_ready;
+-	int irq;
+ 	u32 irq_data;
+ 	wait_queue_head_t irq_wait_queue;
+ 	const struct mtk_dsi_driver_data *driver_data;
+@@ -1097,13 +1096,7 @@ static int mtk_dsi_bind(struct device *dev, struct device *master, void *data)
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = device_reset_optional(dev);
+-	if (ret)
+-		return ret;
+-
+-	enable_irq(dsi->irq);
+-
+-	return 0;
++	return device_reset_optional(dev);
+ }
+ 
+ static void mtk_dsi_unbind(struct device *dev, struct device *master,
+@@ -1111,8 +1104,6 @@ static void mtk_dsi_unbind(struct device *dev, struct device *master,
+ {
+ 	struct mtk_dsi *dsi = dev_get_drvdata(dev);
+ 
+-	disable_irq(dsi->irq);
+-
+ 	drm_encoder_cleanup(&dsi->encoder);
+ }
+ 
+@@ -1343,6 +1334,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
+ {
+ 	struct mtk_dsi *dsi;
+ 	struct device *dev = &pdev->dev;
++	int irq_num;
+ 	int ret;
+ 
+ 	dsi = devm_drm_bridge_alloc(dev, struct mtk_dsi, bridge,
+@@ -1375,9 +1367,9 @@ static int mtk_dsi_probe(struct platform_device *pdev)
+ 	if (IS_ERR(dsi->phy))
+ 		return dev_err_probe(dev, PTR_ERR(dsi->phy), "Failed to get MIPI-DPHY\n");
+ 
+-	dsi->irq = platform_get_irq(pdev, 0);
+-	if (dsi->irq < 0)
+-		return dsi->irq;
++	irq_num = platform_get_irq(pdev, 0);
++	if (irq_num < 0)
++		return irq_num;
+ 
+ 	dsi->host.ops = &mtk_dsi_ops;
+ 	dsi->host.dev = dev;
+@@ -1390,8 +1382,8 @@ static int mtk_dsi_probe(struct platform_device *pdev)
+ 	if (ret < 0)
+ 		return dev_err_probe(dev, ret, "Failed to register DSI host\n");
+ 
+-	ret = devm_request_irq(&pdev->dev, dsi->irq, mtk_dsi_irq,
+-			       IRQF_NO_AUTOEN, dev_name(&pdev->dev), dsi);
++	ret = devm_request_irq(&pdev->dev, irq_num, mtk_dsi_irq,
++			       IRQF_TRIGGER_NONE, dev_name(&pdev->dev), dsi);
+ 	if (ret) {
+ 		mipi_dsi_host_unregister(&dsi->host);
+ 		return dev_err_probe(&pdev->dev, ret, "Failed to request DSI irq\n");
+-- 
+2.55.0
+

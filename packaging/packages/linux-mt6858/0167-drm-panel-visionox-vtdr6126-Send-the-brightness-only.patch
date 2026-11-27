@@ -1,0 +1,61 @@
+From 3c24c52302ca96029d34c23372dbafca93f28744 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 14:19:35 +0000
+Subject: [PATCH 167/214] drm/panel: visionox-vtdr6126: Send the brightness
+ only while the panel is on
+
+The brightness is a DCS command, and the DSI host can only send it while
+the display is on. systemd-backlight restores it during boot, before the
+first modeset, and anything may set it while the display is off; with
+the host refusing those transfers the write would fail. Keep the value
+while the panel is off: drm_panel_enable() sends it through
+backlight_enable() right after the panel turns on.
+---
+ drivers/gpu/drm/panel/panel-visionox-vtdr6126.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+index 0a46f1ef0..9b18b3a45 100644
+--- a/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
++++ b/drivers/gpu/drm/panel/panel-visionox-vtdr6126.c
+@@ -29,6 +29,7 @@ struct visionox_vtdr6126 {
+ 	struct gpio_desc *reset_gpio;
+ 	struct regulator_bulk_data *supplies;
+ 	struct drm_dsc_config dsc;
++	bool enabled;
+ };
+ 
+ /* In power-on order; vsp follows vsn after a longer delay in prepare(). */
+@@ -328,6 +329,7 @@ static int visionox_vtdr6126_enable(struct drm_panel *panel)
+ 	mipi_dsi_msleep(&dsi_ctx, 20);
+ 
+ 	ctx->dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
++	ctx->enabled = !dsi_ctx.accum_err;
+ 
+ 	return dsi_ctx.accum_err;
+ }
+@@ -337,6 +339,7 @@ static int visionox_vtdr6126_disable(struct drm_panel *panel)
+ 	struct visionox_vtdr6126 *ctx = to_visionox_vtdr6126(panel);
+ 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
+ 
++	ctx->enabled = false;
+ 	ctx->dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+ 
+ 	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
+@@ -466,8 +469,13 @@ static const struct drm_panel_funcs visionox_vtdr6126_panel_funcs = {
+ static int visionox_vtdr6126_bl_update_status(struct backlight_device *bl)
+ {
+ 	struct mipi_dsi_device *dsi = bl_get_data(bl);
++	struct visionox_vtdr6126 *ctx = mipi_dsi_get_drvdata(dsi);
+ 	u16 brightness = backlight_get_brightness(bl);
+ 
++	/* Sent by drm_panel_enable() once the panel is on */
++	if (!ctx->enabled)
++		return 0;
++
+ 	return mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
+ }
+ 
+-- 
+2.55.0
+

@@ -1,0 +1,300 @@
+From 4b12c6c66c931b182d8bf988c426a8cd92b436a1 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 03:25:40 +0000
+Subject: [PATCH 026/214] dt-bindings: clock: mediatek: Add MT6858 clock
+ controllers
+
+Add the MT6858 apmixedsys, topckgen, pericfg_ao and infracfg_ao clock
+controllers, which work like their MT8196 counterparts, including the
+hardware voter for some topckgen muxes and pericfg_ao gates, and the
+clock IDs. infracfg_ao moves from the plain syscons to the clock
+controllers, and the hardware voter it refers to becomes a syscon.
+---
+ .../bindings/clock/mediatek,mt8196-clock.yaml |   2 +
+ .../clock/mediatek,mt8196-sys-clock.yaml      |   2 +
+ .../devicetree/bindings/mfd/syscon.yaml       |   2 +-
+ .../dt-bindings/clock/mediatek,mt6858-clock.h | 232 ++++++++++++++++++
+ 4 files changed, 237 insertions(+), 1 deletion(-)
+ create mode 100644 include/dt-bindings/clock/mediatek,mt6858-clock.h
+
+diff --git a/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml b/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
+index bfdbd2e4a..a43eaca02 100644
+--- a/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
++++ b/Documentation/devicetree/bindings/clock/mediatek,mt8196-clock.yaml
+@@ -24,6 +24,8 @@ properties:
+   compatible:
+     items:
+       - enum:
++          - mediatek,mt6858-infracfg-ao
++          - mediatek,mt6858-pericfg-ao
+           - mediatek,mt8196-imp-iic-wrap-c
+           - mediatek,mt8196-imp-iic-wrap-e
+           - mediatek,mt8196-imp-iic-wrap-n
+diff --git a/Documentation/devicetree/bindings/clock/mediatek,mt8196-sys-clock.yaml b/Documentation/devicetree/bindings/clock/mediatek,mt8196-sys-clock.yaml
+index 660ab64f3..7f02f34bd 100644
+--- a/Documentation/devicetree/bindings/clock/mediatek,mt8196-sys-clock.yaml
++++ b/Documentation/devicetree/bindings/clock/mediatek,mt8196-sys-clock.yaml
+@@ -27,6 +27,8 @@ properties:
+   compatible:
+     items:
+       - enum:
++          - mediatek,mt6858-apmixedsys
++          - mediatek,mt6858-topckgen
+           - mediatek,mt8196-apmixedsys
+           - mediatek,mt8196-armpll-b-pll-ctrl
+           - mediatek,mt8196-armpll-bl-pll-ctrl
+diff --git a/Documentation/devicetree/bindings/mfd/syscon.yaml b/Documentation/devicetree/bindings/mfd/syscon.yaml
+index 870fc51ed..286a19daa 100644
+--- a/Documentation/devicetree/bindings/mfd/syscon.yaml
++++ b/Documentation/devicetree/bindings/mfd/syscon.yaml
+@@ -88,8 +88,8 @@ properties:
+               - mediatek,mt6397-pctl-pmic-syscfg
+               - mediatek,mt6858-cam-sub0-bus
+               - mediatek,mt6858-cam-sub1-bus
++              - mediatek,mt6858-hwv
+               - mediatek,mt6858-img-sub0-bus
+-              - mediatek,mt6858-infracfg-ao
+               - mediatek,mt6858-ipe-sub0-bus
+               - mediatek,mt6858-vlpcfg
+               - mediatek,mt7981-topmisc
+diff --git a/include/dt-bindings/clock/mediatek,mt6858-clock.h b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+new file mode 100644
+index 000000000..4bcb5dbaa
+--- /dev/null
++++ b/include/dt-bindings/clock/mediatek,mt6858-clock.h
+@@ -0,0 +1,232 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++/*
++ * Copyright (c) 2025 MediaTek Inc.
++ */
++
++#ifndef _DT_BINDINGS_CLK_MT6858_H
++#define _DT_BINDINGS_CLK_MT6858_H
++
++/* APMIXEDSYS */
++#define CLK_APMIXED_ARMPLL_LL			0
++#define CLK_APMIXED_ARMPLL_BL			1
++#define CLK_APMIXED_CCIPLL			2
++#define CLK_APMIXED_MAINPLL			3
++#define CLK_APMIXED_UNIVPLL			4
++#define CLK_APMIXED_MSDCPLL			5
++#define CLK_APMIXED_MMPLL			6
++#define CLK_APMIXED_TVDPLL			7
++#define CLK_APMIXED_EMIPLL			8
++#define CLK_APMIXED_ADSPPLL			9
++#define CLK_APMIXED_APLL1			10
++#define CLK_APMIXED_APLL2			11
++
++/* TOPCKGEN */
++#define CLK_TOP_AXI_SEL				0
++#define CLK_TOP_AXI_P_SEL			1
++#define CLK_TOP_AXI_UFS_SEL			2
++#define CLK_TOP_BUS_AXIMEM_SEL			3
++#define CLK_TOP_DISP0_SEL			4
++#define CLK_TOP_MMINFRA_SEL			5
++#define CLK_TOP_MMUP_SEL			6
++#define CLK_TOP_UART_SEL			7
++#define CLK_TOP_SPI0_SEL			8
++#define CLK_TOP_SPI1_SEL			9
++#define CLK_TOP_SPI2_SEL			10
++#define CLK_TOP_SPI3_SEL			11
++#define CLK_TOP_SPI4_SEL			12
++#define CLK_TOP_SPI5_SEL			13
++#define CLK_TOP_SPI6_SEL			14
++#define CLK_TOP_SPI7_SEL			15
++#define CLK_TOP_MSDC_MACRO_1P_SEL		16
++#define CLK_TOP_MSDC30_1_SEL			17
++#define CLK_TOP_MSDC30_1_H_SEL			18
++#define CLK_TOP_AUD_INTBUS_SEL			19
++#define CLK_TOP_ATB_SEL				20
++#define CLK_TOP_DISP_PWM_SEL			21
++#define CLK_TOP_USB_SEL				22
++#define CLK_TOP_USB_XHCI_SEL			23
++#define CLK_TOP_I2C_SEL				24
++#define CLK_TOP_SENINF_SEL			25
++#define CLK_TOP_SENINF1_SEL			26
++#define CLK_TOP_SENINF2_SEL			27
++#define CLK_TOP_AUD_ENGEN1_SEL			28
++#define CLK_TOP_AUD_ENGEN2_SEL			29
++#define CLK_TOP_AES_UFSFDE_SEL			30
++#define CLK_TOP_UFS_SEL				31
++#define CLK_TOP_AUD_1_SEL			32
++#define CLK_TOP_AUD_2_SEL			33
++#define CLK_TOP_DPMAIF_MAIN_SEL			34
++#define CLK_TOP_VENC_SEL			35
++#define CLK_TOP_VDEC_SEL			36
++#define CLK_TOP_PWM_SEL				37
++#define CLK_TOP_AUDIO_H_SEL			38
++#define CLK_TOP_MCUPM_SEL			39
++#define CLK_TOP_MEM_SUB_SEL			40
++#define CLK_TOP_MEM_SUB_P_SEL			41
++#define CLK_TOP_MEM_SUB_UFS_SEL			42
++#define CLK_TOP_EMI_N_SEL			43
++#define CLK_TOP_DSI_OCC_SEL			44
++#define CLK_TOP_AP2CONN_HOST_SEL		45
++#define CLK_TOP_IMG1_SEL			46
++#define CLK_TOP_IPE_SEL				47
++#define CLK_TOP_CAM_SEL				48
++#define CLK_TOP_CAMTM_SEL			49
++#define CLK_TOP_MD_EMI_SEL			50
++#define CLK_TOP_MFG_REF_SEL			51
++#define CLK_TOP_MFGSC_REF_SEL			52
++#define CLK_TOP_EFUSE_SEL			53
++#define CLK_TOP_UNIPLL_SES_SEL			54
++#define CLK_TOP_DRAMULP_SEL			55
++#define CLK_TOP_USB_FRMCNT_SEL			56
++#define CLK_TOP_MAINPLL				57
++#define CLK_TOP_MAINPLL_D3			58
++#define CLK_TOP_MAINPLL_D4			59
++#define CLK_TOP_MAINPLL_D4_D2			60
++#define CLK_TOP_MAINPLL_D4_D4			61
++#define CLK_TOP_MAINPLL_D4_D8			62
++#define CLK_TOP_MAINPLL_D5			63
++#define CLK_TOP_MAINPLL_D5_D2			64
++#define CLK_TOP_MAINPLL_D5_D4			65
++#define CLK_TOP_MAINPLL_D5_D8			66
++#define CLK_TOP_MAINPLL_D6			67
++#define CLK_TOP_MAINPLL_D6_D2			68
++#define CLK_TOP_MAINPLL_D6_D8			69
++#define CLK_TOP_MAINPLL_D7			70
++#define CLK_TOP_MAINPLL_D7_D2			71
++#define CLK_TOP_MAINPLL_D7_D4			72
++#define CLK_TOP_MAINPLL_D7_D8			73
++#define CLK_TOP_UNIVPLL				74
++#define CLK_TOP_UNIVPLL_D2			75
++#define CLK_TOP_UNIVPLL_D3			76
++#define CLK_TOP_UNIVPLL_D4			77
++#define CLK_TOP_UNIVPLL_D4_D2			78
++#define CLK_TOP_UNIVPLL_D4_D4			79
++#define CLK_TOP_UNIVPLL_D4_D8			80
++#define CLK_TOP_UNIVPLL_D5			81
++#define CLK_TOP_UNIVPLL_D5_D2			82
++#define CLK_TOP_UNIVPLL_D5_D4			83
++#define CLK_TOP_UNIVPLL_D6			84
++#define CLK_TOP_UNIVPLL_D6_D2			85
++#define CLK_TOP_UNIVPLL_D6_D4			86
++#define CLK_TOP_UNIVPLL_D6_D8			87
++#define CLK_TOP_UNIVPLL_D6_D16			88
++#define CLK_TOP_UNIVPLL_D7			89
++#define CLK_TOP_UNIVPLL_D7_D2			90
++#define CLK_TOP_UNIVPLL_192M			91
++#define CLK_TOP_UNIVPLL_192M_D2			92
++#define CLK_TOP_UNIVPLL_192M_D4			93
++#define CLK_TOP_UNIVPLL_192M_D8			94
++#define CLK_TOP_UNIVPLL_192M_D16		95
++#define CLK_TOP_UNIVPLL_192M_D32		96
++#define CLK_TOP_UNIVPLL_192M_D10		97
++#define CLK_TOP_APLL1_CK			98
++#define CLK_TOP_APLL1_D2			99
++#define CLK_TOP_APLL1_D4			100
++#define CLK_TOP_APLL1_D8			101
++#define CLK_TOP_APLL2_CK			102
++#define CLK_TOP_APLL2_D2			103
++#define CLK_TOP_APLL2_D4			104
++#define CLK_TOP_APLL2_D8			105
++#define CLK_TOP_ADSPPLL				106
++#define CLK_TOP_EMIPLL				107
++#define CLK_TOP_TVDPLL				108
++#define CLK_TOP_MSDCPLL				109
++#define CLK_TOP_MSDCPLL_D2			110
++#define CLK_TOP_CLKRTC				111
++#define CLK_TOP_TCK_26M_MX9_CK			112
++#define CLK_TOP_F26M_CK				113
++#define CLK_TOP_F26M_D2				114
++#define CLK_TOP_OSC_CK				115
++#define CLK_TOP_OSC_D2				116
++#define CLK_TOP_OSC_D4				117
++#define CLK_TOP_OSC_D7				118
++#define CLK_TOP_OSC_D8				119
++#define CLK_TOP_OSC_D10				120
++#define CLK_TOP_OSC_D16				121
++#define CLK_TOP_MMPLL_D4			122
++#define CLK_TOP_MMPLL_D4_D2			123
++#define CLK_TOP_MMPLL_D4_D4			124
++#define CLK_TOP_MMPLL_D5			125
++#define CLK_TOP_MMPLL_D5_D2			126
++#define CLK_TOP_MMPLL_D6			127
++#define CLK_TOP_MMPLL_D6_D2			128
++#define CLK_TOP_MMPLL_D7			129
++#define CLK_TOP_MMPLL_D9			130
++#define CLK_TOP_AXI_CK				131
++#define CLK_TOP_AXI_P_CK			132
++#define CLK_TOP_AXI_UFS_CK			133
++#define CLK_TOP_DISP0_CK			134
++#define CLK_TOP_MMINFRA_CK			135
++#define CLK_TOP_UART_CK				136
++#define CLK_TOP_SPI0_CK				137
++#define CLK_TOP_SPI1_CK				138
++#define CLK_TOP_SPI2_CK				139
++#define CLK_TOP_SPI3_CK				140
++#define CLK_TOP_SPI4_CK				141
++#define CLK_TOP_SPI5_CK				142
++#define CLK_TOP_SPI6_CK				143
++#define CLK_TOP_SPI7_CK				144
++#define CLK_TOP_MSDC30_1_CK			145
++#define CLK_TOP_MSDC30_1_H_CK			146
++#define CLK_TOP_AUD_INTBUS_CK			147
++#define CLK_TOP_DISP_PWM_CK			148
++#define CLK_TOP_I2C_CK				149
++#define CLK_TOP_AUD_ENGEN1_CK			150
++#define CLK_TOP_AUD_ENGEN2_CK			151
++#define CLK_TOP_AES_UFSFDE_CK			152
++#define CLK_TOP_UFS_CK				153
++#define CLK_TOP_AUD_1_CK			154
++#define CLK_TOP_AUD_2_CK			155
++#define CLK_TOP_DPMAIF_MAIN_CK			156
++#define CLK_TOP_VENC_CK				157
++#define CLK_TOP_VDEC_CK				158
++#define CLK_TOP_PWM_CK				159
++#define CLK_TOP_AUDIO_H_CK			160
++#define CLK_TOP_IMG1_CK				161
++#define CLK_TOP_IPE_CK				162
++#define CLK_TOP_CAM_CK				163
++
++/* PERICFG_AO */
++#define CLK_PERAO_P_UART0			0
++#define CLK_PERAO_P_UART1			1
++#define CLK_PERAO_P_UART2			2
++#define CLK_PERAO_P_UART3			3
++#define CLK_PERAO_P_PWM_H			4
++#define CLK_PERAO_P_PWM_B			5
++#define CLK_PERAO_P_PWM_FB1			6
++#define CLK_PERAO_P_PWM_FB2			7
++#define CLK_PERAO_P_PWM_FB3			8
++#define CLK_PERAO_P_PWM_FB4			9
++#define CLK_PERAO_P_DISP_PWM0			10
++#define CLK_PERAO_P_DISP_PWM1			11
++#define CLK_PERAO_P_SPI0_B			12
++#define CLK_PERAO_P_SPI1_B			13
++#define CLK_PERAO_P_SPI2_B			14
++#define CLK_PERAO_P_SPI3_B			15
++#define CLK_PERAO_P_SPI4_B			16
++#define CLK_PERAO_P_SPI5_B			17
++#define CLK_PERAO_P_SPI6_B			18
++#define CLK_PERAO_P_SPI7_B			19
++#define CLK_PERAO_P_DMA_B			20
++#define CLK_PERAO_P_MSDC1			21
++#define CLK_PERAO_P_MSDC1_H			22
++#define CLK_PERAO_P_MSDC1_MST_F			23
++#define CLK_PERAO_P_MSDC1_SLV_H			24
++#define CLK_PERAO_P_AUDIO0			25
++#define CLK_PERAO_P_AUDIO1			26
++#define CLK_PERAO_P_AUDIO2			27
++
++/* INFRACFG_AO */
++#define CLK_INFRA_AO_CCIF1_AP			0
++#define CLK_INFRA_AO_CCIF1_MD			1
++#define CLK_INFRA_AO_CCIF_AP			2
++#define CLK_INFRA_AO_CCIF_MD			3
++#define CLK_INFRA_AO_CLDMABCLK			4
++#define CLK_INFRA_AO_CCIF5_MD			5
++#define CLK_INFRA_AO_CCIF2_AP			6
++#define CLK_INFRA_AO_CCIF2_MD			7
++#define CLK_INFRA_AO_DPMAIF_MAIN		8
++#define CLK_INFRA_AO_CCIF4_MD			9
++#define CLK_INFRA_AO_DPMAIF_26M			10
++
++#endif /* _DT_BINDINGS_CLK_MT6858_H */
+-- 
+2.55.0
+

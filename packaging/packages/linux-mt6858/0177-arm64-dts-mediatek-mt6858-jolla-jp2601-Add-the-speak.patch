@@ -1,0 +1,114 @@
+From a9f9d12d455759d67fa704838000e80b8e547428 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:36:22 +0000
+Subject: [PATCH 177/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+ speakers
+
+Two AW88271 amplifiers on I2C12 drive the bottom speaker (0x35, stock
+channel 0) and the top speaker (0x34, channel 1), which doubles as the
+earpiece through the amplifier's receiver profile. Both take I2SOUT1
+data on GPIO43 and run on I2SIN1's BCK and LRCK (GPIO41, 42); their IV
+feedback comes back on I2SIN1 DI (GPIO44). The bootloader holds both in
+reset (GPIO47 and GPIO24, active low).
+
+Describe the amplifiers, the I2S1 pin states the AFE switches between,
+and a sound card that links I2SOUT1 to both amplifiers.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 67 +++++++++++++++++++
+ 1 file changed, 67 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 38df0b38c..d82a421d7 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -566,6 +566,33 @@ reg_vemc: regulator-vemc {
+ 		regulator-always-on;
+ 		regulator-boot-on;
+ 	};
++
++	sound {
++		compatible = "mediatek,mt6858-mt6369-sound";
++		model = "Jolla Phone (JP2601)";
++		mediatek,platform = <&afe>;
++		audio-routing =
++			"Speakers", "Bottom DAC Output",
++			"Speakers", "Top DAC Output",
++			"Earpiece", "Top DAC Output";
++
++		i2s-out1-link {
++			link-name = "I2SOUT1_BE";
++			dai-format = "i2s";
++			mediatek,clk-provider = "cpu";
++
++			codec {
++				sound-dai = <&amp_bottom>, <&amp_top>;
++			};
++		};
++	};
++};
++
++&afe {
++	pinctrl-names = "aud-gpio-i2s1-off", "aud-gpio-i2s1-on";
++	pinctrl-0 = <&aud_i2s1_off_pins>;
++	pinctrl-1 = <&aud_i2s1_on_pins>;
++	status = "okay";
+ };
+ 
+ &dsc0 {
+@@ -754,6 +781,25 @@ led@2 {
+ 			led-max-microamp = <1000>;
+ 		};
+ 	};
++
++	/* Top speaker, also the earpiece (stock "sound-channel 1") */
++	amp_top: audio-codec@34 {
++		compatible = "awinic,aw88271";
++		reg = <0x34>;
++		#sound-dai-cells = <0>;
++		reset-gpios = <&pio 47 GPIO_ACTIVE_LOW>;
++		awinic,audio-channel = <1>;
++		sound-name-prefix = "Top";
++	};
++
++	amp_bottom: audio-codec@35 {
++		compatible = "awinic,aw88271";
++		reg = <0x35>;
++		#sound-dai-cells = <0>;
++		reset-gpios = <&pio 24 GPIO_ACTIVE_LOW>;
++		awinic,audio-channel = <0>;
++		sound-name-prefix = "Bottom";
++	};
+ };
+ 
+ &mipi_tx0 {
+@@ -955,6 +1001,27 @@ pins-bus {
+ 		};
+ 	};
+ 
++	aud_i2s1_off_pins: aud-i2s1-off-pins {
++		pins-i2s1 {
++			pinmux = <PINMUX_GPIO41__FUNC_GPIO41>,
++				 <PINMUX_GPIO42__FUNC_GPIO42>,
++				 <PINMUX_GPIO43__FUNC_GPIO43>,
++				 <PINMUX_GPIO44__FUNC_GPIO44>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	/* I2SOUT1 to both amplifiers; I2SIN1 drives BCK and LRCK and takes their IV data */
++	aud_i2s1_on_pins: aud-i2s1-on-pins {
++		pins-i2s1 {
++			pinmux = <PINMUX_GPIO41__FUNC_I2SIN1_BCK>,
++				 <PINMUX_GPIO42__FUNC_I2SIN1_LRCK>,
++				 <PINMUX_GPIO43__FUNC_I2SOUT1_DO>,
++				 <PINMUX_GPIO44__FUNC_I2SIN1_DI>;
++		};
++	};
++
+ 	i2c12_pins: i2c12-pins {
+ 		pins-bus {
+ 			pinmux = <PINMUX_GPIO163__FUNC_SCL12>,
+-- 
+2.55.0
+

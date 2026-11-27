@@ -20,6 +20,7 @@ Item {
     readonly property bool lastBeat: beat === beats.length - 1
     // False when a PIN predates this run, e.g. after a restart mid-setup.
     property bool asksPasscode: true
+    readonly property bool asksOnline: Network.wifiAvailable
     property bool leaving: false
     property real exitShrink: 0
     // 0 full screen, 1 at 45 %: the flick on the last beat, then the way out.
@@ -27,10 +28,15 @@ Item {
 
     signal setupComplete
 
-    // Keep it private only while no PIN exists: the first-run setter won't replace one.
+    // Get online only with Wi-Fi to join; Keep it private only while no PIN
+    // exists: the first-run setter won't replace one.
+    function skips(b) {
+        return (b === online && !asksOnline) || (b === passcode && Security.hasQuickPIN);
+    }
+
     function step(by) {
         let to = beat + by;
-        if (beats[to] === passcode && Security.hasQuickPIN)
+        while (skips(beats[to]))
             to += by;
         if (to >= 0 && to < beats.length)
             beat = to;
@@ -223,6 +229,8 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
+            // Over the Hub's peek, which opens in this surface.
+            z: 1
         }
 
         OobeProgress {
@@ -234,8 +242,8 @@ Item {
             anchors.top: statusBar.bottom
             height: implicitHeight
             visible: oobeRoot.beat >= 1 && oobeRoot.beat <= 5
-            count: oobeRoot.asksPasscode ? 5 : 4
-            current: oobeRoot.beat - (!oobeRoot.asksPasscode && oobeRoot.beat > 2 ? 1 : 0)
+            count: 5 - (oobeRoot.asksOnline ? 0 : 1) - (oobeRoot.asksPasscode ? 0 : 1)
+            current: oobeRoot.beat - (!oobeRoot.asksOnline && oobeRoot.beat > 1 ? 1 : 0) - (!oobeRoot.asksPasscode && oobeRoot.beat > 2 ? 1 : 0)
         }
 
         Item {
@@ -299,6 +307,7 @@ Item {
 
                 objectName: "oobeHub"
                 anchors.fill: parent
+                peekLayer: surface
                 visible: oobeRoot.beat === 5
                 onDone: oobeRoot.next(hub)
             }

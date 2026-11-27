@@ -7,10 +7,23 @@ cpu = "4x Cortex-A55 + 4x Cortex-A78"
 
 [gpu]
 name = "Mali-G610 MC2"
+render_node = "/dev/dri/renderD128"
 
-# Until the GPUEB power path exists the GPU stays off and the shell renders
-# on the CPU into LK's framebuffer through simpledrm.
+# Panthor, powered through the GPUEB. With no display driver yet, Mesa's
+# kmsro pairs it with simpledrm: the GPU renders into simpledrm's dumb
+# buffers.
+[gpu.stacks.mesa-panfrost]
+driver = "panfrost"
+gles_max = "3.1"
+msaa = false
+
+# The fallback while the GPU does not probe.
 [gpu.stacks.llvmpipe]
 driver = "Mesa software rendering (bring-up)"
 gles_max = "3.0"
 msaa = false
+
+[profile]
+gpu_stack = "mesa-panfrost"
+# PanVK drives the G610 (Valhall CSF), so apps' Vulkan stays on the GPU.
+vulkan_driver = "panfrost"

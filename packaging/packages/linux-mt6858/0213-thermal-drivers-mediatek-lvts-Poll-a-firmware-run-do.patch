@@ -1,0 +1,118 @@
+From f8e9c49706cbe94a88a865f474c2c3a2d05c1a6e Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 00:16:50 +0000
+Subject: [PATCH 213/214] thermal/drivers/mediatek/lvts: Poll a firmware-run
+ domain with one work
+
+A firmware-configured domain has no trip interrupts, so its zones have
+to be polled. With the thermal core doing it, every zone has a timer of
+its own, and the MT6858's eleven zones woke the phone once or more a
+second even at 10 s polling, as the timers drift apart.
+
+Update all of a domain's zones from one work every 5 s instead, expiring
+on the same multiple of the period in every domain so that the domains
+share the wakeup. The zones' own polling-delay becomes 0, and past a
+passive trip the core still polls a zone at its passive delay.
+
+On the Jolla Phone (2026), the AP and MCU domains' works ran on the same
+jiffy every 5 s.
+---
+ drivers/thermal/mediatek/lvts_thermal.c | 54 +++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
+
+diff --git a/drivers/thermal/mediatek/lvts_thermal.c b/drivers/thermal/mediatek/lvts_thermal.c
+index 7fc2ceaf7..e51007770 100644
+--- a/drivers/thermal/mediatek/lvts_thermal.c
++++ b/drivers/thermal/mediatek/lvts_thermal.c
+@@ -17,6 +17,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/reset.h>
+ #include <linux/thermal.h>
++#include <linux/workqueue.h>
+ #include <dt-bindings/thermal/mediatek,lvts-thermal.h>
+ 
+ #include "../thermal_hwmon.h"
+@@ -99,6 +100,9 @@
+ 
+ #define LVTS_MSR_OFFSET_MT8196		-984
+ 
++/* How often a firmware-configured domain updates all its zones */
++#define LVTS_FW_POLL_MS			5000
++
+ #define LVTS_MSR_READ_TIMEOUT_US	400
+ #define LVTS_MSR_READ_WAIT_US		(LVTS_MSR_READ_TIMEOUT_US / 2)
+ 
+@@ -198,6 +202,7 @@ struct lvts_domain {
+ 	void __iomem *base;
+ 	size_t calib_len;
+ 	u8 *calib;
++	struct delayed_work poll_work;
+ #ifdef CONFIG_DEBUG_FS
+ 	struct dentry *dom_dentry;
+ #endif
+@@ -1426,6 +1431,43 @@ static int lvts_ctrl_start(struct device *dev, struct lvts_ctrl *lvts_ctrl)
+ 	return 0;
+ }
+ 
++/*
++ * Expire on the same multiple of the period in every domain, so that all
++ * of them share one wakeup.
++ */
++static void lvts_fw_poll_queue(struct lvts_domain *lvts_td)
++{
++	unsigned long period = msecs_to_jiffies(LVTS_FW_POLL_MS);
++
++	queue_delayed_work(system_freezable_power_efficient_wq,
++			   &lvts_td->poll_work, period - jiffies % period);
++}
++
++static void lvts_fw_poll(struct work_struct *work)
++{
++	struct lvts_domain *lvts_td = container_of(to_delayed_work(work),
++						   struct lvts_domain, poll_work);
++	int i, j;
++
++	for (i = 0; i < lvts_td->num_lvts_ctrl; i++) {
++		struct lvts_ctrl *lvts_ctrl = &lvts_td->lvts_ctrl[i];
++
++		lvts_for_each_valid_sensor(j, lvts_ctrl)
++			if (lvts_ctrl->sensors[j].tz)
++				thermal_zone_device_update(lvts_ctrl->sensors[j].tz,
++							   THERMAL_EVENT_UNSPECIFIED);
++	}
++
++	lvts_fw_poll_queue(lvts_td);
++}
++
++static void lvts_fw_poll_stop(void *data)
++{
++	struct lvts_domain *lvts_td = data;
++
++	cancel_delayed_work_sync(&lvts_td->poll_work);
++}
++
+ static int lvts_domain_init(struct device *dev, struct lvts_domain *lvts_td,
+ 					const struct lvts_data *lvts_data)
+ {
+@@ -1446,6 +1488,18 @@ static int lvts_domain_init(struct device *dev, struct lvts_domain *lvts_td,
+ 				return ret;
+ 		}
+ 
++		/*
++		 * One work updates every zone of the domain, instead of the
++		 * thermal core polling each zone (polling-delay 0) with its
++		 * own timer. The core still polls a zone past a passive trip.
++		 */
++		INIT_DELAYED_WORK(&lvts_td->poll_work, lvts_fw_poll);
++		ret = devm_add_action_or_reset(dev, lvts_fw_poll_stop, lvts_td);
++		if (ret)
++			return ret;
++
++		lvts_fw_poll_queue(lvts_td);
++
+ 		return lvts_debugfs_init(dev, lvts_td);
+ 	}
+ 
+-- 
+2.55.0
+

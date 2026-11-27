@@ -63,6 +63,17 @@ gives Plymouth the Q25 layout); unl0kr without Plymouth. It writes the
 same boot-unlocked note. If the container cannot be opened or made, `/home`
 stays the root's own, unencrypted.
 
+**Other carrier phones (`marathon-carrier-home-crypt`).** As on the Q25, but a
+phone without a keyboard gets the shell's own PIN pad,
+`marathon-shell-bin --home-unlock -- <command>`: the lock screen's keypad
+under the Marathon mark, on eglfs on the card driving the panel, at the
+device profile's scale, with the session's touch reader. It runs the
+cryptsetup command with each PIN on stdin, shows "Wrong PIN. Try again" when
+it fails, and quits once one opens `/home`. If the pad cannot start, unl0kr
+asks; `71-marathon-touch.rules` hides touchscreens from libinput, which unl0kr
+reads them through, so it is masked under `/run/udev/rules.d` while unl0kr
+runs.
+
 **QEMU (systemd in the initrd).** duranium's crypttab, `root
 PARTLABEL=pmOS_root /dev/null luks,keyfile-timeout=0`, tries the empty
 passphrase and then asks through `unl0kr-agent` (duranium masks Plymouth's

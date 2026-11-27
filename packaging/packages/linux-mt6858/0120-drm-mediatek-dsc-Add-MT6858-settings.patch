@@ -1,0 +1,150 @@
+From 358b71661ef8092e7bedbd73567381bf5089431c Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 10:49:42 +0000
+Subject: [PATCH 120/214] drm/mediatek: dsc: Add MT6858 settings
+
+The MT6858 bootloader drives the panel's DSC with other DSC_CON, MODE,
+CFG and OUTBUF values than the MT8195-family defaults this driver
+writes, and leaves the chunk-size word count, the pre-padding size and
+the checksum debug control at zero. Move those values to per-SoC data
+and use the bootloader's for MT6858; the MT8195 data keeps the current
+values.
+---
+ drivers/gpu/drm/mediatek/mtk_disp_dsc.c | 71 +++++++++++++++++++------
+ 1 file changed, 56 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+index 9dc1f8571..d123fe0e9 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_dsc.c
+@@ -128,10 +128,31 @@
+ #  define DSC_READ_WORKING		BIT(2)
+ #  define DSC_SHADOW_DSC_VERSION_MINOR	GENMASK(8, 5)
+ 
++/**
++ * struct mtk_dsc_data - per-SoC DSC settings
++ * @con: DSC_CON bits besides DSC_EN
++ * @mode: DSC_MODE value
++ * @cfg: DSC_CFG bits besides the flatness threshold
++ * @dbg_con: DSC_DBG_CON value
++ * @obuf: DSC_OUTBUF value
++ * @chunk_words: also program the chunk size in 3-byte words
++ * @prepad: program the picture pre-padding size
++ */
++struct mtk_dsc_data {
++	u32 con;
++	u32 mode;
++	u32 cfg;
++	u32 dbg_con;
++	u32 obuf;
++	bool chunk_words;
++	bool prepad;
++};
++
+ struct mtk_dsc {
+ 	struct clk		*clk;
+ 	void __iomem		*reg;
+ 	struct cmdq_client_reg	cmdq_reg;
++	const struct mtk_dsc_data *data;
+ 	bool dsc_config_done;
+ };
+ 
+@@ -249,6 +270,7 @@ static void mtk_dsc_pps_setup(struct mtk_dsc *disp_dsc, struct drm_dsc_config *d
+ void mtk_dsc_setup(struct device *dev, struct drm_dsc_config *dsc_cfg)
+ {
+ 	struct mtk_dsc *disp_dsc = dev_get_drvdata(dev);
++	const struct mtk_dsc_data *data = disp_dsc->data;
+ 	u32 dsc_slice_w, dsc_slice_h, dsc_mode, dsc_cfg_rval, dsc_shadow;
+ 	u32 dsc_dbg_con, dsc_con, dsc_enc_width, dsc_pic_w, dsc_pic_h;
+ 	u16 pic_group_width, pic_height_ext_num, slice_group_width;
+@@ -288,13 +310,9 @@ void mtk_dsc_setup(struct device *dev, struct drm_dsc_config *dsc_cfg)
+ 	dsc_pre_pad_sz = FIELD_PREP(DSC_PIC_PREPAD_HEIGHT, dsc_cfg->pic_height);
+ 	dsc_pre_pad_sz |= FIELD_PREP(DSC_PIC_PREPAD_WIDTH, dsc_cfg->pic_width);
+ 
+-	dsc_mode = FIELD_PREP(DSC_INIT_DELAY_HEIGHT, 4);
+-	dsc_mode |= FIELD_PREP(DSC_RGB_SWAP, 0);
+-
+-	/* Must enable checksum calc in DBG if enabling core checksum in CFG */
+-	dsc_cfg_rval = DSC_CFG_ICH_EN | DSC_CFG_CRC_EN | DSC_CFG_DSC12_BUGFIX |
+-		       DSC_CFG_CORE_CHECKSUM;
+-	dsc_dbg_con = DSC_CKSM_CAL_EN;
++	dsc_mode = data->mode;
++	dsc_cfg_rval = data->cfg;
++	dsc_dbg_con = data->dbg_con;
+ 
+ 	if (dsc_cfg->bits_per_component == 8)
+ 		dsc_cfg_rval |= FIELD_PREP_CONST(DSC_CFG_FLATNESS_DET_THRES,
+@@ -313,23 +331,21 @@ void mtk_dsc_setup(struct device *dev, struct drm_dsc_config *dsc_cfg)
+ 	writel(dsc_pic_h, disp_dsc->reg + DISP_REG_DSC_PIC_H);
+ 	writel(dsc_slice_w, disp_dsc->reg + DISP_REG_DSC_SLICE_W);
+ 	writel(dsc_slice_h, disp_dsc->reg + DISP_REG_DSC_SLICE_H);
+-	writel(((chunk_size * 4) / 3) << 16 | chunk_size,
++	writel((data->chunk_words ? ((chunk_size * 4) / 3) << 16 : 0) | chunk_size,
+ 	       disp_dsc->reg + DISP_REG_DSC_CHUNK_SIZE);
+-	writel(dsc_pre_pad_sz, disp_dsc->reg + DISP_REG_DSC_PIC_PRE_PAD_SIZE);
++	writel(data->prepad ? dsc_pre_pad_sz : 0,
++	       disp_dsc->reg + DISP_REG_DSC_PIC_PRE_PAD_SIZE);
+ 	writel(dsc_pad_num, disp_dsc->reg + DISP_REG_DSC_PAD);
+ 	writel(FIELD_PREP(DISP_DSC_BUF_SIZE_MASK, chunk_size * dsc_cfg->slice_height),
+ 	       disp_dsc->reg + DISP_REG_DSC_BUF_SIZE);
+ 	writel(dsc_mode, disp_dsc->reg + DISP_REG_DSC_MODE);
+ 	writel(dsc_cfg_rval, disp_dsc->reg + DISP_REG_DSC_CFG);
+ 	writel(dsc_dbg_con, disp_dsc->reg + DISP_REG_DSC_DBG_CON);
+-	writel(FIELD_PREP_CONST(DSC_OBUF_SIZE, 1040), disp_dsc->reg + DISP_REG_DSC_OUTBUF);
++	writel(data->obuf, disp_dsc->reg + DISP_REG_DSC_OUTBUF);
+ 	writel(dsc_shadow, disp_dsc->reg + DISP_REG_DSC_SHADOW);
+ 
+-	dsc_con = FIELD_PREP_CONST(DSC_EMPTY_FLAG_SEL, DSC_EMPTY_FLAG_ALWAYS_LOW);
+-	dsc_con |= DSC_V1_1_EXT | DSC_UFOE_SEL | DSC_PT_MEM_EN;
+-	dsc_con |= DSC_ZERO_FIFO_STALL_DISABLE;
+ 	/* Setup runs after the component start, so keep the engine enabled */
+-	dsc_con |= DSC_EN;
++	dsc_con = data->con | DSC_EN;
+ 
+ 	writel(dsc_con, disp_dsc->reg + DISP_REG_DSC_CON);
+ 
+@@ -388,6 +404,8 @@ static int mtk_dsc_probe(struct platform_device *pdev)
+ 	if (!priv)
+ 		return -ENOMEM;
+ 
++	priv->data = of_device_get_match_data(dev);
++
+ 	priv->clk = devm_clk_get(dev, NULL);
+ 	if (IS_ERR(priv->clk))
+ 		return dev_err_probe(dev, PTR_ERR(priv->clk),
+@@ -422,8 +440,31 @@ static void mtk_dsc_remove(struct platform_device *pdev)
+ 	component_del(&pdev->dev, &mtk_dsc_component_ops);
+ }
+ 
++/* As the MT6858 bootloader programs them */
++static const struct mtk_dsc_data mt6858_dsc_data = {
++	.con = DSC_UFOE_SEL | DSC_PT_MEM_EN,
++	.mode = 0x00010001,
++	.cfg = DSC_CFG_ICH_EN,
++	.obuf = 0x800002d9,
++};
++
++static const struct mtk_dsc_data mt8195_dsc_data = {
++	.con = FIELD_PREP_CONST(DSC_EMPTY_FLAG_SEL, DSC_EMPTY_FLAG_ALWAYS_LOW) |
++	       DSC_V1_1_EXT | DSC_UFOE_SEL | DSC_PT_MEM_EN |
++	       DSC_ZERO_FIFO_STALL_DISABLE,
++	.mode = FIELD_PREP_CONST(DSC_INIT_DELAY_HEIGHT, 4),
++	/* Must enable checksum calc in DBG if enabling core checksum in CFG */
++	.cfg = DSC_CFG_ICH_EN | DSC_CFG_CRC_EN | DSC_CFG_DSC12_BUGFIX |
++	       DSC_CFG_CORE_CHECKSUM,
++	.dbg_con = DSC_CKSM_CAL_EN,
++	.obuf = FIELD_PREP_CONST(DSC_OBUF_SIZE, 1040),
++	.chunk_words = true,
++	.prepad = true,
++};
++
+ static const struct of_device_id mtk_dsc_driver_dt_match[] = {
+-	{ .compatible = "mediatek,mt8195-disp-dsc" },
++	{ .compatible = "mediatek,mt6858-disp-dsc", .data = &mt6858_dsc_data },
++	{ .compatible = "mediatek,mt8195-disp-dsc", .data = &mt8195_dsc_data },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, mtk_dsc_driver_dt_match);
+-- 
+2.55.0
+

@@ -1,0 +1,13 @@
+[Unit]
+Description=Mark the booted boot-counted entry good
+Requires=boot-complete.target
+After=boot-complete.target marathon-carrier-esp-readonly.service
+ConditionPathIsMountPoint=/boot
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/marathon-carrier-boot-bless
+
+[Install]
+WantedBy=graphical.target

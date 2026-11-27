@@ -11,12 +11,9 @@ QtObject {
         ERROR = 3
     }
 
-    // Default to INFO (1); the shell can flip currentLevel to 0 at boot
-    // via SettingsManagerCpp / a CLI flag if verbose logging is desired.
-    // Avoid cross-singleton lookup of Constants.debugMode — composite
-    // singleton resolution is fragile under qmllint.
+    // Warnings and errors only, unless MARATHON_DEBUG=1 (main.cpp's context property).
     readonly property bool _debugMode: currentLevel <= 0
-    property int currentLevel: 2
+    property int currentLevel: typeof MARATHON_DEBUG_ENABLED !== "undefined" && MARATHON_DEBUG_ENABLED ? 0 : 2
 
     function debug(component: string, message: string): void {
         if (currentLevel <= 0 && _debugMode)

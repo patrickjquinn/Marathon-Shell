@@ -1,0 +1,64 @@
+From dff6e02b47b118b59e1e810f43f26aae3adec6cb Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:40:57 +0000
+Subject: [PATCH 105/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Enable the
+ display engines
+
+Turn on the OVL_2L1/OVL_2L2 -> DSC0 -> DSI0 path and the MIPI TX, still
+without a panel. The DSI host only registers its component once a panel
+attaches, so mediatek-drm does not bind and the bootloader's pipeline
+and simple-framebuffer keep the panel: this checks that the engines
+probe on their clocks and power domain, nothing more.
+---
+ .../boot/dts/mediatek/mt6858-jolla-jp2601.dts | 21 +++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index 0054a3cd0..4dde1bebb 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -391,6 +391,15 @@ reg_vemc: regulator-vemc {
+ 	};
+ };
+ 
++&dsc0 {
++	status = "okay";
++};
++
++/* No panel yet: the drivers bind, but the bootloader keeps scanning out. */
++&dsi0 {
++	status = "okay";
++};
++
+ &i2c1 {
+ 	clock-frequency = <400000>;
+ 	pinctrl-names = "default";
+@@ -537,6 +546,10 @@ led@2 {
+ 	};
+ };
+ 
++&mipi_tx0 {
++	status = "okay";
++};
++
+ &mt6363 {
+ 	keys {
+ 		compatible = "mediatek,mt6363-keys";
+@@ -581,6 +594,14 @@ mt6369_vibr: vibr {
+ 	};
+ };
+ 
++&ovl_2l1 {
++	status = "okay";
++};
++
++&ovl_2l2 {
++	status = "okay";
++};
++
+ &pio {
+ 	/* Gives the status LED's red channel to the AW2023, as the stock driver does */
+ 	status-led-red-hog {
+-- 
+2.55.0
+

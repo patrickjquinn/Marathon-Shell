@@ -1,0 +1,157 @@
+From 520c48ae6335fad0d106c674f904c4c55330ef31 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:26:35 +0000
+Subject: [PATCH 081/214] regulator: Add a driver for the MT6369 vibrator LDO
+
+The Jolla Phone's vibration motor runs from the MT6369's VIBR LDO:
+enable bit 0 of 0x1bc1, voltage selector bits 3:0 of 0x1d99 into a
+16-entry table from 1.2 to 3.5 V (from the downstream mt6369-regulator
+driver, which also owns the calibration in 0x1d98, left alone here).
+
+Describe only that LDO for now. The driver uses the regmap of its
+parent mtk-spmi-pmic.
+---
+ drivers/regulator/Kconfig            |  8 +++
+ drivers/regulator/Makefile           |  2 +
+ drivers/regulator/mt6369-regulator.c | 96 ++++++++++++++++++++++++++++
+ 3 files changed, 106 insertions(+)
+ create mode 100644 drivers/regulator/mt6369-regulator.c
+
+diff --git a/drivers/regulator/Kconfig b/drivers/regulator/Kconfig
+index 83a76b78e..687bdd7d9 100644
+--- a/drivers/regulator/Kconfig
++++ b/drivers/regulator/Kconfig
+@@ -995,7 +995,15 @@ config REGULATOR_MT6363
+ 	  This driver supports the control of different power rails of device
+ 	  through regulator interface.
+ 
++config REGULATOR_MT6369
++	tristate "MT6369 SPMI PMIC regulator driver"
++	depends on MFD_MTK_SPMI_PMIC
++	help
++	  Say Y here to enable support for the regulators of the MediaTek
++	  MT6369 SPMI PMIC, of which only the vibrator LDO so far.
++
+ config REGULATOR_MT6370
++
+ 	tristate "MT6370 SubPMIC Regulator"
+ 	depends on MFD_MT6370
+ 	help
+diff --git a/drivers/regulator/Makefile b/drivers/regulator/Makefile
+index 6aabcc543..c62c8d042 100644
+--- a/drivers/regulator/Makefile
++++ b/drivers/regulator/Makefile
+@@ -117,6 +117,8 @@ obj-$(CONFIG_REGULATOR_MT6358)	+= mt6358-regulator.o
+ obj-$(CONFIG_REGULATOR_MT6359)	+= mt6359-regulator.o
+ obj-$(CONFIG_REGULATOR_MT6360) += mt6360-regulator.o
+ obj-$(CONFIG_REGULATOR_MT6363) += mt6363-regulator.o
++obj-$(CONFIG_REGULATOR_MT6369) += mt6369-regulator.o
++
+ obj-$(CONFIG_REGULATOR_MT6370) += mt6370-regulator.o
+ obj-$(CONFIG_REGULATOR_MT6380)	+= mt6380-regulator.o
+ obj-$(CONFIG_REGULATOR_MT6397)	+= mt6397-regulator.o
+diff --git a/drivers/regulator/mt6369-regulator.c b/drivers/regulator/mt6369-regulator.c
+new file mode 100644
+index 000000000..4241988b4
+--- /dev/null
++++ b/drivers/regulator/mt6369-regulator.c
+@@ -0,0 +1,96 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6369 PMIC regulators
++ *
++ * Only the vibrator LDO is described so far; its registers come from the
++ * downstream mt6369-regulator driver.
++ */
++
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/regulator/driver.h>
++#include <linux/regulator/of_regulator.h>
++
++#define MT6369_LDO_VIBR_CON0		0x1bc1
++#define MT6369_LDO_VIBR_EN		BIT(0)
++#define MT6369_VIBR_ANA_CON0		0x1d99
++#define MT6369_VIBR_VOSEL_MASK		GENMASK(3, 0)
++
++enum mt6369_regulator_id {
++	MT6369_ID_VIBR,
++};
++
++static const unsigned int mt6369_vibr_volts[] = {
++	1200000, 1300000, 1500000, 1700000, 1800000, 2000000, 2500000, 2600000,
++	2700000, 2800000, 2900000, 3000000, 3100000, 3300000, 3400000, 3500000,
++};
++
++static const struct regulator_ops mt6369_ldo_table_ops = {
++	.list_voltage = regulator_list_voltage_table,
++	.map_voltage = regulator_map_voltage_iterate,
++	.set_voltage_sel = regulator_set_voltage_sel_regmap,
++	.get_voltage_sel = regulator_get_voltage_sel_regmap,
++	.enable = regulator_enable_regmap,
++	.disable = regulator_disable_regmap,
++	.is_enabled = regulator_is_enabled_regmap,
++};
++
++static const struct regulator_desc mt6369_regulators[] = {
++	{
++		.name = "vibr",
++		.of_match = of_match_ptr("vibr"),
++		.id = MT6369_ID_VIBR,
++		.ops = &mt6369_ldo_table_ops,
++		.type = REGULATOR_VOLTAGE,
++		.owner = THIS_MODULE,
++		.n_voltages = ARRAY_SIZE(mt6369_vibr_volts),
++		.volt_table = mt6369_vibr_volts,
++		.vsel_reg = MT6369_VIBR_ANA_CON0,
++		.vsel_mask = MT6369_VIBR_VOSEL_MASK,
++		.enable_reg = MT6369_LDO_VIBR_CON0,
++		.enable_mask = MT6369_LDO_VIBR_EN,
++	},
++};
++
++static int mt6369_regulator_probe(struct platform_device *pdev)
++{
++	struct regulator_config config = {};
++	struct device *dev = &pdev->dev;
++	struct regulator_dev *rdev;
++	int i;
++
++	config.dev = dev;
++	config.regmap = dev_get_regmap(dev->parent, NULL);
++	if (!config.regmap)
++		return dev_err_probe(dev, -ENODEV, "Cannot get the PMIC's regmap\n");
++
++	for (i = 0; i < ARRAY_SIZE(mt6369_regulators); i++) {
++		rdev = devm_regulator_register(dev, &mt6369_regulators[i], &config);
++		if (IS_ERR(rdev))
++			return dev_err_probe(dev, PTR_ERR(rdev), "Cannot register %s\n",
++					     mt6369_regulators[i].name);
++	}
++
++	return 0;
++}
++
++static const struct of_device_id mt6369_regulator_match[] = {
++	{ .compatible = "mediatek,mt6369-regulator" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, mt6369_regulator_match);
++
++static struct platform_driver mt6369_regulator_driver = {
++	.driver = {
++		.name = "mt6369-regulator",
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++		.of_match_table = mt6369_regulator_match,
++	},
++	.probe = mt6369_regulator_probe,
++};
++module_platform_driver(mt6369_regulator_driver);
++
++MODULE_DESCRIPTION("MediaTek MT6369 PMIC regulators");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

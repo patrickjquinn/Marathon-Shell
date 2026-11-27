@@ -1,0 +1,26 @@
+From 0bce1622bb2d1b754cdca25ae7440bb25990d6e8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:37:05 +0000
+Subject: [PATCH 097/214] dt-bindings: display: mediatek: ovl-2l: Add MT6858
+
+The MT6858 2-layer OVLs take their layer registers at the MT8192
+offsets; document them with the MT8192 fallback.
+---
+ .../devicetree/bindings/display/mediatek/mediatek,ovl-2l.yaml    | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,ovl-2l.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,ovl-2l.yaml
+index ac0d924a4..b88d435ac 100644
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,ovl-2l.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,ovl-2l.yaml
+@@ -26,6 +26,7 @@ properties:
+           - mediatek,mt8192-disp-ovl-2l
+       - items:
+           - enum:
++              - mediatek,mt6858-disp-ovl-2l
+               - mediatek,mt8186-disp-ovl-2l
+           - const: mediatek,mt8192-disp-ovl-2l
+ 
+-- 
+2.55.0
+

@@ -1,0 +1,28 @@
+# Reference: <https://postmarketos.org/deviceinfo>
+# Please use double quotes only. You can source this file in shell
+# scripts.
+
+deviceinfo_format_version="0"
+deviceinfo_name="Jolla Phone (2026)"
+deviceinfo_codename="jolla-jp2601"
+deviceinfo_manufacturer="Jolla"
+deviceinfo_year="2026"
+deviceinfo_arch="aarch64"
+deviceinfo_chassis="handset"
+
+# Device related
+deviceinfo_drm="true"
+# The microSD slot has no mainline driver yet.
+deviceinfo_external_storage="false"
+deviceinfo_rootfs_image_sector_size="4096"
+# linux-mt6858 builds zram with the LZO backend only; zramstart's zstd
+# default fails and leaves the phone with no swap.
+deviceinfo_zram_swap_algo="lzo-rle"
+
+# U-Boot, loaded from boot_b by the stock LK, boots systemd-boot from the ESP
+# nested in userdata through its EFI implementation.
+deviceinfo_boot_filesystem="fat32"
+# Flashed with fastboot from LK (devices/jolla/jp2601/BRINGUP.md), not pmbootstrap.
+deviceinfo_flash_method="none"
+deviceinfo_flash_pagesize="4096"
+deviceinfo_flash_sparse="true"

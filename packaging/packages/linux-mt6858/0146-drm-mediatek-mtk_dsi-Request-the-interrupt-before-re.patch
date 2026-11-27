@@ -1,0 +1,53 @@
+From 18af12786f50dbc34519a2b43c171c5993027b50 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 11:52:09 +0000
+Subject: [PATCH 146/214] drm/mediatek: mtk_dsi: Request the interrupt before
+ registering the host
+
+mipi_dsi_host_register() probes the panel, whose attach adds the DSI
+component; when every other component is already there, that binds the
+whole DRM device and runs the first modeset, panel commands included,
+before mipi_dsi_host_register() returns. The interrupt was requested
+only after that, so every command of the first modeset waited for a
+CMD_DONE or VM_DONE interrupt that had no handler and timed out (-ETIME,
+"Wait DSI IRQ(0x00000002) Timeout"), with the DSI interrupt count at 0.
+This is what happens on MT6858, where the DSI probes last.
+
+Request the interrupt before registering the host.
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index 1cbb1db1b..d361c436f 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -1390,16 +1390,18 @@ static int mtk_dsi_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, dsi);
+ 
+-	ret = mipi_dsi_host_register(&dsi->host);
+-	if (ret < 0)
+-		return dev_err_probe(dev, ret, "Failed to register DSI host\n");
+-
++	/*
++	 * Registering the host can attach the panel and bind the whole DRM
++	 * device, with its first modeset and panel commands, before it returns.
++	 */
+ 	ret = devm_request_irq(&pdev->dev, irq_num, mtk_dsi_irq,
+ 			       IRQF_TRIGGER_NONE, dev_name(&pdev->dev), dsi);
+-	if (ret) {
+-		mipi_dsi_host_unregister(&dsi->host);
++	if (ret)
+ 		return dev_err_probe(&pdev->dev, ret, "Failed to request DSI irq\n");
+-	}
++
++	ret = mipi_dsi_host_register(&dsi->host);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "Failed to register DSI host\n");
+ 
+ 	dsi->bridge.of_node = dev->of_node;
+ 	dsi->bridge.type = DRM_MODE_CONNECTOR_DSI;
+-- 
+2.55.0
+

@@ -1,0 +1,29 @@
+From c5c4e15a91b8f4a3751e751d7e93c2f789c537f3 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 25 Nov 2026 17:59:42 +0000
+Subject: [PATCH 005/214] dt-bindings: serial: mediatek,uart: Add MT6858
+
+The MT6858 UARTs at 0x11001000-0x11003000 are the usual MT6577-style
+8250 ports; the stock firmware's earlycon drives uart0 as
+uart8250,mmio32. Add an SoC compatible with the mt6577 fallback.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/serial/mediatek,uart.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/serial/mediatek,uart.yaml b/Documentation/devicetree/bindings/serial/mediatek,uart.yaml
+index 5bd8a8853..d090abf8b 100644
+--- a/Documentation/devicetree/bindings/serial/mediatek,uart.yaml
++++ b/Documentation/devicetree/bindings/serial/mediatek,uart.yaml
+@@ -34,6 +34,7 @@ properties:
+               - mediatek,mt6779-uart
+               - mediatek,mt6795-uart
+               - mediatek,mt6797-uart
++              - mediatek,mt6858-uart
+               - mediatek,mt6893-uart
+               - mediatek,mt7622-uart
+               - mediatek,mt7623-uart
+-- 
+2.55.0
+

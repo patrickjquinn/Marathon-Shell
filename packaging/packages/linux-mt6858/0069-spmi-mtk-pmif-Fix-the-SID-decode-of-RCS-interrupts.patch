@@ -1,0 +1,33 @@
+From b57daece0487599156d717632a87286bb7a3e5b7 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 09:19:13 +0000
+Subject: [PATCH 069/214] spmi: mtk-pmif: Fix the SID decode of RCS interrupts
+
+Each SPMI_SLV_x_EINT register holds the RCS flags of four SIDs, eight
+bits each, but the chained handler finds the SID of a flag with bit / 7.
+A flag in bit 7 of a SID's byte is then credited to the next SID, and
+the handler clears that SID's byte instead of the flag, so it never
+leaves its loop.
+
+Divide by the eight bits per SID.
+---
+ drivers/spmi/spmi-mtk-pmif.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/spmi/spmi-mtk-pmif.c b/drivers/spmi/spmi-mtk-pmif.c
+index c472fd4bd..b1c147c3e 100644
+--- a/drivers/spmi/spmi-mtk-pmif.c
++++ b/drivers/spmi/spmi-mtk-pmif.c
+@@ -513,7 +513,8 @@ static void mtk_spmi_handle_chained_irq(struct irq_desc *desc)
+ 
+ 		while (val) {
+ 			u8 bit = __ffs(val);
+-			u8 bank = bit / 7;
++			u8 bank = bit / 8;
++
+ 			u8 sid = ((i - SPMI_SLV_3_0_EINT) * 4) + bank;
+ 
+ 			val &= ~(PMIF_RCS_IRQ_MASK << (8 * bank));
+-- 
+2.55.0
+

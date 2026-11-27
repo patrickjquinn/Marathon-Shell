@@ -1,0 +1,26 @@
+From 29e110439c582f20825222e2a826379b12453e9f Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 19:27:26 +0000
+Subject: [PATCH 179/214] dt-bindings: iio: light: stk33xx: Add STK3A5X
+
+The Sensortek STK3A5X ambient light and proximity sensor keeps the
+STK3310 register layout, so it takes the STK3310 as its fallback.
+---
+ Documentation/devicetree/bindings/iio/light/stk33xx.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/iio/light/stk33xx.yaml b/Documentation/devicetree/bindings/iio/light/stk33xx.yaml
+index f655a570a..8b084dd5d 100644
+--- a/Documentation/devicetree/bindings/iio/light/stk33xx.yaml
++++ b/Documentation/devicetree/bindings/iio/light/stk33xx.yaml
+@@ -27,6 +27,7 @@ properties:
+           - enum:
+               - sensortek,stk3013
+               - sensortek,stk36c61
++              - sensortek,stk3a5x
+           - const: sensortek,stk3310
+ 
+   reg:
+-- 
+2.55.0
+

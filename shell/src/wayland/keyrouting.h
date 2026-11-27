@@ -26,6 +26,17 @@ namespace KeyRouting {
     inline constexpr quint32 EnterScanCode  = 28 + 8;
     inline constexpr quint32 ReturnKeysym   = 0xff0d;
 
+    inline constexpr quint32 ControlScanCode   = 29 + 8;
+    inline constexpr quint32 Level5ShiftKeysym = 0xfe11;
+
+    // The Q25 has no Ctrl key. Its Sym key (ISO_Level5_Shift) is Ctrl for
+    // the letters with no Sym legend that edit text: select all, copy, paste,
+    // cut and undo.
+    inline bool symIsControl(int key) {
+        return key == Qt::Key_A || key == Qt::Key_C || key == Qt::Key_V || key == Qt::Key_X ||
+            key == Qt::Key_Z;
+    }
+
     // A key a touchscreen reports beside its touch (the MP01's under the
     // panel), as the Qt key libinput would give; -1 for buttons (BTN_*).
     inline int touchscreenKey(quint16 code) {

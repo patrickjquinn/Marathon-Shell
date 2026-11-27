@@ -1,0 +1,51 @@
+From 7c7db8b9be321eb26889fe3c1ae81148a8727945 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 26 Nov 2026 22:50:33 +0000
+Subject: [PATCH 200/214] mfd: mtk-spmi-pmic: Add the MT6685
+
+The MT6685's clock buffers and RTC are child functions like the
+MT6363's regulators, and they need the PMIC's regmap from a parent.
+
+Its top registers follow the older MT6358 layout: on the Jolla Phone
+(2026) 0x08-0x0b read 30 85 00 00, so the chip ID is at 0x09, not at
+0x0b. Its interrupts are not described yet.
+---
+ drivers/mfd/mtk-spmi-pmic.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/mfd/mtk-spmi-pmic.c b/drivers/mfd/mtk-spmi-pmic.c
+index 67d3eb299..bd556de87 100644
+--- a/drivers/mfd/mtk-spmi-pmic.c
++++ b/drivers/mfd/mtk-spmi-pmic.c
+@@ -30,6 +30,7 @@
+ 
+ #define MTK_SPMI_PMIC_VAL_BITS		8
+ #define MTK_SPMI_PMIC_REG_CHIP_ID	0xb
++#define MT6685_REG_HWCID_H		0x9
+ #define MTK_SPMI_PMIC_RCS_IRQ_DONE	0x41b
+ #define MTK_SPMI_PMIC_RCS_CHECK_MS	1000
+ 
+@@ -438,6 +439,12 @@ static const struct mtk_spmi_pmic_variant mt6369_variant = {
+ 	.chip_id = 0x69,
+ };
+ 
++/* An MT6358 style top: the chip ID is at 0x09, not at 0x0b */
++static const struct mtk_spmi_pmic_variant mt6685_variant = {
++	.chip_id_reg = MT6685_REG_HWCID_H,
++	.chip_id = 0x85,
++};
++
+ static const struct regmap_config mtk_spmi_regmap_config = {
+ 	.reg_bits	= 16,
+ 	.val_bits	= MTK_SPMI_PMIC_VAL_BITS,
+@@ -491,6 +498,7 @@ static const struct of_device_id mtk_pmic_spmi_id_table[] = {
+ 	{ .compatible = "mediatek,mt6363", .data = &mt6363_variant },
+ 	{ .compatible = "mediatek,mt6369", .data = &mt6369_variant },
+ 	{ .compatible = "mediatek,mt6373", .data = &mt6373_variant },
++	{ .compatible = "mediatek,mt6685", .data = &mt6685_variant },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, mtk_pmic_spmi_id_table);
+-- 
+2.55.0
+

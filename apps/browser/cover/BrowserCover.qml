@@ -11,8 +11,11 @@ CoverBackground {
 
     signal newTabRequested
 
-    // Sailfish Browser's cover is the page itself, full-bleed.
+    // The page, faint and fading out downwards: the card's frost shows
+    // through it, one surface under the title.
     Image {
+        id: thumb
+
         objectName: "coverThumbnail"
         anchors.fill: parent
         visible: root.thumbnail !== ""
@@ -20,6 +23,15 @@ CoverBackground {
         fillMode: Image.PreserveAspectCrop
         verticalAlignment: Image.AlignTop
         asynchronous: true
+        opacity: Theme.opacityFaint
+    }
+    // Draws the image in its place, so it takes the image's opacity too.
+    OpacityRampEffect {
+        sourceItem: thumb
+        direction: OpacityRamp.TopToBottom
+        offset: 0.3
+        slope: 1 / 0.7
+        opacity: Theme.opacityFaint
     }
 
     CoverPlaceholder {
@@ -34,7 +46,7 @@ CoverBackground {
         x: Theme.paddingLarge
         y: Theme.paddingLarge
         width: parent.width - 2 * Theme.paddingLarge
-        visible: root.thumbnail === "" && root.title !== ""
+        visible: root.title !== ""
         spacing: Theme.paddingSmall
 
         Label {
