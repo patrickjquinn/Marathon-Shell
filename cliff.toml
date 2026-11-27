@@ -121,4 +121,7 @@ commit_parsers = [
     { sha = "886b2aa2895d46995074bc4682666d8687154bbb", skip = true },
     { sha = "fb0ee46e95070a16d1ed356edc6af41cb853e9d7", skip = true },
     { sha = "e6618052119240f80ced7a7af84b57b918c7ddab", skip = true },
+    # Device-package subjects from the 2026-11-27 Jolla power work.
+    { sha = "e08cfaf3264ba8c0a58331d09e7392c4e61972ba", skip = true },
+    { sha = "1cd11fa2cb19fca53a6564675a12fc1d9c98489b", skip = true },
 ]
