@@ -1,2 +1,5 @@
 # Fewer idle wakeups: the per-CPU VM statistics every 10 s, not every 1 s.
 vm.stat_interval = 10
+# A hang panics into pstore and restarts sooner than Alpine's 120 s.
+kernel.panic = 30
+kernel.panic_on_rcu_stall = 1

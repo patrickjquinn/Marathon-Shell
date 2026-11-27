@@ -6,7 +6,7 @@
 # the Q25's q25-* units made generic; the Q25 still ships its own.
 pkgname=marathon-carrier
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Marathon userdata carrier: encrypted /home, root growth and over-the-air root install"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="noarch"
@@ -59,9 +59,11 @@ package() {
 	ln -s ../marathon-carrier-boot-bless.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/"
 	# The root is an ext4 file inside userdata, behind an ESP whose loader
 	# only the root install changes: nothing may repartition or touch the
-	# loader, and /etc is not a confext.
+	# loader, and /etc is not a confext. marathon-carrier-boot-bless blesses
+	# the entry; the ESP is read-only by then.
 	install -d "$pkgdir/etc/systemd/system"
-	for unit in systemd-repart.service systemd-repart.socket systemd-repart@.service systemd-boot-update.service systemd-confext.service; do
+	for unit in systemd-repart.service systemd-repart.socket systemd-repart@.service systemd-boot-update.service systemd-confext.service \
+		systemd-bless-boot.service systemd-boot-random-seed.service; do
 		ln -s /dev/null "$pkgdir/etc/systemd/system/$unit"
 	done
 }
