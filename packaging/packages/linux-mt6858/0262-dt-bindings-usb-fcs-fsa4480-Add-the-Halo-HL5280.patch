@@ -1,0 +1,27 @@
+From eee0187918b8b58419b58f4c75a437f56937a7b6 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:27 +0000
+Subject: [PATCH 262/272] dt-bindings: usb: fcs,fsa4480: Add the Halo HL5280
+
+The HL5280 is register compatible with the FSA4480: it reads device ID
+0x49 and comes out of reset with the FSA4480's switch enable (0x98) and
+select (0x18) values. Allow it with the FSA4480 as fallback.
+---
+ Documentation/devicetree/bindings/usb/fcs,fsa4480.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/usb/fcs,fsa4480.yaml b/Documentation/devicetree/bindings/usb/fcs,fsa4480.yaml
+index 89b1fb90a..f64acc1e9 100644
+--- a/Documentation/devicetree/bindings/usb/fcs,fsa4480.yaml
++++ b/Documentation/devicetree/bindings/usb/fcs,fsa4480.yaml
+@@ -15,6 +15,7 @@ properties:
+       - const: fcs,fsa4480
+       - items:
+           - enum:
++              - halo,hl5280
+               - ocs,ocp96011
+           - const: fcs,fsa4480
+ 
+-- 
+2.55.0
+

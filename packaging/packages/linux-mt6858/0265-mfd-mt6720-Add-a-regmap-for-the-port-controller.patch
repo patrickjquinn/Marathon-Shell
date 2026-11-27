@@ -1,0 +1,63 @@
+From f8b03db69a27183c0a377bd63d3ac6084c5c2aef Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 10:56:28 +0000
+Subject: [PATCH 265/272] mfd: mt6720: Add a regmap for the port controller
+
+The port controller's TCPCI registers are the MT6720's bank 4 (I2C
+address 0x4e). The TCPCI core addresses them from 0, so give the port
+controller its own map, named "tcpc", over the same bus with the bank as
+the register base. It is added before the main map because a lookup
+without a name, as the other functions do, returns the newest map.
+---
+ drivers/mfd/mt6720.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/mfd/mt6720.c b/drivers/mfd/mt6720.c
+index 950fb2dcd..e80252935 100644
+--- a/drivers/mfd/mt6720.c
++++ b/drivers/mfd/mt6720.c
+@@ -19,6 +19,7 @@
+ #define MT6720_REG_IRQ_FLAG0	0x050
+ #define MT6720_REG_IRQ_MASK0	0x090
+ #define MT6720_REG_MAX		0x9ff
++#define MT6720_TCPC_BANK	4
+ 
+ #define MT6720_NUM_BANKS	10
+ #define MT6720_NUM_IRQ_REGS	14
+@@ -129,6 +130,16 @@ static const struct regmap_config mt6720_regmap_config = {
+ 	.max_register = MT6720_REG_MAX,
+ };
+ 
++/* The Type-C port controller's TCPCI registers, in bank 4 */
++static const struct regmap_config mt6720_tcpc_regmap_config = {
++	.name = "tcpc",
++	.reg_bits = 16,
++	.val_bits = 8,
++	.reg_format_endian = REGMAP_ENDIAN_BIG,
++	.reg_base = MT6720_TCPC_BANK << 8,
++	.max_register = 0xff,
++};
++
+ static int mt6720_probe(struct i2c_client *client)
+ {
+ 	struct device *dev = &client->dev;
+@@ -150,6 +161,16 @@ static int mt6720_probe(struct i2c_client *client)
+ 					     "Failed to add bank %d\n", i);
+ 	}
+ 
++	/*
++	 * Add the port controller's map first: a lookup without a name finds
++	 * the newest map, which must be the main one.
++	 */
++	regmap = devm_regmap_init(dev, &mt6720_regmap_bus, data,
++				  &mt6720_tcpc_regmap_config);
++	if (IS_ERR(regmap))
++		return dev_err_probe(dev, PTR_ERR(regmap),
++				     "Failed to init the TCPC regmap\n");
++
+ 	regmap = devm_regmap_init(dev, &mt6720_regmap_bus, data,
+ 				  &mt6720_regmap_config);
+ 	if (IS_ERR(regmap))
+-- 
+2.55.0
+

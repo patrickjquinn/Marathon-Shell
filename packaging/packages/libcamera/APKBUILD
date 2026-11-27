@@ -4,7 +4,8 @@
 # frame duration and vblank work), without qcam, the Python bindings and
 # the docs, and with the patches the Zinwa Q25's MediaTek camera needs
 # (software ISP for its 14-bit unpacked RAW, the simple pipeline on
-# mtk-seninf, autofocus); each is written for upstream. 0013-0020 are
+# mtk-seninf, autofocus) and the Jolla JP2601 sensor helpers (0035, 0036);
+# each is written for upstream. 0013-0020 are
 # Milan Zamazal's software ISP autofocus series v2, still in review.
 # 99999 so it outranks postmarketOS's own fork (99990.<version>), which
 # otherwise takes the same version and wins. _git sorts above 0.8.0 and
@@ -14,7 +15,7 @@ _pkgver=0.8.0
 _commit=5efdc682e5b54f7b9f793b1fbf99884d522fd9f9
 _gitdate=20261118
 pkgver=99999${_pkgver}_git$_gitdate
-pkgrel=4
+pkgrel=5
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
@@ -78,6 +79,8 @@ source="libcamera-$_commit.tar.gz::https://gitlab.freedesktop.org/camera/libcame
 	0032-libcamera-software_isp-Keep-the-GPU-debayer-context-.patch
 	0033-ipa-softisp-af-Keep-the-focus-across-the-same-sensor.patch
 	0034-pipeline-simple-Pass-the-requested-stride-to-multi-p.patch
+	0035-libipa-camera_sensor_helper-Add-IMX616-and-IMX766-he.patch
+	0036-libcamera-camera_sensor_properties-Add-IMX616-and-IM.patch
 	s5kjn1.yaml
 	imx111.yaml
 	"
@@ -204,6 +207,8 @@ d6e06b232e8d5eb08d11bcf6c99bc95f1c7b7c9df3aaafbfd608cfa68d0ea96c3145b218331213c1
 7b0d0039bfa7e486db6bb9b7eabc70449c62e471716499387696dfed8396b7b26725ec1fc32d8f9236f1a259cf2c64fc4625d23c6f1a923a2c3f2678a9923749  0032-libcamera-software_isp-Keep-the-GPU-debayer-context-.patch
 313d24b293041272ddc081dfcf816ac3ca92497c732e7cf6a3c750790cfac4702fac041b6e59b9fd83ba964dd1a93547a286a8793dc9d69e8d5dcecdf9d31ab5  0033-ipa-softisp-af-Keep-the-focus-across-the-same-sensor.patch
 f80f7d21df18601c89dde6dde2a6ac2f422fff7fa320760c0e2bcbc7ea7d4aa032c8331052254e53f13a2078a98e8109ea2454b21352e60883683f7b6110d5a2  0034-pipeline-simple-Pass-the-requested-stride-to-multi-p.patch
+b7419b294245f9cbe58f21aede4fcc050d20849207b6977a9a6e0e66040bc3fdaff712f42b878fd04571ceb8feed4247ca7aeefd681ce8592197bc3a444455dc  0035-libipa-camera_sensor_helper-Add-IMX616-and-IMX766-he.patch
+7d804f07a26d23f52c12f771c78bc4d71a5f9f02448d2d28784d894e86b06608dab718f1023598b7d4d776c88083eacc52912166fa460aca3fa0844db3ee8cb0  0036-libcamera-camera_sensor_properties-Add-IMX616-and-IM.patch
 1c9345a42c50624cc1f9b4f1a270375749ebcf20cce0cd777dbb2479aa9a105ce49d333d889d7405aca3d3a2f9fed8c3194d85ef27eecf69b7dabbaffad1ab01  s5kjn1.yaml
 a9e2cfad7a92c8f63fd097fcd02dd64bd7782a64b543431536ec1480494091c2e3872206bfb7546981fd08593a42a2337270e4f3ff40787b938843503b0b3065  imx111.yaml
 "
