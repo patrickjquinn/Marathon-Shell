@@ -431,6 +431,18 @@ static QVariantMap deviceProfileMap(const marathon::device::Profile &device) {
          QRect(device.cutout_x, device.cutout_y, device.cutout_width, device.cutout_height)}};
 }
 
+// Plymouth's device scale for this panel (ply-utils.c get_device_scale): 2
+// from 1200 lines up when both axes pass 192 dpi, else 1. The boot splash is
+// drawn at it, so what comes after Plymouth takes over its frame unchanged.
+static int plymouthDeviceScale() {
+    const QScreen *screen = QGuiApplication::primaryScreen();
+    const QSize    px     = screen->size();
+    const QSizeF   mm     = screen->physicalSize();
+    if (px.height() < 1200 || mm.width() <= 0 || mm.height() <= 0)
+        return 1;
+    return px.width() * 25.4 / mm.width() > 192 && px.height() * 25.4 / mm.height() > 192 ? 2 : 1;
+}
+
 // marathon-carrier-home-crypt's PIN pad for the encrypted /home: the screen,
 // touch and theme, and nothing from the session, which lives on /home.
 static int runHomeUnlock(const QStringList &command) {
@@ -446,6 +458,7 @@ static int runHomeUnlock(const QStringList &command) {
     QQmlContext          *ctx = engine.rootContext();
     ctx->setContextProperty(QStringLiteral("DeviceProfile"), deviceProfileMap(device));
     ctx->setContextProperty(QStringLiteral("MARATHON_LAYER_SAMPLES"), device.hw_msaa_samples);
+    ctx->setContextProperty(QStringLiteral("PlymouthScale"), plymouthDeviceScale());
     createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &engine);
     createObject<HomeUnlock>(ctx, "HomeUnlockCpp", command, &engine);
     engine.load(QUrl(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/HomeUnlock.qml")));
@@ -1397,6 +1410,7 @@ int main(int argc, char *argv[]) {
                                 atBoot &&
                                     QFile::exists(QStringLiteral(
                                         "/usr/share/plymouth/themes/marathon/marathon-logo.png")));
+        ctx->setContextProperty(QStringLiteral("PlymouthScale"), plymouthDeviceScale());
     }
 #if MARATHON_HAVE_QT_GUI_PRIVATE
     createObject<TrackpadInput>(ctx, "TrackpadInput", &app);
