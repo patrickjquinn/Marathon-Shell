@@ -4,36 +4,9 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import "../core/Clock.js" as Clock
-import "../core/Weather.js" as Weather
 
 Item {
     id: lockScreen
-
-    component LockWeather: Row {
-        id: badge
-
-        readonly property var current: WeatherClient.forecast.current || null
-        required property color glyph
-        required property color halo
-        property real pixelSize: Silica.Theme.fontSizeMedium
-
-        spacing: Silica.Theme.paddingSmall
-
-        GlyphIcon {
-            anchors.verticalCenter: parent.verticalCenter
-            name: badge.current ? Weather.glyph(badge.current.symbol, ((WeatherClient.forecast.hourly || [])[0] || {}).is_day) : ""
-            size: Silica.Theme.iconSizeSmall
-            color: badge.glyph
-        }
-        Silica.Label {
-            anchors.verticalCenter: parent.verticalCenter
-            text: badge.current ? Weather.temperature(badge.current.temperature, SettingsManagerCpp.fahrenheit) : ""
-            font.pixelSize: badge.pixelSize
-            color: badge.glyph
-            style: Text.Outline
-            styleColor: badge.halo
-        }
-    }
 
     // Strokes of a trackpad combination entered so far.
     property int comboLength: 0
@@ -56,7 +29,6 @@ Item {
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
     // A tall phone: the same layout, spaced out and larger.
     readonly property bool tallLayout: !compactLayout && Constants.isTallScreen
-    readonly property real dateSize: tallLayout ? Silica.Theme.fontSizeExtraLarge : Silica.Theme.fontSizeLarge
     readonly property real noteTitleSize: tallLayout ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeSmall
     readonly property real noteTextSize: tallLayout ? Silica.Theme.fontSizeSmall : Silica.Theme.fontSizeExtraSmall
     readonly property real quickButtonSize: tallLayout ? Silica.Theme.itemSizeLarge : Silica.Theme.itemSizeSmall
@@ -467,28 +439,6 @@ Item {
             }
         }
 
-        // The time and the date below it each take the tone of their own
-        // backdrop: a clock over sky can sit above a date over land.
-        WallpaperTone {
-            id: clockTone
-
-            objectName: "lockClockTone"
-            x: clockColumn.x
-            y: lockScroller.y + clockColumn.y - lockScroller.contentY - clockColumn.spacing
-            width: clockColumn.width
-            height: lockClock.height + Math.round(1.5 * clockColumn.spacing)
-        }
-
-        WallpaperTone {
-            id: dateTone
-
-            objectName: "lockDateTone"
-            x: clockColumn.x
-            y: lockScroller.y + clockColumn.y - lockScroller.contentY + lockClock.height + Math.round(clockColumn.spacing / 2)
-            width: clockColumn.width
-            height: clockColumn.height - lockClock.height + Math.round(clockColumn.spacing / 2)
-        }
-
         // ── Clock, player and notifications ─────────────────
         // One column between the status bar and the unlock controls: the
         // clock, the player under it and the notifications. It scrolls as a
@@ -521,7 +471,7 @@ Item {
                 // Where the clock sits: lower with nothing below it.
                 Item {
                     width: 1
-                    height: Math.max(0, (lockScreen.compactLayout ? Math.round(lockScreen.height * (clockColumn.mediaActive || unreadModel.count > 0 ? 0.04 : 0.14)) : lockScreen.tallLayout ? Math.round(lockScreen.height * (clockColumn.mediaActive || unreadModel.count > 0 ? 0.06 : 0.1)) : Math.round((clockColumn.mediaActive ? 170 : 190) * Constants.scaleFactor)) - statusBar.height - lockStack.spacing)
+                    height: Math.max(0, lockClock.screenY - statusBar.height - lockStack.spacing)
 
                     Behavior on height {
                         NumberAnimation {
@@ -531,91 +481,13 @@ Item {
                     }
                 }
 
-                // ── Clock cluster ───────────────────────────────────
-                // Two layouts per the JSX: LockScreen() puts the clock at
-                // top:190 / 84 px / -2 tracking; LockMedia() shifts it up
-                // to top:170 / 76 px / -1.5 tracking so the media card at
-                // top:360 has breathing room. Switches automatically when
-                // MPRIS2Controller.hasActivePlayer flips.
-                Column {
-                    id: clockColumn
+                LockClock {
+                    id: lockClock
 
-                    readonly property bool mediaActive: lockScreenMediaPlayer.hasMedia
-                    // Re-read when the date string turns over at midnight.
-                    readonly property date today: SystemStatusStore.dateString ? new Date() : new Date()
-
+                    mediaActive: lockScreenMediaPlayer.hasMedia
+                    crowded: mediaActive || unreadModel.count > 0
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Constants.spacingSmall
                     width: parent.width * 0.9
-                    // layer.enabled was: true (with layer.smooth) to keep the
-                    // pixelSize Behavior from chattering, but on Qt 6.10 + SDF
-                    // QtRendering the extra FBO + bilinear pass renders the
-                    // glyphs with a ghosted secondary stroke ~3 px inside each
-                    // digit. Static composition is sharp; the size animation
-                    // doesn't need an extra texture pass at this scale.
-
-                    // The lock clock: large and extra-light, the weekday and
-                    // the date beneath on their own lines, all in the primary colour.
-                    Silica.Label {
-                        id: lockClock
-
-                        readonly property int clockSize: Math.round(Silica.Theme.fontSizeHuge * (lockScreen.tallLayout ? (clockColumn.mediaActive ? 2.6 : 3.2) : (clockColumn.mediaActive ? 1.6 : 1.9)))
-
-                        objectName: "lockClock"
-                        text: SystemStatusStore.timeString
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        fontSizeMode: Text.HorizontalFit
-                        font.pixelSize: clockSize
-                        font.weight: Font.ExtraLight
-                        // Display sizes set tighter; figures of one width, so the clock never shifts.
-                        font.letterSpacing: -0.02 * clockSize
-                        font.features: ({
-                                "tnum": 1
-                            })
-                        color: clockTone.glyph
-                        style: Text.Outline
-                        styleColor: clockTone.halo
-                    }
-
-                    // The weekday shares its row with the weather; with media below,
-                    // the date joins them, so the clock never takes more than two lines.
-                    Row {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: Silica.Theme.paddingLarge
-
-                        Silica.Label {
-                            objectName: "lockDay"
-                            //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the lock screen date, e.g. 26 October
-                            readonly property string date: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
-                            //: Weekday and date on one line on the lock screen, e.g. Monday, 26 October
-                            text: clockColumn.mediaActive ? qsTr("%1, %2").arg(Qt.formatDate(clockColumn.today, "dddd")).arg(date) : Qt.formatDate(clockColumn.today, "dddd")
-                            anchors.verticalCenter: parent.verticalCenter
-                            font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : lockScreen.dateSize
-                            color: dateTone.glyph
-                            style: Text.Outline
-                            styleColor: dateTone.halo
-                        }
-                        LockWeather {
-                            objectName: "lockWeather"
-                            glyph: dateTone.glyph
-                            halo: dateTone.halo
-                            pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : lockScreen.dateSize
-                            visible: current !== null
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                    Silica.Label {
-                        objectName: "lockDate"
-                        visible: !clockColumn.mediaActive
-                        text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        font.pixelSize: lockScreen.dateSize
-                        color: dateTone.glyph
-                        style: Text.Outline
-                        styleColor: dateTone.halo
-                    }
                 }
 
                 // ── Media card (LockMedia variant) ──────────────────

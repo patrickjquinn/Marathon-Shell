@@ -134,6 +134,7 @@ set(QML_FILES
     qml/components/MarathonAppWindow.qml
     qml/components/KeelAmbienceBackground.qml
     qml/components/WallpaperTone.qml
+    qml/components/LockClock.qml
     qml/components/KeelCoverView.qml
     qml/components/KeelDialogLayer.qml
     qml/components/MarathonPageView.qml
