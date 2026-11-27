@@ -4,7 +4,11 @@
 Description=Start the radios once the shell has drawn
 # The phone's user is uid 1000. Its runtime directory is mounted first,
 # here rather than when logind gets to it: a watch set before that mount,
-# or a glob under /run/user, misses the marker.
+# or a glob under /run/user, misses the marker. Not in paths.target, which
+# basic.target waits for: that runtime directory comes after logind.
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
 Wants=user-runtime-dir@1000.service
 After=user-runtime-dir@1000.service
 
