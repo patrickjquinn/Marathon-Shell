@@ -1,0 +1,4 @@
+# The privacy switch: a microphone or camera that appears while it cuts them
+# (a headset, a camera driver loading) is cut at once. After the seat's own
+# rules, which grant the user access.
+ACTION=="add", SUBSYSTEM=="sound|video4linux|media", TEST=="/run/marathon/privacy", RUN+="/usr/libexec/marathon-privacy apply $devnode"

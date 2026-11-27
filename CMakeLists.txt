@@ -248,6 +248,9 @@ install(PROGRAMS tools/marathon-data-key/marathon-data-key
 install(PROGRAMS tools/marathon-remote-connection/marathon-remote-connection
     DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
 )
+install(PROGRAMS tools/marathon-privacy/marathon-privacy
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
 install(PROGRAMS tools/marathon-usb-mode/marathon-usb-mode
     DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
 )
@@ -290,6 +293,7 @@ install(DIRECTORY shell/resources/sounds/
 
 # Install udev rules
 install(FILES udev/70-marathon-shell.rules udev/71-marathon-touch.rules udev/90-backlight.rules
+    udev/99-marathon-privacy.rules
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/udev/rules.d
 )
 
