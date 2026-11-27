@@ -1,0 +1,5 @@
+# JP2601: ICM-42607 accelerometer frame -> iio-sensor-proxy frame (upright
+# reads y < 0, face up z > 0). Held upright the sensor reads +1 g on its X
+# axis, top to the left -1 g on its Y. iio-sensor-proxy reads in_mount_matrix,
+# not the driver's mount_matrix, so the DT's matrix does not reach it.
+SUBSYSTEM=="iio", ATTR{name}=="icm42607p-accel", ENV{ACCEL_MOUNT_MATRIX}="0, 1, 0; -1, 0, 0; 0, 0, 1"

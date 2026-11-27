@@ -19,4 +19,4 @@ TimeoutStartSec=90
 TimeoutStopSec=20
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=mt6858-connsys.target

@@ -8,7 +8,7 @@
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=19
+pkgrel=20
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 # MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
@@ -324,6 +324,7 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0270-arm64-dts-mediatek-mt6858-Add-the-xHCI-host-under-th.patch
 	0271-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 	0272-ASoC-codecs-mt6369-Add-the-headphone-downlink.patch
+	0273-pmdomain-mediatek-mtk-mfg-Wait-for-each-EB-answer-in.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -592,7 +593,7 @@ b64910659d1e50d891ed4be997b818fb3ab4d9ebf03a1d4a34aa2acc4de91301c8ae4f81ff60c225
 d34fe674fea7e26bc123dfa6b6ec28c7cf2dfdda86c278c4505f96e66cd78958ea9a2fbce892ea5f11d913b4970a4015aea1ed00b977f69c84d1e261f13d6c7e  0180-arm64-dts-mediatek-mt6858-jolla-jp2601-Add-the-motio.patch
 32e4581ed6291e075049036d904448ba4b639bb57ad3ad4787846d7b6d84ec653d8703619f90722666f7835d3abdbbc9fdbfa07cb6790ca48b4290f02d092cf7  0181-arm64-configs-mt6858-Add-the-sensor-drivers.patch
 482a32d1f1300ec69d00081aca209fb13d7b4b9acd5a81c8f66fa6e10aba2d482b0154577cc9a3107629f197b98fa2db6cf8ce9f50a230b19d7c8a23bc8d0241  0182-iio-light-stk3310-Add-support-for-the-STK3A5X.patch
-34704befd5b4119bf26a4ad200dc14c5f6e83a22e7f7c98967e29cec8d1da93ae172dadca19557cfe661c72bf9a67d90127c82c3acf04906b929e7f04d7e9c85  0183-arm64-dts-mediatek-mt6858-jolla-jp2601-Orient-the-IM.patch
+ebbc417f35ec565a4dd810089492c8ef0efd57e3c486bcee963bf44f5466c24b1b947d6f85ff4a2cad547add5f2b7ee62869b59cf72f6ccc8a79204353b8d51c  0183-arm64-dts-mediatek-mt6858-jolla-jp2601-Orient-the-IM.patch
 f8d7ef5018b774501e2611a15d08a9fd1858d14f6630c65051175f28dfff2cf4c53b8822aedc97d1fc30f589143133fcf824425f3c85aed4840c776ea1f051d6  0184-arm64-dts-mediatek-mt6858-jolla-jp2601-Raise-the-pro.patch
 083a5822543329624f338cbce67f6c459d280c3b0fc9db9dd8afb81927d7cfc67e952e0e0744e1eb63c43ef23102e2f1c7c15e95799ef1dc88b9b8d32a4a911e  0185-rust-bindgen-Keep-the-alignment-of-an-empty-sched_st.patch
 e69f5f237076c588824f584dd563f62ad9c2712dbf706be0cee32d86a461b4ef288d11dfa8a52f9300e44466d9d002f2d30715319dee8612d31ca93a050eb949  0186-rust_binder-Look-up-freeze-targets-in-the-caller-s-p.patch
@@ -682,5 +683,6 @@ cacfa62b1b4922c8ebbf2392d52452ab6dffe5785db63c097df5b338fe30ed81521e3c749e098699
 beb02b52369af24786b157a0281eaf61db3b8ce9559125b1a0aa7162a397845efda01d25f332688f40021578f6f15581f12d9ff7ff03861b664b9205d7f942df  0270-arm64-dts-mediatek-mt6858-Add-the-xHCI-host-under-th.patch
 132ccd22a4ebc9be084dfdfbfa21568cd2c7495455e7d5f6154a17aa1bec435032845faea72a71d423ccdf5d312dd14490ff943bed93213190fc725bd6b6e172  0271-arm64-dts-mediatek-mt6858-jolla-jp2601-Describe-the-.patch
 a51a77c9708c212953a4c981febb736e1c7b282f603d75e28595036617dc96b3b1d1d7817e1b0873d6b19d28d8430a9a0ea93e8f24e4313790143a10106b878c  0272-ASoC-codecs-mt6369-Add-the-headphone-downlink.patch
+918111625573fd25e2192bfbf3781e81a70ac9a13bd44fc95d35d66ca26096289397398ed9105a9a5d1930f3ad6dc1d3c76d4b911c075f61dc5a5529b0ec4cce  0273-pmdomain-mediatek-mtk-mfg-Wait-for-each-EB-answer-in.patch
 1b57b13f8912bed14f0f0bc5ff65f8977e71649dd311c28fedb459248b1ac86d94543ae04bda8ec651cd28d9189925efca9f3ee3eeb39b3a0999fa09bcde9ae3  marathon.config
 "

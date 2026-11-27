@@ -56,7 +56,8 @@
           "required": ["name", "dtb"],
           "properties": {
             "name": {"description": "Names the kernel argument <name>.rootfs_file= and the carrier's mount point /.<name>-carrier/root.", "type": "string", "pattern": "^[a-z0-9]+$"},
-            "dtb": {"description": "The board DTB under the root's /boot/dtbs, which the ESP's loader entry loads.", "type": "string", "pattern": "^[a-z0-9_-]+(/[a-z0-9_.-]+)*\\.dtb$"}
+            "dtb": {"description": "The board DTB under the root's /boot/dtbs, which the ESP's loader entry loads.", "type": "string", "pattern": "^[a-z0-9_-]+(/[a-z0-9_.-]+)*\\.dtb$"},
+            "boot_behind_pin": {"description": "The system boots while the PIN is asked for /home instead of after it (marathon-carrier-generator).", "type": "boolean"}
           }
         }
       },
