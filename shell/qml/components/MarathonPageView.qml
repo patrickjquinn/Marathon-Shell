@@ -18,6 +18,8 @@ Item {
     property int internalAppGridPage: 0
     property var compositor: null
     property bool initialPageSet: false
+    // The grid has its apps and the view sits on the home page.
+    readonly property bool homeReady: initialPageSet && !forceIndexTimer.running
     property bool hubOverlayOpen: false
     // App management mode, across every grid page.
     property bool appEditing: false

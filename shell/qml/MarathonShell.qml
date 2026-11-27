@@ -3671,14 +3671,37 @@ Item {
     // The boot splash, carried on from Plymouth's last frame (q25-splash-
     // greetd.conf stops its bar at half): the same images at the theme's
     // positions and Plymouth's scale, so the hand-over is invisible. The bar
-    // fills while the shell loads behind it, then the splash fades out.
+    // fills once what it covers is ready, then the splash fades out.
     Rectangle {
         id: bootHandover
+
+        property bool drawn: false
+        // The wallpaper decoded, the home grid filled, and a PIN typed at
+        // boot has unlocked.
+        readonly property bool ready: drawn && (bootReadyCap.expired || wallpaperImage.status !== Image.Loading && pageView.homeReady && !(Security.dataEncryption === "pin" && SessionStore.isLocked && !Security.bootUnlocked))
 
         anchors.fill: parent
         z: 99990
         color: "black"
         visible: typeof MarathonBootHandover !== "undefined" && MarathonBootHandover && opacity > 0
+
+        Connections {
+            target: shell.shellWindow
+            enabled: bootHandover.visible && !bootHandover.drawn
+            function onFrameSwapped() {
+                bootHandover.drawn = true;
+            }
+        }
+
+        Timer {
+            id: bootReadyCap
+
+            property bool expired: false
+
+            interval: 1500
+            running: bootHandover.drawn
+            onTriggered: expired = true
+        }
 
         MarathonBootSplash {
             id: bootSplash
@@ -3688,23 +3711,28 @@ Item {
             progress: 0.5
         }
 
+        NumberAnimation {
+            running: bootHandover.visible && !bootHandover.ready
+            target: bootSplash
+            property: "progress"
+            to: 0.9
+            duration: bootReadyCap.interval
+        }
+
         SequentialAnimation {
-            running: bootHandover.visible
+            running: bootHandover.visible && bootHandover.ready
             NumberAnimation {
                 target: bootSplash
                 property: "progress"
                 to: 1
-                duration: MMotion.ms(800)
+                duration: MMotion.ms(200)
                 easing.type: Easing.OutCubic
-            }
-            PauseAnimation {
-                duration: 120
             }
             NumberAnimation {
                 target: bootHandover
                 property: "opacity"
                 to: 0
-                duration: MMotion.ms(260)
+                duration: MMotion.ms(240)
                 easing.type: Easing.InOutQuad
             }
         }
