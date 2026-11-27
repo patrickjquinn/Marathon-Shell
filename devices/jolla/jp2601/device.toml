@@ -63,10 +63,10 @@ gps = "CONNSYS GNSS (conninfra soc7_0); no mainline driver"
 wifi = "CONNSYS gen4m (wlan_drv_gen4m_6858); no mainline driver"
 bluetooth = "CONNSYS (bt_drv_6858); no mainline driver"
 battery = "MT6720 charger and fuel gauge on i2c5 0x34"
-sensors = []
+sensors = ["InvenSense ICM-42607-P accelerometer/gyroscope on SPI2 (inv_icm42607)", "MEMSIC MMC5603 magnetometer at 0x30 (mmc5633)", "SensorTek STK3A5X proximity/ambient light at 0x46 (stk3310)"]
 quirks = [
   "PMICs are MT6363 and MT6369 on SPMI at 0x1c024000",
-  "accelerometer and the other motion sensors sit behind the SCP sensor hub, not on the AP",
+  "the SCP sensor hub never leaves reset: the AP drives the sensors itself, the magnetometer and light sensor on i2c-gpio over GPIO157/158",
   "NFC is an ST21NFC part (/dev/st21nfc); fingerprint is Goodix gf_spi with matching in the TEE",
 ]
 
