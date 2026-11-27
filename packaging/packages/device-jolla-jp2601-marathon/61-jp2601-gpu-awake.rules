@@ -1,0 +1,3 @@
+# Panthor cannot yet resume the GPU once its power domain is off (the MCU
+# never boots again), which leaves the screen undrawable: keep it powered.
+ACTION=="add|bind", SUBSYSTEM=="platform", KERNEL=="13000000.gpu", ATTR{power/control}="on"
