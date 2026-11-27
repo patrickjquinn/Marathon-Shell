@@ -2924,10 +2924,21 @@ index f5afcfe..3e8cf9e 100644
 +# Xiaomi left only its "Obsidian" TX power limit tables in this tree.
 +ccflags-y += -DCONFIG_BUILD_TARGET_OBSIDIAN=1
 diff --git a/wlan/gen4m/Kbuild.main b/wlan/gen4m/Kbuild.main
-index c69eeaf..0eff695 100644
+index c69eeaf..7aad6b1 100644
 --- a/wlan/gen4m/Kbuild.main
 +++ b/wlan/gen4m/Kbuild.main
-@@ -2268,7 +2268,7 @@ ifeq ($(MTK_ANDROID_WMT), y)
+@@ -131,6 +131,10 @@ endif
+ 
+ ccflags-y += -DCFG_SUPPORT_DEBUG_FS=0
+ ccflags-y += -DCFG_SUPPORT_AGPS_ASSIST=0
++# Errors, warnings, state and events only: the INFO and DEBUG classes,
++# which Android's logd rotates away, logged about 25 lines a second on an
++# idle phone into the kernel log and the journal.
++ccflags-y += -DCFG_DEFAULT_DBG_LEVEL=0x0f
+ ifneq ($(CONFIG_BUILD_NONE_STA), y)
+     ccflags-y += -DWLAN_INCLUDE_PROC
+     ccflags-y += -DCFG_SUPPORT_TSF_USING_BOOTTIME=1
+@@ -2268,7 +2272,7 @@ ifeq ($(MTK_ANDROID_WMT), y)
      else
          ccflags-y += -DCFG_MTK_WIFI_DRV_OWN_INT_MODE=0
      endif
@@ -2936,7 +2947,7 @@ index c69eeaf..0eff695 100644
          CONFIG_MTK_AEE_FEATURE=y
      endif
      CONFIG_SUPPORT_HRTIMER=y
-@@ -2384,7 +2384,7 @@ ifeq ($(CONFIG_MTK_WIFI_CONNFEM_SUPPORT), y)
+@@ -2384,7 +2388,7 @@ ifeq ($(CONFIG_MTK_WIFI_CONNFEM_SUPPORT), y)
          ccflags-y += -DCFG_CONNFEM_DEFAULT=0
          ccflags-y += -I$(KO_CODE_PATH)/../connfem/include
      endif
@@ -2945,7 +2956,7 @@ index c69eeaf..0eff695 100644
  else
      ccflags-y += -DCFG_SUPPORT_CONNFEM=0
      ccflags-y += -DCFG_CONNFEM_DEFAULT=0
-@@ -2426,7 +2426,7 @@ ifeq ($(CONFIG_MTK_WIFI_CONNV3_SUPPORT), y)
+@@ -2426,7 +2430,7 @@ ifeq ($(CONFIG_MTK_WIFI_CONNV3_SUPPORT), y)
          CONFIG_MTK_WIFI_CONNV3_PATH ?= $(KO_CODE_PATH)/../conninfra
          KBUILD_EXTRA_SYMBOLS += $(CONFIG_MTK_WIFI_CONNV3_PATH)/Module.symvers
      else
@@ -2954,7 +2965,7 @@ index c69eeaf..0eff695 100644
      endif
      $(info $$CONFIG_MTK_WIFI_CONNV3_PATH is [${CONFIG_MTK_WIFI_CONNV3_PATH}])
      ccflags-y += -I$(CONFIG_MTK_WIFI_CONNV3_PATH)/include
-@@ -2435,35 +2435,35 @@ ifeq ($(CONFIG_MTK_WIFI_CONNV3_SUPPORT), y)
+@@ -2435,35 +2439,35 @@ ifeq ($(CONFIG_MTK_WIFI_CONNV3_SUPPORT), y)
      ccflags-y += -I$(CONFIG_MTK_WIFI_CONNV3_PATH)/conn_drv/connv3/debug_utility/include
      ccflags-y += -I$(CONFIG_MTK_WIFI_CONNV3_PATH)/conn_drv/connv3/debug_utility/connsyslog
  
@@ -3008,7 +3019,7 @@ index c69eeaf..0eff695 100644
  else
      ccflags-y += -DCFG_MTK_WIFI_CONNV3_SUPPORT=0
      CONFIG_WIFI_COREDUMP_SUPPORT=n
-@@ -2471,9 +2471,9 @@ else
+@@ -2471,9 +2475,9 @@ else
      ccflags-y += -DCFG_ANDORID_CONNINFRA_SUPPORT=0
      ccflags-y += -DCFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT=0
      ifeq ($(WMT_SUPPORT), y)
@@ -3459,6 +3470,96 @@ index b63eb0c..e9cce07 100644
  
  	u4MaxIdx = kalGetDramBwMaxIdx();
  	if (u4MaxIdx == 0 || u4MaxIdx > OPP_BW_MAX_NUM)
+diff --git a/wlan/gen4m/os/linux/gl_proc.c b/wlan/gen4m/os/linux/gl_proc.c
+index 15982bc..16e18ab 100644
+--- a/wlan/gen4m/os/linux/gl_proc.c
++++ b/wlan/gen4m/os/linux/gl_proc.c
+@@ -55,9 +55,9 @@
+ #define PROC_ROOT_NAME							"wlan"
+ #endif
+ 
++#define PROC_DRIVER_CMD                         "driver"
+ /* Only used by CE or in userdebug/eng load */
+ #if (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG)
+-#define PROC_DRIVER_CMD                         "driver"
+ #if CFG_SUPPORT_CSI
+ #define PROC_CSI_DATA_NAME			"csi_data"
+ #endif
+@@ -99,8 +99,18 @@
+ #define PROC_TX_STATISTICS_MAX_USER_INPUT_LEN   10
+ #define PROC_DBG_LEVEL_MAX_USER_INPUT_LEN       20
+ #define PROC_DBG_LEVEL_MAX_DISPLAY_STR_LEN      30
+-#define PROC_UID_SHELL							2000
+-#define PROC_GID_WIFI							1010
++/*
++ * Owner of the /proc/net/wlan nodes. Android's shell and wifi ids unless
++ * set: a Linux system gives the command node to a group such as netdev.
++ */
++static uint proc_uid = 2000;
++module_param(proc_uid, uint, 0444);
++MODULE_PARM_DESC(proc_uid, "uid of the /proc/net/wlan nodes");
++static uint proc_gid = 1010;
++module_param(proc_gid, uint, 0444);
++MODULE_PARM_DESC(proc_gid, "gid of the /proc/net/wlan nodes");
++#define PROC_UID_SHELL							proc_uid
++#define PROC_GID_WIFI							proc_gid
+ 
+ #if CFG_WIFI_TXPWR_TBL_DUMP
+ #define TMP_SZ (1024)
+@@ -312,7 +322,6 @@ static struct txpwr_table txpwr_tables[] = {
+  *******************************************************************************
+  */
+ 
+-#if (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG)
+ #if WLAN_INCLUDE_PROC
+ #if CFG_SUPPORT_EASY_DEBUG
+ static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
+@@ -390,6 +399,7 @@ static const struct file_operations drivercmd_ops = {
+ #endif
+ #endif /* CFG_SUPPORT_EASY_DEBUG */
+ #endif /* WLAN_INCLUDE_PROC */
++#if (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG)
+ 
+ #if CFG_SUPPORT_CSI
+ static int procCSIDataOpen(struct inode *n, struct file *f)
+@@ -2352,8 +2362,10 @@ int32_t procRemoveProcfs(struct GLUE_INFO *prGlueInfo)
+ 	wake_up_interruptible(&(prGlueInfo->waitq_csi));
+ 	remove_proc_entry(PROC_CSI_DATA_NAME, prProcRoot);
+ #endif
+-	remove_proc_entry(PROC_DRIVER_CMD, prProcRoot);
+ #endif /* (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG) */
++#if CFG_SUPPORT_EASY_DEBUG
++	remove_proc_entry(PROC_DRIVER_CMD, prProcRoot);
++#endif
+ 
+ #if (!CFG_MTK_ANDROID_WMT)
+ 	remove_proc_entry(PROC_COUNTRY, prProcRoot);
+@@ -2431,7 +2443,11 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
+ 
+ 	prEntry = NULL;
+ 
+-#if (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG)
++	/*
++	 * The command node is Linux's way to the driver commands, such as
++	 * SETSUSPENDMODE with the screen off, that Android sends through
++	 * its HAL.
++	 */
+ #if CFG_SUPPORT_EASY_DEBUG
+ 	prEntry =
+ 		PROC_CREATE(PROC_DRIVER_CMD, 0664, prProcRoot, &drivercmd_ops);
+@@ -2440,8 +2456,12 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
+ 			"Unable to create /proc entry for driver command\n\r");
+ 		return -1;
+ 	}
++	proc_set_user(prEntry, KUIDT_INIT(PROC_UID_SHELL),
++		      KGIDT_INIT(PROC_GID_WIFI));
+ #endif
+ 
++#if (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG)
++
+ #if CFG_SUPPORT_CSI
+ 	prEntry =
+ 	       PROC_CREATE(PROC_CSI_DATA_NAME, 0600, prProcRoot, &csidata_ops);
 diff --git a/wlan/gen4m/os/linux/gl_vendor.c b/wlan/gen4m/os/linux/gl_vendor.c
 index bc43e94..5f2a21d 100644
 --- a/wlan/gen4m/os/linux/gl_vendor.c
