@@ -64,7 +64,7 @@ sensors = ["InvenSense ICM-42607-P accelerometer/gyroscope on SPI2 (inv_icm42607
 quirks = [
   "PMICs are MT6363 and MT6369 on SPMI at 0x1c024000",
   "the SCP sensor hub never leaves reset: the AP drives the sensors itself, the magnetometer and light sensor on i2c-gpio over GPIO157/158",
-  "NFC is an ST21NFC part (/dev/st21nfc); fingerprint is Goodix gf_spi with matching in the TEE",
+  "NFC is an ST21NFCD (st-nci, nfc0) driven through neard; fingerprint is Goodix on SPI1, captured and matched in normal-world userspace on stock (BRINGUP.md)",
 ]
 
 [profile]

@@ -146,6 +146,47 @@ Stock Sailfish loads it as `hynitron_spi` and names the input device
 4. The two GPIO rails as fixed regulators, the reset GPIO and EINT 6 in the
    board DTS.
 
+### Fingerprint
+
+The sensor is reachable from Linux: stock Sailfish captures and matches in
+normal-world userspace, not in a TEE.
+
+- **DT:** `goodix_fp@0` (`mediatek,goodix_fp`, mode 0, 8 MHz) on SPI1 at
+  `0x11011800`. CLK, CS, MOSI and MISO are GPIO 62–65, function 2. The
+  `yft_finger` node has reset on GPIO 136 and the interrupt on EINT 10,
+  rising edge. Power is the MT6369 `vfp` LDO at 3.3 V. No secure or devapc
+  property marks SPI1.
+- **Driver:** stock `gf_spi.ko` is board glue plus a raw-transfer ioctl,
+  `_IOWR('g', 0x10, 32 bytes)`, which runs `spi_sync` for userspace. Its
+  probe reads the chip ID at address 0 over SPI from Linux.
+- **Userspace:** `libgf_ta.so` (10.7 MB) is an ordinary bionic library
+  that needs only liblog, libc, libm and libdl, with no TEE client.
+  - It holds the image capture (`gf_milan_get_image`), OTP calibration and
+    the matcher.
+  - Its code issues the raw-transfer ioctl.
+  - Templates are plain files under `/data/vendor_de/0/fpdata/`.
+- **The exact part is unknown.** The blob supports the Milan, Chicago and
+  Dubai families; the chip-ID read will tell.
+- **libfprint:** it has no Goodix SPI driver. Its only SPI driver is
+  `elanspi`, and `goodixmoc` is USB match-on-chip.
+
+The path, all mainline:
+
+1. **DT and chip ID** (about a day). Enable `&spi1` with the pins above and
+   a fixed 3.3 V `vfp`. Add a `goodix,gf…` child that spidev binds (a
+   binding plus spidev's table, as for other userspace-driven parts),
+   then pulse reset and read the ID.
+2. **The protocol** (the bulk, 2–4 weeks). Recover the register map,
+   calibration and frame read from `libgf_ta.so` and the HAL's ioctl
+   sequence, then reproduce a raw frame on the AP.
+3. **A libfprint image driver over spidev** (about a week), with reset and
+   the interrupt from GPIO character devices. Matching then uses
+   libfprint's minutiae matcher, which may be weak on a small area sensor.
+   Measure FRR/FAR before Settings offers enrolment.
+
+Do not touch the TEEs (`microtrust,utos`, `trustonic,mobicore`): nothing
+on this path needs them.
+
 ## Next
 
 1. Flash the first image (`/mnt/deckard-build/jolla/img/FLASH.md`) and
