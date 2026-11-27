@@ -1,0 +1,4 @@
+[Unit]
+Description=The encrypted /home is open
+Wants=marathon-carrier-home-crypt.service marathon-carrier-home-tmpfiles.service
+After=marathon-carrier-home-crypt.service marathon-carrier-home-tmpfiles.service

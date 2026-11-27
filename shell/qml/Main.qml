@@ -12,8 +12,12 @@ import QtQuick.Window
 Window {
     id: window
 
-    width: 390
-    height: 844
+    // On the phone the window is the screen: sized so from the start, the
+    // shell isn't laid out (and its wallpaper decoded) at 390×844 first.
+    readonly property bool fullScreen: Qt.platform.pluginName === "eglfs" || Qt.platform.pluginName === "linuxfb"
+
+    width: fullScreen ? Screen.width : 390
+    height: fullScreen ? Screen.height : 844
     visible: true
     title: "Marathon OS - Bandit"  // i18n: not user-facing
     color: MColors.eink ? MColors.background : "#000000"
