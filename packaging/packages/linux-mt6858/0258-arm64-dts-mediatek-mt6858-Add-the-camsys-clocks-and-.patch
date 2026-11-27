@@ -1,7 +1,7 @@
 From 352801dc3bc00140912de9c4b4fd96d0850902f5 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:48:26 +0000
-Subject: [PATCH 258/271] arm64: dts: mediatek: mt6858: Add the camsys clocks
+Subject: [PATCH 258/272] arm64: dts: mediatek: mt6858: Add the camsys clocks
  and camera power domains
 
 Describe the camsys_main clock controller and the two power domains the

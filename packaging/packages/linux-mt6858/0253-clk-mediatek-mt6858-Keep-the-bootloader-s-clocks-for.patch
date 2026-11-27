@@ -1,7 +1,7 @@
 From a3670fed190a11e8ac652ebc721f37e707543f00 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:53:17 +0000
-Subject: [PATCH 253/271] clk: mediatek: mt6858: Keep the bootloader's clocks
+Subject: [PATCH 253/272] clk: mediatek: mt6858: Keep the bootloader's clocks
  for blocks without clocks in DT
 
 UFS and USB take a placeholder clock in the DT, the UART only its 26 MHz

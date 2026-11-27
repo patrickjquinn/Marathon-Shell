@@ -1,7 +1,7 @@
 From 095f1ddcb55070cda2a49c6e6dca05d406e406f6 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:46:53 +0000
-Subject: [PATCH 254/271] dt-bindings: clock: mediatek: Add the MT6858
+Subject: [PATCH 254/272] dt-bindings: clock: mediatek: Add the MT6858
  camsys_main clocks
 
 Add the compatible of the MT6858 camsys_main clock controller, which

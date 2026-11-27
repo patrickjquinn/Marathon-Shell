@@ -1,7 +1,7 @@
 From bfeb40cfdbd9a17c5fa13d0927501934acfed728 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:40 +0000
-Subject: [PATCH 268/271] power: supply: mt6720-charger: Add the OTG VBUS
+Subject: [PATCH 268/272] power: supply: mt6720-charger: Add the OTG VBUS
  regulator
 
 The charger's boost sources VBUS for a USB host port: 4.85 V to 5.6 V in

@@ -1,7 +1,7 @@
 From 799dd38b30e1a2cca9f4ad6313848a0d49eee811 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:40 +0000
-Subject: [PATCH 269/271] usb: mtu3: Set the PHYs' mode on role switches
+Subject: [PATCH 269/272] usb: mtu3: Set the PHYs' mode on role switches
 
 A dual-role controller never tells its PHYs whether they serve a host
 or a device. The xsphy needs to know: in device mode it forces a valid

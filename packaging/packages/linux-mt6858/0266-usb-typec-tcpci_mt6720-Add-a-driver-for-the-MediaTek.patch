@@ -1,7 +1,7 @@
 From 48567bc5f139f163826c1d19465a9476c23f3681 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:28 +0000
-Subject: [PATCH 266/271] usb: typec: tcpci_mt6720: Add a driver for the
+Subject: [PATCH 266/272] usb: typec: tcpci_mt6720: Add a driver for the
  MediaTek MT6720
 
 The MT6720's port controller is TCPCI (VID 0x29cf, PID 0x6720, PD 3.0).

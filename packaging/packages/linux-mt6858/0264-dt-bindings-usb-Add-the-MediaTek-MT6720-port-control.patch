@@ -1,7 +1,7 @@
 From 507852e71e41121a4708434bdb973821a76b1d30 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 27 Nov 2026 10:56:28 +0000
-Subject: [PATCH 264/271] dt-bindings: usb: Add the MediaTek MT6720 port
+Subject: [PATCH 264/272] dt-bindings: usb: Add the MediaTek MT6720 port
  controller
 
 The MT6720 SubPMIC has a TCPCI Type-C and PD port controller and an OTG
