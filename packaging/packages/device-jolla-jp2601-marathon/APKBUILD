@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=24
+pkgrel=25
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -11,7 +11,8 @@ license="Apache-2.0"
 options="!check"
 depends="device-jolla-jp2601 marathon-base-config marathon-shell marathon-carrier greetd
  plymouth marathon-plymouth-theme deckard deckard-images mesa-vulkan-panfrost linux-firmware-arm
- jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf neard"
+ jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf neard
+ mt6858-camera-modules libcamera>=999990.8.0 libcamera-gstreamer"
 source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-session.conf
  jp2601-plymouth.files jp2601-plymouth-newroot.hook
  jp2601-splash-handover jp2601-splash-handover.service jp2601-splash-greetd.conf
@@ -21,7 +22,8 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  eglfs-kms.json 60-jp2601-display.rules 61-jp2601-gpu-awake.rules 61-jp2601-sensors.rules jp2601-gpu.files jp2601-power.sysctl
  jp2601-mt6369.conf HiFi.conf VoiceCall.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service
  jp2601-modules-match jp2601-modules-match.service 99-jp2601-partitions.rules
- neard.service org.neard.service neard-main.conf marathon-neard.conf"
+ neard.service org.neard.service neard-main.conf marathon-neard.conf
+ jp2601-camera.modules-load.conf jp2601-camera.modprobe.conf 60-jp2601-camera.rules"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
@@ -100,6 +102,11 @@ package() {
 	install -Dm644 "$srcdir/marathon-deckard.tmpfiles" "$pkgdir/usr/lib/tmpfiles.d/marathon-deckard.conf"
 	install -Dm644 "$srcdir/50-marathon-deckard.rules" "$pkgdir/usr/share/polkit-1/rules.d/50-marathon-deckard.rules"
 	install -Dm644 "$srcdir/jp2601-deckard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/jp2601-deckard.conf"
+
+	# Cameras: their overlay at boot, and the heap libcamera's software ISP uses.
+	install -Dm644 "$srcdir/jp2601-camera.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/jp2601-camera.conf"
+	install -Dm644 "$srcdir/jp2601-camera.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/jp2601-camera.conf"
+	install -Dm644 "$srcdir/60-jp2601-camera.rules" "$pkgdir/usr/lib/udev/rules.d/60-jp2601-camera.rules"
 }
 
 sha512sums="
@@ -143,4 +150,7 @@ b71706101fbb0d16d1cea9dfbfc94229811e7b06425e3573b2e06b222b4f48d58c773314faee9525
 e8924807bfe4eab172c603d54fab17a977ec397ebd9770e982d8923010e10c04ed89c225587311c957e43dcaf951390dc9347f798b71f938fc3692465511aa9a  org.neard.service
 75fd1437be90b549f9505849e815a777df200f898610b4bea8a68b708069340ecb9ab97124c9a716d00986adc78a836dc5d905fbc09e9967efad16aa79dbe5b7  neard-main.conf
 5ffa0a26da29bc013dd4c6379c746175840a3a87d5b2b03601dea9c64af9b98b3b0d36bc33ffbc78786651f89f7972d30b7393e368426873c30aa39f98a4fed0  marathon-neard.conf
+4f3942c03b4c1ce4ca340c4c8e998249ce92ea7d641bd1c6ec72bc4f5f248dbd864b78153af2cf96dbba203b61ec735d20ae4da2341a5fa052c7c34b0208d818  jp2601-camera.modules-load.conf
+15909d3d1c27e4057a94d0560d853c913363c6190cdf3f8625865b8a9f173dc3016f4294ddc2444ae6642d492b561e3339a6fc0b5e700889dd598b40797f2b93  jp2601-camera.modprobe.conf
+583e9cd23503b38eb36df925c3c5373e9c8826c11bc6f006d3972fc324367da14ee58968f54612be9dd975860419a03bc41e8195f10528dd4473072a6a948975  60-jp2601-camera.rules
 "
