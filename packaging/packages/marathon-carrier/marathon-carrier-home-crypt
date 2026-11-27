@@ -188,6 +188,8 @@ if [ -e "$container" ]; then
 	ok=$?
 	remote_stop
 	touch_for_shell
+	# The PIN pad replaced Plymouth: the splash comes back until the shell.
+	plymouth --ping 2> /dev/null || systemctl start --no-block plymouth-start.service
 	[ "$ok" = 0 ] || {
 		log "no way to ask for the PIN; /home stays on the root"
 		exit 1
