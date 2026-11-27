@@ -1,0 +1,13 @@
+# systemd's unit without After=network.target, which a drop-in cannot remove:
+# the shell's session waits on this, and nothing on the phone logs in over
+# the network or keeps a home on it. The rest is upstream's.
+[Unit]
+Description=Permit User Sessions
+Documentation=man:systemd-user-sessions.service(8)
+After=remote-fs.target nss-user-lookup.target home.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/systemd/systemd-user-sessions start
+ExecStop=/usr/lib/systemd/systemd-user-sessions stop

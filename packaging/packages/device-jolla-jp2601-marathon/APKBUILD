@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=17
+pkgrel=18
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -19,13 +19,15 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  jp2601.preset unudhcpd-usb0.conf jp2601-usb.nm.conf jp2601-usb-gadget jp2601-usb-gadget.service
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
  eglfs-kms.json 60-jp2601-display.rules jp2601-gpu.files jp2601-power.sysctl
- jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf"
+ jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
 	install -Dm755 "$srcdir/jp2601-shell-session" "$pkgdir/usr/libexec/marathon/jp2601-shell-session"
 	install -Dm644 "$srcdir/greetd-jp2601.toml" "$pkgdir/etc/greetd/jp2601-config.toml"
 	install -Dm644 "$srcdir/50-jp2601-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-jp2601-session.conf"
+	# Logins from /home's opening, not from NetworkManager's start.
+	install -Dm644 "$srcdir/jp2601-user-sessions.service" "$pkgdir/etc/systemd/system/systemd-user-sessions.service"
 
 	# The GPU session's KMS device, and Panthor's firmware where the
 	# built-in driver finds it at boot.
@@ -110,4 +112,5 @@ ca01be36a4164a1192f6708247952efecdef1cbbca5615786a1ce2fd04c74407c9514a9a9634391b
 b57f61df48bd9b2aef0052bfa17c319759aaf3e865a19ae2380b5601ad30fdc68fc05c7822f30964ca7e0f9949a28ec7ee1abaf9b50ada93affee929bc124d21  HiFi.conf
 411e02105c6d079ff47cabb091fde65037d6916c8eab687e268065e063bc33eb4abc2cd7a8c41f66b958e99d4cd762cd66937c6f5ab591d3650f416eefa148b0  jp2601-logind.conf
 03c47767af679ce30238d5eeb70be9f7b68d48aeede5df96c89ccb4ddc83e9e0a40633cbf643821d626596351481bff4bada6f5016ebecdc2d8594035af53806  jp2601-upower.conf
+9d5b420c0011dd7509d8547d86beeafe385baf69a66cdde397998535a059fa4fbd5941dcd6c2555bb9e64d2b83d6f6933d626b7cf029ff3499736f4067c91592  jp2601-user-sessions.service
 "
