@@ -1,0 +1,135 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 17:05:46 +0000
+Subject: [PATCH] iommu/mediatek: Keep the GenieZone hyp-MMU in sync on MT6858
+
+On MT6858 phones Linux starts at EL1 under MediaTek's GenieZone
+hypervisor, whose hyp-MMU "type 2" translates MM IOMMU accesses
+through its own copy of the page table. Every access through a mapping
+it hasn't been told about faults at layer 0, and an unmapping it hasn't
+been told about leaves its copy pointing at freed pages.
+
+Ask the hypervisor whether type 2 is on, and if so tell it about every
+map, unmap and full flush, as the vendor driver does.
+---
+ drivers/iommu/mtk_iommu.c | 47 +++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 45 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/iommu/mtk_iommu.c b/drivers/iommu/mtk_iommu.c
+index 17cf33390..f937f7efe 100644
+--- a/drivers/iommu/mtk_iommu.c
++++ b/drivers/iommu/mtk_iommu.c
+@@ -149,6 +149,8 @@
+ #define INT_ID_PORT_WIDTH_6		BIT(19)
+ #define CFG_IFA_MASTER_IN_ATF		BIT(20)
+ #define DL_WITH_MULTI_LARB		BIT(21)
++/* The GenieZone hypervisor may translate through its own copy of the pgtable */
++#define HAS_HYP_MMU			BIT(22)
+ 
+ #define MTK_IOMMU_HAS_FLAG_MASK(pdata, _x, mask)	\
+ 				((((pdata)->flags) & (mask)) == (_x))
+@@ -159,6 +161,13 @@
+ 
+ #define MTK_INVALID_LARBID		MTK_LARB_NR_MAX
+ 
++/* GenieZone hyp-MMU calls */
++#define MTK_HYP_MMU_GET_TYPE2_EN	0xbb00ffa4
++#define MTK_HYP_MMU_TYPE2_INV		0xbb00ffa7
++#define MTK_HYP_MMU_TABLE_MM		0
++#define MTK_HYP_MMU_ADDR(iova)		((lower_32_bits(iova) & GENMASK(31, 12)) | \
++					 upper_32_bits(iova))
++
+ #define MTK_LARB_COM_MAX	8
+ #define MTK_LARB_SUBCOM_MAX	8
+ 
+@@ -279,6 +288,9 @@ struct mtk_iommu_data {
+ 	struct list_head		hw_list_head;
+ 	struct list_head		list;
+ 	struct mtk_smi_larb_iommu	larb_imu[MTK_LARB_NR_MAX];
++
++	/* The hypervisor shadows the pgtable and must be told of every change */
++	bool				hyp_mmu_type2;
+ };
+ 
+ struct mtk_iommu_domain {
+@@ -401,6 +413,22 @@ static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
+ 	spin_unlock_irqrestore(&bank->tlb_lock, flags);
+ }
+ 
++static void mtk_iommu_hyp_mmu_sync(struct mtk_iommu_data *data,
++				   unsigned long iova, size_t size)
++{
++	struct arm_smccc_res res;
++
++	if (!data->hyp_mmu_type2 || !size)
++		return;
++
++	arm_smccc_smc(MTK_HYP_MMU_TYPE2_INV, MTK_HYP_MMU_ADDR(iova),
++		      MTK_HYP_MMU_ADDR(iova + size - 1), MTK_HYP_MMU_TABLE_MM,
++		      0, 0, 0, 0, &res);
++	if (res.a0)
++		dev_err_ratelimited(data->dev, "hyp-MMU sync of %#lx+%#zx failed: %ld\n",
++				    iova, size, (long)res.a0);
++}
++
+ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
+ 					   struct mtk_iommu_bank_data *bank)
+ {
+@@ -836,8 +864,11 @@ static void mtk_iommu_flush_iotlb_all(struct iommu_domain *domain)
+ {
+ 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
+ 
+-	if (dom->bank)
++	if (dom->bank) {
++		mtk_iommu_hyp_mmu_sync(dom->bank->parent_data, 0,
++				       1UL << dom->cfg.ias);
+ 		mtk_iommu_tlb_flush_all(dom->bank->parent_data);
++	}
+ }
+ 
+ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
+@@ -846,6 +877,8 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
+ 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
+ 	size_t length = gather->end - gather->start + 1;
+ 
++	if (gather->start <= gather->end)
++		mtk_iommu_hyp_mmu_sync(dom->bank->parent_data, gather->start, length);
+ 	mtk_iommu_tlb_flush_range_sync(gather->start, length, dom->bank);
+ }
+ 
+@@ -854,6 +887,7 @@ static int mtk_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
+ {
+ 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
+ 
++	mtk_iommu_hyp_mmu_sync(dom->bank->parent_data, iova, size);
+ 	mtk_iommu_tlb_flush_range_sync(iova, size, dom->bank);
+ 	return 0;
+ }
+@@ -1310,6 +1344,15 @@ static int mtk_iommu_probe(struct platform_device *pdev)
+ 	data->dev = dev;
+ 	data->plat_data = of_device_get_match_data(dev);
+ 
++	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_HYP_MMU)) {
++		struct arm_smccc_res res;
++
++		arm_smccc_smc(MTK_HYP_MMU_GET_TYPE2_EN, 0, 0, 0, 0, 0, 0, 0, &res);
++		data->hyp_mmu_type2 = res.a0 == 1;
++		if (data->hyp_mmu_type2)
++			dev_info(dev, "translating through the hyp-MMU\n");
++	}
++
+ 	/* Protect memory. HW will access here while translation fault.*/
+ 	protect = devm_kcalloc(dev, 2, MTK_PROTECT_PA_ALIGN, GFP_KERNEL);
+ 	if (!protect)
+@@ -1808,7 +1851,7 @@ static const struct mtk_iommu_plat_data mt6858_data_mm = {
+ 	.m4u_plat	= M4U_MT8189,
+ 	.flags		= HAS_BCLK | HAS_SUB_COMM_3BITS | OUT_ORDER_WR_EN |
+ 			  WR_THROT_EN | IOVA_34_EN | MTK_IOMMU_TYPE_MM |
+-			  PGTABLE_PA_35_EN | DL_WITH_MULTI_LARB,
++			  PGTABLE_PA_35_EN | DL_WITH_MULTI_LARB | HAS_HYP_MMU,
+ 	.hw_list	= &m4ulist,
+ 	.inv_sel_reg	= REG_MMU_INV_SEL_GEN2,
+ 	.banks_num	= 5,
+-- 
+2.55.0
+
