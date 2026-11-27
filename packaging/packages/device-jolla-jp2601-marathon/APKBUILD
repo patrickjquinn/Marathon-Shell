@@ -19,7 +19,7 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  jp2601.preset unudhcpd-usb0.conf jp2601-usb.nm.conf jp2601-usb-gadget jp2601-usb-gadget.service
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
  eglfs-kms.json 60-jp2601-display.rules 61-jp2601-gpu-awake.rules 61-jp2601-sensors.rules jp2601-gpu.files jp2601-power.sysctl
- jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service
+ jp2601-mt6369.conf HiFi.conf VoiceCall.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service
  jp2601-modules-match jp2601-modules-match.service 99-jp2601-partitions.rules
  neard.service org.neard.service neard-main.conf marathon-neard.conf"
 
@@ -47,6 +47,7 @@ package() {
 	# The microphones' ALSA use case (capture only until the amplifiers work).
 	install -Dm644 "$srcdir/jp2601-mt6369.conf" "$pkgdir/usr/share/alsa/ucm2/conf.d/mt6858-mt6369/mt6858-mt6369.conf"
 	install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Jolla/JP2601/HiFi.conf"
+	install -Dm644 "$srcdir/VoiceCall.conf" "$pkgdir/usr/share/alsa/ucm2/Jolla/JP2601/VoiceCall.conf"
 
 	# Test kernels share r18's release name; boot with the module tree whose
 	# stamp matches the running kernel, so a fallback never loads another's.
@@ -129,8 +130,9 @@ e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99
 b678b4ff2b7d73bf9267b075bd0ed5279406553309fc87604574e7adf8a796e5106da079ff2cc2f7b13ae7b79c666219bd8e65f695835dff4a635b4a45ee16a3  61-jp2601-sensors.rules
 8d1809de50ed5ec279cabdefa131057c846e77d33b545a73c9c4edc92ea1982c8a3b8490752e10c06ba7921485c51813d40071a7fe4b97191bbab01a38ed513d  jp2601-gpu.files
 3d02a98ea91a676c94c2b0607945759f8deca606604dffa438fe755c68caad7563bd131b65374ca72c3dc50e732531864e7e288a742f84da9ce214f52111d11f  jp2601-power.sysctl
-ca01be36a4164a1192f6708247952efecdef1cbbca5615786a1ce2fd04c74407c9514a9a9634391bc55275d42811933bc7d5614eca52fa36b6af664851c65f1e  jp2601-mt6369.conf
+721a0de549097ab0eaad8d1525adbb810dcf53d3e7122f25f436251604b1d89ed5cc510ac654a2351f3688b5801fa611bfb47bccc4455df9334d0d8a35ff68dc  jp2601-mt6369.conf
 8f33a51caaecbdf980100c50f52023d283381ad65e7b809b0a1b43b38b81c66eb7adf6ce8c389e42b5dd02c3f2e6d5be51a302fb9abaacfc4fb1a929ccc2ddd2  HiFi.conf
+322450ae113f3dfe39405a24792ff996e76cdaa20286814c0d782fa6e6a86282506ac057565af36be9c98c46a6d4270ec5e59bd1a39d5dae7efaec5e3e850784  VoiceCall.conf
 411e02105c6d079ff47cabb091fde65037d6916c8eab687e268065e063bc33eb4abc2cd7a8c41f66b958e99d4cd762cd66937c6f5ab591d3650f416eefa148b0  jp2601-logind.conf
 03c47767af679ce30238d5eeb70be9f7b68d48aeede5df96c89ccb4ddc83e9e0a40633cbf643821d626596351481bff4bada6f5016ebecdc2d8594035af53806  jp2601-upower.conf
 673768845394376e381079b7bff0f410343f4ef5f8938dc11b9a529d1074d262a9593a5c73be196d3426fc2ed07b1cadcaf170f3d281fe0a788906d285516866  jp2601-modules-match
