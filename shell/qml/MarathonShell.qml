@@ -12,6 +12,9 @@ Item {
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
     property bool showPinScreen: false
+    // Whether unlocking skips the PIN. The grace after locking is a clock,
+    // not a property, so it is read again on locking, waking and swiping.
+    property bool sessionOpen: false
     property bool isTransitioningToActiveFrames: false
     // The lock and PIN screens paint their own full-screen backdrop. While
     // one of them is at rest, the shell wallpaper below is never seen but
@@ -716,20 +719,21 @@ Item {
             StateChangeScript {
                 script: {
                     lockScreen.swipeProgress = 0;
+                    shell.sessionOpen = SessionStore.checkSession();
                 }
             }
 
             // With a PIN to enter, the pad fades in as the lock screen lifts.
             PropertyChanges {
-                pinScreen.visible: !SessionStore.checkSession()
+                pinScreen.visible: !shell.sessionOpen
                 pinScreen.enabled: false
-                pinScreen.opacity: SessionStore.checkSession() ? 0 : Math.pow(lockScreen.swipeProgress, 0.7)
+                pinScreen.opacity: shell.sessionOpen ? 0 : Math.pow(lockScreen.swipeProgress, 0.7)
             }
 
             PropertyChanges {
-                mainContent.visible: SessionStore.checkSession()
+                mainContent.visible: shell.sessionOpen
                 mainContent.enabled: false
-                mainContent.opacity: SessionStore.checkSession() ? Math.pow(lockScreen.swipeProgress, 0.7) : 0
+                mainContent.opacity: shell.sessionOpen ? Math.pow(lockScreen.swipeProgress, 0.7) : 0
                 // Home rises into place under the lifting lock screen.
                 mainContent.scale: 0.94 + 0.06 * lockScreen.swipeProgress
             }
@@ -1370,6 +1374,24 @@ Item {
         }
 
         target: SessionStore
+    }
+
+    Connections {
+        function onSwipeProgressChanged() {
+            if (shell.state === "locked")
+                shell.sessionOpen = SessionStore.checkSession();
+        }
+
+        target: lockScreen
+    }
+
+    Connections {
+        function onScreenOnChanged() {
+            if (Display.screenOn && shell.state === "locked")
+                shell.sessionOpen = SessionStore.checkSession();
+        }
+
+        target: Display
     }
 
     Comp.ShellInitialization {
