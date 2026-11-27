@@ -488,7 +488,7 @@ impl Display {
         }
         let (tx, rx) = async_channel::bounded(8);
         let qt = self.qt_thread();
-        io::each_system_bus(move |_| rotation(qt.clone(), rx.clone()));
+        io::each_system_bus(move |bus| rotation(qt.clone(), bus, rx.clone()));
         self.as_mut().rust_mut().accelerometer = Some(tx);
         self.want_sensors();
         let (tx, rx) = async_channel::bounded(8);
@@ -1408,59 +1408,116 @@ fn orientation(proxy: &str) -> Option<&'static str> {
     }
 }
 
-/// Follows the accelerometer while it is wanted.
-async fn rotation(qt: cxx_qt::CxxQtThread<Display>, wanted: Receiver<bool>) {
-    let proxy = async { SensorProxyProxy::new(&io::system_bus().await?).await }.await;
-    let Ok(proxy) = proxy else { return };
-    if !proxy.has_accelerometer().await.unwrap_or(false) {
-        return;
-    }
-    qt.queue(|mut obj| set!(obj, rotation_available, rotation_available_changed, true))
+/// What the accelerometer follower has for the Display.
+#[derive(Debug, PartialEq)]
+enum Turn {
+    Available,
+    Orientation(&'static str),
+}
+
+/// Why following the accelerometer stopped.
+enum Followed {
+    /// No accelerometer, or nobody left to want one: for good.
+    Done,
+    /// iio-sensor-proxy went away or was replaced: follow it again.
+    Lost,
+}
+
+/// A follower that ends this soon after it started waits twice as long
+/// before the next, so a proxy that keeps failing does not spin.
+const FOLLOW_RETRY: Duration = Duration::from_millis(250);
+const FOLLOW_RETRY_MAX: Duration = Duration::from_secs(32);
+const FOLLOW_SHORT_LIVED: Duration = Duration::from_secs(10);
+
+/// Follows the accelerometer while it is wanted, and iio-sensor-proxy
+/// again each time it restarts: a new one has lost the claim, so it would
+/// never report another turn.
+async fn rotation(qt: cxx_qt::CxxQtThread<Display>, bus: zbus::Connection, wanted: Receiver<bool>) {
+    let report = move |turn| {
+        qt.queue(move |mut obj| match turn {
+            Turn::Available => set!(obj, rotation_available, rotation_available_changed, true),
+            Turn::Orientation(o) => {
+                set!(obj, orientation, orientation_changed, QString::from(o))
+            }
+        })
         .ok();
+    };
+    follow_rotation(&bus, &wanted, &report).await;
+}
+
+async fn follow_rotation(bus: &zbus::Connection, wanted: &Receiver<bool>, report: &impl Fn(Turn)) {
+    let mut want = false;
+    let mut retry = FOLLOW_RETRY;
+    loop {
+        let started = Instant::now();
+        match follow_accelerometer(bus, wanted, &mut want, report).await {
+            Ok(Followed::Done) => return,
+            Ok(Followed::Lost) => {}
+            Err(e) => log::warn("display", format_args!("accelerometer: {e}")),
+        }
+        if started.elapsed() >= FOLLOW_SHORT_LIVED {
+            retry = FOLLOW_RETRY;
+        }
+        Timer::after(retry).await;
+        retry = (retry * 2).min(FOLLOW_RETRY_MAX);
+    }
+}
+
+/// One iio-sensor-proxy's accelerometer, claimed while `want` is true.
+async fn follow_accelerometer(
+    bus: &zbus::Connection,
+    wanted: &Receiver<bool>,
+    want: &mut bool,
+    report: &impl Fn(Turn),
+) -> zbus::Result<Followed> {
+    let proxy = SensorProxyProxy::new(bus).await?;
+    let mut owners = proxy.inner().receive_owner_changed().await?;
+    if !proxy.has_accelerometer().await? {
+        return Ok(Followed::Done);
+    }
+    report(Turn::Available);
     let mut turns = proxy.receive_accelerometer_orientation_changed().await;
     let mut claimed = false;
     loop {
-        let next = future::or(async { Ok(wanted.recv().await) }, async {
-            Err(turns.next().await)
-        })
-        .await;
-        let turned = match next {
-            Ok(Err(_)) | Err(None) => return,
-            Ok(Ok(want)) if want == claimed => continue,
-            Ok(Ok(want)) => {
-                let done = if want {
-                    proxy.claim_accelerometer().await
-                } else {
-                    proxy.release_accelerometer().await
-                };
-                if let Err(e) = done {
-                    log::warn("display", format_args!("accelerometer: {e}"));
-                    continue;
+        if *want != claimed {
+            if *want {
+                proxy.claim_accelerometer().await?;
+                claimed = true;
+                if let Some(o) = orientation(&proxy.accelerometer_orientation().await?) {
+                    report(Turn::Orientation(o));
                 }
-                claimed = want;
-                if !want {
-                    // Stale once released: the next claim reads it afresh.
-                    qt.queue(|mut obj| {
-                        set!(
-                            obj,
-                            orientation,
-                            orientation_changed,
-                            QString::from("portrait")
-                        );
-                    })
-                    .ok();
-                    continue;
-                }
-                proxy.accelerometer_orientation().await.ok()
+            } else {
+                proxy.release_accelerometer().await?;
+                claimed = false;
+                // Stale once released: the next claim reads it afresh.
+                report(Turn::Orientation("portrait"));
             }
-            Err(Some(turn)) if claimed => turn.get().await.ok(),
-            Err(Some(_)) => continue,
-        };
-        if let Some(o) = turned.as_deref().and_then(orientation) {
-            qt.queue(move |mut obj| set!(obj, orientation, orientation_changed, QString::from(o)))
-                .ok();
+        }
+        let next = future::or(
+            future::or(async { Event::Wanted(wanted.recv().await.ok()) }, async {
+                Event::Turned(turns.next().await)
+            }),
+            async { Event::Owner(owners.next().await) },
+        )
+        .await;
+        match next {
+            Event::Wanted(None) => return Ok(Followed::Done),
+            Event::Wanted(Some(w)) => *want = w,
+            Event::Turned(None) | Event::Owner(_) => return Ok(Followed::Lost),
+            Event::Turned(Some(turn)) if claimed => {
+                if let Some(o) = turn.get().await.ok().as_deref().and_then(orientation) {
+                    report(Turn::Orientation(o));
+                }
+            }
+            Event::Turned(Some(_)) => {}
         }
     }
+}
+
+enum Event<T, O> {
+    Wanted(Option<bool>),
+    Turned(Option<T>),
+    Owner(Option<O>),
 }
 
 /// The policy thread put the panel in `w`.
@@ -1825,5 +1882,127 @@ mod tests {
         let day = 20_000 * 86_400;
         assert_eq!(lit(day + 23 * 3600), 78);
         assert_eq!(lit(day + 12 * 3600), 0);
+    }
+
+    mod rotation {
+        use super::super::{follow_rotation, Turn};
+        use std::path::Path;
+        use std::process::{Child, Command};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        use std::time::Duration;
+
+        struct Daemon(Child);
+
+        impl Drop for Daemon {
+            fn drop(&mut self) {
+                self.0.kill().ok();
+                self.0.wait().ok();
+            }
+        }
+
+        struct SensorProxy {
+            orientation: &'static str,
+            claims: Arc<AtomicUsize>,
+        }
+
+        #[zbus::interface(name = "net.hadess.SensorProxy")]
+        impl SensorProxy {
+            fn claim_accelerometer(&self) {
+                self.claims.fetch_add(1, Ordering::SeqCst);
+            }
+            fn release_accelerometer(&self) {}
+            #[zbus(property)]
+            fn has_accelerometer(&self) -> bool {
+                true
+            }
+            #[zbus(property)]
+            fn accelerometer_orientation(&self) -> String {
+                self.orientation.to_owned()
+            }
+        }
+
+        fn found(program: &str) -> bool {
+            std::env::var_os("PATH")
+                .is_some_and(|p| std::env::split_paths(&p).any(|d| d.join(program).is_file()))
+        }
+
+        fn bus(dir: &Path) -> (Daemon, String) {
+            let address = format!("unix:path={}", dir.join("socket").display());
+            let daemon = Daemon(
+                Command::new("dbus-daemon")
+                    .args(["--session", "--nofork", "--nopidfile"])
+                    .arg(format!("--address={address}"))
+                    .spawn()
+                    .unwrap(),
+            );
+            for _ in 0..100 {
+                if dir.join("socket").exists() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            (daemon, address)
+        }
+
+        async fn sensor_proxy(
+            address: &str,
+            orientation: &'static str,
+            claims: &Arc<AtomicUsize>,
+        ) -> zbus::Connection {
+            let proxy = SensorProxy {
+                orientation,
+                claims: claims.clone(),
+            };
+            zbus::connection::Builder::address(address)
+                .name("net.hadess.SensorProxy")
+                .serve_at("/net/hadess/SensorProxy", proxy)
+                .build()
+                .await
+                .unwrap()
+        }
+
+        #[test]
+        fn a_restarted_sensor_proxy_is_claimed_and_followed_again() {
+            if !found("dbus-daemon") {
+                return;
+            }
+            let dir = tempfile::tempdir().unwrap();
+            let (_daemon, address) = bus(dir.path());
+            async_io::block_on(async {
+                let first_claims = Arc::new(AtomicUsize::new(0));
+                let first = sensor_proxy(&address, "normal", &first_claims).await;
+                let shell = zbus::connection::Builder::address(address.as_str())
+                    .build()
+                    .await
+                    .unwrap();
+                let (want, wanted) = async_channel::unbounded();
+                let (tx, turns) = async_channel::unbounded();
+                let report = move |turn| {
+                    tx.try_send(turn).unwrap();
+                };
+                let next = || async {
+                    super::super::io::timeout(Duration::from_secs(10), turns.recv())
+                        .await
+                        .expect("a turn within 10 s")
+                        .unwrap()
+                };
+                let test = async {
+                    assert_eq!(next().await, Turn::Available);
+                    want.send(true).await.unwrap();
+                    assert_eq!(next().await, Turn::Orientation("portrait"));
+                    assert_eq!(first_claims.load(Ordering::SeqCst), 1);
+
+                    drop(first);
+                    let second_claims = Arc::new(AtomicUsize::new(0));
+                    let _second = sensor_proxy(&address, "bottom-up", &second_claims).await;
+                    assert_eq!(next().await, Turn::Available);
+                    assert_eq!(next().await, Turn::Orientation("portrait-inverted"));
+                    assert_eq!(second_claims.load(Ordering::SeqCst), 1);
+                    drop(want);
+                };
+                futures_lite::future::zip(follow_rotation(&shell, &wanted, &report), test).await;
+            });
+        }
     }
 }
