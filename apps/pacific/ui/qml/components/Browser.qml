@@ -585,11 +585,13 @@ Item {
 
     // Pilot browses in a headless view on the private profile: nothing it
     // does reaches the person's history, cookies or tabs, and it never
-    // shows unless the person takes it over.
+    // shows unless the person takes it over. Hidden, so it takes no touches:
+    // it is window-sized and above the pages.
     Component {
         id: agentComponent
         WebView {
             headless: true
+            visible: false
             active: false
             profile: WebEngine.privateProfile
             width: browser.window ? browser.window.width : Theme.itemSizeHuge * 4
