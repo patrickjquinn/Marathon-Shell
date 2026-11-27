@@ -1371,6 +1371,7 @@ const DEFAULT_APPS: [(&str, &str, &str); 9] = [
     ("files", "apps/defaultFiles", ""),
 ];
 
+#[derive(Clone)]
 struct Settings1 {
     qt: Qt,
 }

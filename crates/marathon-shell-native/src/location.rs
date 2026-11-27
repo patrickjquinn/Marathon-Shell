@@ -153,6 +153,7 @@ fn fix(location: &Location) -> State {
     ])
 }
 
+#[derive(Clone)]
 struct Location1 {
     qt: cxx_qt::CxxQtThread<Location>,
     actor: Sender<Ask>,

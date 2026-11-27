@@ -1524,6 +1524,7 @@ fn state(display: &Display) -> State {
     ])
 }
 
+#[derive(Clone)]
 struct Display1 {
     qt: cxx_qt::CxxQtThread<Display>,
 }
@@ -1666,6 +1667,7 @@ impl Display1 {
     }
 }
 
+#[derive(Clone)]
 struct Sensor1 {
     qt: cxx_qt::CxxQtThread<Display>,
 }

@@ -1353,6 +1353,7 @@ fn wire(view: &serde_json::Value) -> ipc::State {
     state
 }
 
+#[derive(Clone)]
 struct Updates1 {
     qt: Qt,
 }

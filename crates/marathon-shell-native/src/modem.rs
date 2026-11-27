@@ -688,6 +688,7 @@ fn state(modem: &Modem) -> State {
     ])
 }
 
+#[derive(Clone)]
 struct Modem1 {
     qt: cxx_qt::CxxQtThread<Modem>,
 }
@@ -770,6 +771,7 @@ fn route_audio(method: &'static str, on: bool) {
     });
 }
 
+#[derive(Clone)]
 struct Telephony1 {
     qt: cxx_qt::CxxQtThread<Modem>,
 }

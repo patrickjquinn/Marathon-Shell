@@ -439,6 +439,7 @@ fn state(map: &Map) -> State {
         .collect()
 }
 
+#[derive(Clone)]
 struct Ambience1 {
     qt: cxx_qt::CxxQtThread<Ambience>,
 }
@@ -451,6 +452,7 @@ impl Ambience1 {
     }
 }
 
+#[derive(Clone)]
 struct Wallpaper1;
 
 /// Public: the built-in wallpapers.

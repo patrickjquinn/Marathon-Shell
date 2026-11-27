@@ -676,6 +676,7 @@ fn state(network: &Network) -> State {
     ])
 }
 
+#[derive(Clone)]
 struct Network1 {
     qt: cxx_qt::CxxQtThread<Network>,
 }

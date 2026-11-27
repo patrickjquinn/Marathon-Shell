@@ -174,6 +174,7 @@ impl Haptics {
     }
 }
 
+#[derive(Clone)]
 struct Haptic1 {
     qt: cxx_qt::CxxQtThread<Haptics>,
 }

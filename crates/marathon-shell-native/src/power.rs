@@ -1566,6 +1566,7 @@ pub(crate) fn state_changed() {
     }
 }
 
+#[derive(Clone)]
 struct Power1 {
     qt: cxx_qt::CxxQtThread<Power>,
 }

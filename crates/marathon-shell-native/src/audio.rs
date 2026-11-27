@@ -785,6 +785,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     }
 }
 
+#[derive(Clone)]
 struct Audio1 {
     qt: Qt,
 }

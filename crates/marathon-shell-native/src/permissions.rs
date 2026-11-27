@@ -999,6 +999,7 @@ impl Drop for Waiting {
     }
 }
 
+#[derive(Clone)]
 struct Permissions1 {
     qt: cxx_qt::CxxQtThread<Permissions>,
 }

@@ -33,18 +33,15 @@ pub fn path(name: &str) -> String {
     format!("/org/marathonos/Shell/{name}")
 }
 
-/// Serves `iface` at `/org/marathonos/Shell/<name>`.
-pub fn export<I: Interface>(name: &'static str, iface: I) {
-    io::spawn(async move {
-        let served = async {
-            io::session_bus()
-                .await?
-                .object_server()
-                .at(path(name), iface)
-                .await
-        };
-        if let Err(e) = served.await {
-            log::warn("ipc", format_args!("cannot serve {name}: {e}"));
+/// Serves `iface` at `/org/marathonos/Shell/<name>`, on each new session
+/// bus connection too.
+pub fn export<I: Interface + Clone>(name: &'static str, iface: I) {
+    io::each_session_bus(move |bus| {
+        let iface = iface.clone();
+        async move {
+            if let Err(e) = bus.object_server().at(path(name), iface).await {
+                log::warn("ipc", format_args!("cannot serve {name}: {e}"));
+            }
         }
     });
 }
@@ -52,11 +49,7 @@ pub fn export<I: Interface>(name: &'static str, iface: I) {
 static NAMED: async_lock::OnceCell<()> = async_lock::OnceCell::new();
 
 fn own_name() {
-    io::spawn(async {
-        let bus = match io::session_bus().await {
-            Ok(bus) => bus,
-            Err(e) => return log::warn("ipc", format_args!("no session bus: {e}")),
-        };
+    io::each_session_bus(|bus| async move {
         if let Err(e) = bus.request_name(NAME).await {
             return log::warn("ipc", format_args!("cannot own {NAME}: {e}"));
         }

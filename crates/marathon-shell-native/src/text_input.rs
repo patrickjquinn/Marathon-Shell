@@ -271,6 +271,7 @@ impl RemoteTextInput {
     }
 }
 
+#[derive(Clone)]
 struct TextInput1 {
     qt: Qt,
 }

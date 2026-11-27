@@ -459,6 +459,7 @@ fn state(bt: &Bluetooth) -> State {
     ])
 }
 
+#[derive(Clone)]
 struct Bluetooth1 {
     qt: cxx_qt::CxxQtThread<Bluetooth>,
 }
