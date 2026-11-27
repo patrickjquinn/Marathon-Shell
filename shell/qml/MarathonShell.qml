@@ -241,6 +241,9 @@ Item {
         case "keyboard":
             virtualKeyboard.active = !virtualKeyboard.active;
             break;
+        case "clipboard":
+            UIStore.openClipboardManager();
+            break;
         }
         HapticManager.light();
     }
@@ -1328,6 +1331,7 @@ Item {
         function onHomeRequested(switcher) {
             UIStore.closeSearch();
             UIStore.closeQuickSettings();
+            UIStore.closeClipboardManager();
             virtualKeyboard.active = false;
             shell.handleHomeKey();
             if (!switcher) {
@@ -1375,7 +1379,7 @@ Item {
             id: wallpaperImage
             width: shell.width
             height: shell.height
-            source: SettingsManagerCpp.wallpaperPath
+            source: MColors.wallpaper(SettingsManagerCpp.wallpaperPath)
             // Decoded off the GUI thread at the screen's size; a new one
             // replaces the old once ready.
             sourceSize: Qt.size(width, height)
@@ -2523,6 +2527,9 @@ Item {
                 // Without this gate DND still flashed a toast for every
                 // notification, so the toggle only half-worked.
                 if (NotificationService.isDndEnabled)
+                    return;
+                // Setup covers the screen; what arrives during it waits in the Hub.
+                if (!SettingsManagerCpp.firstRunComplete)
                     return;
                 // The Hub already lists it, under where the banner would cover its header.
                 if (peekFlow.peekProgress > 0 || (!UIStore.appWindowOpen && pageView.currentIndex === 0))

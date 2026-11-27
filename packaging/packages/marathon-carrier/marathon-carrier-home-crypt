@@ -144,6 +144,11 @@ unlock() {
 			plymouth ask-for-password --prompt="$prompt" --number-of-tries=1 --command="$open" && pin_typed=1 && return 0
 		elif [ -z "${pad_failed:-}" ]; then
 			pin_pad && pin_typed=1 && return 0
+			# A PIN opened /home and the pad died on its way out.
+			if cryptsetup status "$name" > /dev/null 2>&1; then
+				pin_typed=1
+				return 0
+			fi
 			# Stopped by marathon-carrier-home-unlock, or failed.
 			if [ ! -e "$remote" ]; then
 				log "the PIN pad failed; unl0kr asks instead"

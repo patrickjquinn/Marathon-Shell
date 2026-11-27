@@ -7,6 +7,17 @@ QtObject {
 
     property var shell: null
     property var compositor: null
+    // Only an app turns with the phone; the shell's own screens stay upright.
+    readonly property bool appForeground: shell !== null && shell.state === "app"
+    readonly property string orientation: appForeground && !Display.rotationLocked ? Display.orientation : "portrait"
+
+    onAppForegroundChanged: Display.setRotationWanted(appForeground)
+
+    onOrientationChanged: {
+        Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
+        if (compositor)
+            compositor.setOutputOrientation(orientation);
+    }
 
     function initialize(shellRef, rootWindow) {
         root.shell = shellRef;
@@ -55,14 +66,6 @@ QtObject {
         Display.screenStateChanged.connect(function (on) {
             if (root.compositor)
                 root.compositor.setCompositorActive(on);
-        });
-        Display.orientationChanged.connect(function () {
-            var orientation = Display.orientation;
-            if (root.compositor)
-                Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
-
-            if (root.compositor)
-                root.compositor.setOutputOrientation(orientation);
         });
     }
 }

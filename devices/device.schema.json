@@ -177,6 +177,7 @@
         "doze_dpms": {"description": "Doze powers the CRTC down; false = backlight only.", "type": "boolean"},
         "wifi_powersave": {"type": "boolean"},
         "screen_timeout_ms": {"description": "Default idle screen-off; 0 = never.", "type": "integer", "minimum": 0},
+        "ui_scale": {"description": "The interface size (Settings' Interface size, setup's Text and icon size) a fresh install starts at; 1 = 100%.", "type": "number", "minimum": 0.5, "maximum": 2},
         "wake_on_key": {"type": "boolean"},
         "runner_pool": {"description": "Warm spare app runners: 1 in the sandbox recent launches needed, 2 one with the media folders and one without, 0 none.", "type": "integer", "minimum": 0, "maximum": 2},
         "panel_depth": {"description": "Bits per channel; below 8 the shell dithers the frame.", "type": "integer", "minimum": 4, "maximum": 10},

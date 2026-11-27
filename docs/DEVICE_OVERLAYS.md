@@ -121,6 +121,7 @@ location (for host testing).
 | `DOZE_DPMS` | `MARATHON_DOZE_DPMS` | `1` | Doze powers the display pipeline down (CRTC `ACTIVE=0`); `0` blanks the backlight only, for panels that don't recover from a stopped pixel stream (HyperPixel on RP1 DPI) |
 | `WIFI_POWERSAVE` | `MARATHON_WIFI_POWERSAVE` | `1` | Doze turns on Wi-Fi power save (`iw ... power_save on`); `0` leaves it off |
 | `SCREEN_TIMEOUT_MS` | `MARATHON_SCREEN_TIMEOUT_MS` | `300000` | Default idle screen-off timeout until the user picks one; `0` = never (devices whose power key is out of reach, like the HackberryPi) |
+| `UI_SCALE` | `MARATHON_UI_SCALE` | `1` | The interface size a fresh install starts at, until the user picks one in setup or Settings (`userScaleFactor`); it multiplies the DPI's scale. Settings1 publishes it as `defaultUserScaleFactor`, which setup and Settings label "Default" |
 | `WAKE_ON_KEY` | `MARATHON_WAKE_ON_KEY` | `0` | `1` = any key on a physical keyboard wakes a blanked screen (not delivered to apps, doesn't unlock); for keyboard handhelds whose power key is hard to reach |
 | `RUNNER_POOL` | `MARATHON_RUNNER_POOL` | `1` | Warm spare app runners (~150–220 MB RSS each). `1` keeps one, in the sandbox (with or without the media folders) most recent launches needed; `2` keeps one of each, so every Marathon app but the WebEngine ones starts warm; `0` none |
 | `PANEL_DEPTH` | `MARATHON_PANEL_DEPTH` | `8` | Bits per colour channel the panel shows; below 8 the shell dithers the whole frame (the HackberryPi's RP1 DPI is wired BGR666 and doesn't dither) |

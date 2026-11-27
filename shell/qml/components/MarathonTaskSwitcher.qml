@@ -38,7 +38,7 @@ Item {
         for (var i = 0; i < taskGrid.count; ++i) {
             var card = taskGrid.itemAtIndex(i) as TaskCard;
             if (card && card.appId === appId) {
-                taskGrid.showPage(Math.floor(i / 4));
+                taskGrid.showPage(Math.floor(i / (2 * taskGrid.pageRows)));
                 return;
             }
         }
@@ -197,14 +197,16 @@ Item {
     GridView {
         id: taskGrid
 
-        // Two by two cards a page, as BB10's active frames, filling their
-        // cells whatever the screen's shape; pages scroll vertically. The
-        // gap between cards and at the edges is paddingMedium.
+        // Two cards a row, as BB10's active frames, filling their cells;
+        // pages scroll vertically. Two rows a page, three where two would
+        // make the cards taller than 1.4 times their width. The gap between
+        // cards and at the edges is paddingMedium.
         readonly property real gap: Silica.Theme.paddingMedium
         readonly property real bannerHeight: Silica.Theme.iconSizeSmall + 2 * Silica.Theme.paddingSmall
+        readonly property int pageRows: height > 1.4 * width ? 3 : 2
         readonly property int rows: Math.ceil(count / 2)
-        readonly property int pages: Math.max(1, Math.ceil(rows / 2))
-        readonly property real pageHeight: 2 * cellHeight
+        readonly property int pages: Math.max(1, Math.ceil(rows / pageRows))
+        readonly property real pageHeight: pageRows * cellHeight
         // Every card's cover area; Keel covers are laid out at this size.
         readonly property size coverSize: Qt.size(Math.max(0, cellWidth - gap), Math.max(0, cellHeight - gap - bannerHeight))
         property int dragStartPage: 0
@@ -230,11 +232,11 @@ Item {
         anchors.margins: gap / 2
         anchors.bottomMargin: Constants.bottomBarHeight + gap / 2
         cellWidth: Math.floor(width / 2)
-        cellHeight: Math.floor(height / 2)
+        cellHeight: Math.floor(height / pageRows)
         // Pads a part-filled last page so it can be paged to.
         footer: Item {
             width: 1
-            height: (taskGrid.pages * 2 - taskGrid.rows) * taskGrid.cellHeight
+            height: (taskGrid.pages * taskGrid.pageRows - taskGrid.rows) * taskGrid.cellHeight
         }
         clip: true
         Component.onCompleted: {

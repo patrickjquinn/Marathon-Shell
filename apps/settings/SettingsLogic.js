@@ -45,6 +45,16 @@ const pages = {
     permissions: "PermissionsPage.qml"
 };
 
+// Routes that land on one row of their page, which the page scrolls to.
+const rows = {
+    scale: "scale",
+    screentimeout: "timeout"
+};
+
+function pageRow(route) {
+    return rows[String(route || "").replace(/^\/+/, "").split(/[/?]/)[0].toLowerCase()] || "";
+}
+
 function pageFile(route) {
     const name = String(route || "").replace(/^\/+/, "").split(/[/?]/)[0].toLowerCase();
     return pages[name] || "";
@@ -254,12 +264,17 @@ function presentTiles(hardware) {
 const scales = [
     { factor: 0.75, title: qsTr("75%"), description: qsTr("Compact") },
     { factor: 0.9, title: qsTr("90%"), description: qsTr("Small") },
-    { factor: 1, title: qsTr("100%"), description: qsTr("Default") },
+    { factor: 1, title: qsTr("100%"), description: qsTr("Medium") },
     { factor: 1.1, title: qsTr("110%"), description: qsTr("Comfortable") },
     { factor: 1.25, title: qsTr("125%"), description: qsTr("Large") },
     { factor: 1.4, title: qsTr("140%"), description: qsTr("Extra large") },
     { factor: 1.5, title: qsTr("150%"), description: qsTr("Huge") }
 ];
+
+// The size the device starts at (Settings.defaultUserScaleFactor) reads as its default.
+function scaleDescription(scale, deviceDefault) {
+    return scales[nearestIndex(scales.map(s => s.factor), deviceDefault)].factor === scale.factor ? qsTr("Default") : scale.description;
+}
 
 // The shell's screenTimeout is in milliseconds; 0 keeps the screen on.
 // What the key between the volume keys does (Settings.assistKeyPress, assistKeyHold).

@@ -531,8 +531,11 @@ TestCase {
         verify(!child(s.page, "placeholder").enabled);
         const data = child(s.page, "dataSwitch");
         verify(!data.checked);
+        Modem.dataFailed = true;
+        compare(data.description, "Couldn't connect. Tap to try again.");
         data.clicked(null);
         verify(Modem.dataEnabled);
+        compare(data.description, "Use the mobile network for internet");
         child(s.page, "roamingSwitch").clicked(null);
         verify(Modem.dataRoamingAllowed);
         const mode = child(s.page, "modeCombo");

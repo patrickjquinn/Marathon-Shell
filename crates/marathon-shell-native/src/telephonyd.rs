@@ -70,38 +70,38 @@ pub struct TelephonydRust;
 impl cxx_qt::Initialize for Telephonyd {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        io::spawn(async move {
-            let Ok(bus) = io::session_bus().await else {
-                return log::warn("Telephonyd", "no session bus");
-            };
-            let (Ok(received), Ok(changes)) = (
-                follow(&bus, "MessageReceived").await,
-                follow(&bus, "ConversationsChanged").await,
-            ) else {
-                return log::warn("Telephonyd", "cannot follow texts");
-            };
-            if let Err(e) = start(&bus).await {
-                log::warn("Telephonyd", format_args!("cannot start {BUS}: {e}"));
-            }
-            io::spawn(dismiss_read(bus.clone(), changes));
-            let mut texts = std::pin::pin!(received.filter_map(|m| m
-                .ok()?
-                .body()
-                .deserialize::<(String, String, i64)>()
-                .ok()));
-            while let Some((sender, text, at)) = texts.next().await {
-                let thread = ask::<String>(&bus, "GenerateConversationId", &(&sender,))
-                    .await
-                    .unwrap_or_default();
-                qt.queue(move |obj| {
-                    obj.message_received(
-                        &QString::from(&sender),
-                        &QString::from(&text),
-                        at,
-                        &QString::from(&thread),
-                    );
-                })
-                .ok();
+        io::each_session_bus(move |bus| {
+            let qt = qt.clone();
+            async move {
+                let (Ok(received), Ok(changes)) = (
+                    follow(&bus, "MessageReceived").await,
+                    follow(&bus, "ConversationsChanged").await,
+                ) else {
+                    return log::warn("Telephonyd", "cannot follow texts");
+                };
+                if let Err(e) = start(&bus).await {
+                    log::warn("Telephonyd", format_args!("cannot start {BUS}: {e}"));
+                }
+                io::spawn(dismiss_read(bus.clone(), changes));
+                let mut texts = std::pin::pin!(received.filter_map(|m| m
+                    .ok()?
+                    .body()
+                    .deserialize::<(String, String, i64)>()
+                    .ok()));
+                while let Some((sender, text, at)) = texts.next().await {
+                    let thread = ask::<String>(&bus, "GenerateConversationId", &(&sender,))
+                        .await
+                        .unwrap_or_default();
+                    qt.queue(move |obj| {
+                        obj.message_received(
+                            &QString::from(&sender),
+                            &QString::from(&text),
+                            at,
+                            &QString::from(&thread),
+                        );
+                    })
+                    .ok();
+                }
             }
         });
     }

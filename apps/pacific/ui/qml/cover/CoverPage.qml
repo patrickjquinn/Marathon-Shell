@@ -54,8 +54,18 @@ CoverBackground {
         // Decoded off the main thread, at the cover's size.
         asynchronous: true
         sourceSize.width: width
-        opacity: 0.6
+        // Faint and fading out above the title: the card's frost shows
+        // through it, one surface with no edge.
+        opacity: Theme.opacityFaint
         visible: status === Image.Ready
+    }
+    // Draws the image in its place, so it takes the image's opacity too.
+    OpacityRampEffect {
+        sourceItem: thumb
+        direction: OpacityRamp.TopToBottom
+        offset: 0.3
+        slope: 1 / 0.7
+        opacity: Theme.opacityFaint
     }
 
     Column {

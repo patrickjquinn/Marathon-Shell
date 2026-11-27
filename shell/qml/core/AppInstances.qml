@@ -25,6 +25,9 @@ QtObject {
     }
 
     function register(appId, instance) {
+        const live = instances[appId];
+        if (live && live !== instance)
+            console.warn("[AppInstances] a second window for " + appId + " replaces a live one");
         instances[appId] = instance;
         Tasks.registerApp(appId, {
             "appName": instance.appName || "",

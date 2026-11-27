@@ -52,11 +52,12 @@ Rectangle {
                 required property int index
                 required property var modelData
 
+                objectName: "clipEntry"
                 width: ListView.view.width
                 height: Math.max(Silica.Theme.itemSizeMedium, clipText.height + Silica.Theme.paddingMedium * 2)
                 onClicked: {
                     Logger.info("ClipboardManager", "Selected item: " + clipItem.modelData.text.substring(0, 30));
-                    ClipboardManagerCpp.copyToClipboard(clipItem.modelData.text);
+                    Silica.Clipboard.text = clipItem.modelData.text;
                     HapticManager.light();
                     UIStore.closeClipboardManager();
                 }

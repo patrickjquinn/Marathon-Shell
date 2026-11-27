@@ -16,6 +16,7 @@
 #include <QLineF>
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QGuiApplication>
 #include <QImage>
 #include <QInputDevice>
@@ -2456,7 +2457,9 @@ void PacificWebView::saveThumbnail(const QString &path, int maxWidth, int maxHei
                     QImage scaled = frame.scaled(call->max.width() > 0 ? call->max.width() : w,
                                                  call->max.height() > 0 ? call->max.height() : h,
                                                  Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                    ok            = scaled.save(call->path);
+                    QSaveFile file(call->path);
+                    ok = file.open(QIODevice::WriteOnly) && scaled.save(&file, "PNG") &&
+                        file.commit();
                 }
                 // The bytes belong to the image (transfer none): released with it.
                 g_object_unref(image);
@@ -2874,6 +2877,15 @@ void PacificWebView::keyPressEvent(QKeyEvent *event) {
     }
     if (!m_backend)
         return;
+    // The engine's pasteboard is its own: Ctrl+V pastes the system clipboard,
+    // and what Ctrl+C or Ctrl+X take goes to it.
+    if (event->matches(QKeySequence::Paste) && m_im.focused) {
+        executeEditingCommand(Paste);
+        event->accept();
+        return;
+    }
+    if (event->matches(QKeySequence::Copy) || event->matches(QKeySequence::Cut))
+        copySelection();
     // Soft keys carry no scan code. In ScriptInput mode their text goes in by
     // script like the rest of the keyboard's text.
     const bool soft = event->nativeScanCode() == 0;

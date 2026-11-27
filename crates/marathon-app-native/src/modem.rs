@@ -29,6 +29,7 @@ pub mod qobject {
         #[qproperty(QString, network_type, cxx_name = "networkType", READ, NOTIFY = state_changed)]
         #[qproperty(bool, roaming, READ, NOTIFY = state_changed)]
         #[qproperty(bool, data_enabled, cxx_name = "dataEnabled", READ, NOTIFY = state_changed)]
+        #[qproperty(bool, data_failed, cxx_name = "dataFailed", READ, NOTIFY = state_changed)]
         #[qproperty(bool, data_roaming_allowed, cxx_name = "dataRoamingAllowed", READ, NOTIFY = state_changed)]
         #[qproperty(QList_QVariant, supported_modes, cxx_name = "supportedModes", READ, NOTIFY = state_changed)]
         #[qproperty(u32, mode_mask, cxx_name = "allowedModes", READ, NOTIFY = state_changed)]
@@ -90,6 +91,7 @@ pub struct ModemRust {
     network_type: QString,
     roaming: bool,
     data_enabled: bool,
+    data_failed: bool,
     data_roaming_allowed: bool,
     supported_modes: QList<QVariant>,
     mode_mask: u32,
@@ -112,6 +114,7 @@ impl cxx_qt::Initialize for Modem {
             m.network_type = get(&s, "networkType");
             m.roaming = get(&s, "roaming");
             m.data_enabled = get(&s, "dataEnabled");
+            m.data_failed = get(&s, "dataFailed");
             m.data_roaming_allowed = get(&s, "dataRoamingAllowed");
             m.supported_modes = get(&s, "supportedModes");
             m.mode_mask = get(&s, "allowedModes");

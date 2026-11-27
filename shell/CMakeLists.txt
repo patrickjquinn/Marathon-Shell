@@ -3,6 +3,8 @@ set(SOURCES
     src/diag/fpsmonitor.h
     src/diag/fpsmonitor.cpp
     src/components/svgimageprovider.h
+    src/components/wallpaperimageprovider.h
+    src/components/wallpaperimageprovider.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/marathoninputmethodengine.h
@@ -41,6 +43,10 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/waylandcompositor.cpp
         src/wayland/securitycontextv1.h
         src/wayland/securitycontextv1.cpp
+        src/wayland/sharedclipboard.h
+        src/wayland/sharedclipboard.cpp
+        src/wayland/symcontrol.h
+        src/wayland/symcontrol.cpp
         src/wayland/fifov1.h
         src/wayland/fifov1.cpp
         src/wayland/committimingv1.h

@@ -26,6 +26,7 @@ mod cgroup;
 pub mod clipboard;
 mod clock;
 pub mod contacts;
+mod data_backoff;
 mod desktop;
 pub mod device;
 pub mod display;

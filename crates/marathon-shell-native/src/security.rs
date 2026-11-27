@@ -868,6 +868,7 @@ async fn erase(qt: &cxx_qt::CxxQtThread<Security>, secret: String) -> Result<(),
     }
 }
 
+#[derive(Clone)]
 struct Security1 {
     qt: cxx_qt::CxxQtThread<Security>,
 }

@@ -8,6 +8,12 @@ QtObject {
     property bool nightshade: false
     property bool lightAvailable: true
     property bool rotationAvailable: true
+    property bool rotationLocked: false
+    property string orientation: "portrait"
+    property bool rotationWanted: false
+    function setRotationWanted(wanted) {
+        rotationWanted = wanted;
+    }
     property var offReasons: []
     // E-paper: as display.rs, with what the shell asked of the panel.
     property bool refreshControls: false

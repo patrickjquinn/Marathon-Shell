@@ -79,6 +79,11 @@ screen_timeout_ms = 0
 # As on the Q25: ondemand ramps only past 95% load; schedutil follows the
 # foreground uclamp.
 cpu_governor = "schedutil"
+# The user's own interface size on this screen, 125%.
+ui_scale = 1.25
+# An AMOLED panel: its blacks are pixels off, so no noise overlay lifts them.
+display_technology = "oled"
+panel_dither = false
 # The camera notch, from Sailfish's cutouts=[[310, 0, 414, 66]].
 display_cutout = "310,0,414,66"
 # 12 GB, as on the Q25: a warm spare runner with the media folders and one

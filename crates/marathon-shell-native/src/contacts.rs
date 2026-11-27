@@ -89,35 +89,35 @@ async fn read(bus: &zbus::Connection) -> zbus::Result<Vec<Known>> {
 impl cxx_qt::Initialize for Contacts {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        io::spawn(async move {
-            let Ok(bus) = io::session_bus().await else {
-                return log::warn("Contacts", "no session bus");
-            };
-            let rule = MatchRule::builder()
-                .msg_type(zbus::message::Type::Signal)
-                .sender(BUS)
-                .interface(INTERFACE)
-                .member("ContactsChanged")
-                .build();
-            let changes = match rule {
-                Ok(rule) => MessageStream::for_match_rule(rule, &bus, None).await,
-                Err(e) => Err(e),
-            };
-            let Ok(changes) = changes else {
-                return log::warn("Contacts", "cannot follow the address book");
-            };
-            crate::ipc::named().await;
-            let mut changes = std::pin::pin!(changes);
-            loop {
-                match read(&bus).await {
-                    Ok(known) => {
-                        qt.queue(move |mut obj| obj.as_mut().rust_mut().known = known)
-                            .ok();
+        io::each_session_bus(move |bus| {
+            let qt = qt.clone();
+            async move {
+                let rule = MatchRule::builder()
+                    .msg_type(zbus::message::Type::Signal)
+                    .sender(BUS)
+                    .interface(INTERFACE)
+                    .member("ContactsChanged")
+                    .build();
+                let changes = match rule {
+                    Ok(rule) => MessageStream::for_match_rule(rule, &bus, None).await,
+                    Err(e) => Err(e),
+                };
+                let Ok(changes) = changes else {
+                    return log::warn("Contacts", "cannot follow the address book");
+                };
+                crate::ipc::named().await;
+                let mut changes = std::pin::pin!(changes);
+                loop {
+                    match read(&bus).await {
+                        Ok(known) => {
+                            qt.queue(move |mut obj| obj.as_mut().rust_mut().known = known)
+                                .ok();
+                        }
+                        Err(e) => log::warn("Contacts", format_args!("GetContacts: {e}")),
                     }
-                    Err(e) => log::warn("Contacts", format_args!("GetContacts: {e}")),
-                }
-                if changes.next().await.is_none() {
-                    return;
+                    if changes.next().await.is_none() {
+                        return;
+                    }
                 }
             }
         });

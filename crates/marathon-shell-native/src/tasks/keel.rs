@@ -57,17 +57,19 @@ impl From<zbus::fdo::Error> for Error {
 }
 
 pub(super) fn export(qt: Qt) {
-    io::spawn(async move {
-        let served = async {
-            let bus = io::session_bus().await?;
-            bus.object_server()
-                .at("/org/shipwright/Keel/Actions", Actions { qt })
-                .await?;
-            bus.request_name("org.marathonos.shell").await?;
-            zbus::Result::Ok(())
-        };
-        if let Err(e) = served.await {
-            log::warn("keel", format_args!("shell actions not served: {e}"));
+    io::each_session_bus(move |bus| {
+        let qt = qt.clone();
+        async move {
+            let served = async {
+                bus.object_server()
+                    .at("/org/shipwright/Keel/Actions", Actions { qt })
+                    .await?;
+                bus.request_name("org.marathonos.shell").await?;
+                zbus::Result::Ok(())
+            };
+            if let Err(e) = served.await {
+                log::warn("keel", format_args!("shell actions not served: {e}"));
+            }
         }
     });
 }

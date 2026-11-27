@@ -1,5 +1,6 @@
 #include <cmath>
 #include <QClipboard>
+#include <QMimeData>
 #include <QGuiApplication>
 #include <QStyleHints>
 #include <QRect>
@@ -90,6 +91,7 @@
 #include "src/services/trackpadinput.h"
 #endif
 #include "src/components/svgimageprovider.h"
+#include "src/components/wallpaperimageprovider.h"
 
 #include "marathon-shell-native/src/mpris.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
@@ -286,6 +288,11 @@ static void startTouchInput(const QString &specification) {
         },
         qApp);
     const auto keys        = new TouchDevices(openTouchKeys, qApp);
+    // The reader threads stop before the application tears down the devices they report to.
+    QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, [devices, keys] {
+        delete keys;
+        delete devices;
+    });
     const auto updateCount = [devices] {
         int registered = 0;
         for (QObject *handler : devices->handlers())
@@ -851,6 +858,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<Session>("MarathonOS.Shell", 1, 0, "SessionStore", sessionStore);
 
     engine.addImageProvider("svg", new SvgImageProvider());
+    engine.addImageProvider("wallpaper", new WallpaperImageProvider());
 
     auto *ctx = engine.rootContext();
 
@@ -871,7 +879,7 @@ int main(int argc, char *argv[]) {
     startupMark("stores");
     auto *settingsManager = new marathon::Settings();
     settingsManager->setParent(&app);
-    settingsManager->load(device.screen_timeout_ms);
+    settingsManager->load(device.screen_timeout_ms, device.ui_scale);
     qmlRegisterSingletonInstance<marathon::Settings>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                      settingsManager);
 
@@ -1155,6 +1163,13 @@ int main(int argc, char *argv[]) {
     auto *clipboard = new Clipboard();
     clipboard->setParent(&app);
     ctx->setContextProperty("ClipboardManagerCpp", clipboard);
+    QObject::connect(
+        QGuiApplication::clipboard(), &QClipboard::dataChanged, clipboard, [clipboard] {
+            const QMimeData *data = QGuiApplication::clipboard()->mimeData();
+            // A password manager's copy stays out of the history.
+            if (data && data->hasText() && data->data("x-kde-passwordManagerHint") != "secret")
+                clipboard->remember(data->text());
+        });
     auto *alarmManager = new Alarms();
     alarmManager->setParent(&app);
     ctx->setContextProperty("AlarmManagerCpp", alarmManager);

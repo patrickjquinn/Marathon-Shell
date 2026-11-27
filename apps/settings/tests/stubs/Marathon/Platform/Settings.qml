@@ -18,6 +18,7 @@ QtObject {
     property bool dndEnabled: false
     property bool reduceMotion: false
     property real userScaleFactor: 1
+    property real defaultUserScaleFactor: 1
     property int screenTimeout: 60000
     property bool nightshadeEnabled: false
     property int nightshadeFrom: 1320
@@ -62,6 +63,7 @@ QtObject {
         dndEnabled = false;
         reduceMotion = false;
         userScaleFactor = 1;
+        defaultUserScaleFactor = 1;
         screenTimeout = 60000;
         nightshadeEnabled = false;
         nightshadeFrom = 1320;

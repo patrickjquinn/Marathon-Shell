@@ -425,12 +425,14 @@ Item {
                         radius: glass.radius
                     }
 
-                    // Its tone for any wallpaper: the app's frame can be anything.
+                    // Its tone for any wallpaper, deeper: an app's frame can be a
+                    // white page, which this brings down to the glass's own level.
                     KeelAmbienceBackground {
                         id: frostTone
 
                         visible: false
                         light: AmbienceService.light
+                        toneOpacity: 0.85
                     }
 
                     Rectangle {

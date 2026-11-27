@@ -221,7 +221,8 @@ pub(crate) fn notification_sound() {
 impl cxx_qt::Initialize for Audio {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(64);
-        io::spawn(run(self.qt_thread(), rx));
+        let qt = self.qt_thread();
+        io::each_session_bus(move |_| run(qt.clone(), rx.clone()));
         let mut rust = self.as_mut().rust_mut();
         rust.volume = rust.sink.volume;
         rust.actor = Some(tx);
@@ -785,6 +786,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     }
 }
 
+#[derive(Clone)]
 struct Audio1 {
     qt: Qt,
 }

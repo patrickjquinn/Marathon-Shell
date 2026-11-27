@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Window
 import QtTest
 import MarathonOS.Shell
+import Sailfish.Silica as Silica
 import "../../shell/qml/components"
 
 TestCase {
@@ -37,6 +38,14 @@ TestCase {
     function test_headerCornerDoesNotClear() {
         mouseClick(win.contentItem, Constants.statusBarHeight, Constants.statusBarHeight + 20);
         verify(!ClipboardManagerCpp.cleared);
+    }
+
+    function test_pickingAnEntryCopiesIt() {
+        Silica.Clipboard.text = "";
+        const entry = findChild(clipboard, "clipEntry");
+        mouseClick(entry, 20, entry.height / 2);
+        compare(Silica.Clipboard.text, "hello");
+        verify(!UIStore.clipboardManagerOpen);
     }
 
     function test_clearGoesThroughRemorse() {

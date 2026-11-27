@@ -190,8 +190,9 @@ Item {
     readonly property var tiles: {
         const wifiOn = SystemControlStore.shown("wifi", SystemControlStore.isWifiOn);
         const wifiJoined = wifiOn && SystemStatusStore.wifiConnected && SystemStatusStore.wifiNetwork !== "";
-        var t = [
-            {
+        var t = [];
+        if (Network.wifiAvailable)
+            t.push({
                 id: "wifi",
                 icon: "wifi-high",
                 route: "wifi",
@@ -199,8 +200,7 @@ Item {
                 //: Quick settings Wi-Fi tile status, e.g. "Wi-Fi · strong"
                 status: wifiJoined ? qsTr("Wi-Fi · %1").arg(signalWord(SystemStatusStore.wifiStrength)) : wifiOn ? qsTr("Not connected") : qsTr("Off"),
                 on: wifiOn
-            }
-        ];
+            });
         if (Modem.modemAvailable) {
             const dataOn = SystemControlStore.shown("cellular", SystemControlStore.isCellularDataOn);
             t.push({
@@ -209,7 +209,7 @@ Item {
                 route: "cellular",
                 label: SystemStatusStore.carrier || qsTr("Mobile"),
                 //: Quick settings mobile tile status: network type and signal, e.g. "LTE · good"
-                status: dataOn ? (SystemStatusStore.dataType ? qsTr("%1 · %2").arg(SystemStatusStore.dataType).arg(signalWord(SystemStatusStore.cellularStrength)) : signalWord(SystemStatusStore.cellularStrength)) : qsTr("Data off"),
+                status: dataOn ? (SystemStatusStore.dataType ? qsTr("%1 · %2").arg(SystemStatusStore.dataType).arg(signalWord(SystemStatusStore.cellularStrength)) : signalWord(SystemStatusStore.cellularStrength)) : Modem.dataFailed ? qsTr("Can't connect") : Modem.modemEnabled && !Modem.simPresent ? qsTr("No SIM") : Modem.modemEnabled && !Modem.registered ? qsTr("No service") : qsTr("Data off"),
                 on: dataOn
             });
         }
@@ -240,12 +240,14 @@ Item {
                 label: qsTr("Torch"),
                 on: SystemControlStore.isFlashlightOn
             });
+        if (Network.hotspotSupported)
+            t.push({
+                id: "hotspot",
+                icon: "broadcast",
+                label: qsTr("Hotspot"),
+                on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
+            });
         t.push({
-            id: "hotspot",
-            icon: "broadcast",
-            label: qsTr("Hotspot"),
-            on: SystemControlStore.shown("hotspot", SystemControlStore.isHotspotOn)
-        }, {
             id: "location",
             icon: "map-pin",
             label: qsTr("Location"),

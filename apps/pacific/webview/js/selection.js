@@ -9,7 +9,8 @@
 //   pacificSelection  {type:'select', text, startX/Y, endX/Y} or {type:'clear'}
 //                     (CSS px, viewport coordinates) for the selection handles
 //   pacificContext    {imageUrl, linkUrl, selectionText, editable, pageUrl, x, y}
-//                     on a long press, for the context menu
+//                     on a long press, for the context menu; in a text field
+//                     {editable, editMenu, secret, hasText, selected, pageUrl, x, y}
 // Changes from Atlantic: handler names, and the world guard.
 (function() {
     if (window.__pacificSelectionInstalled) return;
@@ -107,7 +108,29 @@
         }
     }
 
+    // The focused text field's selection, which the document's does not
+    // show; a password's never leaves the page.
+    function fieldSelection() {
+        var el = document.activeElement;
+        if (!el || !textControl(el) || el.selectionStart === el.selectionEnd)
+            return null;
+        if ((el.type || '').toLowerCase() === 'password')
+            return { type: 'clear' };
+        var rect = el.getBoundingClientRect();
+        return {
+            type: 'select',
+            text: el.value.substring(el.selectionStart, el.selectionEnd),
+            startX: rect.left,
+            startY: rect.bottom,
+            endX: rect.right,
+            endY: rect.bottom
+        };
+    }
+
     function selectionPayload() {
+        var field = fieldSelection();
+        if (field)
+            return field;
         var sel = window.getSelection ? window.getSelection() : null;
         if (!sel || !sel.rangeCount || sel.isCollapsed)
             return { type: 'clear' };
@@ -225,20 +248,53 @@
         return !!url && /^https?:\/\//i.test(url);
     }
 
-    function editableAtPoint(x, y) {
+    function textControl(el) {
+        var tag = el.tagName ? el.tagName.toLowerCase() : '';
+        return tag === 'textarea' || (tag === 'input' && !/^(button|submit|reset|checkbox|radio|file|image|color|range|hidden)$/i
+                .test(el.type || 'text'));
+    }
+
+    function editableElementAt(x, y) {
         var el = document.elementFromPoint(x, y);
         while (el) {
-            if (el.isContentEditable)
-                return true;
-            var tag = el.tagName ? el.tagName.toLowerCase() : '';
-            if (tag === 'textarea')
-                return true;
-            if (tag === 'input' && !/^(button|submit|reset|checkbox|radio|file|image)$/i
-                    .test(el.type || 'text'))
-                return true;
+            if (el.isContentEditable || textControl(el))
+                return el;
             el = el.parentElement;
         }
-        return false;
+        return null;
+    }
+
+    function editableAtPoint(x, y) {
+        return editableElementAt(x, y) !== null;
+    }
+
+    // A long press in a text field focuses it and asks for the edit bar.
+    // Editable text selects the word held; an input's is left to Select all,
+    // as a page cannot find the character under a point in one.
+    function editableLongPress(x, y) {
+        var el = editableElementAt(x, y);
+        if (!el || linkUrlAtPoint(x, y))
+            return false;
+        if (document.activeElement !== el)
+            el.focus();
+        var control = textControl(el);
+        if (!control)
+            selectWordAtPoint(x, y);
+        var selected = control ? el.selectionStart !== el.selectionEnd
+                               : !!window.getSelection() && !window.getSelection().isCollapsed;
+        try {
+            window.webkit.messageHandlers.pacificContext.postMessage({
+                editable: true,
+                editMenu: true,
+                secret: control && (el.type || '').toLowerCase() === 'password',
+                hasText: control ? el.value.length > 0 : (el.textContent || '').length > 0,
+                selected: selected,
+                pageUrl: location.href,
+                x: x, y: y
+            });
+        } catch(e) {}
+        postSelectionFinal();
+        return true;
     }
 
     // Reports what was long-pressed. The image URL keeps its own field because
@@ -284,6 +340,10 @@
             if (!longPressPoint) return;
             var lx = longPressPoint.x, ly = longPressPoint.y;
             longPressPoint = null;
+            if (editableLongPress(lx, ly)) {
+                longPressFired = true;
+                return;
+            }
             if (postImageLongPress(lx, ly)) {
                 longPressFired = true;
                 return;
@@ -305,12 +365,16 @@
     document.addEventListener('mouseup', postSelectionFinal, true);
     document.addEventListener('touchend', postSelectionFinal, {capture: true, passive: true});
     document.addEventListener('keyup', postSelectionFinal, true);
+    document.addEventListener('select', postSelectionFinal, true);
     document.addEventListener('contextmenu', function(e) {
         // WebKit's native long-press fires contextmenu reliably (this is the
         // working text-selection trigger); the JS touch-timer above can be
         // pre-empted by the compositor's scroll/gesture handling. Check for an
         // image here too so the image panel uses the same dependable signal.
         cancelLongPress();
+        // A field's spelling suggestions are WebKit's own menu: let it come.
+        if (editableLongPress(e.clientX, e.clientY))
+            return;
         if (postImageLongPress(e.clientX, e.clientY)) {
             e.preventDefault();
             return;

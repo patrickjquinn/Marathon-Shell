@@ -3,6 +3,8 @@ import QtQml
 
 QtObject {
     property int cancelledConnects: 0
+    property bool wifiAvailable: true
+    property bool hotspotSupported: wifiAvailable
     property var availableNetworks: []
     property bool wifiConnected: false
     property string connectivity: "full"

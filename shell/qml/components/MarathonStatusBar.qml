@@ -372,7 +372,7 @@ Item {
             color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
-            visible: SystemStatusStore.isWifiOn
+            visible: Network.wifiAvailable && SystemStatusStore.isWifiOn
         }
     }
 }
