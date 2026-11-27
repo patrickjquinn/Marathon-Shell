@@ -16,7 +16,7 @@ Rectangle {
 
     property bool isInPeekMode: false
     // Peeking over the screen, what it frosts, bottom to top; empty, the ambience.
-    property list<Item> backdrops
+    property var backdrops: []
     // As a page, it frosts only while on screen.
     property bool frostShown: true
     property var agenda: []

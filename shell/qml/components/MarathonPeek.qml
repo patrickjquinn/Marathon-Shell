@@ -14,7 +14,7 @@ Item {
     // As BB10's peek, a pull first rests on the apps with notifications.
     property bool iconsShown: false
     // What the peeking Hub frosts, bottom to top.
-    property list<Item> backdrops
+    property var backdrops: []
     readonly property real iconsStop: Math.max(0.2 * peekDrag.to, Silica.Theme.iconSizeMedium + 2 * Silica.Theme.paddingLarge)
     // Where a running settle was caught when the finger came down.
     property real gestureBase: 0

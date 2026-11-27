@@ -21,7 +21,7 @@ Item {
 
     // What the shade frosts, bottom to top: the open app, or the wallpaper
     // and the home screen.
-    property list<Item> backdrops
+    property var backdrops: []
 
     // A tall screen (a phone upright) has the height for two switches across,
     // all on one page, and larger discs; a square or wide one keeps three

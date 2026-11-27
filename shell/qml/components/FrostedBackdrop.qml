@@ -21,7 +21,10 @@ Item {
     id: root
 
     // Bottom to top, the layers behind; each fills the shell from its origin.
-    property list<Item> sources
+    // A plain array, not list<Item>: qmlcachegen (Qt 6.12) compiles a
+    // list<Item> binding that kept the first list it read, so a shade made
+    // while locked went on frosting the hidden lock screen, all black.
+    property var sources: []
     // The part of the shell they are captured over, in its coordinates.
     property rect region: Qt.rect(0, 0, width, height)
     property bool light: false
@@ -35,8 +38,7 @@ Item {
     // Off where the GPU is too weak for it (DeviceProfile.liveBlur), on
     // e-paper and in software rendering: the surface lies on the ambience.
     readonly property bool supported: Constants.liveBlur && !MColors.eink && GraphicsInfo.api !== GraphicsInfo.Software
-    readonly property bool running: visible && layers.length > 0 && region.width > 0 && region.height > 0
-    readonly property list<Item> layers: sources
+    readonly property bool running: visible && sources.length > 0 && region.width > 0 && region.height > 0
     readonly property int format: Constants.gpuHdr ? ShaderEffectSource.RGBA16F : ShaderEffectSource.RGBA8
 
     function levelSize(divisor) {
@@ -86,7 +88,7 @@ Item {
         opacity: 0
 
         Repeater {
-            model: root.layers
+            model: root.sources
 
             ShaderEffectSource {
                 required property Item modelData

@@ -22,7 +22,7 @@ Item {
     readonly property bool homeReady: initialPageSet && !forceIndexTimer.running
     property bool hubOverlayOpen: false
     // What the Hub page frosts, bottom to top.
-    property list<Item> hubBackdrops
+    property var hubBackdrops: []
     // App management mode, across every grid page.
     property bool appEditing: false
     // Apps being uninstalled: id → {name, since}.
