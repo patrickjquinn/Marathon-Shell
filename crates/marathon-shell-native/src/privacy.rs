@@ -474,8 +474,8 @@ mod tests {
             cuts("microphone,camera,location"),
             ["microphone", "camera", "location"]
         );
-        assert!(cuts("silent").is_empty());
-        assert!(cuts("").is_empty());
+        assert_eq!(cuts("silent"), Vec::<&str>::new());
+        assert_eq!(cuts(""), Vec::<&str>::new());
     }
 
     #[test]
