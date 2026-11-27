@@ -30,6 +30,8 @@ partition_table = "gpt"
 [boot.carrier]
 name = "jp2601"
 dtb = "mediatek/mt6858-jolla-jp2601.dtb"
+# The system starts while the PIN pad asks for /home.
+boot_behind_pin = true
 
 [kernel]
 package = "linux-mt6858"
