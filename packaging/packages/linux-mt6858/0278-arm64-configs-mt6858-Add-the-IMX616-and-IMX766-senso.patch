@@ -1,0 +1,25 @@
+From 0b5be14c18c652ae56bfc25ca00124cf5cac43e8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 11:48:43 +0000
+Subject: [PATCH 278/286] arm64: configs: mt6858: Add the IMX616 and IMX766
+ sensors
+
+Build the drivers of the JP2601's front (IMX616) and main rear (IMX766)
+cameras as modules.
+---
+ arch/arm64/configs/mt6858.config | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 55ffcb600..60fd8bf76 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -115,3 +115,5 @@ CONFIG_COMMON_CLK_MT6858_CAMSYS=m
+ CONFIG_REGULATOR_DIO8018=m
+ CONFIG_VIDEO_IMX214=m
+ CONFIG_TYPEC_TCPCI_MT6720=m
++CONFIG_VIDEO_IMX616=m
++CONFIG_VIDEO_IMX766=m
+-- 
+2.55.0
+

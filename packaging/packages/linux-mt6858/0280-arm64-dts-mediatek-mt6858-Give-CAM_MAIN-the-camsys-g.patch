@@ -1,0 +1,64 @@
+From 9d4c0f63a91bb56914be328a681b153a689615d8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 15:28:55 +0000
+Subject: [PATCH 280/286] arm64: dts: mediatek: mt6858: Give CAM_MAIN the
+ camsys gates
+
+The stock kernel turns on camsys_main's LARB13, LARB14 and CAM2MM_GALS
+gates before it releases CAM_MAIN's bus protection. Released without
+them, the infra protection of CAM_MAIN (TOP_AXI_PROT_EN_MMSYS_STA_0
+bits 30-31 and STA_1 bits 9-10) stays set, and nothing in the camera
+subsystem reaches memory: with the stream on, CAMSV2 issues one DMA
+write that never completes. Releasing it again with the gates on
+opened the path, and CAMSV2 delivered whole frames.
+
+Give CAM_MAIN the three gates as subsys clocks, and drop camsys_main's
+power domain now that the controller doesn't resume it. Build the
+camsys clock driver in, since the SPM's domains now depend on it.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 8 +++++---
+ arch/arm64/configs/mt6858.config         | 2 +-
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index b11ca151c..409788cb4 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -946,7 +946,6 @@ img_sub0_bus: syscon@1502f000 {
+ 		camsys: clock-controller@1a000000 {
+ 			compatible = "mediatek,mt6858-camsys-main", "syscon";
+ 			reg = <0 0x1a000000 0 0x1000>;
+-			power-domains = <&spm MT6858_POWER_DOMAIN_CAM_MAIN>;
+ 			#clock-cells = <1>;
+ 		};
+ 
+@@ -1005,8 +1004,11 @@ power-domain@MT6858_POWER_DOMAIN_DIS0 {
+ 
+ 					power-domain@MT6858_POWER_DOMAIN_CAM_MAIN {
+ 						reg = <MT6858_POWER_DOMAIN_CAM_MAIN>;
+-						clocks = <&topckgen CLK_TOP_CAM_SEL>;
+-						clock-names = "cam";
++						clocks = <&topckgen CLK_TOP_CAM_SEL>,
++							 <&camsys CLK_CAM_M_LARB13>,
++							 <&camsys CLK_CAM_M_LARB14>,
++							 <&camsys CLK_CAM_M_CAM2MM_GALS>;
++						clock-names = "cam", "cam-0", "cam-1", "cam-2";
+ 						#power-domain-cells = <0>;
+ 					};
+ 				};
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index 60fd8bf76..b25d807ee 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -111,7 +111,7 @@ CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=1
+ CONFIG_HARDLOCKUP_DETECTOR=y
+ CONFIG_BOOTPARAM_HARDLOCKUP_PANIC=y
+ CONFIG_RCU_CPU_STALL_TIMEOUT=10
+-CONFIG_COMMON_CLK_MT6858_CAMSYS=m
++CONFIG_COMMON_CLK_MT6858_CAMSYS=y
+ CONFIG_REGULATOR_DIO8018=m
+ CONFIG_VIDEO_IMX214=m
+ CONFIG_TYPEC_TCPCI_MT6720=m
+-- 
+2.55.0
+
