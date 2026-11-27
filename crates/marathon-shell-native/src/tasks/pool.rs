@@ -54,6 +54,17 @@ pub(super) struct Pool {
     retired: HashMap<i64, String>,
 }
 
+impl Pool {
+    /// A spare started within [`REFILL_DELAY`] is still warming, and the
+    /// refill after it is already set.
+    fn warming(&self) -> bool {
+        self.spares
+            .iter()
+            .flatten()
+            .any(|s| s.started.elapsed() < REFILL_DELAY)
+    }
+}
+
 /// The build's runner beside the shell, else the installed one.
 pub(super) fn runner_path() -> String {
     let built = std::env::current_exe().ok().and_then(|exe| {
@@ -117,7 +128,8 @@ impl Tasks {
         self.refill_spares();
     }
 
-    /// A window mapped: an empty spare slot is refilled shortly.
+    /// A window mapped: an empty spare slot is refilled shortly, unless a
+    /// spare is still warming (one at a time).
     pub(super) fn refill_after_map(mut self: Pin<&mut Self>) {
         if self.pool.failures >= MAX_FAILURES {
             return;
@@ -126,7 +138,7 @@ impl Tasks {
             .wanted_spares()
             .iter()
             .any(|s| self.pool.spares[slot(*s)].is_none());
-        if empty {
+        if empty && !self.pool.warming() {
             self.as_mut().refill_later(REFILL_SETTLE);
         }
     }
@@ -388,5 +400,30 @@ impl Tasks {
         rust.pending_route = None;
         self.as_mut().refill_later(REFILL_DELAY);
         true
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod tests {
+    use super::*;
+
+    fn spare(started: Instant) -> Spare {
+        Spare {
+            stdin: None,
+            pid: 1,
+            instance: String::new(),
+            started,
+        }
+    }
+
+    #[test]
+    fn a_young_spare_is_warming() {
+        let mut pool = Pool::default();
+        assert!(!pool.warming());
+        pool.spares[0] = Some(spare(Instant::now().checked_sub(REFILL_DELAY).unwrap()));
+        assert!(!pool.warming());
+        pool.spares[1] = Some(spare(Instant::now()));
+        assert!(pool.warming());
     }
 }
