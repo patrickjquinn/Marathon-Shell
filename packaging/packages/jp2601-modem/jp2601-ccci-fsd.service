@@ -1,0 +1,11 @@
+[Unit]
+Description=JP2601 MD1: ccci_fsd
+Requires=jp2601-modem-stack.service jp2601-modem-nv.service
+After=jp2601-modem-stack.service jp2601-modem-nv.service
+PartOf=jp2601-modem.target
+
+[Service]
+ExecStartPre=/bin/mkdir -p /run/q25-modem/props
+ExecStart=/usr/libexec/jp2601-modem/ccci_fsd 0
+Restart=on-failure
+RestartSec=2

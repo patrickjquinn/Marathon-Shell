@@ -1,0 +1,11 @@
+# /etc/q25-modem/properties -- read-only defaults for the open CCCI daemons'
+# property shim (runtime values live in /run/q25-modem/props/<key>).
+vendor.service.nvram_restore=Ready
+persist.vendor.ccci.md1.dbg_dump=0
+persist.vendor.mtk_usp_md_sbp_code=0
+# LK loads MD1 from modem_a; ccci_rpcd reads the image's tables from it.
+q25.modem.md1img=/dev/disk/by-partlabel/modem_a
+# From the stock vendor/build.prop (served to the modem over IPC_RPC_QUERY_AP_SYS_PROPERTY):
+ro.vendor.mtk_protocol1_rat_config=N/Lf/Lt/W/G
+ro.vendor.mtk_ps1_rat=N/Lf/Lt/W/G
+persist.radio.multisim.config=dsds
