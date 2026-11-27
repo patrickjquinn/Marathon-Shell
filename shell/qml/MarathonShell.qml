@@ -241,6 +241,9 @@ Item {
         case "keyboard":
             virtualKeyboard.active = !virtualKeyboard.active;
             break;
+        case "clipboard":
+            UIStore.openClipboardManager();
+            break;
         }
         HapticManager.light();
     }

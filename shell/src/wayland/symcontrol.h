@@ -2,6 +2,8 @@
 
 #include <QtGlobal>
 
+#include <functional>
+
 class QEvent;
 class QObject;
 class QWaylandSeat;
@@ -15,10 +17,14 @@ class SymControl {
     // A window's key event; true when its Ctrl form went to watched instead.
     bool filter(QObject *watched, QEvent *event, QWaylandSeat *seat);
 
+    // Sym+Shift+V, which no window receives.
+    std::function<void()> historyRequested;
+
   private:
     bool    m_symHeld = false;
     bool    m_sending = false;
     bool    m_app     = false;
+    bool    m_history = false;
     quint32 m_symCode = 0;
     int     m_key     = 0;
 };

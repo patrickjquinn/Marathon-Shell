@@ -185,7 +185,8 @@ class WaylandCompositor : public QWaylandCompositor {
     void systemCallTriggered();
     void systemEndTriggered();
     void systemSwitcherTriggered();
-    // A Super shortcut: search, switcher, lock, quicksettings, close, keyboard.
+    // A Super shortcut: search, switcher, lock, quicksettings, close, keyboard,
+    // or Sym+Shift+V's clipboard.
     void systemShortcut(const QString &name);
     void systemHangupTriggered();
     void userActivity();

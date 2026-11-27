@@ -143,6 +143,7 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     const QByteArray socketNameBytes =
         socketNameEnv.isEmpty() ? QByteArrayLiteral("marathon-wayland-0") : socketNameEnv;
     setSocketName(socketNameBytes);
+    m_symControl.historyRequested = [this] { emit systemShortcut(QStringLiteral("clipboard")); };
 
     QList<QWaylandCompositor::ShmFormat> shmFormats;
     shmFormats << QWaylandCompositor::ShmFormat_ARGB8888;

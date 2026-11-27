@@ -26,12 +26,13 @@
 
 namespace {
     // Evdev + 8, as the Q25's keyboard reports them.
-    constexpr quint32 kSym = 100 + 8;
-    constexpr quint32 kA   = 30 + 8;
-    constexpr quint32 kC   = 46 + 8;
-    constexpr quint32 kH   = 35 + 8;
-    constexpr quint32 kV   = 47 + 8;
-    constexpr quint32 kX   = 45 + 8;
+    constexpr quint32 kSym   = 100 + 8;
+    constexpr quint32 kA     = 30 + 8;
+    constexpr quint32 kC     = 46 + 8;
+    constexpr quint32 kH     = 35 + 8;
+    constexpr quint32 kShift = 42 + 8;
+    constexpr quint32 kV     = 47 + 8;
+    constexpr quint32 kX     = 45 + 8;
 
     class Compositor : public QWaylandQuickCompositor {
       public:
@@ -197,6 +198,21 @@ class TestSymControl : public QObject {
             return out.join(u' ');
         };
         QTRY_COMPARE(keys(), QStringLiteral("+108 -108 +37 +54 -54 -37 +108 -108"));
+    }
+
+    void symShiftVAsksForTheHistory() {
+        int asked                                 = 0;
+        m_compositor->symControl.historyRequested = [&asked] { ++asked; };
+        setField(QStringLiteral("abc"));
+        key(QEvent::KeyPress, kSym);
+        key(QEvent::KeyPress, kShift);
+        tap(kV);
+        key(QEvent::KeyRelease, kShift);
+        key(QEvent::KeyRelease, kSym);
+        tap(kX);
+        QTRY_COMPARE(fieldText(), QStringLiteral("abcx"));
+        QCOMPARE(asked, 1);
+        m_compositor->symControl.historyRequested = nullptr;
     }
 
     void symKeepsItsOwnKeysAfterACopy() {

@@ -27,6 +27,13 @@ bool SymControl::filter(QObject *watched, QEvent *event, QWaylandSeat *seat) {
     if (m_sending)
         return false;
     const int key = keyEvent->key();
+    if (key == Qt::Key_V &&
+        (m_history || (press && m_symHeld && keyEvent->modifiers() & Qt::ShiftModifier))) {
+        if (press && !m_history && historyRequested)
+            historyRequested();
+        m_history = press;
+        return true;
+    }
     if (!(press && m_symHeld && KeyRouting::symIsControl(key)) && !(m_key != 0 && key == m_key))
         return false;
 
