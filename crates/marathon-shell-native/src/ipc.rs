@@ -159,6 +159,7 @@ pub fn value(v: impl Into<zbus::Variant<'static>>) -> OwnedValue {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use marathon_rt::testing::PrivateBus;
 

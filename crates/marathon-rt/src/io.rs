@@ -279,6 +279,7 @@ mod tests {
     }
 
     #[cfg(feature = "testing")]
+    #[allow(clippy::unwrap_used, clippy::expect_used, reason = "tests")]
     mod buses {
         use std::collections::HashMap;
 

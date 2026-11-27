@@ -433,12 +433,12 @@ async fn run(qt: Qt, asks: Receiver<Ask>, left: Receiver<String>) {
                 }
             }
             Event::Ask(Ask::Hold(name)) => {
-                let pid = match (&session, BusName::try_from(name.as_str())) {
-                    (Some(s), Ok(bus_name)) => {
-                        s.get_connection_unix_process_id(bus_name).await.ok()
-                    }
-                    _ => None,
-                };
+                let pid = async {
+                    let bus_name = BusName::try_from(name.as_str()).ok()?;
+                    let session = DBusProxy::new(&io::session_bus().await.ok()?).await.ok()?;
+                    session.get_connection_unix_process_id(bus_name).await.ok()
+                }
+                .await;
                 let app = pid.map_or_default(privacy::name);
                 if holders.insert(name, app).is_none() {
                     users(&qt, &holders);
