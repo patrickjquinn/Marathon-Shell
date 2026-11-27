@@ -955,11 +955,12 @@ Item {
         anchors.fill: parent
         z: 0
         propagateComposedEvents: true
+        // A finger on the screen catches the lock screen wherever it is,
+        // also while it lifts away after a swipe.
         onPressed: mouse => {
             startY = mouse.y;
             isDragging = false;
-            if (unlockDrag.unlocking)
-                return;
+            unlockDrag.unlocking = false;
             unlockDrag.value = lockScreen.swipeProgress * lockScreen.swipeTravel;
             unlockDrag.press();
             base = unlockDrag.value;
@@ -967,20 +968,19 @@ Item {
         }
         onPositionChanged: mouse => {
             const totalDelta = startY - mouse.y;
-            if (totalDelta > Qt.styleHints.startDragDistance) {
+            // Caught on its way, it can be pushed back down too.
+            if (Math.abs(totalDelta) > Qt.styleHints.startDragDistance && (totalDelta > 0 || base > 0)) {
                 isDragging = true;
                 mouse.accepted = true;
             }
-            if (isDragging && !unlockDrag.unlocking)
+            if (isDragging)
                 unlockDrag.move(Math.max(0, Math.min(lockScreen.swipeTravel, base + totalDelta)));
         }
         // The swipe can unlock (or bring up the PIN pad) inside onReleased;
         // its composed click must not then land on whatever is now under the finger.
         onClicked: mouse => mouse.accepted = isDragging
         onReleased: mouse => {
-            if (unlockDrag.unlocking)
-                return;
-            if (isDragging) {
+            if (isDragging || base > 0) {
                 if (unlockDrag.release()) {
                     HapticManager.medium();
                     unlockDrag.unlocking = true;
