@@ -720,13 +720,21 @@ fn watch_power_keys(qt: Qt) {
         }
         let keys = evdev::enumerate().filter(|(_, d)| {
             d.supported_keys().is_some_and(|k| k.iter().any(|c| c == KeyCode::KEY_POWER || side_key(c).is_some()))
-                || d.supported_switches().is_some_and(|s| s.contains(SwitchCode::SW_LID))
+                || d.supported_switches().is_some_and(|s| {
+                    s.contains(SwitchCode::SW_LID) || s.contains(SwitchCode::SW_MUTE_DEVICE)
+                })
         });
         let mut watched = 0;
         for (path, mut device) in keys {
             if device.supported_keys().is_some_and(|k| k.contains(KeyCode::KEY_ASSISTANT)) {
                 HAS_ASSIST_KEY.store(true, std::sync::atomic::Ordering::Relaxed);
                 state_changed();
+            }
+            if device.supported_switches().is_some_and(|s| s.contains(SwitchCode::SW_MUTE_DEVICE)) {
+                HAS_PRIVACY_SWITCH.store(true, std::sync::atomic::Ordering::Relaxed);
+                state_changed();
+                let on = device.get_switch_state().is_ok_and(|s| s.contains(SwitchCode::SW_MUTE_DEVICE));
+                crate::privacy::switched(on);
             }
             let name = format!("{} ({})", device.name().unwrap_or("?"), path.display());
             let qt = qt.clone();
@@ -740,6 +748,10 @@ fn watch_power_keys(qt: Qt) {
                         EventSummary::Key(_, code, value @ 0..=1) => (code, value),
                         EventSummary::Switch(_, SwitchCode::SW_LID, value @ 0..=1) => {
                             qt.queue(move |obj| obj.lid_changed(value == 1)).ok();
+                            continue;
+                        }
+                        EventSummary::Switch(_, SwitchCode::SW_MUTE_DEVICE, value @ 0..=1) => {
+                            crate::privacy::switched(value == 1);
                             continue;
                         }
                         _ => continue,
@@ -1510,6 +1522,9 @@ mod tests {
 static POWER: OnceLock<cxx_qt::CxxQtThread<Power>> = OnceLock::new();
 // An input device has KEY_ASSISTANT: Settings offers the key's actions.
 static HAS_ASSIST_KEY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+// An input device has the privacy switch: Settings offers what it does.
+static HAS_PRIVACY_SWITCH: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 // The keyboard has a trackpad: Settings offers its modes.
 static HAS_TRACKPAD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 // ScheduleWake calls, answered once systemd has their timer.
@@ -1540,6 +1555,14 @@ fn state(power: &Power) -> State {
         (
             "hasAssistKey".to_owned(),
             value(HAS_ASSIST_KEY.load(std::sync::atomic::Ordering::Relaxed)),
+        ),
+        (
+            "hasPrivacySwitch".to_owned(),
+            value(HAS_PRIVACY_SWITCH.load(std::sync::atomic::Ordering::Relaxed)),
+        ),
+        (
+            "cameraBlocked".to_owned(),
+            value(crate::privacy::camera_blocked()),
         ),
         (
             "hasTrackpad".to_owned(),

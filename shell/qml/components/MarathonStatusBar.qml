@@ -334,6 +334,15 @@ Item {
             visible: SystemStatusStore.isDndMode
         }
 
+        // The privacy switch is cutting the microphones, cameras or location.
+        GlyphIcon {
+            name: "shield-check"
+            color: rightTone.glyph
+            size: Silica.Theme.iconSizeExtraSmall
+            anchors.verticalCenter: parent.verticalCenter
+            visible: Privacy.blocked.length > 0
+        }
+
         GlyphIcon {
             name: SystemStatusStore.isBluetoothConnected ? "bluetooth-connected" : "bluetooth"
             color: rightTone.glyph

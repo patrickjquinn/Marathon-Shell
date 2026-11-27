@@ -1050,6 +1050,9 @@ int main(int argc, char *argv[]) {
     auto *privacy = new Privacy();
     privacy->setParent(&app);
     qmlRegisterSingletonInstance<Privacy>("MarathonOS.Shell", 1, 0, "Privacy", privacy);
+    privacy->setCovers(settingsManager->getPrivacySwitch());
+    QObject::connect(settingsManager, &marathon::Settings::privacySwitchChanged, privacy,
+                     [=] { privacy->setCovers(settingsManager->getPrivacySwitch()); });
     auto *usb = new Usb();
     usb->setParent(&app);
     qmlRegisterSingletonInstance<Usb>("MarathonOS.Shell", 1, 0, "Usb", usb);
@@ -1128,9 +1131,15 @@ int main(int argc, char *argv[]) {
     auto *locationManager = new Location();
     locationManager->setParent(&app);
     ctx->setContextProperty("LocationManager", locationManager);
-    locationManager->setEnabled(settingsManager->getLocationEnabled());
+    // The privacy switch cuts location as the Location switch does.
+    const auto applyLocation = [=] {
+        locationManager->setEnabled(settingsManager->getLocationEnabled() &&
+                                    !privacy->getBlocked().contains(QStringLiteral("location")));
+    };
+    applyLocation();
     QObject::connect(settingsManager, &marathon::Settings::locationEnabledChanged, locationManager,
-                     [=] { locationManager->setEnabled(settingsManager->getLocationEnabled()); });
+                     applyLocation);
+    QObject::connect(privacy, &Privacy::switchChanged, locationManager, applyLocation);
     // Never starts location itself: with Location off there is no fix and the zone stays.
     const auto automaticTimeZone = [=] {
         if (!settingsManager->getAutomaticTimeZone() || !locationManager->getActive() ||

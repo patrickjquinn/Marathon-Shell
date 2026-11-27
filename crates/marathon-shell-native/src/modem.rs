@@ -407,7 +407,10 @@ impl Modem {
         if self.call_muted != muted {
             self.as_mut().rust_mut().call_muted = muted;
             self.as_mut().call_audio_changed();
-            route_audio("SetInputMuted", muted);
+            route_audio(
+                "SetInputMuted",
+                muted || crate::privacy::microphone_blocked(),
+            );
         }
     }
 
@@ -772,6 +775,19 @@ impl Modem1 {
 }
 
 /// `WirePlumber`'s call routing follows marathon-audiod's speakerphone.
+/// The input's mute once the privacy switch moved: muted while it cuts the
+/// microphone, else as the call has it.
+pub fn reroute_input() {
+    let blocked = crate::privacy::microphone_blocked();
+    match QT.get() {
+        Some(qt) => {
+            qt.queue(move |obj| route_audio("SetInputMuted", obj.call_muted || blocked))
+                .ok();
+        }
+        None => route_audio("SetInputMuted", blocked),
+    }
+}
+
 fn route_audio(method: &'static str, on: bool) {
     io::spawn(async move {
         let routed = async { crate::audio::call(&io::session_bus().await?, method, &(on,)).await };

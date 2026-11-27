@@ -102,6 +102,7 @@ pub mod qobject {
         #[qproperty(QString, app_sort_order, cxx_name = "appSortOrder", READ, WRITE = set_app_sort_order, NOTIFY)]
         #[qproperty(QString, assist_key_press, cxx_name = "assistKeyPress", READ, WRITE = set_assist_key_press, NOTIFY)]
         #[qproperty(QString, assist_key_hold, cxx_name = "assistKeyHold", READ, WRITE = set_assist_key_hold, NOTIFY)]
+        #[qproperty(QString, privacy_switch, cxx_name = "privacySwitch", READ, WRITE = set_privacy_switch, NOTIFY)]
         #[qproperty(QString, trackpad_mode, cxx_name = "trackpadMode", READ, WRITE = set_trackpad_mode, NOTIFY)]
         #[qproperty(i32, app_grid_columns, cxx_name = "appGridColumns", READ, WRITE = set_app_grid_columns, NOTIFY)]
         #[qproperty(bool, search_native_apps, cxx_name = "searchNativeApps", READ, WRITE = set_search_native_apps, NOTIFY)]
@@ -210,6 +211,8 @@ pub mod qobject {
         fn set_assist_key_press(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setAssistKeyHold"]
         fn set_assist_key_hold(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setPrivacySwitch"]
+        fn set_privacy_switch(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setTrackpadMode"]
         fn set_trackpad_mode(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setAppGridColumns"]
@@ -537,6 +540,8 @@ properties! {
     // The key between the volume keys: "camera", "pilot", "pilot-voice" or "none".
     assist_key_press: QString = QString::from("camera"), "keys/assistPress", "assistKeyPress", assist_key_press_changed, on_assist_key_press_changed, set_assist_key_press(&QString);
     assist_key_hold: QString = QString::from("pilot-voice"), "keys/assistHold", "assistKeyHold", assist_key_hold_changed, on_assist_key_hold_changed, set_assist_key_hold(&QString);
+    // The privacy switch: "silent", else what it cuts, of "microphone,camera,location".
+    privacy_switch: QString = QString::from("microphone,camera,location"), "keys/privacySwitch", "privacySwitch", privacy_switch_changed, on_privacy_switch_changed, set_privacy_switch(&QString);
     // The keyboard's trackpad: "gesture" (scroll, caret, Enter) or "mouse" (pointer).
     trackpad_mode: QString = QString::from("gesture"), "keys/trackpadMode", "trackpadMode", trackpad_mode_changed, on_trackpad_mode_changed, set_trackpad_mode(&QString);
     app_grid_columns: i32 = 0, "apps/gridColumns", "appGridColumns", app_grid_columns_changed, on_app_grid_columns_changed, set_app_grid_columns(i32);
