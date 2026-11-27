@@ -163,6 +163,10 @@ class Carrier(unittest.TestCase):
         self.assertEqual(conf["CARRIER_DTB"], "mediatek/mt6789-minimal-mp01-vendor.dtb")
         self.assertEqual(conf["CARRIER_CMDLINE"], "/usr/lib/kernel-cmdline.d/50-device-minimal-mp01.conf")
 
+    def test_jolla_boots_behind_its_pin(self):
+        conf = devices.parse_conf(self.tree.render_carrier("jolla-jp2601"))
+        self.assertEqual(conf["CARRIER_BOOT_BEHIND_PIN"], "1")
+
     def test_target_without_a_carrier(self):
         self.assertEqual(self.tree.render_carrier("raspberry-pi5"), "")
         self.assertEqual(self.tree.render_carrier("no-such-target"), "")

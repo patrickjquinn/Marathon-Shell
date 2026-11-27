@@ -1,0 +1,12 @@
+# With the system booting behind the PIN (marathon-carrier-generator),
+# systemd-tmpfiles-setup ran before /home was open: its /home lines again.
+[Unit]
+Description=Create /home's files and directories once it is open
+DefaultDependencies=no
+After=marathon-carrier-home-crypt.service deckard-migrate.service systemd-tmpfiles-setup.service
+Before=marathon-carrier-home.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-tmpfiles --create --prefix=/home

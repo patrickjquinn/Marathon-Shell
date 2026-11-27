@@ -68,6 +68,7 @@ class Tree:
             f"CARRIER_NAME={carrier['name']}",
             f"CARRIER_DTB={carrier['dtb']}",
             f"CARRIER_CMDLINE=/usr/lib/kernel-cmdline.d/50-device-{device['id']}.conf",
+            *(["CARRIER_BOOT_BEHIND_PIN=1"] if carrier.get("boot_behind_pin") else []),
         ]) + "\n"
 
     def by_package(self, package: str) -> str:
