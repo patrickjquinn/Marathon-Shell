@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 19 Nov 2026 13:00:00 +0000
+Subject: [PATCH] media: mediatek: isp6s: seninf: Unregister the subdev when a
+ port goes
+
+Unloading the driver oopsed in __media_entity_remove_link():
+
+  __media_entity_remove_link+0x84/0x1d0 [mc]
+  __media_entity_remove_links+0x44/0x78 [mc]
+  __media_device_unregister_entity+0x90/0xf0 [mc]
+  media_device_unregister_entity+0x3c/0x60 [mc]
+  v4l2_device_unregister_subdev+0x8c/0xf8 [videodev]
+  v4l2_async_nf_unbind_all_subdevs+0x5c/0x158 [v4l2_async]
+  v4l2_async_nf_unregister+0x4c/0x88 [v4l2_async]
+  seninf_remove+0x60/0xd8 [mtk_seninf6s]
+  ...
+  seninf_core_remove+0x64/0x130 [mtk_seninf6s]
+
+Each SENINF port registers its subdev with v4l2_device_register_subdev()
+but took it down with v4l2_async_unregister_subdev(), which does nothing
+for a subdev that was not registered through v4l2-async. The port's
+entity stayed in the media graph after its devm-allocated context was
+freed. When two ports both link to the same CAMSV, the first port's
+removal only drops its async connection to the CAMSV, so the CAMSV
+keeps its links to the freed entity, and removing them when the second
+port unbinds the CAMSV touches freed memory.
+
+seninf_remove() also unregistered the subdev itself instead of leaving
+the port's component, so the aggregate device kept a component whose
+driver data was gone.
+
+Unregister the subdev with v4l2_device_unregister_subdev(), which
+removes its links while both ends exist, and remove the port with
+component_del() so that the component framework unbinds every port
+through seninf_comp_unbind() before any of them is freed.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ seninf/mtk_seninf.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/seninf/mtk_seninf.c b/seninf/mtk_seninf.c
+index bb05ec7..93abfdf 100644
+--- a/seninf/mtk_seninf.c
++++ b/seninf/mtk_seninf.c
+@@ -2038,8 +2038,8 @@ static void unregister_subdev(struct seninf_ctx *ctx)
+ 
+ 	v4l2_async_nf_unregister(&ctx->notifier);
+ 	v4l2_async_nf_cleanup(&ctx->notifier);
++	v4l2_device_unregister_subdev(sd);
+ 	v4l2_subdev_cleanup(sd);
+-	v4l2_async_unregister_subdev(sd);
+ 	media_entity_cleanup(&sd->entity);
+ }
+ 
+@@ -2231,7 +2231,7 @@ static void seninf_remove(struct platform_device *pdev)
+ 
+ 	pm_runtime_disable(ctx->dev);
+ 
+-	unregister_subdev(ctx);
++	component_del(dev, &seninf_comp_ops);
+ 
+ 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
+ 
+-- 
+2.55.0
+

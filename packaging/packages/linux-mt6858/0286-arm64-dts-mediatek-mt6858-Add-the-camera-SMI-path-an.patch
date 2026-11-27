@@ -1,0 +1,96 @@
+From 258142ecda82d40ca69d6fb5b9a1c616393c65e0 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 15:30:52 +0000
+Subject: [PATCH 286/286] arm64: dts: mediatek: mt6858: Add the camera SMI path
+ and the MM IOMMU
+
+Describe larb13, the CAMSV and camera DMA engines' larb, its path to
+memory through camsys' SMI sub-common 0 and the SMI common in MM_INFRA,
+and the MM IOMMU, which so far serves only larb13.
+
+The sub-common shares its registers with the bus protection block the
+SPM drives (cam_sub0_bus), as on the stock kernel.
+---
+ arch/arm64/boot/dts/mediatek/mt6858.dtsi | 45 ++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858.dtsi b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+index 409788cb4..750a9b5b7 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6858.dtsi
+@@ -6,6 +6,7 @@
+ #include <dt-bindings/clock/mediatek,mt6858-clock.h>
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/memory/mediatek,mt8189-memory-port.h>
+ #include <dt-bindings/phy/phy.h>
+ #include <dt-bindings/power/mediatek,mt6858-power.h>
+ #include <dt-bindings/spmi/spmi.h>
+@@ -949,6 +950,17 @@ camsys: clock-controller@1a000000 {
+ 			#clock-cells = <1>;
+ 		};
+ 
++		larb13: larb@1a001000 {
++			compatible = "mediatek,mt6858-smi-larb";
++			reg = <0 0x1a001000 0 0x1000>;
++			mediatek,larb-id = <SMI_L13_ID>;
++			mediatek,smi = <&smi_cam_sub_common0>;
++			clocks = <&camsys CLK_CAM_M_LARB13>,
++				 <&camsys CLK_CAM_M_LARB13>;
++			clock-names = "apb", "smi";
++			power-domains = <&spm MT6858_POWER_DOMAIN_CAM_MAIN>;
++		};
++
+ 		cam_sub1_bus: syscon@1a00c000 {
+ 			compatible = "mediatek,mt6858-cam-sub1-bus", "syscon";
+ 			reg = <0 0x1a00c000 0 0x1000>;
+@@ -959,6 +971,18 @@ cam_sub0_bus: syscon@1a00d000 {
+ 			reg = <0 0x1a00d000 0 0x1000>;
+ 		};
+ 
++		smi_cam_sub_common0: smi@1a00d000 {
++			compatible = "mediatek,mt6858-smi-sub-common",
++				     "mediatek,mt8189-smi-sub-common";
++			reg = <0 0x1a00d000 0 0x1000>;
++			clocks = <&camsys CLK_CAM_M_LARB13>,
++				 <&camsys CLK_CAM_M_LARB13>,
++				 <&camsys CLK_CAM_M_CAM2MM_GALS>;
++			clock-names = "apb", "smi", "gals0";
++			power-domains = <&spm MT6858_POWER_DOMAIN_CAM_MAIN>;
++			mediatek,smi = <&smi_disp_common>;
++		};
++
+ 		ipe_sub0_bus: syscon@1b00e000 {
+ 			compatible = "mediatek,mt6858-ipe-sub0-bus", "syscon";
+ 			reg = <0 0x1b00e000 0 0x1000>;
+@@ -1127,6 +1151,27 @@ frame@1c034000 {
+ 				reg = <0 0x1c034000 0 0x1000>;
+ 			};
+ 		};
++
++		smi_disp_common: smi@1e801000 {
++			compatible = "mediatek,mt6858-smi-common",
++				     "mediatek,mt8189-smi-common";
++			reg = <0 0x1e801000 0 0x1000>;
++			clocks = <&topckgen CLK_TOP_MMINFRA_SEL>,
++				 <&topckgen CLK_TOP_MMINFRA_SEL>;
++			clock-names = "apb", "smi";
++			power-domains = <&spm MT6858_POWER_DOMAIN_MM_INFRA>;
++		};
++
++		iommu_mm: iommu@1e802000 {
++			compatible = "mediatek,mt6858-iommu-mm";
++			reg = <0 0x1e802000 0 0x5000>;
++			interrupts = <GIC_SPI 278 IRQ_TYPE_LEVEL_HIGH 0>;
++			mediatek,larbs = <&larb13>;
++			clocks = <&topckgen CLK_TOP_MMINFRA_SEL>;
++			clock-names = "bclk";
++			power-domains = <&spm MT6858_POWER_DOMAIN_MM_INFRA>;
++			#iommu-cells = <1>;
++		};
+ 	};
+ 
+ 	timer {
+-- 
+2.55.0
+

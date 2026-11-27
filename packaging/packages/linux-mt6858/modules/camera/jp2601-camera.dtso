@@ -1,0 +1,472 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * The JP2601's cameras, applied at runtime by jp2601-cam-dt: the DIO8018
+ * camera PMIC and the module rails, the main rear IMX766 (CSI1, C-PHY),
+ * the second rear IMX214 (CSI2) and the front IMX616 (CSI0), the CSI
+ * PHYs, SENINF and CAMSV2 behind the MM IOMMU. Rails, pins and clocks are
+ * the stock imgsensor tables'.
+ */
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/mediatek,mt6858-clock.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/memory/mediatek,mt8189-memory-port.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/power/mediatek,mt6858-power.h>
+#include <dt-bindings/media/video-interfaces.h>
+#include "mt6858-pinfunc.h"
+
+&i2c5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	camera-pmic@35 {
+		compatible = "dioo,dio8018";
+		reg = <0x35>;
+		reset-gpios = <&pio 7 GPIO_ACTIVE_LOW>;
+
+		regulators {
+			cam1_dvdd: ldo1 {
+				regulator-name = "cam1-dvdd";
+				regulator-min-microvolt = <1104000>;
+				regulator-max-microvolt = <1104000>;
+			};
+
+			cam0_dvdd: ldo2 {
+				regulator-name = "cam0-dvdd";
+				regulator-min-microvolt = <1104000>;
+				regulator-max-microvolt = <1104000>;
+			};
+
+			cam0_avdd: ldo3 {
+				regulator-name = "cam0-avdd";
+				regulator-min-microvolt = <2804000>;
+				regulator-max-microvolt = <2804000>;
+			};
+
+			cam1_avdd: ldo4 {
+				regulator-name = "cam1-avdd";
+				regulator-min-microvolt = <2900000>;
+				regulator-max-microvolt = <2900000>;
+			};
+
+			cam0_afvdd: ldo5 {
+				regulator-name = "cam0-afvdd";
+				regulator-min-microvolt = <2804000>;
+				regulator-max-microvolt = <2804000>;
+			};
+
+			cam2_afvdd: ldo6 {
+				regulator-name = "cam2-afvdd";
+				regulator-min-microvolt = <2804000>;
+				regulator-max-microvolt = <2804000>;
+			};
+
+			cam0_dovdd: ldo7 {
+				regulator-name = "cam0-dovdd";
+				regulator-min-microvolt = <1804000>;
+				regulator-max-microvolt = <1804000>;
+			};
+		};
+	};
+};
+
+&{/} {
+	cam2_avdd: regulator-cam2-avdd {
+		compatible = "regulator-fixed";
+		regulator-name = "cam2-avdd";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		gpio = <&pio 59 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	cam2_dvdd: regulator-cam2-dvdd {
+		compatible = "regulator-fixed";
+		regulator-name = "cam2-dvdd";
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+		gpio = <&pio 58 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	cam2_dovdd: regulator-cam2-dovdd {
+		compatible = "regulator-fixed";
+		regulator-name = "cam2-dovdd";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&pio 60 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	/* the main rear module's PDN pin, which imx766 does not model */
+	cam0_pdn: regulator-cam0-pdn {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0-pdn";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&pio 27 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&cam0_dovdd>;
+	};
+
+	cam1_dovdd: regulator-cam1-dovdd {
+		compatible = "regulator-fixed";
+		regulator-name = "cam1-dovdd";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&pio 160 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	/* the front module's PDN pin, which imx616 does not model */
+	cam1_pdn: regulator-cam1-pdn {
+		compatible = "regulator-fixed";
+		regulator-name = "cam1-pdn";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&pio 26 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&cam1_dovdd>;
+	};
+
+	/* the module's PDN pin, which imx214 does not model */
+	cam2_pdn: regulator-cam2-pdn {
+		compatible = "regulator-fixed";
+		regulator-name = "cam2-pdn";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&pio 28 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&cam2_dovdd>;
+	};
+};
+
+&pio {
+	cam0_mclk_pins: cam0-mclk-pins {
+		pins-mclk {
+			pinmux = <PINMUX_GPIO37__FUNC_CMMCLK1>;
+			drive-strength = <4>;
+		};
+	};
+
+	cam1_mclk_pins: cam1-mclk-pins {
+		pins-mclk {
+			pinmux = <PINMUX_GPIO36__FUNC_CMMCLK0>;
+			drive-strength = <4>;
+		};
+	};
+
+	cam2_mclk_pins: cam2-mclk-pins {
+		pins-mclk {
+			pinmux = <PINMUX_GPIO38__FUNC_CMMCLK2>;
+			drive-strength = <4>;
+		};
+	};
+};
+
+&i2c7 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	camera@10 {
+		compatible = "sony,imx214";
+		reg = <0x10>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam2_mclk_pins>;
+		/* CAMTG2 drives CMMCLK2 */
+		clocks = <&vlpckgen CLK_VLP_CAMTG2_SEL>;
+		assigned-clocks = <&vlpckgen CLK_VLP_CAMTG2_SEL>;
+		assigned-clock-parents = <&topckgen CLK_TOP_UNIVPLL_192M_D8>;
+		vdda-supply = <&cam2_avdd>;
+		vddd-supply = <&cam2_dvdd>;
+		vdddo-supply = <&cam2_pdn>;
+		enable-gpios = <&pio 33 GPIO_ACTIVE_HIGH>;
+		orientation = <1>;
+		rotation = <90>;
+
+		port {
+			imx214_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <600000000>;
+			};
+		};
+	};
+};
+
+&i2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	camera@1a {
+		compatible = "sony,imx616";
+		reg = <0x1a>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam1_mclk_pins>;
+		/* CAMTG0 drives CMMCLK0 */
+		clocks = <&vlpckgen CLK_VLP_CAMTG0_SEL>;
+		assigned-clocks = <&vlpckgen CLK_VLP_CAMTG0_SEL>;
+		assigned-clock-parents = <&topckgen CLK_TOP_UNIVPLL_192M_D8>;
+		avdd-supply = <&cam1_avdd>;
+		dvdd-supply = <&cam1_dvdd>;
+		dovdd-supply = <&cam1_pdn>;
+		reset-gpios = <&pio 31 GPIO_ACTIVE_LOW>;
+		orientation = <0>;
+		rotation = <270>;
+
+		port {
+			imx616_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <426947368>;
+			};
+		};
+	};
+};
+
+&i2c8 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* at 0x29, not the 0x1a of the stock DT node: the vendor driver's own address table */
+	camera@29 {
+		compatible = "sony,imx766";
+		reg = <0x29>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam0_mclk_pins>;
+		/* CAMTG1 drives CMMCLK1 */
+		clocks = <&vlpckgen CLK_VLP_CAMTG1_SEL>;
+		assigned-clocks = <&vlpckgen CLK_VLP_CAMTG1_SEL>;
+		assigned-clock-parents = <&topckgen CLK_TOP_UNIVPLL_192M_D8>;
+		avdd-supply = <&cam0_avdd>;
+		dvdd-supply = <&cam0_dvdd>;
+		dovdd-supply = <&cam0_pdn>;
+		reset-gpios = <&pio 32 GPIO_ACTIVE_LOW>;
+		orientation = <1>;
+		rotation = <90>;
+
+		port {
+			imx766_ep: endpoint {
+				bus-type = <MEDIA_BUS_TYPE_CSI2_CPHY>;
+				data-lanes = <1 2 3>;
+				link-frequencies = /bits/ 64 <1164000000>;
+			};
+		};
+	};
+};
+
+&{/soc} {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	mipi_csi0: mipi-csi0@11c80000 {
+		compatible = "mediatek,mt6858-csi-rx";
+		reg = <0 0x11c80000 0 0x4000>;
+		power-domains = <&spm MT6858_POWER_DOMAIN_CSI_RX>;
+		phy-type = <PHY_TYPE_DPHY>;
+		num-lanes = <4>;
+		#phy-cells = <1>;
+		mediatek,csi-port = "0";
+		settle_delay_ck = <0x20>;
+		dphy_settle_delay_dt = <0x20>;
+	};
+
+	mipi_csi1: mipi-csi1@11c84000 {
+		compatible = "mediatek,mt6858-csi-rx";
+		reg = <0 0x11c84000 0 0x4000>;
+		power-domains = <&spm MT6858_POWER_DOMAIN_CSI_RX>;
+		phy-type = <PHY_TYPE_CPHY>;
+		num-lanes = <3>;
+		#phy-cells = <1>;
+		mediatek,csi-port = "1";
+		settle_delay_ck = <0x20>;
+		dphy_settle_delay_dt = <0x20>;
+	};
+
+	mipi_csi2: mipi-csi2@11c88000 {
+		compatible = "mediatek,mt6858-csi-rx";
+		reg = <0 0x11c88000 0 0x4000>;
+		power-domains = <&spm MT6858_POWER_DOMAIN_CSI_RX>;
+		phy-type = <PHY_TYPE_DPHY>;
+		num-lanes = <4>;
+		#phy-cells = <1>;
+		mediatek,csi-port = "2";
+		settle_delay_ck = <0x20>;
+		dphy_settle_delay_dt = <0x20>;
+	};
+
+	seninf-top@1a004000 {
+		compatible = "mediatek,mt6858-seninf-core";
+		reg = <0 0x1a004000 0 0x8000>;
+		reg-names = "base";
+		power-domains = <&spm MT6858_POWER_DOMAIN_CAM_MAIN>;
+		clocks = <&camsys CLK_CAM_M_SENINF>,
+			 <&topckgen CLK_TOP_SENINF_SEL>,
+			 <&topckgen CLK_TOP_SENINF1_SEL>,
+			 <&topckgen CLK_TOP_SENINF2_SEL>,
+			 <&topckgen CLK_TOP_CAMTM_SEL>;
+		clock-names = "CAMSYS_SENINF_CGPDN", "TOP_MUX_SENINF",
+			      "TOP_MUX_SENINF1", "TOP_MUX_SENINF2",
+			      "TOP_CAMTM";
+		assigned-clocks = <&topckgen CLK_TOP_CAM_SEL>,
+				  <&topckgen CLK_TOP_SENINF_SEL>,
+				  <&topckgen CLK_TOP_SENINF1_SEL>,
+				  <&topckgen CLK_TOP_SENINF2_SEL>,
+				  <&topckgen CLK_TOP_CAMTM_SEL>;
+		assigned-clock-parents = <&topckgen CLK_TOP_UNIVPLL_D6>,
+					 <&topckgen CLK_TOP_UNIVPLL_D6>,
+					 <&topckgen CLK_TOP_UNIVPLL_D6>,
+					 <&topckgen CLK_TOP_UNIVPLL_D6>,
+					 <&topckgen CLK_TOP_UNIVPLL_D6_D4>;
+
+		seninf-csi-port-0 {
+			compatible = "mediatek,mt6858-seninf";
+			mediatek,csi-port = "0";
+			phys = <&mipi_csi0 PHY_TYPE_DPHY>;
+			phy-names = "csi0";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					seninf0_imx616: endpoint {
+						data-lanes = <1 2 3 4>;
+						remote-endpoint = <&imx616_ep>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					seninf0_camsv2: endpoint {
+						remote-endpoint = <&camsv2_seninf0>;
+					};
+				};
+			};
+		};
+
+		seninf-csi-port-1 {
+			compatible = "mediatek,mt6858-seninf";
+			mediatek,csi-port = "1";
+			phys = <&mipi_csi1 PHY_TYPE_CPHY>;
+			phy-names = "csi1";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					seninf1_imx766: endpoint {
+						bus-type = <MEDIA_BUS_TYPE_CSI2_CPHY>;
+						data-lanes = <1 2 3>;
+						remote-endpoint = <&imx766_ep>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					seninf1_camsv2: endpoint {
+						remote-endpoint = <&camsv2_seninf1>;
+					};
+				};
+			};
+		};
+
+		seninf-csi-port-2 {
+			compatible = "mediatek,mt6858-seninf";
+			mediatek,csi-port = "2";
+			phys = <&mipi_csi2 PHY_TYPE_DPHY>;
+			phy-names = "csi2";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					seninf2_imx214: endpoint {
+						data-lanes = <1 2 3 4>;
+						remote-endpoint = <&imx214_ep>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					seninf2_camsv2: endpoint {
+						remote-endpoint = <&camsv2_seninf2>;
+					};
+				};
+			};
+		};
+	};
+
+	camsv2@1a092000 {
+		compatible = "mediatek,mt6858-camsv";
+		reg = <0 0x1a092000 0 0x1000>;
+		reg-names = "camsv";
+		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH 0>;
+		mediatek,cammux-id = <2>;
+		iommus = <&iommu_mm M4U_L13_P6_CAMSV_4>;
+		power-domains = <&spm MT6858_POWER_DOMAIN_CAM_MAIN>;
+		clocks = <&camsys CLK_CAM_M_CAM>,
+			 <&camsys CLK_CAM_M_CAMTG>,
+			 <&camsys CLK_CAM_M_CAMSV1>,
+			 <&camsys CLK_CAM_M_LARB13>,
+			 <&camsys CLK_CAM_M_CAM2MM_GALS>,
+			 <&topckgen CLK_TOP_CAMTM_SEL>,
+			 <&camsys CLK_CAM_M_CAMSV2>,
+			 <&camsys CLK_CAM_M_CAMSV3>;
+		clock-names = "CAMSYS_CAM_CGPDN", "CAMSYS_CAMTG_CGPDN",
+			      "CAMSYS_CAMSV_CGPDN", "CAMSYS_LARB_CGPDN",
+			      "CAMSYS_MAIN_CAM2MM_GALS_CGPDN",
+			      "TOPCKGEN_TOP_MUX_CAMTM", "CAMSYS_CAMSV2_CGPDN",
+			      "CAMSYS_CAMSV3_CGPDN";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+
+				camsv2_seninf0: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&seninf0_camsv2>;
+				};
+
+				camsv2_seninf2: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&seninf2_camsv2>;
+				};
+
+				camsv2_seninf1: endpoint@2 {
+					reg = <2>;
+					remote-endpoint = <&seninf1_camsv2>;
+				};
+			};
+		};
+	};
+};
+
+&imx616_ep {
+	remote-endpoint = <&seninf0_imx616>;
+};
+
+&imx766_ep {
+	remote-endpoint = <&seninf1_imx766>;
+};
+
+&imx214_ep {
+	remote-endpoint = <&seninf2_imx214>;
+};
