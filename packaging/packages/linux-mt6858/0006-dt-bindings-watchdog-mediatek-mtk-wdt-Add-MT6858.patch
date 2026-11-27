@@ -1,7 +1,7 @@
 From 774124ecac54bb3ecdbe768316ce413b104d6e66 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 18:00:03 +0000
-Subject: [PATCH 006/206] dt-bindings: watchdog: mediatek,mtk-wdt: Add MT6858
+Subject: [PATCH 006/214] dt-bindings: watchdog: mediatek,mtk-wdt: Add MT6858
 
 The MT6858 TOPRGU at 0x1c00a000 is compatible with the MT6589 watchdog,
 which is how the stock device tree describes it. Add it to the list that

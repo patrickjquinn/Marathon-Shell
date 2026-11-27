@@ -1,7 +1,7 @@
 From 48a2a9fe50fd327dfe04fcd87ece246db2b45855 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:50:33 +0000
-Subject: [PATCH 202/206] arm64: dts: mediatek: mt6858: Describe the MT6685
+Subject: [PATCH 202/214] arm64: dts: mediatek: mt6858: Describe the MT6685
  clock buffers as a child
 
 The MT6685 is now an MFD whose functions are child nodes, so its clock

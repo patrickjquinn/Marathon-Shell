@@ -1,7 +1,7 @@
 From 12923bfaebb79744444959859a7fc320a1b29aac Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 23:50:02 +0000
-Subject: [PATCH 204/206] spmi: mtk-pmif: Move at most 2 bytes per command on
+Subject: [PATCH 204/214] spmi: mtk-pmif: Move at most 2 bytes per command on
  the MT6858
 
 On the MT6858, a software-channel read returns at most two bytes, with

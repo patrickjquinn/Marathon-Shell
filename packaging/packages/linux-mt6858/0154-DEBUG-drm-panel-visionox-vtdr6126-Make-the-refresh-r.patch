@@ -1,7 +1,7 @@
 From 6fe56bd88dc6f113e92bd7e96fb7474f205054ca Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 12:06:00 +0000
-Subject: [PATCH 154/206] DEBUG: drm/panel: visionox-vtdr6126: Make the refresh
+Subject: [PATCH 154/214] DEBUG: drm/panel: visionox-vtdr6126: Make the refresh
  rate writable
 
 Bring-up only: writing 60 or 90 to the refresh parameter and then

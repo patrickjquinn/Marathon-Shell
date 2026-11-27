@@ -1,7 +1,7 @@
 From b842a1770194e416f9b89dc09b30e98d4c6e104b Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:09:29 +0000
-Subject: [PATCH 106/206] regulator: mt6369: Include of.h for of_match_ptr()
+Subject: [PATCH 106/214] regulator: mt6369: Include of.h for of_match_ptr()
 
 None of the other headers the driver includes brings in of.h, so
 of_match_ptr() is undeclared and the driver does not build.

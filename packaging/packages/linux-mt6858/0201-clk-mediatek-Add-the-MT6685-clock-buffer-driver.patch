@@ -1,7 +1,7 @@
 From 10544f58c88bc2d29846f99b96bf664c428a733a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:50:33 +0000
-Subject: [PATCH 201/206] clk: mediatek: Add the MT6685 clock buffer driver
+Subject: [PATCH 201/214] clk: mediatek: Add the MT6685 clock buffer driver
 
 The MT6369 audio codec on the Jolla Phone (2026) runs from the MT6685's
 XO_BBCK5 output. The bootloader leaves it under hardware control with

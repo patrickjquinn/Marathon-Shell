@@ -1,7 +1,7 @@
 From 30f31a6b2df2d90a57df9d62dd6d2d3ff49b4437 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:40:38 +0000
-Subject: [PATCH 191/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Make a
+Subject: [PATCH 191/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Make a
  crash dump fit in ramoops
 
 The last panic's dump failed with "pstore: backend (ramoops) writing

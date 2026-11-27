@@ -1,7 +1,7 @@
 From 44dd57a548090740ec951a60f1ef4e0604b7a010 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:50:32 +0000
-Subject: [PATCH 198/206] dt-bindings: clock: Add the MediaTek MT6685 clock
+Subject: [PATCH 198/214] dt-bindings: clock: Add the MediaTek MT6685 clock
  buffers
 
 The MT6685 PMIC buffers the 26 MHz crystal to the other chips on the

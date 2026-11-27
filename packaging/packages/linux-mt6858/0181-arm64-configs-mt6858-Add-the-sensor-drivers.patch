@@ -1,7 +1,7 @@
 From 56b7ce2a4f0c61ed2b39179f9f4ca28ab59de4df Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:38:02 +0000
-Subject: [PATCH 181/206] arm64: configs: mt6858: Add the sensor drivers
+Subject: [PATCH 181/214] arm64: configs: mt6858: Add the sensor drivers
 
 The JP2601 needs the ICM-42607 SPI, MMC5633 and STK3310 drivers, and
 i2c-gpio for the bus its light sensor and magnetometer sit on.

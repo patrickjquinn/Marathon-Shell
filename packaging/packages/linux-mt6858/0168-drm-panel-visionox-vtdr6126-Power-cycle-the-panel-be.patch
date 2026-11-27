@@ -1,7 +1,7 @@
 From 37f8097fb4241d0af92b8a029d17052797c1dc40 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 15:19:15 +0000
-Subject: [PATCH 168/206] drm/panel: visionox-vtdr6126: Power-cycle the panel
+Subject: [PATCH 168/214] drm/panel: visionox-vtdr6126: Power-cycle the panel
  before the first init
 
 The bootloader leaves the panel on and lit. Our first prepare found the

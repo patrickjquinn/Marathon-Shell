@@ -1,7 +1,7 @@
 From 735df83722a8d8128b4bce522283f8896e80fa75 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 07:58:20 +0000
-Subject: [PATCH 057/206] mfd: Add MediaTek MT6720 SubPMIC
+Subject: [PATCH 057/214] mfd: Add MediaTek MT6720 SubPMIC
 
 The MT6720's registers sit in ten banks, each behind its own I2C
 address: 0x34 (the device's own), 0x52, 0x53, 0x3f, 0x4e, 0x4f, 0x58,

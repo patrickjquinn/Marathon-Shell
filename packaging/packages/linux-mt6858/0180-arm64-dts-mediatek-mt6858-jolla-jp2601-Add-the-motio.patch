@@ -1,7 +1,7 @@
 From 72f5b120c46e30c5e6faebab257115f3f30ea355 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:38:02 +0000
-Subject: [PATCH 180/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 180/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  motion and light sensors
 
 The stock firmware runs the sensors from the SCP sensor hub, which has

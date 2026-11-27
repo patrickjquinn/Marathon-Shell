@@ -1,7 +1,7 @@
 From 1f381fe95e7c9407dadd9a3d3115db0b3005e774 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 04:51:43 +0000
-Subject: [PATCH 040/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 040/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  power and volume keys
 
 The power key is the MT6363's PWRKEY. Volume down is one of its home

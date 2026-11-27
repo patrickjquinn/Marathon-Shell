@@ -1,7 +1,7 @@
 From f7b34bab743e96882c86d530de94f0bd4e902595 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:37:55 +0000
-Subject: [PATCH 189/206] arm64: dts: mediatek: mt6858: Add the memory-mapped
+Subject: [PATCH 189/214] arm64: dts: mediatek: mt6858: Add the memory-mapped
  timer
 
 The CPU idle states power the cores down, and the architected timer

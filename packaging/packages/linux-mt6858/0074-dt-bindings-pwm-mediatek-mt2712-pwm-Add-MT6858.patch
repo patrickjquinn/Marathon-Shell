@@ -1,7 +1,7 @@
 From d8845344a1b0b4f1ae57ad00ba5132947d9db961 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:24:33 +0000
-Subject: [PATCH 074/206] dt-bindings: pwm: mediatek,mt2712-pwm: Add MT6858
+Subject: [PATCH 074/214] dt-bindings: pwm: mediatek,mt2712-pwm: Add MT6858
 
 The MT6858's general-purpose PWM has the MT6991 layout: four channels
 with registers at 0x100 + 0x100 * n and the 26 MHz select at 0x74, as

@@ -1,7 +1,7 @@
 From c1b45eef7539e9f94048cab36dd50dc31e2550d6 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 12:13:36 +0000
-Subject: [PATCH 156/206] DEBUG: drm/panel: visionox-vtdr6126: Read the panel
+Subject: [PATCH 156/214] DEBUG: drm/panel: visionox-vtdr6126: Read the panel
  status back
 
 Bring-up only: after the init, after display-on and 3 s later, read the

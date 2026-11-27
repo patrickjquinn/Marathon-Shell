@@ -1,7 +1,7 @@
 From 358b71661ef8092e7bedbd73567381bf5089431c Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:49:42 +0000
-Subject: [PATCH 120/206] drm/mediatek: dsc: Add MT6858 settings
+Subject: [PATCH 120/214] drm/mediatek: dsc: Add MT6858 settings
 
 The MT6858 bootloader drives the panel's DSC with other DSC_CON, MODE,
 CFG and OUTBUF values than the MT8195-family defaults this driver

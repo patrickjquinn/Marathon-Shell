@@ -1,7 +1,7 @@
 From e6b32c5025f5e4aac7ff9edae356413b4b86473a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:56:12 +0000
-Subject: [PATCH 103/206] arm64: configs: mt6858: Build in the CMDQ helper
+Subject: [PATCH 103/214] arm64: configs: mt6858: Build in the CMDQ helper
 
 MTK_MMSYS depends on MTK_CMDQ || MTK_CMDQ=n, so with CMDQ as a module
 the fragment's CONFIG_MTK_MMSYS=y silently became a module, and

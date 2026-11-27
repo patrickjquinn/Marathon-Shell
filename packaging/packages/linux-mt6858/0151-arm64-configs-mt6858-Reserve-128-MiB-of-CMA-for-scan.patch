@@ -1,7 +1,7 @@
 From 8831bbea7bab703f729979996d36fb2a0837497a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 12:00:16 +0000
-Subject: [PATCH 151/206] arm64: configs: mt6858: Reserve 128 MiB of CMA for
+Subject: [PATCH 151/214] arm64: configs: mt6858: Reserve 128 MiB of CMA for
  scanout buffers
 
 The JP2601 display engines run without an IOMMU, so mediatek-drm

@@ -1,7 +1,7 @@
 From 1df3436f21ebf968676abf443c4faf02715f27a1 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:47:54 +0000
-Subject: [PATCH 117/206] drm/panthor: Drop the MediaTek MT6858 compatible
+Subject: [PATCH 117/214] drm/panthor: Drop the MediaTek MT6858 compatible
 
 The MT6858's Mali-G610 is an arch 10 GPU, which cannot take a custom
 ASN hash: with the MT8196 SoC data, Panthor logs "Custom ASN hash not

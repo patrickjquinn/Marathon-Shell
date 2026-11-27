@@ -1,7 +1,7 @@
 From a9f9d12d455759d67fa704838000e80b8e547428 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:36:22 +0000
-Subject: [PATCH 177/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 177/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  speakers
 
 Two AW88271 amplifiers on I2C12 drive the bottom speaker (0x35, stock

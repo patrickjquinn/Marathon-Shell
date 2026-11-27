@@ -1,7 +1,7 @@
 From 0caf045863d2b7749bb0710548aa41776600c3c2 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:40:50 +0000
-Subject: [PATCH 194/206] arm64: configs: mt6858: Add the LZ4 and zstd backends
+Subject: [PATCH 194/214] arm64: configs: mt6858: Add the LZ4 and zstd backends
  to zram
 
 defconfig enables no zram backend, so ZRAM_BACKEND_FORCE_LZO leaves LZO

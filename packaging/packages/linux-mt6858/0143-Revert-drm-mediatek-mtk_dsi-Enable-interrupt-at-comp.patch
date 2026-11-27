@@ -1,7 +1,7 @@
 From 7741bf120fa97a13e885f9be74c745608dd78f60 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:35:14 +0000
-Subject: [PATCH 143/206] Revert "drm/mediatek: mtk_dsi: Enable interrupt at
+Subject: [PATCH 143/214] Revert "drm/mediatek: mtk_dsi: Enable interrupt at
  component bind time"
 
 This reverts commit 342c1720f.

@@ -1,7 +1,7 @@
 From f88229e1da700d5a4a73188005d80cea4bd26b51 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 23:51:48 +0000
-Subject: [PATCH 205/206] mfd: mtk-spmi-pmic: Read the MT6685 chip ID at 0x0b
+Subject: [PATCH 205/214] mfd: mtk-spmi-pmic: Read the MT6685 chip ID at 0x0b
  like the others
 
 The 0x09 in the first version came from a multi-byte SPMI read that

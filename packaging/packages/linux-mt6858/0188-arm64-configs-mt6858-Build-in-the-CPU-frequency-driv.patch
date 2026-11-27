@@ -1,7 +1,7 @@
 From c1eb97c005d1813d4f3b333948f39188ea7899cf Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:37:37 +0000
-Subject: [PATCH 188/206] arm64: configs: mt6858: Build in the CPU frequency
+Subject: [PATCH 188/214] arm64: configs: mt6858: Build in the CPU frequency
  driver
 
 defconfig builds mediatek-cpufreq-hw as a module, so the CPUs stay at

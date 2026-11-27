@@ -1,7 +1,7 @@
 From 7ec327a8b7eb2fe5fe24d9a3d30de5c9308a9357 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:36:49 +0000
-Subject: [PATCH 109/206] dt-bindings: power: mediatek,mt8196-gpufreq: Add
+Subject: [PATCH 109/214] dt-bindings: power: mediatek,mt8196-gpufreq: Add
  MT6858
 
 On the MT6858 the bootloader loads and starts the GPUEB, and the EB

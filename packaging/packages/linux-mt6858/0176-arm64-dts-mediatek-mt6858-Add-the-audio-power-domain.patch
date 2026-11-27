@@ -1,7 +1,7 @@
 From aca33099233da21f108693cc885be0fd82d42c48 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:36:22 +0000
-Subject: [PATCH 176/206] arm64: dts: mediatek: mt6858: Add the audio power
+Subject: [PATCH 176/214] arm64: dts: mediatek: mt6858: Add the audio power
  domain and AFE
 
 The audio front end sits behind the AUDIO power domain, which the

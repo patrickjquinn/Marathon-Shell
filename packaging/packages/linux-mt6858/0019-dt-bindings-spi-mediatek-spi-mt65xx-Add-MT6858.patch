@@ -1,7 +1,7 @@
 From 3842457c02f44a63163f1422e83b805e829b82cf Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:02:27 +0000
-Subject: [PATCH 019/206] dt-bindings: spi: mediatek,spi-mt65xx: Add MT6858
+Subject: [PATCH 019/214] dt-bindings: spi: mediatek,spi-mt65xx: Add MT6858
 
 The MT6858 SPI controllers are the MT6991 IP: add mediatek,mt6858-spi
 with mediatek,mt6991-spi as the fallback.

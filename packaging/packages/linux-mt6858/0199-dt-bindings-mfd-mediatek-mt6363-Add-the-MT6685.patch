@@ -1,7 +1,7 @@
 From a08fe9196f85766176e460fcaf7b0897510593f6 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:50:33 +0000
-Subject: [PATCH 199/206] dt-bindings: mfd: mediatek,mt6363: Add the MT6685
+Subject: [PATCH 199/214] dt-bindings: mfd: mediatek,mt6363: Add the MT6685
 
 The MT6685 is an SPMI PMIC with clock buffers and an RTC, and no
 regulators. It sits on the same bus as the MT6363 series and is reached

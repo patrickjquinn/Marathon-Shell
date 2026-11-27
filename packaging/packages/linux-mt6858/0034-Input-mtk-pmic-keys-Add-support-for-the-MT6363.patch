@@ -1,7 +1,7 @@
 From eea1f3cb1339eea20e1b942d2f88ce5a8b85723a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:48:18 +0000
-Subject: [PATCH 034/206] Input: mtk-pmic-keys: Add support for the MT6363
+Subject: [PATCH 034/214] Input: mtk-pmic-keys: Add support for the MT6363
 
 The MT6363 reports the power key and two home keys, the second on its
 KPCOL0 pad, in TOPSTATUS, each with a press and a release interrupt.

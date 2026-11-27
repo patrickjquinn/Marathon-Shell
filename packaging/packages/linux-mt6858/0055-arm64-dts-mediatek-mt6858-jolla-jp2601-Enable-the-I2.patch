@@ -1,7 +1,7 @@
 From 1a0327191b24b87a340d35f8e7aaed4ca02d26b8 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 06:56:30 +0000
-Subject: [PATCH 055/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Enable the
+Subject: [PATCH 055/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Enable the
  I2C buses
 
 Enable every I2C bus the stock device tree uses, with its pins. I2C5

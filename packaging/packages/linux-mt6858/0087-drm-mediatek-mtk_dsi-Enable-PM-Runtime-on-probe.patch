@@ -1,7 +1,7 @@
 From e32ddc31349a2dc1c601ff68d8f0aafbcaf2dfe3 Mon Sep 17 00:00:00 2001
 From: AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
 Date: Wed, 1 Jul 2026 14:19:48 +0200
-Subject: [PATCH 087/206] drm/mediatek: mtk_dsi: Enable PM Runtime on probe
+Subject: [PATCH 087/214] drm/mediatek: mtk_dsi: Enable PM Runtime on probe
 
 Enable PM Runtime at the end of mtk_dsi_probe() so that the
 mediatek-drm mtk_ddp_comp_power_on() function is able to do

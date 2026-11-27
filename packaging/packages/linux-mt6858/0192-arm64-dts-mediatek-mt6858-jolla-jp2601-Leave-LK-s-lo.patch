@@ -1,7 +1,7 @@
 From a3965b81817c6a5e46c02c803b755d3054b88e93 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 22:38:46 +0000
-Subject: [PATCH 192/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Leave LK's
+Subject: [PATCH 192/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Leave LK's
  log store unmapped
 
 The 512 KiB log store holds the current boot's LK and preloader logs.

@@ -1,7 +1,7 @@
 From ea7ba4cb1a64397fe71845fbaa8675128746fc7a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:49:53 +0000
-Subject: [PATCH 122/206] phy: mediatek: mipi-dsi-mt6858: Put the clock lane in
+Subject: [PATCH 122/214] phy: mediatek: mipi-dsi-mt6858: Put the clock lane in
  clock mode
 
 The clock lane's CKMODE_EN is at 0x328 on MT6858: the bootloader's

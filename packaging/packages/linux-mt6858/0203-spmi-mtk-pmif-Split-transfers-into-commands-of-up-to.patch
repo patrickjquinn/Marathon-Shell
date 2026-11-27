@@ -1,7 +1,7 @@
 From 79c47704c063257e5801c5d30665343c1de4a2eb Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 23:49:37 +0000
-Subject: [PATCH 203/206] spmi: mtk-pmif: Split transfers into commands of up
+Subject: [PATCH 203/214] spmi: mtk-pmif: Split transfers into commands of up
  to 4 bytes
 
 The SPMI core passes extended reads and writes of up to 16 bytes (8 for

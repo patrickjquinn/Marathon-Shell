@@ -1,7 +1,7 @@
 From 4b12c6c66c931b182d8bf988c426a8cd92b436a1 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:25:40 +0000
-Subject: [PATCH 026/206] dt-bindings: clock: mediatek: Add MT6858 clock
+Subject: [PATCH 026/214] dt-bindings: clock: mediatek: Add MT6858 clock
  controllers
 
 Add the MT6858 apmixedsys, topckgen, pericfg_ao and infracfg_ao clock

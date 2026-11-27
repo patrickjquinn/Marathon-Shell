@@ -1,7 +1,7 @@
 From a0313f487f9d1f9d0e74857e4087dc07c968e831 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 20:44:03 +0000
-Subject: [PATCH 183/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Orient the
+Subject: [PATCH 183/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Orient the
  IMU and set the proximity level
 
 Measured on the phone: held upright the ICM-42607 reads +1 g on its X

@@ -1,7 +1,7 @@
 From 8f14c68672fea55cf4668dc57890b195b9ee8194 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 13:02:25 +0000
-Subject: [PATCH 160/206] drm/mediatek: mtk_dsi: Use the bootloader's MT6858
+Subject: [PATCH 160/214] drm/mediatek: mtk_dsi: Use the bootloader's MT6858
  lane rate and front porch
 
 The JP2601 panel's vendor parameters fix the lanes at 880 Mbit/s (PLL

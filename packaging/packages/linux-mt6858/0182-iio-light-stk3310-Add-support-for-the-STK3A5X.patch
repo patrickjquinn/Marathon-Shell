@@ -1,7 +1,7 @@
 From 6d4049ca326dee0e6709958316b1c66c6a38f207 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:57:02 +0000
-Subject: [PATCH 182/206] iio: light: stk3310: Add support for the STK3A5X
+Subject: [PATCH 182/214] iio: light: stk3310: Add support for the STK3A5X
 
 The STK3A5X, used in the Jolla Phone (2026), reports product ID 0x53
 and has the STK3310's state, control, data, flag and ID registers.

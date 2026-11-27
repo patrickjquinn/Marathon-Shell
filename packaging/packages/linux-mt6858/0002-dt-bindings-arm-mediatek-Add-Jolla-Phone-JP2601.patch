@@ -1,7 +1,7 @@
 From 9644c673f0f862cef0287a2a633fb5805181be5f Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 17:58:56 +0000
-Subject: [PATCH 002/206] dt-bindings: arm: mediatek: Add Jolla Phone (JP2601)
+Subject: [PATCH 002/214] dt-bindings: arm: mediatek: Add Jolla Phone (JP2601)
 
 The Jolla Phone (2026) is a smartphone on the MediaTek MT6858
 (Dimensity 7100), sold with Sailfish OS. Document its board compatible

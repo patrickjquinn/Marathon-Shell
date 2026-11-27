@@ -1,7 +1,7 @@
 From d83df5a7b7dfd25831e97eb12e565e52a4add87f Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:19:10 +0000
-Subject: [PATCH 174/206] ASoC: dt-bindings: awinic,aw88395: Add AW88271
+Subject: [PATCH 174/214] ASoC: dt-bindings: awinic,aw88395: Add AW88271
 
 The AW88271 is a boosted Smart K amplifier without a DSP, from the
 same family as the AW88081 and AW88083. The Jolla Phone (2026) has two

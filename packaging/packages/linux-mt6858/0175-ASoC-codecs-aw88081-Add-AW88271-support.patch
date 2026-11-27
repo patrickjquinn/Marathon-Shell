@@ -1,7 +1,7 @@
 From acbdbffbeb1597f79207582d3d8904395868d440 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:19:10 +0000
-Subject: [PATCH 175/206] ASoC: codecs: aw88081: Add AW88271 support
+Subject: [PATCH 175/214] ASoC: codecs: aw88081: Add AW88271 support
 
 The AW88271 (chip ID 0x2329) uses the AW88081's register layout for
 everything the driver touches except SYSCTRL, where it has an I2C

@@ -1,7 +1,7 @@
 From af83321bf6b4cd07bb3c047237a6cae99c54c892 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 10:19:53 +0000
-Subject: [PATCH 125/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 125/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  Visionox VTDR6126 panel
 
 Describe the panel on DSI0 and its three GPIO-switched supplies: the

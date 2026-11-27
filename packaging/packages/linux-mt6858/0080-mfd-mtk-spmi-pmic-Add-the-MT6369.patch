@@ -1,7 +1,7 @@
 From 4b7888fa67cd2cfe02db484412e48707dd55f511 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:26:34 +0000
-Subject: [PATCH 080/206] mfd: mtk-spmi-pmic: Add the MT6369
+Subject: [PATCH 080/214] mfd: mtk-spmi-pmic: Add the MT6369
 
 The MT6369 reads 0x69 from the chip ID register the other SPMI PMICs
 use. On the MT6858 it sits on SPMI-P, whose RCS requests share SPMI-M's

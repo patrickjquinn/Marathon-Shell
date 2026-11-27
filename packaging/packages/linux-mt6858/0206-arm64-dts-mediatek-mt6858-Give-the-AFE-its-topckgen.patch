@@ -1,7 +1,7 @@
 From 05825c2fa8c97439197138b878e67b60f14e7760 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 23:56:14 +0000
-Subject: [PATCH 206/206] arm64: dts: mediatek: mt6858: Give the AFE its
+Subject: [PATCH 206/214] arm64: dts: mediatek: mt6858: Give the AFE its
  topckgen
 
 The AFE needs topckgen's regmap for the MTKAIF miso delay test.

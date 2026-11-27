@@ -1,7 +1,7 @@
 From 79b03e620daf975671368d97144088cfcefb52f0 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 08:16:16 +0000
-Subject: [PATCH 062/206] mfd: mt6720: Mask every event before adding the irq
+Subject: [PATCH 062/214] mfd: mt6720: Mask every event before adding the irq
  chip
 
 The boot loader leaves some events unmasked (0x9c = 0xf8, 0xa8 = 0xe7

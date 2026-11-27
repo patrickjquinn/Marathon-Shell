@@ -1,7 +1,7 @@
 From 4be39a4dd70aafd9386cc66a10bd1b2b466f287b Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:53:58 +0000
-Subject: [PATCH 149/206] DEBUG: drm/mediatek: mtk_dsi: Log the DSI state at
+Subject: [PATCH 149/214] DEBUG: drm/mediatek: mtk_dsi: Log the DSI state at
  each bring-up step
 
 Bring-up only, not for upstream: log the main DSI registers, the

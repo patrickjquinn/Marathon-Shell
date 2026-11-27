@@ -1,7 +1,7 @@
 From 0840da727002dde12c80c3ec1dcded65623edeaa Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:00:35 +0000
-Subject: [PATCH 133/206] drm/mediatek: dsc: Write the last RC range parameter
+Subject: [PATCH 133/214] drm/mediatek: dsc: Write the last RC range parameter
  set
 
 PPS12..PPS19 hold the 15 RC range parameter sets, two per register and

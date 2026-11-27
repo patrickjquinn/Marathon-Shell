@@ -1,7 +1,7 @@
 From 21bb07f7e3f3ca0362517f087bf918593c1398e7 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 07:58:24 +0000
-Subject: [PATCH 060/206] arm64: configs: mt6858: Add the MT6720 drivers
+Subject: [PATCH 060/214] arm64: configs: mt6858: Add the MT6720 drivers
 
 Build in the MT6720 SubPMIC core, its ADCs and its charger and battery
 supplies, and the I2C character device for register access.

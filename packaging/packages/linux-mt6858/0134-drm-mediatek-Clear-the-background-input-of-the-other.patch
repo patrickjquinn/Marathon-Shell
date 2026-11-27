@@ -1,7 +1,7 @@
 From 451a8f05bdd77945bf0d6a1470e904ca72260d6a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 11:06:15 +0000
-Subject: [PATCH 134/206] drm/mediatek: Clear the background input of the other
+Subject: [PATCH 134/214] drm/mediatek: Clear the background input of the other
  path components
 
 mtk_crtc_ddp_hw_init() turns on the background-from-previous-OVL input

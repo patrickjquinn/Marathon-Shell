@@ -1,7 +1,7 @@
 From 9093121cd188076fa571a5ec05bcdddfac6c68c9 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 03:48:29 +0000
-Subject: [PATCH 035/206] dt-bindings: input: mediatek,pmic-keys: Add MT6363
+Subject: [PATCH 035/214] dt-bindings: input: mediatek,pmic-keys: Add MT6363
 
 The MT6363 SPMI PMIC has the power key and two home keys.
 ---

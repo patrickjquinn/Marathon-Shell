@@ -1,7 +1,7 @@
 From ee9aaa6b42e783b3d805d205f4a606333d8a6cca Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 09:24:34 +0000
-Subject: [PATCH 076/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the IR
+Subject: [PATCH 076/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the IR
  transmitter
 
 The IR LED is driven by PWM_3, muxed on GPIO25 by the bootloader. Drive

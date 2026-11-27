@@ -1,7 +1,7 @@
 From 7b37f97f6f99b35aea151d5d96e5f29b333c38b8 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 25 Nov 2026 19:55:55 +0000
-Subject: [PATCH 013/206] arm64: configs: mt6858: Leave KVM out
+Subject: [PATCH 013/214] arm64: configs: mt6858: Leave KVM out
 
 On the Jolla Phone, a U-Boot started by the stock LK runs at EL1: LK's
 hypervisor keeps EL2, so the kernel U-Boot starts runs at EL1 too and

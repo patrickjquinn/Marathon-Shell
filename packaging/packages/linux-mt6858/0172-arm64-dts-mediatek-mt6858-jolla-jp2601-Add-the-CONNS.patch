@@ -1,7 +1,7 @@
 From 45d2308a1ce5bc0be78905131148e2ca8fbb7396 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:35:01 +0000
-Subject: [PATCH 172/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
+Subject: [PATCH 172/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Add the
  CONNSYS supplies
 
 The stock conninfra driver powers the MT6858 CONNSYS and its MT6631

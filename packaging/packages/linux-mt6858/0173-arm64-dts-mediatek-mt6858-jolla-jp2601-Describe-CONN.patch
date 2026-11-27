@@ -1,7 +1,7 @@
 From 96cb1452708acb125b43213b1db5b0d8a91426f8 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Thu, 26 Nov 2026 19:35:59 +0000
-Subject: [PATCH 173/206] arm64: dts: mediatek: mt6858-jolla-jp2601: Describe
+Subject: [PATCH 173/214] arm64: dts: mediatek: mt6858-jolla-jp2601: Describe
  CONNSYS for the vendor drivers
 
 Wi-Fi, Bluetooth and GNSS run on MediaTek's out-of-tree conninfra,
