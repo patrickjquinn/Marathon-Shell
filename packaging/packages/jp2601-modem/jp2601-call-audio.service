@@ -1,0 +1,13 @@
+[Unit]
+Description=JP2601 MD1: the modem's audio peer, speech on during voice calls
+After=ModemManager.service jp2601-modem-init.service
+# Its call signals come from this ModemManager: follow it when it restarts.
+PartOf=ModemManager.service
+PartOf=jp2601-modem.target
+
+[Service]
+ExecStart=/usr/libexec/jp2601-modem/jp2601-call-audio
+# Stopping takes jp2601-speech down with it, which turns any speech off.
+KillMode=control-group
+Restart=on-failure
+RestartSec=5
