@@ -449,9 +449,11 @@ static int plymouthDeviceScale() {
 static int runHomeUnlock(const QStringList &command) {
     const marathon::device::Profile device = marathon::device::profile();
     // Silica at the shell's scale (Ambience::setScale) in the default
-    // ambience's highlight (Meridian's); the person's own is on /home.
+    // ambience's highlight (Meridian's); the person's own is on /home. The
+    // device's interface size too, so the pad lands on the lock screen's.
     qputenv("KEEL_THEME_PIXEL_RATIO",
-            QByteArray::number(ScreenMetrics::computeDpi(QGuiApplication::primaryScreen()) / 320));
+            QByteArray::number(ScreenMetrics::computeDpi(QGuiApplication::primaryScreen()) / 320 *
+                               device.ui_scale));
     qputenv("KEEL_THEME_HIGHLIGHT_COLOR", "#7df0d4");
     QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
 
@@ -459,6 +461,7 @@ static int runHomeUnlock(const QStringList &command) {
     QQmlContext          *ctx = engine.rootContext();
     ctx->setContextProperty(QStringLiteral("DeviceProfile"), deviceProfileMap(device));
     ctx->setContextProperty(QStringLiteral("MARATHON_LAYER_SAMPLES"), device.hw_msaa_samples);
+    ctx->setContextProperty(QStringLiteral("MARATHON_USER_SCALE"), device.ui_scale);
     ctx->setContextProperty(QStringLiteral("PlymouthScale"), plymouthDeviceScale());
     createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &engine);
     createObject<HomeUnlock>(ctx, "HomeUnlockCpp", command, &engine);
