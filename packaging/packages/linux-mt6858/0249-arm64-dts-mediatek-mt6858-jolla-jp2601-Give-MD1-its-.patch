@@ -1,0 +1,41 @@
+From dfee062fecde2de0cec0605717d02dc443691e76 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 08:35:40 +0000
+Subject: [PATCH 249/250] arm64: dts: mediatek: mt6858-jolla-jp2601: Give MD1
+ its SPM resource table
+
+ECCCI hands the modem an SPM resource table at handshake (runtime
+feature SPM_MD_PARA) from the mediatek,spm-resource-setting node. Without
+it the driver sends a single zero, and MD1 runs its sleep handshake
+without the parameters the stock software gives it. Add the stock
+table: the "SPM\0" magic and its ten settings, as in /mtk-lpm on the
+stock device tree.
+---
+ arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+index d3114db86..4f4f6bc59 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6858-jolla-jp2601.dts
+@@ -237,6 +237,17 @@ md-attr {
+ 		mediatek,md_drdi_rf_set_idx = <0x0f0f0f0f>;
+ 	};
+ 
++	/*
++	 * The SPM resource table ECCCI hands MD1 at handshake, from the stock
++	 * /mtk-lpm/spm-resource-setting ("SPM\0" magic, then the settings).
++	 */
++	spm-resource-setting {
++		compatible = "mediatek,spm-resource-setting";
++		setting-size = <11>;
++		setting-value-table = <0x53504d00 0xf3c 0x3c 0xf32 0x7d 0xf3c
++				       0x7d 0x00 0x01 0x6a4 0x3c>;
++	};
++
+ 	/*
+ 	 * The stock HWID selects "nofem" (no hwid node, no connfem module
+ 	 * parameter), so no FEM pins are claimed.
+-- 
+2.55.0
+

@@ -1,0 +1,34 @@
+From 446d4bcbed69dfb92ec93f3e9441a3c07b5fe183 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 08:35:40 +0000
+Subject: [PATCH 250/250] arm64: configs: mt6858: Turn lockups and RCU stalls
+ into panics
+
+The JP2601 runs systemd's hardware watchdog with a 15 s timeout, so a
+stuck kernel shows up only as a silent reset. Build the soft- and
+hard-lockup (buddy) detectors with panic on detection, and bring the
+RCU stall timeout down from 21 s to 10 s, so a hang panics and leaves
+its oops in pstore (the ramoops region LK reserves) before the watchdog
+resets the board.
+---
+ arch/arm64/configs/mt6858.config | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm64/configs/mt6858.config b/arch/arm64/configs/mt6858.config
+index f51e3fe41..95730670c 100644
+--- a/arch/arm64/configs/mt6858.config
++++ b/arch/arm64/configs/mt6858.config
+@@ -102,3 +102,10 @@ CONFIG_RTC_DRV_MT6397=y
+ # SoC temperatures from the LVTS sensors, for thermal throttling.
+ CONFIG_MTK_THERMAL=y
+ CONFIG_MTK_LVTS_THERMAL=y
++# A hang panics into pstore (LK's ramoops) before the 15 s hardware
++# watchdog bites, instead of a silent reset.
++CONFIG_SOFTLOCKUP_DETECTOR=y
++CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y
++CONFIG_HARDLOCKUP_DETECTOR=y
++CONFIG_BOOTPARAM_HARDLOCKUP_PANIC=y
++CONFIG_RCU_CPU_STALL_TIMEOUT=10
+-- 
+2.55.0
+

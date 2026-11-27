@@ -1,0 +1,46 @@
+From cdbe608b19a9bef0d1fcd4f917c1b855a9e183c2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 06:49:27 +0000
+Subject: [PATCH 245/250] power: supply: mt6720-battery: Report the battery's
+ health
+
+Report the battery too hot or too cold when its temperature leaves the
+operating range the battery info gives, and good otherwise. Without a
+range the health is always good.
+---
+ drivers/power/supply/mt6720-battery.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/power/supply/mt6720-battery.c b/drivers/power/supply/mt6720-battery.c
+index 3a162ddb3..100e4d3dd 100644
+--- a/drivers/power/supply/mt6720-battery.c
++++ b/drivers/power/supply/mt6720-battery.c
+@@ -167,6 +167,17 @@ static int mt6720_bat_get_property(struct power_supply *psy,
+ 		return ret;
+ 	case POWER_SUPPLY_PROP_TEMP:
+ 		return mt6720_bat_get_temp(bat, &val->intval);
++	case POWER_SUPPLY_PROP_HEALTH:
++		ret = mt6720_bat_get_temp(bat, &v);
++		if (ret)
++			return ret;
++		if (v / 10 > bat->info->temp_max)
++			val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
++		else if (v / 10 < bat->info->temp_min)
++			val->intval = POWER_SUPPLY_HEALTH_COLD;
++		else
++			val->intval = POWER_SUPPLY_HEALTH_GOOD;
++		return 0;
+ 	case POWER_SUPPLY_PROP_CAPACITY:
+ 		return mt6720_bat_get_capacity(bat, &val->intval);
+ 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+@@ -190,6 +201,7 @@ static const enum power_supply_property mt6720_bat_properties[] = {
+ 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+ 	POWER_SUPPLY_PROP_CURRENT_NOW,
+ 	POWER_SUPPLY_PROP_TEMP,
++	POWER_SUPPLY_PROP_HEALTH,
+ 	POWER_SUPPLY_PROP_CAPACITY,
+ 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+ 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
+-- 
+2.55.0
+
