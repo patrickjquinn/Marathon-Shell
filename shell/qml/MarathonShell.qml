@@ -1305,6 +1305,18 @@ Item {
             }
         }
 
+        // A flip cover: closing it locks and blanks, opening it wakes.
+        function onLidChanged(closed) {
+            if (closed) {
+                SessionStore.lock();
+                Display.turnScreenOff("lid closed");
+            } else if (Display.nightshade) {
+                nightshade.leave("");
+            } else if (!Display.screenOn) {
+                Display.turnScreenOn("lid opened");
+            }
+        }
+
         target: Power
     }
 

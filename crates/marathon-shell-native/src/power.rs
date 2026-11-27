@@ -13,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use async_channel::{Receiver, Sender};
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QString, QStringList};
-use evdev::{EventSummary, KeyCode};
+use evdev::{EventSummary, KeyCode, SwitchCode};
 use futures_lite::{stream, StreamExt};
 use zbus::fdo::{self, DBusProxy, PropertiesProxy};
 use zbus::message::Header;
@@ -105,6 +105,10 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "sideKeyReleased"]
         fn side_key_released(self: Pin<&mut Self>, key: &QString);
+        /// A flip cover's magnet over the hall sensor (`SW_LID`).
+        #[qsignal]
+        #[cxx_name = "lidChanged"]
+        fn lid_changed(self: Pin<&mut Self>, closed: bool);
         /// Whether systemd took the wake-up `setWakeTimer` asked for.
         #[qsignal]
         #[cxx_name = "wakeTimerSet"]
@@ -701,8 +705,9 @@ fn side_key(code: KeyCode) -> Option<&'static str> {
     }
 }
 
-/// Reads every input device with a power or side key on a thread of its
-/// own: the power key wakes the screen, so it never waits behind other I/O.
+/// Reads every input device with a power or side key, or a lid switch, on a
+/// thread of its own: the power key wakes the screen, so it never waits
+/// behind other I/O.
 fn watch_power_keys(qt: Qt) {
     let found = std::thread::Builder::new().name("marathon-keys".into()).spawn(move || {
         let trackpad = evdev::enumerate().any(|(_, d)| {
@@ -715,6 +720,7 @@ fn watch_power_keys(qt: Qt) {
         }
         let keys = evdev::enumerate().filter(|(_, d)| {
             d.supported_keys().is_some_and(|k| k.iter().any(|c| c == KeyCode::KEY_POWER || side_key(c).is_some()))
+                || d.supported_switches().is_some_and(|s| s.contains(SwitchCode::SW_LID))
         });
         let mut watched = 0;
         for (path, mut device) in keys {
@@ -730,8 +736,13 @@ fn watch_power_keys(qt: Qt) {
                     Err(e) => return log::warn("power", format_args!("{name}: {e}")),
                 };
                 for event in events {
-                    let EventSummary::Key(_, code, value @ 0..=1) = event.destructure() else {
-                        continue;
+                    let (code, value) = match event.destructure() {
+                        EventSummary::Key(_, code, value @ 0..=1) => (code, value),
+                        EventSummary::Switch(_, SwitchCode::SW_LID, value @ 0..=1) => {
+                            qt.queue(move |obj| obj.lid_changed(value == 1)).ok();
+                            continue;
+                        }
+                        _ => continue,
                     };
                     if code == KeyCode::KEY_POWER {
                         let device = QString::from(name.as_str());
