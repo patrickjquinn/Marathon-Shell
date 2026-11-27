@@ -1,0 +1,4 @@
+# Firmware partitions (no filesystem) need no systemd device units: with their
+# links they made ~600, which every user manager loaded at start. Their
+# /dev/disk links stay; userdata holds the carrier.
+SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="platform-112b0000.ufshci-*", ENV{ID_FS_TYPE}=="", ENV{ID_PART_ENTRY_NAME}!="userdata", TAG-="systemd"

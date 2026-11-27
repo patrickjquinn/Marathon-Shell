@@ -19,7 +19,8 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  jp2601.preset unudhcpd-usb0.conf jp2601-usb.nm.conf jp2601-usb-gadget jp2601-usb-gadget.service
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
  eglfs-kms.json 60-jp2601-display.rules jp2601-gpu.files jp2601-power.sysctl
- jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service"
+ jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service
+ 99-jp2601-partitions.rules"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
@@ -33,6 +34,8 @@ package() {
 	# built-in driver finds it at boot.
 	install -Dm644 "$srcdir/eglfs-kms.json" "$pkgdir/etc/jp2601/eglfs-kms.json"
 	install -Dm644 "$srcdir/60-jp2601-display.rules" "$pkgdir/usr/lib/udev/rules.d/60-jp2601-display.rules"
+	# After 99-systemd.rules, which tags every block device.
+	install -Dm644 "$srcdir/99-jp2601-partitions.rules" "$pkgdir/usr/lib/udev/rules.d/99-zz-jp2601-partitions.rules"
 	install -Dm644 "$srcdir/jp2601-gpu.files" "$pkgdir/usr/share/mkinitfs/files/50-jp2601-gpu.files"
 
 	install -Dm644 "$srcdir/jp2601-logind.conf" "$pkgdir/usr/lib/systemd/logind.conf.d/50-jp2601.conf"
@@ -113,4 +116,5 @@ b57f61df48bd9b2aef0052bfa17c319759aaf3e865a19ae2380b5601ad30fdc68fc05c7822f30964
 411e02105c6d079ff47cabb091fde65037d6916c8eab687e268065e063bc33eb4abc2cd7a8c41f66b958e99d4cd762cd66937c6f5ab591d3650f416eefa148b0  jp2601-logind.conf
 03c47767af679ce30238d5eeb70be9f7b68d48aeede5df96c89ccb4ddc83e9e0a40633cbf643821d626596351481bff4bada6f5016ebecdc2d8594035af53806  jp2601-upower.conf
 9d5b420c0011dd7509d8547d86beeafe385baf69a66cdde397998535a059fa4fbd5941dcd6c2555bb9e64d2b83d6f6933d626b7cf029ff3499736f4067c91592  jp2601-user-sessions.service
+b71706101fbb0d16d1cea9dfbfc94229811e7b06425e3573b2e06b222b4f48d58c773314faee9525dcc2f5e693acdcafe691654ec40bc3ab9850d803e301b366  99-jp2601-partitions.rules
 "
