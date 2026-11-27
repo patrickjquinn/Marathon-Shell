@@ -1,0 +1,10 @@
+# The radios even when the shell never draws, so the phone stays reachable.
+[Unit]
+Description=Start the radios without the shell
+
+[Timer]
+OnActiveSec=30
+Unit=mt6858-connsys.target
+
+[Install]
+WantedBy=multi-user.target

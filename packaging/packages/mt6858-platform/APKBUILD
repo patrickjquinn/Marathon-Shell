@@ -5,7 +5,7 @@
 # board's (jp2601-connsys-firmware).
 pkgname=mt6858-platform
 pkgver=1.0.0
-pkgrel=4
+pkgrel=5
 pkgdesc="MediaTek MT6858 CONNSYS (Wi-Fi, Bluetooth, GNSS) services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -15,7 +15,8 @@ depends="e2fsprogs-extra bluez-btmgmt wpa_supplicant wpa_supplicant-systemd mt68
  marathon-gnssd"
 source="mt6858-connsys-nvram mt6858-connsys-nvram.service mt6858-wifi.service
  mt6858-wifi-on mt6858-bluetooth.service mt6858-bt-address mt6858-gnss.service
- 50-mt6858-wpa_supplicant.conf 50-mt6858-gnssd.conf mt6858-wlan.modprobe.conf"
+ 50-mt6858-wpa_supplicant.conf 50-mt6858-gnssd.conf mt6858-wlan.modprobe.conf
+ mt6858-connsys.target mt6858-connsys.path mt6858-connsys.timer"
 
 package() {
 	install -Dm755 "$srcdir/mt6858-connsys-nvram" "$pkgdir/usr/libexec/marathon/mt6858-connsys-nvram"
@@ -27,6 +28,9 @@ package() {
 	for unit in mt6858-connsys-nvram mt6858-wifi mt6858-bluetooth mt6858-gnss; do
 		install -Dm644 "$srcdir/$unit.service" "$pkgdir/usr/lib/systemd/system/$unit.service"
 	done
+	for unit in mt6858-connsys.target mt6858-connsys.path mt6858-connsys.timer; do
+		install -Dm644 "$srcdir/$unit" "$pkgdir/usr/lib/systemd/system/$unit"
+	done
 	# NetworkManager reaches wpa_supplicant over D-Bus (-u); wpa_cli needs
 	# the control socket.
 	install -Dm644 "$srcdir/50-mt6858-wpa_supplicant.conf" \
@@ -36,8 +40,9 @@ package() {
 
 	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants" \
 		"$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
-	for unit in mt6858-connsys-nvram mt6858-wifi mt6858-bluetooth mt6858-gnss; do
-		ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
+	# The radios start once the shell has drawn (mt6858-connsys.path).
+	for unit in mt6858-connsys-nvram.service mt6858-connsys.path mt6858-connsys.timer; do
+		ln -s ../$unit "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit"
 	done
 	ln -s ../mt6858-bluetooth.service "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants/mt6858-bluetooth.service"
 }

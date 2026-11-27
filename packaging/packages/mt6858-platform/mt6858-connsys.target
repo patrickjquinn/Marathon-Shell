@@ -1,0 +1,3 @@
+[Unit]
+Description=MT6858 CONNSYS radios (Wi-Fi, Bluetooth, GNSS)
+Wants=mt6858-wifi.service mt6858-bluetooth.service mt6858-gnss.service
