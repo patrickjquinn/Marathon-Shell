@@ -209,7 +209,7 @@ Item {
                 route: "cellular",
                 label: SystemStatusStore.carrier || qsTr("Mobile"),
                 //: Quick settings mobile tile status: network type and signal, e.g. "LTE · good"
-                status: dataOn ? (SystemStatusStore.dataType ? qsTr("%1 · %2").arg(SystemStatusStore.dataType).arg(signalWord(SystemStatusStore.cellularStrength)) : signalWord(SystemStatusStore.cellularStrength)) : Modem.dataFailed ? qsTr("Can't connect") : qsTr("Data off"),
+                status: dataOn ? (SystemStatusStore.dataType ? qsTr("%1 · %2").arg(SystemStatusStore.dataType).arg(signalWord(SystemStatusStore.cellularStrength)) : signalWord(SystemStatusStore.cellularStrength)) : Modem.dataFailed ? qsTr("Can't connect") : Modem.modemEnabled && !Modem.simPresent ? qsTr("No SIM") : Modem.modemEnabled && !Modem.registered ? qsTr("No service") : qsTr("Data off"),
                 on: dataOn
             });
         }
