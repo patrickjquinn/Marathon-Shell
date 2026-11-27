@@ -287,7 +287,7 @@ static void startTouchInput(const QString &specification) {
             return std::unique_ptr<QObject>(new QEvdevTouchScreenHandlerThread(node, handlerSpec));
         },
         qApp);
-    const auto keys        = new TouchDevices(openTouchKeys, qApp);
+    const auto keys = new TouchDevices(openTouchKeys, qApp);
     // The reader threads stop before the application tears down the devices they report to.
     QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, [devices, keys] {
         delete keys;
@@ -422,12 +422,13 @@ static void startupMark(const char *phase) {
 }
 
 static QVariantMap deviceProfileMap(const marathon::device::Profile &device) {
-    return QVariantMap{{QStringLiteral("panelDither"), device.panel_dither},
-                       {QStringLiteral("panelDepth"), device.panel_depth},
-                       {QStringLiteral("panelDpi"), device.panel_dpi},
-                       {QStringLiteral("displayTechnology"), device.display_technology},
-                       {QStringLiteral("cutout"), QRect(device.cutout_x, device.cutout_y,
-                                                        device.cutout_width, device.cutout_height)}};
+    return QVariantMap{
+        {QStringLiteral("panelDither"), device.panel_dither},
+        {QStringLiteral("panelDepth"), device.panel_depth},
+        {QStringLiteral("panelDpi"), device.panel_dpi},
+        {QStringLiteral("displayTechnology"), device.display_technology},
+        {QStringLiteral("cutout"),
+         QRect(device.cutout_x, device.cutout_y, device.cutout_width, device.cutout_height)}};
 }
 
 // marathon-carrier-home-crypt's PIN pad for the encrypted /home: the screen,
