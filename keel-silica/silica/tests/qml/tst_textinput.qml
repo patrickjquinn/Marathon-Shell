@@ -130,6 +130,9 @@ Item {
             compare(area.text, "a\nb")
             compare(root.areaEnterCount, 1)
             verify(area._editor.lineCount >= 2)
+            keyClick(Qt.Key_Return, Qt.ShiftModifier)
+            compare(area.text, "a\nb\n")
+            compare(root.areaEnterCount, 1)
         }
 
         function test_clipboard_roundtrip() {
