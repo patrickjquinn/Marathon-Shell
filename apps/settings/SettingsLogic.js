@@ -45,6 +45,16 @@ const pages = {
     permissions: "PermissionsPage.qml"
 };
 
+// Routes that land on one row of their page, which the page scrolls to.
+const rows = {
+    scale: "scale",
+    screentimeout: "timeout"
+};
+
+function pageRow(route) {
+    return rows[String(route || "").replace(/^\/+/, "").split(/[/?]/)[0].toLowerCase()] || "";
+}
+
 function pageFile(route) {
     const name = String(route || "").replace(/^\/+/, "").split(/[/?]/)[0].toLowerCase();
     return pages[name] || "";

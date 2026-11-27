@@ -8,6 +8,9 @@ import "../SettingsLogic.js" as Logic
 Page {
     id: page
 
+    // A link's row ("scale", "timeout"), scrolled into view once the page is up.
+    property string focusRow
+
     function setBrightness(percent) {
         Display.brightness = Math.max(0, Math.min(100, percent)) / 100;
     }
@@ -26,7 +29,17 @@ Page {
         TimePickerDialog {}
     }
 
+    onStatusChanged: {
+        const row = focusRow === "scale" ? scaleCombo : focusRow === "timeout" ? timeout : null;
+        if (status !== PageStatus.Active || !row)
+            return;
+        focusRow = "";
+        flickable.contentY = Math.max(0, Math.min(row.mapToItem(column, 0, 0).y - Theme.paddingLarge, flickable.contentHeight - flickable.height));
+    }
+
     SilicaFlickable {
+        id: flickable
+
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
 
@@ -289,6 +302,8 @@ Page {
                 text: qsTr("Interface")
             }
             ComboBox {
+                id: scaleCombo
+
                 objectName: "scaleCombo"
                 width: parent.width
                 label: qsTr("Interface size")

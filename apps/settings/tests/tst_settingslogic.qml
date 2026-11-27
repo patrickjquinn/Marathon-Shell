@@ -5,6 +5,13 @@ import "../SettingsLogic.js" as Logic
 TestCase {
     name: "SettingsLogic"
 
+    function test_pageRow() {
+        compare(Logic.pageRow("scale"), "scale");
+        compare(Logic.pageRow("/screentimeout"), "timeout");
+        compare(Logic.pageRow("display"), "");
+        compare(Logic.pageRow("wifi"), "");
+    }
+
     function test_pageFile() {
         compare(Logic.pageFile("wifi"), "WiFiPage.qml");
         compare(Logic.pageFile("/about"), "AboutPage.qml");
