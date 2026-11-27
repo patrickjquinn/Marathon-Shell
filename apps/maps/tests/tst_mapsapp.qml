@@ -89,6 +89,7 @@ TestCase {
         Location.reset();
         Permissions.reset();
         Lifecycle.held = 0;
+        Sensors.reset();
     }
 
     function makeApp() {
@@ -379,6 +380,29 @@ TestCase {
         compare(app.router.requests[0].to, [10.002, 1]);
         compare(app.router.requests[0].mode, "auto");
         verify(!findChild(current(app), "navigateButton").enabled);
+    }
+
+    function test_compassShowsWhichWayTheMapFaces() {
+        const app = makeApp();
+        app.map.ready();
+        verify(!Sensors.compassWanted);
+        app.startLocating();
+        verify(Sensors.compassWanted);
+        verify(findChild(current(app), "compassHint").visible);
+        Sensors.face(90, true);
+        verify(app.map.calls[app.map.calls.length - 1].indexOf("setUserHeading(90)") > 0);
+        verify(!findChild(current(app), "compassHint").visible);
+        Sensors.face(93, false);
+        verify(app.map.calls[app.map.calls.length - 1].indexOf("setUserHeading(-1)") > 0);
+        verify(findChild(current(app), "compassHint").visible);
+    }
+
+    function test_noCompassNoHint() {
+        Sensors.compassAvailable = false;
+        const app = makeApp();
+        app.startLocating();
+        verify(!Sensors.compassWanted);
+        verify(!findChild(current(app), "compassHint").visible);
     }
 
     function test_noFixAsksForStartPoint() {

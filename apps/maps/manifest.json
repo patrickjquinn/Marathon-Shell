@@ -7,9 +7,10 @@
   "entryPoint": "MapsApp.qml",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
-  "permissions": ["location", "network"],
+  "permissions": ["location", "network", "sensors"],
   "permissionReasons": {
-    "location": "Shows where you are and guides you turn by turn"
+    "location": "Shows where you are and guides you turn by turn",
+    "sensors": "Shows which way you are facing"
   },
   "minShellVersion": "1.0.0",
   "protected": true,

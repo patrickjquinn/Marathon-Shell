@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Shapes
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import "../MapsLogic.js" as Logic
@@ -263,6 +264,78 @@ Page {
             icon.color: Theme.highlightColor
             Accessible.name: qsTr("Show my location")
             onClicked: root.app.locateMe()
+        }
+    }
+
+    // The phone's magnets hide north until it has turned through enough
+    // directions; the standard figure eight shows how.
+    Rectangle {
+        objectName: "compassHint"
+        x: Theme.horizontalPageMargin
+        anchors.bottom: bottomPanel.visible ? bottomPanel.top : parent.bottom
+        anchors.bottomMargin: Theme.paddingLarge
+        width: parent.width - 2 * Theme.horizontalPageMargin
+        height: Math.max(figureEight.height, compassLabel.height) + 2 * Theme.paddingLarge
+        radius: Theme.paddingSmall
+        color: root.panelColor
+        visible: root.app.compassNeedsCalibration && root.mode !== "active"
+
+        Shape {
+            id: figureEight
+
+            readonly property real w: width
+            readonly property real h: height
+            readonly property string loops: `M ${w / 2} ${h / 2} C ${w * 1.05} ${-h * 0.2} ${w * 1.05} ${h * 1.2} ${w / 2} ${h / 2} C ${-w * 0.05} ${-h * 0.2} ${-w * 0.05} ${h * 1.2} ${w / 2} ${h / 2}`
+
+            x: Theme.paddingLarge
+            anchors.verticalCenter: parent.verticalCenter
+            width: Theme.iconSizeMedium * 1.5
+            height: Theme.iconSizeMedium * 0.75
+            preferredRendererType: Shape.CurveRenderer
+
+            ShapePath {
+                strokeColor: Theme.secondaryColor
+                strokeWidth: 2
+                fillColor: "transparent"
+                PathSvg {
+                    path: figureEight.loops
+                }
+            }
+            Rectangle {
+                id: phone
+
+                width: Theme.paddingMedium
+                height: Theme.paddingMedium * 1.6
+                radius: 2
+                color: Theme.highlightColor
+            }
+            PathAnimation {
+                target: phone
+                running: figureEight.visible
+                loops: Animation.Infinite
+                duration: 2400
+                anchorPoint: Qt.point(phone.width / 2, phone.height / 2)
+                path: Path {
+                    PathSvg {
+                        path: figureEight.loops
+                    }
+                }
+            }
+        }
+        Label {
+            id: compassLabel
+
+            anchors {
+                left: figureEight.right
+                leftMargin: Theme.paddingLarge
+                right: parent.right
+                rightMargin: Theme.paddingLarge
+                verticalCenter: parent.verticalCenter
+            }
+            wrapMode: Text.Wrap
+            color: Theme.secondaryColor
+            font.pixelSize: Theme.fontSizeSmall
+            text: qsTr("To show which way you're facing, move the phone in a figure eight.")
         }
     }
 

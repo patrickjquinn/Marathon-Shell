@@ -77,6 +77,7 @@ ApplicationWindow {
     readonly property bool arrived: routingMode === "active" && currentManeuverIndex === maneuvers.length - 1
 
     property var location: typeof Location !== "undefined" ? Location : null
+    property var sensors: typeof Sensors !== "undefined" ? Sensors : null
     property var permissions: typeof Permissions !== "undefined" ? Permissions : null
     property var lifecycle: typeof Lifecycle !== "undefined" ? Lifecycle : null
     property bool hasLocationPermission: permissions !== null && permissions.hasPermission(appId, "location")
@@ -84,6 +85,9 @@ ApplicationWindow {
     // Exact fixes run GNSS: hold them only while Maps is in front or navigating.
     property bool _locating: false
     readonly property bool _holdsLocation: _locating && (Qt.application.state === Qt.ApplicationActive || routingMode === "active")
+    // The heading shows only on a map in front.
+    readonly property bool _wantsCompass: _holdsLocation && Qt.application.state === Qt.ApplicationActive && sensors !== null && sensors.compassAvailable
+    readonly property bool compassNeedsCalibration: _wantsCompass && !sensors.compassCalibrated
     property int _navTask: 0
     // How long a finished route stays up before navigation ends itself.
     property int arrivalLinger: 60000
@@ -413,6 +417,10 @@ ApplicationWindow {
     }
 
     appId: "maps"
+    on_WantsCompassChanged: {
+        if (sensors)
+            sensors.compassWanted = _wantsCompass;
+    }
     on_HoldsLocationChanged: {
         if (!location)
             return;
@@ -497,6 +505,14 @@ ApplicationWindow {
             root._searchGeneration++;
             root.searching = false;
             root.searchError = qsTr("The search service didn't answer. Check your internet connection and try again.");
+        }
+    }
+
+    Connections {
+        target: root.sensors
+
+        function onCompassChanged() {
+            root.mapCall("setUserHeading", root.sensors.compassCalibrated ? root.sensors.heading : -1);
         }
     }
 
