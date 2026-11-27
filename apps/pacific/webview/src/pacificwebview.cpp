@@ -2453,10 +2453,10 @@ void PacificWebView::saveThumbnail(const QString &path, int maxWidth, int maxHei
                 const int   h      = static_cast<int>(webkit_image_get_height(image));
                 const int   stride = static_cast<int>(webkit_image_get_stride(image));
                 if (pixels && w > 0 && h > 0 && size >= static_cast<gsize>(stride) * h) {
-                    QImage frame(pixels, w, h, stride, QImage::Format_ARGB32_Premultiplied);
-                    QImage scaled = frame.scaled(call->max.width() > 0 ? call->max.width() : w,
-                                                 call->max.height() > 0 ? call->max.height() : h,
-                                                 Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    QImage    frame(pixels, w, h, stride, QImage::Format_ARGB32_Premultiplied);
+                    QImage    scaled = frame.scaled(call->max.width() > 0 ? call->max.width() : w,
+                                                    call->max.height() > 0 ? call->max.height() : h,
+                                                    Qt::KeepAspectRatio, Qt::SmoothTransformation);
                     QSaveFile file(call->path);
                     ok = file.open(QIODevice::WriteOnly) && scaled.save(&file, "PNG") &&
                         file.commit();

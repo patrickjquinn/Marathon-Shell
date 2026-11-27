@@ -60,23 +60,6 @@ Item {
         radius: height / 2
         color: Theme.highlightDimmerColor
 
-        component Action: MouseArea {
-            id: action
-
-            property alias text: label.text
-
-            width: label.implicitWidth + 2 * Theme.paddingLarge
-            height: parent.height
-
-            Label {
-                id: label
-
-                anchors.centerIn: parent
-                color: action.pressed ? Theme.highlightColor : Theme.primaryColor
-                font.pixelSize: Theme.fontSizeSmall
-            }
-        }
-
         Row {
             id: actions
 
@@ -109,6 +92,23 @@ Item {
                 text: qsTr("Paste")
                 onClicked: menu.run(WebView.Paste)
             }
+        }
+    }
+
+    component Action: MouseArea {
+        id: action
+
+        property alias text: label.text
+
+        width: label.implicitWidth + 2 * Theme.paddingLarge
+        height: parent.height
+
+        Label {
+            id: label
+
+            anchors.centerIn: parent
+            color: action.pressed ? Theme.highlightColor : Theme.primaryColor
+            font.pixelSize: Theme.fontSizeSmall
         }
     }
 }
