@@ -30,6 +30,7 @@ Rectangle {
     // Where the finger is, in the key: the alternates are picked relative to it.
     property point pointer: Qt.point(width / 2, height / 2)
     property point holdPoint
+    property bool _sliding: false
 
     signal clicked
     signal pressAndHold
@@ -191,6 +192,7 @@ Rectangle {
         key.pressed = true;
         key.longPressTriggered = false;
         key.selectedAlternate = -1;
+        key._sliding = false;
         if (SettingsManagerCpp.keyboardHapticStrength !== "off")
             HapticManager.light();
         longPressTimer.restart();
@@ -201,8 +203,9 @@ Rectangle {
         key.pointer = Qt.point(x, y);
         if (!key.showingAlternates)
             return;
-        if (key.selectedAlternate < 0 && Math.hypot(x - key.holdPoint.x, y - key.holdPoint.y) < Silica.Theme.startDragDistance)
+        if (!key._sliding && Math.hypot(x - key.holdPoint.x, y - key.holdPoint.y) < Silica.Theme.startDragDistance)
             return;
+        key._sliding = true;
         var i = Math.floor((x - alternatePopup.x - alternatePopup.padding) / key.width);
         key.selectedAlternate = Math.max(0, Math.min(key.alternateChars.length - 1, i));
     }
@@ -262,6 +265,8 @@ Rectangle {
                 if (SettingsManagerCpp.keyboardHapticStrength !== "off")
                     HapticManager.medium();
                 key.holdPoint = key.pointer;
+                // The hint on the key is what a hold types, unless the finger slides.
+                key.selectedAlternate = key.alternateChars.indexOf(key.alternateText);
                 key.showingAlternates = true;
             }
             key.pressAndHold();
