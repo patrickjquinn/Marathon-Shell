@@ -1,0 +1,4 @@
+# The Camera app's lens switch: the 50 MP main camera and the 13 MP ultrawide,
+# in the order the app lists the back cameras (largest sensor first).
+[apps/camera]
+backCameraLabels=['1', '0.6']
