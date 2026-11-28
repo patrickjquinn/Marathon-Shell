@@ -81,6 +81,7 @@ class InputContext : public QObject {
     QObject      *m_keyboard              = nullptr;
     QInputMethod *m_inputMethod           = nullptr;
     QString       m_inputMode             = QStringLiteral("text");
+    bool          m_prefersLowercase      = false;
     bool          m_autoCapitalizeEnabled = true;
     bool          m_autoCorrectEnabled    = true;
     bool          m_predictionsEnabled    = true;

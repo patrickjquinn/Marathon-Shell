@@ -128,6 +128,8 @@ Rectangle {
             keyboard.currentWord = keyboard.currentWord.slice(0, -1);
             updatePredictions();
         }
+        if (keyboard.currentWord === "")
+            autoShiftTimer.restart();
     }
 
     function handleSpace() {
@@ -149,7 +151,8 @@ Rectangle {
         if (word.length > 0) {
             // A word stays a typo when its correction can't go in: not learnt.
             var settled = true;
-            if (inputContextInstance.shouldAutoCorrect) {
+            // Only a word of letters is a typo: "2q" or "v1.2" is meant.
+            if (inputContextInstance.shouldAutoCorrect && keyboard.currentTaps.length === word.replace(/'/g, "").length) {
                 var corrected = Dictionary.correctionFor(word, keyboard.tapsText(), keyboard.lastWord());
                 if (corrected !== word) {
                     settled = inputContextInstance.replaceCurrentWord(corrected);
@@ -282,6 +285,7 @@ Rectangle {
     function moveCursor(direction) {
         inputContextInstance.sendCursorKey(direction < 0 ? Qt.Key_Left : Qt.Key_Right);
         keyboard.forgetWord();
+        autoShiftTimer.restart();
         if (SettingsManagerCpp.keyboardHapticStrength !== "off")
             HapticManager.light();
     }
@@ -334,10 +338,17 @@ Rectangle {
     function show() {
         keyboard.active = true;
         inputContextInstance.detectInputMode();
-        if (inputContextInstance.shouldAutoCapitalize)
-            keyboard.shifted = true;
-        else
-            keyboard.shifted = false;
+        keyboard.lastTyped = "";
+        updateAutoShift();
+    }
+
+    // Shift follows the text before the cursor: on at a sentence's start.
+    // Checked again once an app's field has sent its text over.
+    function updateAutoShift() {
+        autoShiftTimer.restart();
+        if (keyboard.capsLock || keyboard.currentWord !== "")
+            return;
+        keyboard.shifted = inputContextInstance.shouldAutoCapitalize && inputContextInstance.atSentenceStart();
     }
 
     // App fields commit their hints after the keyboard opens, and switching fields keeps it open.
@@ -349,8 +360,7 @@ Rectangle {
         keyboard.fieldHints = hints;
         keyboard.lastTyped = "";
         inputContextInstance.detectInputMode();
-        if (!keyboard.capsLock && keyboard.currentWord === "")
-            keyboard.shifted = inputContextInstance.shouldAutoCapitalize;
+        updateAutoShift();
     }
 
     function hide() {
@@ -377,7 +387,7 @@ Rectangle {
     width: parent ? parent.width : 0
     implicitHeight: mainColumn.implicitHeight
     height: active ? implicitHeight : 0
-    color: MColors.eink ? MColors.background : Qt.rgba(0.04, 0.04, 0.05, 0.97)
+    color: MColors.eink ? MColors.background : Qt.rgba(0.04, 0.04, 0.05, 1)
     onActiveChanged: {
         if (active) {
             keyboard.fieldHints = typeof InputMethodEngine !== "undefined" ? InputMethodEngine.focusHints() : 0;
@@ -403,6 +413,16 @@ Rectangle {
     onCurrentWordChanged: {
         if (currentWord.length === 0)
             currentTaps = [];
+    }
+
+    Timer {
+        id: autoShiftTimer
+
+        interval: 80
+        onTriggered: {
+            if (!keyboard.capsLock && keyboard.currentWord === "" && keyboard.lastTyped === "")
+                keyboard.shifted = inputContextInstance.shouldAutoCapitalize && inputContextInstance.atSentenceStart();
+        }
     }
 
     Connections {
