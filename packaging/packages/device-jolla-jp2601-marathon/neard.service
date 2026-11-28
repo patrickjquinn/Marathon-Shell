@@ -1,0 +1,12 @@
+[Unit]
+Description=NFC daemon
+
+[Service]
+Type=dbus
+BusName=org.neard
+ExecStart=/usr/libexec/nfc/neard --nodaemon
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_NFC

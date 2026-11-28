@@ -18,6 +18,8 @@ Item {
     property bool hasPage: false
     // The backend is switching: pulse the disc as Silica's Switch.busy does.
     property bool busy: false
+    property real discSize: Silica.Theme.itemSizeExtraSmall * 0.75
+    property real glyphSize: Silica.Theme.iconSizeSmall
 
     signal toggled
     signal held
@@ -61,7 +63,7 @@ Item {
         objectName: "ring"
         x: Silica.Theme.paddingMedium
         anchors.verticalCenter: parent.verticalCenter
-        width: Silica.Theme.itemSizeExtraSmall * 0.75
+        width: tile.discSize
         height: width
         radius: width / 2
         color: lit ? MColors.accentFill : MColors.controlFill
@@ -72,7 +74,7 @@ Item {
         GlyphIcon {
             anchors.centerIn: parent
             name: tile.iconName
-            size: Silica.Theme.iconSizeSmall
+            size: tile.glyphSize
             // Ink on an off tile's paper on e-paper.
             color: MColors.eink && !parent.lit ? Silica.Theme.primaryColor : "white"
         }

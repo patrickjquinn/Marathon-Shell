@@ -26,6 +26,9 @@ Item {
     property bool canGoPrevious: false
     property bool canGoNext: false
     property url artworkSource: ""
+    // The glyph's disc, or the artwork, and the glyph.
+    property real badgeSize: Silica.Theme.iconSizeMedium
+    property real badgeGlyphSize: Silica.Theme.iconSizeExtraSmall
 
     readonly property bool down: area.pressed && area.containsMouse
 
@@ -69,7 +72,7 @@ Item {
 
         Item {
             id: badgeWrap
-            width: Silica.Theme.iconSizeMedium
+            width: root.badgeSize
             height: width
             anchors.verticalCenter: parent.verticalCenter
 
@@ -82,7 +85,7 @@ Item {
                 GlyphIcon {
                     anchors.centerIn: parent
                     name: root.iconName
-                    size: Silica.Theme.iconSizeExtraSmall
+                    size: root.badgeGlyphSize
                     color: root.tintColor
                 }
             }

@@ -184,8 +184,6 @@ pub(crate) fn uses_camera(runner: &Runner) -> bool {
     app(runner).is_some_and(|a| a.has("camera"))
 }
 
-/// What libcamera opens: the media graph's nodes, and udmabuf for the
-/// software ISP's output.
 /// The card nodes of the device that owns `render`.
 fn primary_nodes(render: &str) -> Vec<String> {
     let Some(name) = Path::new(render).file_name() else {
@@ -203,6 +201,8 @@ fn primary_nodes(render: &str) -> Vec<String> {
         .collect()
 }
 
+/// What libcamera opens: the media graph's nodes, and udmabuf or the system
+/// dma-buf heap for the software ISP's output.
 fn camera_nodes() -> Vec<String> {
     let Ok(entries) = fs::read_dir("/dev") else {
         return Vec::new();
@@ -218,6 +218,9 @@ fn camera_nodes() -> Vec<String> {
         })
         .map(|n| format!("/dev/{n}"))
         .collect();
+    if Path::new("/dev/dma_heap/system").exists() {
+        nodes.push("/dev/dma_heap/system".to_owned());
+    }
     nodes.sort();
     nodes
 }

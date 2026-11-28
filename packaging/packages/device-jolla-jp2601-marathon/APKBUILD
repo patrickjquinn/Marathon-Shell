@@ -3,7 +3,7 @@
 # marathon-carrier's; the kernel and image layout are separate.
 pkgname=device-jolla-jp2601-marathon
 pkgver=1.0.0
-pkgrel=20
+pkgrel=24
 pkgdesc="Jolla Phone (2026) Marathon session, UI profile and board policy"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -11,7 +11,7 @@ license="Apache-2.0"
 options="!check"
 depends="device-jolla-jp2601 marathon-base-config marathon-shell marathon-carrier greetd
  plymouth marathon-plymouth-theme deckard deckard-images mesa-vulkan-panfrost linux-firmware-arm
- jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf"
+ jp2601-modem mt6858-platform jp2601-connsys-firmware alsa-ucm-conf neard"
 source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-session.conf
  jp2601-plymouth.files jp2601-plymouth-newroot.hook
  jp2601-splash-handover jp2601-splash-handover.service jp2601-splash-greetd.conf
@@ -19,8 +19,9 @@ source="device-profile.conf jp2601-shell-session greetd-jp2601.toml 50-jp2601-se
  jp2601.preset unudhcpd-usb0.conf jp2601-usb.nm.conf jp2601-usb-gadget jp2601-usb-gadget.service
  deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules jp2601-deckard.modules-load.conf
  eglfs-kms.json 60-jp2601-display.rules 61-jp2601-gpu-awake.rules 61-jp2601-sensors.rules jp2601-gpu.files jp2601-power.sysctl
- jp2601-mt6369.conf HiFi.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service
- jp2601-modules-match jp2601-modules-match.service 99-jp2601-partitions.rules"
+ jp2601-mt6369.conf HiFi.conf VoiceCall.conf jp2601-logind.conf jp2601-upower.conf jp2601-user-sessions.service
+ jp2601-modules-match jp2601-modules-match.service 99-jp2601-partitions.rules
+ neard.service org.neard.service neard-main.conf marathon-neard.conf"
 
 package() {
 	install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
@@ -46,6 +47,7 @@ package() {
 	# The microphones' ALSA use case (capture only until the amplifiers work).
 	install -Dm644 "$srcdir/jp2601-mt6369.conf" "$pkgdir/usr/share/alsa/ucm2/conf.d/mt6858-mt6369/mt6858-mt6369.conf"
 	install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Jolla/JP2601/HiFi.conf"
+	install -Dm644 "$srcdir/VoiceCall.conf" "$pkgdir/usr/share/alsa/ucm2/Jolla/JP2601/VoiceCall.conf"
 
 	# Test kernels share r18's release name; boot with the module tree whose
 	# stamp matches the running kernel, so a fallback never loads another's.
@@ -86,6 +88,12 @@ package() {
 	install -d "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants"
 	ln -s ../jp2601-usb-gadget.service "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants/jp2601-usb-gadget.service"
 
+	# NFC: neard, started on D-Bus by the shell, which powers the adapter.
+	install -Dm644 "$srcdir/neard.service" "$pkgdir/usr/lib/systemd/system/neard.service"
+	install -Dm644 "$srcdir/org.neard.service" "$pkgdir/usr/share/dbus-1/system-services/org.neard.service"
+	install -Dm644 "$srcdir/neard-main.conf" "$pkgdir/etc/neard/main.conf"
+	install -Dm644 "$srcdir/marathon-neard.conf" "$pkgdir/usr/share/dbus-1/system.d/marathon-neard.conf"
+
 	# Deckard: Android's display geometry, its data directory, the user may
 	# start it, and the legacy iptables modules its netd cannot load.
 	install -Dm644 "$srcdir/deckard.cfg" "$pkgdir/usr/share/marathon/deckard.cfg"
@@ -95,7 +103,7 @@ package() {
 }
 
 sha512sums="
-8cfd5dfb440c6796c2bfd5197c3769cb197278536db7becccc06ed83a3818163d472d5ec009b0b7f94e3e50cdaeb3f86cf233ad8a34cdb6e6e29de4bbee08876  device-profile.conf
+579b483e3a65310b46cb9e41b905702e238b6df2d2932fbc12229a9d555f53d3b4f10d2986bd0832806c4d4ab71617913d08479a721bdc929dcf96df1a1feeb8  device-profile.conf
 4ca97e07d92e23acb04e89dea51e7267b5a14b315d723efcc6d2c0402a2d1e966dc1416317da626d05103dd3efc2919e77f69a5bf875c4776d0856b17ca07581  jp2601-shell-session
 01eae87fbcffb4114817bd08cfa0a28c0c0e07000ae2214436db2652f05dd09aa0c6b2250c9bcda2f0437926f0234779592bdcb9cdaba463935e7ddd6d01b17d  greetd-jp2601.toml
 230e022144e6ff3928840afaf03499977ad232394702a7412160a8ac8df88cdf7d71451ed41f929ba682b1c9c062b88f0db23cdc79316dde63424bb75f1b00eb  50-jp2601-session.conf
@@ -122,12 +130,17 @@ e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99
 b678b4ff2b7d73bf9267b075bd0ed5279406553309fc87604574e7adf8a796e5106da079ff2cc2f7b13ae7b79c666219bd8e65f695835dff4a635b4a45ee16a3  61-jp2601-sensors.rules
 8d1809de50ed5ec279cabdefa131057c846e77d33b545a73c9c4edc92ea1982c8a3b8490752e10c06ba7921485c51813d40071a7fe4b97191bbab01a38ed513d  jp2601-gpu.files
 3d02a98ea91a676c94c2b0607945759f8deca606604dffa438fe755c68caad7563bd131b65374ca72c3dc50e732531864e7e288a742f84da9ce214f52111d11f  jp2601-power.sysctl
-ca01be36a4164a1192f6708247952efecdef1cbbca5615786a1ce2fd04c74407c9514a9a9634391bc55275d42811933bc7d5614eca52fa36b6af664851c65f1e  jp2601-mt6369.conf
+b7afbdcb79d26c7f5a7d07287629b57c449c2232539254d035a35a8a7e56f3517d890b204de1836958fbcb4dfa5ed19f645838221e61020b537a68383e595989  jp2601-mt6369.conf
 8f33a51caaecbdf980100c50f52023d283381ad65e7b809b0a1b43b38b81c66eb7adf6ce8c389e42b5dd02c3f2e6d5be51a302fb9abaacfc4fb1a929ccc2ddd2  HiFi.conf
+322450ae113f3dfe39405a24792ff996e76cdaa20286814c0d782fa6e6a86282506ac057565af36be9c98c46a6d4270ec5e59bd1a39d5dae7efaec5e3e850784  VoiceCall.conf
 411e02105c6d079ff47cabb091fde65037d6916c8eab687e268065e063bc33eb4abc2cd7a8c41f66b958e99d4cd762cd66937c6f5ab591d3650f416eefa148b0  jp2601-logind.conf
 03c47767af679ce30238d5eeb70be9f7b68d48aeede5df96c89ccb4ddc83e9e0a40633cbf643821d626596351481bff4bada6f5016ebecdc2d8594035af53806  jp2601-upower.conf
 673768845394376e381079b7bff0f410343f4ef5f8938dc11b9a529d1074d262a9593a5c73be196d3426fc2ed07b1cadcaf170f3d281fe0a788906d285516866  jp2601-modules-match
 6642324e9bf3b36a956a5eeaed6712e1197398547a2df6f348b95876e486d2324616f7ccea13e8a68747598b608f41c35f8bf87ed8b4d23610d7bce526139b0f  jp2601-modules-match.service
 9d5b420c0011dd7509d8547d86beeafe385baf69a66cdde397998535a059fa4fbd5941dcd6c2555bb9e64d2b83d6f6933d626b7cf029ff3499736f4067c91592  jp2601-user-sessions.service
 b71706101fbb0d16d1cea9dfbfc94229811e7b06425e3573b2e06b222b4f48d58c773314faee9525dcc2f5e693acdcafe691654ec40bc3ab9850d803e301b366  99-jp2601-partitions.rules
+7b5d8110ff83ac8ecf6fc9a0a2a547d68fbb0f95ce60c58ed5641901643e9ce9c09165c838bbf81daa502a8589c3b7f7a1f6fa1d5cad8fe2f3807383f88619cb  neard.service
+e8924807bfe4eab172c603d54fab17a977ec397ebd9770e982d8923010e10c04ed89c225587311c957e43dcaf951390dc9347f798b71f938fc3692465511aa9a  org.neard.service
+75fd1437be90b549f9505849e815a777df200f898610b4bea8a68b708069340ecb9ab97124c9a716d00986adc78a836dc5d905fbc09e9967efad16aa79dbe5b7  neard-main.conf
+5ffa0a26da29bc013dd4c6379c746175840a3a87d5b2b03601dea9c64af9b98b3b0d36bc33ffbc78786651f89f7972d30b7393e368426873c30aa39f98a4fed0  marathon-neard.conf
 "

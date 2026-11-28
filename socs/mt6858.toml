@@ -25,5 +25,8 @@ msaa = false
 
 [profile]
 gpu_stack = "mesa-panfrost"
+# Quick Settings and the Hub frost what is behind them live (checked on
+# the panel through kmsgrab over home, an app and the lock screen).
+live_blur = true
 # PanVK drives the G610 (Valhall CSF), so apps' Vulkan stays on the GPU.
 vulkan_driver = "panfrost"

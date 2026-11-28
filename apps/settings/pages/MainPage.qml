@@ -20,7 +20,7 @@ Page {
     // where the image can't erase itself, no Android apps without Android,
     // no developer tools without SSH and no assistant key without the key.
     function present(entries) {
-        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent) && (e.page !== "android" || AndroidApps.available) && (e.page !== "developer" || Security.remoteConnection !== "unavailable") && (e.page !== "assistkey" || Power.hasAssistKey) && (e.page !== "privacyswitch" || Power.hasPrivacySwitch) && (e.page !== "trackpad" || Power.hasTrackpad));
+        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent) && (e.page !== "android" || AndroidApps.available) && (e.page !== "developer" || Security.remoteConnection !== "unavailable") && (e.page !== "assistkey" || Power.hasAssistKey) && (e.page !== "privacyswitch" || Power.hasPrivacySwitch) && (e.page !== "nfc" || Power.hasNfc) && (e.page !== "trackpad" || Power.hasTrackpad));
     }
 
     function summary(name) {
@@ -64,6 +64,8 @@ Page {
             return Logic.assistKeyActionTitle(Settings.assistKeyPress) + " · " + Logic.assistKeyActionTitle(Settings.assistKeyHold);
         case "privacyswitch":
             return Logic.privacySwitchSummary(Settings.privacySwitch);
+        case "nfc":
+            return Settings.nfcEnabled ? qsTr("On") : qsTr("Off");
         }
         return "";
     }

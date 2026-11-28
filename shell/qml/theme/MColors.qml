@@ -79,7 +79,7 @@ QtObject {
     readonly property color accent: marathonTeal
     // A switched-on or suggested control's fill: the ambience highlight, deep
     // enough to carry a white glyph.
-    readonly property color accentFill: eink ? "#000000" : Qt.hsla(Silica.Theme.highlightColor.hslHue, Math.min(1, Silica.Theme.highlightColor.hslSaturation * 0.9), 0.28, 1)
+    readonly property color accentFill: eink ? "#000000" : Qt.hsla(Silica.Theme.highlightColor.hslHue, Math.min(1, Silica.Theme.highlightColor.hslSaturation * 0.9), 0.2, 1)
     // A control's resting fill.
     readonly property color controlFill: eink ? "#eeeeee" : Qt.rgba(1, 1, 1, 0.08)
     readonly property color border: borderGlass

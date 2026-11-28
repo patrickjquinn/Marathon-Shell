@@ -21,6 +21,10 @@ msaa = true
 # the shell's built-in defaults.
 [profile]
 gpu_stack = "mesa-v3d"
+# Off until live frost renders whole frames on the device: on the Jolla
+# (Qt 6.12, Mesa 26.3 panfrost) a capture of the home screen left the
+# frame below the shade unpainted. MARATHON_LIVE_BLUR=1 turns it on.
+live_blur = false
 gpu_msaa = 4
 # Flatpak runtimes ship seven Mesa Vulkan drivers, lavapipe with LLVM.
 vulkan_driver = "broadcom"

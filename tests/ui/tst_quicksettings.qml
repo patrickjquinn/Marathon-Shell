@@ -283,7 +283,9 @@ TestCase {
 
     function test_sliderDrags(data) {
         if (data.fits === "fits") {
-            fit.height = 5000;
+            // An upright phone's shade: tall enough for the two-across
+            // layout, which fills the shade, and inside the window.
+            fit.height = 1300;
             UIStore.quickSettingsHeight = qs.maxHeight;
         }
         revealSliders(data.fits === "end");

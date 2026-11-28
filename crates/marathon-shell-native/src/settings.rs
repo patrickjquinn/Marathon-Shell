@@ -78,6 +78,7 @@ pub mod qobject {
         #[qproperty(bool, vibration_enabled, cxx_name = "vibrationEnabled", READ, WRITE = set_vibration_enabled, NOTIFY)]
         /// The system's location switch: off, nothing is located.
         #[qproperty(bool, location_enabled, cxx_name = "locationEnabled", READ, WRITE = set_location_enabled, NOTIFY)]
+        #[qproperty(bool, nfc_enabled, cxx_name = "nfcEnabled", READ, WRITE = set_nfc_enabled, NOTIFY)]
         #[qproperty(bool, reduce_motion, cxx_name = "reduceMotion", READ, WRITE = set_reduce_motion, NOTIFY)]
         #[qproperty(QString, time_zone, cxx_name = "timeZone", READ, WRITE = set_time_zone, NOTIFY)]
         #[qproperty(bool, automatic_time, cxx_name = "automaticTime", READ, WRITE = set_automatic_time, NOTIFY)]
@@ -173,6 +174,8 @@ pub mod qobject {
         fn set_vibration_enabled(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setLocationEnabled"]
         fn set_location_enabled(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setNfcEnabled"]
+        fn set_nfc_enabled(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setReduceMotion"]
         fn set_reduce_motion(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setTimeZone"]
@@ -520,6 +523,7 @@ properties! {
     dnd_enabled: bool = false, "audio/dndEnabled", "dndEnabled", dnd_enabled_changed, on_dnd_enabled_changed, set_dnd_enabled(bool);
     vibration_enabled: bool = true, "audio/vibrationEnabled", "vibrationEnabled", vibration_enabled_changed, on_vibration_enabled_changed, set_vibration_enabled(bool);
     location_enabled: bool = true, "location/enabled", "locationEnabled", location_enabled_changed, on_location_enabled_changed, set_location_enabled(bool);
+    nfc_enabled: bool = true, "nfc/enabled", "nfcEnabled", nfc_enabled_changed, on_nfc_enabled_changed, set_nfc_enabled(bool);
     reduce_motion: bool = false, "accessibility/reduceMotion", "reduceMotion", reduce_motion_changed, on_reduce_motion_changed, set_reduce_motion(bool);
     time_zone: QString = QString::from(&local_zone()), "", "timeZone", time_zone_changed, on_time_zone_changed, set_time_zone(&QString) custom;
     automatic_time: bool = true, "", "automaticTime", automatic_time_changed, on_automatic_time_changed, set_automatic_time(bool) custom;
@@ -908,6 +912,9 @@ impl cxx_qt::Initialize for Settings {
     fn initialize(mut self: Pin<&mut Self>) {
         self.as_mut().watch();
         self.as_mut()
+            .on_nfc_enabled_changed(|obj| crate::nfc::enable(obj.nfc_enabled))
+            .release();
+        self.as_mut()
             .on_date_time_change_failed(|_, reason| {
                 ipc::signal("Settings", "DateTimeChangeFailed", (reason.to_string(),));
             })
@@ -1063,6 +1070,7 @@ impl Settings {
         rust.dirty = migrated;
         self.as_mut().read_properties();
         self.as_mut().resolve_units();
+        crate::nfc::enable(self.nfc_enabled);
         crate::portal::set_theming(self.gtk_theming, self.kde_theming);
         set_unthemed(&self.unthemed_apps);
         // Every "open in default..." resolves to one of Marathon's own apps

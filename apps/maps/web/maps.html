@@ -24,6 +24,14 @@
     background: radial-gradient(circle, rgba(0,191,165,0.25), transparent 65%);
     pointer-events: none;
   }
+  /* Which way the phone faces: a wedge under the dot, turned with the map */
+  .marathon-user-heading {
+    position: absolute; left: 50%; bottom: 50%; width: 48px; height: 44px;
+    transform: translateX(-50%); z-index: -1; pointer-events: none;
+    background: radial-gradient(circle at 50% 100%, rgba(0,191,165,0.6), rgba(0,191,165,0) 72%);
+    clip-path: polygon(50% 100%, 6% 0, 94% 0);
+    display: none;
+  }
   /* Destination pin (teal SVG, dark center hole) */
   .marathon-pin { width: 34px; height: 44px; display: block; pointer-events: none; }
 </style>
@@ -93,6 +101,7 @@
   let routeAdded = false;
   const pins = new Map();      // id → maplibregl.Marker
   let userMarker = null;
+  let userHeading = -1;
 
   function ensureRouteLayer() {
     if (routeAdded) return;
@@ -172,12 +181,25 @@
       if (!userMarker) {
         const el = document.createElement("div");
         el.className = "marathon-user-dot";
-        userMarker = new maplibregl.Marker({ element: el, anchor: "center" })
+        const wedge = document.createElement("div");
+        wedge.className = "marathon-user-heading";
+        el.appendChild(wedge);
+        userMarker = new maplibregl.Marker({ element: el, anchor: "center", rotationAlignment: "map" })
           .setLngLat([lon, lat])
           .addTo(map);
+        this.setUserHeading(userHeading);
       } else {
         userMarker.setLngLat([lon, lat]);
       }
+    },
+
+    // Degrees from north, or below 0 while unknown.
+    setUserHeading(deg) {
+      userHeading = typeof deg === "number" && !Number.isNaN(deg) ? deg : -1;
+      if (!userMarker) return;
+      const wedge = userMarker.getElement().querySelector(".marathon-user-heading");
+      wedge.style.display = userHeading < 0 ? "none" : "block";
+      if (userHeading >= 0) userMarker.setRotation(userHeading);
     },
 
     addPin(id, lat, lon, kind /* "destination" | "result" */) {

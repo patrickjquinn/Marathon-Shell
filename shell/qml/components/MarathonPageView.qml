@@ -21,6 +21,8 @@ Item {
     // The grid has its apps and the view sits on the home page.
     readonly property bool homeReady: initialPageSet && !forceIndexTimer.running
     property bool hubOverlayOpen: false
+    // What the Hub page frosts, bottom to top.
+    property var hubBackdrops: []
     // App management mode, across every grid page.
     property bool appEditing: false
     // Apps being uninstalled: id → {name, since}.
@@ -319,6 +321,8 @@ Item {
             id: hubComponent
 
             MarathonHub {
+                backdrops: pageViewContainer.hubBackdrops
+                frostShown: pageView.contentX < pageView.width
                 onOverlayOpenChanged: pageViewContainer.hubOverlayOpen = overlayOpen
                 onClosed: {
                     // Return to the home (first app-grid page = index 2).

@@ -1487,6 +1487,7 @@ Item {
                 z: Constants.zIndexMainContent + 10
                 isGestureActive: navBar.isAppOpen && shell.isTransitioningToActiveFrames
                 compositor: shell.compositor
+                hubBackdrops: [wallpaperImage]
                 onCurrentPageChanged: {
                     Logger.nav("page" + shell.currentPage, "page" + currentPage, "navigation");
                     if (currentPage >= 0) {
@@ -1890,6 +1891,7 @@ Item {
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
+        backdrops: UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
 
         // The Hub and Quick Settings never outlive a lock or an app launch.
         Connections {
@@ -2309,6 +2311,8 @@ Item {
         visible: drawnHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
+        // Over the lock screen it frosts the lock screen, not the home behind it.
+        backdrops: SessionStore.isLocked ? [lockScreen] : UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
         onClosed: {
             UIStore.closeQuickSettings();
         }
