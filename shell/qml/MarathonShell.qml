@@ -3543,7 +3543,11 @@ Item {
         function onCallEnded(number, kind) {
             if (kind !== "missed")
                 return;
-            NotificationService.sendNotification("phone", qsTr("Missed Call"), qsTr("From: %1").arg(nameOf(number) || qsTr("Unknown number")), {
+            // Missed calls from one number share a notification that counts them.
+            const tag = "missed-call:" + number;
+            const earlier = NotificationService.notifications.find(n => n.appId === "phone" && n.tag === tag && !n.read);
+            const count = earlier ? earlier.count + 1 : 1;
+            NotificationService.sendNotification("phone", count > 1 ? qsTr("%n missed calls", "", count) : qsTr("Missed Call"), qsTr("From: %1").arg(nameOf(number) || qsTr("Unknown number")), {
                 "icon": "phone-x",
                 "category": "call",
                 "priority": "high",
@@ -3558,7 +3562,8 @@ Item {
                     }
                 ],
                 "replyTarget": number,
-                "tag": "missed-call:" + number
+                "tag": tag,
+                "count": count
             });
             HapticManager.heavy();
         }

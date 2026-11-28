@@ -254,6 +254,16 @@ impl Row {
         self.hints.get(key).unwrap_or(&Json::Null)
     }
 
+    /// How many events it stands for: the "count" hint, as three missed
+    /// calls from one number.
+    fn events(&self) -> i32 {
+        self.hint("count")
+            .as_i64()
+            .and_then(|c| i32::try_from(c).ok())
+            .unwrap_or(1)
+            .max(1)
+    }
+
     /// Progress: the de facto "value" hint.
     fn ongoing(&self) -> bool {
         self.hints.contains_key("value")
@@ -280,6 +290,8 @@ impl Row {
             "priority": self.hint("priority").as_str().unwrap_or("normal"),
             "persistent": self.hint("persistent").as_bool().unwrap_or(false),
             "replyTarget": self.hint("replyTarget").as_str().unwrap_or_default(),
+            "tag": self.hint("tag").as_str().unwrap_or_default(),
+            "count": self.events(),
         })
     }
 }
@@ -551,12 +563,14 @@ fn source_summaries(rows: &[Row]) -> Vec<(&str, i32, &str)> {
         let name = row.hint(SOURCE_NAME).as_str().unwrap_or_default();
         match order.iter_mut().find(|(app, _, _)| *app == row.app_id) {
             Some((_, unread, known_name)) => {
-                *unread += i32::from(!row.read);
+                if !row.read {
+                    *unread += row.events();
+                }
                 if known_name.is_empty() {
                     *known_name = name;
                 }
             }
-            None => order.push((&row.app_id, i32::from(!row.read), name)),
+            None => order.push((&row.app_id, if row.read { 0 } else { row.events() }, name)),
         }
     }
     order
@@ -715,7 +729,8 @@ impl Notifications {
             self.rows
                 .iter()
                 .filter(|r| r.app_id == app && !r.read)
-                .count(),
+                .map(|r| i64::from(r.events()))
+                .sum::<i64>(),
         )
         .unwrap_or(i32::MAX)
     }
