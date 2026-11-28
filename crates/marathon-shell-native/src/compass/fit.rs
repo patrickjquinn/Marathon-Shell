@@ -216,6 +216,7 @@ fn normalised(a: Vector) -> Option<Vector> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, reason = "tests")]
 mod tests {
     use super::{heading, Calibration, Learner, Vector};
 
