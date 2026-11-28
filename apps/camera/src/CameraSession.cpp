@@ -84,7 +84,14 @@ void CameraSession::discover() {
     }
     QList<CameraInfo> cameras;
     for (const std::shared_ptr<Camera> &camera : m_manager->cameras()) {
-        CameraInfo                                 info{QString::fromStdString(camera->id()), {}};
+        CameraInfo         info{QString::fromStdString(camera->id()), {}};
+        const ControlList &props = camera->properties();
+        if (const auto location = props.get(properties::Location))
+            info.location = *location;
+        if (const auto rotation = props.get(properties::Rotation))
+            info.rotation = *rotation % 360;
+        if (const auto array = props.get(properties::PixelArrayArea))
+            info.pixels = qint64(array->width) * array->height;
         const std::unique_ptr<CameraConfiguration> config =
             camera->generateConfiguration({StreamRole::Viewfinder});
         if (config) {
@@ -102,6 +109,22 @@ void CameraSession::discover() {
         }
         cameras.append(info);
     }
+    // The back cameras first, largest sensor first, which makes the main one
+    // the default; libcamera's order changes from boot to boot.
+    const auto side = [](const CameraInfo &camera) {
+        switch (camera.location) {
+            case properties::LocationBack: return 0;
+            case properties::LocationFront: return 1;
+            case properties::LocationExternal: return 2;
+            default: return 3;
+        }
+    };
+    std::stable_sort(cameras.begin(), cameras.end(),
+                     [&side](const CameraInfo &a, const CameraInfo &b) {
+                         if (side(a) != side(b))
+                             return side(a) < side(b);
+                         return a.pixels > b.pixels;
+                     });
     emit discovered(cameras);
 }
 

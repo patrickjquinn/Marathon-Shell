@@ -43,7 +43,7 @@ Item {
         Qt.callLater(_warnIfUnlabelled)
     function _warnIfUnlabelled() {
         if (_supportNotEnabled)
-            console.warn("Several back cameras but no labels for them: set dconf /apps/shipwright-shoal-camera/backCameraLabels");
+            console.warn("Several back cameras but no labels for them: set dconf /apps/camera/backCameraLabels");
     }
 
     // "1", "0.5", "1.6" ("0,5" in German): a whole number without its

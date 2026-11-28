@@ -6,7 +6,6 @@
 #include <QFileInfo>
 #include <QThreadPool>
 #include <QUrl>
-#include <QtEndian>
 #include <turbojpeg.h>
 #include <utility>
 #include "SoftwareVideoOutput.h"
@@ -19,35 +18,17 @@ namespace {
         FrontFace
     };
 
-    // libcamera names a camera on a device tree by its sensor's node, whose
-    // orientation says which side it faces.
+    // libcamera names a camera on a device tree by its sensor's node.
     bool isDeviceTreeCamera(const QString &id) {
         return id.startsWith("/base/");
     }
 
-    // A cell of the sensor's device tree node, -1 without one.
-    qint64 deviceTreeCell(const QString &id, const char *property) {
-        if (!isDeviceTreeCamera(id))
-            return -1;
-        QFile file("/sys/firmware/devicetree" + id + "/" + property);
-        if (!file.open(QIODevice::ReadOnly))
-            return -1;
-        const QByteArray value = file.read(4);
-        return value.size() == 4 ? qFromBigEndian<quint32>(value.constData()) : -1;
-    }
-
-    Position positionOf(const QString &id) {
-        switch (deviceTreeCell(id, "orientation")) {
-            case 0: return FrontFace;
-            case 1: return BackFace;
+    Position positionOf(const CameraInfo &camera) {
+        switch (camera.location) {
+            case libcamera::properties::LocationFront: return FrontFace;
+            case libcamera::properties::LocationBack: return BackFace;
             default: return UnspecifiedPosition;
         }
-    }
-
-    // How far its frames turn clockwise to stand upright on the screen.
-    int rotationOf(const QString &id) {
-        const qint64 rotation = deviceTreeCell(id, "rotation");
-        return rotation > 0 ? int(rotation % 360) : 0;
     }
 }
 
@@ -283,15 +264,15 @@ QVariantList CameraController::cameras() const {
     for (const CameraInfo &camera : m_cameras)
         list.append(QVariantMap{{"id", camera.id},
                                 {"description", camera.id},
-                                {"position", int(positionOf(camera.id))},
-                                {"rotation", rotationOf(camera.id)}});
+                                {"position", int(positionOf(camera))},
+                                {"rotation", camera.rotation}});
     return list;
 }
 
 // The first camera on the back, else the first.
 QString CameraController::defaultCameraId() const {
     for (const CameraInfo &camera : m_cameras) {
-        if (positionOf(camera.id) == BackFace)
+        if (positionOf(camera) == BackFace)
             return camera.id;
     }
     return m_cameras.isEmpty() ? QString() : m_cameras.first().id;
