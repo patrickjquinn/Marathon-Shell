@@ -196,6 +196,8 @@ build_if_missing "shoal-pilotd"              'shoal-pilotd-*.apk'             "$
 # Reef, the store, from this tree.
 PILOT_PKGS=shipwright-reef \
 build_if_missing "shipwright-reef"           'shipwright-reef-*.apk'          "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shipwright-reef/APKBUILD"
+APORT=marathon-keyboard-words NO_DEPS=1 \
+build_if_missing "marathon-keyboard-words"   'marathon-keyboard-words-*.apk'  "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-keyboard-words/APKBUILD"
 APORT=marathon-llm NO_DEPS=1 \
 build_if_missing "marathon-llm"              'marathon-llm-*.apk'             "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-llm/APKBUILD"
 # Pilot's llama.cpp (smolmaxxing's patch), installed with marathon-llm on

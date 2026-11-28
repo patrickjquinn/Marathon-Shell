@@ -1,0 +1,39 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# The on-screen keyboard's words: how common each is and what usually
+# follows it, for suggestions, autocorrection and swipe typing. Built from
+# the AOSP word lists HeliBoard keeps (see NOTICE).
+pkgname=marathon-keyboard-words
+pkgver=0.1.0
+pkgrel=0
+_commit=ff0cd52be8d9530200fefe8b296c53d4f662091e
+pkgdesc="Word lists for Marathon's on-screen keyboard"
+url="https://codeberg.org/Helium314/aosp-dictionaries"
+arch="noarch"
+license="Apache-2.0 AND CC-BY-4.0"
+makedepends="python3"
+source="
+	main_en_US-$_commit.combined::https://codeberg.org/Helium314/aosp-dictionaries/raw/commit/$_commit/wordlists/main_en_US.combined
+	main_en_GB-$_commit.combined::https://codeberg.org/Helium314/aosp-dictionaries/raw/commit/$_commit/wordlists/main_en_GB__experimental.combined
+	build-lexicon.py
+	NOTICE
+	"
+options="!check"
+
+build() {
+	python3 "$srcdir"/build-lexicon.py \
+		"$srcdir"/main_en_US-$_commit.combined \
+		"$srcdir"/main_en_GB-$_commit.combined \
+		"$builddir"/out
+}
+
+package() {
+	install -Dm644 -t "$pkgdir"/usr/share/marathon/keyboard "$builddir"/out/*.lex
+	install -Dm644 "$srcdir"/NOTICE "$pkgdir"/usr/share/licenses/$pkgname/NOTICE
+}
+
+sha512sums="
+fb21699597b043463981459c410a1ca96136eb4ce2b5e996f37f73da96885b310e72be46927851464f748afce675f40042cd15a9c731ad89926bb13524ec8504  main_en_US-ff0cd52be8d9530200fefe8b296c53d4f662091e.combined
+7b4c2a6e431a562237e983eec356ca508ac33ad59f4a806e6c7813e50b92111497a6d115b4dd7b658905830550ea9948f43a541ddb1de5517f7fb598b6681a3e  main_en_GB-ff0cd52be8d9530200fefe8b296c53d4f662091e.combined
+e24d8f6efd901bfa3d13a4880c55112380c0baaeccef52495a72163539b581ced1c6f9bae35c2f1575e6ae3cf16d3eca457255230fe725d900819aee0ded1e14  build-lexicon.py
+398b582a667932e6400102040aa8847afd383e35eaf5917cb6b33c715edaad71cd8ce4bb69775280afc60a4f0fd72fc7a96f5c47299a95dcc677bc60ec08d87e  NOTICE
+"

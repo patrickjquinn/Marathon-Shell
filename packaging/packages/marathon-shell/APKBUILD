@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=574
+pkgrel=575
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -25,6 +25,7 @@ depends="
 	qt6-qt5compat
 	hunspell
 	hunspell-en-us
+	marathon-keyboard-words
 	pulseaudio-utils
 	wayland
 	wayland-protocols
