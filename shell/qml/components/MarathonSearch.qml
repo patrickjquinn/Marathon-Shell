@@ -198,6 +198,7 @@ Item {
                 font.family: Silica.Theme.fontFamily
                 selectionColor: Silica.Theme.highlightColor
                 selectedTextColor: Silica.Theme.highlightDimmerColor
+                inputMethodHints: Qt.ImhPreferLowercase
                 clip: true
                 Keys.onEscapePressed: searchOverlay.close()
                 Keys.onDownPressed: resultsList.forceActiveFocus()

@@ -128,6 +128,8 @@ Rectangle {
             keyboard.currentWord = keyboard.currentWord.slice(0, -1);
             updatePredictions();
         }
+        if (keyboard.currentWord === "")
+            autoShiftTimer.restart();
     }
 
     function handleSpace() {
@@ -283,6 +285,7 @@ Rectangle {
     function moveCursor(direction) {
         inputContextInstance.sendCursorKey(direction < 0 ? Qt.Key_Left : Qt.Key_Right);
         keyboard.forgetWord();
+        autoShiftTimer.restart();
         if (SettingsManagerCpp.keyboardHapticStrength !== "off")
             HapticManager.light();
     }
@@ -335,10 +338,17 @@ Rectangle {
     function show() {
         keyboard.active = true;
         inputContextInstance.detectInputMode();
-        if (inputContextInstance.shouldAutoCapitalize)
-            keyboard.shifted = true;
-        else
-            keyboard.shifted = false;
+        keyboard.lastTyped = "";
+        updateAutoShift();
+    }
+
+    // Shift follows the text before the cursor: on at a sentence's start.
+    // Checked again once an app's field has sent its text over.
+    function updateAutoShift() {
+        autoShiftTimer.restart();
+        if (keyboard.capsLock || keyboard.currentWord !== "")
+            return;
+        keyboard.shifted = inputContextInstance.shouldAutoCapitalize && inputContextInstance.atSentenceStart();
     }
 
     // App fields commit their hints after the keyboard opens, and switching fields keeps it open.
@@ -350,8 +360,7 @@ Rectangle {
         keyboard.fieldHints = hints;
         keyboard.lastTyped = "";
         inputContextInstance.detectInputMode();
-        if (!keyboard.capsLock && keyboard.currentWord === "")
-            keyboard.shifted = inputContextInstance.shouldAutoCapitalize;
+        updateAutoShift();
     }
 
     function hide() {
@@ -404,6 +413,16 @@ Rectangle {
     onCurrentWordChanged: {
         if (currentWord.length === 0)
             currentTaps = [];
+    }
+
+    Timer {
+        id: autoShiftTimer
+
+        interval: 80
+        onTriggered: {
+            if (!keyboard.capsLock && keyboard.currentWord === "" && keyboard.lastTyped === "")
+                keyboard.shifted = inputContextInstance.shouldAutoCapitalize && inputContextInstance.atSentenceStart();
+        }
     }
 
     Connections {

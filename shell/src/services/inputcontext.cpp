@@ -144,7 +144,7 @@ void InputContext::setPredictionsEnabled(bool enabled) {
 }
 
 bool InputContext::shouldAutoCapitalize() const {
-    if (!m_autoCapitalizeEnabled) {
+    if (!m_autoCapitalizeEnabled || m_prefersLowercase) {
         return false;
     }
     return !(m_inputMode == "email" || m_inputMode == "url" || m_inputMode == "number" ||
@@ -280,8 +280,9 @@ bool InputContext::atSentenceStart() const {
     QInputMethodQueryEvent query(Qt::ImTextBeforeCursor);
     QGuiApplication::sendEvent(focus, &query);
     const QVariant value = query.value(Qt::ImTextBeforeCursor);
+    // A field that hasn't said: as at its start.
     if (!value.isValid())
-        return false;
+        return true;
     const QString before = value.toString().trimmed();
     return before.isEmpty() || QStringView(u".!?").contains(before.back());
 }
@@ -301,6 +302,10 @@ QString InputContext::getCurrentWord() const {
     return value.toString();
 }
 
+// What a terminal asks for (marathon-app-runner's terminalrenderer.cpp).
+static constexpr Qt::InputMethodHints kTerminalHints =
+    Qt::ImhNoPredictiveText | Qt::ImhNoAutoUppercase | Qt::ImhPreferLatin;
+
 void InputContext::detectInputMode() {
     if (!m_inputMethod) {
         setInputModeInternal("text");
@@ -309,6 +314,10 @@ void InputContext::detectInputMode() {
 
     const QVariant             hintValue = QInputMethod::queryFocusObject(Qt::ImHints, QVariant());
     const Qt::InputMethodHints hints     = static_cast<Qt::InputMethodHints>(hintValue.toInt());
+    if (hints.testFlag(Qt::ImhPreferLowercase) != m_prefersLowercase) {
+        m_prefersLowercase = !m_prefersLowercase;
+        emit inputModeChanged();
+    }
     if (hints & Qt::ImhEmailCharactersOnly) {
         setInputModeInternal("email");
     } else if (hints & Qt::ImhUrlCharactersOnly) {
@@ -319,6 +328,8 @@ void InputContext::detectInputMode() {
         setInputModeInternal("number");
     } else if (hints & Qt::ImhDialableCharactersOnly) {
         setInputModeInternal("phone");
+    } else if ((hints & kTerminalHints) == kTerminalHints) {
+        setInputModeInternal("terminal");
     } else {
         setInputModeInternal("text");
     }
