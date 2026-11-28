@@ -377,7 +377,7 @@ Rectangle {
     width: parent ? parent.width : 0
     implicitHeight: mainColumn.implicitHeight
     height: active ? implicitHeight : 0
-    color: MColors.eink ? MColors.background : Qt.rgba(0.04, 0.04, 0.05, 0.97)
+    color: MColors.eink ? MColors.background : Qt.rgba(0.04, 0.04, 0.05, 1)
     onActiveChanged: {
         if (active) {
             keyboard.fieldHints = typeof InputMethodEngine !== "undefined" ? InputMethodEngine.focusHints() : 0;
