@@ -4,8 +4,11 @@
 //! link on it opens in Pacific when the notification is tapped.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
+
+use async_io::Timer;
 
 use async_channel::{Receiver, Sender};
 use futures_lite::{stream, StreamExt};
@@ -26,6 +29,9 @@ static ENABLED: AtomicBool = AtomicBool::new(false);
 static SCREEN_ON: AtomicBool = AtomicBool::new(true);
 static ADAPTER_PRESENT: AtomicBool = AtomicBool::new(false);
 static WAKE: OnceLock<Sender<()>> = OnceLock::new();
+/// Failed tries in a row at what the adapter should be doing.
+static RETRIES: AtomicU32 = AtomicU32::new(0);
+const MAX_RETRIES: u32 = 6;
 /// Notifications whose tap opens a link, by id.
 static LINKS: Mutex<Option<HashMap<u32, String>>> = Mutex::new(None);
 
@@ -223,19 +229,27 @@ async fn apply(bus: &zbus::Connection, neard: &mut Neard) {
         Err(e) => return log::warn("nfc", format_args!("adapter: {e}")),
     };
     if neard.powered != enabled {
-        let set = adapter.set_property("Powered", enabled).await;
-        match set {
-            Ok(()) => {
-                neard.powered = enabled;
-                neard.polling &= enabled;
+        // neard can answer with an error when the adapter did come up (the
+        // kernel complains about the secure element), and with "already
+        // enabled" once it is: what it reports is what counts.
+        if let Err(e) = adapter.set_property("Powered", enabled).await {
+            let now: bool = adapter.get_property("Powered").await.unwrap_or(!enabled);
+            if now != enabled {
+                log::warn("nfc", format_args!("Powered {enabled}: {e}"));
+                return retry_later();
             }
-            Err(e) => return log::warn("nfc", format_args!("Powered {enabled}: {e}")),
         }
+        neard.powered = enabled;
+        neard.polling &= enabled;
     }
     if poll && !neard.polling {
         match adapter.call_method("StartPollLoop", &("Initiator",)).await {
             Ok(_) => neard.polling = true,
-            Err(e) => log::warn("nfc", format_args!("StartPollLoop: {e}")),
+            // Still busy coming up, right after power-on.
+            Err(e) => {
+                log::warn("nfc", format_args!("StartPollLoop: {e}"));
+                return retry_later();
+            }
         }
     } else if !poll && neard.polling && neard.powered {
         match adapter.call_method("StopPollLoop", &()).await {
@@ -243,6 +257,19 @@ async fn apply(bus: &zbus::Connection, neard: &mut Neard) {
             Err(e) => log::warn("nfc", format_args!("StopPollLoop: {e}")),
         }
     }
+    RETRIES.store(0, Ordering::Relaxed);
+}
+
+/// Tries again a second later, then two, four... for a few tries.
+fn retry_later() {
+    let tries = RETRIES.fetch_add(1, Ordering::Relaxed);
+    if tries >= MAX_RETRIES {
+        return;
+    }
+    io::spawn(async move {
+        Timer::after(Duration::from_secs(1 << tries)).await;
+        wake();
+    });
 }
 
 /// A record as a notification: a link, else its text.

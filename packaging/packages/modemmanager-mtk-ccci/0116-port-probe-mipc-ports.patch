@@ -1,0 +1,260 @@
+From 97cfada911199408dd9bc1ca43d66330a55bac13 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 20:42:22 +0000
+Subject: [PATCH 116/118] port-probe,base-modem: add the MIPC port type
+
+MIPC is MediaTek's binary modem control protocol. The t7xx driver
+exposes it as a WWAN port of type "MIPC" (WWAN_PORT_MIPC), and MediaTek
+SoC modems have MIPC channels too. NR-era firmware reports incoming
+calls and call state only there.
+
+Detect MIPC ports from the wwan type attribute and never probe them for
+AT, QMI or MBIM. Grab them as a plain port, as XMMRPC ports are, for
+plugins to open with their own protocol implementation, and export them
+as MM_MODEM_PORT_TYPE_MIPC.
+---
+ include/ModemManager-enums.h |  2 ++
+ src/mm-base-manager.c        |  1 +
+ src/mm-base-modem.c          | 16 ++++++++++++++--
+ src/mm-iface-modem.c         |  1 +
+ src/mm-port-probe.c          | 26 +++++++++++++++++++++++++-
+ src/mm-port.h                |  3 ++-
+ 6 files changed, 45 insertions(+), 4 deletions(-)
+
+diff --git a/include/ModemManager-enums.h b/include/ModemManager-enums.h
+index e86b775..aa33bd4 100644
+--- a/include/ModemManager-enums.h
++++ b/include/ModemManager-enums.h
+@@ -670,6 +670,7 @@ typedef enum { /*< underscore_name=mm_modem_band >*/
+  * @MM_MODEM_PORT_TYPE_AUDIO: Audio port. Since 1.12.
+  * @MM_MODEM_PORT_TYPE_IGNORED: Ignored port. Since 1.16.
+  * @MM_MODEM_PORT_TYPE_XMMRPC: Control protocol for Intel XMM modems. Since 1.24.
++ * @MM_MODEM_PORT_TYPE_MIPC: Control protocol for MediaTek modems. Since 1.26.
+  *
+  * Type of modem port.
+  *
+@@ -686,6 +687,7 @@ typedef enum { /*< underscore_name=mm_modem_port_type >*/
+     MM_MODEM_PORT_TYPE_AUDIO   = 8,
+     MM_MODEM_PORT_TYPE_IGNORED = 9,
+     MM_MODEM_PORT_TYPE_XMMRPC  = 10,
++    MM_MODEM_PORT_TYPE_MIPC    = 11,
+ } MMModemPortType;
+ 
+ /**
+diff --git a/src/mm-base-manager.c b/src/mm-base-manager.c
+index 7ba2cde..d5b6667 100644
+--- a/src/mm-base-manager.c
++++ b/src/mm-base-manager.c
+@@ -235,6 +235,7 @@ modem_setup (FindDeviceSupportContext *ctx)
+             case MM_MODEM_PORT_TYPE_QMI:
+             case MM_MODEM_PORT_TYPE_MBIM:
+             case MM_MODEM_PORT_TYPE_XMMRPC:
++            case MM_MODEM_PORT_TYPE_MIPC:
+                 g_ptr_array_add (aux, g_strdup (port_infos[i].name));
+                 break;
+             case MM_MODEM_PORT_TYPE_UNKNOWN:
+diff --git a/src/mm-base-modem.c b/src/mm-base-modem.c
+index 2ff45d4..32b6ea6 100644
+--- a/src/mm-base-modem.c
++++ b/src/mm-base-modem.c
+@@ -341,12 +341,13 @@ base_modem_create_wwan_port (MMBaseModem *self,
+     if (ptype == MM_PORT_TYPE_AT)
+         return MM_PORT (mm_port_serial_at_new (name, MM_PORT_SUBSYS_WWAN));
+ 
+-    if (ptype == MM_PORT_TYPE_XMMRPC)
++    /* Plugins open these with their own protocol implementation */
++    if (ptype == MM_PORT_TYPE_XMMRPC || ptype == MM_PORT_TYPE_MIPC)
+         return MM_PORT (g_object_new (MM_TYPE_PORT,
+                                       MM_PORT_DEVICE, name,
+                                       MM_PORT_SUBSYS, MM_PORT_SUBSYS_WWAN,
+                                       MM_PORT_GROUP, MM_PORT_GROUP_USED,
+-                                      MM_PORT_TYPE, MM_PORT_TYPE_XMMRPC,
++                                      MM_PORT_TYPE, ptype,
+                                       NULL));
+ 
+     return NULL;
+@@ -1378,6 +1379,9 @@ parse_port_infos (GHashTable *ports,
+         case MM_PORT_TYPE_XMMRPC:
+             port_info.type = MM_MODEM_PORT_TYPE_XMMRPC;
+             break;
++        case MM_PORT_TYPE_MIPC:
++            port_info.type = MM_MODEM_PORT_TYPE_MIPC;
++            break;
+         case MM_PORT_TYPE_IGNORED:
+             port_info.type = MM_MODEM_PORT_TYPE_IGNORED;
+             break;
+@@ -1522,6 +1526,7 @@ mm_base_modem_organize_ports (MMBaseModem *self,
+     MMPortSerial *audio = NULL;
+     MMPortSerialAt *data_at_primary = NULL;
+     MMPort *xmmrpc = NULL;
++    MMPort *mipc = NULL;
+     GList *l;
+     /* These lists don't keep full references, so they should be
+      * g_list_free()-ed on error exits */
+@@ -1627,6 +1632,12 @@ mm_base_modem_organize_ports (MMBaseModem *self,
+                 xmmrpc = MM_PORT (candidate);
+             break;
+ 
++        case MM_PORT_TYPE_MIPC:
++            g_assert (MM_IS_PORT (candidate));
++            if (!mipc)
++                mipc = MM_PORT (candidate);
++            break;
++
+ #if defined WITH_QMI
+         case MM_PORT_TYPE_QMI:
+             qmi = g_list_append (qmi, candidate);
+@@ -1755,6 +1766,7 @@ mm_base_modem_organize_ports (MMBaseModem *self,
+     log_port (self, MM_PORT (gps),             "gps (nmea)");
+     log_port (self, MM_PORT (audio),           "audio");
+     log_port (self, MM_PORT (xmmrpc),          "xmmrpc");
++    log_port (self, MM_PORT (mipc),            "mipc");
+ #if defined WITH_QMI
+     for (l = qmi; l; l = g_list_next (l))
+         log_port (self, MM_PORT (l->data),     "qmi");
+diff --git a/src/mm-iface-modem.c b/src/mm-iface-modem.c
+index bb81cfd..293be95 100644
+--- a/src/mm-iface-modem.c
++++ b/src/mm-iface-modem.c
+@@ -4367,6 +4367,7 @@ fcc_unlock (GTask *task)
+         case MM_MODEM_PORT_TYPE_QMI:
+         case MM_MODEM_PORT_TYPE_MBIM:
+         case MM_MODEM_PORT_TYPE_XMMRPC:
++        case MM_MODEM_PORT_TYPE_MIPC:
+             g_ptr_array_add (aux, g_strdup (port_infos[i].name));
+             break;
+         case MM_MODEM_PORT_TYPE_UNKNOWN:
+diff --git a/src/mm-port-probe.c b/src/mm-port-probe.c
+index b3bac90..a05e84f 100644
+--- a/src/mm-port-probe.c
++++ b/src/mm-port-probe.c
+@@ -92,6 +92,7 @@ struct _MMPortProbePrivate {
+     gboolean is_gps;
+     gboolean is_audio;
+     gboolean is_xmmrpc;
++    gboolean is_mipc;
+     gboolean maybe_at;
+     gboolean maybe_qcdm;
+     gboolean maybe_qmi;
+@@ -364,6 +365,7 @@ mm_port_probe_set_result_at (MMPortProbe *self,
+         self->priv->is_qmi = FALSE;
+         self->priv->is_mbim = FALSE;
+         self->priv->is_xmmrpc = FALSE;
++        self->priv->is_mipc = FALSE;
+         self->priv->flags |= (MM_PORT_PROBE_QCDM | MM_PORT_PROBE_QMI | MM_PORT_PROBE_MBIM);
+     } else {
+         mm_obj_dbg (self, "port is not AT-capable");
+@@ -458,6 +460,7 @@ mm_port_probe_set_result_qcdm (MMPortProbe *self,
+         self->priv->is_icera = FALSE;
+         self->priv->is_xmm = FALSE;
+         self->priv->is_xmmrpc = FALSE;
++        self->priv->is_mipc = FALSE;
+         self->priv->flags |= (MM_PORT_PROBE_AT |
+                               MM_PORT_PROBE_AT_VENDOR |
+                               MM_PORT_PROBE_AT_PRODUCT |
+@@ -484,6 +487,7 @@ mm_port_probe_set_result_qmi (MMPortProbe *self,
+         self->priv->is_qcdm = FALSE;
+         self->priv->is_mbim = FALSE;
+         self->priv->is_xmmrpc = FALSE;
++        self->priv->is_mipc = FALSE;
+         self->priv->vendor = NULL;
+         self->priv->product = NULL;
+         self->priv->flags |= (MM_PORT_PROBE_AT |
+@@ -512,6 +516,7 @@ mm_port_probe_set_result_mbim (MMPortProbe *self,
+         self->priv->is_qcdm = FALSE;
+         self->priv->is_qmi = FALSE;
+         self->priv->is_xmmrpc = FALSE;
++        self->priv->is_mipc = FALSE;
+         self->priv->vendor = NULL;
+         self->priv->product = NULL;
+         self->priv->flags |= (MM_PORT_PROBE_AT |
+@@ -1819,6 +1824,15 @@ mm_port_probe_run (MMPortProbe                *self,
+         mm_port_probe_set_result_mbim (self, FALSE);
+     }
+ 
++    /* If this is a port flagged as a MIPC port, don't do any other probing */
++    if (self->priv->is_mipc) {
++        mm_obj_dbg (self, "MIPC port detected");
++        mm_port_probe_set_result_at   (self, FALSE);
++        mm_port_probe_set_result_qcdm (self, FALSE);
++        mm_port_probe_set_result_qmi  (self, FALSE);
++        mm_port_probe_set_result_mbim (self, FALSE);
++    }
++
+     /* If this is a port flagged as being an AT port, don't do any other probing */
+     if (self->priv->maybe_at) {
+         mm_obj_dbg (self, "no QCDM/QMI/MBIM probing in possible AT port");
+@@ -2055,6 +2069,9 @@ mm_port_probe_get_port_type (MMPortProbe *self)
+     if (self->priv->is_xmmrpc)
+         return MM_PORT_TYPE_XMMRPC;
+ 
++    if (self->priv->is_mipc)
++        return MM_PORT_TYPE_MIPC;
++
+     return MM_PORT_TYPE_UNKNOWN;
+ }
+ 
+@@ -2180,6 +2197,7 @@ initialize_port_type_hints (MMPortProbe *self)
+     gboolean           auto_maybe_qmi = FALSE;
+     gboolean           auto_maybe_mbim = FALSE;
+     gboolean           auto_is_xmmrpc = FALSE;
++    gboolean           auto_is_mipc = FALSE;
+     gboolean           auto_maybe_at = FALSE;
+     gboolean           auto_maybe_qcdm = FALSE;
+     gboolean           auto_ignored = FALSE;
+@@ -2243,6 +2261,9 @@ initialize_port_type_hints (MMPortProbe *self)
+             } else if (!g_strcmp0 (type, "XMMRPC")) {
+                 mm_obj_dbg (self, "port is XMMRPC based on the wwan type attribute");
+                 auto_is_xmmrpc = TRUE;
++            } else if (!g_strcmp0 (type, "MIPC")) {
++                mm_obj_dbg (self, "port is MIPC based on the wwan type attribute");
++                auto_is_mipc = TRUE;
+             } else if (!g_strcmp0 (type, "QMI")) {
+                 mm_obj_dbg (self, "port may be QMI based on the wwan type attribute");
+                 auto_maybe_qmi = TRUE;
+@@ -2284,6 +2305,7 @@ initialize_port_type_hints (MMPortProbe *self)
+     g_assert ((auto_maybe_qmi +
+                auto_maybe_mbim +
+                auto_is_xmmrpc +
++               auto_is_mipc +
+                auto_maybe_at +
+                auto_maybe_qcdm +
+                auto_ignored) <= 1);
+@@ -2300,17 +2322,19 @@ initialize_port_type_hints (MMPortProbe *self)
+     PROCESS_AUTO_HINTS ("QMI",    maybe_qmi);
+     PROCESS_AUTO_HINTS ("MBIM",   maybe_mbim);
+     PROCESS_AUTO_HINTS ("XMMRPC", is_xmmrpc);
++    PROCESS_AUTO_HINTS ("MIPC",   is_mipc);
+     PROCESS_AUTO_HINTS ("AT",     maybe_at);
+     PROCESS_AUTO_HINTS ("QCDM",   maybe_qcdm);
+ 
+ #undef PROCESS_AUTO_HINTS
+ 
+-    mm_obj_dbg (self, "port type hints loaded: AT %s, QMI %s, MBIM %s, QCDM %s, XMMRPC %s, AUDIO %s, GPS %s",
++    mm_obj_dbg (self, "port type hints loaded: AT %s, QMI %s, MBIM %s, QCDM %s, XMMRPC %s, MIPC %s, AUDIO %s, GPS %s",
+                 self->priv->maybe_at ? "yes" : "no",
+                 self->priv->maybe_qmi ? "yes" : "no",
+                 self->priv->maybe_mbim ? "yes" : "no",
+                 self->priv->maybe_qcdm ? "yes" : "no",
+                 self->priv->is_xmmrpc ? "yes" : "no",
++                self->priv->is_mipc ? "yes" : "no",
+                 self->priv->is_audio ? "yes" : "no",
+                 self->priv->is_gps ? "yes" : "no");
+ 
+diff --git a/src/mm-port.h b/src/mm-port.h
+index 1dd054a..c6a7ee6 100644
+--- a/src/mm-port.h
++++ b/src/mm-port.h
+@@ -52,7 +52,8 @@ typedef enum { /*< underscore_name=mm_port_type >*/
+     MM_PORT_TYPE_MBIM,
+     MM_PORT_TYPE_XMMRPC,
+     MM_PORT_TYPE_AUDIO,
+-    MM_PORT_TYPE_LAST = MM_PORT_TYPE_AUDIO /*< skip >*/
++    MM_PORT_TYPE_MIPC,
++    MM_PORT_TYPE_LAST = MM_PORT_TYPE_MIPC /*< skip >*/
+ } MMPortType;
+ 
+ #define MM_TYPE_PORT            (mm_port_get_type ())
+-- 
+2.55.0
+

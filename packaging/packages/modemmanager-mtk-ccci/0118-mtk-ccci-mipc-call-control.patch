@@ -1,0 +1,1959 @@
+From 629f566da34690b057e2fd5c2fbe1068ec584457 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 20:42:22 +0000
+Subject: [PATCH 118/118] mtk-ccci: incoming calls and the call list over MIPC
+
+MT6858's NR17 modem firmware hands each incoming call to a MIPC client
+for approval (CALL_APPROVE_INCOMING_CMD) and reports call progress only
+as MIPC indications (CALL_STATUS_IND, CALL_EVENT_IND). The AT port gets
+no RING, +CLIP, +EAIC or +ECPI, and +CLCC lists no calls, so an
+incoming call rang at the caller and never reached ModemManager. The
+stock RIL is such a MIPC client, on ttyCMIPC1. It sends its single
+AT+EURCRPT=2 through its own MIPC AT tunnel; sent on ttyC0 instead, the
+command made every PDN activation fail (+CME ERROR: 5847).
+
+Add a MIPC message codec with unit tests, and an MMPortMipc that opens
+the session (INTERNAL_TEST_REQ, INTERNAL_OPEN_REQ), matches each
+confirmation to its request by transaction id and passes indications
+and commands to handlers. When the modem has a MIPC port, the plugin
+registers for incoming-call approval and the two call indications,
+approves each incoming call (as the stock RIL does unless it has to
+reject one), and reloads the call list from CALL_GET_CALL_STATUS on
+every indication. With every change indicated, periodic +CLCC polling
+is off, and the AT port's call reports only trigger a reload. Dialing,
+answering and hanging up stay on the AT port.
+
+The protocol layout follows the messages the modem exchanges with the
+stock libmipc (16-byte header, 4-byte TLV headers, 8-byte alignment)
+and was checked against the modem on a JP2601.
+---
+ src/plugins/meson.build                       |   8 +
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.c    | 369 +++++++++++-
+ src/plugins/mtk-ccci/mm-mipc-protocol.c       | 415 ++++++++++++++
+ src/plugins/mtk-ccci/mm-mipc-protocol.h       | 134 +++++
+ src/plugins/mtk-ccci/mm-port-mipc.c           | 541 ++++++++++++++++++
+ src/plugins/mtk-ccci/mm-port-mipc.h           |  70 +++
+ .../mtk-ccci/tests/test-mipc-protocol.c       | 255 +++++++++
+ 7 files changed, 1789 insertions(+), 3 deletions(-)
+ create mode 100644 src/plugins/mtk-ccci/mm-mipc-protocol.c
+ create mode 100644 src/plugins/mtk-ccci/mm-mipc-protocol.h
+ create mode 100644 src/plugins/mtk-ccci/mm-port-mipc.c
+ create mode 100644 src/plugins/mtk-ccci/mm-port-mipc.h
+ create mode 100644 src/plugins/mtk-ccci/tests/test-mipc-protocol.c
+
+diff --git a/src/plugins/meson.build b/src/plugins/meson.build
+index ecd2e2b..0144d6c 100644
+--- a/src/plugins/meson.build
++++ b/src/plugins/meson.build
+@@ -874,13 +874,21 @@ if plugins_options['mtk-ccci']
+   sources = files(
+     'mtk-ccci/mm-broadband-bearer-mtk-ccci.c',
+     'mtk-ccci/mm-broadband-modem-mtk-ccci.c',
++    'mtk-ccci/mm-mipc-protocol.c',
+     'mtk-ccci/mm-netagent-mtk-ccci.c',
+     'mtk-ccci/mm-plugin-mtk-ccci.c',
++    'mtk-ccci/mm-port-mipc.c',
++  )
++
++  test_sources = files(
++    'mtk-ccci/mm-mipc-protocol.c',
++    'mtk-ccci/tests/test-mipc-protocol.c',
+   )
+ 
+   plugins += {'plugin-mtk-ccci': {
+     'plugin': true,
+     'module': {'sources': sources, 'include_directories': plugins_incs, 'c_args': '-DMM_MODULE_NAME="mtk-ccci"'},
++    'test': {'sources': test_sources, 'include_directories': include_directories('mtk-ccci'), 'dependencies': libhelpers_dep},
+   }}
+ endif
+ 
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index 6f7864e..2bb5b0f 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -29,6 +29,7 @@
+ #include "mm-broadband-bearer-mtk-ccci.h"
+ #include "mm-kernel-device.h"
+ #include "mm-netagent-mtk-ccci.h"
++#include "mm-port-mipc.h"
+ 
+ #include <arpa/inet.h>
+ #include <stdlib.h>
+@@ -39,6 +40,8 @@ static void iface_modem_init (MMIfaceModemInterface *iface);
+ static void iface_modem_voice_init (MMIfaceModemVoiceInterface *iface);
+ static void netagent_pdn_down (MMBroadbandModemMtkCcci *self, guint id);
+ 
++static MMIfaceModemVoiceInterface *iface_modem_voice_parent;
++
+ G_DEFINE_TYPE_EXTENDED (MMBroadbandModemMtkCcci, mm_broadband_modem_mtk_ccci, MM_TYPE_BROADBAND_MODEM, 0,
+                         G_IMPLEMENT_INTERFACE (MM_TYPE_IFACE_MODEM, iface_modem_init)
+                         G_IMPLEMENT_INTERFACE (MM_TYPE_IFACE_MODEM_VOICE, iface_modem_voice_init))
+@@ -56,6 +59,9 @@ struct _MMBroadbandModemMtkCcciPrivate {
+     MMNetagentMtkCcci *netagent;
+     GHashTable        *pdns;
+     guint              ifup_holds;
++    /* Call control on modems with a MIPC port (NR modems, e.g. MT6858) */
++    MMPortMipc        *mipc;
++    guint              mipc_handlers[3];
+ };
+ 
+ typedef struct {
+@@ -387,10 +393,16 @@ setup_ports (MMBroadbandModem *_self)
+ {
+     MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (_self);
+     MMPortSerialAt          *ports[2];
++    GList                   *mipc_ports;
+     guint                    i;
+ 
+     MM_BROADBAND_MODEM_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->setup_ports (_self);
+ 
++    mipc_ports = mm_base_modem_find_ports (MM_BASE_MODEM (self), MM_PORT_SUBSYS_UNKNOWN, MM_PORT_TYPE_MIPC);
++    if (mipc_ports)
++        self->priv->mipc = mm_port_mipc_new (mm_port_get_device (mipc_ports->data));
++    g_list_free_full (mipc_ports, g_object_unref);
++
+     ports[0] = mm_base_modem_peek_port_primary (MM_BASE_MODEM (self));
+     ports[1] = mm_base_modem_peek_port_secondary (MM_BASE_MODEM (self));
+     for (i = 0; i < G_N_ELEMENTS (ports); i++) {
+@@ -698,25 +710,365 @@ clcc_ready (MMBaseModem  *self,
+     g_object_unref (task);
+ }
+ 
++/* CALL_GET_CALL_STATUS_CNF TLVs, one array element per call */
++#define CALL_STATUS_CNF_CALLID     0x10b
++#define CALL_STATUS_CNF_DIRECTION  0x10c
++#define CALL_STATUS_CNF_CLCC_STATE 0x10e
++#define CALL_STATUS_CNF_NUMBER     0x8111
++
++static void
++mipc_call_status_ready (MMPortMipc   *port,
++                        GAsyncResult *res,
++                        GTask        *task)
++{
++    g_autoptr(MipcMessage)  confirmation = NULL;
++    GList                  *list = NULL;
++    GError                 *error = NULL;
++    guint                   n;
++    guint                   i;
++
++    confirmation = mm_port_mipc_request_finish (port, res, &error);
++    if (!confirmation) {
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++
++    n = mipc_message_get_count (confirmation, CALL_STATUS_CNF_CALLID);
++    for (i = 0; i < n; i++) {
++        MMCallInfo *info;
++        guint32     id;
++        guint32     direction;
++        guint32     state;
++
++        if (!mipc_message_get_u32 (confirmation, CALL_STATUS_CNF_CALLID, i, &id) ||
++            !mipc_message_get_u32 (confirmation, CALL_STATUS_CNF_DIRECTION, i, &direction) ||
++            !mipc_message_get_u32 (confirmation, CALL_STATUS_CNF_CLCC_STATE, i, &state)) {
++            mm_obj_warn (g_task_get_source_object (task), "incomplete status of call %u", i);
++            continue;
++        }
++
++        info = g_new0 (MMCallInfo, 1);
++        info->index = id;
++        info->direction = direction ? MM_CALL_DIRECTION_INCOMING : MM_CALL_DIRECTION_OUTGOING;
++        /* The +CLCC states */
++        switch (state) {
++        case 0: info->state = MM_CALL_STATE_ACTIVE; break;
++        case 1: info->state = MM_CALL_STATE_HELD; break;
++        case 2: info->state = MM_CALL_STATE_DIALING; break;
++        case 3: info->state = MM_CALL_STATE_RINGING_OUT; break;
++        case 4: info->state = MM_CALL_STATE_RINGING_IN; break;
++        case 5: info->state = MM_CALL_STATE_WAITING; break;
++        default:
++            mm_obj_warn (g_task_get_source_object (task), "unknown state %u of call %u", state, id);
++            g_free (info);
++            continue;
++        }
++        info->number = mipc_message_dup_string (confirmation, CALL_STATUS_CNF_NUMBER, i);
++        list = g_list_append (list, info);
++    }
++
++    g_task_return_pointer (task, list, (GDestroyNotify) mm_3gpp_call_info_list_free);
++    g_object_unref (task);
++}
++
+ static void
+-load_call_list (MMIfaceModemVoice   *self,
++load_call_list (MMIfaceModemVoice   *_self,
+                 GAsyncReadyCallback  callback,
+                 gpointer             user_data)
+ {
++    MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (_self);
++    GTask                   *task;
++
++    task = g_task_new (self, NULL, callback, user_data);
++
++    /* NR modems keep calls out of +CLCC */
++    if (self->priv->mipc && mm_port_mipc_is_open (self->priv->mipc)) {
++        g_autoptr(MipcMessage) request = NULL;
++
++        request = mipc_message_new (MIPC_MESSAGE_CALL_GET_CALL_STATUS_REQ, MIPC_SIM_PS_SIM0);
++        mm_port_mipc_request (self->priv->mipc, request, 5,
++                              (GAsyncReadyCallback) mipc_call_status_ready, task);
++        return;
++    }
++
+     mm_base_modem_at_command (MM_BASE_MODEM (self), "+CLCC", 5, FALSE,
+-                              (GAsyncReadyCallback) clcc_ready,
+-                              g_task_new (self, NULL, callback, user_data));
++                              (GAsyncReadyCallback) clcc_ready, task);
++}
++
++/*****************************************************************************/
++/* Call control over MIPC (Voice interface)
++ *
++ * NR modems hand incoming calls to a MIPC client for approval, as
++ * CALL_APPROVE_INCOMING_CMD, and report call progress as CALL_STATUS_IND,
++ * none of it on the AT port; unapproved, a call rings at the caller and
++ * never reaches the host. Calls are listed over MIPC too, while dialling,
++ * answering and hanging up stay on the AT port. */
++
++/* CALL_APPROVE_INCOMING_CMD and _RSP TLVs */
++#define APPROVE_CMD_CALLID 0x100
++#define APPROVE_CMD_SEQ_NO 0x103
++#define APPROVE_RSP_APPROVE 0x100
++#define APPROVE_RSP_CALLID  0x102
++#define APPROVE_RSP_SEQ_NO  0x103
++
++#define INTERNAL_REGISTER_REQ_MSG_ID 0x100
++
++static void
++mipc_approve_incoming (MMPortMipc              *port,
++                       MipcMessage             *command,
++                       MMBroadbandModemMtkCcci *self)
++{
++    g_autoptr(MipcMessage) response = NULL;
++    g_autoptr(GError)      error = NULL;
++    guint32                id;
++    guint32                seq;
++
++    if (!mipc_message_get_u32 (command, APPROVE_CMD_CALLID, 0, &id) ||
++        !mipc_message_get_u32 (command, APPROVE_CMD_SEQ_NO, 0, &seq)) {
++        mm_obj_warn (self, "incoming call approval without call id or sequence number");
++        return;
++    }
++
++    mm_obj_dbg (self, "allowing incoming call %u (seq %u)", id, seq);
++    response = mipc_message_new_reply (command);
++    mipc_message_add_u8 (response, APPROVE_RSP_APPROVE, TRUE);
++    mipc_message_add_u32 (response, APPROVE_RSP_CALLID, id);
++    mipc_message_add_u32 (response, APPROVE_RSP_SEQ_NO, seq);
++    if (!mm_port_mipc_send (port, response, &error))
++        mm_obj_warn (self, "couldn't allow incoming call %u: %s", id, error->message);
++}
++
++static void
++mipc_call_progress (MMPortMipc              *port,
++                    MipcMessage             *indication,
++                    MMBroadbandModemMtkCcci *self)
++{
++    mm_iface_modem_voice_reload_all_calls (MM_IFACE_MODEM_VOICE (self), NULL, NULL);
++}
++
++/* Closing the session drops the modem's registrations */
++static void
++mipc_teardown (MMBroadbandModemMtkCcci *self)
++{
++    guint i;
++
++    for (i = 0; i < G_N_ELEMENTS (self->priv->mipc_handlers); i++) {
++        if (self->priv->mipc_handlers[i])
++            mm_port_mipc_remove_handler (self->priv->mipc, self->priv->mipc_handlers[i]);
++        self->priv->mipc_handlers[i] = 0;
++    }
++    mm_port_mipc_close (self->priv->mipc);
++}
++
++typedef enum {
++    MIPC_SETUP_STEP_PARENT,
++    MIPC_SETUP_STEP_OPEN,
++    MIPC_SETUP_STEP_REGISTER_APPROVE,
++    MIPC_SETUP_STEP_REGISTER_STATUS,
++    MIPC_SETUP_STEP_REGISTER_EVENT,
++    MIPC_SETUP_STEP_LAST,
++} MipcSetupStep;
++
++static void mipc_setup_step (GTask *task);
++
++static gboolean
++modem_voice_setup_unsolicited_events_finish (MMIfaceModemVoice  *self,
++                                             GAsyncResult       *res,
++                                             GError            **error)
++{
++    return g_task_propagate_boolean (G_TASK (res), error);
++}
++
++static void
++mipc_setup_failed (GTask  *task,
++                   GError *error)
++{
++    MMBroadbandModemMtkCcci *self = g_task_get_source_object (task);
++
++    /* Calls stay with the AT port */
++    mm_obj_warn (self, "couldn't set up call control over MIPC: %s", error->message);
++    g_error_free (error);
++    mipc_teardown (self);
++    g_task_return_boolean (task, TRUE);
++    g_object_unref (task);
++}
++
++static void
++mipc_register_ready (MMPortMipc   *port,
++                     GAsyncResult *res,
++                     GTask        *task)
++{
++    g_autoptr(MipcMessage)  confirmation = NULL;
++    GError                 *error = NULL;
++    MipcSetupStep          *step;
++
++    confirmation = mm_port_mipc_request_finish (port, res, &error);
++    if (!confirmation) {
++        mipc_setup_failed (task, error);
++        return;
++    }
++    step = g_task_get_task_data (task);
++    (*step)++;
++    mipc_setup_step (task);
++}
++
++static void
++mipc_open_ready (MMPortMipc   *port,
++                 GAsyncResult *res,
++                 GTask        *task)
++{
++    GError        *error = NULL;
++    MipcSetupStep *step;
++
++    if (!mm_port_mipc_open_finish (port, res, &error)) {
++        mipc_setup_failed (task, error);
++        return;
++    }
++    step = g_task_get_task_data (task);
++    (*step)++;
++    mipc_setup_step (task);
++}
++
++static void
++parent_voice_setup_unsolicited_events_ready (MMIfaceModemVoice *self,
++                                             GAsyncResult      *res,
++                                             GTask             *task)
++{
++    GError        *error = NULL;
++    MipcSetupStep *step;
++
++    if (!iface_modem_voice_parent->setup_unsolicited_events_finish (self, res, &error)) {
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++    step = g_task_get_task_data (task);
++    (*step)++;
++    mipc_setup_step (task);
++}
++
++static void
++mipc_register (GTask   *task,
++               guint16  request_id,
++               guint8   sim_ps,
++               guint16  message_id)
++{
++    MMBroadbandModemMtkCcci *self = g_task_get_source_object (task);
++    g_autoptr(MipcMessage)   request = NULL;
++
++    request = mipc_message_new (request_id, sim_ps);
++    mipc_message_add_u16 (request, INTERNAL_REGISTER_REQ_MSG_ID, message_id);
++    mm_port_mipc_request (self->priv->mipc, request, 5,
++                          (GAsyncReadyCallback) mipc_register_ready, task);
++}
++
++static void
++mipc_setup_step (GTask *task)
++{
++    MMBroadbandModemMtkCcci *self = g_task_get_source_object (task);
++    MipcSetupStep           *step = g_task_get_task_data (task);
++
++    switch (*step) {
++    case MIPC_SETUP_STEP_PARENT:
++        iface_modem_voice_parent->setup_unsolicited_events (
++            MM_IFACE_MODEM_VOICE (self),
++            (GAsyncReadyCallback) parent_voice_setup_unsolicited_events_ready,
++            task);
++        return;
++    case MIPC_SETUP_STEP_OPEN:
++        if (!self->priv->mipc) {
++            g_task_return_boolean (task, TRUE);
++            g_object_unref (task);
++            return;
++        }
++        mm_port_mipc_open (self->priv->mipc, (GAsyncReadyCallback) mipc_open_ready, task);
++        return;
++    case MIPC_SETUP_STEP_REGISTER_APPROVE:
++        self->priv->mipc_handlers[0] =
++            mm_port_mipc_add_handler (self->priv->mipc, MIPC_MESSAGE_CALL_APPROVE_INCOMING_CMD,
++                                      (MMPortMipcMessageFn) mipc_approve_incoming, self);
++        mipc_register (task, MIPC_MESSAGE_INTERNAL_REGISTER_CMD_REQ, MIPC_SIM_PS_ALL,
++                       MIPC_MESSAGE_CALL_APPROVE_INCOMING_CMD);
++        return;
++    case MIPC_SETUP_STEP_REGISTER_STATUS:
++        self->priv->mipc_handlers[1] =
++            mm_port_mipc_add_handler (self->priv->mipc, MIPC_MESSAGE_CALL_STATUS_IND,
++                                      (MMPortMipcMessageFn) mipc_call_progress, self);
++        mipc_register (task, MIPC_MESSAGE_INTERNAL_REGISTER_IND_REQ, MIPC_SIM_PS_SIM0,
++                       MIPC_MESSAGE_CALL_STATUS_IND);
++        return;
++    case MIPC_SETUP_STEP_REGISTER_EVENT:
++        self->priv->mipc_handlers[2] =
++            mm_port_mipc_add_handler (self->priv->mipc, MIPC_MESSAGE_CALL_EVENT_IND,
++                                      (MMPortMipcMessageFn) mipc_call_progress, self);
++        mipc_register (task, MIPC_MESSAGE_INTERNAL_REGISTER_IND_REQ, MIPC_SIM_PS_SIM0,
++                       MIPC_MESSAGE_CALL_EVENT_IND);
++        return;
++    case MIPC_SETUP_STEP_LAST:
++        /* Every change of a call is indicated: no polling, and the AT
++         * port's call reports only trigger a reload */
++        g_object_set (self,
++                      MM_IFACE_MODEM_VOICE_PERIODIC_CALL_LIST_CHECK_DISABLED,   TRUE,
++                      MM_IFACE_MODEM_VOICE_INDICATION_CALL_LIST_RELOAD_ENABLED, TRUE,
++                      NULL);
++        mm_obj_msg (self, "call control over MIPC port %s", mm_port_get_device (MM_PORT (self->priv->mipc)));
++        g_task_return_boolean (task, TRUE);
++        g_object_unref (task);
++        return;
++    default:
++        g_assert_not_reached ();
++    }
++}
++
++static void
++modem_voice_setup_unsolicited_events (MMIfaceModemVoice   *self,
++                                      GAsyncReadyCallback  callback,
++                                      gpointer             user_data)
++{
++    GTask *task;
++
++    task = g_task_new (self, NULL, callback, user_data);
++    g_task_set_task_data (task, g_new0 (MipcSetupStep, 1), g_free);
++    mipc_setup_step (task);
++}
++
++static gboolean
++modem_voice_cleanup_unsolicited_events_finish (MMIfaceModemVoice  *self,
++                                               GAsyncResult       *res,
++                                               GError            **error)
++{
++    return iface_modem_voice_parent->cleanup_unsolicited_events_finish (self, res, error);
++}
++
++static void
++modem_voice_cleanup_unsolicited_events (MMIfaceModemVoice   *_self,
++                                        GAsyncReadyCallback  callback,
++                                        gpointer             user_data)
++{
++    MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (_self);
++
++    if (self->priv->mipc)
++        mipc_teardown (self);
++
++    iface_modem_voice_parent->cleanup_unsolicited_events (_self, callback, user_data);
+ }
+ 
+ static void
+ iface_modem_voice_init (MMIfaceModemVoiceInterface *iface)
+ {
++    iface_modem_voice_parent = g_type_interface_peek_parent (iface);
++
+     /* +CLCC: <id>,<dir>,<stat>,20, */
+     if (!ims_voice_mode_regex)
+         ims_voice_mode_regex = g_regex_new ("(\\+CLCC:\\s*\\d+\\s*,\\s*\\d+\\s*,\\s*\\d+)\\s*,\\s*20\\s*,",
+                                             G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+     iface->load_call_list = load_call_list;
+     iface->load_call_list_finish = load_call_list_finish;
++    iface->setup_unsolicited_events = modem_voice_setup_unsolicited_events;
++    iface->setup_unsolicited_events_finish = modem_voice_setup_unsolicited_events_finish;
++    iface->cleanup_unsolicited_events = modem_voice_cleanup_unsolicited_events;
++    iface->cleanup_unsolicited_events_finish = modem_voice_cleanup_unsolicited_events_finish;
+ }
+ 
+ /*****************************************************************************/
+@@ -771,6 +1123,16 @@ mm_broadband_modem_mtk_ccci_init (MMBroadbandModemMtkCcci *self)
+     self->priv->pdns = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, g_free);
+ }
+ 
++static void
++dispose (GObject *object)
++{
++    MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (object);
++
++    g_clear_object (&self->priv->mipc);
++
++    G_OBJECT_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->dispose (object);
++}
++
+ static void
+ finalize (GObject *object)
+ {
+@@ -848,6 +1210,7 @@ mm_broadband_modem_mtk_ccci_class_init (MMBroadbandModemMtkCcciClass *klass)
+ 
+     g_type_class_add_private (object_class, sizeof (MMBroadbandModemMtkCcciPrivate));
+ 
++    object_class->dispose = dispose;
+     object_class->finalize = finalize;
+     broadband_modem_class->setup_ports = setup_ports;
+     broadband_modem_class->enabling_started = enabling_started;
+diff --git a/src/plugins/mtk-ccci/mm-mipc-protocol.c b/src/plugins/mtk-ccci/mm-mipc-protocol.c
+new file mode 100644
+index 0000000..47545ad
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-mipc-protocol.c
+@@ -0,0 +1,415 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#include <string.h>
++
++#include <gio/gio.h>
++
++#include "mm-mipc-protocol.h"
++
++#define MIPC_MAGIC        0x24541984
++#define TLV_HEADER_SIZE   4
++#define ARRAY_HEADER_SIZE 12
++#define TLV_ALIGN(len)    (((len) + 7) & ~((gsize) 7))
++
++/* Header field offsets */
++#define OFFSET_MAGIC  0
++#define OFFSET_SIM_PS 8
++#define OFFSET_FLAGS  9
++#define OFFSET_ID     10
++#define OFFSET_TXID   12
++#define OFFSET_LENGTH 14
++
++struct _MipcMessage {
++    gint        refcount;
++    GByteArray *raw;
++};
++
++static guint16
++read_u16 (const guint8 *p)
++{
++    return (guint16) (p[0] | (p[1] << 8));
++}
++
++static guint32
++read_u32 (const guint8 *p)
++{
++    return (guint32) p[0] | ((guint32) p[1] << 8) | ((guint32) p[2] << 16) | ((guint32) p[3] << 24);
++}
++
++static void
++write_u16 (guint8 *p, guint16 value)
++{
++    p[0] = value & 0xff;
++    p[1] = value >> 8;
++}
++
++static void
++write_u32 (guint8 *p, guint32 value)
++{
++    write_u16 (p, value & 0xffff);
++    write_u16 (p + 2, value >> 16);
++}
++
++/*****************************************************************************/
++
++static MipcMessage *
++message_new_raw (void)
++{
++    MipcMessage *self;
++
++    self = g_new0 (MipcMessage, 1);
++    self->refcount = 1;
++    self->raw = g_byte_array_sized_new (64);
++    return self;
++}
++
++MipcMessage *
++mipc_message_new (guint16 id,
++                  guint8  sim_ps)
++{
++    MipcMessage *self;
++    guint8       header[MIPC_HEADER_SIZE] = { 0 };
++
++    write_u32 (header + OFFSET_MAGIC, MIPC_MAGIC);
++    header[OFFSET_SIM_PS] = sim_ps;
++    write_u16 (header + OFFSET_ID, id);
++    /* Indications carry no transaction */
++    if ((id & MIPC_MESSAGE_KIND_MASK) == MIPC_MESSAGE_KIND_INDICATION)
++        write_u16 (header + OFFSET_TXID, 0xffff);
++
++    self = message_new_raw ();
++    g_byte_array_append (self->raw, header, sizeof (header));
++    return self;
++}
++
++MipcMessage *
++mipc_message_new_reply (const MipcMessage *command)
++{
++    MipcMessage *self;
++
++    self = mipc_message_new (MIPC_MESSAGE_REPLY_ID (mipc_message_get_id (command)),
++                             mipc_message_get_sim_ps (command));
++    mipc_message_set_txid (self, mipc_message_get_txid (command));
++    return self;
++}
++
++MipcMessage *
++mipc_message_ref (MipcMessage *self)
++{
++    g_atomic_int_inc (&self->refcount);
++    return self;
++}
++
++void
++mipc_message_unref (MipcMessage *self)
++{
++    if (g_atomic_int_dec_and_test (&self->refcount)) {
++        g_byte_array_unref (self->raw);
++        g_free (self);
++    }
++}
++
++guint16
++mipc_message_get_id (const MipcMessage *self)
++{
++    return read_u16 (self->raw->data + OFFSET_ID);
++}
++
++guint16
++mipc_message_get_txid (const MipcMessage *self)
++{
++    return read_u16 (self->raw->data + OFFSET_TXID);
++}
++
++void
++mipc_message_set_txid (MipcMessage *self,
++                       guint16      txid)
++{
++    write_u16 (self->raw->data + OFFSET_TXID, txid);
++}
++
++guint8
++mipc_message_get_sim_ps (const MipcMessage *self)
++{
++    return self->raw->data[OFFSET_SIM_PS];
++}
++
++MipcMessageKind
++mipc_message_get_kind (const MipcMessage *self)
++{
++    return mipc_message_get_id (self) & MIPC_MESSAGE_KIND_MASK;
++}
++
++const guint8 *
++mipc_message_get_raw (const MipcMessage *self,
++                      gsize             *len)
++{
++    *len = self->raw->len;
++    return self->raw->data;
++}
++
++/*****************************************************************************/
++
++static void
++add_tlv (MipcMessage   *self,
++         guint16        type,
++         gconstpointer  value,
++         guint16        len)
++{
++    static const guint8 padding[8] = { 0 };
++    guint8              header[TLV_HEADER_SIZE];
++    gsize               start;
++
++    g_assert (len > 0);
++    start = self->raw->len;
++    write_u16 (header, type);
++    write_u16 (header + 2, len);
++    g_byte_array_append (self->raw, header, sizeof (header));
++    g_byte_array_append (self->raw, value, len);
++    g_byte_array_append (self->raw, padding, TLV_ALIGN (self->raw->len - start) - (self->raw->len - start));
++    write_u16 (self->raw->data + OFFSET_LENGTH, self->raw->len - MIPC_HEADER_SIZE);
++}
++
++void
++mipc_message_add_u8 (MipcMessage *self,
++                     guint16      type,
++                     guint8       value)
++{
++    add_tlv (self, type, &value, 1);
++}
++
++void
++mipc_message_add_u16 (MipcMessage *self,
++                      guint16      type,
++                      guint16      value)
++{
++    guint8 buf[2];
++
++    write_u16 (buf, value);
++    add_tlv (self, type, buf, sizeof (buf));
++}
++
++void
++mipc_message_add_u32 (MipcMessage *self,
++                      guint16      type,
++                      guint32      value)
++{
++    guint8 buf[4];
++
++    write_u32 (buf, value);
++    add_tlv (self, type, buf, sizeof (buf));
++}
++
++void
++mipc_message_add_string (MipcMessage *self,
++                         guint16      type,
++                         const gchar *value)
++{
++    add_tlv (self, type, value, strlen (value) + 1);
++}
++
++/*****************************************************************************/
++
++MipcMessage *
++mipc_message_parse (const guint8  *data,
++                    gsize          len,
++                    gsize         *consumed,
++                    GError       **error)
++{
++    MipcMessage *self;
++    gsize        total;
++    gsize        offset;
++
++    *consumed = 0;
++    if (len < 4)
++        return NULL;
++    if (read_u32 (data + OFFSET_MAGIC) != MIPC_MAGIC) {
++        g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
++                     "not a MIPC message (magic 0x%08x)", read_u32 (data + OFFSET_MAGIC));
++        return NULL;
++    }
++    if (len < MIPC_HEADER_SIZE)
++        return NULL;
++    total = MIPC_HEADER_SIZE + read_u16 (data + OFFSET_LENGTH);
++    if (len < total)
++        return NULL;
++
++    /* Each TLV must fit; the last one's padding may be cut short */
++    for (offset = MIPC_HEADER_SIZE; offset < total;) {
++        guint16 vlen;
++
++        if (total - offset < TLV_HEADER_SIZE) {
++            g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
++                         "truncated TLV header at offset %" G_GSIZE_FORMAT, offset);
++            *consumed = total;
++            return NULL;
++        }
++        vlen = read_u16 (data + offset + 2);
++        if (!vlen)
++            vlen = ARRAY_HEADER_SIZE;
++        if (total - offset - TLV_HEADER_SIZE < vlen) {
++            g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
++                         "TLV 0x%04x overruns the message", read_u16 (data + offset));
++            *consumed = total;
++            return NULL;
++        }
++        offset += TLV_ALIGN (TLV_HEADER_SIZE + vlen);
++    }
++
++    self = message_new_raw ();
++    g_byte_array_append (self->raw, data, total);
++    *consumed = total;
++    return self;
++}
++
++/* The value of the TLV of @type (bit 15 ignored), its length 0 for an
++ * array header */
++static const guint8 *
++find_tlv (const MipcMessage *self,
++          guint16            type,
++          guint16           *len)
++{
++    gsize offset;
++
++    type &= MIPC_TLV_TYPE_MASK;
++    for (offset = MIPC_HEADER_SIZE; offset + TLV_HEADER_SIZE <= self->raw->len;) {
++        const guint8 *tlv = self->raw->data + offset;
++        guint16       vlen;
++
++        vlen = read_u16 (tlv + 2);
++        if ((read_u16 (tlv) & MIPC_TLV_TYPE_MASK) == type) {
++            *len = vlen;
++            return tlv + TLV_HEADER_SIZE;
++        }
++        offset += TLV_ALIGN (TLV_HEADER_SIZE + (vlen ? vlen : ARRAY_HEADER_SIZE));
++    }
++    return NULL;
++}
++
++static const guint8 *
++find_element (const MipcMessage *self,
++              guint16            type,
++              guint              index,
++              guint16           *len)
++{
++    const guint8 *value;
++
++    value = find_tlv (self, type, len);
++    if (!value)
++        return NULL;
++    if (*len)
++        return index == 0 ? value : NULL;
++    if (index >= read_u16 (value + 10))
++        return NULL;
++    return find_tlv (self, read_u16 (value + 8) + index, len);
++}
++
++guint
++mipc_message_get_count (const MipcMessage *self,
++                        guint16            type)
++{
++    const guint8 *value;
++    guint16       len;
++
++    value = find_tlv (self, type, &len);
++    if (!value)
++        return 0;
++    return len ? 1 : read_u16 (value + 10);
++}
++
++gboolean
++mipc_message_get_u8 (const MipcMessage *self,
++                     guint16            type,
++                     guint              index,
++                     guint8            *out)
++{
++    const guint8 *value;
++    guint16       len;
++
++    value = find_element (self, type, index, &len);
++    if (!value || len != 1)
++        return FALSE;
++    *out = value[0];
++    return TRUE;
++}
++
++gboolean
++mipc_message_get_u32 (const MipcMessage *self,
++                      guint16            type,
++                      guint              index,
++                      guint32           *out)
++{
++    const guint8 *value;
++    guint16       len;
++
++    value = find_element (self, type, index, &len);
++    if (!value || len != 4)
++        return FALSE;
++    *out = read_u32 (value);
++    return TRUE;
++}
++
++gchar *
++mipc_message_dup_string (const MipcMessage *self,
++                         guint16            type,
++                         guint              index)
++{
++    const guint8 *value;
++    guint16       len;
++
++    value = find_element (self, type, index, &len);
++    if (!value || !len)
++        return NULL;
++    return g_strndup ((const gchar *) value, len);
++}
++
++gboolean
++mipc_message_get_result (const MipcMessage *self,
++                         guint32           *result)
++{
++    return mipc_message_get_u32 (self, MIPC_TLV_RESULT, 0, result);
++}
++
++gchar *
++mipc_message_describe (const MipcMessage *self)
++{
++    GString *str;
++    gsize    offset;
++
++    str = g_string_new (NULL);
++    g_string_append_printf (str, "id 0x%04x txid 0x%04x sim/ps 0x%02x",
++                            mipc_message_get_id (self),
++                            mipc_message_get_txid (self),
++                            mipc_message_get_sim_ps (self));
++    for (offset = MIPC_HEADER_SIZE; offset + TLV_HEADER_SIZE <= self->raw->len;) {
++        const guint8 *tlv = self->raw->data + offset;
++        guint16       vlen = read_u16 (tlv + 2);
++        guint16       i;
++
++        g_string_append_printf (str, " %04x=", read_u16 (tlv));
++        if (!vlen) {
++            g_string_append_printf (str, "[array 0x%04x x%u]",
++                                    read_u16 (tlv + TLV_HEADER_SIZE + 8),
++                                    read_u16 (tlv + TLV_HEADER_SIZE + 10));
++            vlen = ARRAY_HEADER_SIZE;
++        } else {
++            for (i = 0; i < vlen && offset + TLV_HEADER_SIZE + i < self->raw->len; i++)
++                g_string_append_printf (str, "%02x", tlv[TLV_HEADER_SIZE + i]);
++        }
++        offset += TLV_ALIGN (TLV_HEADER_SIZE + vlen);
++    }
++    return g_string_free (str, FALSE);
++}
+diff --git a/src/plugins/mtk-ccci/mm-mipc-protocol.h b/src/plugins/mtk-ccci/mm-mipc-protocol.h
+new file mode 100644
+index 0000000..1f9e293
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-mipc-protocol.h
+@@ -0,0 +1,134 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#ifndef MM_MIPC_PROTOCOL_H
++#define MM_MIPC_PROTOCOL_H
++
++#include <glib.h>
++
++/*
++ * MIPC, MediaTek's modem control protocol (MIPC ports of SoC CCCI modems
++ * and of t7xx PCIe modems). Little-endian messages:
++ *
++ *   u32 magic, u16 reserved[2], u8 sim/ps mask, u8 flags, u16 message id,
++ *   u16 transaction id, u16 payload length, then the payload as TLVs:
++ *   u16 type, u16 length, value, each padded to 8 bytes.
++ *
++ * The top two bits of the message id give its kind. A TLV of length 0 is an
++ * array header (u32 0, u32 0, u16 first element type, u16 element count)
++ * whose elements are TLVs of the following types.
++ */
++
++#define MIPC_HEADER_SIZE 16
++#define MIPC_VERSION     2
++
++typedef enum { /*< underscore_name=mipc_message_kind >*/
++    MIPC_MESSAGE_KIND_REQUEST    = 0x0000, /* host to modem, answered by a confirmation */
++    MIPC_MESSAGE_KIND_INDICATION = 0x4000, /* modem to host */
++    MIPC_MESSAGE_KIND_COMMAND    = 0x8000, /* modem to host, answered by a response */
++    MIPC_MESSAGE_KIND_MASK       = 0xc000,
++} MipcMessageKind;
++
++typedef enum { /*< underscore_name=mipc_message_id >*/
++    MIPC_MESSAGE_SYS_AT_REQ                 = 0x0003,
++    MIPC_MESSAGE_INTERNAL_OPEN_REQ          = 0x0301,
++    MIPC_MESSAGE_INTERNAL_CLOSE_REQ         = 0x0303,
++    MIPC_MESSAGE_INTERNAL_TEST_REQ          = 0x0305,
++    MIPC_MESSAGE_INTERNAL_REGISTER_IND_REQ  = 0x0307,
++    MIPC_MESSAGE_INTERNAL_REGISTER_CMD_REQ  = 0x030b,
++    MIPC_MESSAGE_CALL_GET_CALL_STATUS_REQ   = 0x0909,
++    MIPC_MESSAGE_CALL_STATUS_IND            = 0x4901,
++    MIPC_MESSAGE_CALL_EVENT_IND             = 0x4902,
++    MIPC_MESSAGE_CALL_APPROVE_INCOMING_CMD  = 0x8901,
++    MIPC_MESSAGE_CALL_APPROVE_INCOMING_RSP  = 0x8902,
++} MipcMessageId;
++
++/* A request's confirmation and a command's response take the next id */
++#define MIPC_MESSAGE_REPLY_ID(id) ((guint16) ((id) + 1))
++
++/* Bit 15 of a TLV type marks a variable-size value; lookups ignore it */
++#define MIPC_TLV_TYPE_MASK 0x7fff
++
++#define MIPC_TLV_RESULT 0x0000
++
++typedef enum { /*< underscore_name=mipc_sim_ps >*/
++    MIPC_SIM_PS_SIM0 = 1 << 0,
++    MIPC_SIM_PS_PS0  = 1 << 4,
++    MIPC_SIM_PS_ALL  = 0xff,
++} MipcSimPs;
++
++typedef struct _MipcMessage MipcMessage;
++
++MipcMessage *mipc_message_new          (guint16            id,
++                                        guint8             sim_ps);
++MipcMessage *mipc_message_new_reply    (const MipcMessage *command);
++MipcMessage *mipc_message_ref          (MipcMessage       *self);
++void         mipc_message_unref        (MipcMessage       *self);
++G_DEFINE_AUTOPTR_CLEANUP_FUNC (MipcMessage, mipc_message_unref)
++
++guint16      mipc_message_get_id       (const MipcMessage *self);
++guint16      mipc_message_get_txid     (const MipcMessage *self);
++void         mipc_message_set_txid     (MipcMessage       *self,
++                                        guint16            txid);
++guint8       mipc_message_get_sim_ps   (const MipcMessage *self);
++MipcMessageKind mipc_message_get_kind  (const MipcMessage *self);
++
++void         mipc_message_add_u8       (MipcMessage       *self,
++                                        guint16            type,
++                                        guint8             value);
++void         mipc_message_add_u16      (MipcMessage       *self,
++                                        guint16            type,
++                                        guint16            value);
++void         mipc_message_add_u32      (MipcMessage       *self,
++                                        guint16            type,
++                                        guint32            value);
++void         mipc_message_add_string   (MipcMessage       *self,
++                                        guint16            type,
++                                        const gchar       *value);
++
++/* The serialized message (header and TLVs) */
++const guint8 *mipc_message_get_raw     (const MipcMessage *self,
++                                        gsize             *len);
++
++/* Parses the message at the start of @data. Returns NULL with @consumed 0
++ * while the message is incomplete, or NULL with an error if it isn't MIPC. */
++MipcMessage *mipc_message_parse        (const guint8      *data,
++                                        gsize              len,
++                                        gsize             *consumed,
++                                        GError           **error);
++
++/* Value lookups. @index picks an array element; a single value counts as
++ * an array of one, so index 0 always works. */
++guint        mipc_message_get_count    (const MipcMessage *self,
++                                        guint16            type);
++gboolean     mipc_message_get_u8       (const MipcMessage *self,
++                                        guint16            type,
++                                        guint              index,
++                                        guint8            *out);
++gboolean     mipc_message_get_u32      (const MipcMessage *self,
++                                        guint16            type,
++                                        guint              index,
++                                        guint32           *out);
++gchar       *mipc_message_dup_string   (const MipcMessage *self,
++                                        guint16            type,
++                                        guint              index);
++
++/* The confirmation's result TLV: MIPC_RESULT_SUCCESS (0) or a cause */
++gboolean     mipc_message_get_result   (const MipcMessage *self,
++                                        guint32           *result);
++
++gchar       *mipc_message_describe     (const MipcMessage *self);
++
++#endif /* MM_MIPC_PROTOCOL_H */
+diff --git a/src/plugins/mtk-ccci/mm-port-mipc.c b/src/plugins/mtk-ccci/mm-port-mipc.c
+new file mode 100644
+index 0000000..c19065d
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-port-mipc.c
+@@ -0,0 +1,541 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#include <config.h>
++
++#include <errno.h>
++#include <fcntl.h>
++#include <string.h>
++#include <unistd.h>
++
++#include <glib-unix.h>
++
++#include <ModemManager.h>
++#define _LIBMM_INSIDE_MM
++#include <libmm-glib.h>
++
++#include "mm-log-object.h"
++#include "mm-port-mipc.h"
++
++#define OPEN_REQUEST_TIMEOUT 5
++#define READ_SIZE            4096
++
++/* INTERNAL_OPEN_REQ TLVs */
++#define OPEN_REQ_VERSION      0x100
++#define OPEN_REQ_CLIENT_NAME  0x101
++#define OPEN_REQ_USIR_SUPPORT 0x102
++
++struct _MMPortMipc {
++    MMPort      parent;
++    gint        fd;
++    guint       watch_id;
++    gboolean    session;
++    GByteArray *buffer;
++    guint16     next_txid;
++    /* Requests waiting for their confirmation, by transaction id */
++    GHashTable *pending;
++    GList      *handlers;
++    guint       next_handler_id;
++};
++
++G_DEFINE_TYPE (MMPortMipc, mm_port_mipc, MM_TYPE_PORT)
++
++typedef struct {
++    guint               id;
++    guint16             message_id;
++    MMPortMipcMessageFn callback;
++    gpointer            user_data;
++} Handler;
++
++typedef struct {
++    MMPortMipc *self;
++    guint16     txid;
++    guint16     message_id;
++    guint       timeout_id;
++} Pending;
++
++/*****************************************************************************/
++
++/* Takes the request's task out of the pending table and stops its timeout */
++static GTask *
++pending_steal (MMPortMipc *self,
++               guint16     txid)
++{
++    gpointer  key;
++    gpointer  task;
++    Pending  *pending;
++
++    if (!g_hash_table_steal_extended (self->pending, GUINT_TO_POINTER (txid), &key, &task))
++        return NULL;
++    pending = g_task_get_task_data (task);
++    if (pending->timeout_id) {
++        g_source_remove (pending->timeout_id);
++        pending->timeout_id = 0;
++    }
++    return task;
++}
++
++static void
++complete_all_pending (MMPortMipc  *self,
++                      const gchar *message)
++{
++    g_autoptr(GList) txids = NULL;
++    GList           *l;
++
++    txids = g_hash_table_get_keys (self->pending);
++    for (l = txids; l; l = l->next) {
++        GTask *task;
++
++        task = pending_steal (self, GPOINTER_TO_UINT (l->data));
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_ABORTED, "%s", message);
++        g_object_unref (task);
++    }
++}
++
++/*****************************************************************************/
++
++static void
++dispatch (MMPortMipc  *self,
++          MipcMessage *message)
++{
++    g_autofree gchar *description = NULL;
++    GList            *l;
++
++    description = mipc_message_describe (message);
++    mm_obj_dbg (self, "<-- %s", description);
++
++    if (mipc_message_get_kind (message) == MIPC_MESSAGE_KIND_REQUEST) {
++        GTask   *task;
++        Pending *pending;
++
++        task = pending_steal (self, mipc_message_get_txid (message));
++        if (!task) {
++            mm_obj_dbg (self, "confirmation of no pending request, ignored");
++            return;
++        }
++        pending = g_task_get_task_data (task);
++        if (mipc_message_get_id (message) != MIPC_MESSAGE_REPLY_ID (pending->message_id))
++            g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                                     "unexpected reply 0x%04x to request 0x%04x",
++                                     mipc_message_get_id (message), pending->message_id);
++        else
++            g_task_return_pointer (task, mipc_message_ref (message), (GDestroyNotify) mipc_message_unref);
++        g_object_unref (task);
++        return;
++    }
++
++    for (l = self->handlers; l; l = l->next) {
++        Handler *handler = l->data;
++
++        if (handler->message_id == mipc_message_get_id (message)) {
++            handler->callback (self, message, handler->user_data);
++            return;
++        }
++    }
++}
++
++static void
++process_buffer (MMPortMipc *self)
++{
++    while (self->buffer->len) {
++        g_autoptr(MipcMessage) message = NULL;
++        g_autoptr(GError)      error = NULL;
++        gsize                  consumed;
++
++        message = mipc_message_parse (self->buffer->data, self->buffer->len, &consumed, &error);
++        if (error) {
++            mm_obj_warn (self, "dropping invalid data: %s", error->message);
++            /* The device delivers whole messages; resynchronize on the next read */
++            g_byte_array_set_size (self->buffer, 0);
++            return;
++        }
++        if (!message)
++            return;
++        g_byte_array_remove_range (self->buffer, 0, consumed);
++        /* A handler may close the port */
++        g_object_ref (self);
++        dispatch (self, message);
++        g_object_unref (self);
++        if (self->fd < 0)
++            return;
++    }
++}
++
++static gboolean
++data_available (gint          fd,
++                GIOCondition  condition,
++                MMPortMipc   *self)
++{
++    guint8  buf[READ_SIZE];
++    gssize  n;
++
++    n = (condition & (G_IO_HUP | G_IO_ERR)) ? 0 : read (fd, buf, sizeof (buf));
++    if (n < 0) {
++        if (errno != EAGAIN && errno != EINTR)
++            mm_obj_warn (self, "read failed: %s", g_strerror (errno));
++        return G_SOURCE_CONTINUE;
++    }
++    if (n == 0) {
++        mm_obj_warn (self, "port hung up");
++        self->watch_id = 0;
++        mm_port_mipc_close (self);
++        return G_SOURCE_REMOVE;
++    }
++    g_byte_array_append (self->buffer, buf, n);
++    process_buffer (self);
++    return G_SOURCE_CONTINUE;
++}
++
++/*****************************************************************************/
++
++static gboolean
++write_message (MMPortMipc   *self,
++               MipcMessage  *message,
++               GError      **error)
++{
++    g_autofree gchar *description = NULL;
++    const guint8     *raw;
++    gsize             len;
++    gssize            n;
++
++    if (self->fd < 0) {
++        g_set_error (error, MM_CORE_ERROR, MM_CORE_ERROR_WRONG_STATE, "port is closed");
++        return FALSE;
++    }
++
++    description = mipc_message_describe (message);
++    mm_obj_dbg (self, "--> %s", description);
++
++    /* The device takes one message per write */
++    raw = mipc_message_get_raw (message, &len);
++    n = write (self->fd, raw, len);
++    if (n < 0) {
++        g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
++                     "write failed: %s", g_strerror (errno));
++        return FALSE;
++    }
++    if ((gsize) n != len) {
++        g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
++                     "short write: %" G_GSSIZE_FORMAT " of %" G_GSIZE_FORMAT " bytes", n, len);
++        return FALSE;
++    }
++    return TRUE;
++}
++
++gboolean
++mm_port_mipc_send (MMPortMipc   *self,
++                   MipcMessage  *message,
++                   GError      **error)
++{
++    return write_message (self, message, error);
++}
++
++static gboolean
++request_timed_out (GTask *task)
++{
++    Pending *pending = g_task_get_task_data (task);
++
++    pending->timeout_id = 0;
++    task = pending_steal (pending->self, pending->txid);
++    g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_TIMEOUT,
++                             "request 0x%04x timed out", pending->message_id);
++    g_object_unref (task);
++    return G_SOURCE_REMOVE;
++}
++
++void
++mm_port_mipc_request (MMPortMipc          *self,
++                      MipcMessage         *request,
++                      guint                timeout_seconds,
++                      GAsyncReadyCallback  callback,
++                      gpointer             user_data)
++{
++    GTask   *task;
++    Pending *pending;
++    GError  *error = NULL;
++
++    task = g_task_new (self, NULL, callback, user_data);
++
++    /* 0xffff marks indications */
++    do {
++        self->next_txid = (self->next_txid % 0xfffe) + 1;
++    } while (g_hash_table_contains (self->pending, GUINT_TO_POINTER (self->next_txid)));
++    mipc_message_set_txid (request, self->next_txid);
++
++    if (!write_message (self, request, &error)) {
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++
++    pending = g_new0 (Pending, 1);
++    pending->self = self;
++    pending->txid = self->next_txid;
++    pending->message_id = mipc_message_get_id (request);
++    g_task_set_task_data (task, pending, g_free);
++    g_hash_table_insert (self->pending, GUINT_TO_POINTER (pending->txid), task);
++
++    pending->timeout_id = g_timeout_add_seconds (timeout_seconds, (GSourceFunc) request_timed_out, task);
++}
++
++MipcMessage *
++mm_port_mipc_request_finish (MMPortMipc    *self,
++                             GAsyncResult  *res,
++                             GError       **error)
++{
++    g_autoptr(MipcMessage) confirmation = NULL;
++    guint32                result;
++
++    confirmation = g_task_propagate_pointer (G_TASK (res), error);
++    if (!confirmation)
++        return NULL;
++    if (!mipc_message_get_result (confirmation, &result)) {
++        g_set_error (error, MM_CORE_ERROR, MM_CORE_ERROR_FAILED, "confirmation without a result");
++        return NULL;
++    }
++    if (result) {
++        g_set_error (error, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                     "request failed with result 0x%x", result);
++        return NULL;
++    }
++    return g_steal_pointer (&confirmation);
++}
++
++/*****************************************************************************/
++
++guint
++mm_port_mipc_add_handler (MMPortMipc          *self,
++                          guint16              message_id,
++                          MMPortMipcMessageFn  callback,
++                          gpointer             user_data)
++{
++    Handler *handler;
++
++    handler = g_new0 (Handler, 1);
++    handler->id = ++self->next_handler_id;
++    handler->message_id = message_id;
++    handler->callback = callback;
++    handler->user_data = user_data;
++    self->handlers = g_list_append (self->handlers, handler);
++    return handler->id;
++}
++
++void
++mm_port_mipc_remove_handler (MMPortMipc *self,
++                             guint       handler_id)
++{
++    GList *l;
++
++    for (l = self->handlers; l; l = l->next) {
++        Handler *handler = l->data;
++
++        if (handler->id == handler_id) {
++            self->handlers = g_list_delete_link (self->handlers, l);
++            g_free (handler);
++            return;
++        }
++    }
++}
++
++/*****************************************************************************/
++/* Session: the modem answers a test request once its MIPC task runs, then
++ * takes the client's open request. */
++
++typedef enum {
++    OPEN_STEP_TEST,
++    OPEN_STEP_OPEN,
++    OPEN_STEP_DONE,
++} OpenStep;
++
++static void open_step (GTask *task);
++
++static void
++open_request_ready (MMPortMipc   *self,
++                    GAsyncResult *res,
++                    GTask        *task)
++{
++    g_autoptr(MipcMessage) confirmation = NULL;
++    GError                *error = NULL;
++    OpenStep              *step;
++
++    confirmation = mm_port_mipc_request_finish (self, res, &error);
++    if (!confirmation) {
++        mm_port_mipc_close (self);
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++    step = g_task_get_task_data (task);
++    (*step)++;
++    open_step (task);
++}
++
++static void
++open_step (GTask *task)
++{
++    MMPortMipc             *self = g_task_get_source_object (task);
++    OpenStep               *step = g_task_get_task_data (task);
++    g_autoptr(MipcMessage)  request = NULL;
++    g_autofree gchar       *client_name = NULL;
++
++    switch (*step) {
++    case OPEN_STEP_TEST:
++        request = mipc_message_new (MIPC_MESSAGE_INTERNAL_TEST_REQ, MIPC_SIM_PS_ALL);
++        break;
++    case OPEN_STEP_OPEN:
++        client_name = g_strdup_printf ("/dev/%s", mm_port_get_device (MM_PORT (self)));
++        request = mipc_message_new (MIPC_MESSAGE_INTERNAL_OPEN_REQ, MIPC_SIM_PS_ALL);
++        mipc_message_add_u32 (request, OPEN_REQ_VERSION, MIPC_VERSION);
++        mipc_message_add_string (request, OPEN_REQ_CLIENT_NAME, client_name);
++        mipc_message_add_u8 (request, OPEN_REQ_USIR_SUPPORT, TRUE);
++        break;
++    case OPEN_STEP_DONE:
++        self->session = TRUE;
++        g_task_return_boolean (task, TRUE);
++        g_object_unref (task);
++        return;
++    default:
++        g_assert_not_reached ();
++    }
++
++    mm_port_mipc_request (self, request, OPEN_REQUEST_TIMEOUT,
++                          (GAsyncReadyCallback) open_request_ready, task);
++}
++
++void
++mm_port_mipc_open (MMPortMipc          *self,
++                   GAsyncReadyCallback  callback,
++                   gpointer             user_data)
++{
++    g_autofree gchar *path = NULL;
++    GTask            *task;
++    OpenStep         *step;
++
++    task = g_task_new (self, NULL, callback, user_data);
++
++    if (self->fd >= 0) {
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_WRONG_STATE, "port already open");
++        g_object_unref (task);
++        return;
++    }
++
++    path = g_strdup_printf ("/dev/%s", mm_port_get_device (MM_PORT (self)));
++    self->fd = open (path, O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
++    if (self->fd < 0) {
++        g_task_return_new_error (task, G_IO_ERROR, g_io_error_from_errno (errno),
++                                 "couldn't open %s: %s", path, g_strerror (errno));
++        g_object_unref (task);
++        return;
++    }
++    self->watch_id = g_unix_fd_add (self->fd, G_IO_IN | G_IO_HUP | G_IO_ERR,
++                                    (GUnixFDSourceFunc) data_available, self);
++
++    step = g_new0 (OpenStep, 1);
++    g_task_set_task_data (task, step, g_free);
++    open_step (task);
++}
++
++gboolean
++mm_port_mipc_open_finish (MMPortMipc    *self,
++                          GAsyncResult  *res,
++                          GError       **error)
++{
++    return g_task_propagate_boolean (G_TASK (res), error);
++}
++
++gboolean
++mm_port_mipc_is_open (MMPortMipc *self)
++{
++    return self->session;
++}
++
++void
++mm_port_mipc_close (MMPortMipc *self)
++{
++    if (self->fd < 0)
++        return;
++
++    /* The modem drops the client's registrations with the session */
++    if (self->session) {
++        g_autoptr(MipcMessage) request = NULL;
++        g_autoptr(GError)      error = NULL;
++
++        request = mipc_message_new (MIPC_MESSAGE_INTERNAL_CLOSE_REQ, MIPC_SIM_PS_ALL);
++        mipc_message_set_txid (request, (self->next_txid % 0xfffe) + 1);
++        if (!write_message (self, request, &error))
++            mm_obj_dbg (self, "couldn't close the session: %s", error->message);
++        self->session = FALSE;
++    }
++
++    if (self->watch_id) {
++        g_source_remove (self->watch_id);
++        self->watch_id = 0;
++    }
++    close (self->fd);
++    self->fd = -1;
++    g_byte_array_set_size (self->buffer, 0);
++    complete_all_pending (self, "port closed");
++}
++
++/*****************************************************************************/
++
++MMPortMipc *
++mm_port_mipc_new (const gchar *name)
++{
++    return g_object_new (MM_TYPE_PORT_MIPC,
++                         MM_PORT_DEVICE, name,
++                         MM_PORT_SUBSYS, MM_PORT_SUBSYS_WWAN,
++                         MM_PORT_TYPE,   MM_PORT_TYPE_MIPC,
++                         NULL);
++}
++
++static void
++mm_port_mipc_init (MMPortMipc *self)
++{
++    self->fd = -1;
++    self->buffer = g_byte_array_new ();
++    self->pending = g_hash_table_new (g_direct_hash, g_direct_equal);
++}
++
++static void
++dispose (GObject *object)
++{
++    MMPortMipc *self = MM_PORT_MIPC (object);
++
++    mm_port_mipc_close (self);
++    g_list_free_full (g_steal_pointer (&self->handlers), g_free);
++
++    G_OBJECT_CLASS (mm_port_mipc_parent_class)->dispose (object);
++}
++
++static void
++finalize (GObject *object)
++{
++    MMPortMipc *self = MM_PORT_MIPC (object);
++
++    g_hash_table_unref (self->pending);
++    g_byte_array_unref (self->buffer);
++
++    G_OBJECT_CLASS (mm_port_mipc_parent_class)->finalize (object);
++}
++
++static void
++mm_port_mipc_class_init (MMPortMipcClass *klass)
++{
++    GObjectClass *object_class = G_OBJECT_CLASS (klass);
++
++    object_class->dispose = dispose;
++    object_class->finalize = finalize;
++}
+diff --git a/src/plugins/mtk-ccci/mm-port-mipc.h b/src/plugins/mtk-ccci/mm-port-mipc.h
+new file mode 100644
+index 0000000..da7c379
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-port-mipc.h
+@@ -0,0 +1,70 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#ifndef MM_PORT_MIPC_H
++#define MM_PORT_MIPC_H
++
++#include <glib.h>
++#include <glib-object.h>
++#include <gio/gio.h>
++
++#include "mm-port.h"
++#include "mm-mipc-protocol.h"
++
++#define MM_TYPE_PORT_MIPC mm_port_mipc_get_type ()
++G_DECLARE_FINAL_TYPE (MMPortMipc, mm_port_mipc, MM, PORT_MIPC, MMPort)
++
++/* Handlers of indications and commands; a command's handler sends its
++ * response with mm_port_mipc_send() */
++typedef void (* MMPortMipcMessageFn) (MMPortMipc  *self,
++                                      MipcMessage *message,
++                                      gpointer     user_data);
++
++MMPortMipc  *mm_port_mipc_new            (const gchar          *name);
++
++/* Opens the device and the MIPC session */
++void         mm_port_mipc_open           (MMPortMipc           *self,
++                                          GAsyncReadyCallback   callback,
++                                          gpointer              user_data);
++gboolean     mm_port_mipc_open_finish    (MMPortMipc           *self,
++                                          GAsyncResult         *res,
++                                          GError              **error);
++gboolean     mm_port_mipc_is_open        (MMPortMipc           *self);
++void         mm_port_mipc_close          (MMPortMipc           *self);
++
++/* Sends a request and returns its confirmation; fails unless the
++ * confirmation's result is success */
++void         mm_port_mipc_request        (MMPortMipc           *self,
++                                          MipcMessage          *request,
++                                          guint                 timeout_seconds,
++                                          GAsyncReadyCallback   callback,
++                                          gpointer              user_data);
++MipcMessage *mm_port_mipc_request_finish (MMPortMipc           *self,
++                                          GAsyncResult         *res,
++                                          GError              **error);
++
++/* Sends a message that has no reply: a command's response */
++gboolean     mm_port_mipc_send           (MMPortMipc           *self,
++                                          MipcMessage          *message,
++                                          GError              **error);
++
++guint        mm_port_mipc_add_handler    (MMPortMipc           *self,
++                                          guint16               message_id,
++                                          MMPortMipcMessageFn   callback,
++                                          gpointer              user_data);
++void         mm_port_mipc_remove_handler (MMPortMipc           *self,
++                                          guint                 handler_id);
++
++#endif /* MM_PORT_MIPC_H */
+diff --git a/src/plugins/mtk-ccci/tests/test-mipc-protocol.c b/src/plugins/mtk-ccci/tests/test-mipc-protocol.c
+new file mode 100644
+index 0000000..a359101
+--- /dev/null
++++ b/src/plugins/mtk-ccci/tests/test-mipc-protocol.c
+@@ -0,0 +1,255 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 Patrick Quinn <patrick.jm.quinn@gmail.com>
++ */
++
++#include <string.h>
++
++#include <glib.h>
++#include <gio/gio.h>
++
++#include "mm-mipc-protocol.h"
++
++/* Messages exchanged with an MT6858 (MOLY.NR17) modem on ttyCMIPC1 */
++
++/* INTERNAL_OPEN_REQ, txid 0x0102: version 2, client "/dev/ttyCMIPC1", USIR */
++static const guint8 open_req[] = {
++    0x84, 0x19, 0x54, 0x24, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x01, 0x03, 0x02, 0x01, 0x28, 0x00,
++    0x00, 0x01, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00,
++    0x01, 0x01, 0x0f, 0x00, 0x2f, 0x64, 0x65, 0x76, 0x2f, 0x74, 0x74, 0x79, 0x43, 0x4d, 0x49, 0x50,
++    0x43, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x02, 0x01, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
++};
++
++/* INTERNAL_OPEN_CNF, txid 0x0102: result 0, version 0, timeout 300000 ms */
++static const guint8 open_cnf[] = {
++    0x84, 0x19, 0x54, 0x24, 0x00, 0x00, 0x00, 0x00, 0xff, 0x02, 0x02, 0x03, 0x02, 0x01, 0x18, 0x00,
++    0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x01, 0x01, 0x04, 0x00, 0xe0, 0x93, 0x04, 0x00,
++};
++
++/* INTERNAL_REGISTER_IND_CNF, txid 0x0105, SIM 0: result 0 */
++static const guint8 register_cnf[] = {
++    0x84, 0x19, 0x54, 0x24, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x08, 0x03, 0x05, 0x01, 0x08, 0x00,
++    0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
++
++/* CALL_GET_CALL_STATUS_CNF listing two calls: result 0, count 2, call ids
++ * 1 and 2 (array 0x7ffe-0x7fff), numbers "0851234567" and "12" (array
++ * 0x7ffc-0x7ffd) */
++static const guint8 call_status_cnf[] = {
++    0x84, 0x19, 0x54, 0x24, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x0a, 0x09, 0x07, 0x01, 0x60, 0x00,
++    0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x01, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00,
++    0x0b, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfe, 0x7f, 0x02, 0x00,
++    0xfe, 0x7f, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00,
++    0xff, 0x7f, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00,
++    0x11, 0x81, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0xff, 0x02, 0x00,
++    0xfc, 0xff, 0x0b, 0x00, 0x30, 0x38, 0x35, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x00, 0x00,
++    0xfd, 0xff, 0x03, 0x00, 0x31, 0x32, 0x00, 0x00,
++    0x0e, 0x01, 0x04, 0x00, 0x04, 0x00, 0x00, 0x00,
++};
++
++/*****************************************************************************/
++
++static void
++test_build_open_request (void)
++{
++    g_autoptr(MipcMessage)  message = NULL;
++    const guint8           *raw;
++    gsize                   len;
++
++    message = mipc_message_new (MIPC_MESSAGE_INTERNAL_OPEN_REQ, MIPC_SIM_PS_ALL);
++    mipc_message_set_txid (message, 0x0102);
++    mipc_message_add_u32 (message, 0x100, MIPC_VERSION);
++    mipc_message_add_string (message, 0x101, "/dev/ttyCMIPC1");
++    mipc_message_add_u8 (message, 0x102, TRUE);
++
++    raw = mipc_message_get_raw (message, &len);
++    g_assert_cmpmem (raw, len, open_req, sizeof (open_req));
++}
++
++static void
++test_build_reply (void)
++{
++    g_autoptr(MipcMessage) command = NULL;
++    g_autoptr(MipcMessage) reply = NULL;
++
++    command = mipc_message_new (MIPC_MESSAGE_CALL_APPROVE_INCOMING_CMD, MIPC_SIM_PS_SIM0);
++    mipc_message_set_txid (command, 0x2a);
++    reply = mipc_message_new_reply (command);
++    g_assert_cmpuint (mipc_message_get_id (reply), ==, MIPC_MESSAGE_CALL_APPROVE_INCOMING_RSP);
++    g_assert_cmpuint (mipc_message_get_txid (reply), ==, 0x2a);
++    g_assert_cmpuint (mipc_message_get_sim_ps (reply), ==, MIPC_SIM_PS_SIM0);
++    g_assert_cmpuint (mipc_message_get_kind (reply), ==, MIPC_MESSAGE_KIND_COMMAND);
++}
++
++static void
++test_build_indication_txid (void)
++{
++    g_autoptr(MipcMessage) message = NULL;
++
++    message = mipc_message_new (MIPC_MESSAGE_CALL_STATUS_IND, MIPC_SIM_PS_SIM0);
++    g_assert_cmpuint (mipc_message_get_txid (message), ==, 0xffff);
++}
++
++static void
++test_parse_open_confirmation (void)
++{
++    g_autoptr(MipcMessage) message = NULL;
++    g_autoptr(GError)      error = NULL;
++    gsize                  consumed;
++    guint32                value;
++
++    message = mipc_message_parse (open_cnf, sizeof (open_cnf), &consumed, &error);
++    g_assert_no_error (error);
++    g_assert_nonnull (message);
++    g_assert_cmpuint (consumed, ==, sizeof (open_cnf));
++    g_assert_cmpuint (mipc_message_get_id (message), ==, MIPC_MESSAGE_REPLY_ID (MIPC_MESSAGE_INTERNAL_OPEN_REQ));
++    g_assert_cmpuint (mipc_message_get_txid (message), ==, 0x0102);
++    g_assert_cmpuint (mipc_message_get_kind (message), ==, MIPC_MESSAGE_KIND_REQUEST);
++    g_assert_true (mipc_message_get_result (message, &value));
++    g_assert_cmpuint (value, ==, 0);
++    g_assert_true (mipc_message_get_u32 (message, 0x101, 0, &value));
++    g_assert_cmpuint (value, ==, 300000);
++    g_assert_false (mipc_message_get_u32 (message, 0x101, 1, &value));
++    g_assert_false (mipc_message_get_u8 (message, 0x101, 0, (guint8 *) &value));
++    g_assert_false (mipc_message_get_u32 (message, 0x102, 0, &value));
++}
++
++static void
++test_parse_incomplete (void)
++{
++    g_autoptr(MipcMessage) message = NULL;
++    g_autoptr(GError)      error = NULL;
++    gsize                  len;
++    gsize                  consumed = 1;
++
++    for (len = 0; len < sizeof (open_cnf); len++) {
++        message = mipc_message_parse (open_cnf, len, &consumed, &error);
++        g_assert_no_error (error);
++        g_assert_null (message);
++        g_assert_cmpuint (consumed, ==, 0);
++    }
++}
++
++static void
++test_parse_two_messages (void)
++{
++    g_autoptr(MipcMessage) first = NULL;
++    g_autoptr(MipcMessage) second = NULL;
++    g_autoptr(GByteArray)  buffer = NULL;
++    g_autoptr(GError)      error = NULL;
++    gsize                  consumed;
++
++    buffer = g_byte_array_new ();
++    g_byte_array_append (buffer, register_cnf, sizeof (register_cnf));
++    g_byte_array_append (buffer, open_cnf, sizeof (open_cnf));
++
++    first = mipc_message_parse (buffer->data, buffer->len, &consumed, &error);
++    g_assert_no_error (error);
++    g_assert_cmpuint (consumed, ==, sizeof (register_cnf));
++    g_assert_cmpuint (mipc_message_get_txid (first), ==, 0x0105);
++    g_assert_cmpuint (mipc_message_get_sim_ps (first), ==, MIPC_SIM_PS_SIM0);
++
++    second = mipc_message_parse (buffer->data + consumed, buffer->len - consumed, &consumed, &error);
++    g_assert_no_error (error);
++    g_assert_cmpuint (consumed, ==, sizeof (open_cnf));
++    g_assert_cmpuint (mipc_message_get_txid (second), ==, 0x0102);
++}
++
++static void
++test_parse_not_mipc (void)
++{
++    g_autoptr(MipcMessage) message = NULL;
++    g_autoptr(GError)      error = NULL;
++    gsize                  consumed;
++
++    message = mipc_message_parse ((const guint8 *) "\r\nOK\r\n", 6, &consumed, &error);
++    g_assert_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA);
++    g_assert_null (message);
++}
++
++static void
++test_parse_overrun (void)
++{
++    g_autoptr(MipcMessage) message = NULL;
++    g_autoptr(GError)      error = NULL;
++    guint8                 broken[sizeof (register_cnf)];
++    gsize                  consumed;
++
++    /* The result TLV claims 8 bytes where the message has 4 */
++    memcpy (broken, register_cnf, sizeof (broken));
++    broken[18] = 8;
++    message = mipc_message_parse (broken, sizeof (broken), &consumed, &error);
++    g_assert_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA);
++    g_assert_null (message);
++    g_assert_cmpuint (consumed, ==, sizeof (broken));
++}
++
++static void
++test_parse_arrays (void)
++{
++    g_autoptr(MipcMessage) message = NULL;
++    g_autoptr(GError)      error = NULL;
++    g_autofree gchar      *number0 = NULL;
++    g_autofree gchar      *number1 = NULL;
++    gsize                  consumed;
++    guint32                value;
++
++    message = mipc_message_parse (call_status_cnf, sizeof (call_status_cnf), &consumed, &error);
++    g_assert_no_error (error);
++    g_assert_nonnull (message);
++
++    g_assert_true (mipc_message_get_u32 (message, 0x100, 0, &value));
++    g_assert_cmpuint (value, ==, 2);
++
++    g_assert_cmpuint (mipc_message_get_count (message, 0x10b), ==, 2);
++    g_assert_true (mipc_message_get_u32 (message, 0x10b, 0, &value));
++    g_assert_cmpuint (value, ==, 1);
++    g_assert_true (mipc_message_get_u32 (message, 0x10b, 1, &value));
++    g_assert_cmpuint (value, ==, 2);
++    g_assert_false (mipc_message_get_u32 (message, 0x10b, 2, &value));
++
++    /* Bit 15 marks variable-size types, set or not in the lookup */
++    g_assert_cmpuint (mipc_message_get_count (message, 0x111), ==, 2);
++    number0 = mipc_message_dup_string (message, 0x8111, 0);
++    number1 = mipc_message_dup_string (message, 0x111, 1);
++    g_assert_cmpstr (number0, ==, "0851234567");
++    g_assert_cmpstr (number1, ==, "12");
++
++    /* A single value is an array of one */
++    g_assert_cmpuint (mipc_message_get_count (message, 0x10e), ==, 1);
++    g_assert_true (mipc_message_get_u32 (message, 0x10e, 0, &value));
++    g_assert_cmpuint (value, ==, 4);
++
++    g_assert_cmpuint (mipc_message_get_count (message, 0x10c), ==, 0);
++}
++
++int main (int argc, char **argv)
++{
++    g_test_init (&argc, &argv, NULL);
++
++    g_test_add_func ("/MM/mipc/build/open-request", test_build_open_request);
++    g_test_add_func ("/MM/mipc/build/reply", test_build_reply);
++    g_test_add_func ("/MM/mipc/build/indication-txid", test_build_indication_txid);
++    g_test_add_func ("/MM/mipc/parse/open-confirmation", test_parse_open_confirmation);
++    g_test_add_func ("/MM/mipc/parse/incomplete", test_parse_incomplete);
++    g_test_add_func ("/MM/mipc/parse/two-messages", test_parse_two_messages);
++    g_test_add_func ("/MM/mipc/parse/not-mipc", test_parse_not_mipc);
++    g_test_add_func ("/MM/mipc/parse/overrun", test_parse_overrun);
++    g_test_add_func ("/MM/mipc/parse/arrays", test_parse_arrays);
++
++    return g_test_run ();
++}
+-- 
+2.55.0
+

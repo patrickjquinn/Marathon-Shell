@@ -6,14 +6,16 @@
 # 0106 (reuse the LTE attach PDN beside IMS's), 0107 (+CHUP for a call not
 # yet up), 0108 (NetAgent for the modem's own PDNs, IMS), 0109 (the plugin
 # starts IMS; renumbered IMS PDNs), 0110 (VoLTE calls in +CLCC), 0111
-# (IMS call progress reports are not command replies) and 0112 (nor are
-# IMS state reports).
+# (IMS call progress reports are not command replies), 0112 (nor are
+# IMS state reports), 0116-0118 (MIPC ports, and incoming calls and the
+# call list over MIPC on NR modems), 0119 (back to LTE after a call that
+# fell back to 2G).
 # It provides modemmanager, so installing it (q25-modem depends on it)
 # replaces Alpine's daemon; nothing else pulls it in. libmm-glib stays
 # Alpine's. Keep pkgver and _commit in sync with Alpine's modemmanager.
 pkgname=modemmanager-mtk-ccci
 pkgver=1.25.95_git20261005
-pkgrel=17
+pkgrel=19
 _commit=7f0bf17ab518cd78925cf7e53cc0d5c42f88b41a
 pkgdesc="ModemManager with MediaTek CCCI (SoC modem) support"
 url="https://www.freedesktop.org/wiki/Software/ModemManager"
@@ -53,6 +55,10 @@ source="https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/$
 	0113-plugin-manager-shared-load-order.patch
 	0114-mtk-ccci-tolerate-atz-error.patch
 	0115-mtk-ccci-nr17-attach-apn.patch
+	0116-port-probe-mipc-ports.patch
+	0117-kerneldevice-ccci-mipc-ports.patch
+	0118-mtk-ccci-mipc-call-control.patch
+	0119-mtk-ccci-lte-after-csfb.patch
 	"
 builddir="$srcdir"/ModemManager-$_commit
 
@@ -102,4 +108,8 @@ b98a79cd94f3143f81e22a622249b68fd49a6ed3cfdf8f8aa33299367467850edd9f65ebec679f3a
 f911e0fc542c8442b6b461e69eda529b3a873c7e66356579f765dac1bef9b450b43d8b11b1657b04c2e86de28cc0061cd09634a74ed5395d38407067296bd5b4  0113-plugin-manager-shared-load-order.patch
 21e54ad3d14b473d7a024d5fef28540b2189bd61e50889023cb20c4ec68f8135bc6322d63e5c8be55a8620d04b9bf1f62ab93a91f6c94261bed03f53a4be4121  0114-mtk-ccci-tolerate-atz-error.patch
 df6d55bb0579b53498d27a4ca4fa5a8bb5e4c4f2e94e51e2a519afd02216145cf45e119f6da07bce0ae6c0b751a8bffa625b6c682ce5caf1a78e553d1ef20f47  0115-mtk-ccci-nr17-attach-apn.patch
+8e77d341f580b77a0e379f7132f4095a8567f19e1d8d9a643bc8c784bd61b8bd8232d01b9eb4df1c66a7b2eb1c6957015260967a55f55219f52a27a7665f341b  0116-port-probe-mipc-ports.patch
+e84e0ddf2b308a61ffd71a7453fe756a02154c98f6ee8385a993764c4547c1e3e2b611551c83e1a189284e82c3b9d0ff10e2508110700ed66284556f86e7fbd4  0117-kerneldevice-ccci-mipc-ports.patch
+f284d6554056092430413320389cf0f3602198d663821c18211069b5ce604d67acf9852510a2887df488ffffa325c313a0aaf455d131a73a11245d18bea1fabe  0118-mtk-ccci-mipc-call-control.patch
+2b6a2f1b2eff0997e5ff881d15f2a389db272f14c23ccd86a79b3ea996555a76efbb65f812e82643085ef1aad7a20f37070b38278732f801c6b9e419fb2c8d06  0119-mtk-ccci-lte-after-csfb.patch
 "
