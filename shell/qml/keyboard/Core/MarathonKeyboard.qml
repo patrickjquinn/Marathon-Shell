@@ -149,7 +149,8 @@ Rectangle {
         if (word.length > 0) {
             // A word stays a typo when its correction can't go in: not learnt.
             var settled = true;
-            if (inputContextInstance.shouldAutoCorrect) {
+            // Only a word of letters is a typo: "2q" or "v1.2" is meant.
+            if (inputContextInstance.shouldAutoCorrect && keyboard.currentTaps.length === word.replace(/'/g, "").length) {
                 var corrected = Dictionary.correctionFor(word, keyboard.tapsText(), keyboard.lastWord());
                 if (corrected !== word) {
                     settled = inputContextInstance.replaceCurrentWord(corrected);
