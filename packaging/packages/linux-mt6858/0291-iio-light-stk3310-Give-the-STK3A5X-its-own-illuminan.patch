@@ -1,0 +1,254 @@
+From 012d251c5f90d578d4eb62cb301bb177464f82b8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 28 Nov 2026 15:37:23 +0000
+Subject: [PATCH] iio: light: stk3310: Give the STK3A5X its own illuminance
+ scale
+
+The STK3A5X's ALS counts in frames of 11.84 ms and averages the frames
+of a longer integration time: at 1x gain its count doubles with each
+step up to 11.84 ms and then stays put (about 3250 counts in room light
+from 11.84 ms to 757 ms). With the 64x gain and 94.72 ms programmed at
+probe for the STK3310's scale table, ordinary room light read 65535 on
+every sample, and the 0.1 lux a count that table gives for 64x was
+wrong for this part in any case.
+
+Sensortek's stk3a5x driver converts 1.1 lux a count at 4x gain and
+370 us (lux = code * 1100 / transmittance, transmittance 1000), which
+makes 0.1375 lux a count at 1x and 11.84 ms or longer. Give the STK3A5X
+that scale table, keep its ALS at 1x gain and 94.72 ms, which reads to
+about 9000 lux without saturating indoors, and refuse ALS integration
+times under 11.84 ms, where that table would not hold.
+
+On the Jolla Phone (2026) in daylight indoors the ALS now reads 2605
+counts at 1x (358 lux) and 41657 at 16x (also 358 lux), instead of
+65535.
+---
+ drivers/iio/light/stk3310.c | 131 +++++++++++++++++++++++++++---------
+ 1 file changed, 101 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/iio/light/stk3310.c b/drivers/iio/light/stk3310.c
+index 8f7482ab9..dd5a2bcae 100644
+--- a/drivers/iio/light/stk3310.c
++++ b/drivers/iio/light/stk3310.c
+@@ -74,6 +74,14 @@
+ 	"0.023680 0.047360 0.094720 0.189440 0.378880 0.757760 1.515520 " \
+ 	"3.031040 6.062080"
+ 
++#define STK3A5X_ALS_SCALE_AVAILABLE		"0.1375 0.034375 0.008593 0.002148"
++
++/* Index 6 in stk3310_it_table and up */
++#define STK3A5X_ALS_IT_MIN			6
++#define STK3A5X_ALS_IT_AVAILABLE \
++	"0.011840 0.023680 0.047360 0.094720 0.189440 0.378880 0.757760 " \
++	"1.515520 3.031040 6.062080"
++
+ #define STK3310_REGFIELD(name)						    \
+ 	do {								    \
+ 		data->reg_##name =					    \
+@@ -128,6 +136,15 @@ static const int stk3310_scale_table[][2] = {
+ 	{6, 400000}, {1, 600000}, {0, 400000}, {0, 100000}
+ };
+ 
++/*
++ * The STK3A5X ALS counts in 11.84 ms frames and averages the frames of a
++ * longer integration time, so its counts stop growing at 11.84 ms. At 4x
++ * gain and 370 us it gives 1.1 lux a count (Sensortek's stk3a5x driver).
++ */
++static const int stk3a5x_als_scale_table[][2] = {
++	{0, 137500}, {0, 34375}, {0, 8593}, {0, 2148}
++};
++
+ /* Integration time in seconds, microseconds */
+ static const int stk3310_it_table[][2] = {
+ 	{0, 185},	{0, 370},	{0, 741},	{0, 1480},
+@@ -138,6 +155,7 @@ static const int stk3310_it_table[][2] = {
+ 
+ struct stk3310_data {
+ 	struct i2c_client *client;
++	const struct stk3310_chip_info *chip;
+ 	struct mutex lock;
+ 	u64 timestamp;
+ 	struct regmap *regmap;
+@@ -249,6 +267,9 @@ static const struct iio_chan_spec stk36c61_channels[] = {
+  * @name: device name reported to the IIO core
+  * @channels: channel specification
+  * @num_channels: number of channels
++ * @info: IIO callbacks and attributes
++ * @als_scale: illuminance scale for each ALS gain
++ * @als_it_min: shortest ALS integration time, as an index in stk3310_it_table
+  * @psctrl: PSCTRL value to program at probe, or 0 to keep the reset value
+  * @alsctrl: ALSCTRL value to program at probe, or 0 to keep the reset value
+  */
+@@ -256,35 +277,13 @@ struct stk3310_chip_info {
+ 	const char *name;
+ 	const struct iio_chan_spec *channels __counted_by_ptr(num_channels);
+ 	unsigned int num_channels;
++	const struct iio_info *info;
++	const int (*als_scale)[2];
++	unsigned int als_it_min;
+ 	u8 psctrl;
+ 	u8 alsctrl;
+ };
+ 
+-static const struct stk3310_chip_info stk3310_chip_info = {
+-	.name = STK3310_DRIVER_NAME,
+-	.channels = stk3310_channels,
+-	.num_channels = ARRAY_SIZE(stk3310_channels),
+-};
+-
+-static const struct stk3310_chip_info stk36c61_chip_info = {
+-	.name = "stk36c61",
+-	.channels = stk36c61_channels,
+-	.num_channels = ARRAY_SIZE(stk36c61_channels),
+-};
+-
+-/*
+- * The STK3A5X resets to 1x gain and a 741 us integration time for both
+- * channels, which leaves the ALS at zero indoors. Use the STK3310's reset
+- * values, which the scale table is for.
+- */
+-static const struct stk3310_chip_info stk3a5x_chip_info = {
+-	.name = "stk3a5x",
+-	.channels = stk3310_channels,
+-	.num_channels = ARRAY_SIZE(stk3310_channels),
+-	.psctrl = 0x31,
+-	.alsctrl = 0x39,
+-};
+-
+ static IIO_CONST_ATTR(in_illuminance_scale_available, STK3310_SCALE_AVAILABLE);
+ 
+ static IIO_CONST_ATTR(in_proximity_scale_available, STK3310_SCALE_AVAILABLE);
+@@ -307,6 +306,26 @@ static const struct attribute_group stk3310_attribute_group = {
+ 	.attrs = stk3310_attributes
+ };
+ 
++static IIO_CONST_ATTR_NAMED(stk3a5x_illuminance_scale_available,
++			    in_illuminance_scale_available,
++			    STK3A5X_ALS_SCALE_AVAILABLE);
++
++static IIO_CONST_ATTR_NAMED(stk3a5x_illuminance_integration_time_available,
++			    in_illuminance_integration_time_available,
++			    STK3A5X_ALS_IT_AVAILABLE);
++
++static struct attribute *stk3a5x_attributes[] = {
++	&iio_const_attr_stk3a5x_illuminance_scale_available.dev_attr.attr,
++	&iio_const_attr_in_proximity_scale_available.dev_attr.attr,
++	&iio_const_attr_stk3a5x_illuminance_integration_time_available.dev_attr.attr,
++	&iio_const_attr_in_proximity_integration_time_available.dev_attr.attr,
++	NULL,
++};
++
++static const struct attribute_group stk3a5x_attribute_group = {
++	.attrs = stk3a5x_attributes
++};
++
+ static int stk3310_check_chip_id(const u8 chip_id)
+ {
+ 	for (int i = 0; i < ARRAY_SIZE(stk3310_chip_ids); i++) {
+@@ -498,8 +517,13 @@ static int stk3310_read_raw(struct iio_dev *indio_dev,
+ 		if (ret < 0)
+ 			return ret;
+ 
+-		*val = stk3310_scale_table[index][0];
+-		*val2 = stk3310_scale_table[index][1];
++		if (chan->type == IIO_LIGHT) {
++			*val = data->chip->als_scale[index][0];
++			*val2 = data->chip->als_scale[index][1];
++		} else {
++			*val = stk3310_scale_table[index][0];
++			*val2 = stk3310_scale_table[index][1];
++		}
+ 		return IIO_VAL_INT_PLUS_MICRO;
+ 	}
+ 
+@@ -523,7 +547,8 @@ static int stk3310_write_raw(struct iio_dev *indio_dev,
+ 		index = stk3310_get_index(stk3310_it_table,
+ 					  ARRAY_SIZE(stk3310_it_table),
+ 					  val, val2);
+-		if (index < 0)
++		if (index < 0 ||
++		    (chan->type == IIO_LIGHT && index < data->chip->als_it_min))
+ 			return -EINVAL;
+ 		mutex_lock(&data->lock);
+ 		if (chan->type == IIO_PROXIMITY)
+@@ -537,7 +562,9 @@ static int stk3310_write_raw(struct iio_dev *indio_dev,
+ 		return ret;
+ 
+ 	case IIO_CHAN_INFO_SCALE:
+-		index = stk3310_get_index(stk3310_scale_table,
++		index = stk3310_get_index(chan->type == IIO_LIGHT ?
++					  data->chip->als_scale :
++					  stk3310_scale_table,
+ 					  ARRAY_SIZE(stk3310_scale_table),
+ 					  val, val2);
+ 		if (index < 0)
+@@ -591,6 +618,49 @@ static const struct iio_info stk3310_info = {
+ 	.write_event_config	= stk3310_write_event_config,
+ };
+ 
++static const struct iio_info stk3a5x_info = {
++	.read_raw		= stk3310_read_raw,
++	.write_raw		= stk3310_write_raw,
++	.read_avail		= stk3310_read_avail,
++	.attrs			= &stk3a5x_attribute_group,
++	.read_event_value	= stk3310_read_event,
++	.write_event_value	= stk3310_write_event,
++	.read_event_config	= stk3310_read_event_config,
++	.write_event_config	= stk3310_write_event_config,
++};
++
++static const struct stk3310_chip_info stk3310_chip_info = {
++	.name = STK3310_DRIVER_NAME,
++	.channels = stk3310_channels,
++	.num_channels = ARRAY_SIZE(stk3310_channels),
++	.info = &stk3310_info,
++	.als_scale = stk3310_scale_table,
++};
++
++static const struct stk3310_chip_info stk36c61_chip_info = {
++	.name = "stk36c61",
++	.channels = stk36c61_channels,
++	.num_channels = ARRAY_SIZE(stk36c61_channels),
++	.info = &stk3310_info,
++	.als_scale = stk3310_scale_table,
++};
++
++/*
++ * The STK3A5X resets to 1x gain and a 741 us integration time for both
++ * channels. Its proximity takes the STK3310's reset value; its ALS keeps 1x
++ * gain, which with 94.72 ms reads up to about 9000 lux.
++ */
++static const struct stk3310_chip_info stk3a5x_chip_info = {
++	.name = "stk3a5x",
++	.channels = stk3310_channels,
++	.num_channels = ARRAY_SIZE(stk3310_channels),
++	.info = &stk3a5x_info,
++	.als_scale = stk3a5x_als_scale_table,
++	.als_it_min = STK3A5X_ALS_IT_MIN,
++	.psctrl = 0x31,
++	.alsctrl = 0x09,
++};
++
+ static int stk3310_set_state(struct stk3310_data *data, u8 state)
+ {
+ 	int ret;
+@@ -773,6 +843,7 @@ static int stk3310_probe(struct i2c_client *client)
+ 
+ 	data = iio_priv(indio_dev);
+ 	data->client = client;
++	data->chip = chip_info;
+ 	i2c_set_clientdata(client, indio_dev);
+ 
+ 	device_property_read_u32(&client->dev, "proximity-near-level",
+@@ -784,7 +855,7 @@ static int stk3310_probe(struct i2c_client *client)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	indio_dev->info = &stk3310_info;
++	indio_dev->info = chip_info->info;
+ 	indio_dev->name = chip_info->name;
+ 	indio_dev->modes = INDIO_DIRECT_MODE;
+ 	indio_dev->channels = chip_info->channels;
+-- 
+2.55.0
+

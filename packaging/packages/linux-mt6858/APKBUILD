@@ -9,11 +9,12 @@
 # CAM_MAIN's bus protection, the camera SMI path, the MM IOMMU and its
 # GenieZone hyp-MMU sync) from 0274, then 0288-0289 from jp2601/power-r23
 # (the GPUEB mailbox RX race, the SUBx bus protection status), then 0290
-# from jp2601/camera-r24 (camsys_main out of the unused-clock sweep)
+# from jp2601/camera-r24 (camsys_main out of the unused-clock sweep), then
+# 0291 from jp2601/devfix-r25 (the STK3A5X illuminance scale)
 # (devices/jolla/jp2601/BRINGUP.md says what each one is).
 pkgname=linux-mt6858
 pkgver=7.4.0_rc4_git20261124
-pkgrel=24
+pkgrel=25
 _commit=4dce97c6c265544342e716e62fd24bbb232590c5
 _release=7.4.0-rc4-mt6858
 # MediaTek's CONNSYS (Wi-Fi, Bluetooth, GNSS) drivers that modules/ builds:
@@ -348,6 +349,7 @@ source="linux-$_commit.tar.gz::https://github.com/torvalds/linux/archive/$_commi
 	0288-mailbox-mtk-gpueb-Clear-the-RX-state-before-passing-.patch
 	0289-pmdomain-mediatek-mt6858-Poll-the-SUBx-bus-protectio.patch
 	0290-clk-mediatek-mt6858-cam-Keep-the-unused-clock-sweep-off.patch
+	0291-iio-light-stk3310-Give-the-STK3A5X-its-own-illuminan.patch
 	marathon.config
 "
 builddir="$srcdir/linux-$_commit"
@@ -738,5 +740,6 @@ c90460d5ed2daad5c260e7f68d6601d369dd2192a3552fb6a7212ecd63b921832124d8e7c62e3e75
 9b49d027f0bc6eb0c558c4c5194e58e3099093cd5ae7a6ecdaca8d8fb079e27eefa6941a964456b132b91ccc361756ee291638256b84e218074a206b2410f4bd  0288-mailbox-mtk-gpueb-Clear-the-RX-state-before-passing-.patch
 b40d3725c8383c45c1174181cf1d627834766200cd569a1d3861b3a3477374ccb50ce96500be189fdd0f2cb15185525040142f7cd83112e64ced2540e1855a9e  0289-pmdomain-mediatek-mt6858-Poll-the-SUBx-bus-protectio.patch
 8c7e58867a29e089e73fecaad362c687f388c2391a87adebcae9fad97f5d1ab88b8cfe45d1aa538d83512b32d14d7e9b9b0e6ec485a35e5ba23286d9a0a03084  0290-clk-mediatek-mt6858-cam-Keep-the-unused-clock-sweep-off.patch
+b1dd01777d0b470ebf321b887457ffea5e60b35c5247530fbf54d190100b51c6bf9ad17d1ddbf9863454e5a77ef1e8b898895542ac1ba8c16d44209a194924e5  0291-iio-light-stk3310-Give-the-STK3A5X-its-own-illuminan.patch
 1b57b13f8912bed14f0f0bc5ff65f8977e71649dd311c28fedb459248b1ac86d94543ae04bda8ec651cd28d9189925efca9f3ee3eeb39b3a0999fa09bcde9ae3  marathon.config
 "
