@@ -27,6 +27,10 @@ Item {
     readonly property real side: Math.min(width, height)
     readonly property real bigButton: Math.round(side * 0.2)
     readonly property real smallButton: Math.round(side * 0.13)
+    // The controls sit a share of the height up, in a thumb's reach on a tall phone.
+    readonly property real controlsMargin: Math.max(Silica.Theme.paddingLarge * 2, Math.round(height * 0.07))
+    // The room between the status bar and the controls, where the caller goes.
+    readonly property real callerRoom: (isRinging ? ringControls.y : callControls.y) - Constants.statusBarHeight
 
     signal unlockRequested
 
@@ -173,137 +177,145 @@ Item {
         anchors.fill: parent
     }
 
-    Silica.Label {
-        id: status
+    // Who is calling, at the optical centre of the room above the controls.
+    Column {
+        id: identity
 
-        anchors.top: parent.top
-        anchors.topMargin: Constants.statusBarHeight + Silica.Theme.paddingLarge
-        anchors.horizontalCenter: parent.horizontalCenter
-        text: callOverlay.isRinging ? (Modem.operatorName ? qsTr("Incoming call · %1").arg(Modem.operatorName) : qsTr("Incoming call")) : qsTr("On call · %1").arg(callOverlay.duration(callOverlay.elapsed))
-        font.pixelSize: Silica.Theme.fontSizeSmall
-        font.features: ({
-                "tnum": 1
-            })
-        color: Silica.Theme.secondaryHighlightColor
-    }
+        y: Constants.statusBarHeight + Math.max(Silica.Theme.paddingLarge, (callOverlay.callerRoom - height) * 0.42)
+        width: parent.width
+        spacing: Silica.Theme.paddingLarge * 1.5
 
-    // The caller: initials (or a figure) in a circle that pulses while it rings.
-    Item {
-        id: caller
+        Silica.Label {
+            id: status
 
-        readonly property real size: Math.round(callOverlay.side * (callOverlay.isRinging ? 0.24 : 0.17))
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: callOverlay.isRinging ? (Modem.operatorName ? qsTr("Incoming call · %1").arg(Modem.operatorName) : qsTr("Incoming call")) : qsTr("On call · %1").arg(callOverlay.duration(callOverlay.elapsed))
+            font.pixelSize: Silica.Theme.fontSizeSmall
+            font.features: ({
+                    "tnum": 1
+                })
+            color: Silica.Theme.secondaryHighlightColor
+        }
 
-        anchors.top: status.bottom
-        anchors.topMargin: Silica.Theme.paddingLarge * 2
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: size
-        height: size
+        // The caller: initials (or a figure) in a circle that pulses while it rings.
+        Item {
+            id: caller
 
-        Repeater {
-            model: 2
+            readonly property real size: Math.round(Math.min(callOverlay.side * (callOverlay.isRinging ? 0.34 : 0.24), callOverlay.callerRoom * 0.3))
+            // Room for the ripple's widest ring, so it passes clear of the text.
+            readonly property real reach: callOverlay.isRinging ? 1.6 : 1
 
-            Rectangle {
-                id: ripple
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.round(size * reach)
+            height: width
+            Repeater {
+                model: 2
 
-                required property int index
+                Rectangle {
+                    id: ripple
 
-                anchors.centerIn: parent
-                width: caller.size
-                height: width
-                radius: width / 2
-                color: "transparent"
-                border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 3))
-                border.color: Silica.Theme.highlightColor
-                opacity: 0
-                visible: callOverlay.isRinging
+                    required property int index
 
-                SequentialAnimation {
-                    running: MMotion.gate(callOverlay.isRinging && Display.screenOn)
-                    loops: Animation.Infinite
+                    anchors.centerIn: parent
+                    width: caller.size
+                    height: width
+                    radius: width / 2
+                    color: "transparent"
+                    border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 3))
+                    border.color: Silica.Theme.highlightColor
+                    opacity: 0
+                    visible: callOverlay.isRinging
 
-                    PauseAnimation {
-                        duration: ripple.index * 900
-                    }
-                    ParallelAnimation {
-                        NumberAnimation {
-                            target: ripple
-                            property: "scale"
-                            from: 1
-                            to: 1.6
-                            duration: MMotion.ms(1800)
-                            easing.type: Easing.OutCubic
+                    SequentialAnimation {
+                        running: MMotion.gate(callOverlay.isRinging && Display.screenOn)
+                        loops: Animation.Infinite
+
+                        PauseAnimation {
+                            duration: ripple.index * 900
                         }
-                        NumberAnimation {
-                            target: ripple
-                            property: "opacity"
-                            from: 0.45
-                            to: 0
-                            duration: MMotion.ms(1800)
+                        ParallelAnimation {
+                            NumberAnimation {
+                                target: ripple
+                                property: "scale"
+                                from: 1
+                                to: 1.6
+                                duration: MMotion.ms(1800)
+                                easing.type: Easing.OutCubic
+                            }
+                            NumberAnimation {
+                                target: ripple
+                                property: "opacity"
+                                from: 0.45
+                                to: 0
+                                duration: MMotion.ms(1800)
+                            }
                         }
                     }
                 }
             }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: caller.size
+                height: width
+                radius: width / 2
+                color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.18)
+                border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+                border.color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.5)
+
+                Silica.Label {
+                    anchors.centerIn: parent
+                    visible: callOverlay.initials !== ""
+                    text: callOverlay.initials
+                    font.family: Silica.Theme.fontFamilyHeading
+                    font.pixelSize: caller.size * 0.36
+                    font.weight: Font.Light
+                    color: Silica.Theme.highlightColor
+                }
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    visible: callOverlay.initials === ""
+                    name: "user"
+                    size: caller.size * 0.45
+                    color: Silica.Theme.highlightColor
+                }
+            }
         }
 
-        Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.18)
-            border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
-            border.color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.5)
+        Column {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 2 * Silica.Theme.horizontalPageMargin
+            spacing: Silica.Theme.paddingSmall
 
             Silica.Label {
-                anchors.centerIn: parent
-                visible: callOverlay.initials !== ""
-                text: callOverlay.initials
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: callOverlay.title
                 font.family: Silica.Theme.fontFamilyHeading
-                font.pixelSize: caller.size * 0.36
+                font.pixelSize: Silica.Theme.fontSizeHuge
                 font.weight: Font.Light
-                color: Silica.Theme.highlightColor
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Silica.Theme.fontSizeLarge
+                color: Silica.Theme.primaryColor
+                truncationMode: Silica.TruncationMode.Fade
             }
-            GlyphIcon {
-                anchors.centerIn: parent
-                visible: callOverlay.initials === ""
-                name: "user"
-                size: caller.size * 0.45
-                color: Silica.Theme.highlightColor
+            Silica.Label {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                visible: callOverlay.callerName !== ""
+                text: MPhoneNumber.format(callOverlay.callerNumber)
+                font.pixelSize: Silica.Theme.fontSizeMedium
+                color: Silica.Theme.secondaryColor
             }
-        }
-    }
-
-    Column {
-        anchors.top: caller.bottom
-        anchors.topMargin: Silica.Theme.paddingLarge * 1.5
-        x: Silica.Theme.horizontalPageMargin
-        width: parent.width - 2 * Silica.Theme.horizontalPageMargin
-        spacing: Silica.Theme.paddingSmall
-
-        Silica.Label {
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: callOverlay.title
-            font.family: Silica.Theme.fontFamilyHeading
-            font.pixelSize: Silica.Theme.fontSizeHuge
-            font.weight: Font.Light
-            fontSizeMode: Text.HorizontalFit
-            minimumPixelSize: Silica.Theme.fontSizeLarge
-            color: Silica.Theme.primaryColor
-            truncationMode: Silica.TruncationMode.Fade
-        }
-        Silica.Label {
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            visible: callOverlay.callerName !== ""
-            text: MPhoneNumber.format(callOverlay.callerNumber)
-            font.pixelSize: Silica.Theme.fontSizeMedium
-            color: Silica.Theme.secondaryColor
         }
     }
 
     // Ringing: decline and answer far apart, silence between them.
     Row {
+        id: ringControls
+
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Silica.Theme.paddingLarge * 2
+        anchors.bottomMargin: callOverlay.controlsMargin
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: Math.round(callOverlay.width * 0.1)
         visible: callOverlay.isRinging
@@ -336,8 +348,10 @@ Item {
     // In a call over the lock screen: mute, end and speaker; the keypad and
     // the rest behind the PIN.
     Column {
+        id: callControls
+
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Silica.Theme.paddingLarge
+        anchors.bottomMargin: callOverlay.controlsMargin
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: Silica.Theme.paddingMedium
         visible: callOverlay.inCall && !callOverlay.isRinging
