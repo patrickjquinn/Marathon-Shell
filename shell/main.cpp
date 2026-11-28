@@ -1385,8 +1385,9 @@ int main(int argc, char *argv[]) {
                 ::read(sigPipe[0], drain, sizeof(drain));
                 const QString path =
                     qEnvironmentVariable("MARATHON_SCREENSHOT_PATH", "/tmp/marathon-shot.png");
-                const bool ok = screenshotService->saveScreenshotTo(path);
-                qInfo() << "[Screenshot] SIGUSR1 →" << path << (ok ? "OK" : "FAIL");
+                screenshotService->saveFrameTo(path, [path](bool ok) {
+                    qInfo() << "[Screenshot] SIGUSR1 →" << path << (ok ? "OK" : "FAIL");
+                });
             });
             qInfo() << "[Screenshot] SIGUSR1 handler armed (default path /tmp/marathon-shot.png)";
         }

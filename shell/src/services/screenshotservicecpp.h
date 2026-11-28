@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QString>
 
+#include <functional>
+
 namespace marathon {
     class Audio;
 }
@@ -37,6 +39,9 @@ class ScreenshotServiceCpp : public QObject {
     // caller-supplied PNG path, bypassing the gallery folder + audio
     // shutter notifications. Used by the visual-validate harness.
     Q_INVOKABLE bool saveScreenshotTo(const QString &absolutePath);
+
+    // Writes the frame on the panel to absolutePath; done runs on this thread.
+    void saveFrameTo(const QString &absolutePath, std::function<void(bool)> done);
 
   signals:
     void screenshotsPathChanged();
