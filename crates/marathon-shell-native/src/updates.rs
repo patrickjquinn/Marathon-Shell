@@ -185,6 +185,8 @@ enum Effect {
     Cancel,
     Reboot,
     Notice(Notice, String),
+    /// Close the notice row: what it asked for has happened.
+    Withdraw,
 }
 
 /// What outlives the shell, in updates.json.
@@ -329,6 +331,13 @@ impl Machine {
             }
         } else {
             self.state = State::Idle;
+            // Running the version a restart notice asked for, after a
+            // fallback boot posted it: nothing is left to restart for.
+            if self.saved.notices.get("Restart") == Some(&self.os_version) {
+                self.saved.notices.remove("Restart");
+                self.dirty = true;
+                self.effects.push(Effect::Withdraw);
+            }
             if updated {
                 let os = self.os_version.clone();
                 self.announce(Notice::Updated, &os);
@@ -643,6 +652,7 @@ struct Actor {
     job: Option<OwnedObjectPath>,
     shown: serde_json::Value,
     window: i64,
+    withdraw: bool,
 }
 
 async fn run(qt: Qt, tx: Sender<Msg>, rx: Receiver<Msg>) {
@@ -666,6 +676,7 @@ async fn run(qt: Qt, tx: Sender<Msg>, rx: Receiver<Msg>) {
         job: None,
         shown: serde_json::Value::Null,
         window: 0,
+        withdraw: false,
     };
     while let Ok(msg) = rx.recv().await {
         if msg.needs_conditions() {
@@ -773,6 +784,7 @@ impl Actor {
                 }
                 Effect::Reboot => queue(&self.qt, Updates::reboot_requested),
                 Effect::Notice(kind, version) => notices.push((kind, version)),
+                Effect::Withdraw => self.withdraw = true,
             }
         }
         notices
@@ -792,6 +804,9 @@ impl Actor {
                     obj.state_changed();
                 })
                 .ok();
+        }
+        if std::mem::take(&mut self.withdraw) {
+            self.notifier.close().await;
         }
         for (kind, version) in notices {
             self.notifier.post(m, kind, &version).await;
@@ -1191,6 +1206,21 @@ struct Notifier {
 }
 
 impl Notifier {
+    async fn close(&mut self) {
+        if self.id == 0 {
+            return;
+        }
+        let closed = async {
+            NotificationsProxy::new(&io::session_bus().await?)
+                .await?
+                .close_notification(self.id)
+                .await
+        };
+        if let Err(e) = closed.await {
+            log::warn("updates", format_args!("closing the restart notice: {e}"));
+        }
+    }
+
     fn listen(tx: &Sender<Msg>) {
         let tx = tx.clone();
         io::each_session_bus(move |session| {
@@ -1582,6 +1612,30 @@ mod tests {
         });
         m.probed(true, NEW);
         assert_eq!((m.state, m.available.as_str()), (State::ReadyToReboot, NEW));
+    }
+
+    #[test]
+    fn running_the_version_a_restart_notice_asked_for_withdraws_it() {
+        // A fallback boot posted "restart into OS"; this boot is OS.
+        let mut m = machine(Saved {
+            last_seen_version: OS.into(),
+            notices: [("Restart".to_owned(), OS.to_owned())].into(),
+            ..Saved::default()
+        });
+        m.probed(true, OS);
+        assert!(m.effects.contains(&Effect::Withdraw));
+        assert!(!m.saved.notices.contains_key("Restart"));
+        // Once only.
+        m.effects.clear();
+        m.probed(true, OS);
+        assert!(!m.effects.contains(&Effect::Withdraw));
+        // A restart notice for another version stays.
+        let mut other = machine(Saved {
+            notices: [("Restart".to_owned(), "26120101".to_owned())].into(),
+            ..Saved::default()
+        });
+        other.probed(true, OS);
+        assert!(!other.effects.contains(&Effect::Withdraw));
     }
 
     #[test]
