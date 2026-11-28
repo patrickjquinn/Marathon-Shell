@@ -63,8 +63,8 @@ class InputContext : public QObject {
     // deleting them would take them; "" when the field doesn't tell.
     Q_INVOKABLE QString wordsBeforeCursor(int count) const;
     // Deletes `text` when it is exactly what sits before the cursor.
-    Q_INVOKABLE bool    deleteBeforeCursor(const QString &text);
-    Q_INVOKABLE void    detectInputMode();
+    Q_INVOKABLE bool deleteBeforeCursor(const QString &text);
+    Q_INVOKABLE void detectInputMode();
 
   signals:
     void keyboardChanged();
