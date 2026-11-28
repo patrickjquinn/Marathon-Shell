@@ -561,13 +561,11 @@ FocusScope {
                     }
                 }
 
-                // On a first start nothing is chosen yet and the camera falls
-                // back to the first device unnamed, so the lens switch showed
-                // no lens as the one in use. Choose it by name.
-                var knownIds = camera.availableCameras.map(function (d) {
-                    return d.deviceId;
-                });
-                if (knownIds.indexOf(Settings.deviceId) < 0 && Settings.global.previousBackFacingDeviceId.length > 0) {
+                // Every start opens the main back camera, chosen by name so the
+                // lens switch shows it as the one in use.
+                if (backIds.indexOf(camera.defaultCameraId) >= 0) {
+                    Settings.deviceId = camera.defaultCameraId;
+                } else if (Settings.global.previousBackFacingDeviceId.length > 0) {
                     Settings.deviceId = Settings.global.previousBackFacingDeviceId;
                 }
                 // The stored camera was applied before the cameras were

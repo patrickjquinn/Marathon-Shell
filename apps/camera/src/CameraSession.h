@@ -27,6 +27,7 @@
 #include <libcamera/formats.h>
 #include <libcamera/framebuffer_allocator.h>
 #include <libcamera/geometry.h>
+#include <libcamera/property_ids.h>
 #include <libcamera/request.h>
 #include <libcamera/stream.h>
 #pragma pop_macro("slots")
@@ -39,6 +40,11 @@ struct CameraInfo {
     QString id;
     // Largest first.
     QList<QSize> sizes;
+    // libcamera's Location and Rotation properties; -1 without a Location.
+    int location = -1;
+    int rotation = 0;
+    // The sensor's pixel array, in pixels.
+    qint64 pixels = 0;
 };
 
 // libcamera, driven from the thread this object lives on: everything that
