@@ -1,0 +1,48 @@
+From 86c22989899903377bca62cec2eaa4201d7fb660 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 28 Nov 2026 12:52:21 +0000
+Subject: [PATCH] clk: mediatek: mt6858-cam: Keep the unused-clock sweep off
+ camsys_main
+
+CAM_MAIN takes camsys_main's LARB13, LARB14 and CAM2MM_GALS gates as
+subsys clocks, which moved the camsys_main controller out of the domain
+and into the kernel. Its registers are only reachable while CAM_MAIN is
+on, but nothing resumes the domain for them any more. At late_initcall
+clk_disable_unused() read every camsys_main gate with CAM_MAIN off and
+the bus hung: the kernel died before the console came up, unless an
+earlier boot had left CAM_MAIN on.
+
+Mark the gates CLK_IGNORE_UNUSED. CAM_MAIN's power sequence and the
+drivers inside the domain switch them.
+---
+ drivers/clk/mediatek/clk-mt6858-cam.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6858-cam.c b/drivers/clk/mediatek/clk-mt6858-cam.c
+index 3befc1cb8..89702ee1d 100644
+--- a/drivers/clk/mediatek/clk-mt6858-cam.c
++++ b/drivers/clk/mediatek/clk-mt6858-cam.c
+@@ -20,9 +20,17 @@ static const struct mtk_gate_regs cam_m_cg_regs = {
+ 	.sta_ofs = 0x0,
+ };
+ 
+-#define GATE_CAM_M(_id, _name, _parent, _shift)			\
+-	GATE_MTK(_id, _name, _parent, &cam_m_cg_regs, _shift,	\
+-		 &mtk_clk_gate_ops_setclr)
++/*
++ * CAM_MAIN takes LARB13, LARB14 and CAM2MM_GALS as subsys clocks, so this
++ * controller sits outside the domain and is built in, but its registers
++ * are only reachable while CAM_MAIN is on. Keep the unused-clock sweep
++ * off them: at late_initcall it would read the gates with CAM_MAIN off
++ * and hang the bus. CAM_MAIN's power sequence and the drivers in the
++ * domain switch them.
++ */
++#define GATE_CAM_M(_id, _name, _parent, _shift)				\
++	GATE_MTK_FLAGS(_id, _name, _parent, &cam_m_cg_regs, _shift,	\
++		       &mtk_clk_gate_ops_setclr, CLK_IGNORE_UNUSED)
+ 
+ static const struct mtk_gate cam_m_clks[] = {
+ 	GATE_CAM_M(CLK_CAM_M_LARB13, "cam_m_larb13", "top_cam_ck", 0),
+-- 
+2.55.0
+
