@@ -1,3 +1,4 @@
+#include <QTemporaryDir>
 #include <QInputMethodEvent>
 #include <QQmlEngine>
 #include <QQuickItem>
@@ -68,6 +69,9 @@ class Setup : public QObject {
 
   public slots:
     void applicationAvailable() {
+        // The keyboard learns what is typed: into a fresh place each run.
+        static QTemporaryDir config;
+        qputenv("XDG_CONFIG_HOME", config.path().toUtf8());
         qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
         qmlRegisterSingletonType<marathon::Dictionary>(
             "MarathonOS.Shell", 1, 0, "Dictionary",

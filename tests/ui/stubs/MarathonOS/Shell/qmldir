@@ -60,6 +60,7 @@ singleton WeatherClient 1.0 WeatherClient.qml
 FilteredAppModel 1.0 FilteredAppModel.qml
 Key 1.0 ../../../../../shell/qml/keyboard/UI/Key.qml
 PredictionBar 1.0 ../../../../../shell/qml/keyboard/UI/PredictionBar.qml
+KeyboardTouch 1.0 ../../../../../shell/qml/keyboard/UI/KeyboardTouch.qml
 LanguageSelector 1.0 ../../../../../shell/qml/keyboard/UI/LanguageSelector.qml
 DynamicLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/DynamicLayout.qml
 QwertyLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/QwertyLayout.qml

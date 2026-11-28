@@ -22,6 +22,14 @@ Rectangle {
     property bool autoRepeat: false
     // Hold does something of its own, so release mustn't also click.
     property bool consumesHold: autoRepeat
+    // The keyboard's touch layer drives the key; else its own MouseArea does.
+    property bool routed: false
+    readonly property bool isKeyboardKey: true
+    readonly property bool isLetter: !isSpecial && text.length === 1 && text.toLowerCase() !== text.toUpperCase()
+    property bool longPressTriggered: false
+    // Where the finger is, in the key: the alternates are picked relative to it.
+    property point pointer: Qt.point(width / 2, height / 2)
+    property point holdPoint
 
     signal clicked
     signal pressAndHold
@@ -178,56 +186,69 @@ Rectangle {
         }
     }
 
+    function pointerPressed(x, y) {
+        key.pointer = x === undefined ? Qt.point(key.width / 2, key.height / 2) : Qt.point(x, y);
+        key.pressed = true;
+        key.longPressTriggered = false;
+        key.selectedAlternate = -1;
+        if (SettingsManagerCpp.keyboardHapticStrength !== "off")
+            HapticManager.light();
+        longPressTimer.restart();
+    }
+
+    // A point in the key's own coordinates; it picks among the alternates.
+    function pointerMoved(x, y) {
+        key.pointer = Qt.point(x, y);
+        if (!key.showingAlternates)
+            return;
+        if (key.selectedAlternate < 0 && Math.hypot(x - key.holdPoint.x, y - key.holdPoint.y) < Silica.Theme.startDragDistance)
+            return;
+        var i = Math.floor((x - alternatePopup.x - alternatePopup.padding) / key.width);
+        key.selectedAlternate = Math.max(0, Math.min(key.alternateChars.length - 1, i));
+    }
+
+    function pointerReleased(commit) {
+        longPressTimer.stop();
+        repeatTimer.stop();
+        key.pressed = false;
+        if (key.showingAlternates) {
+            if (key.selectedAlternate >= 0)
+                key.alternateSelected(key.alternateChars[key.selectedAlternate]);
+            else
+                key.clicked();
+        } else if (!(key.longPressTriggered && key.consumesHold) && commit) {
+            key.clicked();
+        }
+        key.showingAlternates = false;
+        key.selectedAlternate = -1;
+        key.released();
+    }
+
+    function pointerCanceled() {
+        longPressTimer.stop();
+        repeatTimer.stop();
+        key.pressed = false;
+        key.showingAlternates = false;
+        key.selectedAlternate = -1;
+    }
+
     MouseArea {
         id: mouseArea
 
-        property bool longPressTriggered: false
-        property point holdPoint
-
         anchors.fill: parent
+        enabled: !key.routed
         onPressed: function (mouse) {
-            key.pressed = true;
-            longPressTriggered = false;
-            key.selectedAlternate = -1;
-            if (SettingsManagerCpp.keyboardHapticStrength !== "off")
-                HapticManager.light();
-            longPressTimer.restart();
-
+            key.pointerPressed(mouse.x, mouse.y);
             mouse.accepted = true;
         }
-        // This MouseArea keeps the grab, so it drives the popup.
         onPositionChanged: function (mouse) {
-            if (!key.showingAlternates)
-                return;
-            if (key.selectedAlternate < 0 && Math.hypot(mouse.x - holdPoint.x, mouse.y - holdPoint.y) < Silica.Theme.startDragDistance)
-                return;
-            var i = Math.floor((mouse.x - alternatePopup.x - alternatePopup.padding) / key.width);
-            key.selectedAlternate = Math.max(0, Math.min(key.alternateChars.length - 1, i));
+            key.pointerMoved(mouse.x, mouse.y);
         }
         onReleased: function (mouse) {
-            longPressTimer.stop();
-            repeatTimer.stop();
-            key.pressed = false;
-            if (key.showingAlternates) {
-                if (key.selectedAlternate >= 0)
-                    key.alternateSelected(key.alternateChars[key.selectedAlternate]);
-                else
-                    key.clicked();
-            } else if (!(longPressTriggered && key.consumesHold) && containsMouse) {
-                key.clicked();
-            }
-            key.showingAlternates = false;
-            key.selectedAlternate = -1;
-            key.released();
+            key.pointerReleased(containsMouse || key.showingAlternates);
             mouse.accepted = true;
         }
-        onCanceled: {
-            longPressTimer.stop();
-            repeatTimer.stop();
-            key.pressed = false;
-            key.showingAlternates = false;
-            key.selectedAlternate = -1;
-        }
+        onCanceled: key.pointerCanceled()
     }
 
     Timer {
@@ -236,11 +257,11 @@ Rectangle {
         interval: 500
         repeat: false
         onTriggered: {
-            mouseArea.longPressTriggered = true;
+            key.longPressTriggered = true;
             if (key.alternateChars.length > 0) {
                 if (SettingsManagerCpp.keyboardHapticStrength !== "off")
                     HapticManager.medium();
-                mouseArea.holdPoint = Qt.point(mouseArea.mouseX, mouseArea.mouseY);
+                key.holdPoint = key.pointer;
                 key.showingAlternates = true;
             }
             key.pressAndHold();

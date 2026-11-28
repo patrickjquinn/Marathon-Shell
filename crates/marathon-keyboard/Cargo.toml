@@ -1,0 +1,12 @@
+[package]
+name = "marathon-keyboard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The on-screen keyboard's words: tap and swipe decoding, autocorrection, next words"
+
+[dependencies]
+
+[lints]
+workspace = true

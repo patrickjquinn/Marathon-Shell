@@ -51,6 +51,12 @@ QtObject {
     function getCurrentWord() {
         return "";
     }
+    function wordsBeforeCursor(count) {
+        return "";
+    }
+    function deleteBeforeCursor(t) {
+        return false;
+    }
     function detectInputMode() {
     }
 }

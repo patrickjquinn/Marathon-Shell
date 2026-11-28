@@ -30,56 +30,103 @@ Rectangle {
     // The last character the keyboard typed, or "" when it does not know what the cursor follows.
     // It decides capitals over the field's report, which can lag behind fast typing.
     property string lastTyped: ""
+    // Where each letter of currentWord was tapped, "x,y", for the corrections.
+    property var currentTaps: []
+    // Where the key now typing went down, until handleKeyPress takes it.
+    property string pendingTap: ""
+    // The word a swipe just typed, with its space: backspace takes it whole,
+    // and a suggestion replaces it.
+    property string swipedWord: ""
+    // What a slide off backspace would delete.
+    property string pendingDelete: ""
 
     signal layoutChanged(string layout)
     signal dismissRequested
 
+    function lastWord() {
+        var words = keyboard.recentContext.trim().split(" ");
+        return words[words.length - 1] || "";
+    }
+
+    function isLetter(text) {
+        return text.length === 1 && text.toLowerCase() !== text.toUpperCase();
+    }
+
+    function tapsText() {
+        return keyboard.currentTaps.join(";");
+    }
+
+    function remember(word) {
+        if (keyboard.fieldWantsPlainInput || word.length === 0)
+            return;
+        Dictionary.learn(keyboard.lastWord(), word);
+        var words = keyboard.recentContext.trim().split(" ").filter(w => w.length > 0);
+        words.push(word);
+        keyboard.recentContext = words.slice(-2).join(" ");
+    }
+
     function handleKeyPress(text) {
+        var tap = keyboard.pendingTap;
+        keyboard.pendingTap = "";
+        keyboard.swipedWord = "";
         var movedSpace = keyboard.autoSpaced && keyboard.weakSpacePunctuation.indexOf(text) !== -1 && inputContextInstance.replaceTextBeforeCursor(" ", text + " ");
         keyboard.autoSpaced = false;
         keyboard.canUndoAutoCorrect = false;
         if (!movedSpace) {
             keyboard.currentWord += text;
+            if (keyboard.isLetter(text))
+                keyboard.currentTaps = keyboard.currentTaps.concat([tap]);
             inputContextInstance.insertText(text);
         }
         keyboard.lastTyped = text.slice(-1);
-        if (inputContextInstance.shouldShowPredictions)
-            updatePredictions();
-        else
-            keyboard.currentPredictions = [];
-        if (keyboard.sentenceEndingPunctuation.indexOf(text) !== -1 && inputContextInstance.shouldAutoCapitalize) {
-            if (!keyboard.capsLock) {
+        if (keyboard.sentenceEndingPunctuation.indexOf(text) !== -1) {
+            keyboard.recentContext = "";
+            if (inputContextInstance.shouldAutoCapitalize && !keyboard.capsLock) {
                 keyboard.shifted = true;
                 keyboard.currentWord = "";
+                keyboard.currentPredictions = [];
+                return;
             }
-            return;
         }
         if (text === "," || (inputContextInstance.inputMode === "text" && !inputContextInstance.isWordText(text)))
             keyboard.currentWord = "";
 
         if (keyboard.shifted && !keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)
             keyboard.shifted = false;
+        updatePredictions();
     }
 
     function handleBackspace() {
         keyboard.autoSpaced = false;
         keyboard.lastTyped = "";
+        if (keyboard.swipedWord !== "") {
+            var swiped = keyboard.swipedWord;
+            keyboard.swipedWord = "";
+            if (inputContextInstance.deleteBeforeCursor(swiped)) {
+                keyboard.currentPredictions = [];
+                return;
+            }
+        }
         if (keyboard.canUndoAutoCorrect && keyboard.currentWord.length === 0) {
             keyboard.canUndoAutoCorrect = false;
             var undone = inputContextInstance.replaceTextBeforeCursor(keyboard.lastCorrectedWord + " ", keyboard.lastOriginalWord + " ");
+            if (undone) {
+                // Typed again as it was: the word is theirs.
+                Dictionary.learn("", keyboard.lastOriginalWord);
+                keyboard.lastOriginalWord = "";
+                keyboard.lastCorrectedWord = "";
+                return;
+            }
             keyboard.lastOriginalWord = "";
             keyboard.lastCorrectedWord = "";
-            if (undone)
-                return;
         }
         keyboard.canUndoAutoCorrect = false;
         inputContextInstance.handleBackspace();
         if (keyboard.currentWord.length > 0) {
+            if (keyboard.isLetter(keyboard.currentWord.slice(-1)))
+                keyboard.currentTaps = keyboard.currentTaps.slice(0, -1);
             keyboard.currentWord = keyboard.currentWord.slice(0, -1);
-            if (keyboard.currentWord.length === 0)
-                keyboard.currentPredictions = [];
-            else
-                updatePredictions();
+            updatePredictions();
         }
     }
 
@@ -87,45 +134,36 @@ Rectangle {
         var now = Date.now();
         var isDoubleTap = (now - keyboard.lastSpaceTime < 300) && keyboard.currentWord.length === 0;
         keyboard.autoSpaced = false;
+        keyboard.swipedWord = "";
         if (isDoubleTap && inputContextInstance.shouldAutoCapitalize && inputContextInstance.insertDoubleSpacePeriod()) {
             keyboard.canUndoAutoCorrect = false;
             keyboard.shifted = true;
             keyboard.lastSpaceTime = 0;
             keyboard.recentContext = "";
             keyboard.lastTyped = ".";
+            keyboard.currentPredictions = [];
             return;
         }
-        var wordToAdd = "";
-        if (keyboard.currentWord.length > 0) {
-            var originalWord = keyboard.currentWord;
+        var word = keyboard.currentWord;
+        keyboard.canUndoAutoCorrect = false;
+        if (word.length > 0) {
+            // A word stays a typo when its correction can't go in: not learnt.
+            var settled = true;
             if (inputContextInstance.shouldAutoCorrect) {
-                var correctedWord = Dictionary.correct(originalWord);
-                if (correctedWord !== originalWord && inputContextInstance.replaceCurrentWord(correctedWord)) {
-                    Dictionary.learnWord(correctedWord);
-                    keyboard.lastOriginalWord = originalWord;
-                    keyboard.lastCorrectedWord = correctedWord;
-                    keyboard.canUndoAutoCorrect = true;
-                    wordToAdd = correctedWord;
-                } else {
-                    Dictionary.learnWord(originalWord);
-                    keyboard.canUndoAutoCorrect = false;
-                    wordToAdd = originalWord;
+                var corrected = Dictionary.correctionFor(word, keyboard.tapsText(), keyboard.lastWord());
+                if (corrected !== word) {
+                    settled = inputContextInstance.replaceCurrentWord(corrected);
+                    if (settled) {
+                        keyboard.lastOriginalWord = word;
+                        keyboard.lastCorrectedWord = corrected;
+                        keyboard.canUndoAutoCorrect = true;
+                        word = corrected;
+                    }
                 }
-            } else {
-                keyboard.canUndoAutoCorrect = false;
-                wordToAdd = originalWord;
             }
             keyboard.currentWord = "";
-        }
-        if (wordToAdd.length > 0) {
-            var contextWords = keyboard.recentContext.trim().split(" ").filter(function (w) {
-                return w.length > 0;
-            });
-            contextWords.push(wordToAdd.toLowerCase());
-            if (contextWords.length > 2)
-                contextWords = contextWords.slice(-2);
-
-            keyboard.recentContext = contextWords.join(" ");
+            if (settled)
+                keyboard.remember(word);
         }
         inputContextInstance.insertText(" ");
         if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize && atSentenceStart())
@@ -136,7 +174,7 @@ Rectangle {
 
     function handleEnter() {
         if (keyboard.currentWord.length > 0) {
-            Dictionary.learnWord(keyboard.currentWord);
+            keyboard.remember(keyboard.currentWord);
             keyboard.currentWord = "";
         }
         if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)
@@ -144,7 +182,10 @@ Rectangle {
 
         keyboard.canUndoAutoCorrect = false;
         keyboard.autoSpaced = false;
+        keyboard.swipedWord = "";
         keyboard.lastTyped = "";
+        keyboard.recentContext = "";
+        keyboard.currentPredictions = [];
         inputContextInstance.handleEnter();
     }
 
@@ -163,7 +204,45 @@ Rectangle {
         keyboard.lastShiftTime = now;
     }
 
+    // A word in the case shift asks for.
+    function shiftedWord(word) {
+        if (keyboard.capsLock)
+            return word.toUpperCase();
+        if (keyboard.shifted)
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        return word;
+    }
+
+    function handleSwipe(points) {
+        var words = Dictionary.swipe(points, keyboard.lastWord());
+        if (words.length === 0)
+            return;
+        if (keyboard.currentWord.length > 0)
+            keyboard.handleSpace();
+        var word = keyboard.shiftedWord(words[0]);
+        // A swiped word after a word or punctuation gets its space first.
+        var before = inputContextInstance.wordsBeforeCursor(1);
+        var spaced = before !== "" && !/\s$/.test(before);
+        inputContextInstance.insertText((spaced ? " " : "") + word + " ");
+        keyboard.swipedWord = word + " ";
+        keyboard.autoSpaced = true;
+        keyboard.canUndoAutoCorrect = false;
+        keyboard.lastTyped = word.slice(-1);
+        keyboard.remember(words[0]);
+        if (keyboard.shifted && !keyboard.capsLock)
+            keyboard.shifted = false;
+        keyboard.currentPredictions = words.slice(1, 4).map(w => keyboard.shiftedWord(w));
+    }
+
     function acceptPrediction(word) {
+        if (keyboard.swipedWord !== "") {
+            if (inputContextInstance.replaceTextBeforeCursor(keyboard.swipedWord, word + " ")) {
+                keyboard.swipedWord = word + " ";
+                keyboard.remember(word);
+                keyboard.currentPredictions = [];
+            }
+            return;
+        }
         var typed = keyboard.currentWord;
         if (typed.length === 0) {
             inputContextInstance.insertText(word + " ");
@@ -176,20 +255,45 @@ Rectangle {
         keyboard.canUndoAutoCorrect = false;
         keyboard.autoSpaced = true;
         keyboard.lastTyped = word.slice(-1);
-        Dictionary.learnWord(word);
         keyboard.currentWord = "";
-        keyboard.currentPredictions = [];
+        keyboard.remember(word);
         if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize && atSentenceStart())
             keyboard.shifted = true;
+        updatePredictions();
     }
 
     function paste(text) {
         inputContextInstance.insertText(text);
+        keyboard.forgetWord();
+        keyboard.lastTyped = text.slice(-1);
+    }
+
+    // The cursor moved or text went without the keyboard knowing the word.
+    function forgetWord() {
         keyboard.currentWord = "";
         keyboard.currentPredictions = [];
         keyboard.autoSpaced = false;
         keyboard.canUndoAutoCorrect = false;
-        keyboard.lastTyped = text.slice(-1);
+        keyboard.swipedWord = "";
+        keyboard.lastTyped = "";
+        keyboard.recentContext = "";
+    }
+
+    function moveCursor(direction) {
+        inputContextInstance.sendCursorKey(direction < 0 ? Qt.Key_Left : Qt.Key_Right);
+        keyboard.forgetWord();
+        if (SettingsManagerCpp.keyboardHapticStrength !== "off")
+            HapticManager.light();
+    }
+
+    function deleteWords(count) {
+        var text = inputContextInstance.wordsBeforeCursor(count);
+        keyboard.pendingDelete = "";
+        if (text === "" || !inputContextInstance.deleteBeforeCursor(text))
+            return;
+        keyboard.forgetWord();
+        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)
+            keyboard.shifted = inputContextInstance.atSentenceStart();
     }
 
     function atSentenceStart() {
@@ -199,13 +303,13 @@ Rectangle {
     }
 
     function updatePredictions() {
-        if (keyboard.currentWord.length === 0) {
-            var phrasePreds = Dictionary.getPhraseCompletions(keyboard.recentContext);
-            if (phrasePreds.length > 0) {
-                keyboard.currentPredictions = phrasePreds.slice(0, 5);
-                return;
-            }
+        if (!inputContextInstance.shouldShowPredictions) {
             keyboard.currentPredictions = [];
+            return;
+        }
+        if (keyboard.currentWord.length === 0) {
+            var before = keyboard.lastWord();
+            keyboard.currentPredictions = before ? Dictionary.nextWords(before).map(w => keyboard.shiftedWord(w)) : [];
             return;
         }
         var isEmail = inputContextInstance.inputMode === "email";
@@ -219,12 +323,8 @@ Rectangle {
                 }
             }
         }
-        if (inputContextInstance.shouldShowPredictions) {
-            Dictionary.predict(keyboard.currentWord);
-            keyboard.currentPredictions = Dictionary.cachedPredictions;
-        } else {
-            keyboard.currentPredictions = [];
-        }
+        Dictionary.suggest(keyboard.currentWord, keyboard.tapsText(), keyboard.lastWord());
+        keyboard.currentPredictions = Dictionary.suggestedFor === keyboard.currentWord ? Dictionary.suggestions : [];
     }
 
     function updateCurrentWord() {
@@ -271,6 +371,7 @@ Rectangle {
     function clear() {
         keyboard.currentWord = "";
         keyboard.currentPredictions = [];
+        keyboard.swipedWord = "";
     }
 
     width: parent ? parent.width : 0
@@ -301,13 +402,13 @@ Rectangle {
     }
     onCurrentWordChanged: {
         if (currentWord.length === 0)
-            currentPredictions = [];
+            currentTaps = [];
     }
 
     Connections {
-        function onCachedPredictionsChanged() {
-            if (inputContextInstance.shouldShowPredictions && keyboard.currentWord === Dictionary.lastPredictionPrefix)
-                keyboard.currentPredictions = Dictionary.cachedPredictions;
+        function onSuggestionsChanged() {
+            if (inputContextInstance.shouldShowPredictions && keyboard.currentWord !== "" && keyboard.currentWord === Dictionary.suggestedFor)
+                keyboard.currentPredictions = Dictionary.suggestions;
         }
 
         target: Dictionary
@@ -331,6 +432,9 @@ Rectangle {
             sourceComponent: PredictionBar {
                 width: parent.width
                 currentWord: keyboard.currentWord
+                pendingDelete: keyboard.pendingDelete
+                // The first word is what a space will leave: lit while it corrects.
+                correcting: keyboard.currentWord !== "" && Dictionary.suggestedFor === keyboard.currentWord && Dictionary.correction !== keyboard.currentWord
                 predictions: keyboard.currentPredictions
                 onPredictionSelected: function (word) {
                     keyboard.acceptPrediction(word);
@@ -616,6 +720,34 @@ Rectangle {
                 }
                 onLanguageSwitchClicked: {
                     keyboard.showLanguageSelector = !keyboard.showLanguageSelector;
+                }
+            }
+            KeyboardTouch {
+                id: keyboardTouch
+
+                anchors.fill: parent
+                z: 100
+                enabled: keyboard.active && keyboard.currentLayout !== "emoji"
+                layout: keyboardLayoutContainer.layoutMap[keyboard.currentLayout]
+                swipeEnabled: SettingsManagerCpp.keyboardSwipeTyping && !keyboard.fieldWantsPlainInput && (keyboard.currentLayout === "dynamic" || keyboard.currentLayout === "qwerty")
+                trailColor: MColors.accent
+                onLetterTapped: function (x, y) {
+                    keyboard.pendingTap = x.toFixed(1) + "," + y.toFixed(1);
+                }
+                onSwiped: function (points) {
+                    keyboard.handleSwipe(points);
+                }
+                onCursorStep: function (direction) {
+                    keyboard.moveCursor(direction);
+                }
+                onDeletePreview: function (words) {
+                    keyboard.pendingDelete = words > 0 ? inputContextInstance.wordsBeforeCursor(words) : "";
+                }
+                onDeleteWords: function (words) {
+                    keyboard.deleteWords(words);
+                }
+                onLettersMoved: function (keys, pitch) {
+                    Dictionary.setKeys(keys, pitch);
                 }
             }
         }

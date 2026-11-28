@@ -1,13 +1,9 @@
-//! The keyboard's words: completions as a word is typed, autocorrection,
-//! learnt words, phrase completions and address suggestions. The language's
-//! Hunspell dictionary (spellbook) loads on first use and every lookup runs on
-//! the blocking pool; QML reads the predictions once they are in.
+//! The keyboard's words, from marathon-keyboard: suggestions as a word is
+//! tapped, the word a swipe spells, what usually comes next, and what this
+//! person types, learnt. A language's word list loads off the GUI thread;
+//! suggestions for each letter are worked out on the blocking pool and land
+//! in `suggestions` once in.
 
-use std::cmp::Reverse;
-use std::collections::HashMap;
-use std::fmt::Write as _;
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -15,6 +11,10 @@ use std::sync::{Arc, Mutex};
 
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QString, QStringList};
+use marathon_keyboard::history::History;
+use marathon_keyboard::layout::Layout;
+use marathon_keyboard::lexicon::Lexicon;
+use marathon_keyboard::Engine;
 
 use crate::log;
 
@@ -30,37 +30,41 @@ pub mod qobject {
 
     extern "RustQt" {
         #[qobject]
-        #[qproperty(
-            QStringList,
-            cached_predictions,
-            cxx_name = "cachedPredictions",
-            READ,
-            NOTIFY
-        )]
-        #[qproperty(
-            QString,
-            last_prediction_prefix,
-            cxx_name = "lastPredictionPrefix",
-            READ,
-            NOTIFY
-        )]
+        #[qproperty(QStringList, suggestions, READ, NOTIFY)]
+        #[qproperty(QString, correction, READ, NOTIFY)]
+        #[qproperty(QString, suggested_for, cxx_name = "suggestedFor", READ, NOTIFY)]
         type Dictionary = super::DictionaryRust;
 
-        /// The predictions for `prefix` so far; cachedPredictions has the
-        /// rest once they are in.
+        /// Works out the suggestions for `typed`, tapped at `taps` ("x,y;x,y"
+        /// in the keyboard's pixels) after the word `before`: `suggestions`,
+        /// the likeliest first, and `correction`, what a space should leave,
+        /// once in.
         #[qinvokable]
-        fn predict(self: Pin<&mut Dictionary>, prefix: &QString) -> QStringList;
-        /// What usually follows the last words typed.
+        fn suggest(self: Pin<&mut Dictionary>, typed: &QString, taps: &QString, before: &QString);
+        /// What a space should leave for `typed`: the correction, or `typed`.
         #[qinvokable]
-        #[cxx_name = "getPhraseCompletions"]
-        fn phrase_completions(self: &Dictionary, context: &QString) -> QStringList;
+        #[cxx_name = "correctionFor"]
+        fn correction_for(
+            self: &Dictionary,
+            typed: &QString,
+            taps: &QString,
+            before: &QString,
+        ) -> QString;
+        /// The words a swipe through `points` ("x,y;x,y") could be.
         #[qinvokable]
-        #[cxx_name = "learnWord"]
-        fn learn_word(self: &Dictionary, word: &QString);
-        /// The word as autocorrection would leave it, in the capitals typed.
+        fn swipe(self: &Dictionary, points: &QString, before: &QString) -> QStringList;
         #[qinvokable]
-        fn correct(self: &Dictionary, word: &QString) -> QString;
-        /// A Hunspell name, "en_US": the dictionary loads on next use.
+        #[cxx_name = "nextWords"]
+        fn next_words(self: &Dictionary, before: &QString) -> QStringList;
+        /// `word` was typed after `before` (empty at a sentence's start).
+        #[qinvokable]
+        fn learn(self: &Dictionary, before: &QString, word: &QString);
+        /// The letter keys: "q x y;w x y;..." their centres in the keyboard's
+        /// pixels, and a letter key's width.
+        #[qinvokable]
+        #[cxx_name = "setKeys"]
+        fn set_keys(self: &Dictionary, keys: &QString, pitch: f64);
+        /// A layout's dictionary name, "en_US": its words load in the background.
         #[qinvokable]
         #[cxx_name = "setLanguage"]
         fn set_language(self: &Dictionary, language: &QString);
@@ -88,132 +92,81 @@ pub mod qobject {
 
 use qobject::Dictionary;
 
-const PREDICTIONS: usize = 5;
-const DICTIONARIES: [&str; 3] = [
+const WORD_LISTS: &str = "/usr/share/marathon/keyboard";
+const HUNSPELL: [&str; 3] = [
     "/usr/share/hunspell",
     "/usr/share/myspell/dicts",
     "/usr/local/share/hunspell",
 ];
+const SAVE_EVERY: u32 = 5;
 
-const TYPOS: &[(&str, &str)] = &[
-    ("teh", "the"),
-    ("adn", "and"),
-    ("youre", "you're"),
-    ("dont", "don't"),
-    ("cant", "can't"),
-    ("wont", "won't"),
-    ("didnt", "didn't"),
-    ("doesnt", "doesn't"),
-    ("hasnt", "hasn't"),
-    ("havent", "haven't"),
-    ("isnt", "isn't"),
-    ("wasnt", "wasn't"),
-    ("werent", "weren't"),
-    ("shouldnt", "shouldn't"),
-    ("wouldnt", "wouldn't"),
-    ("couldnt", "couldn't"),
-    ("thats", "that's"),
-    ("whats", "what's"),
-    ("hes", "he's"),
-    ("shes", "she's"),
-    ("its", "it's"),
-    ("im", "I'm"),
-    ("youve", "you've"),
-    ("theyve", "they've"),
-    ("weve", "we've"),
-    ("ive", "I've"),
-    ("recieve", "receive"),
-    ("beleive", "believe"),
-    ("neccessary", "necessary"),
-    ("seperate", "separate"),
-    ("definately", "definitely"),
-    ("occured", "occurred"),
-    ("begining", "beginning"),
-    ("tommorrow", "tomorrow"),
-    ("untill", "until"),
-    ("alot", "a lot"),
-];
+struct State {
+    engine: Engine,
+    language: String,
+    // Whether `language`'s words are in `engine`.
+    loaded: bool,
+    config: PathBuf,
+    unsaved: u32,
+}
 
-const PHRASES: &[(&str, &[&str])] = &[
-    ("how are", &["you", "you doing", "things"]),
-    ("how is", &["it going", "everything", "your day"]),
-    ("what are", &["you doing", "you up to", "your plans"]),
-    ("what is", &["up", "going on", "your name"]),
-    ("where are", &["you", "we going", "we meeting"]),
-    ("where is", &["it", "that", "everyone"]),
-    ("when are", &["you coming", "we meeting", "you free"]),
-    ("when is", &["it", "the meeting", "your birthday"]),
-    ("i am", &["here", "coming", "on my way", "good", "fine"]),
-    ("i will", &["be there", "call you", "let you know", "do it"]),
-    ("i have", &["to go", "a question", "an idea", "time"]),
-    ("i think", &["so", "that", "it's good", "we should"]),
-    ("i need", &["to", "help", "more time", "your help"]),
-    ("i want", &["to", "that", "it", "one"]),
-    ("i hope", &["so", "you're well", "it works", "to see you"]),
-    ("i love", &["you", "it", "this", "that"]),
-    ("i like", &["it", "that", "this", "your idea"]),
-    ("can you", &["help", "do it", "send me", "call me"]),
-    ("can i", &["help", "ask you", "call you", "come"]),
-    ("do you", &["know", "have", "want", "think"]),
-    ("did you", &["get it", "see that", "hear", "know"]),
-    ("are you", &["there", "coming", "ok", "sure", "free"]),
-    ("is it", &["ok", "possible", "working", "done"]),
-    ("let me", &["know", "think", "check", "see"]),
-    ("thank you", &["so much", "very much", "for everything"]),
-    (
-        "thanks for",
-        &["your help", "letting me know", "everything"],
-    ),
-    ("looking forward", &["to it", "to hearing", "to seeing you"]),
-    ("nice to", &["meet you", "see you", "hear from you"]),
-    ("have a", &["good day", "nice day", "great day", "good one"]),
-    ("see you", &["later", "soon", "tomorrow", "there"]),
-    ("talk to", &["you later", "you soon", "me"]),
-    ("on my", &["way", "phone", "computer", "mind"]),
-    ("be right", &["back", "there", "over"]),
-    ("going to", &["be", "do", "the", "try"]),
-    ("want to", &["go", "do", "see", "try", "know"]),
-    ("need to", &["go", "do", "talk", "know", "finish"]),
-    ("have to", &["go", "do", "leave", "work"]),
-    ("got to", &["go", "run", "do"]),
-    ("good to", &["know", "see you", "hear"]),
-    ("great to", &["see you", "hear", "meet you"]),
-    ("happy to", &["help", "hear", "see you", "know"]),
-    ("sorry for", &["the delay", "the wait", "bothering you"]),
-    ("sorry i", &["missed", "forgot", "can't", "didn't"]),
-    ("no problem", &["at all", "happy to help"]),
-    ("sounds good", &["to me", "let's do it"]),
-    ("that sounds", &["good", "great", "perfect", "fun"]),
-    ("that's a", &["good idea", "great idea", "good point"]),
-    ("that's great", &["news", "to hear"]),
-    ("the best", &["way", "thing", "option", "part"]),
-    ("a lot", &["of", "more", "better"]),
-    ("of course", &["not", "I will", "you can"]),
-    ("by the", &["way", "time", "end"]),
-    ("at the", &["moment", "end", "same time"]),
-    ("in the", &["morning", "afternoon", "evening", "end"]),
-    ("on the", &["way", "phone", "other hand"]),
-];
+impl State {
+    fn load(&mut self) {
+        let lexicon = Lexicon::parse(&word_list(&self.language));
+        let history = History::parse(&history_text(&self.config), &lexicon);
+        self.install(lexicon, history);
+    }
+
+    fn install(&mut self, lexicon: Lexicon, history: History) {
+        if self.unsaved > 0 {
+            self.save();
+        }
+        self.engine.lexicon = lexicon;
+        self.engine.history = history;
+        self.loaded = true;
+    }
+
+    fn history_file(&self) -> PathBuf {
+        self.config.join("keyboard_history.txt")
+    }
+
+    fn save(&mut self) {
+        self.unsaved = 0;
+        let path = self.history_file();
+        let written = std::fs::create_dir_all(&self.config)
+            .and_then(|()| std::fs::write(&path, self.engine.history.to_text()));
+        if let Err(e) = written {
+            log::warn("words", format_args!("{}: {e}", path.display()));
+        }
+    }
+}
 
 pub struct DictionaryRust {
-    cached_predictions: QStringList,
-    last_prediction_prefix: QString,
-    engine: Arc<Mutex<Engine>>,
-    // The newest prediction asked for; older ones still queued are skipped.
+    suggestions: QStringList,
+    correction: QString,
+    suggested_for: QString,
+    state: Arc<Mutex<State>>,
+    // The newest suggestions asked for; older ones still queued are skipped.
     asked: Arc<AtomicU64>,
-    // A word typed so far and its correction, made with its predictions.
-    correction: Option<(String, String)>,
+    // The taps and word before of the suggestions in, for correctionFor.
+    suggested_with: (String, String),
 }
 
 impl Default for DictionaryRust {
     fn default() -> Self {
-        let config = marathon_rt::dirs::config().join("marathon-os");
         Self {
-            cached_predictions: QStringList::default(),
-            last_prediction_prefix: QString::default(),
-            engine: Arc::new(Mutex::new(Engine::new(config, "en_US"))),
+            suggestions: QStringList::default(),
+            correction: QString::default(),
+            suggested_for: QString::default(),
+            state: Arc::new(Mutex::new(State {
+                // QWERTY until the keyboard reports where its keys are.
+                engine: Engine::new(Lexicon::default(), Layout::qwerty(), History::default()),
+                language: String::new(),
+                loaded: false,
+                config: marathon_rt::dirs::config().join("marathon-os"),
+                unsaved: 0,
+            })),
             asked: Arc::default(),
-            correction: None,
+            suggested_with: (String::new(), String::new()),
         }
     }
 }
@@ -222,303 +175,246 @@ fn list<S: AsRef<str>>(items: &[S]) -> QStringList {
     items.iter().map(|s| QString::from(s.as_ref())).collect()
 }
 
+/// "x,y;x,y" as points.
+fn points(text: &QString) -> Vec<(f32, f32)> {
+    text.to_string()
+        .split(';')
+        .filter_map(|p| {
+            let (x, y) = p.split_once(',')?;
+            Some((x.trim().parse().ok()?, y.trim().parse().ok()?))
+        })
+        .collect()
+}
+
+fn before(text: &QString) -> Option<String> {
+    let text = text.to_string();
+    (!text.is_empty()).then_some(text)
+}
+
 impl Dictionary {
-    fn engine(&self) -> std::sync::MutexGuard<'_, Engine> {
-        self.engine.lock().unwrap_or_else(|_| std::process::abort())
-    }
-
-    fn predict(mut self: Pin<&mut Self>, prefix: &QString) -> QStringList {
-        if prefix.is_empty() {
-            return QStringList::default();
+    /// The state with its words in: loaded now when the background load
+    /// hasn't finished, or no language was set (its region's English).
+    fn state(&self) -> std::sync::MutexGuard<'_, State> {
+        let mut state = self.state.lock().unwrap_or_else(|_| std::process::abort());
+        if state.language.is_empty() {
+            state.language = word_list_for("en_US");
         }
-        if self.last_prediction_prefix != *prefix {
-            set!(
-                self,
-                last_prediction_prefix,
-                last_prediction_prefix_changed,
-                prefix.clone()
-            );
-            set!(
-                self,
-                cached_predictions,
-                cached_predictions_changed,
-                QStringList::default()
-            );
-            let (engine, asked, qt) = (
-                Arc::clone(&self.engine),
-                Arc::clone(&self.asked),
-                self.qt_thread(),
-            );
-            let ask = asked.fetch_add(1, Ordering::Relaxed) + 1;
-            let prefix = prefix.to_string();
-            crate::io::spawn(async move {
-                let made = blocking::unblock(move || {
-                    let mut engine = engine.lock().unwrap_or_else(|_| std::process::abort());
-                    (asked.load(Ordering::Relaxed) == ask).then(|| {
-                        (
-                            engine.completions(&prefix),
-                            engine.correction(&prefix),
-                            prefix,
-                        )
-                    })
-                });
-                let Some((completions, correction, prefix)) = made.await else {
-                    return;
-                };
-                qt.queue(move |mut obj| {
-                    if obj.last_prediction_prefix.to_string() == prefix {
-                        obj.as_mut().rust_mut().correction =
-                            correction.map(|c| (prefix.to_lowercase(), c));
-                        set!(
-                            obj,
-                            cached_predictions,
-                            cached_predictions_changed,
-                            list(&completions)
-                        );
-                    }
-                })
-                .ok();
-            });
+        if !state.loaded {
+            state.load();
         }
-        self.cached_predictions.clone()
+        state
     }
 
-    #[allow(clippy::unused_self, reason = "an invokable")]
-    fn phrase_completions(&self, context: &QString) -> QStringList {
-        list(phrases(&context.to_string()))
-    }
-
-    fn learn_word(&self, word: &QString) {
-        let word = word.to_string();
-        if word.chars().count() < 2 {
+    fn suggest(mut self: Pin<&mut Self>, typed: &QString, taps: &QString, before_word: &QString) {
+        let with = (taps.to_string(), before_word.to_string());
+        if self.suggested_for == *typed && self.suggested_with == with {
             return;
         }
-        let engine = Arc::clone(&self.engine);
+        set!(self, suggested_for, suggested_for_changed, typed.clone());
+        self.as_mut().rust_mut().suggested_with = with;
+        set!(
+            self,
+            suggestions,
+            suggestions_changed,
+            QStringList::default()
+        );
+        set!(self, correction, correction_changed, typed.clone());
+        if typed.is_empty() {
+            return;
+        }
+        drop(self.state());
+        let (state, asked, qt) = (
+            Arc::clone(&self.state),
+            Arc::clone(&self.asked),
+            self.qt_thread(),
+        );
+        let ask = asked.fetch_add(1, Ordering::Relaxed) + 1;
+        let (typed, taps, before_word) = (typed.to_string(), points(taps), before(before_word));
+        crate::io::spawn(async move {
+            let made = blocking::unblock(move || {
+                (asked.load(Ordering::Relaxed) == ask).then(|| {
+                    let state = state.lock().unwrap_or_else(|_| std::process::abort());
+                    if !state.loaded {
+                        return (marathon_keyboard::Suggestions::default(), typed);
+                    }
+                    let got = state.engine.suggest(&typed, &taps, before_word.as_deref());
+                    (got, typed)
+                })
+            });
+            let Some((got, typed)) = made.await else {
+                return;
+            };
+            if got.words.is_empty() {
+                return;
+            }
+            qt.queue(move |mut obj| {
+                if obj.suggested_for.to_string() == typed {
+                    let correction = got.correction.unwrap_or(typed);
+                    set!(
+                        obj,
+                        correction,
+                        correction_changed,
+                        QString::from(&correction)
+                    );
+                    set!(obj, suggestions, suggestions_changed, list(&got.words));
+                }
+            })
+            .ok();
+        });
+    }
+
+    fn correction_for(&self, typed: &QString, taps: &QString, before_word: &QString) -> QString {
+        let with = (taps.to_string(), before_word.to_string());
+        if self.suggested_for == *typed
+            && self.suggested_with == with
+            && !self.suggestions.is_empty()
+        {
+            return self.correction.clone();
+        }
+        let typed = typed.to_string();
+        let got =
+            self.state()
+                .engine
+                .suggest(&typed, &points(taps), before(before_word).as_deref());
+        QString::from(&got.correction.unwrap_or(typed))
+    }
+
+    fn swipe(&self, path: &QString, before_word: &QString) -> QStringList {
+        list(
+            &self
+                .state()
+                .engine
+                .swipe(&points(path), before(before_word).as_deref()),
+        )
+    }
+
+    fn next_words(&self, before_word: &QString) -> QStringList {
+        list(&self.state().engine.next_words(&before_word.to_string()))
+    }
+
+    fn learn(&self, before_word: &QString, word: &QString) {
+        let word = word.to_string();
+        if word.trim().is_empty() {
+            return;
+        }
+        let before_word = before(before_word);
+        let mut state = self.state();
+        state.engine.learn(before_word.as_deref(), &word);
+        state.unsaved += 1;
+        if state.unsaved >= SAVE_EVERY {
+            let state = Arc::clone(&self.state);
+            crate::io::spawn(async move {
+                blocking::unblock(move || {
+                    state
+                        .lock()
+                        .unwrap_or_else(|_| std::process::abort())
+                        .save();
+                })
+                .await;
+            });
+        }
+    }
+
+    fn set_keys(&self, keys: &QString, pitch: f64) {
+        #[allow(clippy::cast_possible_truncation, reason = "a key's width in pixels")]
+        let layout = Layout::parse(&keys.to_string(), pitch as f32);
+        if !layout.is_empty() {
+            self.state
+                .lock()
+                .unwrap_or_else(|_| std::process::abort())
+                .engine
+                .layout = layout;
+        }
+    }
+
+    fn set_language(&self, language: &QString) {
+        let language = word_list_for(&language.to_string());
+        {
+            let mut state = self.state.lock().unwrap_or_else(|_| std::process::abort());
+            if state.language == language {
+                return;
+            }
+            language.clone_into(&mut state.language);
+            state.loaded = false;
+        }
+        let state = Arc::clone(&self.state);
         crate::io::spawn(async move {
             blocking::unblock(move || {
-                engine
-                    .lock()
-                    .unwrap_or_else(|_| std::process::abort())
-                    .learn(&word);
+                let lock = || state.lock().unwrap_or_else(|_| std::process::abort());
+                let config = lock().config.clone();
+                // Parsed unlocked: the keyboard keeps working meanwhile.
+                let lexicon = Lexicon::parse(&word_list(&language));
+                let history = History::parse(&history_text(&config), &lexicon);
+                let mut state = lock();
+                if state.language == language && !state.loaded {
+                    state.install(lexicon, history);
+                }
             })
             .await;
         });
     }
-
-    fn correct(&self, word: &QString) -> QString {
-        let typed = word.to_string();
-        let lower = typed.to_lowercase();
-        let correction = TYPOS
-            .iter()
-            .find(|(typo, _)| *typo == lower)
-            .map(|(_, c)| *c)
-            .or_else(|| {
-                let (word, correction) = self.correction.as_ref()?;
-                (*word == lower).then_some(correction.as_str())
-            });
-        correction.map_or_else(|| word.clone(), |c| QString::from(&with_case_of(&typed, c)))
-    }
-
-    fn set_language(&self, language: &QString) {
-        self.engine().set_language(&language.to_string());
-    }
 }
 
-/// A correction keeps the capitals of the word typed: Teh, The; TEH, THE.
-fn with_case_of(typed: &str, correction: &str) -> String {
-    if typed.chars().count() > 1 && typed == typed.to_uppercase() && typed != typed.to_lowercase() {
-        return correction.to_uppercase();
+/// English is spelt the way the phone's region spells it: American in the
+/// Americas, by its time zone (the language setting is rarely more than
+/// "English"), British elsewhere.
+fn word_list_for(language: &str) -> String {
+    if !language.starts_with("en") {
+        return language.to_owned();
     }
-    let mut chars = correction.chars();
-    match (
-        typed.chars().next().is_some_and(char::is_uppercase),
-        chars.next(),
-    ) {
-        (true, Some(first)) => first.to_uppercase().chain(chars).collect(),
-        _ => correction.to_owned(),
-    }
+    let zone = std::fs::read_link("/etc/localtime")
+        .map_or_else(|_| String::new(), |p| p.to_string_lossy().into_owned());
+    let american = if zone.contains("zoneinfo/") {
+        zone.contains("zoneinfo/America/") || zone.contains("zoneinfo/US/")
+    } else {
+        language == "en_US"
+    };
+    if american { "en_US" } else { "en_GB" }.to_owned()
 }
 
-fn phrases(context: &str) -> &'static [&'static str] {
-    let key = context.trim().to_lowercase();
-    let words: Vec<&str> = key.split_whitespace().collect();
-    let last_two = words
-        .get(words.len().saturating_sub(2)..)
-        .map_or_default(|w| w.join(" "));
-    PHRASES
-        .iter()
-        .find(|(k, _)| *k == key)
-        .or_else(|| {
-            PHRASES
-                .iter()
-                .find(|(k, _)| words.len() >= 2 && *k == last_two)
-        })
-        .map_or(&[], |(_, p)| p)
-}
-
-struct Engine {
-    config: PathBuf,
-    language: String,
-    loaded: Option<String>,
-    spell: Option<spellbook::Dictionary>,
-    // The dictionary's stems and the words learnt, lowercased and sorted.
-    words: Vec<String>,
-    frequencies: HashMap<String, u32>,
-    unsaved: u32,
-}
-
-impl Engine {
-    fn new(config: PathBuf, language: &str) -> Self {
-        Self {
-            config,
-            language: language.to_owned(),
-            loaded: None,
-            spell: None,
-            words: Vec::new(),
-            frequencies: HashMap::new(),
-            unsaved: 0,
-        }
+/// The language's word list (from `MARATHON_KEYBOARD_WORDS`, for tests), or
+/// its Hunspell words, all equally common.
+fn word_list(language: &str) -> String {
+    let dir = std::env::var("MARATHON_KEYBOARD_WORDS").unwrap_or_else(|_| WORD_LISTS.to_owned());
+    let path = PathBuf::from(dir).join(format!("{language}.lex"));
+    if let Ok(text) = std::fs::read_to_string(&path) {
+        return text;
     }
-
-    fn user_words(&self) -> PathBuf {
-        self.config.join("keyboard_user_dictionary.txt")
-    }
-
-    fn frequency_file(&self) -> PathBuf {
-        self.config.join("keyboard_word_frequencies.txt")
-    }
-
-    fn set_language(&mut self, language: &str) {
-        language.clone_into(&mut self.language);
-    }
-
-    fn ensure_loaded(&mut self) {
-        if self.loaded.as_deref() == Some(self.language.as_str()) {
-            return;
-        }
-        self.loaded = Some(self.language.clone());
-        let (spell, mut words) = match find_dictionary(&self.language) {
-            Some(base) => load(&base),
-            None => (None, Vec::new()),
-        };
-        self.spell = spell;
-        if self.frequencies.is_empty() {
-            let text = std::fs::read_to_string(self.frequency_file()).unwrap_or_default();
-            self.frequencies = text
-                .lines()
-                .filter_map(|l| l.split_once('\t'))
-                .filter_map(|(w, n)| Some((w.to_owned(), n.trim().parse().ok()?)))
-                .collect();
-        }
-        for word in std::fs::read_to_string(self.user_words())
-            .unwrap_or_default()
-            .lines()
-            .map(str::trim)
-            .filter(|w| !w.is_empty())
-        {
-            if let Some(spell) = &mut self.spell {
-                spell.add(word).ok();
-            }
-            words.push(word.to_lowercase());
-        }
-        words.sort_unstable();
-        words.dedup();
-        self.words = words;
-    }
-
-    /// The known words starting with `prefix`, the most used and then the
-    /// shortest first.
-    fn completions(&mut self, prefix: &str) -> Vec<String> {
-        self.ensure_loaded();
-        let prefix = prefix.to_lowercase();
-        let start = self.words.partition_point(|w| w.as_str() < prefix.as_str());
-        let mut hits: Vec<&String> = self
-            .words
-            .iter()
-            .skip(start)
-            .take_while(|w| w.starts_with(&prefix))
-            .collect();
-        hits.sort_by_key(|w| {
-            (
-                Reverse(self.frequencies.get(w.as_str()).copied().unwrap_or(0)),
-                w.len(),
-            )
-        });
-        hits.into_iter().take(PREDICTIONS).cloned().collect()
-    }
-
-    /// The dictionary's nearest word to a misspelt one, at most two edits away.
-    fn correction(&mut self, word: &str) -> Option<String> {
-        let spell = self.spell.as_ref()?;
-        let lower = word.to_lowercase();
-        if lower.chars().count() < 3 || spell.check(word) || spell.check(&lower) {
-            return None;
-        }
-        let mut suggestions = Vec::new();
-        spell.suggest(&lower, &mut suggestions);
-        suggestions
-            .into_iter()
-            .find(|s| levenshtein(&lower, &s.to_lowercase()) <= 2)
-    }
-
-    fn learn(&mut self, word: &str) {
-        self.ensure_loaded();
-        let lower = word.to_lowercase();
-        if let Err(at) = self.words.binary_search(&lower) {
-            self.words.insert(at, lower.clone());
-            if let Some(spell) = &mut self.spell {
-                spell.add(word).ok();
-            }
-            let path = self.user_words();
-            let appended = std::fs::create_dir_all(&self.config)
-                .and_then(|()| OpenOptions::new().create(true).append(true).open(&path))
-                .and_then(|mut file| writeln!(file, "{word}"));
-            if let Err(e) = appended {
-                log::warn("words", format_args!("{}: {e}", path.display()));
-            }
-        }
-        *self.frequencies.entry(lower).or_default() += 1;
-        self.unsaved += 1;
-        if self.unsaved >= 10 {
-            self.unsaved = 0;
-            let text = self
-                .frequencies
-                .iter()
-                .fold(String::new(), |mut text, (w, n)| {
-                    writeln!(text, "{w}\t{n}").ok();
-                    text
-                });
-            if let Err(e) = std::fs::write(self.frequency_file(), text) {
-                log::warn("words", format_args!("saving frequencies: {e}"));
-            }
-        }
-    }
-}
-
-/// `<dir>/<language>` with its .aff and .dic, or any of the language's
-/// regions (`en_GB` for `en_US`).
-fn find_dictionary(language: &str) -> Option<PathBuf> {
-    let dirs = DICTIONARIES.iter().map(Path::new);
-    dirs.clone()
-        .map(|d| d.join(language))
-        .find(|b| b.with_extension("dic").exists())
-        .or_else(|| {
-            let code = language.get(..2)?;
-            dirs.filter_map(|d| std::fs::read_dir(d).ok())
-                .flatten()
-                .flatten()
-                .map(|e| e.path())
-                .find(|p| {
-                    p.extension().is_some_and(|e| e == "dic")
-                        && p.file_name()
-                            .is_some_and(|n| n.to_string_lossy().starts_with(code))
-                })
-                .map(|p| p.with_extension(""))
+    log::warn(
+        "words",
+        format_args!("{} missing: Hunspell words instead", path.display()),
+    );
+    let dic = hunspell(language).unwrap_or_default();
+    dic.lines()
+        .skip(1)
+        .filter_map(|l| l.split('/').next().map(str::trim))
+        .filter(|w| !w.is_empty())
+        .fold(String::new(), |mut out, w| {
+            out.push_str(w);
+            out.push_str("\t100\n");
+            out
         })
 }
 
-/// Hunspell files are UTF-8 or, in older dictionaries, ISO 8859-1.
-fn text(path: &Path) -> Option<String> {
+/// The language's Hunspell word list, or any of its regions'.
+fn hunspell(language: &str) -> Option<String> {
+    let code = language.get(..2).unwrap_or(language);
+    let ours = |p: &Path| {
+        p.extension().is_some_and(|e| e.eq_ignore_ascii_case("dic"))
+            && p.file_stem()
+                .is_some_and(|s| s.to_string_lossy().starts_with(code))
+    };
+    let path = HUNSPELL.iter().map(Path::new).find_map(|dir| {
+        let exact = dir.join(format!("{language}.dic"));
+        if exact.exists() {
+            return Some(exact);
+        }
+        std::fs::read_dir(dir)
+            .ok()?
+            .flatten()
+            .map(|e| e.path())
+            .find(|p| ours(p))
+    })?;
     let bytes = std::fs::read(path).ok()?;
     Some(
         String::from_utf8(bytes)
@@ -526,38 +422,19 @@ fn text(path: &Path) -> Option<String> {
     )
 }
 
-fn load(base: &Path) -> (Option<spellbook::Dictionary>, Vec<String>) {
-    let (Some(aff), Some(dic)) = (
-        text(&base.with_extension("aff")),
-        text(&base.with_extension("dic")),
-    ) else {
-        return (None, Vec::new());
-    };
-    let words = dic
-        .lines()
-        .skip(1)
-        .filter_map(|l| l.split('/').next().map(str::trim))
-        .filter(|w| (3..=20).contains(&w.chars().count()))
-        .map(str::to_lowercase)
-        .collect();
-    let spell = spellbook::Dictionary::new(&aff, &dic)
-        .map_err(|e| log::warn("words", format_args!("{}: {e}", base.display())))
-        .ok();
-    (spell, words)
-}
-
-fn levenshtein(a: &str, b: &str) -> usize {
-    let b: Vec<char> = b.chars().collect();
-    let mut previous: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.chars().enumerate() {
-        let mut current = vec![i + 1];
-        for (j, cb) in b.iter().enumerate() {
-            let replace = previous[j] + usize::from(ca != *cb);
-            current.push(replace.min(previous[j + 1] + 1).min(current[j] + 1));
-        }
-        previous = current;
+/// What was learnt: the history, or the word lists the keyboard kept before.
+fn history_text(config: &std::path::Path) -> String {
+    if let Ok(text) = std::fs::read_to_string(config.join("keyboard_history.txt")) {
+        return text;
     }
-    previous[b.len()]
+    [
+        "keyboard_word_frequencies.txt",
+        "keyboard_user_dictionary.txt",
+    ]
+    .iter()
+    .filter_map(|f| std::fs::read_to_string(config.join(f)).ok())
+    .collect::<Vec<_>>()
+    .join("\n")
 }
 
 #[derive(Default)]
@@ -627,56 +504,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn corrections_keep_the_capitals_typed() {
-        assert_eq!(with_case_of("Teh", "the"), "The");
-        assert_eq!(with_case_of("TEH", "the"), "THE");
-        assert_eq!(with_case_of("teh", "the"), "the");
-        assert_eq!(with_case_of("Im", "I'm"), "I'm");
-    }
-
-    #[test]
-    fn completions_rank_learnt_words_first() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut engine = Engine::new(dir.path().join("config"), "xx_XX");
-        engine.learn("hello");
-        engine.learn("help");
-        engine.learn("helicopter");
-        engine.learn("helicopter");
-        assert_eq!(engine.completions("Hel"), ["helicopter", "help", "hello"]);
-        assert_eq!(
-            std::fs::read_to_string(engine.user_words()).unwrap(),
-            "hello\nhelp\nhelicopter\n"
-        );
-        let mut again = Engine::new(dir.path().join("config"), "xx_XX");
-        assert_eq!(again.completions("he").len(), 3);
-    }
-
-    #[test]
-    fn a_misspelling_gets_the_nearest_word() {
-        let dir = tempfile::tempdir().unwrap();
-        let base = dir.path().join("xx_XX");
-        std::fs::write(
-            base.with_extension("aff"),
-            "SET UTF-8\nTRY esianrtolcdugmphbyfvkwz\n",
-        )
-        .unwrap();
-        std::fs::write(base.with_extension("dic"), "3\nhello\nhelp\nreceive\n").unwrap();
-        let mut engine = Engine::new(dir.path().join("config"), "xx_XX");
-        engine.loaded = Some("xx_XX".into());
-        (engine.spell, engine.words) = load(&base);
-        assert_eq!(engine.correction("recieve").as_deref(), Some("receive"));
-        assert_eq!(engine.correction("hello"), None);
-        assert_eq!(engine.completions("he"), ["help", "hello"]);
-    }
-
-    #[test]
-    fn phrases_follow_the_last_two_words() {
-        assert_eq!(phrases("How are"), ["you", "you doing", "things"]);
-        assert_eq!(phrases("so where is"), ["it", "that", "everyone"]);
-        assert_eq!(phrases("nothing"), <&[&str]>::default());
-    }
-
-    #[test]
     fn addresses_get_their_endings() {
         assert_eq!(domains("jo@g", true), ["jo@gmail.com"]);
         assert_eq!(
@@ -691,8 +518,10 @@ mod tests {
     }
 
     #[test]
-    fn edits_are_counted() {
-        assert_eq!(levenshtein("recieve", "receive"), 2);
-        assert_eq!(levenshtein("", "abc"), 3);
+    fn taps_are_read_as_points() {
+        assert_eq!(
+            points(&QString::from("1.5,2;3,4.25; bad")),
+            [(1.5, 2.0), (3.0, 4.25)]
+        );
     }
 }

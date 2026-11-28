@@ -26,6 +26,10 @@ Item {
         if (LanguageManager.currentLayout)
             dynamicLayout.layoutData = JSON.parse(LanguageManager.currentLayout);
     }
+    onLayoutDataChanged: {
+        if (dynamicLayout.layoutData)
+            Dictionary.setLanguage(dynamicLayout.layoutData.dictionary || dynamicLayout.layoutData.id);
+    }
 
     Column {
         id: layoutColumn
@@ -83,11 +87,15 @@ Item {
                             id: keyDelegate
 
                             required property var modelData
+                            required property int index
+                            // The top row of ten holds the digits, as on a hardware keyboard.
+                            readonly property string digit: rowDelegate.index === 0 && keyRow.charKeyCount === 10 ? String((keyDelegate.index + 1) % 10) : ""
 
                             width: keyRow.keyWidth
                             text: keyDelegate.modelData.char
                             displayText: dynamicLayout.shifted || dynamicLayout.capsLock ? keyDelegate.modelData.char.toUpperCase() : keyDelegate.modelData.char
-                            alternateChars: keyDelegate.modelData.alts
+                            alternateText: keyDelegate.digit
+                            alternateChars: keyDelegate.digit !== "" ? [keyDelegate.digit].concat(keyDelegate.modelData.alts) : keyDelegate.modelData.alts
                             onClicked: {
                                 dynamicLayout.keyClicked(keyDelegate.displayText);
                             }
