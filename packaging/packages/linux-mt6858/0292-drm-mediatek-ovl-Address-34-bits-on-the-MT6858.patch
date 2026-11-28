@@ -1,0 +1,113 @@
+From 0596b5167b4b9078989eb55c8fe14fedfb59b4ad Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 28 Nov 2026 17:26:54 +0000
+Subject: [PATCH] drm/mediatek: ovl: Address 34 bits on the MT6858
+
+The MT6858's OVLs take the upper bits of each layer's address in
+DISP_REG_OVL_ADDR_MSB, as MediaTek's own driver programs them on its
+other recent phone SoCs (is_support_34bits), and the stock JP2601
+device tree gives each OVL 16 GiB of DMA range. Mainline used the
+MT8192 data, so the DRM device, whose DMA device is the first OVL,
+got the default 32-bit mask on a phone whose 12 GiB of RAM is nearly
+all above 4 GiB. Every dma-buf the display imported then went through
+SWIOTLB, which bounces at most 256 KiB at a time: "mediatek-disp-ovl
+14003000.ovl: swiotlb buffer is full", about 700 times a boot.
+
+Give the MT6858 its own data: write the layer address's upper bits
+and set a 34-bit DMA mask. Physically contiguous buffers anywhere in
+RAM can then be scanned out directly, and scattered ones are refused
+by the GEM import's contiguity check instead of failing in SWIOTLB.
+---
+ drivers/gpu/drm/mediatek/mtk_disp_ovl.c | 34 +++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_ovl.c b/drivers/gpu/drm/mediatek/mtk_disp_ovl.c
+index 544587071..e861495ad 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_ovl.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_ovl.c
+@@ -9,6 +9,7 @@
+ 
+ #include <linux/clk.h>
+ #include <linux/component.h>
++#include <linux/dma-mapping.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+@@ -49,6 +50,8 @@
+ #define OVL_CON_CLRFMT_10_BIT				(1)
+ #define DISP_REG_OVL_ADDR_MT8173		0x0f40
+ #define DISP_REG_OVL_ADDR(ovl, n)		((ovl)->data->addr + 0x20 * (n))
++#define DISP_REG_OVL_ADDR_MSB(n)		(0x0f4c + 0x20 * (n))
++#define OVL_ADDR_MSB				GENMASK(3, 0)
+ #define DISP_REG_OVL_HDR_ADDR(ovl, n)		((ovl)->data->addr + 0x20 * (n) + 0x04)
+ #define DISP_REG_OVL_HDR_PITCH(ovl, n)		((ovl)->data->addr + 0x20 * (n) + 0x08)
+ 
+@@ -150,6 +153,7 @@ struct mtk_disp_ovl_data {
+ 	const u32 *formats;
+ 	size_t num_formats;
+ 	bool supports_clrfmt_ext;
++	bool supports_34bit_addr;
+ };
+ 
+ /*
+@@ -563,6 +567,10 @@ void mtk_ovl_layer_config(struct device *dev, unsigned int idx,
+ 			      DISP_REG_OVL_OFFSET(idx));
+ 	mtk_ddp_write_relaxed(cmdq_pkt, addr, &ovl->cmdq_reg, ovl->regs,
+ 			      DISP_REG_OVL_ADDR(ovl, idx));
++	if (ovl->data->supports_34bit_addr)
++		mtk_ddp_write_mask(cmdq_pkt, upper_32_bits(pending->addr),
++				   &ovl->cmdq_reg, ovl->regs,
++				   DISP_REG_OVL_ADDR_MSB(idx), OVL_ADDR_MSB);
+ 
+ 	if (ovl->data->supports_afbc)
+ 		mtk_ovl_afbc_layer_config(ovl, idx, pending, cmdq_pkt);
+@@ -640,6 +648,12 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
+ 	priv->data = of_device_get_match_data(dev);
+ 	platform_set_drvdata(pdev, priv);
+ 
++	if (priv->data->supports_34bit_addr) {
++		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
++		if (ret)
++			return dev_err_probe(dev, ret, "Failed to set the DMA mask\n");
++	}
++
+ 	ret = devm_request_irq(dev, irq, mtk_disp_ovl_irq_handler,
+ 			       IRQF_TRIGGER_NONE, dev_name(dev), priv);
+ 	if (ret < 0)
+@@ -734,6 +748,24 @@ static const struct mtk_disp_ovl_data mt8192_ovl_2l_driver_data = {
+ 	.num_formats = ARRAY_SIZE(mt8173_formats),
+ };
+ 
++/*
++ * As the MT8192's, with the upper address bits of each layer in
++ * DISP_REG_OVL_ADDR_MSB, as on MediaTek's other recent phone SoCs.
++ */
++static const struct mtk_disp_ovl_data mt6858_ovl_2l_driver_data = {
++	.addr = DISP_REG_OVL_ADDR_MT8173,
++	.gmc_bits = 10,
++	.layer_nr = 2,
++	.fmt_rgb565_is_0 = true,
++	.smi_id_en = true,
++	.blend_modes = BIT(DRM_MODE_BLEND_PREMULTI) |
++		       BIT(DRM_MODE_BLEND_COVERAGE) |
++		       BIT(DRM_MODE_BLEND_PIXEL_NONE),
++	.formats = mt8173_formats,
++	.num_formats = ARRAY_SIZE(mt8173_formats),
++	.supports_34bit_addr = true,
++};
++
+ static const struct mtk_disp_ovl_data mt8195_ovl_driver_data = {
+ 	.addr = DISP_REG_OVL_ADDR_MT8173,
+ 	.gmc_bits = 10,
+@@ -752,6 +784,8 @@ static const struct mtk_disp_ovl_data mt8195_ovl_driver_data = {
+ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
+ 	{ .compatible = "mediatek,mt2701-disp-ovl",
+ 	  .data = &mt2701_ovl_driver_data},
++	{ .compatible = "mediatek,mt6858-disp-ovl-2l",
++	  .data = &mt6858_ovl_2l_driver_data},
+ 	{ .compatible = "mediatek,mt8167-disp-ovl",
+ 	  .data = &mt8167_ovl_driver_data},
+ 	{ .compatible = "mediatek,mt8173-disp-ovl",
+-- 
+2.55.0
+
