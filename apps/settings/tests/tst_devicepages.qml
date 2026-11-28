@@ -252,6 +252,14 @@ TestCase {
         verify(!child(open("keyboard").page, "hapticSwitch").visible);
     }
 
+    function test_swipeTypingCanBeTurnedOff() {
+        const swipe = child(open("keyboard").page, "swipeTypingSwitch");
+        verify(swipe.checked);
+        swipe.clicked(null);
+        verify(!KeyboardSettingsStore.swipeTypingEnabled);
+        verify(!swipe.checked);
+    }
+
     function test_ambience() {
         const page = open("ambience").page;
         const grid = child(page, "ambienceGrid");

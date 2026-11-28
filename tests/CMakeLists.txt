@@ -65,12 +65,13 @@ if(_SILICA_QMLDIR)
         add_test(NAME Keyboard_QML COMMAND test_keyboard_qml
             -import ${CMAKE_SOURCE_DIR}/tests/ui/stubs -import ${CMAKE_SOURCE_DIR}/marathon-silica
             -import ${_SILICA_QMLDIR} -input ${CMAKE_SOURCE_DIR}/tests/keyboard/qml)
-        set_tests_properties(Keyboard_QML PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1")
+        set_tests_properties(Keyboard_QML PROPERTIES ENVIRONMENT
+            "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1;MARATHON_KEYBOARD_WORDS=${CMAKE_SOURCE_DIR}/tests/keyboard/words")
     endif()
     if(TARGET test_keyboard_textinput)
         add_test(NAME Keyboard_TextInput COMMAND test_keyboard_textinput)
         set_tests_properties(Keyboard_TextInput PROPERTIES ENVIRONMENT
-            "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;MARATHON_TEST_QML_IMPORTS=${CMAKE_SOURCE_DIR}/tests/ui/stubs:${CMAKE_SOURCE_DIR}/marathon-silica:${_SILICA_QMLDIR}")
+            "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;MARATHON_KEYBOARD_WORDS=${CMAKE_SOURCE_DIR}/tests/keyboard/words;MARATHON_TEST_QML_IMPORTS=${CMAKE_SOURCE_DIR}/tests/ui/stubs:${CMAKE_SOURCE_DIR}/marathon-silica:${_SILICA_QMLDIR}")
     endif()
     if(TARGET test_shell_keelshow AND TARGET marathon-app-runner)
         add_test(NAME Shell_KeelShow COMMAND test_shell_keelshow)

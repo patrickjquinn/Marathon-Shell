@@ -1,0 +1,12 @@
+The on-screen keyboard's word lists are built from two word lists in
+https://codeberg.org/Helium314/aosp-dictionaries:
+
+main_en_US.combined, the Android Open Source Project's English word list
+(via OpenBoard), under the Apache License 2.0.
+
+main_en_GB__experimental.combined, built from the Leipzig Corpora
+Collection (https://wortschatz.uni-leipzig.de) word lists, under the
+Creative Commons Attribution 4.0 International licence
+(https://creativecommons.org/licenses/by/4.0/). The British spellings,
+common words and next-word data in en_GB.lex and en_US.lex come from it,
+merged with the AOSP list.

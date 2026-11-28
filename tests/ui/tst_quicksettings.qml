@@ -237,6 +237,8 @@ TestCase {
         const seen = [];
         const seq = touch ? touchEvent(qs) : null;
         touch ? seq.press(0, qs, p0.x, p0.y).commit() : mousePress(qs, p0.x, p0.y);
+        // A finger's first move comes a frame after it lands.
+        wait(20);
         for (let i = 1; i <= steps; ++i) {
             const x = p0.x + dx * i / steps;
             const y = p0.y + (i % 2 ? wobble : -wobble) * Math.min(1, i / 4);
@@ -287,6 +289,9 @@ TestCase {
             // layout, which fills the shade, and inside the window.
             fit.height = 1300;
             UIStore.quickSettingsHeight = qs.maxHeight;
+            // The taller shade lays its tiles out larger on the next frame,
+            // moving the sliders down: aim at where they end up.
+            waitForRendering(qs);
         }
         revealSliders(data.fits === "end");
         const y = scroll().contentY;

@@ -59,7 +59,12 @@ class InputContext : public QObject {
     Q_INVOKABLE bool    atSentenceStart() const;
     Q_INVOKABLE bool    isWordText(const QString &text) const;
     Q_INVOKABLE QString getCurrentWord() const;
-    Q_INVOKABLE void    detectInputMode();
+    // The last `count` words before the cursor and the spaces after them, as
+    // deleting them would take them; "" when the field doesn't tell.
+    Q_INVOKABLE QString wordsBeforeCursor(int count) const;
+    // Deletes `text` when it is exactly what sits before the cursor.
+    Q_INVOKABLE bool deleteBeforeCursor(const QString &text);
+    Q_INVOKABLE void detectInputMode();
 
   signals:
     void keyboardChanged();

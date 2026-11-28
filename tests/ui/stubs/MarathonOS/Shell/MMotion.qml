@@ -36,8 +36,9 @@ QtObject {
     function stagger(index, step) {
         return reduceMotion ? 0 : Math.min(index * step, 200);
     }
+    // As the shell's: reduced motion stops the decorative animations.
     function gate(running) {
-        return running;
+        return !reduceMotion && running;
     }
     function exitDurationFor(role) {
         return 0;

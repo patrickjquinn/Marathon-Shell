@@ -224,6 +224,27 @@ bool InputContext::replaceTextBeforeCursor(const QString &before, const QString 
     return true;
 }
 
+QString InputContext::wordsBeforeCursor(int count) const {
+    const QString before = textBeforeCursor();
+    qsizetype     at     = before.size();
+    for (int word = 0; word < count && at > 0; ++word) {
+        while (at > 0 && before.at(at - 1).isSpace())
+            --at;
+        if (at > 0 && !before.at(at - 1).isLetterOrNumber()) {
+            while (at > 0 && !before.at(at - 1).isLetterOrNumber() && !before.at(at - 1).isSpace())
+                --at;
+        } else {
+            while (at > 0 && (before.at(at - 1).isLetterOrNumber() || before.at(at - 1) == u'\''))
+                --at;
+        }
+    }
+    return before.mid(at);
+}
+
+bool InputContext::deleteBeforeCursor(const QString &text) {
+    return replaceTextBeforeCursor(text, QString());
+}
+
 // The current word must also start at a word boundary in the field.
 bool InputContext::replaceCurrentWord(const QString &newWord) const {
     const QString word   = getCurrentWord();

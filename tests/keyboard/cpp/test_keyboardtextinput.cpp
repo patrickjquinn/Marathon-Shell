@@ -154,6 +154,9 @@ class TestKeyboardTextInput : public QObject {
         QTRY_COMPARE(QGuiApplication::focusObject(), m_item);
         QTRY_VERIFY2(m_printed.contains(QLatin1String("FOCUSED")), qPrintable(m_printed));
 
+        // The keyboard learns what is typed: into a fresh place each run.
+        static QTemporaryDir config;
+        qputenv("XDG_CONFIG_HOME", config.path().toUtf8());
         qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
         qmlRegisterSingletonType<marathon::Dictionary>(
             "MarathonOS.Shell", 1, 0, "Dictionary",

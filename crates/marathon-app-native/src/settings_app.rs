@@ -98,6 +98,7 @@ pub mod qobject {
         #[qproperty(bool, auto_capitalize_enabled, cxx_name = "autoCapitalizeEnabled", READ, WRITE = set_auto_capitalize_enabled, NOTIFY)]
         #[qproperty(bool, haptic_feedback_enabled, cxx_name = "hapticFeedbackEnabled", READ, WRITE = set_haptic_feedback_enabled, NOTIFY)]
         #[qproperty(bool, predictions_enabled, cxx_name = "predictionsEnabled", READ, WRITE = set_predictions_enabled, NOTIFY)]
+        #[qproperty(bool, swipe_typing_enabled, cxx_name = "swipeTypingEnabled", READ, WRITE = set_swipe_typing_enabled, NOTIFY)]
         #[qproperty(
             QStringList,
             available_languages,
@@ -117,6 +118,8 @@ pub mod qobject {
         fn set_haptic_feedback_enabled(self: Pin<&mut KeyboardSettingsStore>, enabled: bool);
         #[cxx_name = "setPredictionsEnabled"]
         fn set_predictions_enabled(self: Pin<&mut KeyboardSettingsStore>, enabled: bool);
+        #[cxx_name = "setSwipeTypingEnabled"]
+        fn set_swipe_typing_enabled(self: Pin<&mut KeyboardSettingsStore>, enabled: bool);
 
         #[qinvokable]
         #[cxx_name = "getLanguageName"]
@@ -694,6 +697,7 @@ pub struct KeyboardSettingsStoreRust {
     auto_capitalize_enabled: bool,
     haptic_feedback_enabled: bool,
     predictions_enabled: bool,
+    swipe_typing_enabled: bool,
     available_languages: QStringList,
 }
 
@@ -709,6 +713,7 @@ impl Default for KeyboardSettingsStoreRust {
             auto_capitalize_enabled: true,
             haptic_feedback_enabled: true,
             predictions_enabled: true,
+            swipe_typing_enabled: true,
             available_languages: QStringList::from(&list),
         }
     }
@@ -770,6 +775,14 @@ impl KeyboardSettingsStore {
                     if self.predictions_enabled != v {
                         self.as_mut().rust_mut().predictions_enabled = v;
                         self.predictions_enabled_changed();
+                    }
+                }
+            }
+            "keyboardSwipeTyping" => {
+                if let Some(v) = bool::from_value(val) {
+                    if self.swipe_typing_enabled != v {
+                        self.as_mut().rust_mut().swipe_typing_enabled = v;
+                        self.swipe_typing_enabled_changed();
                     }
                 }
             }
@@ -845,6 +858,15 @@ impl KeyboardSettingsStore {
             "SetProperty",
             ("keyboardPredictiveText", Value::from(enabled)),
         );
+    }
+
+    fn set_swipe_typing_enabled(mut self: Pin<&mut Self>, enabled: bool) {
+        if self.swipe_typing_enabled == enabled {
+            return;
+        }
+        self.as_mut().rust_mut().swipe_typing_enabled = enabled;
+        self.swipe_typing_enabled_changed();
+        SETTINGS.call("SetProperty", ("keyboardSwipeTyping", Value::from(enabled)));
     }
 
     fn get_language_name(&self, language_id: &QString) -> QString {

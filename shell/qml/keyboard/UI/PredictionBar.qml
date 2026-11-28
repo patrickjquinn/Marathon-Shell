@@ -9,13 +9,16 @@ Rectangle {
 
     property var predictions: []
     property string currentWord: ""
+    // The words a slide off backspace is about to delete.
+    property string pendingDelete: ""
+    property bool correcting: false
     readonly property bool canPaste: Silica.Clipboard.hasText
 
     signal predictionSelected(string word)
     signal pasteRequested(string text)
 
     implicitHeight: Math.round(48 * Constants.scaleFactor)
-    visible: predictions.length > 0 || canPaste
+    visible: predictions.length > 0 || canPaste || pendingDelete !== ""
     height: visible ? implicitHeight : 0
     // Plain words, the best guess in the highlight.
     color: "transparent"
@@ -28,7 +31,7 @@ Rectangle {
         x: chipRow.spacing
         width: predictionBar.canPaste ? pasteRow.width + 2 * Silica.Theme.paddingMedium : 0
         height: Math.round(40 * Constants.scaleFactor)
-        visible: predictionBar.canPaste
+        visible: predictionBar.canPaste && predictionBar.pendingDelete === ""
         radius: Silica.Theme.paddingSmall
         color: pasteMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
         anchors.verticalCenter: parent.verticalCenter
@@ -79,7 +82,7 @@ Rectangle {
         anchors.leftMargin: pasteChip.width + spacing
         anchors.rightMargin: spacing
         spacing: Math.round(6 * Constants.scaleFactor)
-        visible: predictionBar.predictions.length > 0
+        visible: predictionBar.predictions.length > 0 && predictionBar.pendingDelete === ""
 
         Repeater {
             model: chipRow.shown
@@ -102,7 +105,7 @@ Rectangle {
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     text: predictionChip.modelData
-                    color: predictionChip.index === 0 || predictionMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    color: (predictionChip.index === 0 && predictionBar.correcting) || predictionMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                     font.family: Silica.Theme.fontFamily
                     font.pixelSize: Silica.Theme.fontSizeMedium
                 }
@@ -129,11 +132,25 @@ Rectangle {
     }
 
     Text {
+        objectName: "pendingDelete"
+        anchors.centerIn: parent
+        width: parent.width - 2 * Silica.Theme.horizontalPageMargin
+        horizontalAlignment: Text.AlignHCenter
+        elide: Text.ElideLeft
+        visible: predictionBar.pendingDelete !== ""
+        text: predictionBar.pendingDelete
+        font.strikeout: true
+        color: Silica.Theme.highlightColor
+        font.family: Silica.Theme.fontFamily
+        font.pixelSize: Silica.Theme.fontSizeMedium
+    }
+
+    Text {
         anchors.centerIn: parent
         text: predictionBar.currentWord ? "..." : ""
         color: Silica.Theme.secondaryColor
         font.pixelSize: Silica.Theme.fontSizeSmall
-        visible: predictionBar.predictions.length === 0
+        visible: predictionBar.predictions.length === 0 && predictionBar.pendingDelete === ""
         opacity: 0.5
     }
 }

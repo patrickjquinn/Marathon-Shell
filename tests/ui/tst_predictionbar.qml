@@ -30,6 +30,17 @@ TestCase {
     function init() {
         pasteSpy.clear();
         bar.predictions = [];
+        bar.pendingDelete = "";
+    }
+
+    function test_aSlideOffBackspaceShowsWhatGoes() {
+        Silica.Clipboard.text = "x";
+        bar.predictions = ["one"];
+        bar.pendingDelete = "two words ";
+        verify(bar.visible);
+        verify(findChild(bar, "pendingDelete").visible);
+        compare(findChild(bar, "pendingDelete").text, "two words ");
+        verify(!findChild(bar, "pasteChip").visible);
     }
 
     function test_pasteOffersTheClipboard() {
