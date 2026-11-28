@@ -988,3 +988,57 @@ index 131b0cc..f56be7c 100644
  	}
  	return 0;
  }
+diff --git a/eccci/hif/ccci_dpmaif_com.h b/eccci/hif/ccci_dpmaif_com.h
+--- a/eccci/hif/ccci_dpmaif_com.h
++++ b/eccci/hif/ccci_dpmaif_com.h
+@@ -37,7 +37,7 @@
+ #define DEFAULT_PLAT_INF        (6983)
+ 
+ 
+-#define DPMAIF_TRAFFIC_MONITOR_INTERVAL 10
++#define DPMAIF_TRAFFIC_MONITOR_INTERVAL 0
+ #define DPMAIF_TXQ_FULL_LOG_INTERVAL 500
+ 
+ #define DPMAIF_REDUCE_RX_FLUSH
+diff --git a/eccci/hif/ccci_hif_ccif.c b/eccci/hif/ccci_hif_ccif.c
+--- a/eccci/hif/ccci_hif_ccif.c
++++ b/eccci/hif/ccci_hif_ccif.c
+@@ -962,7 +962,7 @@
+ 	/* for debug/statistical data print: traffic data */
+ 	ccci_reset_seq_num(&ccif_ctrl->traffic_info);
+ 	memset(ccif_ctrl->isr_cnt, 0, sizeof(ccif_ctrl->isr_cnt));
+-	if (for_start)
++	if (for_start && CCIF_TRAFFIC_MONITOR_INTERVAL)
+ 		mod_timer(&ccif_ctrl->traffic_monitor,
+ 			jiffies + CCIF_TRAFFIC_MONITOR_INTERVAL * HZ);
+ 	else
+diff --git a/eccci/hif/ccci_hif_ccif.h b/eccci/hif/ccci_hif_ccif.h
+--- a/eccci/hif/ccci_hif_ccif.h
++++ b/eccci/hif/ccci_hif_ccif.h
+@@ -21,7 +21,7 @@
+ #define CCCI_FS_AP_CCCI_WAKEUP (0x40000000)
+ #define CCCI_FS_REQ_SEND_AGAIN 0x80000000
+ 
+-#define CCIF_TRAFFIC_MONITOR_INTERVAL 10
++#define CCIF_TRAFFIC_MONITOR_INTERVAL 0
+ 
+ #define RX_BUGDET 16
+ #define NET_RX_QUEUE_MASK 0x4
+diff --git a/eccci/hif/ccci_dpmaif_com.c b/eccci/hif/ccci_dpmaif_com.c
+--- a/eccci/hif/ccci_dpmaif_com.c
++++ b/eccci/hif/ccci_dpmaif_com.c
+@@ -3106,12 +3106,14 @@
+ 		return -1;
+ 	}
+ 
++#if DPMAIF_TRAFFIC_MONITOR_INTERVAL
+ 	g_dpmaif_ctrl->rx_tfc_pkgs = kzalloc(sizeof(unsigned int) * g_dpmaif_ctrl->real_rxq_num,
+ 			GFP_KERNEL);
+ 	if (!g_dpmaif_ctrl->rx_tfc_pkgs) {
+ 		CCCI_ERROR_LOG(0, TAG, "[%s] error: kzalloc() rx_tfc_pkgs fail\n", __func__);
+ 		return -1;
+ 	}
++#endif
+ 
+ 	mtk_ccci_register_speed_1s_callback(dpmaif_total_spd_cb);
+ 

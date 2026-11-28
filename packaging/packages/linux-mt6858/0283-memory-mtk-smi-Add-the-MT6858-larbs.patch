@@ -1,0 +1,40 @@
+From d82f2c749b5bda08db79e2d296d9c477551a1972 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 15:29:45 +0000
+Subject: [PATCH 283/286] memory: mtk-smi: Add the MT6858 larbs
+
+The MT6858 larbs are MT8189's without its two firmware-assisted steps:
+the sleep handshake (SMI_LARB_SLP_CON) never acknowledges, which leaves
+the larb's runtime PM in error, and the BL31 rejects the port security
+call (MTK_SIP_KERNEL_IOMMU_CONTROL returns 4). Configure the ports the
+plain generation 2 way, with the hardware's own outstanding limits.
+---
+ drivers/memory/mtk-smi.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/memory/mtk-smi.c b/drivers/memory/mtk-smi.c
+index 66bc2289f..3dd306ab7 100644
+--- a/drivers/memory/mtk-smi.c
++++ b/drivers/memory/mtk-smi.c
+@@ -528,6 +528,10 @@ static const struct mtk_smi_larb_gen mtk_smi_larb_mt6893 = {
+ 	.ostd		            = mtk_smi_larb_mt6893_ostd,
+ };
+ 
++static const struct mtk_smi_larb_gen mtk_smi_larb_mt6858 = {
++	.config_port                = mtk_smi_larb_config_port_gen2_general,
++};
++
+ static const struct mtk_smi_larb_gen mtk_smi_larb_mt8167 = {
+ 	/* mt8167 do not need the port in larb */
+ 	.config_port = mtk_smi_larb_config_port_mt8167,
+@@ -581,6 +585,7 @@ static const struct of_device_id mtk_smi_larb_of_ids[] = {
+ 	{.compatible = "mediatek,mt2712-smi-larb", .data = &mtk_smi_larb_mt2712},
+ 	{.compatible = "mediatek,mt6779-smi-larb", .data = &mtk_smi_larb_mt6779},
+ 	{.compatible = "mediatek,mt6795-smi-larb", .data = &mtk_smi_larb_mt8173},
++	{.compatible = "mediatek,mt6858-smi-larb", .data = &mtk_smi_larb_mt6858},
+ 	{.compatible = "mediatek,mt6893-smi-larb", .data = &mtk_smi_larb_mt6893},
+ 	{.compatible = "mediatek,mt8167-smi-larb", .data = &mtk_smi_larb_mt8167},
+ 	{.compatible = "mediatek,mt8173-smi-larb", .data = &mtk_smi_larb_mt8173},
+-- 
+2.55.0
+

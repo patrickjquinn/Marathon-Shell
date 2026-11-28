@@ -1,0 +1,1081 @@
+From 87167c6a15ad096dd6576fa89e953e9dbdb25971 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 11:48:31 +0000
+Subject: [PATCH 275/286] media: i2c: Add a driver for the Sony IMX616
+
+Add a V4L2 subdev driver for the IMX616 in its 2x2 binned 3280x2464
+mode at 30 fps over four D-PHY lanes (853.9 Mbit/s per lane), with
+exposure, analogue and digital gain, vertical blanking, flips and the
+test patterns. The register settings are those of MediaTek's GPLv2
+imgsensor driver for the sensor (imx616_mipi_raw), from the Jolla
+Phone JP2601's stock kernel modules.
+
+Tested on the Jolla Phone JP2601: the chip ID (0x0616) reads at probe,
+and the stream reaches the MT6858 SENINF as whole 3280x2464 RAW10
+frames with no CSI-2 CRC or ECC errors.
+---
+ drivers/media/i2c/Kconfig  |   11 +
+ drivers/media/i2c/Makefile |    1 +
+ drivers/media/i2c/imx616.c | 1016 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 1028 insertions(+)
+ create mode 100644 drivers/media/i2c/imx616.c
+
+diff --git a/drivers/media/i2c/Kconfig b/drivers/media/i2c/Kconfig
+index 11c302525..77baeeeee 100644
+--- a/drivers/media/i2c/Kconfig
++++ b/drivers/media/i2c/Kconfig
+@@ -321,6 +321,17 @@ config VIDEO_IMX576
+           To compile this driver as a module, choose M here: the
+           module will be called imx576.
+ 
++config VIDEO_IMX616
++	tristate "Sony IMX616 sensor support"
++	depends on OF && GPIOLIB
++	select V4L2_CCI_I2C
++	help
++	  This is a Video4Linux2 sensor driver for the Sony
++	  IMX616 camera.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called imx616.
++
+ config VIDEO_IMX678
+ 	tristate "Sony IMX678 sensor support"
+ 	depends on GPIOLIB
+diff --git a/drivers/media/i2c/Makefile b/drivers/media/i2c/Makefile
+index 59e31af45..140c63a58 100644
+--- a/drivers/media/i2c/Makefile
++++ b/drivers/media/i2c/Makefile
+@@ -64,6 +64,7 @@ obj-$(CONFIG_VIDEO_IMX412) += imx412.o
+ obj-$(CONFIG_VIDEO_IMX415) += imx415.o
+ obj-$(CONFIG_VIDEO_IMX471) += imx471.o
+ obj-$(CONFIG_VIDEO_IMX576) += imx576.o
++obj-$(CONFIG_VIDEO_IMX616) += imx616.o
+ obj-$(CONFIG_VIDEO_IMX678) += imx678.o
+ obj-$(CONFIG_VIDEO_IR_I2C) += ir-kbd-i2c.o
+ obj-$(CONFIG_VIDEO_ISL7998X) += isl7998x.o
+diff --git a/drivers/media/i2c/imx616.c b/drivers/media/i2c/imx616.c
+new file mode 100644
+index 000000000..c3732ebb6
+--- /dev/null
++++ b/drivers/media/i2c/imx616.c
+@@ -0,0 +1,1016 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Sony IMX616 image sensor driver
++ *
++ * The register settings are taken from MediaTek's GPLv2 imgsensor driver
++ * (imx616_mipi_raw) as shipped for the Jolla Phone JP2601. Only the 2x2
++ * binned 3280x2464 mode is supported; the full 6560x4928 quad Bayer
++ * readout needs remosaicing.
++ */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/i2c.h>
++#include <linux/module.h>
++#include <linux/pm_runtime.h>
++#include <linux/regulator/consumer.h>
++#include <linux/units.h>
++#include <media/v4l2-cci.h>
++#include <media/v4l2-ctrls.h>
++#include <media/v4l2-device.h>
++#include <media/v4l2-fwnode.h>
++
++#define IMX616_MCLK_FREQ		(24 * HZ_PER_MHZ)
++/* OP PLL: 24 MHz / 19 * 1352 / 2 = 853.9 Mbit/s per lane */
++#define IMX616_LINK_FREQ		426947368ULL
++/* VT pixel clock of the stock mode, as LINE_LENGTH_PCK counts it */
++#define IMX616_PIXEL_RATE		528000000ULL
++#define IMX616_DATA_LANES		4
++
++#define IMX616_REG_CHIP_ID		CCI_REG16(0x0016)
++#define IMX616_CHIP_ID			0x0616
++
++#define IMX616_REG_MODE_SELECT		CCI_REG8(0x0100)
++#define IMX616_MODE_STREAMING		BIT(0)
++
++#define IMX616_REG_ORIENTATION		CCI_REG8(0x0101)
++#define IMX616_HFLIP			BIT(0)
++#define IMX616_VFLIP			BIT(1)
++
++#define IMX616_REG_HOLD			CCI_REG8(0x0104)
++
++#define IMX616_REG_EXPOSURE		CCI_REG16(0x0202)
++#define IMX616_EXPOSURE_MIN		8
++#define IMX616_EXPOSURE_MARGIN		48
++
++#define IMX616_REG_AGAIN		CCI_REG16(0x0204)
++/* Analogue gain is 1024 / (1024 - code), 1x to 16x */
++#define IMX616_AGAIN_MIN		0
++#define IMX616_AGAIN_MAX		960
++#define IMX616_AGAIN_DEFAULT		0
++
++#define IMX616_REG_DGAIN		CCI_REG16(0x020e)
++#define IMX616_DGAIN_MIN		0x0100
++#define IMX616_DGAIN_MAX		0x0fff
++#define IMX616_DGAIN_DEFAULT		0x0100
++
++#define IMX616_REG_VTS			CCI_REG16(0x0340)
++#define IMX616_VTS_MAX			0xffff
++
++#define IMX616_REG_TEST_PATTERN		CCI_REG16(0x0600)
++
++#define to_imx616(_sd)			container_of(_sd, struct imx616, sd)
++
++static const s64 imx616_link_freq_menu[] = {
++	IMX616_LINK_FREQ,
++};
++
++/* Bayer order for the four flip states, no flip first */
++static const u32 imx616_mbus_formats[] = {
++	MEDIA_BUS_FMT_SRGGB10_1X10, MEDIA_BUS_FMT_SGRBG10_1X10,
++	MEDIA_BUS_FMT_SGBRG10_1X10, MEDIA_BUS_FMT_SBGGR10_1X10,
++};
++
++static const char * const imx616_supply_names[] = {
++	"avdd",		/* analogue, 2.9 V */
++	"dvdd",		/* digital core, 1.1 V */
++	"dovdd",	/* digital I/O, 1.8 V */
++};
++
++static const char * const imx616_test_pattern_menu[] = {
++	"Disabled",
++	"Solid color",
++	"Color bars",
++	"Fade to grey color bars",
++	"PN9",
++};
++
++struct imx616_mode {
++	u32 width;
++	u32 height;
++	u32 hts;
++	u32 vts;
++	const struct cci_reg_sequence *regs;
++	unsigned int num_regs;
++};
++
++struct imx616 {
++	struct device *dev;
++	struct regmap *regmap;
++	struct clk *mclk;
++	struct gpio_desc *reset_gpio;
++	struct regulator_bulk_data supplies[ARRAY_SIZE(imx616_supply_names)];
++
++	struct v4l2_subdev sd;
++	struct media_pad pad;
++
++	struct v4l2_ctrl_handler ctrl_handler;
++	struct v4l2_ctrl *vblank;
++	struct v4l2_ctrl *exposure;
++	struct v4l2_ctrl *hflip;
++	struct v4l2_ctrl *vflip;
++
++	const struct imx616_mode *mode;
++};
++
++static const struct cci_reg_sequence imx616_init_regs[] = {
++	{ CCI_REG8(0x0136), 0x18 },
++	{ CCI_REG8(0x0137), 0x00 },
++	{ CCI_REG8(0x3c7e), 0x01 },
++	{ CCI_REG8(0x3c7f), 0x15 },
++	{ CCI_REG8(0x0111), 0x02 },
++	{ CCI_REG8(0x380c), 0x00 },
++	{ CCI_REG8(0x3c00), 0x01 },
++	{ CCI_REG8(0x3c01), 0x00 },
++	{ CCI_REG8(0x3c02), 0x00 },
++	{ CCI_REG8(0x3c03), 0x03 },
++	{ CCI_REG8(0x3c04), 0xff },
++	{ CCI_REG8(0x3c05), 0x01 },
++	{ CCI_REG8(0x3c06), 0x00 },
++	{ CCI_REG8(0x3c07), 0x00 },
++	{ CCI_REG8(0x3c08), 0x03 },
++	{ CCI_REG8(0x3c09), 0xff },
++	{ CCI_REG8(0x3c0a), 0x00 },
++	{ CCI_REG8(0x3c0b), 0x00 },
++	{ CCI_REG8(0x3c0c), 0x10 },
++	{ CCI_REG8(0x3c0d), 0x10 },
++	{ CCI_REG8(0x3c0e), 0x10 },
++	{ CCI_REG8(0x3c0f), 0x10 },
++	{ CCI_REG8(0x3c10), 0x10 },
++	{ CCI_REG8(0x3c11), 0x20 },
++	{ CCI_REG8(0x3c15), 0x00 },
++	{ CCI_REG8(0x3c16), 0x00 },
++	{ CCI_REG8(0x3c17), 0x01 },
++	{ CCI_REG8(0x3c18), 0x00 },
++	{ CCI_REG8(0x3c19), 0x01 },
++	{ CCI_REG8(0x3c1a), 0x00 },
++	{ CCI_REG8(0x3c1b), 0x01 },
++	{ CCI_REG8(0x3c1c), 0x00 },
++	{ CCI_REG8(0x3c1d), 0x01 },
++	{ CCI_REG8(0x3c1e), 0x00 },
++	{ CCI_REG8(0x3c1f), 0x00 },
++	{ CCI_REG8(0x3f89), 0x01 },
++	{ CCI_REG8(0x3f8f), 0x01 },
++	{ CCI_REG8(0x53b9), 0x01 },
++	{ CCI_REG8(0x62c4), 0x04 },
++	{ CCI_REG8(0x658f), 0x07 },
++	{ CCI_REG8(0x6590), 0x05 },
++	{ CCI_REG8(0x6591), 0x07 },
++	{ CCI_REG8(0x6592), 0x05 },
++	{ CCI_REG8(0x6593), 0x07 },
++	{ CCI_REG8(0x6594), 0x05 },
++	{ CCI_REG8(0x6595), 0x07 },
++	{ CCI_REG8(0x6596), 0x05 },
++	{ CCI_REG8(0x6597), 0x05 },
++	{ CCI_REG8(0x6598), 0x05 },
++	{ CCI_REG8(0x6599), 0x05 },
++	{ CCI_REG8(0x659a), 0x05 },
++	{ CCI_REG8(0x659b), 0x05 },
++	{ CCI_REG8(0x659c), 0x05 },
++	{ CCI_REG8(0x659d), 0x05 },
++	{ CCI_REG8(0x659e), 0x07 },
++	{ CCI_REG8(0x659f), 0x05 },
++	{ CCI_REG8(0x65a0), 0x07 },
++	{ CCI_REG8(0x65a1), 0x05 },
++	{ CCI_REG8(0x65a2), 0x07 },
++	{ CCI_REG8(0x65a3), 0x05 },
++	{ CCI_REG8(0x65a4), 0x07 },
++	{ CCI_REG8(0x65a5), 0x05 },
++	{ CCI_REG8(0x65a6), 0x05 },
++	{ CCI_REG8(0x65a7), 0x05 },
++	{ CCI_REG8(0x65a8), 0x05 },
++	{ CCI_REG8(0x65a9), 0x05 },
++	{ CCI_REG8(0x65aa), 0x05 },
++	{ CCI_REG8(0x65ab), 0x05 },
++	{ CCI_REG8(0x65ac), 0x05 },
++	{ CCI_REG8(0x65ad), 0x07 },
++	{ CCI_REG8(0x65ae), 0x07 },
++	{ CCI_REG8(0x65af), 0x07 },
++	{ CCI_REG8(0x65b0), 0x05 },
++	{ CCI_REG8(0x65b1), 0x05 },
++	{ CCI_REG8(0x65b2), 0x05 },
++	{ CCI_REG8(0x65b3), 0x05 },
++	{ CCI_REG8(0x65b4), 0x07 },
++	{ CCI_REG8(0x65b5), 0x07 },
++	{ CCI_REG8(0x65b6), 0x07 },
++	{ CCI_REG8(0x65b7), 0x07 },
++	{ CCI_REG8(0x65b8), 0x05 },
++	{ CCI_REG8(0x65b9), 0x05 },
++	{ CCI_REG8(0x65ba), 0x05 },
++	{ CCI_REG8(0x65bb), 0x05 },
++	{ CCI_REG8(0x65bc), 0x05 },
++	{ CCI_REG8(0x65bd), 0x05 },
++	{ CCI_REG8(0x65be), 0x05 },
++	{ CCI_REG8(0x65bf), 0x05 },
++	{ CCI_REG8(0x65c0), 0x05 },
++	{ CCI_REG8(0x65c1), 0x05 },
++	{ CCI_REG8(0x65c2), 0x05 },
++	{ CCI_REG8(0x65c3), 0x05 },
++	{ CCI_REG8(0x65c4), 0x05 },
++	{ CCI_REG8(0x65c5), 0x05 },
++	{ CCI_REG8(0x6e1c), 0x00 },
++	{ CCI_REG8(0x6e1d), 0x00 },
++	{ CCI_REG8(0x6e25), 0x00 },
++	{ CCI_REG8(0x6e38), 0x03 },
++	{ CCI_REG8(0x895c), 0x01 },
++	{ CCI_REG8(0x895d), 0x00 },
++	{ CCI_REG8(0x8966), 0x00 },
++	{ CCI_REG8(0x8967), 0x4e },
++	{ CCI_REG8(0x896a), 0x00 },
++	{ CCI_REG8(0x896b), 0x24 },
++	{ CCI_REG8(0x896f), 0x34 },
++	{ CCI_REG8(0x8976), 0x00 },
++	{ CCI_REG8(0x8977), 0x00 },
++	{ CCI_REG8(0x9004), 0x1f },
++	{ CCI_REG8(0x9200), 0xb7 },
++	{ CCI_REG8(0x9201), 0x34 },
++	{ CCI_REG8(0x9202), 0xb7 },
++	{ CCI_REG8(0x9203), 0x36 },
++	{ CCI_REG8(0x9204), 0xb7 },
++	{ CCI_REG8(0x9205), 0x37 },
++	{ CCI_REG8(0x9206), 0xb7 },
++	{ CCI_REG8(0x9207), 0x38 },
++	{ CCI_REG8(0x9208), 0xb7 },
++	{ CCI_REG8(0x9209), 0x39 },
++	{ CCI_REG8(0x920a), 0xb7 },
++	{ CCI_REG8(0x920b), 0x3a },
++	{ CCI_REG8(0x920c), 0xb7 },
++	{ CCI_REG8(0x920d), 0x3c },
++	{ CCI_REG8(0x920e), 0xb7 },
++	{ CCI_REG8(0x920f), 0x3d },
++	{ CCI_REG8(0x9210), 0xb7 },
++	{ CCI_REG8(0x9211), 0x3e },
++	{ CCI_REG8(0x9212), 0xb7 },
++	{ CCI_REG8(0x9213), 0x3f },
++	{ CCI_REG8(0x9214), 0xf6 },
++	{ CCI_REG8(0x9215), 0x13 },
++	{ CCI_REG8(0x9216), 0xf6 },
++	{ CCI_REG8(0x9217), 0x34 },
++	{ CCI_REG8(0x9218), 0xf4 },
++	{ CCI_REG8(0x9219), 0xa7 },
++	{ CCI_REG8(0x921a), 0xf4 },
++	{ CCI_REG8(0x921b), 0xaa },
++	{ CCI_REG8(0x921c), 0xf4 },
++	{ CCI_REG8(0x921d), 0xad },
++	{ CCI_REG8(0x921e), 0xf4 },
++	{ CCI_REG8(0x921f), 0xb0 },
++	{ CCI_REG8(0x9220), 0xf4 },
++	{ CCI_REG8(0x9221), 0xb3 },
++	{ CCI_REG8(0x9222), 0x85 },
++	{ CCI_REG8(0x9223), 0x77 },
++	{ CCI_REG8(0x9224), 0xc4 },
++	{ CCI_REG8(0x9225), 0x4b },
++	{ CCI_REG8(0x9226), 0xc4 },
++	{ CCI_REG8(0x9227), 0x4c },
++	{ CCI_REG8(0x9228), 0xc4 },
++	{ CCI_REG8(0x9229), 0x4d },
++	{ CCI_REG8(0x922a), 0xf5 },
++	{ CCI_REG8(0x922b), 0x5e },
++	{ CCI_REG8(0x922c), 0xf5 },
++	{ CCI_REG8(0x922d), 0x5f },
++	{ CCI_REG8(0x922e), 0xf5 },
++	{ CCI_REG8(0x922f), 0x64 },
++	{ CCI_REG8(0x9230), 0xf5 },
++	{ CCI_REG8(0x9231), 0x65 },
++	{ CCI_REG8(0x9232), 0xf5 },
++	{ CCI_REG8(0x9233), 0x6a },
++	{ CCI_REG8(0x9234), 0xf5 },
++	{ CCI_REG8(0x9235), 0x6b },
++	{ CCI_REG8(0x9236), 0xf5 },
++	{ CCI_REG8(0x9237), 0x70 },
++	{ CCI_REG8(0x9238), 0xf5 },
++	{ CCI_REG8(0x9239), 0x71 },
++	{ CCI_REG8(0x923a), 0xf5 },
++	{ CCI_REG8(0x923b), 0x76 },
++	{ CCI_REG8(0x923c), 0xf5 },
++	{ CCI_REG8(0x923d), 0x77 },
++	{ CCI_REG8(0x9810), 0x14 },
++	{ CCI_REG8(0x9814), 0x14 },
++	{ CCI_REG8(0xc020), 0x00 },
++	{ CCI_REG8(0xc026), 0x00 },
++	{ CCI_REG8(0xc027), 0x00 },
++	{ CCI_REG8(0xc448), 0x01 },
++	{ CCI_REG8(0xc44f), 0x01 },
++	{ CCI_REG8(0xc450), 0x00 },
++	{ CCI_REG8(0xc451), 0x00 },
++	{ CCI_REG8(0xc452), 0x01 },
++	{ CCI_REG8(0xc455), 0x00 },
++	{ CCI_REG8(0xe186), 0x36 },
++	{ CCI_REG8(0xe206), 0x35 },
++	{ CCI_REG8(0xe226), 0x33 },
++	{ CCI_REG8(0xe266), 0x34 },
++	{ CCI_REG8(0xe2a6), 0x31 },
++	{ CCI_REG8(0xe2c6), 0x37 },
++	{ CCI_REG8(0xe2e6), 0x32 },
++	{ CCI_REG8(0x88d6), 0x60 },
++	{ CCI_REG8(0x9852), 0x00 },
++	{ CCI_REG8(0xa569), 0x06 },
++	{ CCI_REG8(0xa56a), 0x13 },
++	{ CCI_REG8(0xa56b), 0x13 },
++	{ CCI_REG8(0xa56c), 0x01 },
++	{ CCI_REG8(0xa678), 0x00 },
++	{ CCI_REG8(0xa679), 0x20 },
++	{ CCI_REG8(0xa812), 0x00 },
++	{ CCI_REG8(0xa813), 0x3f },
++	{ CCI_REG8(0xa814), 0x3f },
++	{ CCI_REG8(0xa830), 0x68 },
++	{ CCI_REG8(0xa831), 0x56 },
++	{ CCI_REG8(0xa832), 0x2b },
++	{ CCI_REG8(0xa833), 0x55 },
++	{ CCI_REG8(0xa834), 0x55 },
++	{ CCI_REG8(0xa835), 0x16 },
++	{ CCI_REG8(0xa837), 0x51 },
++	{ CCI_REG8(0xa838), 0x34 },
++	{ CCI_REG8(0xa854), 0x4f },
++	{ CCI_REG8(0xa855), 0x48 },
++	{ CCI_REG8(0xa856), 0x45 },
++	{ CCI_REG8(0xa857), 0x02 },
++	{ CCI_REG8(0xa85a), 0x23 },
++	{ CCI_REG8(0xa85b), 0x16 },
++	{ CCI_REG8(0xa85c), 0x12 },
++	{ CCI_REG8(0xa85d), 0x02 },
++	{ CCI_REG8(0xaa55), 0x00 },
++	{ CCI_REG8(0xaa56), 0x01 },
++	{ CCI_REG8(0xaa57), 0x30 },
++	{ CCI_REG8(0xaa58), 0x01 },
++	{ CCI_REG8(0xaa59), 0x30 },
++	{ CCI_REG8(0xac72), 0x01 },
++	{ CCI_REG8(0xac73), 0x26 },
++	{ CCI_REG8(0xac74), 0x01 },
++	{ CCI_REG8(0xac75), 0x26 },
++	{ CCI_REG8(0xac76), 0x00 },
++	{ CCI_REG8(0xac77), 0xc4 },
++	{ CCI_REG8(0xae09), 0xff },
++	{ CCI_REG8(0xae0a), 0xff },
++	{ CCI_REG8(0xae12), 0x58 },
++	{ CCI_REG8(0xae13), 0x58 },
++	{ CCI_REG8(0xae15), 0x10 },
++	{ CCI_REG8(0xae16), 0x10 },
++	{ CCI_REG8(0xaf05), 0x48 },
++	{ CCI_REG8(0xb069), 0x02 },
++	{ CCI_REG8(0xea4b), 0x00 },
++	{ CCI_REG8(0xea4c), 0x00 },
++	{ CCI_REG8(0xea4d), 0x00 },
++	{ CCI_REG8(0xea4e), 0x00 },
++};
++
++static const struct cci_reg_sequence imx616_3280x2464_regs[] = {
++	{ CCI_REG8(0x0112), 0x0a },
++	{ CCI_REG8(0x0113), 0x0a },
++	{ CCI_REG8(0x0114), 0x03 },
++	{ CCI_REG8(0x0342), 0x1a },
++	{ CCI_REG8(0x0343), 0xd4 },
++	{ CCI_REG8(0x0340), 0x0a },
++	{ CCI_REG8(0x0341), 0x02 },
++	{ CCI_REG8(0x0344), 0x00 },
++	{ CCI_REG8(0x0345), 0x00 },
++	{ CCI_REG8(0x0346), 0x00 },
++	{ CCI_REG8(0x0347), 0x00 },
++	{ CCI_REG8(0x0348), 0x19 },
++	{ CCI_REG8(0x0349), 0x9f },
++	{ CCI_REG8(0x034a), 0x13 },
++	{ CCI_REG8(0x034b), 0x3f },
++	{ CCI_REG8(0x0220), 0x62 },
++	{ CCI_REG8(0x0222), 0x01 },
++	{ CCI_REG8(0x0900), 0x01 },
++	{ CCI_REG8(0x0901), 0x22 },
++	{ CCI_REG8(0x0902), 0x08 },
++	{ CCI_REG8(0x3140), 0x00 },
++	{ CCI_REG8(0x3246), 0x81 },
++	{ CCI_REG8(0x3247), 0x81 },
++	{ CCI_REG8(0x0401), 0x00 },
++	{ CCI_REG8(0x0404), 0x00 },
++	{ CCI_REG8(0x0405), 0x10 },
++	{ CCI_REG8(0x0408), 0x00 },
++	{ CCI_REG8(0x0409), 0x00 },
++	{ CCI_REG8(0x040a), 0x00 },
++	{ CCI_REG8(0x040b), 0x00 },
++	{ CCI_REG8(0x040c), 0x0c },
++	{ CCI_REG8(0x040d), 0xd0 },
++	{ CCI_REG8(0x040e), 0x09 },
++	{ CCI_REG8(0x040f), 0xa0 },
++	{ CCI_REG8(0x034c), 0x0c },
++	{ CCI_REG8(0x034d), 0xd0 },
++	{ CCI_REG8(0x034e), 0x09 },
++	{ CCI_REG8(0x034f), 0xa0 },
++	{ CCI_REG8(0x0301), 0x05 },
++	{ CCI_REG8(0x0303), 0x02 },
++	{ CCI_REG8(0x0305), 0x04 },
++	{ CCI_REG8(0x0306), 0x00 },
++	{ CCI_REG8(0x0307), 0xdc },
++	{ CCI_REG8(0x030b), 0x02 },
++	{ CCI_REG8(0x030d), 0x13 },
++	{ CCI_REG8(0x030e), 0x05 },
++	{ CCI_REG8(0x030f), 0x48 },
++	{ CCI_REG8(0x0310), 0x01 },
++	{ CCI_REG8(0x3620), 0x00 },
++	{ CCI_REG8(0x3621), 0x00 },
++	{ CCI_REG8(0x3c12), 0x14 },
++	{ CCI_REG8(0x3c13), 0x5a },
++	{ CCI_REG8(0x3c14), 0x34 },
++	{ CCI_REG8(0x3f0c), 0x01 },
++	{ CCI_REG8(0x3f14), 0x00 },
++	{ CCI_REG8(0x3f80), 0x00 },
++	{ CCI_REG8(0x3f81), 0x32 },
++	{ CCI_REG8(0x3f8c), 0x00 },
++	{ CCI_REG8(0x3f8d), 0x00 },
++	{ CCI_REG8(0x3ffc), 0x01 },
++	{ CCI_REG8(0x3ffd), 0xa4 },
++	{ CCI_REG8(0x3ffe), 0x00 },
++	{ CCI_REG8(0x3fff), 0x03 },
++	{ CCI_REG8(0x0202), 0x09 },
++	{ CCI_REG8(0x0203), 0xd2 },
++	{ CCI_REG8(0x0224), 0x01 },
++	{ CCI_REG8(0x0225), 0xf4 },
++	{ CCI_REG8(0x3fe0), 0x01 },
++	{ CCI_REG8(0x3fe1), 0xf4 },
++	{ CCI_REG8(0x0204), 0x00 },
++	{ CCI_REG8(0x0205), 0x70 },
++	{ CCI_REG8(0x0216), 0x00 },
++	{ CCI_REG8(0x0217), 0x70 },
++	{ CCI_REG8(0x0218), 0x01 },
++	{ CCI_REG8(0x0219), 0x00 },
++	{ CCI_REG8(0x020e), 0x01 },
++	{ CCI_REG8(0x020f), 0x00 },
++	{ CCI_REG8(0x0210), 0x01 },
++	{ CCI_REG8(0x0211), 0x00 },
++	{ CCI_REG8(0x0212), 0x01 },
++	{ CCI_REG8(0x0213), 0x00 },
++	{ CCI_REG8(0x0214), 0x01 },
++	{ CCI_REG8(0x0215), 0x00 },
++	{ CCI_REG8(0x3fe2), 0x00 },
++	{ CCI_REG8(0x3fe3), 0x70 },
++	{ CCI_REG8(0x3fe4), 0x01 },
++	{ CCI_REG8(0x3fe5), 0x00 },
++	{ CCI_REG8(0x3e20), 0x02 },
++	{ CCI_REG8(0x3e3b), 0x01 },
++	{ CCI_REG8(0x4034), 0x01 },
++	{ CCI_REG8(0x4035), 0x98 },
++};
++
++static const struct imx616_mode imx616_modes[] = {
++	{
++		.width = 3280,
++		.height = 2464,
++		.hts = 6868,
++		.vts = 2562,
++		.regs = imx616_3280x2464_regs,
++		.num_regs = ARRAY_SIZE(imx616_3280x2464_regs),
++	},
++};
++
++static u32 imx616_get_format_code(struct imx616 *imx616)
++{
++	unsigned int i = (imx616->vflip->val ? 2 : 0) |
++			 (imx616->hflip->val ? 1 : 0);
++
++	return imx616_mbus_formats[i];
++}
++
++static int imx616_set_ctrl(struct v4l2_ctrl *ctrl)
++{
++	struct imx616 *imx616 = container_of(ctrl->handler, struct imx616,
++					     ctrl_handler);
++	const struct imx616_mode *mode = imx616->mode;
++	int ret;
++
++	if (ctrl->id == V4L2_CID_VBLANK) {
++		s64 exposure_max = mode->height + ctrl->val -
++				   IMX616_EXPOSURE_MARGIN;
++
++		__v4l2_ctrl_modify_range(imx616->exposure,
++					 imx616->exposure->minimum,
++					 exposure_max, imx616->exposure->step,
++					 min(imx616->exposure->default_value,
++					     exposure_max));
++	}
++
++	if (!pm_runtime_get_if_active(imx616->dev))
++		return 0;
++
++	switch (ctrl->id) {
++	case V4L2_CID_ANALOGUE_GAIN:
++		ret = cci_write(imx616->regmap, IMX616_REG_AGAIN, ctrl->val,
++				NULL);
++		break;
++	case V4L2_CID_DIGITAL_GAIN:
++		ret = cci_write(imx616->regmap, IMX616_REG_DGAIN, ctrl->val,
++				NULL);
++		break;
++	case V4L2_CID_EXPOSURE:
++		ret = cci_write(imx616->regmap, IMX616_REG_EXPOSURE, ctrl->val,
++				NULL);
++		break;
++	case V4L2_CID_VBLANK:
++		ret = cci_write(imx616->regmap, IMX616_REG_VTS,
++				mode->height + ctrl->val, NULL);
++		break;
++	case V4L2_CID_HFLIP:
++	case V4L2_CID_VFLIP:
++		ret = cci_write(imx616->regmap, IMX616_REG_ORIENTATION,
++				(imx616->hflip->val ? IMX616_HFLIP : 0) |
++				(imx616->vflip->val ? IMX616_VFLIP : 0), NULL);
++		break;
++	case V4L2_CID_TEST_PATTERN:
++		ret = cci_write(imx616->regmap, IMX616_REG_TEST_PATTERN,
++				ctrl->val, NULL);
++		break;
++	default:
++		ret = -EINVAL;
++		break;
++	}
++
++	pm_runtime_put(imx616->dev);
++
++	return ret;
++}
++
++static const struct v4l2_ctrl_ops imx616_ctrl_ops = {
++	.s_ctrl = imx616_set_ctrl,
++};
++
++static int imx616_init_controls(struct imx616 *imx616)
++{
++	struct v4l2_ctrl_handler *hdl = &imx616->ctrl_handler;
++	const struct imx616_mode *mode = imx616->mode;
++	struct v4l2_fwnode_device_properties props;
++	struct v4l2_ctrl *ctrl;
++	s64 hblank, vblank;
++	int ret;
++
++	v4l2_ctrl_handler_init(hdl, 12);
++
++	ctrl = v4l2_ctrl_new_int_menu(hdl, &imx616_ctrl_ops, V4L2_CID_LINK_FREQ,
++				      ARRAY_SIZE(imx616_link_freq_menu) - 1, 0,
++				      imx616_link_freq_menu);
++	if (ctrl)
++		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
++
++	v4l2_ctrl_new_std(hdl, &imx616_ctrl_ops, V4L2_CID_PIXEL_RATE,
++			  IMX616_PIXEL_RATE, IMX616_PIXEL_RATE, 1,
++			  IMX616_PIXEL_RATE);
++
++	hblank = mode->hts - mode->width;
++	ctrl = v4l2_ctrl_new_std(hdl, &imx616_ctrl_ops, V4L2_CID_HBLANK,
++				 hblank, hblank, 1, hblank);
++	if (ctrl)
++		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
++
++	vblank = mode->vts - mode->height;
++	imx616->vblank = v4l2_ctrl_new_std(hdl, &imx616_ctrl_ops,
++					   V4L2_CID_VBLANK, vblank,
++					   IMX616_VTS_MAX - mode->height, 1,
++					   vblank);
++
++	imx616->exposure = v4l2_ctrl_new_std(hdl, &imx616_ctrl_ops,
++					     V4L2_CID_EXPOSURE,
++					     IMX616_EXPOSURE_MIN,
++					     mode->vts - IMX616_EXPOSURE_MARGIN,
++					     1, 2514);
++
++	v4l2_ctrl_new_std(hdl, &imx616_ctrl_ops, V4L2_CID_ANALOGUE_GAIN,
++			  IMX616_AGAIN_MIN, IMX616_AGAIN_MAX, 1,
++			  IMX616_AGAIN_DEFAULT);
++
++	v4l2_ctrl_new_std(hdl, &imx616_ctrl_ops, V4L2_CID_DIGITAL_GAIN,
++			  IMX616_DGAIN_MIN, IMX616_DGAIN_MAX, 1,
++			  IMX616_DGAIN_DEFAULT);
++
++	imx616->hflip = v4l2_ctrl_new_std(hdl, &imx616_ctrl_ops,
++					  V4L2_CID_HFLIP, 0, 1, 1, 0);
++	if (imx616->hflip)
++		imx616->hflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
++
++	imx616->vflip = v4l2_ctrl_new_std(hdl, &imx616_ctrl_ops,
++					  V4L2_CID_VFLIP, 0, 1, 1, 0);
++	if (imx616->vflip)
++		imx616->vflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
++
++	v4l2_ctrl_new_std_menu_items(hdl, &imx616_ctrl_ops,
++				     V4L2_CID_TEST_PATTERN,
++				     ARRAY_SIZE(imx616_test_pattern_menu) - 1,
++				     0, 0, imx616_test_pattern_menu);
++
++	ret = v4l2_fwnode_device_parse(imx616->dev, &props);
++	if (ret)
++		goto err_free;
++
++	ret = v4l2_ctrl_new_fwnode_properties(hdl, &imx616_ctrl_ops, &props);
++	if (ret)
++		goto err_free;
++
++	if (hdl->error) {
++		ret = hdl->error;
++		goto err_free;
++	}
++
++	imx616->sd.ctrl_handler = hdl;
++
++	return 0;
++
++err_free:
++	v4l2_ctrl_handler_free(hdl);
++	return ret;
++}
++
++static int imx616_enable_streams(struct v4l2_subdev *sd,
++				 struct v4l2_subdev_state *state, u32 pad,
++				 u64 streams_mask)
++{
++	struct imx616 *imx616 = to_imx616(sd);
++	const struct imx616_mode *mode = imx616->mode;
++	int ret;
++
++	ret = pm_runtime_resume_and_get(imx616->dev);
++	if (ret)
++		return ret;
++
++	cci_multi_reg_write(imx616->regmap, imx616_init_regs,
++			    ARRAY_SIZE(imx616_init_regs), &ret);
++	cci_multi_reg_write(imx616->regmap, mode->regs, mode->num_regs, &ret);
++	if (ret)
++		goto err;
++
++	ret = __v4l2_ctrl_handler_setup(imx616->sd.ctrl_handler);
++	if (ret)
++		goto err;
++
++	ret = cci_write(imx616->regmap, IMX616_REG_MODE_SELECT,
++			IMX616_MODE_STREAMING, NULL);
++	if (ret)
++		goto err;
++
++	return 0;
++
++err:
++	dev_err(imx616->dev, "failed to start streaming: %d\n", ret);
++	pm_runtime_put_autosuspend(imx616->dev);
++	return ret;
++}
++
++static int imx616_disable_streams(struct v4l2_subdev *sd,
++				  struct v4l2_subdev_state *state, u32 pad,
++				  u64 streams_mask)
++{
++	struct imx616 *imx616 = to_imx616(sd);
++	int ret;
++
++	ret = cci_write(imx616->regmap, IMX616_REG_MODE_SELECT, 0, NULL);
++	if (ret)
++		dev_err(imx616->dev, "failed to stop streaming: %d\n", ret);
++
++	pm_runtime_put_autosuspend(imx616->dev);
++
++	return ret;
++}
++
++static void imx616_update_pad_format(struct imx616 *imx616,
++				     const struct imx616_mode *mode,
++				     struct v4l2_mbus_framefmt *fmt)
++{
++	fmt->code = imx616_get_format_code(imx616);
++	fmt->width = mode->width;
++	fmt->height = mode->height;
++	fmt->field = V4L2_FIELD_NONE;
++	fmt->colorspace = V4L2_COLORSPACE_RAW;
++	fmt->ycbcr_enc = V4L2_YCBCR_ENC_601;
++	fmt->quantization = V4L2_QUANTIZATION_FULL_RANGE;
++	fmt->xfer_func = V4L2_XFER_FUNC_NONE;
++}
++
++static int imx616_set_pad_format(struct v4l2_subdev *sd,
++				 const struct v4l2_subdev_client_info *ci,
++				 struct v4l2_subdev_state *state,
++				 struct v4l2_subdev_format *fmt)
++{
++	struct imx616 *imx616 = to_imx616(sd);
++	const struct imx616_mode *mode;
++
++	mode = v4l2_find_nearest_size(imx616_modes, ARRAY_SIZE(imx616_modes),
++				      width, height, fmt->format.width,
++				      fmt->format.height);
++
++	imx616_update_pad_format(imx616, mode, &fmt->format);
++	*v4l2_subdev_state_get_format(state, 0) = fmt->format;
++
++	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
++		imx616->mode = mode;
++
++	return 0;
++}
++
++static int imx616_enum_mbus_code(struct v4l2_subdev *sd,
++				 struct v4l2_subdev_state *state,
++				 struct v4l2_subdev_mbus_code_enum *code)
++{
++	struct imx616 *imx616 = to_imx616(sd);
++
++	if (code->index > 0)
++		return -EINVAL;
++
++	code->code = imx616_get_format_code(imx616);
++
++	return 0;
++}
++
++static int imx616_enum_frame_size(struct v4l2_subdev *sd,
++				  struct v4l2_subdev_state *state,
++				  struct v4l2_subdev_frame_size_enum *fse)
++{
++	struct imx616 *imx616 = to_imx616(sd);
++
++	if (fse->index >= ARRAY_SIZE(imx616_modes) ||
++	    fse->code != imx616_get_format_code(imx616))
++		return -EINVAL;
++
++	fse->min_width = imx616_modes[fse->index].width;
++	fse->max_width = fse->min_width;
++	fse->min_height = imx616_modes[fse->index].height;
++	fse->max_height = fse->min_height;
++
++	return 0;
++}
++
++static int imx616_get_selection(struct v4l2_subdev *sd,
++				const struct v4l2_subdev_client_info *ci,
++				struct v4l2_subdev_state *state,
++				struct v4l2_subdev_selection *sel)
++{
++	switch (sel->target) {
++	case V4L2_SEL_TGT_CROP:
++	case V4L2_SEL_TGT_CROP_DEFAULT:
++	case V4L2_SEL_TGT_CROP_BOUNDS:
++	case V4L2_SEL_TGT_NATIVE_SIZE:
++		sel->r.left = 0;
++		sel->r.top = 0;
++		sel->r.width = 6560;
++		sel->r.height = 4928;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static int imx616_init_state(struct v4l2_subdev *sd,
++			     struct v4l2_subdev_state *state)
++{
++	struct v4l2_subdev_format fmt = {
++		.which = V4L2_SUBDEV_FORMAT_TRY,
++		.format = {
++			.width = imx616_modes[0].width,
++			.height = imx616_modes[0].height,
++		},
++	};
++
++	return imx616_set_pad_format(sd, NULL, state, &fmt);
++}
++
++static const struct v4l2_subdev_video_ops imx616_video_ops = {
++	.s_stream = v4l2_subdev_s_stream_helper,
++};
++
++static const struct v4l2_subdev_pad_ops imx616_pad_ops = {
++	.set_fmt = imx616_set_pad_format,
++	.get_fmt = v4l2_subdev_get_fmt,
++	.get_selection = imx616_get_selection,
++	.enum_mbus_code = imx616_enum_mbus_code,
++	.enum_frame_size = imx616_enum_frame_size,
++	.enable_streams = imx616_enable_streams,
++	.disable_streams = imx616_disable_streams,
++};
++
++static const struct v4l2_subdev_ops imx616_subdev_ops = {
++	.video = &imx616_video_ops,
++	.pad = &imx616_pad_ops,
++};
++
++static const struct v4l2_subdev_internal_ops imx616_internal_ops = {
++	.init_state = imx616_init_state,
++};
++
++static const struct media_entity_operations imx616_entity_ops = {
++	.link_validate = v4l2_subdev_link_validate,
++};
++
++static int imx616_power_on(struct device *dev)
++{
++	struct v4l2_subdev *sd = dev_get_drvdata(dev);
++	struct imx616 *imx616 = to_imx616(sd);
++	int ret;
++
++	ret = regulator_bulk_enable(ARRAY_SIZE(imx616->supplies),
++				    imx616->supplies);
++	if (ret)
++		return ret;
++
++	usleep_range(1000, 1500);
++
++	ret = clk_prepare_enable(imx616->mclk);
++	if (ret) {
++		regulator_bulk_disable(ARRAY_SIZE(imx616->supplies),
++				       imx616->supplies);
++		return ret;
++	}
++
++	usleep_range(5000, 6000);
++	gpiod_set_value_cansleep(imx616->reset_gpio, 0);
++	usleep_range(5000, 6000);
++
++	return 0;
++}
++
++static int imx616_power_off(struct device *dev)
++{
++	struct v4l2_subdev *sd = dev_get_drvdata(dev);
++	struct imx616 *imx616 = to_imx616(sd);
++
++	gpiod_set_value_cansleep(imx616->reset_gpio, 1);
++	clk_disable_unprepare(imx616->mclk);
++	regulator_bulk_disable(ARRAY_SIZE(imx616->supplies), imx616->supplies);
++
++	return 0;
++}
++
++static int imx616_check_hwcfg(struct imx616 *imx616)
++{
++	struct v4l2_fwnode_endpoint bus_cfg = {
++		.bus_type = V4L2_MBUS_CSI2_DPHY,
++	};
++	struct fwnode_handle *ep;
++	unsigned long freq_bitmap;
++	int ret;
++
++	ep = fwnode_graph_get_next_endpoint(dev_fwnode(imx616->dev), NULL);
++	if (!ep)
++		return -EINVAL;
++
++	ret = v4l2_fwnode_endpoint_alloc_parse(ep, &bus_cfg);
++	fwnode_handle_put(ep);
++	if (ret)
++		return ret;
++
++	if (bus_cfg.bus.mipi_csi2.num_data_lanes != IMX616_DATA_LANES) {
++		dev_err(imx616->dev, "%u data lanes, only %u are supported\n",
++			bus_cfg.bus.mipi_csi2.num_data_lanes,
++			IMX616_DATA_LANES);
++		ret = -EINVAL;
++		goto out;
++	}
++
++	ret = v4l2_link_freq_to_bitmap(imx616->dev, bus_cfg.link_frequencies,
++				       bus_cfg.nr_of_link_frequencies,
++				       imx616_link_freq_menu,
++				       ARRAY_SIZE(imx616_link_freq_menu),
++				       &freq_bitmap);
++out:
++	v4l2_fwnode_endpoint_free(&bus_cfg);
++	return ret;
++}
++
++static int imx616_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct imx616 *imx616;
++	unsigned int i;
++	u64 val;
++	int ret;
++
++	imx616 = devm_kzalloc(dev, sizeof(*imx616), GFP_KERNEL);
++	if (!imx616)
++		return -ENOMEM;
++
++	imx616->dev = dev;
++	v4l2_i2c_subdev_init(&imx616->sd, client, &imx616_subdev_ops);
++
++	imx616->regmap = devm_cci_regmap_init_i2c(client, 16);
++	if (IS_ERR(imx616->regmap))
++		return dev_err_probe(dev, PTR_ERR(imx616->regmap),
++				     "failed to init CCI\n");
++
++	imx616->mclk = devm_v4l2_sensor_clk_get(dev, NULL);
++	if (IS_ERR(imx616->mclk))
++		return dev_err_probe(dev, PTR_ERR(imx616->mclk),
++				     "failed to get the clock\n");
++	if (clk_get_rate(imx616->mclk) != IMX616_MCLK_FREQ)
++		return dev_err_probe(dev, -EINVAL, "unsupported clock rate %lu\n",
++				     clk_get_rate(imx616->mclk));
++
++	ret = imx616_check_hwcfg(imx616);
++	if (ret)
++		return dev_err_probe(dev, ret, "bad endpoint configuration\n");
++
++	imx616->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
++	if (IS_ERR(imx616->reset_gpio))
++		return dev_err_probe(dev, PTR_ERR(imx616->reset_gpio),
++				     "failed to get the reset GPIO\n");
++
++	for (i = 0; i < ARRAY_SIZE(imx616_supply_names); i++)
++		imx616->supplies[i].supply = imx616_supply_names[i];
++	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(imx616->supplies),
++				      imx616->supplies);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to get the supplies\n");
++
++	ret = imx616_power_on(dev);
++	if (ret)
++		return ret;
++
++	ret = cci_read(imx616->regmap, IMX616_REG_CHIP_ID, &val, NULL);
++	if (ret) {
++		dev_err_probe(dev, ret, "failed to read the chip ID\n");
++		goto err_power_off;
++	}
++	if (val != IMX616_CHIP_ID) {
++		ret = dev_err_probe(dev, -ENODEV, "chip ID %#llx is not %#x\n",
++				    val, IMX616_CHIP_ID);
++		goto err_power_off;
++	}
++
++	imx616->mode = &imx616_modes[0];
++
++	ret = imx616_init_controls(imx616);
++	if (ret)
++		goto err_power_off;
++
++	imx616->sd.internal_ops = &imx616_internal_ops;
++	imx616->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
++	imx616->sd.entity.ops = &imx616_entity_ops;
++	imx616->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
++	imx616->pad.flags = MEDIA_PAD_FL_SOURCE;
++
++	ret = media_entity_pads_init(&imx616->sd.entity, 1, &imx616->pad);
++	if (ret)
++		goto err_ctrls;
++
++	imx616->sd.state_lock = imx616->ctrl_handler.lock;
++	ret = v4l2_subdev_init_finalize(&imx616->sd);
++	if (ret)
++		goto err_entity;
++
++	pm_runtime_set_active(dev);
++	pm_runtime_enable(dev);
++	pm_runtime_set_autosuspend_delay(dev, 1000);
++	pm_runtime_use_autosuspend(dev);
++
++	ret = v4l2_async_register_subdev_sensor(&imx616->sd);
++	if (ret) {
++		dev_err_probe(dev, ret, "failed to register the subdev\n");
++		goto err_pm;
++	}
++
++	pm_runtime_idle(dev);
++
++	return 0;
++
++err_pm:
++	pm_runtime_disable(dev);
++	pm_runtime_set_suspended(dev);
++	v4l2_subdev_cleanup(&imx616->sd);
++err_entity:
++	media_entity_cleanup(&imx616->sd.entity);
++err_ctrls:
++	v4l2_ctrl_handler_free(&imx616->ctrl_handler);
++err_power_off:
++	imx616_power_off(dev);
++	return ret;
++}
++
++static void imx616_remove(struct i2c_client *client)
++{
++	struct v4l2_subdev *sd = i2c_get_clientdata(client);
++	struct imx616 *imx616 = to_imx616(sd);
++
++	v4l2_async_unregister_subdev(sd);
++	v4l2_subdev_cleanup(sd);
++	media_entity_cleanup(&sd->entity);
++	v4l2_ctrl_handler_free(&imx616->ctrl_handler);
++
++	pm_runtime_disable(imx616->dev);
++	if (!pm_runtime_status_suspended(imx616->dev))
++		imx616_power_off(imx616->dev);
++	pm_runtime_set_suspended(imx616->dev);
++}
++
++static DEFINE_RUNTIME_DEV_PM_OPS(imx616_pm_ops, imx616_power_off,
++				 imx616_power_on, NULL);
++
++static const struct of_device_id imx616_of_match[] = {
++	{ .compatible = "sony,imx616" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, imx616_of_match);
++
++static struct i2c_driver imx616_i2c_driver = {
++	.driver = {
++		.name = "imx616",
++		.of_match_table = imx616_of_match,
++		.pm = pm_ptr(&imx616_pm_ops),
++	},
++	.probe = imx616_probe,
++	.remove = imx616_remove,
++};
++module_i2c_driver(imx616_i2c_driver);
++
++MODULE_DESCRIPTION("Sony IMX616 image sensor driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+

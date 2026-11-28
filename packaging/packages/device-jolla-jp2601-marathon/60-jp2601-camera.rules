@@ -1,0 +1,2 @@
+# libcamera's software ISP allocates its output from the system heap.
+SUBSYSTEM=="dma_heap", KERNEL=="system", GROUP="video", MODE="0660"

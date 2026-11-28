@@ -15,7 +15,8 @@
 # at 4d505a4292dab3176a45fec66dc85debc362e24c (modem/eccci.patch says what
 # is read).
 # OUT is created: OUT/modules holds the CONNSYS modules, OUT/modem the
-# modem's; nothing else is written.
+# modem's, OUT/camera the camera receive drivers, their overlay loader
+# and the overlay (camera/README.md); nothing else is written.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 ksrc=$1 kobj=$2 conn=$3/connectivity dev=$4/drivers/misc/mediatek/connectivity out=$5 eccci=$6
@@ -75,3 +76,26 @@ kmake "$m" "$o/modem"
 mkdir -p "$out/modem"
 find "$o/modem" -name '*.ko' -exec sh -c \
 	'llvm-strip --strip-debug -o "$0/$(basename "$1")" "$1"' "$out/modem" {} \;
+
+# Cameras: MediaTek's Genio ISP6s SENINF, CAMSV and CSI PHY drivers with
+# the Q25's port and camera/*.patch, the overlay loader, and the overlay,
+# which resolves its targets through the base DTB's symbols.
+m=$out/src/camera
+rm -rf "$m"
+mkdir -p "$m"
+cp -r "$here/camera/Kbuild" "$here/camera/seninf" "$here/camera/camsv" "$here/camera/phy" \
+	"$here/cam-dt" "$m/"
+cp "$ksrc/drivers/phy/mediatek/phy-mtk-io.h" "$m/phy/"
+for p in "$here"/camera/0*.patch; do
+	(cd "$m" && patch -p1 -s < "$p")
+done
+kmake "$m" "$o/camera" CONFIG_MTK_SENINF6S=m CONFIG_MTK_CAMSV6S=m CONFIG_PHY_MTK_MIPI_CSI_2_1=m
+kmake "$m/cam-dt" "$o/cam-dt"
+mkdir -p "$out/camera"
+find "$o/camera" "$o/cam-dt" -name '*.ko' -exec sh -c \
+	'llvm-strip --strip-debug -o "$0/$(basename "$1")" "$1"' "$out/camera" {} \;
+cpp -nostdinc -undef -x assembler-with-cpp -P -I "$ksrc/include" \
+	-I "$ksrc/arch/arm64/boot/dts/mediatek" "$here/camera/jp2601-camera.dtso" > "$o/jp2601-camera.dts"
+"$kobj/scripts/dtc/dtc" -@ -Wno-clocks_property -Wno-power_domains_property \
+	-Wno-interrupts_property -Wno-gpios_property -I dts -O dtb \
+	-o "$out/camera/jp2601-camera.dtbo" "$o/jp2601-camera.dts"

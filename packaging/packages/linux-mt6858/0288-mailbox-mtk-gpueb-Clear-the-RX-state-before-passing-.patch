@@ -1,0 +1,45 @@
+From 7c9d9d6be1ffb794c47336d6e87f71b8dac038f8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 27 Nov 2026 18:04:12 +0000
+Subject: [PATCH] mailbox: mtk-gpueb: Clear the RX state before passing the
+ message on
+
+The threaded handler marked the channel empty only after the client's
+rx_callback had returned. A client that sends its next message as soon
+as it is woken by the callback, as mtk-mfg-pmdomain does when it sets the
+OPP right after powering the GPU on, can reach send_data() while the
+channel still reads full. send_data() then returns -EBUSY, and the
+mailbox core keeps the message queued without starting the TX poll:
+nothing is sent, mbox_send_message() still returns success, and the
+client times out waiting for an answer to a command the EB never got.
+The queued pointer is sent with the next message, by which time it
+points at a dead stack frame.
+
+On the MT6858 this left the GPU unable to power on or off after a few
+minutes of runtime PM ("No answer to GPUFreq IPI command 8", then
+"Failed to boot MCU").
+
+The IRQ stays masked until the thread returns, so the channel can be
+marked empty as soon as the message has been read and acknowledged.
+---
+ drivers/mailbox/mtk-gpueb-mailbox.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mailbox/mtk-gpueb-mailbox.c b/drivers/mailbox/mtk-gpueb-mailbox.c
+index ad5230fd2..9bb4f4aad 100644
+--- a/drivers/mailbox/mtk-gpueb-mailbox.c
++++ b/drivers/mailbox/mtk-gpueb-mailbox.c
+@@ -116,8 +116,9 @@ static irqreturn_t mtk_gpueb_mbox_thread(int irq, void *data)
+ 
+ 		mtk_gpueb_mbox_read_rx(buf, ch);
+ 		writel(BIT(ch->num), ch->ebm->mbox_ctl + GPUEB_MBOX_CTL_IRQ_CLR);
+-		mbox_chan_received_data(&ch->ebm->mbox.chans[ch->num], buf);
++		/* The client may send its next message as soon as it has this one */
+ 		atomic_set(&ch->rx_status, 0);
++		mbox_chan_received_data(&ch->ebm->mbox.chans[ch->num], buf);
+ 		return IRQ_HANDLED;
+ 	}
+ 
+-- 
+2.55.0
+
