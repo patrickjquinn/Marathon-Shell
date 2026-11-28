@@ -63,6 +63,7 @@ QtObject {
     property bool keyboardAutoCapitalize: true
     property bool keyboardAutoCorrection: true
     property bool keyboardPredictiveText: true
+    property bool keyboardSwipeTyping: true
     property var enabledQuickSettingsTiles: ["wifi", "cellular", "bluetooth", "airplane", "dnd", "torch", "location", "hotspot", "nightlight", "rotation", "autobrightness", "lowpower", "trackpad", "vibration", "power"]
     property var store: ({})
     function get(key, fallback) {

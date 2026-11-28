@@ -118,6 +118,7 @@ pub mod qobject {
         #[qproperty(bool, keyboard_auto_correction, cxx_name = "keyboardAutoCorrection", READ, WRITE = set_keyboard_auto_correction, NOTIFY)]
         #[qproperty(bool, keyboard_auto_capitalize, cxx_name = "keyboardAutoCapitalize", READ, WRITE = set_keyboard_auto_capitalize, NOTIFY)]
         #[qproperty(bool, keyboard_predictive_text, cxx_name = "keyboardPredictiveText", READ, WRITE = set_keyboard_predictive_text, NOTIFY)]
+        #[qproperty(bool, keyboard_swipe_typing, cxx_name = "keyboardSwipeTyping", READ, WRITE = set_keyboard_swipe_typing, NOTIFY)]
         #[qproperty(QString, keyboard_haptic_strength, cxx_name = "keyboardHapticStrength", READ, WRITE = set_keyboard_haptic_strength, NOTIFY)]
         #[qproperty(QString, keyboard_language, cxx_name = "keyboardLanguage", READ, WRITE = set_keyboard_language, NOTIFY)]
         #[qproperty(QString, language, READ, WRITE = set_language, NOTIFY)]
@@ -244,6 +245,8 @@ pub mod qobject {
         fn set_keyboard_auto_capitalize(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setKeyboardPredictiveText"]
         fn set_keyboard_predictive_text(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setKeyboardSwipeTyping"]
+        fn set_keyboard_swipe_typing(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setKeyboardHapticStrength"]
         fn set_keyboard_haptic_strength(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setKeyboardLanguage"]
@@ -562,6 +565,7 @@ properties! {
     keyboard_auto_correction: bool = true, "keyboard/autoCorrection", "keyboardAutoCorrection", keyboard_auto_correction_changed, on_keyboard_auto_correction_changed, set_keyboard_auto_correction(bool);
     keyboard_auto_capitalize: bool = true, "keyboard/autoCapitalize", "keyboardAutoCapitalize", keyboard_auto_capitalize_changed, on_keyboard_auto_capitalize_changed, set_keyboard_auto_capitalize(bool);
     keyboard_predictive_text: bool = true, "keyboard/predictiveText", "keyboardPredictiveText", keyboard_predictive_text_changed, on_keyboard_predictive_text_changed, set_keyboard_predictive_text(bool);
+    keyboard_swipe_typing: bool = true, "keyboard/swipeTyping", "keyboardSwipeTyping", keyboard_swipe_typing_changed, on_keyboard_swipe_typing_changed, set_keyboard_swipe_typing(bool);
     keyboard_haptic_strength: QString = QString::from("medium"), "keyboard/hapticStrength", "keyboardHapticStrength", keyboard_haptic_strength_changed, on_keyboard_haptic_strength_changed, set_keyboard_haptic_strength(&QString);
     keyboard_language: QString = QString::from("en_US"), "keyboard/language", "keyboardLanguage", keyboard_language_changed, on_keyboard_language_changed, set_keyboard_language(&QString);
     language: QString = QString::default(), "system/language", "language", language_changed, on_language_changed, set_language(&QString);

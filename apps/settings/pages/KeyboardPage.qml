@@ -69,6 +69,14 @@ Page {
                 onClicked: KeyboardSettingsStore.predictionsEnabled = !checked
             }
             TextSwitch {
+                objectName: "swipeTypingSwitch"
+                text: qsTr("Swipe typing")
+                description: qsTr("Slide across the letters to type a word")
+                automaticCheck: false
+                checked: KeyboardSettingsStore.swipeTypingEnabled
+                onClicked: KeyboardSettingsStore.swipeTypingEnabled = !checked
+            }
+            TextSwitch {
                 objectName: "hapticSwitch"
                 visible: Haptics.available
                 text: qsTr("Vibrate on key press")

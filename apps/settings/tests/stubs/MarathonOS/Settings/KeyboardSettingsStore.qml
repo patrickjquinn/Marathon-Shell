@@ -7,6 +7,7 @@ QtObject {
     property bool autoCapitalizeEnabled: true
     property bool hapticFeedbackEnabled: true
     property bool predictionsEnabled: true
+    property bool swipeTypingEnabled: true
     readonly property var availableLanguages: ["en_US", "de_DE", "fr_FR"]
 
     function reset() {
@@ -15,6 +16,7 @@ QtObject {
         autoCapitalizeEnabled = true;
         hapticFeedbackEnabled = true;
         predictionsEnabled = true;
+        swipeTypingEnabled = true;
     }
     function getLanguageName(id) {
         return {
