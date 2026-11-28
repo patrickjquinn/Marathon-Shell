@@ -1,0 +1,236 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrickjquinn@users.noreply.github.com>
+Date: Sat, 28 Nov 2026 11:40:05 +0000
+Subject: [PATCH] mtk-ccci: back to LTE after a call that fell back to 2G
+
+Without VoLTE a call on LTE falls back to 2G or 3G (CSFB), and while the
+data connection stays up there the MT6858 modem never returns: it sat on
+EDGE for over ten minutes after a call. With the connection down for a
+moment it is back on LTE and 5G within three seconds.
+
+So when the modem leaves LTE and a call follows, ten seconds after the
+last call ends, if it is still off LTE, each connected bearer goes down
+and up again, once. Off LTE without a call (no LTE coverage), nothing
+happens.
+---
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.c    | 169 ++++++++++++++++++
+ 1 file changed, 169 insertions(+)
+
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index 2bb5b0f..f52d69e 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -23,6 +23,9 @@
+ #include "mm-bearer-list.h"
+ #include "mm-iface-modem.h"
+ #include "mm-iface-modem-voice.h"
++#include "mm-call-list.h"
++#include "mm-base-call.h"
++#include "mm-base-bearer.h"
+ #include "mm-log.h"
+ #include "mm-modem-helpers.h"
+ #include "mm-broadband-modem-mtk-ccci.h"
+@@ -62,6 +65,13 @@ struct _MMBroadbandModemMtkCcciPrivate {
+     /* Call control on modems with a MIPC port (NR modems, e.g. MT6858) */
+     MMPortMipc        *mipc;
+     guint              mipc_handlers[3];
++    /* Back to LTE after a call that fell back to 2G or 3G */
++    MmGdbusModem      *modem_skeleton;
++    gulong             access_tech_id;
++    guint              lte_return_id;
++    guint              lte_return_ticks;
++    guint              lte_return_idle_ticks;
++    gboolean           lte_return_call_seen;
+ };
+ 
+ typedef struct {
+@@ -872,6 +882,162 @@ typedef enum {
+ 
+ static void mipc_setup_step (GTask *task);
+ 
++/*****************************************************************************/
++/* Back to LTE after a call. A call on LTE falls back to 2G or 3G (CSFB) when
++ * there is no VoLTE, and while the data connection stays up there the modem
++ * never goes back: it was seen on EDGE for over ten minutes after a call.
++ * With the connection down for a moment it is back on LTE in seconds, so
++ * once the call is over the connection goes down and up again, once. */
++
++#define LTE_RETURN_TICK_S      5
++/* How long after the last call the modem gets to return by itself */
++#define LTE_RETURN_GRACE_S     10
++/* How long off LTE without a call before this was no call's fallback */
++#define LTE_RETURN_NO_CALL_S   120
++
++static gboolean
++lte_missing (MMBroadbandModemMtkCcci *self)
++{
++    MMModemAccessTechnology act;
++
++    act = mm_iface_modem_get_access_technologies (MM_IFACE_MODEM (self));
++    return act != MM_MODEM_ACCESS_TECHNOLOGY_UNKNOWN &&
++           !(act & (MM_MODEM_ACCESS_TECHNOLOGY_LTE | MM_MODEM_ACCESS_TECHNOLOGY_5GNR));
++}
++
++static void
++call_active (MMBaseCall *call,
++             gpointer    user_data)
++{
++    MMCallState state;
++
++    state = mm_base_call_get_state (call);
++    if (state != MM_CALL_STATE_TERMINATED && state != MM_CALL_STATE_UNKNOWN)
++        *(gboolean *) user_data = TRUE;
++}
++
++static gboolean
++in_call (MMBroadbandModemMtkCcci *self)
++{
++    g_autoptr(MMCallList) calls = NULL;
++    gboolean              active = FALSE;
++
++    g_object_get (self, MM_IFACE_MODEM_VOICE_CALL_LIST, &calls, NULL);
++    if (calls)
++        mm_call_list_foreach (calls, call_active, &active);
++    return active;
++}
++
++static void
++lte_return_connect_ready (MMBaseBearer            *bearer,
++                          GAsyncResult            *res,
++                          MMBroadbandModemMtkCcci *self)
++{
++    g_autoptr(GError) error = NULL;
++
++    /* A connection manager reconnecting first cancels this one */
++    if (!mm_base_bearer_connect_finish (bearer, res, &error) &&
++        !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
++        mm_obj_warn (self, "couldn't reconnect after the call: %s", error->message);
++    g_object_unref (self);
++}
++
++static void
++lte_return_disconnect_ready (MMBaseBearer            *bearer,
++                             GAsyncResult            *res,
++                             MMBroadbandModemMtkCcci *self)
++{
++    g_autoptr(GError) error = NULL;
++
++    if (!mm_base_bearer_disconnect_finish (bearer, res, &error)) {
++        mm_obj_warn (self, "couldn't release the data connection after the call: %s", error->message);
++        g_object_unref (self);
++        return;
++    }
++    mm_base_bearer_connect (bearer, (GAsyncReadyCallback) lte_return_connect_ready, self);
++}
++
++static void
++lte_return_bounce (MMBaseBearer *bearer,
++                   gpointer      user_data)
++{
++    if (mm_base_bearer_get_status (bearer) != MM_BEARER_STATUS_CONNECTED)
++        return;
++    mm_base_bearer_disconnect (bearer,
++                               (GAsyncReadyCallback) lte_return_disconnect_ready,
++                               g_object_ref (user_data));
++}
++
++static gboolean
++lte_return_tick (MMBroadbandModemMtkCcci *self)
++{
++    g_autoptr(MMBearerList) bearers = NULL;
++
++    self->priv->lte_return_ticks++;
++    if (!lte_missing (self))
++        goto stop;
++    if (in_call (self)) {
++        self->priv->lte_return_call_seen = TRUE;
++        self->priv->lte_return_idle_ticks = 0;
++        return G_SOURCE_CONTINUE;
++    }
++    if (!self->priv->lte_return_call_seen) {
++        if (self->priv->lte_return_ticks * LTE_RETURN_TICK_S >= LTE_RETURN_NO_CALL_S)
++            goto stop;
++        return G_SOURCE_CONTINUE;
++    }
++    if (++self->priv->lte_return_idle_ticks * LTE_RETURN_TICK_S < LTE_RETURN_GRACE_S)
++        return G_SOURCE_CONTINUE;
++
++    mm_obj_msg (self, "still off LTE after the call: releasing the data connection once");
++    g_object_get (self, MM_IFACE_MODEM_BEARER_LIST, &bearers, NULL);
++    if (bearers)
++        mm_bearer_list_foreach (bearers, lte_return_bounce, self);
++
++stop:
++    self->priv->lte_return_id = 0;
++    return G_SOURCE_REMOVE;
++}
++
++static void
++access_technologies_changed (MMBroadbandModemMtkCcci *self)
++{
++    if (self->priv->lte_return_id || !lte_missing (self))
++        return;
++    self->priv->lte_return_ticks = 0;
++    self->priv->lte_return_idle_ticks = 0;
++    self->priv->lte_return_call_seen = FALSE;
++    self->priv->lte_return_id = g_timeout_add_seconds (LTE_RETURN_TICK_S,
++                                                       (GSourceFunc) lte_return_tick,
++                                                       self);
++}
++
++static void
++lte_return_watch (MMBroadbandModemMtkCcci *self)
++{
++    if (self->priv->modem_skeleton || !mm_iface_modem_is_3gpp_lte (MM_IFACE_MODEM (self)))
++        return;
++    g_object_get (self, MM_IFACE_MODEM_DBUS_SKELETON, &self->priv->modem_skeleton, NULL);
++    if (!self->priv->modem_skeleton)
++        return;
++    self->priv->access_tech_id =
++        g_signal_connect_swapped (self->priv->modem_skeleton, "notify::access-technologies",
++                                  G_CALLBACK (access_technologies_changed), self);
++}
++
++static void
++lte_return_unwatch (MMBroadbandModemMtkCcci *self)
++{
++    if (self->priv->lte_return_id) {
++        g_source_remove (self->priv->lte_return_id);
++        self->priv->lte_return_id = 0;
++    }
++    if (self->priv->modem_skeleton) {
++        g_signal_handler_disconnect (self->priv->modem_skeleton, self->priv->access_tech_id);
++        g_clear_object (&self->priv->modem_skeleton);
++    }
++}
++
+ static gboolean
+ modem_voice_setup_unsolicited_events_finish (MMIfaceModemVoice  *self,
+                                              GAsyncResult       *res,
+@@ -1028,6 +1194,7 @@ modem_voice_setup_unsolicited_events (MMIfaceModemVoice   *self,
+ {
+     GTask *task;
+ 
++    lte_return_watch (MM_BROADBAND_MODEM_MTK_CCCI (self));
+     task = g_task_new (self, NULL, callback, user_data);
+     g_task_set_task_data (task, g_new0 (MipcSetupStep, 1), g_free);
+     mipc_setup_step (task);
+@@ -1048,6 +1215,7 @@ modem_voice_cleanup_unsolicited_events (MMIfaceModemVoice   *_self,
+ {
+     MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (_self);
+ 
++    lte_return_unwatch (self);
+     if (self->priv->mipc)
+         mipc_teardown (self);
+ 
+@@ -1128,6 +1296,7 @@ dispose (GObject *object)
+ {
+     MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (object);
+ 
++    lte_return_unwatch (self);
+     g_clear_object (&self->priv->mipc);
+ 
+     G_OBJECT_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->dispose (object);
+-- 
+2.55.0
+
